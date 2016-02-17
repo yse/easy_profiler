@@ -1,4 +1,18 @@
 #include "profiler/profiler.h"
+#include <chrono>
+#include <thread>
+
+void shortTimeFunction(){
+	PROFILER_BEGIN_FUNCTION_BLOCK;
+	std::this_thread::sleep_for(std::chrono::milliseconds(5));
+}
+
+void longTimeFunction(){
+	PROFILER_BEGIN_FUNCTION_BLOCK;
+	std::this_thread::sleep_for(std::chrono::milliseconds(1));
+}
+
+
 
 int main()
 {
