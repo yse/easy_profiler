@@ -26,11 +26,11 @@ class ProfileManager
 	ProfileManager();
 	ProfileManager(const ProfileManager& p) = delete;
 	ProfileManager& operator=(const ProfileManager&) = delete;
-	static ProfileManager* m_profileManager;
+    static ProfileManager m_profileManager;
 
 	bool m_isEnabled = false;
 public:
-	static ProfileManager* instance();
+    static ProfileManager& instance();
 
 	void registerMark(profiler::Mark* _mark);
 	void beginBlock(profiler::Block* _block);
