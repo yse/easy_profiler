@@ -14,5 +14,9 @@ include_directories(
 	include
 )
 
+if(UNIX)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+endif(UNIX)
+
 add_subdirectory(src)
 add_subdirectory(sample)

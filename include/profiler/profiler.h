@@ -49,7 +49,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #define PROFILER_DISABLE profiler::setEnabled(false);
 
 #include <stdint.h>
-
+#include <cstddef>
 
 #ifdef _WIN32
 #ifdef	_BUILD_PROFILER

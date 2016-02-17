@@ -21,7 +21,7 @@ name(_name),
 type(0)
 {
 	tick(begin);
-	thread_id = std::this_thread::get_id().hash();
+	thread_id = std::hash<std::thread::id>()(std::this_thread::get_id());
 }
 
 void Mark::tick(timestamp_t& stamp)
