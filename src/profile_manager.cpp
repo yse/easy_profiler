@@ -21,6 +21,11 @@ extern "C"{
 	{
 		ProfileManager::instance()->setEnabled(isEnable);
 	}
+
+	void PROFILER_API beginBlock(Block* _block)
+	{
+		ProfileManager::instance()->beginBlock(_block);
+	}
 }
 
 
@@ -41,6 +46,11 @@ ProfileManager* ProfileManager::instance()
 }
 
 void ProfileManager::registerMark(profiler::Mark* _mark)
+{
+
+}
+
+void ProfileManager::beginBlock(profiler::Block* _block)
 {
 
 }

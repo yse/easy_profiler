@@ -33,6 +33,7 @@ public:
 	static ProfileManager* instance();
 
 	void registerMark(profiler::Mark* _mark);
+	void beginBlock(profiler::Block* _block);
 	void endBlock();
 	void setEnabled(bool isEnable);
 };

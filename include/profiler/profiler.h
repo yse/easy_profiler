@@ -33,10 +33,10 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 														profiler::registerMark(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
 
 #define PROFILER_BEGIN_BLOCK(name)	profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name);\
-									profiler::registerMark(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
+									profiler::beginBlock(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
 
 #define PROFILER_BEGIN_BLOCK_GROUPED(name,block_group)	profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,block_group);\
-														profiler::registerMark(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
+														profiler::beginBlock(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
 
 #define PROFILER_BEGIN_FUNCTION_BLOCK PROFILER_BEGIN_BLOCK(__func__)
 
@@ -68,6 +68,7 @@ namespace profiler
 	
 	extern "C"{
 		void PROFILER_API registerMark(Mark* _mark);
+		void PROFILER_API beginBlock(Block* _block);
 		void PROFILER_API endBlock();
 		void PROFILER_API setEnabled(bool isEnable);
 
