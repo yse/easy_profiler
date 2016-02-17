@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.If not, see <http://www.gnu.org/licenses/>.
-/**/
+**/
 
 #ifndef ____PROFILER____H_______
 #define ____PROFILER____H_______
@@ -54,18 +54,12 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #ifdef _WIN32
 #ifdef	_BUILD_PROFILER
 #define  PROFILER_API		__declspec(dllexport)
-#define EXPIMP_TEMPLATE
 #else
 #define  PROFILER_API		__declspec(dllimport)
-#define EXPIMP_TEMPLATE	 extern
 #endif
 #else
 #define  PROFILER_API
-#define EXPIMP_TEMPLATE
 #endif
-
-
-
 
 namespace profiler
 {

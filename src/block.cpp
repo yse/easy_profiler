@@ -14,11 +14,11 @@ const unsigned char MARK_TYPE_BEGIN = 3;
 const unsigned char MARK_TYPE_END = 4;
 
 Mark::Mark(const char* _name, color_t _color) :
-begin(0),
-color(_color),
-thread_id(0),
-name(_name),
-type(0)
+		type(0),
+		color(_color),
+		begin(0),
+		thread_id(0),
+		name(_name)
 {
 	tick(begin);
 	thread_id = std::hash<std::thread::id>()(std::this_thread::get_id());
@@ -32,8 +32,8 @@ void Mark::tick(timestamp_t& stamp)
 }
 
 Block::Block(const char* _name, color_t _color) :
-Mark(_name, _color), 
-end(begin)
+		Mark(_name, _color),
+		end(begin)
 {
 
 }
