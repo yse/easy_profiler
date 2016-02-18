@@ -26,6 +26,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #define __func__ __FUNCTION__
 #endif
 
+#ifndef FULL_DISABLE_PROFILER
 #define PROFILER_ADD_MARK(name)	profiler::Mark TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name);\
 									profiler::registerMark(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
 
@@ -47,6 +48,18 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #define PROFILER_ENABLE profiler::setEnabled(true);
 
 #define PROFILER_DISABLE profiler::setEnabled(false);
+
+#else
+#define PROFILER_ADD_MARK(name)
+#define PROFILER_ADD_MARK_GROUPED(name,block_group)
+#define PROFILER_BEGIN_BLOCK(name)
+#define PROFILER_BEGIN_BLOCK_GROUPED(name,block_group)
+#define PROFILER_BEGIN_FUNCTION_BLOCK PROFILER_BEGIN_BLOCK(__func__)
+#define PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(block_group) PROFILER_BEGIN_BLOCK_GROUPED(__func__,block_group)
+#define PROFILER_END_BLOCK profiler::endBlock();
+#define PROFILER_ENABLE profiler::setEnabled(true);
+#define PROFILER_DISABLE profiler::setEnabled(false);
+#endif
 
 #include <stdint.h>
 #include <cstddef>

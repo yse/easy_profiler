@@ -1,5 +1,4 @@
 #include "profile_manager.h"
-#include "profiler/profiler.h"
 
 #include <thread>
 
@@ -74,7 +73,6 @@ void ProfileManager::endBlock()
 	if (lastBlock && !lastBlock->isFinished()){
 		lastBlock->finish();
 	}
-
 	stackOfOpenedBlocks.pop();
 }
 
