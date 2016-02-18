@@ -33,12 +33,17 @@ void Mark::tick(timestamp_t& stamp)
 
 Block::Block(const char* _name, color_t _color) :
 		Mark(_name, _color),
-		end(begin)
+		end(0)
 {
 
 }
 
 Block::~Block()
 {
-	tick(end);
+	if (this->isCleared())
+		return;
+	if (!this->isFinished())
+		this->finish();
+
+	endBlock();
 }

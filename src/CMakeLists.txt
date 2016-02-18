@@ -8,6 +8,7 @@ set(CPP_FILES
 set(H_FILES
 	${ROOT}/include/profiler/profiler.h
 	profile_manager.h
+	spin_lock.h
 )
 
 set(SOURCES

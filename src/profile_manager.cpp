@@ -1,6 +1,8 @@
 #include "profile_manager.h"
 #include "profiler/profiler.h"
 
+#include <thread>
+
 using namespace profiler;
 
 extern "C"{
@@ -39,19 +41,41 @@ ProfileManager& ProfileManager::instance()
     return m_profileManager;
 }
 
-void ProfileManager::registerMark(profiler::Mark* _mark)
+void ProfileManager::registerMark(Mark* _mark)
 {
-
+	if (!m_isEnabled)
+		return;
 }
 
-void ProfileManager::beginBlock(profiler::Block* _block)
+void ProfileManager::beginBlock(Block* _block)
 {
+	if (!m_isEnabled)
+		return;
 
+	guard_lock_t lock(m_spin);
+	m_openedBracketsMap[_block->getThreadId()].push(_block);
 }
 
 void ProfileManager::endBlock()
 {
+	if (!m_isEnabled)
+		return;
 
+	size_t threadId = std::hash<std::thread::id>()(std::this_thread::get_id());
+
+	guard_lock_t lock(m_spin);
+	auto& stackOfOpenedBlocks = m_openedBracketsMap[threadId];
+
+	if (stackOfOpenedBlocks.empty())
+		return;
+
+	Block* lastBlock = stackOfOpenedBlocks.top();
+
+	if (lastBlock && !lastBlock->isFinished()){
+		lastBlock->finish();
+	}
+
+	stackOfOpenedBlocks.pop();
 }
 
 void ProfileManager::setEnabled(bool isEnable)

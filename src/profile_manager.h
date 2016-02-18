@@ -21,6 +21,11 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 #include "profiler/profiler.h"
 
+#include "spin_lock.h"
+
+#include <stack>
+#include <map>
+
 class ProfileManager
 {
 	ProfileManager();
@@ -29,6 +34,14 @@ class ProfileManager
     static ProfileManager m_profileManager;
 
 	bool m_isEnabled = false;
+
+	typedef std::stack<profiler::Block*> stack_of_blocks_t;
+	typedef std::map<size_t, stack_of_blocks_t> map_of_threads_stacks;
+
+	map_of_threads_stacks m_openedBracketsMap;
+
+	profiler::spin_lock m_spin;
+	typedef profiler::guard_lock<profiler::spin_lock> guard_lock_t;
 public:
     static ProfileManager& instance();
 

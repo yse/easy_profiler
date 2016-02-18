@@ -90,6 +90,12 @@ namespace profiler
 
 			Mark(const char* _name, color_t _color = 0);
 
+			inline unsigned char getType() const { return type; }
+			inline color_t getColor() const { return color; }
+			inline timestamp_t getBegin() const { return begin; }
+			inline size_t getThreadId() const { return thread_id; }
+			inline const char* getName() const { return name; }
+
 	};
 
 	class PROFILER_API Block : public Mark
@@ -98,6 +104,11 @@ namespace profiler
 		public:
 			Block(const char* _name, color_t _color = 0); 
 			~Block();
+
+			inline timestamp_t getEnd() const { return end; }
+			inline bool isFinished() const { return end != 0; }
+			inline bool isCleared() const { return end >= begin; }
+			inline void finish(){ tick(end); }
 	};
 }
 
