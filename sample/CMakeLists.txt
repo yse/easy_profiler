@@ -8,6 +8,13 @@ set(SOURCES
 	${CPP_FILES}
 )
 
+add_definitions(
+	#-DFULL_DISABLE_PROFILER
+)
 add_executable(${PROJECT_NAME} ${SOURCES})
 
-target_link_libraries(${PROJECT_NAME} easy_profiler)
+if(UNIX)
+	set(SPEC_LIB pthread)
+endif(UNIX)
+
+target_link_libraries(${PROJECT_NAME} easy_profiler ${SPEC_LIB})
