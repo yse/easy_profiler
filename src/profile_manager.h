@@ -25,6 +25,20 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 #include <stack>
 #include <map>
+#include <list>
+
+class SerilizedBlock
+{
+	uint16_t m_size;
+	char* m_data;
+public:
+
+	SerilizedBlock(profiler::Block* block);
+	~SerilizedBlock();
+
+	const char* const data() { return m_data; }
+	uint16_t size() const { return m_size; }
+};
 
 class ProfileManager
 {
@@ -41,11 +55,16 @@ class ProfileManager
 	map_of_threads_stacks m_openedBracketsMap;
 
 	profiler::spin_lock m_spin;
+	profiler::spin_lock m_storedSpin;
 	typedef profiler::guard_lock<profiler::spin_lock> guard_lock_t;
+
+	void _internalInsertBlock(profiler::Block* _block);
+
+	typedef std::list<SerilizedBlock*> serialized_list_t;
+	serialized_list_t m_blocks;
 public:
     static ProfileManager& instance();
-
-	void registerMark(profiler::Mark* _mark);
+	~ProfileManager();
 	void beginBlock(profiler::Block* _block);
 	void endBlock();
 	void setEnabled(bool isEnable);

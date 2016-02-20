@@ -27,16 +27,16 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #endif
 
 #ifndef FULL_DISABLE_PROFILER
-#define PROFILER_ADD_MARK(name)	profiler::Mark TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name);\
-									profiler::registerMark(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
-
-#define PROFILER_ADD_MARK_GROUPED(name,block_group)	profiler::Mark TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,block_group);\
-														profiler::registerMark(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
-
-#define PROFILER_BEGIN_BLOCK(name)	profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name);\
+#define PROFILER_ADD_MARK(name)	profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,0,profiler::BLOCK_TYPE_MARK);\
 									profiler::beginBlock(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
 
-#define PROFILER_BEGIN_BLOCK_GROUPED(name,block_group)	profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,block_group);\
+#define PROFILER_ADD_MARK_GROUPED(name,block_group)	profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,block_group,profiler::BLOCK_TYPE_MARK);\
+														profiler::beginBlock(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
+
+#define PROFILER_BEGIN_BLOCK(name)	profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,0,profiler::BLOCK_TYPE_BLOCK);\
+									profiler::beginBlock(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
+
+#define PROFILER_BEGIN_BLOCK_GROUPED(name,block_group)	profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,block_group,profiler::BLOCK_TYPE_BLOCK);\
 														profiler::beginBlock(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
 
 #define PROFILER_BEGIN_FUNCTION_BLOCK PROFILER_BEGIN_BLOCK(__func__)
@@ -76,32 +76,42 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 namespace profiler
 {
-	class Mark;
 	class Block;
 	
 	extern "C"{
-		void PROFILER_API registerMark(Mark* _mark);
 		void PROFILER_API beginBlock(Block* _block);
 		void PROFILER_API endBlock();
 		void PROFILER_API setEnabled(bool isEnable);
-
 	}
 
+	typedef uint8_t block_type_t;
 	typedef uint64_t timestamp_t;
-	typedef unsigned char color_t;
+	typedef uint16_t color_t;
+	typedef uint32_t thread_id_t;
 	
-	class PROFILER_API Mark
+	const block_type_t BLOCK_TYPE_MARK = 1;
+	const block_type_t BLOCK_TYPE_BLOCK = 2;
+
+#pragma pack(push,1)
+	struct PROFILER_API BaseBlockData
 	{
-		protected:
-			unsigned char type;
-			color_t color;
-			timestamp_t begin;
-			size_t thread_id;
+		block_type_t type;
+		color_t color;
+		timestamp_t begin;
+		timestamp_t end;
+		thread_id_t thread_id;
+
+		BaseBlockData(color_t _color, block_type_t _type);
+	};
+#pragma pack(pop)
+
+	class PROFILER_API Block : public BaseBlockData
+	{
 			const char *name;
 			void tick(timestamp_t& stamp);
 		public:
 
-			Mark(const char* _name, color_t _color = 0);
+			Block(const char* _name, color_t _color = 0, block_type_t _type = BLOCK_TYPE_MARK);
 
 			inline unsigned char getType() const { return type; }
 			inline color_t getColor() const { return color; }
@@ -109,19 +119,13 @@ namespace profiler
 			inline size_t getThreadId() const { return thread_id; }
 			inline const char* getName() const { return name; }
 
-	};
-
-	class PROFILER_API Block : public Mark
-	{
-			timestamp_t end;
-		public:
-			Block(const char* _name, color_t _color = 0); 
-			~Block();
-
 			inline timestamp_t getEnd() const { return end; }
 			inline bool isFinished() const { return end != 0; }
 			inline bool isCleared() const { return end >= begin; }
 			inline void finish(){ tick(end); }
+
+			~Block();
+
 	};
 }
 

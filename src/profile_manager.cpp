@@ -6,11 +6,6 @@ using namespace profiler;
 
 extern "C"{
 
-    void PROFILER_API registerMark(Mark* _mark)
-    {
-        ProfileManager::instance().registerMark(_mark);
-    }
-
     void PROFILER_API endBlock()
     {
         ProfileManager::instance().endBlock();
@@ -26,10 +21,39 @@ extern "C"{
 	}
 }
 
+SerilizedBlock::SerilizedBlock(Block* block):
+		m_size(0),
+		m_data(nullptr)
+{
+	m_size += sizeof(BaseBlockData);
+	auto name_len = strlen(block->getName()) + 1;
+	m_size += name_len;
+
+	m_data = new char[m_size];
+	memcpy(&m_data[0], block, sizeof(BaseBlockData));
+	strncpy(&m_data[sizeof(BaseBlockData)], block->getName(), name_len);
+
+}
+
+SerilizedBlock::~SerilizedBlock()
+{
+	if (m_data){
+		delete[] m_data;
+		m_data = nullptr;
+	}
+}
+
 
 ProfileManager::ProfileManager()
 {
 
+}
+
+ProfileManager::~ProfileManager()
+{
+	for (auto* b : m_blocks){
+		delete b;
+	}
 }
 
 ProfileManager& ProfileManager::instance()
@@ -40,19 +64,18 @@ ProfileManager& ProfileManager::instance()
     return m_profileManager;
 }
 
-void ProfileManager::registerMark(Mark* _mark)
-{
-	if (!m_isEnabled)
-		return;
-}
-
 void ProfileManager::beginBlock(Block* _block)
 {
 	if (!m_isEnabled)
 		return;
-
-	guard_lock_t lock(m_spin);
-	m_openedBracketsMap[_block->getThreadId()].push(_block);
+	if (_block->getType() != BLOCK_TYPE_MARK){
+		guard_lock_t lock(m_spin);
+		m_openedBracketsMap[_block->getThreadId()].push(_block);
+	}
+	else{
+		_internalInsertBlock(_block);
+	}
+	
 }
 
 void ProfileManager::endBlock()
@@ -73,10 +96,17 @@ void ProfileManager::endBlock()
 	if (lastBlock && !lastBlock->isFinished()){
 		lastBlock->finish();
 	}
+	_internalInsertBlock(lastBlock);
 	stackOfOpenedBlocks.pop();
 }
 
 void ProfileManager::setEnabled(bool isEnable)
 {
 	m_isEnabled = isEnable;
+}
+
+void ProfileManager::_internalInsertBlock(profiler::Block* _block)
+{
+	guard_lock_t lock(m_storedSpin);
+	m_blocks.emplace_back(new SerilizedBlock(_block));
 }

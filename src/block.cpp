@@ -6,44 +6,41 @@
 
 using namespace profiler;
 
-const int NAME_LENGTH = 64;
-
-const unsigned char MARK_TYPE_LOCAL_EVENT = 1;
-const unsigned char MARK_TYPE_GLOBAL_EVENT = 2;
-const unsigned char MARK_TYPE_BEGIN = 3;
-const unsigned char MARK_TYPE_END = 4;
-
-Mark::Mark(const char* _name, color_t _color) :
-		type(0),
+BaseBlockData::BaseBlockData(color_t _color, block_type_t _type) :
+		type(_type),
 		color(_color),
 		begin(0),
-		thread_id(0),
+		end(0),
+		thread_id(0)
+{
+
+}
+
+Block::Block(const char* _name, color_t _color, block_type_t _type) :
+		BaseBlockData(_color,_type),
 		name(_name)
 {
 	tick(begin);
 	thread_id = std::hash<std::thread::id>()(std::this_thread::get_id());
 }
 
-void Mark::tick(timestamp_t& stamp)
+void Block::tick(timestamp_t& stamp)
 {
 	std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds> time_point;
 	time_point = std::chrono::time_point_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now());
 	stamp = time_point.time_since_epoch().count();
 }
 
-Block::Block(const char* _name, color_t _color) :
-		Mark(_name, _color),
-		end(0)
-{
-
-}
-
 Block::~Block()
 {
-	if (this->isCleared())
-		return;
-	if (!this->isFinished())
-		this->finish();
+	if (this->type == BLOCK_TYPE_BLOCK)
+	{
+		if (this->isCleared())//this block was cleared by END_BLOCK macros
+			return;
+		if (!this->isFinished())
+			this->finish();
 
-	endBlock();
+		endBlock();
+	}
+	
 }
