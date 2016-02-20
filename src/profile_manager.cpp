@@ -1,7 +1,7 @@
 #include "profile_manager.h"
 
 #include <thread>
-
+#include <string.h>
 using namespace profiler;
 
 extern "C"{
@@ -110,3 +110,4 @@ void ProfileManager::_internalInsertBlock(profiler::Block* _block)
 	guard_lock_t lock(m_storedSpin);
 	m_blocks.emplace_back(new SerilizedBlock(_block));
 }
+
