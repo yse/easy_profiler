@@ -2,6 +2,7 @@
 
 #include <thread>
 #include <string.h>
+
 #include <fstream>
 
 using namespace profiler;
@@ -77,7 +78,12 @@ ProfileManager::ProfileManager()
 
 ProfileManager::~ProfileManager()
 {
+	std::ofstream of("test.prof",std::fstream::binary);
+
 	for (auto* b : m_blocks){
+		uint16_t sz = b->size();
+		of.write((const char*)&sz, sizeof(uint16_t));
+		of.write(b->data(), b->size());
 		delete b;
 	}
 }

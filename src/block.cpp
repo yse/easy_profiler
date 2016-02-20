@@ -21,6 +21,10 @@ Block::Block(const char* _name, color_t _color, block_type_t _type) :
 		name(_name)
 {
 	tick(begin);
+	if (this->type == BLOCK_TYPE_MARK)
+	{
+		end = begin;
+	}
 	thread_id = std::hash<std::thread::id>()(std::this_thread::get_id());
 }
 
@@ -42,8 +46,4 @@ Block::~Block()
 
 		endBlock();
 	}
-	else{//for mark end equal begin
-		end = begin;
-	}
-	
 }
