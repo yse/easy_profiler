@@ -2,6 +2,8 @@
 
 #include <thread>
 #include <string.h>
+#include <fstream>
+
 using namespace profiler;
 
 extern "C"{
@@ -80,10 +82,11 @@ void ProfileManager::beginBlock(Block* _block)
 
 void ProfileManager::endBlock()
 {
+
 	if (!m_isEnabled)
 		return;
 
-	size_t threadId = std::hash<std::thread::id>()(std::this_thread::get_id());
+	uint32_t threadId = std::hash<std::thread::id>()(std::this_thread::get_id());
 
 	guard_lock_t lock(m_spin);
 	auto& stackOfOpenedBlocks = m_openedBracketsMap[threadId];
