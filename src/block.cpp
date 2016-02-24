@@ -42,5 +42,8 @@ Block::~Block()
 
 		endBlock();
 	}
+	else{//for mark end equal begin
+		end = begin;
+	}
 	
 }

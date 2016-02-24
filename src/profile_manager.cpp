@@ -34,7 +34,14 @@ SerilizedBlock::SerilizedBlock(Block* block):
 	m_data = new char[m_size];
 	memcpy(&m_data[0], block, sizeof(BaseBlockData));
 	strncpy(&m_data[sizeof(BaseBlockData)], block->getName(), name_len);
+}
 
+SerilizedBlock::SerilizedBlock(uint16_t _size, const char* _data) :
+		m_size(_size),
+		m_data(nullptr)
+{
+	m_data = new char[m_size];
+	memcpy(&m_data[0], _data, m_size);
 }
 
 SerilizedBlock::~SerilizedBlock()
@@ -45,6 +52,23 @@ SerilizedBlock::~SerilizedBlock()
 	}
 }
 
+SerilizedBlock::SerilizedBlock(SerilizedBlock&& that)
+{
+	m_size = that.m_size;
+	m_data = that.m_data;
+	that.m_size = 0;
+	that.m_data = nullptr;
+}
+
+const BaseBlockData * SerilizedBlock::block()
+{
+	return (BaseBlockData*)m_data;
+}
+
+const char* SerilizedBlock::getBlockName()
+{
+	return (const char*)&m_data[sizeof(profiler::BaseBlockData)];
+}
 
 ProfileManager::ProfileManager()
 {

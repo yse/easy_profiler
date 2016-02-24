@@ -102,6 +102,8 @@ namespace profiler
 		thread_id_t thread_id;
 
 		BaseBlockData(color_t _color, block_type_t _type);
+
+		timestamp_t duration() const { return (end - begin); }
 	};
 #pragma pack(pop)
 
@@ -109,6 +111,7 @@ namespace profiler
 	{
 			const char *name;
 			void tick(timestamp_t& stamp);
+			
 		public:
 
 			Block(const char* _name, color_t _color = 0, block_type_t _type = BLOCK_TYPE_MARK);
@@ -125,8 +128,26 @@ namespace profiler
 			inline void finish(){ tick(end); }
 
 			~Block();
-
 	};
+
+	class PROFILER_API SerilizedBlock
+	{
+		uint16_t m_size;
+		char* m_data;
+	public:
+		SerilizedBlock(profiler::Block* block);
+		SerilizedBlock(uint16_t _size, const char* _data);
+		SerilizedBlock(SerilizedBlock&& that);
+		~SerilizedBlock();
+
+		const char* const data() const { return m_data; }
+		uint16_t size() const { return m_size; }
+
+		const BaseBlockData * block();
+		const char* getBlockName();
+	};
+
+	
 }
 
 #endif

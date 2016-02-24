@@ -29,3 +29,4 @@ endif(UNIX)
 
 add_subdirectory(src)
 add_subdirectory(sample)
+add_subdirectory(reader)
