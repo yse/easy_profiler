@@ -160,6 +160,7 @@ void foo()
 
 #include <stdint.h>
 #include <cstddef>
+#include "profiler/color.h"
 
 #ifdef _WIN32
 #ifdef	_BUILD_PROFILER
@@ -172,7 +173,7 @@ void foo()
 #endif
 
 namespace profiler
-{
+{	
 	class Block;
 	
 	extern "C"{
@@ -183,7 +184,6 @@ namespace profiler
 
 	typedef uint8_t block_type_t;
 	typedef uint64_t timestamp_t;
-	typedef uint16_t color_t; //16-bit RGB format (5-6-5)
 	typedef uint32_t thread_id_t;
 	
 	const block_type_t BLOCK_TYPE_EVENT = 1;
