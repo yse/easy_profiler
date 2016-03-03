@@ -174,6 +174,19 @@ void foo()
 
 namespace profiler
 {	
+	typedef uint16_t color_t; //16-bit RGB format (5-6-5)
+
+	namespace colors{
+
+		const color_t Red = 0xF800;
+		const color_t Green = 0x07E0;
+		const color_t Blue = 0x001F;
+
+		const color_t White = 0xFFFF;
+		const color_t Black = 0x0000;
+
+	}
+
 	class Block;
 	
 	extern "C"{
@@ -185,10 +198,10 @@ namespace profiler
 	typedef uint8_t block_type_t;
 	typedef uint64_t timestamp_t;
 	typedef uint32_t thread_id_t;
-	
+
 	const block_type_t BLOCK_TYPE_EVENT = 1;
 	const block_type_t BLOCK_TYPE_BLOCK = 2;
-
+		
 #pragma pack(push,1)
 	class PROFILER_API BaseBlockData
 	{
