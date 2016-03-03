@@ -100,7 +100,7 @@ void ProfileManager::beginBlock(Block* _block)
 {
 	if (!m_isEnabled)
 		return;
-	if (_block->getType() != BLOCK_TYPE_MARK){
+	if (_block->getType() != BLOCK_TYPE_EVENT){
 		guard_lock_t lock(m_spin);
 		m_openedBracketsMap[_block->getThreadId()].push(_block);
 	}

@@ -32,7 +32,7 @@ int main()
 		blocksList.emplace_back(sz, data);
 	}
 	for (auto& i : blocksList){
-		static auto thread_id = i.block()->thread_id;
+		static auto thread_id = i.block()->getThreadId();
 		//if (i.block()->thread_id == thread_id)
 			std::cout << i.block()->duration() << "\n";
 		//std::cout << i.getBlockName() << ":" << (i.block()->end - i.block()->begin)/1000 << " usec." << std::endl;

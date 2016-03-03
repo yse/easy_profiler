@@ -47,7 +47,7 @@ void frame(){
 void loadingResourcesThread(){
 	for(int i = 0; i < 10; i++){
 		loadingResources();
-		PROFILER_ADD_MARK("Resources Loading!");
+		PROFILER_ADD_EVENT("Resources Loading!");
 		std::this_thread::sleep_for(std::chrono::milliseconds(2));
 	}
 }

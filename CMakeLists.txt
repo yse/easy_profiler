@@ -25,7 +25,13 @@ include_directories(
 if(UNIX)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-long-long -pedantic" )
+else()
+	add_definitions(
+		-D_CRT_SECURE_NO_WARNINGS
+	)
 endif(UNIX)
+
+
 
 add_subdirectory(src)
 add_subdirectory(sample)
