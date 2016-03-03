@@ -160,7 +160,6 @@ void foo()
 
 #include <stdint.h>
 #include <cstddef>
-#include "profiler/color.h"
 
 #ifdef _WIN32
 #ifdef	_BUILD_PROFILER
@@ -178,12 +177,25 @@ namespace profiler
 
 	namespace colors{
 
-		const color_t Red = 0xF800;
-		const color_t Green = 0x07E0;
-		const color_t Blue = 0x001F;
-
-		const color_t White = 0xFFFF;
 		const color_t Black = 0x0000;
+		const color_t Navy = 0x000F;
+		const color_t DarkGreen = 0x03E0;
+		const color_t DarkCyan = 0x03EF;
+		const color_t Maroon = 0x7800;
+		const color_t Purple = 0x780F;
+		const color_t Olive = 0x7BE0;
+		const color_t LightGrey = 0xC618;
+		const color_t DarkGrey = 0x7BEF;
+		const color_t Blue = 0x001F;
+		const color_t Green = 0x07E0;
+		const color_t Cyan = 0x07FF;
+		const color_t Red = 0xF800;
+		const color_t Magenta = 0xF81F;
+		const color_t Yellow = 0xFFE0;
+		const color_t White = 0xFFFF;
+		const color_t Orange = 0xFD20;
+		const color_t GreenYellow = 0xAFE5;
+		const color_t Pink = 0xF81F;
 
 	}
 
