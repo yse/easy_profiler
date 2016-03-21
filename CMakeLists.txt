@@ -18,6 +18,10 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY
     ${OUTPUT_DIR}
 )
 
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY
+    ${OUTPUT_DIR}
+)
+
 include_directories(
 	include
 )
@@ -30,8 +34,6 @@ else()
 		-D_CRT_SECURE_NO_WARNINGS
 	)
 endif(UNIX)
-
-
 
 add_subdirectory(src)
 add_subdirectory(sample)
