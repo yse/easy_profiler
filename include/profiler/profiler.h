@@ -259,6 +259,11 @@ namespace profiler
 		inline bool isCleared() const { return end >= begin; }
 		inline void finish(){ tick(end); }
 		timestamp_t duration() const { return (end - begin); }
+
+        inline bool startsEarlierThan(const BaseBlockData& another) const {return this->begin < another.begin;}
+        inline bool endsEarlierThan(const BaseBlockData& another) const {return this->end < another.end;}
+        inline bool startsLaterThan(const BaseBlockData& another) const {return !this->startsEarlierThan(another);}
+        inline bool endsLaterThan(const BaseBlockData& another) const {return !this->endsEarlierThan(another);}
 	};
 #pragma pack(pop)
 

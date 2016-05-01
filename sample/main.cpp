@@ -9,14 +9,33 @@ void loadingResources(){
 	std::this_thread::sleep_for(std::chrono::milliseconds(500));
 }
 
+
+
 void prepareMath(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
 	std::this_thread::sleep_for(std::chrono::milliseconds(2));
 }
 
+void calcIntersect(){
+    PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
+    std::this_thread::sleep_for(std::chrono::microseconds(700));
+}
+
+void calcPhys(){
+    PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
+    calcIntersect();
+}
+
+void calcBrain(){
+    PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
+    std::this_thread::sleep_for(std::chrono::microseconds(300));
+}
+
 void calculateBehavior(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Lightblue);
 	std::this_thread::sleep_for(std::chrono::milliseconds(3));
+    calcPhys();
+    calcBrain();
 }
 
 void modellingStep(){
