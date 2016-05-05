@@ -9,7 +9,7 @@ TreeModel::TreeModel(const QByteArray &data, QObject *parent)
         : QAbstractItemModel(parent)
 {
     QList<QVariant> rootData;
-    rootData << "Name" << "Duration usec" << "thread id" << "begin";
+    rootData << "Name" << "Duration ms" << "Percent" <<"thread id";
     m_rootItem = new TreeItem(rootData);
     setupModelData(data, m_rootItem);
 }
@@ -131,7 +131,7 @@ void TreeModel::setupModelData(const QByteArray &lines, TreeItem *parent)
         profiler::BaseBlockData* baseData = (profiler::BaseBlockData*)data;
         blocksList[baseData->getThreadId()].emplace(
                     baseData->getBegin(),
-                    std::move(profiler::SerilizedBlock(sz, data)));
+                    /*std::move(*/profiler::SerilizedBlock(sz, data))/*)*/;
     }
 
 
@@ -143,22 +143,24 @@ void TreeModel::setupModelData(const QByteArray &lines, TreeItem *parent)
         parents.clear();
         parents << parent;
 
+        double rootDuration = 0.0;
+
         for (auto& i : threads_list.second){
             QList<QVariant> columnData;
+            double percent = 0.0;
+
             const profiler::BaseBlockData * _block = i.second.block();
 
             profiler::timestamp_t _end =  _block->getEnd();
             profiler::timestamp_t _begin =  _block->getBegin();
 
-            columnData << i.second.getBlockName();
-            columnData << QVariant::fromValue(_block->duration());
-            columnData << QVariant::fromValue(_block->getThreadId());
-
-
-
+            bool is_root = false;
+            double duration = _block->duration();
             if(parents_blocks.empty()){
                 parents_blocks.push_back(_block);
                 parents << parents.last();
+                is_root = true;
+                rootDuration =duration;
             }else{
 
                 auto& last_block_in_stack = parents_blocks.back();
@@ -178,40 +180,38 @@ void TreeModel::setupModelData(const QByteArray &lines, TreeItem *parent)
                             parents.pop_back();
                         }
                     }
-
-                    parents_blocks.push_back(_block);
-                    if(parents.size() > 1){
-                        parents << parents.last()->child(parents.last()->childCount()-1);
-                    }else{
-                        parents << parents.last();
-                    }
-
-
-                }else if(_end <= last_block_end){
-                    //child
-
-                    parents_blocks.push_back(_block);
-                    if(parents.size() > 1){
-                        parents << parents.last()->child(parents.last()->childCount()-1);
-                    }else{
-                        parents << parents.last();
-                    }
                 }
             }
+            if (!is_root){
+                parents_blocks.push_back(_block);
+                if(parents.size() > 1){
+                    parents << parents.last()->child(parents.last()->childCount()-1);
+                }else{
+                    parents << parents.last();
+                    is_root = true;
+                }
 
+            }
+            if(is_root){
+                percent = 100.0;
+                rootDuration =duration;
+            }else{
+                percent = duration*100.0/rootDuration;
+            }
 
+            columnData << i.second.getBlockName();
+            columnData << QVariant::fromValue(duration/1000000.0);
 
+            columnData << percent;
 
-
-
-
-
-            columnData << QVariant::fromValue(_block->getBegin() - _begin);
+            columnData << QVariant::fromValue(_block->getThreadId());
 
             if(_block->getType() == profiler::BLOCK_TYPE_BLOCK){
                 parents.last()->appendChild(new TreeItem(columnData, parents.last()));
             }else{
-                //parents.last()->appendChild(new TreeItem(columnData, parent));
+                //parent->appendChild(new TreeItem(columnData, parent));
+                parents.last()->appendChild(new TreeItem(columnData, parent));
+
             }
 
         }
