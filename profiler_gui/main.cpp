@@ -10,8 +10,14 @@ int main(int argc, char **argv)
 
 	//QFileSystemModel *model = new QFileSystemModel;
 	//model->setRootPath(QDir::currentPath());
+	const char* filename = 0;
+    if(argc > 1 && argv[1]){
+		filename = argv[1];
+    }else{
+		return 255;
+	}
 
-    QFile file("/home/yse/projects/easy_profiler/bin/test.prof");
+    QFile file(filename);
 	file.open(QIODevice::ReadOnly);
     TreeModel model(file.readAll());
 	file.close();
