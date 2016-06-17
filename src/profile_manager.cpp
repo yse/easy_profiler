@@ -53,6 +53,13 @@ SerilizedBlock::~SerilizedBlock()
 	}
 }
 
+SerilizedBlock::SerilizedBlock(const SerilizedBlock& other)
+{
+	m_size = other.m_size;
+	m_data = new char[m_size];
+	memcpy(&m_data[0], other.m_data, m_size);
+}
+
 SerilizedBlock::SerilizedBlock(SerilizedBlock&& that)
 {
 	m_size = that.m_size;
@@ -100,7 +107,7 @@ void ProfileManager::beginBlock(Block* _block)
 {
 	if (!m_isEnabled)
 		return;
-	if (_block->getType() != BLOCK_TYPE_EVENT){
+	if (BLOCK_TYPE_BLOCK == _block->getType()){
 		guard_lock_t lock(m_spin);
 		m_openedBracketsMap[_block->getThreadId()].push(_block);
 	}
