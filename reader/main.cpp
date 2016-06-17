@@ -127,6 +127,6 @@ int main()
 	auto end = std::chrono::system_clock::now();
 
 	std::cout << "Blocks count: " << blocks_counter << std::endl;
-	std::cout << "dT =  " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << std::endl;
+	std::cout << "dT =  " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << " usec" << std::endl;
 	return 0;
 }
