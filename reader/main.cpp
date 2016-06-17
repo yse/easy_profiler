@@ -5,6 +5,10 @@
 #include <map>
 #include <stack>
 #include <vector>
+#include <iterator>
+#include <algorithm> 
+#include <ctime>
+#include <chrono>
 
 struct BlocksTree
 {
@@ -30,6 +34,15 @@ struct BlocksTree
 			delete node;
 		}
 		node = nullptr;
+		parent = nullptr;
+	}
+
+	bool operator < (const BlocksTree& other) const 
+	{
+		if (!node || !other.node){
+			return false;
+		}
+		return node->block()->getBegin() < other.node->block()->getBegin();
 	}
 };
 
@@ -41,15 +54,12 @@ int main()
 		return -1;
 	}
 
-	//std::list<profiler::SerilizedBlock> blocksList;
-	typedef std::map<profiler::timestamp_t, profiler::SerilizedBlock> blocks_map_t;
-	typedef std::map<size_t, blocks_map_t> thread_map_t;
 	typedef std::map<size_t, BlocksTree> thread_blocks_tree_t;
-	thread_map_t blocksList;
 
-
-	BlocksTree root;
 	thread_blocks_tree_t threaded_trees;
+
+	int blocks_counter = 0;
+	auto start = std::chrono::system_clock::now();
 	while (!inFile.eof()){
 		uint16_t sz = 0;
 		inFile.read((char*)&sz, sizeof(sz));
@@ -62,26 +72,44 @@ int main()
 		inFile.read((char*)&data[0], sz);
 		profiler::BaseBlockData* baseData = (profiler::BaseBlockData*)data;
 
-		blocksList[baseData->getThreadId()].emplace(
-			baseData->getBegin(),
-			profiler::SerilizedBlock(sz, data)); 
-			
-		
+		BlocksTree& root = threaded_trees[baseData->getThreadId()];
+
 		BlocksTree tree;
 		tree.node = new profiler::SerilizedBlock(sz, data);
+		blocks_counter++;
 
-		root.children.push_back(std::move(tree));
-
-		BlocksTree currentRoot = threaded_trees[baseData->getThreadId()];
-
-		if (currentRoot.node == nullptr){
-			threaded_trees[baseData->getThreadId()] = tree;
+		if (root.children.empty()){
+			root.children.push_back(std::move(tree));
 		}
+		else{
+			BlocksTree& front = root.children.front();
+			BlocksTree& back = root.children.back();
+
+			auto t0 = front.node->block()->getBegin();
+			auto t1 = back.node->block()->getEnd();
+
+			auto mt0 = tree.node->block()->getBegin();
+			if (mt0 < t1)//parent - starts ealier than last ends
+			{
+				auto lower = std::lower_bound(root.children.begin(), root.children.end(), tree);
+
+				std::move(lower, root.children.end(), std::back_inserter(tree.children));
+				
+				root.children.erase(lower, root.children.end());
+
+				
+			}
+
+			root.children.push_back(std::move(tree));
+		}
+		
 
 		delete[] data;
 
-		//blocksList.emplace_back(sz, data);
 	}
-	
+	auto end = std::chrono::system_clock::now();
+
+	std::cout << "Blocks count: " << blocks_counter << std::endl;
+	std::cout << "dT =  " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << std::endl;
 	return 0;
 }
