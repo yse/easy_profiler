@@ -37,6 +37,27 @@ struct BlocksTree
 		parent = nullptr;
 	}
 
+	BlocksTree(const BlocksTree& rhs)
+	{
+		copy(rhs);
+	}
+
+	BlocksTree& copy(const BlocksTree& rhs)
+	{
+		if(this == &rhs)
+			return *this;
+		if(rhs.node)
+			node = new profiler::SerilizedBlock(*rhs.node);
+		children = rhs.children;
+		parent = rhs.parent;
+		return *this;
+	}
+
+	BlocksTree& operator=(const BlocksTree& rhs)
+	{
+		return copy(rhs);
+	}
+
 	bool operator < (const BlocksTree& other) const 
 	{
 		if (!node || !other.node){
@@ -82,12 +103,8 @@ int main()
 			root.children.push_back(std::move(tree));
 		}
 		else{
-			BlocksTree& front = root.children.front();
 			BlocksTree& back = root.children.back();
-
-			auto t0 = front.node->block()->getBegin();
 			auto t1 = back.node->block()->getEnd();
-
 			auto mt0 = tree.node->block()->getBegin();
 			if (mt0 < t1)//parent - starts ealier than last ends
 			{
