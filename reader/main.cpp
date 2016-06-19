@@ -14,10 +14,9 @@ struct BlocksTree
 {
 	profiler::SerilizedBlock* node;
 	std::vector<BlocksTree > children;
-	BlocksTree* parent;
+
 	BlocksTree(){
 		node = nullptr;
-		parent = nullptr;
 	}
 
 	BlocksTree(BlocksTree&& that)
@@ -36,7 +35,6 @@ struct BlocksTree
 			delete node;
 		}
 		node = nullptr;
-		parent = nullptr;
 	}
 
 	bool operator < (const BlocksTree& other) const 
@@ -51,12 +49,9 @@ private:
 	void makeMove(BlocksTree&& that)
 	{
 		node = that.node;
-		parent = that.parent;
-
 		children = std::move(that.children);
 
 		that.node = nullptr;
-		that.parent = nullptr;
 	}
 
 };
