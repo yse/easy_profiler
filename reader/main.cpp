@@ -1,4 +1,5 @@
 #include "profiler/profiler.h"
+#include "profiler/reader.h"
 #include <fstream>
 #include <list>
 #include <iostream>
@@ -9,52 +10,6 @@
 #include <algorithm> 
 #include <ctime>
 #include <chrono>
-
-struct BlocksTree
-{
-	profiler::SerilizedBlock* node;
-	std::vector<BlocksTree > children;
-
-	BlocksTree(){
-		node = nullptr;
-	}
-
-	BlocksTree(BlocksTree&& that)
-	{
-		makeMove(std::forward<BlocksTree&&>(that));
-	}
-
-	BlocksTree& operator=(BlocksTree&& that)
-	{
-		makeMove(std::forward<BlocksTree&&>(that));
-		return *this;
-	}
-
-	~BlocksTree(){
-		if (node){
-			delete node;
-		}
-		node = nullptr;
-	}
-
-	bool operator < (const BlocksTree& other) const 
-	{
-		if (!node || !other.node){
-			return false;
-		}
-		return node->block()->getBegin() < other.node->block()->getBegin();
-	}
-
-private:
-	void makeMove(BlocksTree&& that)
-	{
-		node = that.node;
-		children = std::move(that.children);
-
-		that.node = nullptr;
-	}
-
-};
 
 int main()
 {
