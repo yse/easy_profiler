@@ -13,49 +13,30 @@
 struct BlocksTree
 {
 	profiler::SerilizedBlock* node;
-	std::vector<BlocksTree> children;
+	std::vector<BlocksTree > children;
 	BlocksTree* parent;
 	BlocksTree(){
 		node = nullptr;
 		parent = nullptr;
 	}
-	BlocksTree(BlocksTree&& that){
 
-		node = that.node;
-		parent = that.parent;
-
-		children = std::move(that.children);
-
-		that.node = nullptr;
-		that.parent = nullptr;
+	BlocksTree(BlocksTree&& that)
+	{
+		makeMove(std::forward<BlocksTree&&>(that));
 	}
+
+	BlocksTree& operator=(BlocksTree&& that)
+	{
+		makeMove(std::forward<BlocksTree&&>(that));
+		return *this;
+	}
+
 	~BlocksTree(){
 		if (node){
 			delete node;
 		}
 		node = nullptr;
 		parent = nullptr;
-	}
-
-	BlocksTree(const BlocksTree& rhs)
-	{
-		copy(rhs);
-	}
-
-	BlocksTree& copy(const BlocksTree& rhs)
-	{
-		if(this == &rhs)
-			return *this;
-		if(rhs.node)
-			node = new profiler::SerilizedBlock(*rhs.node);
-		children = rhs.children;
-		parent = rhs.parent;
-		return *this;
-	}
-
-	BlocksTree& operator=(const BlocksTree& rhs)
-	{
-		return copy(rhs);
 	}
 
 	bool operator < (const BlocksTree& other) const 
@@ -65,6 +46,19 @@ struct BlocksTree
 		}
 		return node->block()->getBegin() < other.node->block()->getBegin();
 	}
+
+private:
+	void makeMove(BlocksTree&& that)
+	{
+		node = that.node;
+		parent = that.parent;
+
+		children = std::move(that.children);
+
+		that.node = nullptr;
+		that.parent = nullptr;
+	}
+
 };
 
 int main()
@@ -80,6 +74,7 @@ int main()
 	thread_blocks_tree_t threaded_trees;
 
 	int blocks_counter = 0;
+
 	auto start = std::chrono::system_clock::now();
 	while (!inFile.eof()){
 		uint16_t sz = 0;
@@ -106,7 +101,7 @@ int main()
 			BlocksTree& back = root.children.back();
 			auto t1 = back.node->block()->getEnd();
 			auto mt0 = tree.node->block()->getBegin();
-			if (mt0 < t1)//parent - starts ealier than last ends
+			if (mt0 < t1)//parent - starts earlier than last ends
 			{
 				auto lower = std::lower_bound(root.children.begin(), root.children.end(), tree);
 
@@ -114,7 +109,6 @@ int main()
 				
 				root.children.erase(lower, root.children.end());
 
-				
 			}
 
 			root.children.push_back(std::move(tree));

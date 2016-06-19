@@ -14,7 +14,7 @@ add_definitions(
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 if(UNIX)
-	set(SPEC_LIB pthread)
+	set(SPEC_LIB pthread shared_allocator)
 endif(UNIX)
 
 target_link_libraries(${PROJECT_NAME} easy_profiler ${SPEC_LIB})
