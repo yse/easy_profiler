@@ -10,6 +10,19 @@
 #include <algorithm> 
 #include <ctime>
 #include <chrono>
+#include <iostream>
+#include <string>
+
+void printTree(const BlocksTree& tree, int level = 0)
+{
+	if (tree.node){
+		std::cout << std::string(level, '\t') << " "<< tree.node->getBlockName() << std::endl;
+	} 
+
+	for (const auto& i : tree.children){
+		printTree(i,level+1);
+	}
+}
 
 int main()
 {
@@ -19,58 +32,18 @@ int main()
 		return -1;
 	}
 
-	typedef std::map<size_t, BlocksTree> thread_blocks_tree_t;
-
 	thread_blocks_tree_t threaded_trees;
 
-	int blocks_counter = 0;
-
 	auto start = std::chrono::system_clock::now();
-	while (!inFile.eof()){
-		uint16_t sz = 0;
-		inFile.read((char*)&sz, sizeof(sz));
-		if (sz == 0)
-		{
-			inFile.read((char*)&sz, sizeof(sz));
-			continue;
-		}
-		char* data = new char[sz];
-		inFile.read((char*)&data[0], sz);
-		profiler::BaseBlockData* baseData = (profiler::BaseBlockData*)data;
 
-		BlocksTree& root = threaded_trees[baseData->getThreadId()];
+	int blocks_counter = fillTreesFromFile("test.prof", threaded_trees);
 
-		BlocksTree tree;
-		tree.node = new profiler::SerilizedBlock(sz, data);
-		blocks_counter++;
-
-		if (root.children.empty()){
-			root.children.push_back(std::move(tree));
-		}
-		else{
-			BlocksTree& back = root.children.back();
-			auto t1 = back.node->block()->getEnd();
-			auto mt0 = tree.node->block()->getBegin();
-			if (mt0 < t1)//parent - starts earlier than last ends
-			{
-				auto lower = std::lower_bound(root.children.begin(), root.children.end(), tree);
-
-				std::move(lower, root.children.end(), std::back_inserter(tree.children));
-				
-				root.children.erase(lower, root.children.end());
-
-			}
-
-			root.children.push_back(std::move(tree));
-		}
-		
-
-		delete[] data;
-
-	}
 	auto end = std::chrono::system_clock::now();
 
 	std::cout << "Blocks count: " << blocks_counter << std::endl;
 	std::cout << "dT =  " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << " usec" << std::endl;
+	for (const auto & i : threaded_trees){
+	//	printTree(i.second,-1);
+	}
 	return 0;
 }

@@ -23,6 +23,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 #include <vector>
 #include "profiler/profiler.h"
+#include <map>
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -31,8 +32,9 @@ struct BlocksTree
     profiler::SerilizedBlock* node;
     std::vector<BlocksTree > children;
 
-    BlocksTree(){
-        node = nullptr;
+    BlocksTree():node(nullptr)
+	{
+
     }
 
     BlocksTree(BlocksTree&& that)
@@ -74,6 +76,14 @@ private:
     }
 
 };
+
+
+typedef std::map<size_t, BlocksTree> thread_blocks_tree_t;
+
+extern "C"{
+	int PROFILER_API fillTreesFromFile(const char* filename, thread_blocks_tree_t& threaded_trees);
+}
+
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
