@@ -13,14 +13,28 @@
 #include <iostream>
 #include <string>
 
-void printTree(const BlocksTree& tree, int level = 0)
+void printTree(const BlocksTree& tree, int level = 0, int parent_dur=0, int root_dur=0)
 {
+	
 	if (tree.node){
-		std::cout << std::string(level, '\t') << " "<< tree.node->getBlockName() << std::endl;
-	} 
+		float percent = parent_dur ? float(tree.node->block()->duration()) / float(parent_dur)*100.0f  : 100.0f;
+		float rpercent = root_dur ? float(tree.node->block()->duration()) / float(root_dur)*100.0f : 100.0f;
+		std::cout << std::string(level, '\t') << tree.node->getBlockName() 
+			<< std::string(5 - level, '\t') 
+			<< std::string(level, ' ') << percent << " | "  << rpercent << " %"
+			<< std::endl;
+		if (root_dur == 0){
+			root_dur = tree.node->block()->duration();
+		}
+	}
+	else{
+		root_dur = 0;
+	}
+	
 
 	for (const auto& i : tree.children){
-		printTree(i,level+1);
+
+		printTree(i, level + 1, tree.node? tree.node->block()->duration() : 0, root_dur);
 	}
 }
 
@@ -43,7 +57,8 @@ int main()
 	std::cout << "Blocks count: " << blocks_counter << std::endl;
 	std::cout << "dT =  " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << " usec" << std::endl;
 	for (const auto & i : threaded_trees){
-	//	printTree(i.second,-1);
+		std::cout << std::string(20, '=') << " thread "<< i.first << " "<< std::string(20, '=') << std::endl;
+		printTree(i.second,-1);
 	}
 	return 0;
 }

@@ -80,12 +80,69 @@ void renderThread(){
 		frame();
 	}
 }
+
+void four()
+{
+	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
+	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+}
+
+void five()
+{
+	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
+	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+}
+void six()
+{
+	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
+	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+}
+
+void three()
+{
+	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
+	four();
+	five();
+	six();
+}
+
+void seven()
+{
+	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
+	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+}
+
+void two()
+{
+	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
+	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+}
+
+void one()
+{
+	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
+	two();
+	three();
+	seven();
+}
+
+/*
+one
+	two
+	three
+		four
+		five
+		six
+	seven
+
+*/
 int main()
 {
 	auto start = std::chrono::system_clock::now();
 	PROFILER_ENABLE;
 
-	std::thread render = std::thread(renderThread);
+	one();
+	/*std::thread render = std::thread(renderThread);
 	std::thread modelling = std::thread(modellingThread);
 
 	std::vector<std::thread> threads;
@@ -98,6 +155,8 @@ int main()
 	for(auto& t : threads){
 		t.join();
 	}
+	*/
+
 	auto end = std::chrono::system_clock::now();
 	auto elapsed =
 			std::chrono::duration_cast<std::chrono::microseconds>(end - start);
