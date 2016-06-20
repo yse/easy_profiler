@@ -1,5 +1,5 @@
 #include "profiler/profiler.h"
-
+#include "profile_manager.h"
 #include <ctime>
 #include <chrono>
 #include <thread>
@@ -25,7 +25,7 @@ Block::Block(const char* _name, color_t _color, block_type_t _type) :
 	{
 		end = begin;
 	}
-	thread_id = std::hash<std::thread::id>()(std::this_thread::get_id());
+	thread_id = getCurrentThreadId();
 }
 
 void BaseBlockData::tick(timestamp_t& stamp)

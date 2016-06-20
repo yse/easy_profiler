@@ -122,7 +122,7 @@ void ProfileManager::endBlock()
 	if (!m_isEnabled)
 		return;
 
-	uint32_t threadId = getThreadId();
+	uint32_t threadId = getCurrentThreadId();
 	
 	guard_lock_t lock(m_spin);
 	auto& stackOfOpenedBlocks = m_openedBracketsMap[threadId];
@@ -156,7 +156,7 @@ void ProfileManager::_internalInsertBlock(profiler::Block* _block)
 #include <pthread.h>
 #endif
 
-uint32_t ProfileManager::getThreadId()
+uint32_t getCurrentThreadId()
 {
 #ifdef WIN32
 	return (uint32_t)::GetCurrentThreadId();

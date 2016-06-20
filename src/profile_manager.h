@@ -27,6 +27,8 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #include <map>
 #include <list>
 
+inline uint32_t getCurrentThreadId();
+
 class ProfileManager
 {
 	ProfileManager();
@@ -50,7 +52,7 @@ class ProfileManager
 	typedef std::list<profiler::SerilizedBlock*> serialized_list_t;
 	serialized_list_t m_blocks;
 
-	uint32_t getThreadId();
+	
 public:
     static ProfileManager& instance();
 	~ProfileManager();
