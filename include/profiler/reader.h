@@ -22,15 +22,17 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include <vector>
-#include "profiler/profiler.h"
 #include <map>
+#include "profiler/profiler.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct BlocksTree
 {
+    typedef std::vector<BlocksTree> children_t;
+
     profiler::SerilizedBlock* node;
-    std::vector<BlocksTree > children;
+    children_t children;
 
     BlocksTree():node(nullptr)
 	{
