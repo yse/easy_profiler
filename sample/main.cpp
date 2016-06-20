@@ -1,3 +1,4 @@
+//#define FULL_DISABLE_PROFILER
 #include "profiler/profiler.h"
 #include <chrono>
 #include <thread>
@@ -6,19 +7,19 @@
 
 void loadingResources(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Lightcyan);
-	std::this_thread::sleep_for(std::chrono::microseconds(500));
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }
 
 
 
 void prepareMath(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
-	std::this_thread::sleep_for(std::chrono::microseconds(2));
+	//std::this_thread::sleep_for(std::chrono::milliseconds(3));
 }
 
 void calcIntersect(){
     PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
-	std::this_thread::sleep_for(std::chrono::microseconds(700));
+	//std::this_thread::sleep_for(std::chrono::milliseconds(4));
 }
 
 void calcPhys(){
@@ -28,12 +29,11 @@ void calcPhys(){
 
 void calcBrain(){
     PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
-    std::this_thread::sleep_for(std::chrono::microseconds(300));
+	//std::this_thread::sleep_for(std::chrono::milliseconds(3));
 }
 
 void calculateBehavior(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Lightblue);
-	std::this_thread::sleep_for(std::chrono::microseconds(3));
     calcPhys();
     calcBrain();
 }
@@ -42,43 +42,41 @@ void modellingStep(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Navy);
 	prepareMath();
 	calculateBehavior();
-	std::this_thread::sleep_for(std::chrono::microseconds(5));
 }
 
 void prepareRender(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Lightred);
-	std::this_thread::sleep_for(std::chrono::microseconds(5));
+	//std::this_thread::sleep_for(std::chrono::milliseconds(8));
 
 }
 
 void calculatePhysics(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
-	std::this_thread::sleep_for(std::chrono::microseconds(7));
+	//std::this_thread::sleep_for(std::chrono::milliseconds(8));
 }
 
 void frame(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Magenta);
 	prepareRender();
 	calculatePhysics();
-	std::this_thread::sleep_for(std::chrono::microseconds(4));
 }
 
 void loadingResourcesThread(){
 	for(int i = 0; i < 10; i++){
 		loadingResources();
 		PROFILER_ADD_EVENT_GROUPED("Resources Loading!",profiler::colors::Cyan);
-		std::this_thread::sleep_for(std::chrono::microseconds(2));
+		std::this_thread::sleep_for(std::chrono::milliseconds(20));
 	}
 }
 
 void modellingThread(){
-	for (int i = 0; i < 16000 / 2 / 2 / 2; i++){
+	for (int i = 0; i < 160000; i++){
 		modellingStep();
 	}
 }
 
 void renderThread(){
-	for (int i = 0; i < 10000 / 2 / 2 / 2; i++){
+	for (int i = 0; i < 100000; i++){
 		frame();
 	}
 }
@@ -104,7 +102,7 @@ int main()
 	auto elapsed =
 			std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
-	std::cout << elapsed.count() << std::endl;
+	std::cout << elapsed.count() << " usec" << std::endl;
 	//block count ~810
 	return 0;
 }
