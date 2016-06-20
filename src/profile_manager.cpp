@@ -116,15 +116,14 @@ void ProfileManager::beginBlock(Block* _block)
 	}
 	
 }
-
 void ProfileManager::endBlock()
 {
 
 	if (!m_isEnabled)
 		return;
 
-	uint32_t threadId = std::hash<std::thread::id>()(std::this_thread::get_id());
-
+	uint32_t threadId = getThreadId();
+	
 	guard_lock_t lock(m_spin);
 	auto& stackOfOpenedBlocks = m_openedBracketsMap[threadId];
 
@@ -151,3 +150,17 @@ void ProfileManager::_internalInsertBlock(profiler::Block* _block)
 	m_blocks.emplace_back(new SerilizedBlock(_block));
 }
 
+#ifdef WIN32
+#include <Windows.h>
+#else
+#include <pthread.h>
+#endif
+
+uint32_t ProfileManager::getThreadId()
+{
+#ifdef WIN32
+	return (uint32_t)::GetCurrentThreadId();
+#else
+	return (uint32_t)pthread_self();
+#endif
+}
