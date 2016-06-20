@@ -156,6 +156,8 @@ void foo()
 #define PROFILER_END_BLOCK profiler::endBlock();
 #define PROFILER_ENABLE profiler::setEnabled(true);
 #define PROFILER_DISABLE profiler::setEnabled(false);
+#define PROFILER_ADD_EVENT(name)
+#define PROFILER_ADD_EVENT_GROUPED(name,block_group)
 #endif
 
 #include <stdint.h>
