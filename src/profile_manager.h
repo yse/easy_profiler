@@ -27,7 +27,20 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #include <map>
 #include <list>
 
-inline uint32_t getCurrentThreadId();
+#ifdef WIN32
+#include <Windows.h>
+#else
+#include <thread>
+#endif
+
+inline uint32_t getCurrentThreadId()
+{
+#ifdef WIN32
+	return (uint32_t)::GetCurrentThreadId();
+#else
+	return (uint32_t)std::hash<std::thread::id>()(std::this_thread::get_id());
+#endif
+}
 
 class ProfileManager
 {

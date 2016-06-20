@@ -149,18 +149,3 @@ void ProfileManager::_internalInsertBlock(profiler::Block* _block)
 	guard_lock_t lock(m_storedSpin);
 	m_blocks.emplace_back(new SerilizedBlock(_block));
 }
-
-#ifdef WIN32
-#include <Windows.h>
-#else
-#include <pthread.h>
-#endif
-
-uint32_t getCurrentThreadId()
-{
-#ifdef WIN32
-	return (uint32_t)::GetCurrentThreadId();
-#else
-	return (uint32_t)pthread_self();
-#endif
-}
