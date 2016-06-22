@@ -40,7 +40,7 @@ public:
 };
 
 
-void printTree(TreePrinter& printer, const BlocksTree& tree, int level = 0, int parent_dur = 0, profiler::timestamp_t root_dur = 0)
+void printTree(TreePrinter& printer, const BlocksTree& tree, int level = 0, profiler::timestamp_t parent_dur = 0, profiler::timestamp_t root_dur = 0)
 {
 	
 	if (tree.node){

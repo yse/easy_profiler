@@ -8,9 +8,6 @@ set(SOURCES
 	${CPP_FILES}
 )
 
-add_definitions(
-	#-DFULL_DISABLE_PROFILER
-)
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 if(UNIX)
