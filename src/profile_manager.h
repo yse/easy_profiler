@@ -38,7 +38,8 @@ inline uint32_t getCurrentThreadId()
 #ifdef WIN32
 	return (uint32_t)::GetCurrentThreadId();
 #else
-	return (uint32_t)std::hash<std::thread::id>()(std::this_thread::get_id());
+	thread_local static uint32_t _id = (uint32_t)std::hash<std::thread::id>()(std::this_thread::get_id());
+	return _id;
 #endif
 }
 
