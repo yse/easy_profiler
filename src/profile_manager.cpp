@@ -29,7 +29,7 @@ SerilizedBlock::SerilizedBlock(Block* block):
 		m_data(nullptr)
 {
 	m_size += sizeof(BaseBlockData);
-	auto name_len = strlen(block->getName()) + 1;
+	uint16_t name_len = (uint16_t)strlen(block->getName()) + 1;
 	m_size += name_len;
 
 	m_data = new char[m_size];
