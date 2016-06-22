@@ -8,13 +8,18 @@ set(SOURCES
 	${CPP_FILES}
 )
 
-add_definitions(
-	#-DFULL_DISABLE_PROFILER
-)
 add_executable(${PROJECT_NAME} ${SOURCES})
+
+set(DISABLED_PROFILER_NAME
+	"${PROJECT_NAME}_disabled_profiler"
+)
+add_executable(${DISABLED_PROFILER_NAME} ${SOURCES})
 
 if(UNIX)
 	set(SPEC_LIB pthread)
 endif(UNIX)
 
 target_link_libraries(${PROJECT_NAME} easy_profiler ${SPEC_LIB})
+target_link_libraries(${DISABLED_PROFILER_NAME} easy_profiler ${SPEC_LIB})
+
+target_compile_definitions(${DISABLED_PROFILER_NAME} PRIVATE FULL_DISABLE_PROFILER)

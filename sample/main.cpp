@@ -4,6 +4,12 @@
 #include <thread>
 #include <vector>
 #include <iostream>
+#include <condition_variable>
+#include "profiler/reader.h"
+
+std::condition_variable cv;
+std::mutex cv_m;
+int g_i = 0;
 
 void loadingResources(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Lightcyan);
@@ -62,6 +68,8 @@ void frame(){
 }
 
 void loadingResourcesThread(){
+	std::unique_lock<std::mutex> lk(cv_m);
+	cv.wait(lk, []{return g_i == 1; });
 	for(int i = 0; i < 10; i++){
 		loadingResources();
 		PROFILER_ADD_EVENT_GROUPED("Resources Loading!",profiler::colors::Cyan);
@@ -70,13 +78,17 @@ void loadingResourcesThread(){
 }
 
 void modellingThread(){
-	for (int i = 0; i < 160000; i++){
+	std::unique_lock<std::mutex> lk(cv_m);
+	cv.wait(lk, []{return g_i == 1; });
+	for (int i = 0; i < 1600; i++){
 		modellingStep();
 	}
 }
 
 void renderThread(){
-	for (int i = 0; i < 100000; i++){
+	std::unique_lock<std::mutex> lk(cv_m);
+	cv.wait(lk, []{return g_i == 1; });
+	for (int i = 0; i < 1000; i++){
 		frame();
 	}
 }
@@ -84,7 +96,7 @@ void renderThread(){
 void four()
 {
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
-	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+	std::this_thread::sleep_for(std::chrono::milliseconds(37));
 }
 
 void five()
@@ -95,7 +107,7 @@ void five()
 void six()
 {
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
-	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+	std::this_thread::sleep_for(std::chrono::milliseconds(42));
 }
 
 void three()
@@ -109,13 +121,13 @@ void three()
 void seven()
 {
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
-	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+	std::this_thread::sleep_for(std::chrono::milliseconds(147));
 }
 
 void two()
 {
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
-	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+	std::this_thread::sleep_for(std::chrono::milliseconds(26));
 }
 
 void one()
@@ -141,27 +153,42 @@ int main()
 	auto start = std::chrono::system_clock::now();
 	PROFILER_ENABLE;
 
-	one();
-	/*std::thread render = std::thread(renderThread);
+	//one();
+	//one();
+	/**/
+	std::vector<std::thread> threads;
+
+	std::thread render = std::thread(renderThread);
 	std::thread modelling = std::thread(modellingThread);
 
-	std::vector<std::thread> threads;
+	
 	for(int i=0; i < 3; i++){
 		threads.emplace_back(std::thread(loadingResourcesThread));
+		threads.emplace_back(std::thread(renderThread));
+		threads.emplace_back(std::thread(modellingThread));
 	}
+	{
+		std::lock_guard<std::mutex> lk(cv_m);
+		g_i = 1;
+	}
+	cv.notify_all();
 
 	render.join();
 	modelling.join();
 	for(auto& t : threads){
 		t.join();
 	}
-	*/
+	/**/
 
 	auto end = std::chrono::system_clock::now();
 	auto elapsed =
 			std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
 	std::cout << elapsed.count() << " usec" << std::endl;
-	//block count ~810
+
+	thread_blocks_tree_t threaded_trees;
+	int blocks_counter = fillTreesFromFile("test.prof", threaded_trees);
+	std::cout << "Blocks count: " << blocks_counter << std::endl;
+
 	return 0;
 }
