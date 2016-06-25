@@ -27,26 +27,50 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+namespace profiler {
+
+    typedef uint32_t calls_number_t;
+
+    struct BlockStatistics
+    {
+        ::profiler::timestamp_t      total_duration;
+        ::profiler::timestamp_t        min_duration;
+        ::profiler::timestamp_t        max_duration;
+        ::profiler::timestamp_t    average_duration;
+        ::profiler::calls_number_t     calls_number;
+
+        BlockStatistics() : total_duration(0), min_duration(0), max_duration(0), average_duration(0), calls_number(0)
+        {
+        }
+
+    }; // END of struct BlockStatistics.
+
+} // END of namespace profiler.
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 struct BlocksTree
 {
-    typedef std::vector<BlocksTree> children_t;
+    typedef ::std::vector<BlocksTree> children_t;
 
-    profiler::SerilizedBlock* node;
-    children_t children;
+    children_t                           children;
+    ::profiler::SerilizedBlock*              node;
+    ::profiler::BlockStatistics* frame_statistics; ///< Pointer to statistics for this block within the parent (may be nullptr for top-level blocks)
+    ::profiler::BlockStatistics* total_statistics; ///< Pointer to statistics for this block within the bounds of all frames per current thread 
 
-    BlocksTree():node(nullptr)
+    BlocksTree() : node(nullptr), frame_statistics(nullptr), total_statistics(nullptr)
 	{
 
     }
 
     BlocksTree(BlocksTree&& that)
     {
-        makeMove(std::forward<BlocksTree&&>(that));
+        makeMove(::std::forward<BlocksTree&&>(that));
     }
 
     BlocksTree& operator=(BlocksTree&& that)
     {
-        makeMove(std::forward<BlocksTree&&>(that));
+        makeMove(::std::forward<BlocksTree&&>(that));
         return *this;
     }
 
@@ -56,7 +80,6 @@ struct BlocksTree
         {
             delete node;
         }
-        node = nullptr;
     }
 
     bool operator < (const BlocksTree& other) const
@@ -69,18 +92,19 @@ struct BlocksTree
     }
 
 private:
+
     void makeMove(BlocksTree&& that)
     {
         node = that.node;
-        children = std::move(that.children);
+        children = ::std::move(that.children);
 
         that.node = nullptr;
     }
 
-};
+}; // END of struct BlocksTree.
 
 
-typedef std::map<size_t, BlocksTree> thread_blocks_tree_t;
+typedef ::std::map<::profiler::thread_id_t, BlocksTree> thread_blocks_tree_t;
 
 extern "C"{
 	int PROFILER_API fillTreesFromFile(const char* filename, thread_blocks_tree_t& threaded_trees);
