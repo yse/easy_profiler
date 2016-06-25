@@ -251,10 +251,10 @@ namespace profiler
 
 		BaseBlockData(color_t _color, block_type_t _type);
 
-		inline unsigned char getType() const { return type; }
+		inline block_type_t getType() const { return type; }
 		inline color_t getColor() const { return color; }
 		inline timestamp_t getBegin() const { return begin; }
-		inline size_t getThreadId() const { return thread_id; }
+		inline thread_id_t getThreadId() const { return thread_id; }
 
 		inline timestamp_t getEnd() const { return end; }
 		inline bool isFinished() const { return end != 0; }
