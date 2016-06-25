@@ -95,10 +95,14 @@ private:
 
     void makeMove(BlocksTree&& that)
     {
-        node = that.node;
         children = ::std::move(that.children);
+        node = that.node;
+        frame_statistics = that.frame_statistics;
+        total_statistics = that.total_statistics;
 
         that.node = nullptr;
+        that.frame_statistics = nullptr;
+        that.total_statistics = nullptr;
     }
 
 }; // END of struct BlocksTree.
