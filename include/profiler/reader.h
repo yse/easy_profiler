@@ -63,7 +63,7 @@ struct BlocksTree
 
     }
 
-    BlocksTree(BlocksTree&& that)
+    BlocksTree(BlocksTree&& that) : BlocksTree()
     {
         makeMove(::std::forward<BlocksTree&&>(that));
     }
@@ -95,6 +95,11 @@ private:
 
     void makeMove(BlocksTree&& that)
     {
+        if (node && node != that.node)
+        {
+            delete node;
+        }
+
         children = ::std::move(that.children);
         node = that.node;
         frame_statistics = that.frame_statistics;
