@@ -286,7 +286,7 @@ namespace profiler
 		char* m_data;
 	public:
 		SerilizedBlock(profiler::Block* block);
-		SerilizedBlock(uint16_t _size, const char* _data);
+		SerilizedBlock(uint16_t _size, char* _data);
 		SerilizedBlock(SerilizedBlock&& that);
 		SerilizedBlock(const SerilizedBlock& other);
 		~SerilizedBlock();

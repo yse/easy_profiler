@@ -53,7 +53,7 @@ extern "C"{
 			}
 
 
-			delete[] data;
+			//delete[] data;
 
 		}
 		return blocks_counter;

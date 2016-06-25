@@ -37,12 +37,12 @@ SerilizedBlock::SerilizedBlock(Block* block):
 	strncpy(&m_data[sizeof(BaseBlockData)], block->getName(), name_len);
 }
 
-SerilizedBlock::SerilizedBlock(uint16_t _size, const char* _data) :
+SerilizedBlock::SerilizedBlock(uint16_t _size, char* _data) :
 		m_size(_size),
-		m_data(nullptr)
+		m_data(_data)
 {
-	m_data = new char[m_size];
-	memcpy(&m_data[0], _data, m_size);
+	//m_data = new char[m_size];
+	//memcpy(&m_data[0], _data, m_size);
 }
 
 SerilizedBlock::~SerilizedBlock()
