@@ -21,7 +21,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include <vector>
+#include <list>
 #include <map>
 #include "profiler/profiler.h"
 
@@ -75,7 +75,7 @@ namespace profiler {
 
 struct BlocksTree
 {
-    typedef ::std::vector<BlocksTree> children_t;
+    typedef ::std::list<BlocksTree> children_t;
 
     children_t                           children;
     ::profiler::SerilizedBlock*              node;
