@@ -33,23 +33,38 @@ namespace profiler {
 
     struct BlockStatistics
     {
-        ::profiler::timestamp_t      total_duration;
-        ::profiler::timestamp_t        min_duration;
-        ::profiler::timestamp_t        max_duration;
-        ::profiler::timestamp_t    average_duration;
-        ::profiler::calls_number_t     calls_number;
+        ::profiler::timestamp_t               total_duration; ///< Summary duration of all block calls
+        ::profiler::timestamp_t                 min_duration; ///< Cached block->duration() value. TODO: Remove this if memory consumption will be too high
+        ::profiler::timestamp_t                 max_duration; ///< Cached block->duration() value. TODO: Remove this if memory consumption will be too high
+        const ::profiler::SerilizedBlock* min_duration_block; ///< Will be used in GUI to jump to the block with min duration
+        const ::profiler::SerilizedBlock* max_duration_block; ///< Will be used in GUI to jump to the block with max duration
+        ::profiler::calls_number_t              calls_number; ///< Block calls number
 
-        BlockStatistics() : total_duration(0), min_duration(0), max_duration(0), average_duration(0), calls_number(1)
+        // TODO: It is better to replace SerilizedBlock* with BlocksTree*, but this requires to store pointers in children list.
+
+        BlockStatistics()
+            : total_duration(0)
+            , min_duration(0)
+            , max_duration(0)
+            , min_duration_block(nullptr)
+            , max_duration_block(nullptr)
+            , calls_number(1)
         {
         }
 
-        BlockStatistics(::profiler::timestamp_t _duration)
+        BlockStatistics(::profiler::timestamp_t _duration, const ::profiler::SerilizedBlock* _block)
             : total_duration(_duration)
             , min_duration(_duration)
             , max_duration(_duration)
-            , average_duration(_duration)
+            , min_duration_block(_block)
+            , max_duration_block(_block)
             , calls_number(1)
         {
+        }
+
+        inline ::profiler::timestamp_t average_duration() const
+        {
+            return total_duration / calls_number;
         }
 
     }; // END of struct BlockStatistics.

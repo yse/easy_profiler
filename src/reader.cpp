@@ -99,6 +99,41 @@ typedef ::std::unordered_map<::std::string, ::profiler::BlockStatistics*> StatsM
 
 //////////////////////////////////////////////////////////////////////////
 
+void update_statistics(StatsMap& _stats_map, ::profiler::SerilizedBlock* _current, ::profiler::BlockStatistics*& _stats)
+{
+    auto duration = _current->block()->duration();
+    StatsMap::key_type key(_current->getBlockName());
+    auto it = _stats_map.find(key);
+    if (it != _stats_map.end())
+    {
+        _stats = it->second;
+
+        ++_stats->calls_number;
+        _stats->total_duration += duration;
+
+        //if (duration > _stats->max_duration_block->block()->duration())
+        if (duration > _stats->max_duration)
+        {
+            _stats->max_duration_block = _current;
+            _stats->max_duration = duration;
+        }
+
+        //if (duration < _stats->min_duration_block->block()->duration())
+        if (duration < _stats->min_duration)
+        {
+            _stats->min_duration_block = _current;
+            _stats->min_duration = duration;
+        }
+    }
+    else
+    {
+        _stats = new ::profiler::BlockStatistics(duration, _current);
+        _stats_map.insert(::std::make_pair(key, _stats));
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 extern "C"{
     int fillTreesFromFile(const char* filename, thread_blocks_tree_t& threaded_trees, bool gather_statistics)
 	{
@@ -108,7 +143,7 @@ extern "C"{
 			return -1;
 		}
 
-        StatsMap overall_statistics;
+        StatsMap overall_statistics, frame_statistics;
 
 		int blocks_counter = 0;
 
@@ -132,35 +167,6 @@ extern "C"{
 			tree.node = new profiler::SerilizedBlock(sz, data);
 			blocks_counter++;
 
-            if (gather_statistics)
-            {
-                auto duration = tree.node->block()->duration();
-                StatsMap::key_type key(tree.node->getBlockName());
-                auto it = overall_statistics.find(key);
-                if (it != overall_statistics.end())
-                {
-                    tree.total_statistics = it->second;
-
-                    ++tree.total_statistics->calls_number;
-                    tree.total_statistics->total_duration += duration;
-
-                    if (duration > tree.total_statistics->max_duration)
-                    {
-                        tree.total_statistics->max_duration = duration;
-                    }
-
-                    if (duration < tree.total_statistics->min_duration)
-                    {
-                        tree.total_statistics->min_duration = duration;
-                    }
-                }
-                else
-                {
-                    tree.total_statistics = new ::profiler::BlockStatistics(duration);
-                    overall_statistics.insert(::std::make_pair(key, tree.total_statistics));
-                }
-            }
-
 			if (root.children.empty()){
 				root.children.push_back(std::move(tree));
 			}
@@ -176,6 +182,19 @@ extern "C"{
 
 					root.children.erase(lower, root.children.end());
 
+                    if (gather_statistics)
+                    {
+                        frame_statistics.clear();
+
+                        //frame_statistics.reserve(tree.children.size());     // this gives slow-down on Windows
+                        //frame_statistics.reserve(tree.children.size() * 2); // this gives no speed-up on Windows
+                        // TODO: check this behavior on Linux
+
+                        for (auto& child : tree.children)
+                        {
+                            update_statistics(frame_statistics, child.node, child.frame_statistics);
+                        }
+                    }
 				}
 
 				root.children.push_back(std::move(tree));
@@ -184,17 +203,16 @@ extern "C"{
 
 			//delete[] data;
 
-		}
 
-        if (gather_statistics)
-        {
-            for (auto it = overall_statistics.begin(), end = overall_statistics.end(); it != end; ++it)
+            if (gather_statistics)
             {
-                it->second->average_duration = it->second->total_duration / it->second->calls_number;
+                BlocksTree& current = root.children.back();
+                update_statistics(overall_statistics, current.node, current.total_statistics);
             }
 
-            // No need to delete BlockStatistics instances - they will be deleted on BlocksTree destructors
-        }
+		}
+
+        // No need to delete BlockStatistics instances - they will be deleted on BlocksTree destructors
 
 		return blocks_counter;
 	}
