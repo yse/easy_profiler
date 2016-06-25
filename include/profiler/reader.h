@@ -39,11 +39,35 @@ namespace profiler {
         ::profiler::timestamp_t    average_duration;
         ::profiler::calls_number_t     calls_number;
 
-        BlockStatistics() : total_duration(0), min_duration(0), max_duration(0), average_duration(0), calls_number(0)
+        BlockStatistics() : total_duration(0), min_duration(0), max_duration(0), average_duration(0), calls_number(1)
+        {
+        }
+
+        BlockStatistics(::profiler::timestamp_t _duration)
+            : total_duration(_duration)
+            , min_duration(_duration)
+            , max_duration(_duration)
+            , average_duration(_duration)
+            , calls_number(1)
         {
         }
 
     }; // END of struct BlockStatistics.
+
+    inline void release(BlockStatistics*& _stats)
+    {
+        if (!_stats)
+        {
+            return;
+        }
+
+        if (--_stats->calls_number == 0)
+        {
+            delete _stats;
+        }
+
+        _stats = nullptr;
+    }
 
 } // END of namespace profiler.
 
@@ -80,6 +104,9 @@ struct BlocksTree
         {
             delete node;
         }
+
+        release(total_statistics);
+        release(frame_statistics);
     }
 
     bool operator < (const BlocksTree& other) const
@@ -100,6 +127,16 @@ private:
             delete node;
         }
 
+        if (total_statistics != that.total_statistics)
+        {
+            release(total_statistics);
+        }
+
+        if (frame_statistics != that.frame_statistics)
+        {
+            release(frame_statistics);
+        }
+
         children = ::std::move(that.children);
         node = that.node;
         frame_statistics = that.frame_statistics;
@@ -116,7 +153,7 @@ private:
 typedef ::std::map<::profiler::thread_id_t, BlocksTree> thread_blocks_tree_t;
 
 extern "C"{
-	int PROFILER_API fillTreesFromFile(const char* filename, thread_blocks_tree_t& threaded_trees);
+	int PROFILER_API fillTreesFromFile(const char* filename, thread_blocks_tree_t& threaded_trees, bool gather_statistics = false);
 }
 
 
