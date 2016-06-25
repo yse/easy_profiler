@@ -16,25 +16,31 @@ void loadingResources(){
 	std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }
 
-
-
 void prepareMath(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
+    volatile int i = 0;
+    for (; i < 100000; ++i);
 	//std::this_thread::sleep_for(std::chrono::milliseconds(3));
 }
 
 void calcIntersect(){
     PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
+    volatile int i = 0;
+    for (; i < 500000; ++i);
 	//std::this_thread::sleep_for(std::chrono::milliseconds(4));
 }
 
 void calcPhys(){
     PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
+    volatile int i = 0;
+    for (; i < 400000; ++i);
     calcIntersect();
 }
 
 void calcBrain(){
     PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
+    volatile int i = 0;
+    for (; i < 300000; ++i);
 	//std::this_thread::sleep_for(std::chrono::milliseconds(3));
 }
 
@@ -42,22 +48,30 @@ void calculateBehavior(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Lightblue);
     calcPhys();
     calcBrain();
+    volatile int i = 0;
+    for (; i < 150000; ++i);
 }
 
 void modellingStep(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Navy);
 	prepareMath();
 	calculateBehavior();
+    volatile int i = 0;
+    for (; i < 100000; ++i);
 }
 
 void prepareRender(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Lightred);
+    volatile int i = 0;
+    for (; i < 350000; ++i);
 	//std::this_thread::sleep_for(std::chrono::milliseconds(8));
 
 }
 
 void calculatePhysics(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
+    volatile int i = 0;
+    for (; i < 400000; ++i);
 	//std::this_thread::sleep_for(std::chrono::milliseconds(8));
 }
 
@@ -65,6 +79,8 @@ void frame(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Magenta);
 	prepareRender();
 	calculatePhysics();
+    volatile int i = 0;
+    for (; i < 30000; ++i);
 }
 
 void loadingResourcesThread(){
