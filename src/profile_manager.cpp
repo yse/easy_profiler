@@ -68,12 +68,12 @@ SerilizedBlock::SerilizedBlock(SerilizedBlock&& that)
 	that.m_data = nullptr;
 }
 
-const BaseBlockData * SerilizedBlock::block()
+const BaseBlockData * SerilizedBlock::block() const
 {
-	return (BaseBlockData*)m_data;
+	return (const BaseBlockData*)m_data;
 }
 
-const char* SerilizedBlock::getBlockName()
+const char* SerilizedBlock::getBlockName() const
 {
 	return (const char*)&m_data[sizeof(profiler::BaseBlockData)];
 }

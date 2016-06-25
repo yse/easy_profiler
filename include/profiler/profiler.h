@@ -294,8 +294,8 @@ namespace profiler
 		const char* const data() const { return m_data; }
 		uint16_t size() const { return m_size; }
 
-		const BaseBlockData * block();
-		const char* getBlockName();
+		const BaseBlockData * block() const;
+		const char* getBlockName() const;
 	};
 
 	
