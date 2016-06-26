@@ -1,4 +1,19 @@
-
+/************************************************************************
+* file name         : blocks_graphics_view.h
+* ----------------- :
+* creation time     : 2016/06/26
+* copyright         : (c) 2016 Victor Zarubkin
+* author            : Victor Zarubkin
+* email             : v.s.zarubkin@gmail.com
+* ----------------- :
+* description       : The file contains declaration of GraphicsScene and GraphicsView and
+*                   : it's auxiliary classes for displyaing easy_profiler blocks tree.
+* ----------------- :
+* change log        : * 2016/06/26 Victor Zarubkin: moved sources from graphics_view.h
+*                   : *
+* ----------------- :
+* license           : TODO: add license text
+************************************************************************/
 
 #ifndef MY____GRAPHICS___VIEW_H
 #define MY____GRAPHICS___VIEW_H

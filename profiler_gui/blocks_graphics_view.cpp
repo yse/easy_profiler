@@ -1,9 +1,20 @@
+/************************************************************************
+* file name         : blocks_graphics_view.cpp
+* ----------------- :
+* creation time     : 2016/06/26
+* copyright         : (c) 2016 Victor Zarubkin
+* author            : Victor Zarubkin
+* email             : v.s.zarubkin@gmail.com
+* ----------------- :
+* description       : The file contains implementation of GraphicsScene and GraphicsView and
+*                   : it's auxiliary classes for displyaing easy_profiler blocks tree.
+* ----------------- :
+* change log        : * 2016/06/26 Victor Zarubkin: moved sources from graphics_view.h
+*                   : *
+* ----------------- :
+* license           : TODO: add license text
+************************************************************************/
 
-
-#include <QGraphicsView>
-#include <QGraphicsScene>
-#include <QGraphicsPolygonItem>
-#include <QGraphicsSimpleTextItem>
 #include <QWheelEvent>
 #include "blocks_graphics_view.h"
 

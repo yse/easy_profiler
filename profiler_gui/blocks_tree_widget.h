@@ -1,4 +1,19 @@
-
+/************************************************************************
+* file name         : blocks_tree_widget.h
+* ----------------- : 
+* creation time     : 2016/06/26
+* copyright         : (c) 2016 Victor Zarubkin
+* author            : Victor Zarubkin
+* email             : v.s.zarubkin@gmail.com
+* ----------------- : 
+* description       : The file contains declaration of TreeWidget and it's auxiliary classes
+*                   : for displyaing easy_profiler blocks tree.
+* ----------------- : 
+* change log        : * 2016/06/26 Victor Zarubkin: moved sources from tree_view.h
+*                   : * 
+* ----------------- : 
+* license           : TODO: add license text
+************************************************************************/
 
 #ifndef MY____TREE___VIEW_H
 #define MY____TREE___VIEW_H
