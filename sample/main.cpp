@@ -11,6 +11,8 @@ std::condition_variable cv;
 std::mutex cv_m;
 int g_i = 0;
 
+const int OBJECTS = 9000;
+
 void loadingResources(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Lightcyan);
 	std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -18,29 +20,42 @@ void loadingResources(){
 
 void prepareMath(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
-    volatile int i = 0;
-    for (; i < 100000; ++i);
+    int* intarray = new int[OBJECTS];
+    for (int i = 0; i < OBJECTS; ++i)
+        intarray[i] = i * i;
+    delete[] intarray;
 	//std::this_thread::sleep_for(std::chrono::milliseconds(3));
 }
 
 void calcIntersect(){
     PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
-    volatile int i = 0;
-    for (; i < 500000; ++i);
+    //int* intarray = new int[OBJECTS * OBJECTS];
+    int* intarray = new int[OBJECTS];
+    for (int i = 0; i < OBJECTS; ++i)
+    {
+        for (int j = i; j < OBJECTS; ++j)
+            //intarray[i * OBJECTS + j] = i * j - i / 2 + (OBJECTS - j) * 5;
+            intarray[j] = i * j - i / 2 + (OBJECTS - j) * 5;
+    }
+    delete[] intarray;
 	//std::this_thread::sleep_for(std::chrono::milliseconds(4));
 }
 
 void calcPhys(){
     PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
-    volatile int i = 0;
-    for (; i < 400000; ++i);
+    int* intarray = new int[OBJECTS];
+    for (int i = 0; i < OBJECTS; ++i)
+        intarray[i] = i * i + i / 3 - (OBJECTS - i) / 2;
     calcIntersect();
+    delete[] intarray;
 }
 
 void calcBrain(){
     PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
-    volatile int i = 0;
-    for (; i < 300000; ++i);
+    int* intarray = new int[OBJECTS];
+    for (int i = 0; i < OBJECTS; ++i)
+        intarray[i] = i * i * i - i / 10 + (OBJECTS - i) * 7 + i * 180 / 3;
+    delete[] intarray;
 	//std::this_thread::sleep_for(std::chrono::milliseconds(3));
 }
 
@@ -48,30 +63,28 @@ void calculateBehavior(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Lightblue);
     calcPhys();
     calcBrain();
-    volatile int i = 0;
-    for (; i < 150000; ++i);
 }
 
 void modellingStep(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Navy);
 	prepareMath();
 	calculateBehavior();
-    volatile int i = 0;
-    for (; i < 100000; ++i);
 }
 
 void prepareRender(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Lightred);
     volatile int i = 0;
-    for (; i < 350000; ++i);
+    for (; i < 200000; ++i);
 	//std::this_thread::sleep_for(std::chrono::milliseconds(8));
 
 }
 
 void calculatePhysics(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
-    volatile int i = 0;
-    for (; i < 400000; ++i);
+    unsigned int* intarray = new unsigned int[OBJECTS];
+    for (unsigned int i = 0; i < OBJECTS; ++i)
+        intarray[i] = i * i * i * i / 100 + i / 3 - (OBJECTS - i) * 15;
+    delete[] intarray;
 	//std::this_thread::sleep_for(std::chrono::milliseconds(8));
 }
 
@@ -79,13 +92,11 @@ void frame(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Magenta);
 	prepareRender();
 	calculatePhysics();
-    volatile int i = 0;
-    for (; i < 30000; ++i);
 }
 
 void loadingResourcesThread(){
-	std::unique_lock<std::mutex> lk(cv_m);
-	cv.wait(lk, []{return g_i == 1; });
+	//std::unique_lock<std::mutex> lk(cv_m);
+	//cv.wait(lk, []{return g_i == 1; });
 	for(int i = 0; i < 10; i++){
 		loadingResources();
 		PROFILER_ADD_EVENT_GROUPED("Resources Loading!",profiler::colors::Cyan);
@@ -94,18 +105,20 @@ void loadingResourcesThread(){
 }
 
 void modellingThread(){
-	std::unique_lock<std::mutex> lk(cv_m);
-	cv.wait(lk, []{return g_i == 1; });
+	//std::unique_lock<std::mutex> lk(cv_m);
+	//cv.wait(lk, []{return g_i == 1; });
 	for (int i = 0; i < 1600; i++){
 		modellingStep();
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
 	}
 }
 
 void renderThread(){
-	std::unique_lock<std::mutex> lk(cv_m);
-	cv.wait(lk, []{return g_i == 1; });
+	//std::unique_lock<std::mutex> lk(cv_m);
+	//cv.wait(lk, []{return g_i == 1; });
 	for (int i = 0; i < 1000; i++){
 		frame();
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
 	}
 }
 
@@ -205,6 +218,10 @@ int main()
 	thread_blocks_tree_t threaded_trees;
 	int blocks_counter = fillTreesFromFile("test.prof", threaded_trees);
 	std::cout << "Blocks count: " << blocks_counter << std::endl;
+
+    char c;
+    std::cout << "Enter something to exit: ";
+    std::cin >> c;
 
 	return 0;
 }
