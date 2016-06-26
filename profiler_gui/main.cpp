@@ -2,8 +2,8 @@
 #include <QTreeView>
 #include <QFileSystemModel>
 #include "treemodel.h"
-#include "graphics_view.h"
-#include "tree_view.h"
+#include "blocks_graphics_view.h"
+#include "blocks_tree_widget.h"
 #include "profiler/reader.h"
 
 int main(int argc, char **argv)
@@ -53,7 +53,7 @@ int main(int argc, char **argv)
             }
 
             thread_blocks_tree_t threaded_trees;
-            int blocks_counter = fillTreesFromFile("../test.prof", threaded_trees, true);
+            int blocks_counter = fillTreesFromFile("test.prof", threaded_trees, true);
 
             MyGraphicsView gview(threaded_trees);
             gview.show();
@@ -64,7 +64,7 @@ int main(int argc, char **argv)
         case 1:
         {
             thread_blocks_tree_t threaded_trees;
-            int blocks_counter = fillTreesFromFile("../test.prof", threaded_trees, true);
+            int blocks_counter = fillTreesFromFile("test.prof", threaded_trees, true);
 
             MyTreeWidget view(threaded_trees);
             view.show();
