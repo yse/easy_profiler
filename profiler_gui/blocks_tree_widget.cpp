@@ -146,10 +146,6 @@ void ProfTreeWidget::setTreeInternal(const BlocksTree::children_t& _children, Pr
 {
     for (const auto& child : _children)
     {
-        const auto duration = child.node->block()->duration();
-        const auto beginTime = child.node->block()->getBegin() - m_beginTime;
-        const auto endTime = child.node->block()->getEnd() - m_beginTime;
-
         auto item = new ProfTreeWidgetItem(&child, _parent);
         item->setText(0, child.node->getBlockName());
         item->setTimeSmart(1, child.node->block()->duration());

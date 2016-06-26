@@ -53,7 +53,7 @@ int main(int argc, char **argv)
             }
 
             thread_blocks_tree_t threaded_trees;
-            int blocks_counter = fillTreesFromFile("test.prof", threaded_trees, true);
+            fillTreesFromFile("test.prof", threaded_trees, true);
 
             ProfGraphicsView gview(threaded_trees);
             gview.show();
@@ -64,7 +64,7 @@ int main(int argc, char **argv)
         case 1:
         {
             thread_blocks_tree_t threaded_trees;
-            int blocks_counter = fillTreesFromFile("test.prof", threaded_trees, true);
+            fillTreesFromFile("test.prof", threaded_trees, true);
 
             ProfTreeWidget view(threaded_trees);
             view.show();
