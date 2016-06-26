@@ -183,12 +183,17 @@ void ProfGraphicsScene::setTreeInternal(const BlocksTree::children_t& _children,
         item->setZValue(_level);
 
         const auto color = child.node->block()->getColor();
-        item->setBrush(QBrush(QColor(profiler::colors::get_red(color), profiler::colors::get_green(color), profiler::colors::get_blue(color))));
+        const auto itemBrush = QBrush(QColor(profiler::colors::get_red(color), profiler::colors::get_green(color), profiler::colors::get_blue(color)));
+        item->setBrush(itemBrush);
 
         addItem(item);
 
         ProfGraphicsTextItem* text = new ProfGraphicsTextItem(child.node->getBlockName(), item);
         text->setPos(0, _level * 5);
+
+        auto textBrush = text->brush();
+        textBrush.setColor(QRgb(0x00ffffff - itemBrush.color().rgb()));
+        text->setBrush(textBrush);
 
         setTreeInternal(child.children, _y, _level + 1);
     }
