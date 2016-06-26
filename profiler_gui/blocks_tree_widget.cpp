@@ -37,7 +37,7 @@ const BlocksTree* ProfTreeWidgetItem::block() const
 
 void ProfTreeWidgetItem::setTimeSmart(int _column, const ::profiler::timestamp_t& _time)
 {
-    setData(_column, Qt::UserRole, _time);
+    setData(_column, Qt::UserRole, (quint64)_time);
 
     setToolTip(_column, QString("%1 ns").arg(_time));
 
@@ -61,7 +61,7 @@ void ProfTreeWidgetItem::setTimeSmart(int _column, const ::profiler::timestamp_t
 
 void ProfTreeWidgetItem::setTimeMs(int _column, const ::profiler::timestamp_t& _time)
 {
-    setData(_column, Qt::UserRole, _time);
+    setData(_column, Qt::UserRole, (quint64)_time);
     setToolTip(_column, QString("%1 ns").arg(_time));
     setText(_column, QString::number(double(_time) * 1e-6, 'g', 9));
 }
