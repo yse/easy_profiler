@@ -10,6 +10,7 @@
 *                   : it's auxiliary classes for displyaing easy_profiler blocks tree.
 * ----------------- :
 * change log        : * 2016/06/26 Victor Zarubkin: moved sources from graphics_view.h
+*                   :       and renamed classes from My* to Prof*.
 *                   : *
 * ----------------- :
 * license           : TODO: add license text
@@ -20,31 +21,31 @@
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-const GlobalSignals GLOBALS;
+const ProfViewGlobalSignals GLOBALS;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-MyPolygon::MyPolygon(QGraphicsItem* _parent) : QGraphicsPolygonItem(_parent)
+ProfGraphicsPolygonItem::ProfGraphicsPolygonItem(QGraphicsItem* _parent) : QGraphicsPolygonItem(_parent)
 {
 }
 
-MyPolygon::~MyPolygon()
+ProfGraphicsPolygonItem::~ProfGraphicsPolygonItem()
 {
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-MyText::MyText(const char* _text, QGraphicsItem* _parent) : QGraphicsSimpleTextItem(_text, _parent), QObject()
+ProfGraphicsTextItem::ProfGraphicsTextItem(const char* _text, QGraphicsItem* _parent) : QGraphicsSimpleTextItem(_text, _parent), QObject()
 {
-    connect(&GLOBALS, &GlobalSignals::scaleIncreased, this, &MyText::onScaleIncrease);
-    connect(&GLOBALS, &GlobalSignals::scaleDecreased, this, &MyText::onScaleDecrease);
+    connect(&GLOBALS, &ProfViewGlobalSignals::scaleIncreased, this, &ProfGraphicsTextItem::onScaleIncrease);
+    connect(&GLOBALS, &ProfViewGlobalSignals::scaleDecreased, this, &ProfGraphicsTextItem::onScaleDecrease);
 }
 
-MyText::~MyText()
+ProfGraphicsTextItem::~ProfGraphicsTextItem()
 {
 }
 
-void MyText::onScaleIncrease(qreal _scale)
+void ProfGraphicsTextItem::onScaleIncrease(qreal _scale)
 {
     setScale(100.0 / _scale);
 
@@ -57,7 +58,7 @@ void MyText::onScaleIncrease(qreal _scale)
     }
 }
 
-void MyText::onScaleDecrease(qreal _scale)
+void ProfGraphicsTextItem::onScaleDecrease(qreal _scale)
 {
     setScale(100.0 / _scale);
 
@@ -76,27 +77,27 @@ const qreal LEFT = -2500000;
 const qreal WIDTH = 5000000;
 const int N_ITEMS = 200000;
 
-MyGraphicsScene::MyGraphicsScene(QGraphicsView* _parent) : QGraphicsScene(_parent), m_start(0)
+ProfGraphicsScene::ProfGraphicsScene(QGraphicsView* _parent) : QGraphicsScene(_parent), m_start(0)
 {
     setSceneRect(QRectF(LEFT, -200, WIDTH, 220));
     test();
 }
 
-MyGraphicsScene::MyGraphicsScene(const thread_blocks_tree_t& _blocksTree, QGraphicsView* _parent) : QGraphicsScene(_parent), m_start(0)
+ProfGraphicsScene::ProfGraphicsScene(const thread_blocks_tree_t& _blocksTree, QGraphicsView* _parent) : QGraphicsScene(_parent), m_start(0)
 {
     setTree(_blocksTree);
 }
 
-MyGraphicsScene::~MyGraphicsScene()
+ProfGraphicsScene::~ProfGraphicsScene()
 {
 }
 
-void MyGraphicsScene::test()
+void ProfGraphicsScene::test()
 {
     QPolygonF poly(QRectF(-5, -180, 10, 180));
     for (int i = 0; i < N_ITEMS; ++i)
     {
-        MyPolygon* item = new MyPolygon();
+        ProfGraphicsPolygonItem* item = new ProfGraphicsPolygonItem();
         int h = 50 + rand() % 131;
         item->setPolygon(QRectF(-5, -h, 10, h));
         item->setPos(LEFT + i * 10, 0);
@@ -105,7 +106,7 @@ void MyGraphicsScene::test()
     }
 }
 
-void MyGraphicsScene::setTree(const thread_blocks_tree_t& _blocksTree)
+void ProfGraphicsScene::setTree(const thread_blocks_tree_t& _blocksTree)
 {
     m_start = -1;
     profiler::timestamp_t finish = 0;
@@ -129,12 +130,12 @@ void MyGraphicsScene::setTree(const thread_blocks_tree_t& _blocksTree)
     }
 }
 
-void MyGraphicsScene::setTree(const BlocksTree::children_t& _children, qreal _y, int _level)
+void ProfGraphicsScene::setTree(const BlocksTree::children_t& _children, qreal _y, int _level)
 {
     for (const auto& child : _children)
     {
         ++items_couinter;
-        MyPolygon* item = new MyPolygon();
+        ProfGraphicsPolygonItem* item = new ProfGraphicsPolygonItem();
 
         const qreal xbegin = time2position(child.node->block()->getBegin());
         const qreal height = 100 - _level * 5;
@@ -151,7 +152,7 @@ void MyGraphicsScene::setTree(const BlocksTree::children_t& _children, qreal _y,
         item->setPen(QPen(Qt::NoPen)); // disable borders painting
 
         addItem(item);
-        MyText* text = new MyText(child.node->getBlockName(), item);
+        ProfGraphicsTextItem* text = new ProfGraphicsTextItem(child.node->getBlockName(), item);
         QRectF textRect = text->boundingRect();
         text->setPos(0, _level * 5);
 
@@ -165,34 +166,34 @@ void MyGraphicsScene::setTree(const BlocksTree::children_t& _children, qreal _y,
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-MyGraphicsView::MyGraphicsView() : QGraphicsView(), m_scale(100), m_scaleCoeff(1.25)
+ProfGraphicsView::ProfGraphicsView() : QGraphicsView(), m_scale(100), m_scaleCoeff(1.25)
 {
     initMode();
-    setScene(new MyGraphicsScene(this));
+    setScene(new ProfGraphicsScene(this));
     centerOn(0, 0);
 }
 
-MyGraphicsView::MyGraphicsView(const thread_blocks_tree_t& _blocksTree) : QGraphicsView(), m_scale(100), m_scaleCoeff(1.25)
+ProfGraphicsView::ProfGraphicsView(const thread_blocks_tree_t& _blocksTree) : QGraphicsView(), m_scale(100), m_scaleCoeff(1.25)
 {
     initMode();
-    setScene(new MyGraphicsScene(_blocksTree, this));
+    setScene(new ProfGraphicsScene(_blocksTree, this));
     centerOn(0, 0);
 }
 
-MyGraphicsView::~MyGraphicsView()
+ProfGraphicsView::~ProfGraphicsView()
 {
 }
 
-void MyGraphicsView::initMode()
+void ProfGraphicsView::initMode()
 {
     setCacheMode(QGraphicsView::CacheBackground);
     setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
     setViewportUpdateMode(QGraphicsView::BoundingRectViewportUpdate);
 }
 
-void MyGraphicsView::wheelEvent(QWheelEvent* _event)
+void ProfGraphicsView::wheelEvent(QWheelEvent* _event)
 {
-    //MyGraphicsScene* myscene = (MyGraphicsScene*)scene();
+    //ProfGraphicsScene* myscene = (ProfGraphicsScene*)scene();
     if (_event->delta() > 0)
     {
         scale(m_scaleCoeff, m_scaleCoeff);

@@ -10,6 +10,7 @@
 *                   : for displyaing easy_profiler blocks tree.
 * ----------------- :
 * change log        : * 2016/06/26 Victor Zarubkin: moved sources from tree_view.h
+*                   :       and renamed classes from My* to Prof*.
 *                   : *
 * ----------------- :
 * license           : TODO: add license text
@@ -21,16 +22,16 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-MyTreeItem::MyTreeItem(const BlocksTree* _block, QTreeWidgetItem* _parent) : QTreeWidgetItem(_parent), m_block(_block)
+ProfTreeWidgetItem::ProfTreeWidgetItem(const BlocksTree* _block, QTreeWidgetItem* _parent) : QTreeWidgetItem(_parent), m_block(_block)
 {
 }
 
-const BlocksTree* MyTreeItem::block() const
+const BlocksTree* ProfTreeWidgetItem::block() const
 {
     return m_block;
 }
 
-void MyTreeItem::setTimeSmart(int _column, const ::profiler::timestamp_t& _time)
+void ProfTreeWidgetItem::setTimeSmart(int _column, const ::profiler::timestamp_t& _time)
 {
     setData(_column, Qt::UserRole, _time);
 
@@ -54,7 +55,7 @@ void MyTreeItem::setTimeSmart(int _column, const ::profiler::timestamp_t& _time)
     }
 }
 
-void MyTreeItem::setTimeMs(int _column, const ::profiler::timestamp_t& _time)
+void ProfTreeWidgetItem::setTimeMs(int _column, const ::profiler::timestamp_t& _time)
 {
     setData(_column, Qt::UserRole, _time);
     setToolTip(_column, QString("%1 ns").arg(_time));
@@ -63,7 +64,7 @@ void MyTreeItem::setTimeMs(int _column, const ::profiler::timestamp_t& _time)
 
 //////////////////////////////////////////////////////////////////////////
 
-MyTreeWidget::MyTreeWidget(const thread_blocks_tree_t& _blocksTree, QWidget* _parent) : QTreeWidget(_parent), m_beginTime(-1)
+ProfTreeWidget::ProfTreeWidget(const thread_blocks_tree_t& _blocksTree, QWidget* _parent) : QTreeWidget(_parent), m_beginTime(-1)
 {
     setAlternatingRowColors(true);
     setItemsExpandable(true);
@@ -88,16 +89,16 @@ MyTreeWidget::MyTreeWidget(const thread_blocks_tree_t& _blocksTree, QWidget* _pa
     sortByColumn(0, Qt::AscendingOrder);
     sortByColumn(2, Qt::AscendingOrder);
 
-    connect(this, &QTreeWidget::itemExpanded, this, &MyTreeWidget::onItemExpand);
+    connect(this, &QTreeWidget::itemExpanded, this, &ProfTreeWidget::onItemExpand);
 }
 
-void MyTreeWidget::setTree(const thread_blocks_tree_t& _blocksTree)
+void ProfTreeWidget::setTree(const thread_blocks_tree_t& _blocksTree)
 {
     m_itemblocks.clear();
 
     clear();
 
-    disconnect(this, &QTreeWidget::itemExpanded, this, &MyTreeWidget::onItemExpand);
+    disconnect(this, &QTreeWidget::itemExpanded, this, &ProfTreeWidget::onItemExpand);
     setSortingEnabled(false);
     setTreeInternal(_blocksTree);
 
@@ -105,10 +106,10 @@ void MyTreeWidget::setTree(const thread_blocks_tree_t& _blocksTree)
     sortByColumn(0, Qt::AscendingOrder);
     sortByColumn(2, Qt::AscendingOrder);
 
-    connect(this, &QTreeWidget::itemExpanded, this, &MyTreeWidget::onItemExpand);
+    connect(this, &QTreeWidget::itemExpanded, this, &ProfTreeWidget::onItemExpand);
 }
 
-void MyTreeWidget::setTreeInternal(const thread_blocks_tree_t& _blocksTree)
+void ProfTreeWidget::setTreeInternal(const thread_blocks_tree_t& _blocksTree)
 {
     for (const auto& threadTree : _blocksTree)
     {
@@ -121,14 +122,14 @@ void MyTreeWidget::setTreeInternal(const thread_blocks_tree_t& _blocksTree)
 
     for (const auto& threadTree : _blocksTree)
     {
-        auto item = new MyTreeItem(&threadTree.second);
+        auto item = new ProfTreeWidgetItem(&threadTree.second);
         item->setText(0, QString("Thread %1").arg(threadTree.first));
         setTreeInternal(threadTree.second.children, item);
         addTopLevelItem(item);
     }
 }
 
-void MyTreeWidget::setTreeInternal(const BlocksTree::children_t& _children, MyTreeItem* _parent)
+void ProfTreeWidget::setTreeInternal(const BlocksTree::children_t& _children, ProfTreeWidgetItem* _parent)
 {
     for (const auto& child : _children)
     {
@@ -136,7 +137,7 @@ void MyTreeWidget::setTreeInternal(const BlocksTree::children_t& _children, MyTr
         const auto beginTime = child.node->block()->getBegin() - m_beginTime;
         const auto endTime = child.node->block()->getEnd() - m_beginTime;
 
-        auto item = new MyTreeItem(&child, _parent);
+        auto item = new ProfTreeWidgetItem(&child, _parent);
         item->setText(0, child.node->getBlockName());
         item->setTimeSmart(1, child.node->block()->duration());
         item->setTimeMs(2, child.node->block()->getBegin() - m_beginTime);
@@ -159,10 +160,10 @@ void MyTreeWidget::setTreeInternal(const BlocksTree::children_t& _children, MyTr
     }
 }
 
-void MyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
+void ProfTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 {
     const auto col = currentColumn();
-    auto item = static_cast<MyTreeItem*>(currentItem());
+    auto item = static_cast<ProfTreeWidgetItem*>(currentItem());
 
     if (item == nullptr || col < 0)
     {
@@ -172,11 +173,11 @@ void MyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     QMenu menu;
 
     auto action = new QAction("Expand all", nullptr);
-    connect(action, &QAction::triggered, this, &MyTreeWidget::onExpandAllClicked);
+    connect(action, &QAction::triggered, this, &ProfTreeWidget::onExpandAllClicked);
     menu.addAction(action);
 
     action = new QAction("Collapse all", nullptr);
-    connect(action, &QAction::triggered, this, &MyTreeWidget::onCollapseAllClicked);
+    connect(action, &QAction::triggered, this, &ProfTreeWidget::onCollapseAllClicked);
     menu.addAction(action);
 
     switch (col)
@@ -184,8 +185,8 @@ void MyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
         case 4:
         {
             menu.addSeparator();
-            auto itemAction = new ItemAction("Jump to such item", item);
-            connect(itemAction, &ItemAction::clicked, this, &MyTreeWidget::onJumpToMinItemClicked);
+            auto itemAction = new ProfItemAction("Jump to such item", item);
+            connect(itemAction, &ProfItemAction::clicked, this, &ProfTreeWidget::onJumpToMinItemClicked);
             menu.addAction(itemAction);
             break;
         }
@@ -193,8 +194,8 @@ void MyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
         case 5:
         {
             menu.addSeparator();
-            auto itemAction = new ItemAction("Jump to such item", item);
-            connect(itemAction, &ItemAction::clicked, this, &MyTreeWidget::onJumpToMaxItemClicked);
+            auto itemAction = new ProfItemAction("Jump to such item", item);
+            connect(itemAction, &ProfItemAction::clicked, this, &ProfTreeWidget::onJumpToMaxItemClicked);
             menu.addAction(itemAction);
             break;
         }
@@ -205,7 +206,7 @@ void MyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     _event->accept();
 }
 
-void MyTreeWidget::onJumpToMinItemClicked(MyTreeItem* _item)
+void ProfTreeWidget::onJumpToMinItemClicked(ProfTreeWidgetItem* _item)
 {
     auto it = m_itemblocks.find(_item->block()->total_statistics->min_duration_block);
     if (it != m_itemblocks.end())
@@ -215,7 +216,7 @@ void MyTreeWidget::onJumpToMinItemClicked(MyTreeItem* _item)
     }
 }
 
-void MyTreeWidget::onJumpToMaxItemClicked(MyTreeItem* _item)
+void ProfTreeWidget::onJumpToMaxItemClicked(ProfTreeWidgetItem* _item)
 {
     auto it = m_itemblocks.find(_item->block()->total_statistics->max_duration_block);
     if (it != m_itemblocks.end())
@@ -225,20 +226,20 @@ void MyTreeWidget::onJumpToMaxItemClicked(MyTreeItem* _item)
     }
 }
 
-void MyTreeWidget::onCollapseAllClicked(bool)
+void ProfTreeWidget::onCollapseAllClicked(bool)
 {
     collapseAll();
 }
 
-void MyTreeWidget::onExpandAllClicked(bool)
+void ProfTreeWidget::onExpandAllClicked(bool)
 {
-    disconnect(this, &QTreeWidget::itemExpanded, this, &MyTreeWidget::onItemExpand);
+    disconnect(this, &QTreeWidget::itemExpanded, this, &ProfTreeWidget::onItemExpand);
     expandAll();
     resizeColumnToContents(0);
-    connect(this, &QTreeWidget::itemExpanded, this, &MyTreeWidget::onItemExpand);
+    connect(this, &QTreeWidget::itemExpanded, this, &ProfTreeWidget::onItemExpand);
 }
 
-void MyTreeWidget::onItemExpand(QTreeWidgetItem*)
+void ProfTreeWidget::onItemExpand(QTreeWidgetItem*)
 {
     resizeColumnToContents(0);
 }

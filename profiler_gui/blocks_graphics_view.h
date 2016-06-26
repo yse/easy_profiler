@@ -10,6 +10,7 @@
 *                   : it's auxiliary classes for displyaing easy_profiler blocks tree.
 * ----------------- :
 * change log        : * 2016/06/26 Victor Zarubkin: moved sources from graphics_view.h
+*                   :       and renamed classes from My* to Prof*.
 *                   : *
 * ----------------- :
 * license           : TODO: add license text
@@ -27,43 +28,43 @@
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-class GlobalSignals : public QObject
+class ProfViewGlobalSignals : public QObject
 {
     Q_OBJECT
 
 public:
 
-    GlobalSignals() : QObject() {}
-    virtual ~GlobalSignals() {}
+    ProfViewGlobalSignals() : QObject() {}
+    virtual ~ProfViewGlobalSignals() {}
 
 signals:
 
     void scaleIncreased(qreal _scale) const;
     void scaleDecreased(qreal _scale) const;
 
-}; // END of class GlobalSignals.
+}; // END of class ProfViewGlobalSignals.
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-class MyPolygon : public QGraphicsPolygonItem
+class ProfGraphicsPolygonItem : public QGraphicsPolygonItem
 {
 public:
 
-    MyPolygon(QGraphicsItem* _parent = nullptr);
-    virtual ~MyPolygon();
+    ProfGraphicsPolygonItem(QGraphicsItem* _parent = nullptr);
+    virtual ~ProfGraphicsPolygonItem();
 
-}; // END of class MyPolygon.
+}; // END of class ProfGraphicsPolygonItem.
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-class MyText : public QObject, public QGraphicsSimpleTextItem
+class ProfGraphicsTextItem : public QObject, public QGraphicsSimpleTextItem
 {
     Q_OBJECT
 
 public:
 
-    MyText(const char* _text, QGraphicsItem* _parent = nullptr);
-    virtual ~MyText();
+    ProfGraphicsTextItem(const char* _text, QGraphicsItem* _parent = nullptr);
+    virtual ~ProfGraphicsTextItem();
 
 private slots:
 
@@ -71,11 +72,11 @@ private slots:
 
     void onScaleDecrease(qreal _scale);
 
-}; // END of class MyText.
+}; // END of class ProfGraphicsTextItem.
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-class MyGraphicsScene : public QGraphicsScene
+class ProfGraphicsScene : public QGraphicsScene
 {
     Q_OBJECT
 
@@ -87,9 +88,9 @@ public:
 
     int items_couinter = 0;
 
-    MyGraphicsScene(QGraphicsView* _parent);
-    MyGraphicsScene(const thread_blocks_tree_t& _blocksTree, QGraphicsView* _parent);
-    virtual ~MyGraphicsScene();
+    ProfGraphicsScene(QGraphicsView* _parent);
+    ProfGraphicsScene(const thread_blocks_tree_t& _blocksTree, QGraphicsView* _parent);
+    virtual ~ProfGraphicsScene();
 
     void test();
 
@@ -104,11 +105,11 @@ private:
 
     void setTree(const BlocksTree::children_t& _children, qreal _y, int _level = 0);
 
-}; // END of class MyGraphicsScene.
+}; // END of class ProfGraphicsScene.
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-class MyGraphicsView : public QGraphicsView
+class ProfGraphicsView : public QGraphicsView
 {
     Q_OBJECT
 
@@ -119,15 +120,15 @@ private:
 
 public:
 
-    MyGraphicsView();
-    MyGraphicsView(const thread_blocks_tree_t& _blocksTree);
-    virtual ~MyGraphicsView();
+    ProfGraphicsView();
+    ProfGraphicsView(const thread_blocks_tree_t& _blocksTree);
+    virtual ~ProfGraphicsView();
 
     void initMode();
 
     void wheelEvent(QWheelEvent* _event);
 
-}; // END of class MyGraphicsView.
+}; // END of class ProfGraphicsView.
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

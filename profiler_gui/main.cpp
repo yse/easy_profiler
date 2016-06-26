@@ -46,7 +46,7 @@ int main(int argc, char **argv)
                 srand(*rseed);
                 delete rseed;
 
-                MyGraphicsView gview;
+                ProfGraphicsView gview;
                 gview.show();
 
                 return app.exec();
@@ -55,7 +55,7 @@ int main(int argc, char **argv)
             thread_blocks_tree_t threaded_trees;
             int blocks_counter = fillTreesFromFile("test.prof", threaded_trees, true);
 
-            MyGraphicsView gview(threaded_trees);
+            ProfGraphicsView gview(threaded_trees);
             gview.show();
 
             return app.exec();
@@ -66,7 +66,7 @@ int main(int argc, char **argv)
             thread_blocks_tree_t threaded_trees;
             int blocks_counter = fillTreesFromFile("test.prof", threaded_trees, true);
 
-            MyTreeWidget view(threaded_trees);
+            ProfTreeWidget view(threaded_trees);
             view.show();
 
             return app.exec();

@@ -10,6 +10,7 @@
 *                   : for displyaing easy_profiler blocks tree.
 * ----------------- : 
 * change log        : * 2016/06/26 Victor Zarubkin: moved sources from tree_view.h
+*                   :       and renamed classes from My* to Prof*.
 *                   : * 
 * ----------------- : 
 * license           : TODO: add license text
@@ -26,47 +27,51 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-template <const size_t SIZEOF_T>
-struct no_hasher {
-    template <class T> inline size_t operator () (const T& _data) const {
-        return (size_t)_data;
-    }
-};
+namespace btw {
+
+    template <const size_t SIZEOF_T>
+    struct no_hasher {
+        template <class T> inline size_t operator () (const T& _data) const {
+            return (size_t)_data;
+        }
+    };
 
 #ifdef _WIN64
-template <> struct no_hasher<8> {
-    template <class T> inline size_t operator () (T _data) const {
-        return (size_t)_data;
-    }
-};
+    template <> struct no_hasher<8> {
+        template <class T> inline size_t operator () (T _data) const {
+            return (size_t)_data;
+        }
+    };
 #endif
 
-template <> struct no_hasher<4> {
-    template <class T> inline size_t operator () (T _data) const {
-        return (size_t)_data;
-    }
-};
+    template <> struct no_hasher<4> {
+        template <class T> inline size_t operator () (T _data) const {
+            return (size_t)_data;
+        }
+    };
 
-template <> struct no_hasher<2> {
-    template <class T> inline size_t operator () (T _data) const {
-        return (size_t)_data;
-    }
-};
+    template <> struct no_hasher<2> {
+        template <class T> inline size_t operator () (T _data) const {
+            return (size_t)_data;
+        }
+    };
 
-template <> struct no_hasher<1> {
-    template <class T> inline size_t operator () (T _data) const {
-        return (size_t)_data;
-    }
-};
+    template <> struct no_hasher<1> {
+        template <class T> inline size_t operator () (T _data) const {
+            return (size_t)_data;
+        }
+    };
 
-template <class T>
-struct do_no_hash {
-    typedef no_hasher<sizeof(T)> hasher_t;
-};
+    template <class T>
+    struct do_no_hash {
+        typedef no_hasher<sizeof(T)> hasher_t;
+    };
+
+} // END of namespace btw.
 
 //////////////////////////////////////////////////////////////////////////
 
-class MyTreeItem : public QTreeWidgetItem
+class ProfTreeWidgetItem : public QTreeWidgetItem
 {
     //Q_OBJECT
 
@@ -74,7 +79,7 @@ class MyTreeItem : public QTreeWidgetItem
 
 public:
 
-    MyTreeItem(const BlocksTree* _block, QTreeWidgetItem* _parent = nullptr);
+    ProfTreeWidgetItem(const BlocksTree* _block, QTreeWidgetItem* _parent = nullptr);
 
     const BlocksTree* block() const;
 
@@ -105,23 +110,23 @@ public:
 
     void setTimeMs(int _column, const ::profiler::timestamp_t& _time);
 
-}; // END of class MyTreeItem.
+}; // END of class ProfTreeWidgetItem.
 
 //////////////////////////////////////////////////////////////////////////
 
-class ItemAction : public QAction
+class ProfItemAction : public QAction
 {
     Q_OBJECT
 
 private:
 
-    MyTreeItem* m_item;
+    ProfTreeWidgetItem* m_item;
 
 public:
 
-    ItemAction(const char* _label, MyTreeItem* _item) : QAction(_label, nullptr), m_item(_item)
+    ProfItemAction(const char* _label, ProfTreeWidgetItem* _item) : QAction(_label, nullptr), m_item(_item)
     {
-        connect(this, &QAction::triggered, this, &ItemAction::onToggle);
+        connect(this, &QAction::triggered, this, &ProfItemAction::onToggle);
     }
 
 private:
@@ -133,25 +138,25 @@ private:
 
 signals:
 
-    void clicked(MyTreeItem* _item);
+    void clicked(ProfTreeWidgetItem* _item);
 };
 
 //////////////////////////////////////////////////////////////////////////
 
-class MyTreeWidget : public QTreeWidget
+class ProfTreeWidget : public QTreeWidget
 {
     Q_OBJECT
 
 protected:
 
-    typedef ::std::unordered_map<const ::profiler::SerilizedBlock*, MyTreeItem*, do_no_hash<const ::profiler::SerilizedBlock*>::hasher_t> BlockItemMap;
+    typedef ::std::unordered_map<const ::profiler::SerilizedBlock*, ProfTreeWidgetItem*, ::btw::do_no_hash<const ::profiler::SerilizedBlock*>::hasher_t> BlockItemMap;
 
     BlockItemMap            m_itemblocks;
     ::profiler::timestamp_t  m_beginTime;
 
 public:
 
-    MyTreeWidget(const thread_blocks_tree_t& _blocksTree, QWidget* _parent = nullptr);
+    ProfTreeWidget(const thread_blocks_tree_t& _blocksTree, QWidget* _parent = nullptr);
 
     void setTree(const thread_blocks_tree_t& _blocksTree);
 
@@ -159,15 +164,15 @@ protected:
 
     void setTreeInternal(const thread_blocks_tree_t& _blocksTree);
 
-    void setTreeInternal(const BlocksTree::children_t& _children, MyTreeItem* _parent);
+    void setTreeInternal(const BlocksTree::children_t& _children, ProfTreeWidgetItem* _parent);
 
     void contextMenuEvent(QContextMenuEvent* _event);
 
 private slots:
 
-    void onJumpToMinItemClicked(MyTreeItem* _item);
+    void onJumpToMinItemClicked(ProfTreeWidgetItem* _item);
 
-    void onJumpToMaxItemClicked(MyTreeItem* _item);
+    void onJumpToMaxItemClicked(ProfTreeWidgetItem* _item);
 
     void onCollapseAllClicked(bool);
 
@@ -175,7 +180,7 @@ private slots:
 
     void onItemExpand(QTreeWidgetItem*);
 
-}; // END of class MyTreeWidget.
+}; // END of class ProfTreeWidget.
 
 //////////////////////////////////////////////////////////////////////////
 
