@@ -174,7 +174,7 @@ public:
         setAlternatingRowColors(true);
         setItemsExpandable(true);
         setAnimated(true);
-        setSortingEnabled(true);
+        setSortingEnabled(false);
         setColumnCount(10);
 
         auto header = new QTreeWidgetItem();
@@ -190,7 +190,11 @@ public:
 
         setTreeInternal(_blocksTree);
 
-        setBaseSize(640, 480);
+        setSortingEnabled(true);
+        sortByColumn(0, Qt::AscendingOrder);
+        sortByColumn(2, Qt::AscendingOrder);
+
+        connect(this, &QTreeWidget::itemExpanded, this, &MyTreeWidget::onItemExpand);
     }
 
     void setTree(const thread_blocks_tree_t& _blocksTree)
@@ -326,7 +330,15 @@ private slots:
 
     void onExpandAllClicked(bool)
     {
+        disconnect(this, &QTreeWidget::itemExpanded, this, &MyTreeWidget::onItemExpand);
         expandAll();
+        resizeColumnToContents(0);
+        connect(this, &QTreeWidget::itemExpanded, this, &MyTreeWidget::onItemExpand);
+    }
+
+    void onItemExpand(QTreeWidgetItem*)
+    {
+        resizeColumnToContents(0);
     }
 
 };
