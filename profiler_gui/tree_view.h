@@ -258,17 +258,35 @@ protected:
         const auto col = currentColumn();
         auto item = static_cast<MyTreeItem*>(currentItem());
 
-        if (item && col > 0)
+        if (item && col >= 0)
         {
             QMenu menu;
 
+            auto action = new QAction("Expand all", nullptr);
+            connect(action, &QAction::triggered, this, &MyTreeWidget::onExpandAllClicked);
+            menu.addAction(action);
+
+            action = new QAction("Collapse all", nullptr);
+            connect(action, &QAction::triggered, this, &MyTreeWidget::onCollapseAllClicked);
+            menu.addAction(action);
+
             switch (col)
             {
+                case 4:
+                {
+                    menu.addSeparator();
+                    auto itemAction = new ItemAction("Jump to such item", item);
+                    connect(itemAction, &ItemAction::clicked, this, &MyTreeWidget::onJumpToMinItemClicked);
+                    menu.addAction(itemAction);
+                    break;
+                }
+
                 case 5:
                 {
-                    auto action = new ItemAction("Jump to item with max duration", item);
-                    connect(action, &ItemAction::clicked, this, &MyTreeWidget::onJumpToMaxItemClicked);
-                    menu.addAction(action);
+                    menu.addSeparator();
+                    auto itemAction = new ItemAction("Jump to such item", item);
+                    connect(itemAction, &ItemAction::clicked, this, &MyTreeWidget::onJumpToMaxItemClicked);
+                    menu.addAction(itemAction);
                     break;
                 }
             }
@@ -281,14 +299,34 @@ protected:
 
 private slots:
 
+    void onJumpToMinItemClicked(MyTreeItem* _item)
+    {
+        auto it = m_itemblocks.find(_item->block()->total_statistics->min_duration_block);
+        if (it != m_itemblocks.end())
+        {
+            scrollToItem(it->second, QAbstractItemView::PositionAtCenter);
+            setCurrentItem(it->second);
+        }
+    }
+
     void onJumpToMaxItemClicked(MyTreeItem* _item)
     {
         auto it = m_itemblocks.find(_item->block()->total_statistics->max_duration_block);
         if (it != m_itemblocks.end())
         {
+            scrollToItem(it->second, QAbstractItemView::PositionAtCenter);
             setCurrentItem(it->second);
-            scrollToItem(it->second);
         }
+    }
+
+    void onCollapseAllClicked(bool)
+    {
+        collapseAll();
+    }
+
+    void onExpandAllClicked(bool)
+    {
+        expandAll();
     }
 
 };
