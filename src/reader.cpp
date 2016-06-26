@@ -198,11 +198,13 @@ extern "C"{
 				}
 
 				root.children.push_back(std::move(tree));
+				
 			}
 
 
 			//delete[] data;
 
+			
 
             if (gather_statistics)
             {
@@ -210,6 +212,18 @@ extern "C"{
                 update_statistics(overall_statistics, current.node, current.total_statistics);
             }
 
+		}
+
+		if (gather_statistics)
+		{
+			for (auto& threaded_tree : threaded_trees)
+			{
+				frame_statistics.clear();
+				for (auto& root : threaded_tree.second.children)
+				{
+					update_statistics(frame_statistics, root.node, root.frame_statistics);
+				}
+			}
 		}
 
         // No need to delete BlockStatistics instances - they will be deleted on BlocksTree destructors
