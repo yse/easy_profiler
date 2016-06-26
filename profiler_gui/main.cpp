@@ -4,12 +4,12 @@
 #include "treemodel.h"
 #include "blocks_graphics_view.h"
 #include "blocks_tree_widget.h"
+#include "main_window.h"
 #include "profiler/reader.h"
 
 int main(int argc, char **argv)
 {
 	QApplication app(argc, argv);
-
 
 	//QFileSystemModel *model = new QFileSystemModel;
 	//model->setRootPath(QDir::currentPath());
@@ -31,7 +31,7 @@ int main(int argc, char **argv)
 // 
 // 	tree->show();
 
-    int mode = 1;
+    int mode = 2;
 
     switch (mode)
     {
@@ -46,7 +46,7 @@ int main(int argc, char **argv)
                 srand(*rseed);
                 delete rseed;
 
-                ProfGraphicsView gview;
+                ProfGraphicsView gview(true);
                 gview.show();
 
                 return app.exec();
@@ -69,6 +69,13 @@ int main(int argc, char **argv)
             ProfTreeWidget view(threaded_trees);
             view.show();
 
+            return app.exec();
+        }
+
+        case 2:
+        {
+            ProfMainWindow window;
+            window.show();
             return app.exec();
         }
     }

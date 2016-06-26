@@ -19,6 +19,8 @@ add_executable(${PROJECT_NAME}
     blocks_graphics_view.cpp
     blocks_tree_widget.h
     blocks_tree_widget.cpp
+    main_window.h
+    main_window.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} Qt5::Widgets easy_profiler)

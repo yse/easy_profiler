@@ -23,54 +23,35 @@
 #include <QGraphicsScene>
 #include <QGraphicsPolygonItem>
 #include <QGraphicsSimpleTextItem>
+#include <QPoint>
 #include <stdlib.h>
 #include "profiler/reader.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-class ProfViewGlobalSignals : public QObject
-{
-    Q_OBJECT
-
-public:
-
-    ProfViewGlobalSignals() : QObject() {}
-    virtual ~ProfViewGlobalSignals() {}
-
-signals:
-
-    void scaleIncreased(qreal _scale) const;
-    void scaleDecreased(qreal _scale) const;
-
-}; // END of class ProfViewGlobalSignals.
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 class ProfGraphicsPolygonItem : public QGraphicsPolygonItem
 {
+    bool m_bDrawBorders;
+
 public:
 
-    ProfGraphicsPolygonItem(QGraphicsItem* _parent = nullptr);
+    ProfGraphicsPolygonItem(bool _drawBorders, QGraphicsItem* _parent = nullptr);
     virtual ~ProfGraphicsPolygonItem();
+
+    void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget = Q_NULLPTR) override;
 
 }; // END of class ProfGraphicsPolygonItem.
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-class ProfGraphicsTextItem : public QObject, public QGraphicsSimpleTextItem
+class ProfGraphicsTextItem : public QGraphicsSimpleTextItem
 {
-    Q_OBJECT
-
 public:
 
     ProfGraphicsTextItem(const char* _text, QGraphicsItem* _parent = nullptr);
     virtual ~ProfGraphicsTextItem();
 
-private slots:
-
-    void onScaleIncrease(qreal _scale);
-
-    void onScaleDecrease(qreal _scale);
+    void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget = Q_NULLPTR) override;
 
 }; // END of class ProfGraphicsTextItem.
 
@@ -78,6 +59,8 @@ private slots:
 
 class ProfGraphicsScene : public QGraphicsScene
 {
+    friend class ProfGraphicsView;
+
     Q_OBJECT
 
 private:
@@ -86,24 +69,25 @@ private:
 
 public:
 
-    int items_couinter = 0;
-
-    ProfGraphicsScene(QGraphicsView* _parent);
+    ProfGraphicsScene(QGraphicsView* _parent, bool _test = false);
     ProfGraphicsScene(const thread_blocks_tree_t& _blocksTree, QGraphicsView* _parent);
     virtual ~ProfGraphicsScene();
 
+private:
+
     void test();
+
+    void clearSilent();
 
     void setTree(const thread_blocks_tree_t& _blocksTree);
 
-private:
+    void setTreeInternal(const thread_blocks_tree_t& _blocksTree);
+    void setTreeInternal(const BlocksTree::children_t& _children, qreal _y, int _level = 0);
 
     inline qreal time2position(const profiler::timestamp_t& _time) const
     {
         return qreal(_time - m_start) * 1e-6;
     }
-
-    void setTree(const BlocksTree::children_t& _children, qreal _y, int _level = 0);
 
 }; // END of class ProfGraphicsScene.
 
@@ -115,18 +99,30 @@ class ProfGraphicsView : public QGraphicsView
 
 private:
 
-    qreal m_scale;
-    qreal m_scaleCoeff;
+    qreal                    m_scale;
+    qreal               m_scaleCoeff;
+    QPoint           m_mousePressPos;
+    Qt::MouseButtons  m_mouseButtons;
 
 public:
 
-    ProfGraphicsView();
+    ProfGraphicsView(bool _test = false);
     ProfGraphicsView(const thread_blocks_tree_t& _blocksTree);
     virtual ~ProfGraphicsView();
 
-    void initMode();
+    void wheelEvent(QWheelEvent* _event) override;
+    void mousePressEvent(QMouseEvent* _event) override;
+    void mouseReleaseEvent(QMouseEvent* _event) override;
+    void mouseMoveEvent(QMouseEvent* _event) override;
 
-    void wheelEvent(QWheelEvent* _event);
+    inline qreal currentScale() const
+    {
+        return m_scale;
+    }
+
+    void setTree(const thread_blocks_tree_t& _blocksTree);
+
+    void initMode();
 
 }; // END of class ProfGraphicsView.
 

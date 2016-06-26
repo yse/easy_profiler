@@ -80,28 +80,23 @@ class ProfTreeWidgetItem : public QTreeWidgetItem
 public:
 
     ProfTreeWidgetItem(const BlocksTree* _block, QTreeWidgetItem* _parent = nullptr);
+    virtual ~ProfTreeWidgetItem();
 
     const BlocksTree* block() const;
 
     inline bool operator < (const QTreeWidgetItem& _other) const
     {
         const auto col = treeWidget()->sortColumn();
-        //switch (col)
-        //{
-        //    case 1:
-        //    case 2:
-        //    case 3:
-            if (col > 0 && col < 7)
-            {
+        if (col > 0 && col < 7)
+        {
 #ifndef _DEBUG
-                return data(col, Qt::UserRole).toULongLong() < _other.data(col, Qt::UserRole).toULongLong();
+            return data(col, Qt::UserRole).toULongLong() < _other.data(col, Qt::UserRole).toULongLong();
 #else
-                const auto selfdata = data(col, Qt::UserRole).toULongLong();
-                const auto otherdata = _other.data(col, Qt::UserRole).toULongLong();
-                return selfdata < otherdata;
+            const auto selfdata = data(col, Qt::UserRole).toULongLong();
+            const auto otherdata = _other.data(col, Qt::UserRole).toULongLong();
+            return selfdata < otherdata;
 #endif
-            }
-        //}
+        }
 
         return QTreeWidgetItem::operator < (_other);
     }
@@ -127,6 +122,10 @@ public:
     ProfItemAction(const char* _label, ProfTreeWidgetItem* _item) : QAction(_label, nullptr), m_item(_item)
     {
         connect(this, &QAction::triggered, this, &ProfItemAction::onToggle);
+    }
+
+    virtual ~ProfItemAction()
+    {
     }
 
 private:
@@ -156,7 +155,9 @@ protected:
 
 public:
 
+    ProfTreeWidget(QWidget* _parent = nullptr);
     ProfTreeWidget(const thread_blocks_tree_t& _blocksTree, QWidget* _parent = nullptr);
+    virtual ~ProfTreeWidget();
 
     void setTree(const thread_blocks_tree_t& _blocksTree);
 
@@ -166,7 +167,7 @@ protected:
 
     void setTreeInternal(const BlocksTree::children_t& _children, ProfTreeWidgetItem* _parent);
 
-    void contextMenuEvent(QContextMenuEvent* _event);
+    void contextMenuEvent(QContextMenuEvent* _event) override;
 
 private slots:
 

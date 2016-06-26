@@ -26,6 +26,10 @@ ProfTreeWidgetItem::ProfTreeWidgetItem(const BlocksTree* _block, QTreeWidgetItem
 {
 }
 
+ProfTreeWidgetItem::~ProfTreeWidgetItem()
+{
+}
+
 const BlocksTree* ProfTreeWidgetItem::block() const
 {
     return m_block;
@@ -64,13 +68,13 @@ void ProfTreeWidgetItem::setTimeMs(int _column, const ::profiler::timestamp_t& _
 
 //////////////////////////////////////////////////////////////////////////
 
-ProfTreeWidget::ProfTreeWidget(const thread_blocks_tree_t& _blocksTree, QWidget* _parent) : QTreeWidget(_parent), m_beginTime(-1)
+ProfTreeWidget::ProfTreeWidget(QWidget* _parent) : QTreeWidget(_parent), m_beginTime(-1)
 {
     setAlternatingRowColors(true);
     setItemsExpandable(true);
     setAnimated(true);
     setSortingEnabled(false);
-    setColumnCount(10);
+    setColumnCount(8);
 
     auto header = new QTreeWidgetItem();
     header->setText(0, "Name");
@@ -82,7 +86,10 @@ ProfTreeWidget::ProfTreeWidget(const thread_blocks_tree_t& _blocksTree, QWidget*
     header->setText(6, "Average dur.");
     header->setText(7, "N Calls");
     setHeaderItem(header);
+}
 
+ProfTreeWidget::ProfTreeWidget(const thread_blocks_tree_t& _blocksTree, QWidget* _parent) : ProfTreeWidget(_parent)
+{
     setTreeInternal(_blocksTree);
 
     setSortingEnabled(true);
@@ -90,6 +97,10 @@ ProfTreeWidget::ProfTreeWidget(const thread_blocks_tree_t& _blocksTree, QWidget*
     sortByColumn(2, Qt::AscendingOrder);
 
     connect(this, &QTreeWidget::itemExpanded, this, &ProfTreeWidget::onItemExpand);
+}
+
+ProfTreeWidget::~ProfTreeWidget()
+{
 }
 
 void ProfTreeWidget::setTree(const thread_blocks_tree_t& _blocksTree)
@@ -100,6 +111,8 @@ void ProfTreeWidget::setTree(const thread_blocks_tree_t& _blocksTree)
 
     disconnect(this, &QTreeWidget::itemExpanded, this, &ProfTreeWidget::onItemExpand);
     setSortingEnabled(false);
+
+    m_beginTime = -1;
     setTreeInternal(_blocksTree);
 
     setSortingEnabled(true);
