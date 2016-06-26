@@ -3,6 +3,7 @@
 #include <QFileSystemModel>
 #include "treemodel.h"
 #include "graphics_view.h"
+#include "tree_view.h"
 #include "profiler/reader.h"
 
 int main(int argc, char **argv)
@@ -30,26 +31,47 @@ int main(int argc, char **argv)
 // 
 // 	tree->show();
 
-    const bool test = false;
+    int mode = 1;
 
-    if (test)
+    switch (mode)
     {
-        // srand for random colors in test
-        unsigned int* rseed = new unsigned int;
-        srand(*rseed);
-        delete rseed;
+        case 0:
+        {
+            const bool test = false;
 
-        MyGraphicsView gview;
-        gview.show();
+            if (test)
+            {
+                // srand for random colors in test
+                unsigned int* rseed = new unsigned int;
+                srand(*rseed);
+                delete rseed;
 
-        return app.exec();
+                MyGraphicsView gview;
+                gview.show();
+
+                return app.exec();
+            }
+
+            thread_blocks_tree_t threaded_trees;
+            int blocks_counter = fillTreesFromFile("../test.prof", threaded_trees, true);
+
+            MyGraphicsView gview(threaded_trees);
+            gview.show();
+
+            return app.exec();
+        }
+
+        case 1:
+        {
+            thread_blocks_tree_t threaded_trees;
+            int blocks_counter = fillTreesFromFile("../test.prof", threaded_trees, true);
+
+            MyTreeWidget view(threaded_trees);
+            view.show();
+
+            return app.exec();
+        }
     }
 
-    thread_blocks_tree_t threaded_trees;
-    int blocks_counter = fillTreesFromFile("test.prof", threaded_trees, false);
-
-    MyGraphicsView gview(threaded_trees);
-    gview.show();
-
-    return app.exec();
+    return -1;
 }

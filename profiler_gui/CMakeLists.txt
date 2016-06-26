@@ -8,5 +8,5 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 find_package(Qt5Widgets REQUIRED)
-add_executable(${PROJECT_NAME} main.cpp treemodel.h treemodel.cpp treeitem.h treeitem.cpp graphics_view.h)# widgets_view.h)
+add_executable(${PROJECT_NAME} main.cpp treemodel.h treemodel.cpp treeitem.h treeitem.cpp graphics_view.h tree_view.h)# widgets_view.h)
 target_link_libraries(${PROJECT_NAME} Qt5::Widgets easy_profiler)
