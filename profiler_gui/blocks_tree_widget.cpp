@@ -14,7 +14,7 @@
 *                   : * 2016/06/27 Victor Zarubkin: Added possibility to colorize rows
 *                   :       with profiler blocks' colors.
 *                   :       Also added displaying frame statistics for blocks.
-*                   :       Disabled sorting by name.
+*                   :       Disabled sorting by name to save order of threads displayed on graphics view.
 *                   : * 
 * ----------------- :
 * license           : TODO: add license text
