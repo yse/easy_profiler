@@ -9,9 +9,10 @@
 * description       : The file contains implementation of GraphicsScene and GraphicsView and
 *                   : it's auxiliary classes for displyaing easy_profiler blocks tree.
 * ----------------- :
-* change log        : * 2016/06/26 Victor Zarubkin: moved sources from graphics_view.h
+* change log        : * 2016/06/26 Victor Zarubkin: Moved sources from graphics_view.h
 *                   :       and renamed classes from My* to Prof*.
-*                   : *
+*                   : * 2016/06/27 Victor Zarubkin: Added text shifting relatively to it's parent item.
+*                   : * 
 * ----------------- :
 * license           : TODO: add license text
 ************************************************************************/
@@ -21,6 +22,10 @@
 #include <QSignalBlocker>
 #include <QScrollBar>
 #include "blocks_graphics_view.h"
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+const qreal BASE_TEXT_SHIFT = 5; ///< Text position relatively to parent polygon item
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -77,10 +82,12 @@ ProfGraphicsTextItem::~ProfGraphicsTextItem()
 void ProfGraphicsTextItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
 {
     const auto currentScale = static_cast<ProfGraphicsView*>(parentItem()->scene()->parent())->currentScale();
-    if (boundingRect().width() < parentItem()->boundingRect().width() * currentScale)
+    const auto dx = BASE_TEXT_SHIFT / currentScale;
+    if ((boundingRect().width() + dx) < parentItem()->boundingRect().width() * currentScale)
     {
         painter->setTransform(QTransform::fromScale(1. / currentScale, 1), true);
         //setScale(1. / currentScale);
+        setX(dx);
         QGraphicsSimpleTextItem::paint(painter, option, widget);
     }
 }
@@ -189,7 +196,7 @@ void ProfGraphicsScene::setTreeInternal(const BlocksTree::children_t& _children,
         addItem(item);
 
         ProfGraphicsTextItem* text = new ProfGraphicsTextItem(child.node->getBlockName(), item);
-        text->setPos(0, _level * 5);
+        text->setPos(BASE_TEXT_SHIFT, _level * 5);
 
         auto textBrush = text->brush();
         textBrush.setColor(QRgb(0x00ffffff - itemBrush.color().rgb()));
