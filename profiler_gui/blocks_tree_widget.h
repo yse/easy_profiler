@@ -11,6 +11,8 @@
 * ----------------- : 
 * change log        : * 2016/06/26 Victor Zarubkin: moved sources from tree_view.h
 *                   :       and renamed classes from My* to Prof*.
+*                   : * 2016/06/27 Victor Zarubkin: Added possibility to colorize rows
+*                   :       with profiler blocks' colors.
 *                   : * 
 * ----------------- : 
 * license           : TODO: add license text
@@ -23,6 +25,7 @@
 #include <QAction>
 #include <stdlib.h>
 #include <unordered_map>
+#include <vector>
 #include "profiler/reader.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -73,37 +76,34 @@ namespace btw {
 
 class ProfTreeWidgetItem : public QTreeWidgetItem
 {
-    //Q_OBJECT
+    typedef QTreeWidgetItem    Parent;
+    typedef ProfTreeWidgetItem   This;
 
     const BlocksTree* m_block;
+    QBrush    m_customBGColor;
+    QBrush  m_customTextColor;
 
 public:
 
-    ProfTreeWidgetItem(const BlocksTree* _block, QTreeWidgetItem* _parent = nullptr);
+    using Parent::setBackgroundColor;
+    using Parent::setTextColor;
+
+    ProfTreeWidgetItem(const BlocksTree* _treeBlock, Parent* _parent = nullptr);
     virtual ~ProfTreeWidgetItem();
 
+    bool operator < (const Parent& _other) const override;
+
     const BlocksTree* block() const;
-
-    inline bool operator < (const QTreeWidgetItem& _other) const
-    {
-        const auto col = treeWidget()->sortColumn();
-        if (col > 0 && col < 7)
-        {
-#ifndef _DEBUG
-            return data(col, Qt::UserRole).toULongLong() < _other.data(col, Qt::UserRole).toULongLong();
-#else
-            const auto selfdata = data(col, Qt::UserRole).toULongLong();
-            const auto otherdata = _other.data(col, Qt::UserRole).toULongLong();
-            return selfdata < otherdata;
-#endif
-        }
-
-        return QTreeWidgetItem::operator < (_other);
-    }
 
     void setTimeSmart(int _column, const ::profiler::timestamp_t& _time);
 
     void setTimeMs(int _column, const ::profiler::timestamp_t& _time);
+
+    void setBackgroundColor(const QColor& _color);
+
+    void setTextColor(const QColor& _color);
+
+    void colorize(bool _colorize);
 
 }; // END of class ProfTreeWidgetItem.
 
@@ -146,24 +146,30 @@ class ProfTreeWidget : public QTreeWidget
 {
     Q_OBJECT
 
+    typedef QTreeWidget    Parent;
+    typedef ProfTreeWidget   This;
+
 protected:
 
+    typedef ::std::vector<ProfTreeWidgetItem*> Items;
     typedef ::std::unordered_map<const ::profiler::SerilizedBlock*, ProfTreeWidgetItem*, ::btw::do_no_hash<const ::profiler::SerilizedBlock*>::hasher_t> BlockItemMap;
 
+    Items                        m_items;
     BlockItemMap            m_itemblocks;
     ::profiler::timestamp_t  m_beginTime;
+    bool                    m_bColorRows;
 
 public:
 
     ProfTreeWidget(QWidget* _parent = nullptr);
-    ProfTreeWidget(const thread_blocks_tree_t& _blocksTree, QWidget* _parent = nullptr);
+    ProfTreeWidget(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree, QWidget* _parent = nullptr);
     virtual ~ProfTreeWidget();
 
-    void setTree(const thread_blocks_tree_t& _blocksTree);
+    void setTree(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree);
 
 protected:
 
-    void setTreeInternal(const thread_blocks_tree_t& _blocksTree);
+    void setTreeInternal(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree);
 
     void setTreeInternal(const BlocksTree::children_t& _children, ProfTreeWidgetItem* _parent);
 
@@ -180,6 +186,8 @@ private slots:
     void onExpandAllClicked(bool);
 
     void onItemExpand(QTreeWidgetItem*);
+
+    void onColorizeRowsTriggered(bool _colorize);
 
 }; // END of class ProfTreeWidget.
 

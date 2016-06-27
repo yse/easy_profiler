@@ -64,9 +64,9 @@ int main(int argc, char **argv)
         case 1:
         {
             thread_blocks_tree_t threaded_trees;
-            fillTreesFromFile("test.prof", threaded_trees, true);
+            auto nblocks = fillTreesFromFile("test.prof", threaded_trees, true);
 
-            ProfTreeWidget view(threaded_trees);
+            ProfTreeWidget view(nblocks, threaded_trees);
             view.show();
 
             return app.exec();

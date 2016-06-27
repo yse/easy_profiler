@@ -9,25 +9,83 @@
 * description       : The file contains implementation of TreeWidget and it's auxiliary classes
 *                   : for displyaing easy_profiler blocks tree.
 * ----------------- :
-* change log        : * 2016/06/26 Victor Zarubkin: moved sources from tree_view.h
+* change log        : * 2016/06/26 Victor Zarubkin: Moved sources from tree_view.h
 *                   :       and renamed classes from My* to Prof*.
-*                   : *
+*                   : * 2016/06/27 Victor Zarubkin: Added possibility to colorize rows
+*                   :       with profiler blocks' colors.
+*                   :       Also added displaying frame statistics for blocks.
+*                   : * 
 * ----------------- :
 * license           : TODO: add license text
 ************************************************************************/
 
 #include <QMenu>
 #include <QContextMenuEvent>
+#include <QSignalBlocker>
 #include "blocks_tree_widget.h"
 
 //////////////////////////////////////////////////////////////////////////
 
-ProfTreeWidgetItem::ProfTreeWidgetItem(const BlocksTree* _block, QTreeWidgetItem* _parent) : QTreeWidgetItem(_parent), m_block(_block)
+enum ColumnsIndexes
+{
+    COL_UNKNOWN = -1,
+
+    COL_NAME = 0,
+    COL_DURATION,
+    COL_BEGIN,
+    COL_END,
+    COL_MIN_TOTAL,
+    COL_MAX_TOTAL,
+    COL_AVERAGE_TOTAL,
+    COL_NCALLS_TOTAL,
+    COL_MIN,
+    COL_MAX,
+    COL_AVERAGE,
+    COL_NCALLS,
+
+    COL_COLUMNS_NUMBER
+};
+
+//////////////////////////////////////////////////////////////////////////
+
+ProfTreeWidgetItem::ProfTreeWidgetItem(const BlocksTree* _treeBlock, Parent* _parent)
+    : Parent(_parent)
+    , m_block(_treeBlock)
 {
 }
 
 ProfTreeWidgetItem::~ProfTreeWidgetItem()
 {
+}
+
+bool ProfTreeWidgetItem::operator < (const Parent& _other) const
+{
+    const auto col = treeWidget()->sortColumn();
+
+    switch (col)
+    {
+        case COL_UNKNOWN:
+        case COL_NAME:
+        {
+            // column 0 - Name
+            return Parent::operator < (_other);
+        }
+
+        case COL_NCALLS_TOTAL:
+        case COL_NCALLS:
+        {
+            // column 7 and 11 - N calls
+            return data(col, Qt::UserRole).toUInt() < _other.data(col, Qt::UserRole).toUInt();
+        }
+
+        default:
+        {
+            // columns [1; 6] and [8; 10] - durations
+            return data(col, Qt::UserRole).toULongLong() < _other.data(col, Qt::UserRole).toULongLong();
+        }
+    }
+
+    return false;
 }
 
 const BlocksTree* ProfTreeWidgetItem::block() const
@@ -66,64 +124,105 @@ void ProfTreeWidgetItem::setTimeMs(int _column, const ::profiler::timestamp_t& _
     setText(_column, QString::number(double(_time) * 1e-6, 'g', 9));
 }
 
+void ProfTreeWidgetItem::setBackgroundColor(const QColor& _color)
+{
+    m_customBGColor = _color;
+}
+
+void ProfTreeWidgetItem::setTextColor(const QColor& _color)
+{
+    m_customTextColor = _color;
+}
+
+void ProfTreeWidgetItem::colorize(bool _colorize)
+{
+    if (_colorize)
+    {
+        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+        {
+            setBackground(i, m_customBGColor);
+            setForeground(i, m_customTextColor);
+        }
+    }
+    else
+    {
+        const QBrush nobrush;
+        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+        {
+            setBackground(i, nobrush);
+            setForeground(i, nobrush);
+        }
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////
 
-ProfTreeWidget::ProfTreeWidget(QWidget* _parent) : QTreeWidget(_parent), m_beginTime(-1)
+ProfTreeWidget::ProfTreeWidget(QWidget* _parent) : Parent(_parent), m_beginTime(-1), m_bColorRows(false)
 {
+    setAutoFillBackground(false);
     setAlternatingRowColors(true);
     setItemsExpandable(true);
     setAnimated(true);
     setSortingEnabled(false);
-    setColumnCount(8);
+    setColumnCount(COL_COLUMNS_NUMBER);
 
     auto header = new QTreeWidgetItem();
-    header->setText(0, "Name");
-    header->setText(1, "Duration");
-    header->setText(2, "Begin, ms");
-    header->setText(3, "End, ms");
-    header->setText(4, "Min dur.");
-    header->setText(5, "Max dur.");
-    header->setText(6, "Average dur.");
-    header->setText(7, "N Calls");
+    header->setText(COL_NAME, "Name");
+    header->setText(COL_DURATION, "Duration");
+    header->setText(COL_BEGIN, "Begin, ms");
+    header->setText(COL_END, "End, ms");
+    header->setText(COL_MIN_TOTAL, "Min dur. total");
+    header->setText(COL_MAX_TOTAL, "Max dur. total");
+    header->setText(COL_AVERAGE_TOTAL, "Average dur. total");
+    header->setText(COL_NCALLS_TOTAL, "N Calls total");
+    header->setText(COL_MIN, "Min dur.");
+    header->setText(COL_MAX, "Max dur.");
+    header->setText(COL_AVERAGE, "Average dur.");
+    header->setText(COL_NCALLS, "N Calls");
     setHeaderItem(header);
 }
 
-ProfTreeWidget::ProfTreeWidget(const thread_blocks_tree_t& _blocksTree, QWidget* _parent) : ProfTreeWidget(_parent)
+ProfTreeWidget::ProfTreeWidget(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree, QWidget* _parent) : This(_parent)
 {
-    setTreeInternal(_blocksTree);
+    setTreeInternal(_blocksNumber, _blocksTree);
 
     setSortingEnabled(true);
-    sortByColumn(0, Qt::AscendingOrder);
-    sortByColumn(2, Qt::AscendingOrder);
+    sortByColumn(COL_NAME, Qt::AscendingOrder);
+    sortByColumn(COL_BEGIN, Qt::AscendingOrder);
 
-    connect(this, &QTreeWidget::itemExpanded, this, &ProfTreeWidget::onItemExpand);
+    connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
 }
 
 ProfTreeWidget::~ProfTreeWidget()
 {
 }
 
-void ProfTreeWidget::setTree(const thread_blocks_tree_t& _blocksTree)
+void ProfTreeWidget::setTree(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree)
 {
+    setSortingEnabled(false);
+    disconnect(this, &Parent::itemExpanded, this, &This::onItemExpand);
+
+    m_items.clear();
     m_itemblocks.clear();
 
+    QSignalBlocker b(this);
     clear();
-
-    disconnect(this, &QTreeWidget::itemExpanded, this, &ProfTreeWidget::onItemExpand);
-    setSortingEnabled(false);
+    b.unblock();
 
     m_beginTime = -1;
-    setTreeInternal(_blocksTree);
+    setTreeInternal(_blocksNumber, _blocksTree);
 
     setSortingEnabled(true);
-    sortByColumn(0, Qt::AscendingOrder);
-    sortByColumn(2, Qt::AscendingOrder);
+    sortByColumn(COL_NAME, Qt::AscendingOrder);
+    sortByColumn(COL_BEGIN, Qt::AscendingOrder);
 
-    connect(this, &QTreeWidget::itemExpanded, this, &ProfTreeWidget::onItemExpand);
+    connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
 }
 
-void ProfTreeWidget::setTreeInternal(const thread_blocks_tree_t& _blocksTree)
+void ProfTreeWidget::setTreeInternal(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree)
 {
+    m_items.reserve(_blocksNumber + _blocksTree.size()); // _blocksNumber does not include Thread root blocks
+
     for (const auto& threadTree : _blocksTree)
     {
         const auto beginTime = threadTree.second.children.front().node->block()->getBegin();
@@ -136,7 +235,8 @@ void ProfTreeWidget::setTreeInternal(const thread_blocks_tree_t& _blocksTree)
     for (const auto& threadTree : _blocksTree)
     {
         auto item = new ProfTreeWidgetItem(&threadTree.second);
-        item->setText(0, QString("Thread %1").arg(threadTree.first));
+        item->setText(COL_NAME, QString("Thread %1").arg(threadTree.first));
+        m_items.push_back(item);
         setTreeInternal(threadTree.second.children, item);
         addTopLevelItem(item);
     }
@@ -147,19 +247,38 @@ void ProfTreeWidget::setTreeInternal(const BlocksTree::children_t& _children, Pr
     for (const auto& child : _children)
     {
         auto item = new ProfTreeWidgetItem(&child, _parent);
-        item->setText(0, child.node->getBlockName());
-        item->setTimeSmart(1, child.node->block()->duration());
-        item->setTimeMs(2, child.node->block()->getBegin() - m_beginTime);
-        item->setTimeMs(3, child.node->block()->getEnd() - m_beginTime);
+        item->setText(COL_NAME, child.node->getBlockName());
+        item->setTimeSmart(COL_DURATION, child.node->block()->duration());
+        item->setTimeMs(COL_BEGIN, child.node->block()->getBegin() - m_beginTime);
+        item->setTimeMs(COL_END, child.node->block()->getEnd() - m_beginTime);
 
         if (child.total_statistics)
         {
-            item->setTimeSmart(4, child.total_statistics->min_duration);
-            item->setTimeSmart(5, child.total_statistics->max_duration);
-            item->setTimeSmart(6, child.total_statistics->average_duration());
-            item->setText(7, QString::number(child.total_statistics->calls_number));
+            item->setTimeSmart(COL_MIN_TOTAL, child.total_statistics->min_duration);
+            item->setTimeSmart(COL_MAX_TOTAL, child.total_statistics->max_duration);
+            item->setTimeSmart(COL_AVERAGE_TOTAL, child.total_statistics->average_duration());
+
+            item->setData(COL_NCALLS_TOTAL, Qt::UserRole, child.total_statistics->calls_number);
+            item->setText(COL_NCALLS_TOTAL, QString::number(child.total_statistics->calls_number));
         }
 
+        if (child.frame_statistics)
+        {
+            item->setTimeSmart(COL_MIN, child.frame_statistics->min_duration);
+            item->setTimeSmart(COL_MAX, child.frame_statistics->max_duration);
+            item->setTimeSmart(COL_AVERAGE, child.frame_statistics->average_duration());
+
+            item->setData(COL_NCALLS, Qt::UserRole, child.frame_statistics->calls_number);
+            item->setText(COL_NCALLS, QString::number(child.frame_statistics->calls_number));
+        }
+
+        const auto color = child.node->block()->getColor();
+        const auto bgColor = QColor(profiler::colors::get_red(color), profiler::colors::get_green(color), profiler::colors::get_blue(color));
+        const auto fgColor = QColor(QRgb(0x00ffffff - bgColor.rgb()));
+        item->setBackgroundColor(bgColor);
+        item->setTextColor(fgColor);
+
+        m_items.push_back(item);
         m_itemblocks[child.node] = item;
 
         if (!child.children.empty())
@@ -182,29 +301,39 @@ void ProfTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     QMenu menu;
 
     auto action = new QAction("Expand all", nullptr);
-    connect(action, &QAction::triggered, this, &ProfTreeWidget::onExpandAllClicked);
+    connect(action, &QAction::triggered, this, &This::onExpandAllClicked);
     menu.addAction(action);
 
     action = new QAction("Collapse all", nullptr);
-    connect(action, &QAction::triggered, this, &ProfTreeWidget::onCollapseAllClicked);
+    connect(action, &QAction::triggered, this, &This::onCollapseAllClicked);
+    menu.addAction(action);
+
+    menu.addSeparator();
+
+    action = new QAction("Color rows", nullptr);
+    action->setCheckable(true);
+    action->setChecked(m_bColorRows);
+    connect(action, &QAction::triggered, this, &This::onColorizeRowsTriggered);
     menu.addAction(action);
 
     switch (col)
     {
-        case 4:
+        case COL_MIN_TOTAL:
+        case COL_MIN:
         {
             menu.addSeparator();
             auto itemAction = new ProfItemAction("Jump to such item", item);
-            connect(itemAction, &ProfItemAction::clicked, this, &ProfTreeWidget::onJumpToMinItemClicked);
+            connect(itemAction, &ProfItemAction::clicked, this, &This::onJumpToMinItemClicked);
             menu.addAction(itemAction);
             break;
         }
 
-        case 5:
+        case COL_MAX_TOTAL:
+        case COL_MAX:
         {
             menu.addSeparator();
             auto itemAction = new ProfItemAction("Jump to such item", item);
-            connect(itemAction, &ProfItemAction::clicked, this, &ProfTreeWidget::onJumpToMaxItemClicked);
+            connect(itemAction, &ProfItemAction::clicked, this, &This::onJumpToMaxItemClicked);
             menu.addAction(itemAction);
             break;
         }
@@ -242,15 +371,38 @@ void ProfTreeWidget::onCollapseAllClicked(bool)
 
 void ProfTreeWidget::onExpandAllClicked(bool)
 {
-    disconnect(this, &QTreeWidget::itemExpanded, this, &ProfTreeWidget::onItemExpand);
+    disconnect(this, &Parent::itemExpanded, this, &This::onItemExpand);
     expandAll();
-    resizeColumnToContents(0);
-    connect(this, &QTreeWidget::itemExpanded, this, &ProfTreeWidget::onItemExpand);
+    resizeColumnToContents(COL_NAME);
+    connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
 }
 
 void ProfTreeWidget::onItemExpand(QTreeWidgetItem*)
 {
-    resizeColumnToContents(0);
+    resizeColumnToContents(COL_NAME);
+}
+
+void ProfTreeWidget::onColorizeRowsTriggered(bool _colorize)
+{
+    const QSignalBlocker b(this);
+
+    m_bColorRows = _colorize;
+
+    auto current = currentItem();
+    collapseAll(); // Without collapseAll() changing items process is VERY VERY SLOW.
+    // TODO: Find the reason of such behavior. QSignalBlocker(this) does not help. QSignalBlocker(item) does not work, because items are not inherited from QObject.
+
+    for (auto item : m_items)
+    {
+        item->colorize(m_bColorRows);
+    }
+
+    // Scroll back to previously selected item
+    if (current)
+    {
+        scrollToItem(current, QAbstractItemView::PositionAtCenter);
+        setCurrentItem(current);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////

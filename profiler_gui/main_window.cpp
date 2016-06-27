@@ -8,7 +8,8 @@
 * ----------------- :
 * description       : The file contains implementation of MainWindow for easy_profiler GUI.
 * ----------------- :
-* change log        : * 2016/06/26 Victor Zarubkin: initial commit.
+* change log        : * 2016/06/26 Victor Zarubkin: Initial commit.
+*                   : * 2016/06/27 Victor Zarubkin: Passing blocks number to ProfTreeWidget::setTree().
 *                   : *
 * ----------------- :
 * license           : TODO: add license text
@@ -20,9 +21,6 @@
 #include <QAction>
 #include <QMenu>
 #include <QMenuBar>
-#include <QToolBar>
-#include <QApplication>
-#include <thread>
 #include "main_window.h"
 #include "blocks_tree_widget.h"
 #include "blocks_graphics_view.h"
@@ -101,7 +99,7 @@ void ProfMainWindow::onOpenFileClicked(bool)
     {
         m_lastFile.swap(stdfilename);
         m_currentProf.swap(prof_blocks);
-        static_cast<ProfTreeWidget*>(m_treeWidget->widget())->setTree(m_currentProf);
+        static_cast<ProfTreeWidget*>(m_treeWidget->widget())->setTree(nblocks, m_currentProf);
         static_cast<ProfGraphicsView*>(m_graphicsView->widget())->setTree(m_currentProf);
     }
 }
@@ -121,7 +119,7 @@ void ProfMainWindow::onReloadFileClicked(bool)
     if (nblocks > 0)
     {
         m_currentProf.swap(prof_blocks);
-        static_cast<ProfTreeWidget*>(m_treeWidget->widget())->setTree(m_currentProf);
+        static_cast<ProfTreeWidget*>(m_treeWidget->widget())->setTree(nblocks, m_currentProf);
         static_cast<ProfGraphicsView*>(m_graphicsView->widget())->setTree(m_currentProf);
     }
 }
