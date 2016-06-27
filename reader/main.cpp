@@ -75,7 +75,7 @@ int main()
 
 	auto start = std::chrono::system_clock::now();
 
-	int blocks_counter = fillTreesFromFile("test.prof", threaded_trees, true);
+	auto blocks_counter = fillTreesFromFile("test.prof", threaded_trees, true);
 
 	auto end = std::chrono::system_clock::now();
 

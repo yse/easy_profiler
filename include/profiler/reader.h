@@ -95,7 +95,7 @@ struct BlocksTree
     children_t                           children;
     ::profiler::SerilizedBlock*              node;
     ::profiler::BlockStatistics* frame_statistics; ///< Pointer to statistics for this block within the parent (may be nullptr for top-level blocks)
-    ::profiler::BlockStatistics* total_statistics; ///< Pointer to statistics for this block within the bounds of all frames per current thread 
+    ::profiler::BlockStatistics* total_statistics; ///< Pointer to statistics for this block within the bounds of all frames per current thread
 
     BlocksTree() : node(nullptr), frame_statistics(nullptr), total_statistics(nullptr)
 	{
@@ -168,7 +168,7 @@ private:
 typedef ::std::map<::profiler::thread_id_t, BlocksTree> thread_blocks_tree_t;
 
 extern "C"{
-	int PROFILER_API fillTreesFromFile(const char* filename, thread_blocks_tree_t& threaded_trees, bool gather_statistics = false);
+    unsigned int PROFILER_API fillTreesFromFile(const char* filename, thread_blocks_tree_t& threaded_trees, bool gather_statistics = false);
 }
 
 

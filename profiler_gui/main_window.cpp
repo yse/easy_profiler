@@ -95,7 +95,7 @@ void ProfMainWindow::onOpenFileClicked(bool)
     thread_blocks_tree_t prof_blocks;
     auto nblocks = fillTreesFromFile(stdfilename.c_str(), prof_blocks, true);
 
-    if (nblocks > 0)
+    if (nblocks != 0)
     {
         m_lastFile.swap(stdfilename);
         m_currentProf.swap(prof_blocks);
@@ -116,7 +116,7 @@ void ProfMainWindow::onReloadFileClicked(bool)
     thread_blocks_tree_t prof_blocks;
     auto nblocks = fillTreesFromFile(m_lastFile.c_str(), prof_blocks, true);
 
-    if (nblocks > 0)
+    if (nblocks != 0)
     {
         m_currentProf.swap(prof_blocks);
         static_cast<ProfTreeWidget*>(m_treeWidget->widget())->setTree(nblocks, m_currentProf);

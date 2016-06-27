@@ -216,7 +216,7 @@ int main()
 	std::cout << elapsed.count() << " usec" << std::endl;
 
 	thread_blocks_tree_t threaded_trees;
-	int blocks_counter = fillTreesFromFile("test.prof", threaded_trees);
+	auto blocks_counter = fillTreesFromFile("test.prof", threaded_trees);
 	std::cout << "Blocks count: " << blocks_counter << std::endl;
 
     char c;

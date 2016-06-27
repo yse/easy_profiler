@@ -14,6 +14,7 @@
 *                   : * 2016/06/27 Victor Zarubkin: Added possibility to colorize rows
 *                   :       with profiler blocks' colors.
 *                   :       Also added displaying frame statistics for blocks.
+*                   :       Disabled sorting by name.
 *                   : * 
 * ----------------- :
 * license           : TODO: add license text
@@ -64,12 +65,12 @@ bool ProfTreeWidgetItem::operator < (const Parent& _other) const
 
     switch (col)
     {
-        case COL_UNKNOWN:
-        case COL_NAME:
-        {
-            // column 0 - Name
-            return Parent::operator < (_other);
-        }
+//         case COL_UNKNOWN:
+//         case COL_NAME:
+//         {
+//             // column 0 - Name
+//             return Parent::operator < (_other);
+//         }
 
         case COL_NCALLS_TOTAL:
         case COL_NCALLS:
@@ -187,7 +188,7 @@ ProfTreeWidget::ProfTreeWidget(const unsigned int _blocksNumber, const thread_bl
     setTreeInternal(_blocksNumber, _blocksTree);
 
     setSortingEnabled(true);
-    sortByColumn(COL_NAME, Qt::AscendingOrder);
+    //sortByColumn(COL_NAME, Qt::AscendingOrder);
     sortByColumn(COL_BEGIN, Qt::AscendingOrder);
 
     connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
@@ -213,7 +214,7 @@ void ProfTreeWidget::setTree(const unsigned int _blocksNumber, const thread_bloc
     setTreeInternal(_blocksNumber, _blocksTree);
 
     setSortingEnabled(true);
-    sortByColumn(COL_NAME, Qt::AscendingOrder);
+    //sortByColumn(COL_NAME, Qt::AscendingOrder);
     sortByColumn(COL_BEGIN, Qt::AscendingOrder);
 
     connect(this, &Parent::itemExpanded, this, &This::onItemExpand);

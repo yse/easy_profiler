@@ -38,7 +38,7 @@ public:
     ProfGraphicsPolygonItem(bool _drawBorders, QGraphicsItem* _parent = nullptr);
     virtual ~ProfGraphicsPolygonItem();
 
-    void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget = Q_NULLPTR) override;
+    //void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget = Q_NULLPTR) override;
 
 }; // END of class ProfGraphicsPolygonItem.
 
@@ -82,7 +82,7 @@ private:
     void setTree(const thread_blocks_tree_t& _blocksTree);
 
     void setTreeInternal(const thread_blocks_tree_t& _blocksTree);
-    void setTreeInternal(const BlocksTree::children_t& _children, qreal _y, int _level = 0);
+    qreal setTreeInternal(const BlocksTree::children_t& _children, unsigned short& _depth, qreal _y, unsigned short _level);
 
     inline qreal time2position(const profiler::timestamp_t& _time) const
     {

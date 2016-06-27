@@ -135,17 +135,17 @@ void update_statistics(StatsMap& _stats_map, ::profiler::SerilizedBlock* _curren
 //////////////////////////////////////////////////////////////////////////
 
 extern "C"{
-    int fillTreesFromFile(const char* filename, thread_blocks_tree_t& threaded_trees, bool gather_statistics)
+    unsigned int fillTreesFromFile(const char* filename, thread_blocks_tree_t& threaded_trees, bool gather_statistics)
 	{
 		std::ifstream inFile(filename, std::fstream::binary);
 
 		if (!inFile.is_open()){
-			return -1;
+            return 0;
 		}
 
         StatsMap overall_statistics, frame_statistics;
 
-		int blocks_counter = 0;
+		unsigned int blocks_counter = 0;
 
 		while (!inFile.eof()){
 			uint16_t sz = 0;
@@ -165,22 +165,20 @@ extern "C"{
 
 			BlocksTree tree;
 			tree.node = new profiler::SerilizedBlock(sz, data);
-			blocks_counter++;
+			++blocks_counter;
 
-			if (root.children.empty()){
-				root.children.push_back(std::move(tree));
-			}
-			else{
-				BlocksTree& back = root.children.back();
-				auto t1 = back.node->block()->getEnd();
-				auto mt0 = tree.node->block()->getBegin();
-				if (mt0 < t1)//parent - starts earlier than last ends
-				{
-					auto lower = std::lower_bound(root.children.begin(), root.children.end(), tree);
+            if (!root.children.empty())
+            {
+                BlocksTree& back = root.children.back();
+                auto t1 = back.node->block()->getEnd();
+                auto mt0 = tree.node->block()->getBegin();
+                if (mt0 < t1)//parent - starts earlier than last ends
+                {
+                    auto lower = std::lower_bound(root.children.begin(), root.children.end(), tree);
 
-					std::move(lower, root.children.end(), std::back_inserter(tree.children));
+                    std::move(lower, root.children.end(), std::back_inserter(tree.children));
 
-					root.children.erase(lower, root.children.end());
+                    root.children.erase(lower, root.children.end());
 
                     if (gather_statistics)
                     {
@@ -195,11 +193,10 @@ extern "C"{
                             update_statistics(frame_statistics, child.node, child.frame_statistics);
                         }
                     }
-				}
+                }
+            }
 
-				root.children.push_back(std::move(tree));
-				
-			}
+            root.children.push_back(std::move(tree));
 
 
 			//delete[] data;
@@ -228,6 +225,6 @@ extern "C"{
 
         // No need to delete BlockStatistics instances - they will be deleted on BlocksTree destructors
 
-		return blocks_counter;
+        return blocks_counter;
 	}
 }
