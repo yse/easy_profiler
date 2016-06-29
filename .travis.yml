@@ -15,7 +15,7 @@ addons:
       - george-edison55-precise-backports # cmake 3.2.3 / doxygen 1.8.3
       - ubuntu-toolchain-r-test
       - llvm-toolchain-precise-3.7
-      - ubuntu-sdk-team/ppa
+      - ubuntu-sdk-team
     packages:
       - cmake
       - cmake-data
@@ -28,7 +28,5 @@ addons:
       - libsqlite3-dev
       - qt5-default 
       - qttools5-dev-tools
-before_install:
-  - sudo add-apt-repository --yes ppa:ubuntu-sdk-team/ppa
-  - sudo apt-get update -qq
+
 
