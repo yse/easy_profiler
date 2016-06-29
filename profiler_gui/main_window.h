@@ -33,6 +33,8 @@ class ProfMainWindow : public QMainWindow
 
 protected:
 
+    typedef ProfMainWindow This;
+
     ::std::string            m_lastFile;
     thread_blocks_tree_t  m_currentProf;
     QDockWidget*           m_treeWidget;
@@ -48,6 +50,7 @@ protected slots:
     void onOpenFileClicked(bool);
     void onReloadFileClicked(bool);
     void onExitClicked(bool);
+    void onTestViewportClicked(bool);
 
 }; // END of class ProfMainWindow.
 

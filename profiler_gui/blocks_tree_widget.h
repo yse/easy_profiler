@@ -11,8 +11,12 @@
 * ----------------- : 
 * change log        : * 2016/06/26 Victor Zarubkin: moved sources from tree_view.h
 *                   :       and renamed classes from My* to Prof*.
+*                   :
 *                   : * 2016/06/27 Victor Zarubkin: Added possibility to colorize rows
 *                   :       with profiler blocks' colors.
+*                   :
+*                   : * 2016/06/29 Victor Zarubkin: Added clearSilent() method.
+*                   :
 *                   : * 
 * ----------------- : 
 * license           : TODO: add license text
@@ -166,6 +170,7 @@ public:
     virtual ~ProfTreeWidget();
 
     void setTree(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree);
+    void clearSilent();
 
 protected:
 

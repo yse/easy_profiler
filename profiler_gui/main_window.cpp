@@ -9,7 +9,11 @@
 * description       : The file contains implementation of MainWindow for easy_profiler GUI.
 * ----------------- :
 * change log        : * 2016/06/26 Victor Zarubkin: Initial commit.
+*                   :
 *                   : * 2016/06/27 Victor Zarubkin: Passing blocks number to ProfTreeWidget::setTree().
+*                   :
+*                   : * 2016/06/29 Victor Zarubkin: Added menu with tests.
+*                   :
 *                   : *
 * ----------------- :
 * license           : TODO: add license text
@@ -27,18 +31,6 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-void graphicsViewDeleterThread(ProfGraphicsView* _widget)
-{
-    delete _widget;
-}
-
-void treeDeleterThread(ProfTreeWidget* _widget)
-{
-    delete _widget;
-}
-
-//////////////////////////////////////////////////////////////////////////
-
 ProfMainWindow::ProfMainWindow() : QMainWindow(), m_treeWidget(nullptr), m_graphicsView(nullptr)
 {
     setObjectName("ProfilerGUI_MainWindow");
@@ -48,7 +40,7 @@ ProfMainWindow::ProfMainWindow() : QMainWindow(), m_treeWidget(nullptr), m_graph
     
     setStatusBar(new QStatusBar());
 
-    auto graphicsView = new ProfGraphicsView();
+    auto graphicsView = new ProfGraphicsView(false);
     m_graphicsView = new QDockWidget("Blocks diagram");
     m_graphicsView->setMinimumHeight(50);
     m_graphicsView->setAllowedAreas(Qt::AllDockWidgetAreas);
@@ -64,21 +56,27 @@ ProfMainWindow::ProfMainWindow() : QMainWindow(), m_treeWidget(nullptr), m_graph
     addDockWidget(Qt::BottomDockWidgetArea, m_treeWidget);
 
     auto actionOpen = new QAction("Open", nullptr);
-    connect(actionOpen, &QAction::triggered, this, &ProfMainWindow::onOpenFileClicked);
+    connect(actionOpen, &QAction::triggered, this, &This::onOpenFileClicked);
 
     auto actionReload = new QAction("Reload", nullptr);
-    connect(actionReload, &QAction::triggered, this, &ProfMainWindow::onReloadFileClicked);
+    connect(actionReload, &QAction::triggered, this, &This::onReloadFileClicked);
 
     auto actionExit = new QAction("Exit", nullptr);
-    connect(actionExit, &QAction::triggered, this, &ProfMainWindow::onExitClicked);
+    connect(actionExit, &QAction::triggered, this, &This::onExitClicked);
 
-    auto menuFile = new QMenu("File");
-    menuFile->addAction(actionOpen);
-    menuFile->addAction(actionReload);
-    menuFile->addSeparator();
-    menuFile->addAction(actionExit);
+    auto actionTestView = new QAction("Test viewport", nullptr);
+    connect(actionTestView, &QAction::triggered, this, &This::onTestViewportClicked);
 
-    menuBar()->addMenu(menuFile);
+    auto menu = new QMenu("File");
+    menu->addAction(actionOpen);
+    menu->addAction(actionReload);
+    menu->addSeparator();
+    menu->addAction(actionExit);
+    menuBar()->addMenu(menu);
+
+    menu = new QMenu("Tests");
+    menu->addAction(actionTestView);
+    menuBar()->addMenu(menu);
 }
 
 ProfMainWindow::~ProfMainWindow()
@@ -129,6 +127,20 @@ void ProfMainWindow::onReloadFileClicked(bool)
 void ProfMainWindow::onExitClicked(bool)
 {
     close();
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void ProfMainWindow::onTestViewportClicked(bool)
+{
+    static_cast<ProfTreeWidget*>(m_treeWidget->widget())->clearSilent();
+
+    auto view = static_cast<ProfGraphicsView*>(m_graphicsView->widget());
+    view->clearSilent();
+    m_currentProf.clear();
+
+    view->test(18000, 40000000, 5);
+    //view->test(3, 300, 4);
 }
 
 //////////////////////////////////////////////////////////////////////////

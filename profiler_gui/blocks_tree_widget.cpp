@@ -11,10 +11,14 @@
 * ----------------- :
 * change log        : * 2016/06/26 Victor Zarubkin: Moved sources from tree_view.h
 *                   :       and renamed classes from My* to Prof*.
+*                   :
 *                   : * 2016/06/27 Victor Zarubkin: Added possibility to colorize rows
 *                   :       with profiler blocks' colors.
 *                   :       Also added displaying frame statistics for blocks.
 *                   :       Disabled sorting by name to save order of threads displayed on graphics view.
+*                   :
+*                   : * 2016/06/29 Victor Zarubkin: Added clearSilent() method.
+*                   :
 *                   : * 
 * ----------------- :
 * license           : TODO: add license text
@@ -188,7 +192,6 @@ ProfTreeWidget::ProfTreeWidget(const unsigned int _blocksNumber, const thread_bl
     setTreeInternal(_blocksNumber, _blocksTree);
 
     setSortingEnabled(true);
-    //sortByColumn(COL_NAME, Qt::AscendingOrder);
     sortByColumn(COL_BEGIN, Qt::AscendingOrder);
 
     connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
@@ -200,24 +203,28 @@ ProfTreeWidget::~ProfTreeWidget()
 
 void ProfTreeWidget::setTree(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree)
 {
+    clearSilent();
+
+    setTreeInternal(_blocksNumber, _blocksTree);
+
+    setSortingEnabled(true);
+    sortByColumn(COL_BEGIN, Qt::AscendingOrder);
+
+    connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
+}
+
+void ProfTreeWidget::clearSilent()
+{
+    m_beginTime = -1;
+
     setSortingEnabled(false);
     disconnect(this, &Parent::itemExpanded, this, &This::onItemExpand);
 
     m_items.clear();
     m_itemblocks.clear();
 
-    QSignalBlocker b(this);
+    const QSignalBlocker b(this);
     clear();
-    b.unblock();
-
-    m_beginTime = -1;
-    setTreeInternal(_blocksNumber, _blocksTree);
-
-    setSortingEnabled(true);
-    //sortByColumn(COL_NAME, Qt::AscendingOrder);
-    sortByColumn(COL_BEGIN, Qt::AscendingOrder);
-
-    connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
 }
 
 void ProfTreeWidget::setTreeInternal(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree)
@@ -233,6 +240,7 @@ void ProfTreeWidget::setTreeInternal(const unsigned int _blocksNumber, const thr
         }
     }
 
+    const QSignalBlocker b(this);
     for (const auto& threadTree : _blocksTree)
     {
         auto item = new ProfTreeWidgetItem(&threadTree.second);
