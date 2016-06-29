@@ -28,3 +28,7 @@ addons:
       - libsqlite3-dev
       - qt5-default 
       - qttools5-dev-tools
+before_install:
+  - sudo add-apt-repository --yes ppa:ubuntu-sdk-team/ppa
+  - sudo apt-get update -qq
+
