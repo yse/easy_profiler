@@ -190,8 +190,11 @@ extern "C"{
 
                         for (auto& child : tree.children)
                         {
+                            tree.total_children_number += child.total_children_number;
                             update_statistics(frame_statistics, child.node, child.frame_statistics);
                         }
+
+                        tree.total_children_number += static_cast<unsigned int>(tree.children.size());
                     }
                 }
             }
@@ -213,15 +216,28 @@ extern "C"{
 
 		if (gather_statistics)
 		{
-			for (auto& threaded_tree : threaded_trees)
+			for (auto& root : threaded_trees)
 			{
 				frame_statistics.clear();
-				for (auto& root : threaded_tree.second.children)
+				for (auto& frame : root.second.children)
 				{
-					update_statistics(frame_statistics, root.node, root.frame_statistics);
+                    root.second.total_children_number += frame.total_children_number;
+                    update_statistics(frame_statistics, frame.node, frame.frame_statistics);
 				}
+                root.second.total_children_number += static_cast<unsigned int>(root.second.children.size());
 			}
 		}
+        else
+        {
+            for (auto& root : threaded_trees)
+            {
+                for (auto& frame : root.second.children)
+                {
+                    root.second.total_children_number += frame.total_children_number;
+                }
+                root.second.total_children_number += static_cast<unsigned int>(root.second.children.size());
+            }
+        }
 
         // No need to delete BlockStatistics instances - they will be deleted on BlocksTree destructors
 
