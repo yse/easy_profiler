@@ -15,14 +15,16 @@ addons:
       - george-edison55-precise-backports # cmake 3.2.3 / doxygen 1.8.3
       - ubuntu-toolchain-r-test
       - llvm-toolchain-precise-3.7
+      - ppa:ubuntu-sdk-team/ppa
     packages:
       - cmake
       - cmake-data
       - gcc-5
       - g++-5
       - clang-3.7
-before_install:
-   - sudo add-apt-repository --yes ppa:ubuntu-sdk-team/ppa
-   - sudo apt-get update -qq
-   - sudo apt-get install qtbase5-dev qtdeclarative5-dev libqt5webkit5-dev libsqlite3-dev
-   - sudo apt-get install qt5-default qttools5-dev-tools
+      - qtbase5-dev 
+      - qtdeclarative5-dev 
+      - libqt5webkit5-dev 
+      - libsqlite3-dev
+      - qt5-default 
+      - qttools5-dev-tools
