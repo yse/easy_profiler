@@ -14,6 +14,8 @@
 *                   :
 *                   : * 2016/06/29 Victor Zarubkin: Highly optimized painting performance and memory consumption.
 *                   :
+*                   : * 2016/06/30 Victor Zarubkin: Replaced doubles with floats (in ProfBlockItem) for less memory consumption.
+*                   :
 *                   : *
 * ----------------- :
 * license           : TODO: add license text
@@ -33,25 +35,46 @@
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+#define PROF_BLOCK_ITEM_OPT_MEMORY
+
+#ifdef PROF_BLOCK_ITEM_OPT_MEMORY
+typedef float preal;
+#else
+typedef qreal preal;
+#endif
+
 #pragma pack(push, 1)
 struct ProfBlockItem
 {
-    QRectF             rect;
-    qreal       totalHeight;
+#ifdef PROF_BLOCK_ITEM_OPT_MEMORY
     const BlocksTree* block;
+    preal        x, y, w, h;
+#else
+    QRectF             rect;
+    const BlocksTree* block;
+#endif
+
+    float       totalHeight;
     QRgb              color;
     bool               draw;
 
-    ProfBlockItem() : totalHeight(0), block(nullptr), color(0), draw(true)
-    {
-    }
+    void setRect(preal _x, preal _y, preal _w, preal _h);
+    preal left() const;
+    preal top() const;
+    preal width() const;
+    preal height() const;
+    preal right() const;
+    preal bottom() const;
 };
 #pragma pack(pop)
 
 class ProfGraphicsItem : public QGraphicsItem
 {
     typedef ::std::vector<ProfBlockItem> Children;
+    //typedef ::std::vector<Children> Sublevels;
+
     Children   m_items;
+    //Sublevels m_levels;
     QRectF      m_rect;
     const bool m_bTest;
 
@@ -68,14 +91,24 @@ public:
     void setBoundingRect(const QRectF& _rect);
 
     void reserve(unsigned int _items);
-
     const Children& items() const;
     const ProfBlockItem& getItem(size_t _index) const;
     ProfBlockItem& getItem(size_t _index);
-
     size_t addItem();
     size_t addItem(const ProfBlockItem& _item);
     size_t addItem(ProfBlockItem&& _item);
+
+
+//     void setLevels(unsigned int _levels);
+//     void reserve(unsigned short _level, unsigned int _items);
+// 
+//     const Children& items(unsigned short _level) const;
+//     const ProfBlockItem& getItem(unsigned short _level, size_t _index) const;
+//     ProfBlockItem& getItem(unsigned short _level, size_t _index);
+// 
+//     size_t addItem(unsigned short _level);
+//     size_t addItem(unsigned short _level, const ProfBlockItem& _item);
+//     size_t addItem(unsigned short _level, ProfBlockItem&& _item);
 
 }; // END of class ProfGraphicsItem.
 
@@ -102,13 +135,14 @@ public:
 private:
 
     void test(size_t _frames_number, size_t _total_items_number_estimate, int _depth);
+    void test2(size_t _frames_number, size_t _total_items_number_estimate, int _depth);
 
     void clearSilent();
 
     void setTree(const thread_blocks_tree_t& _blocksTree);
 
-    qreal setTreeInternal(const BlocksTree::children_t& _children, qreal& _height, qreal _y);
-    qreal setTreeInternal(ProfGraphicsItem* _item, const BlocksTree::children_t& _children, qreal& _height, qreal _y);
+    qreal setTree(const BlocksTree::children_t& _children, qreal& _height, qreal _y);
+    qreal setTree(ProfGraphicsItem* _item, const BlocksTree::children_t& _children, qreal& _height, qreal _y);
 
     inline qreal time2position(const profiler::timestamp_t& _time) const
     {
