@@ -174,8 +174,16 @@ extern "C"{
                 auto mt0 = tree.node->block()->getBegin();
                 if (mt0 < t1)//parent - starts earlier than last ends
                 {
-                    auto lower = std::lower_bound(root.children.begin(), root.children.end(), tree);
-
+                    //auto lower = std::lower_bound(root.children.begin(), root.children.end(), tree);
+                    /**/
+                    auto rlower1 = ++root.children.rbegin();
+                    for(; rlower1 != root.children.rend(); ++rlower1){
+                        if(mt0 > rlower1->node->block()->getBegin())
+                        {
+                            break;
+                        }
+                    }
+                    auto lower = rlower1.base();
                     std::move(lower, root.children.end(), std::back_inserter(tree.children));
 
                     root.children.erase(lower, root.children.end());
