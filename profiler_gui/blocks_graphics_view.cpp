@@ -30,19 +30,32 @@
 #include <QSignalBlocker>
 #include <QScrollBar>
 #include <math.h>
+#include <algorithm>
 #include "blocks_graphics_view.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const qreal GRAPHICS_ROW_SIZE = 16;
-const qreal GRAPHICS_ROW_SIZE_FULL = GRAPHICS_ROW_SIZE + 1;
+const qreal GRAPHICS_ROW_SIZE_FULL = GRAPHICS_ROW_SIZE + 2;
 const qreal ROW_SPACING = 10;
+const QRgb DEFAULT_COLOR = 0x00f0e094;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#ifdef PROF_BLOCK_ITEM_OPT_MEMORY
+QRgb toRgb(unsigned int _red, unsigned int _green, unsigned int _blue)
+{
+    if (_red == _green == _blue == 0)
+        return DEFAULT_COLOR;
+    return (_red << 16) + (_green << 8) + _blue;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void ProfBlockItem::setRect(preal _x, preal _y, preal _w, preal _h) {
-    x = _x; y = _y; w = _w; h = _h;
+    x = _x;
+    y = _y;
+    w = _w;
+    h = _h;
 }
 
 preal ProfBlockItem::left() const {
@@ -68,35 +81,6 @@ preal ProfBlockItem::right() const {
 preal ProfBlockItem::bottom() const {
     return y + h;
 }
-#else
-void ProfBlockItem::setRect(preal _x, preal _y, preal _w, preal _h) {
-    rect.setRect(_x, _y, _w, _h);
-}
-
-preal ProfBlockItem::left() const {
-    return rect.left();
-}
-
-preal ProfBlockItem::top() const {
-    return rect.top();
-}
-
-preal ProfBlockItem::width() const {
-    return rect.width();
-}
-
-preal ProfBlockItem::height() const {
-    return rect.height();
-}
-
-preal ProfBlockItem::right() const {
-    return rect.right();
-}
-
-preal ProfBlockItem::bottom() const {
-    return rect.bottom();
-}
-#endif
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -117,6 +101,7 @@ QRectF ProfGraphicsItem::boundingRect() const
     return m_rect;
 }
 
+#if DRAW_METHOD == 0
 void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget)
 {
     const auto nitems = m_items.size();
@@ -168,12 +153,8 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 _painter->setBrush(brush);
             }
 
-#ifdef PROF_BLOCK_ITEM_OPT_MEMORY
             rect.setRect(item.x, item.y, item.w, item.h);
             _painter->drawRect(rect);
-#else
-            _painter->drawRect(item.rect);
-#endif
         }
 
         _painter->setPen(Qt::SolidLine);
@@ -227,29 +208,142 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         brush.setColor(item.color);
         _painter->setBrush(brush);
         _painter->drawRect(m_rect);
-
-        //if (screenWidth > 10)
-        //{
-        //    _painter->setTransform(QTransform::fromScale(scaleRevert, 1), true);
-        //    //_painter->setBrush(Qt::NoBrush);
-        //    rect.setRect(m_rect.left() * currentScale, m_rect.top(), screenWidth, m_rect.height());
-        //    if (m_bTest)
-        //    {
-        //        _painter->setPen(Qt::SolidLine);
-        //        _painter->drawText(rect, 0, "NOT VERY LONG TEST TEXT");
-        //    }
-        //    else
-        //    {
-        //        pen.setColor(0x00ffffff - item.color);
-        //        _painter->setPen(pen);
-        //        //_painter->drawRect(rect);
-        //        _painter->drawText(rect, 0, item.block->node->getBlockName());
-        //    }
-        //}
     }
 
     _painter->restore();
 }
+#else
+void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget)
+{
+    if (m_levels.empty() || m_levels.front().empty())
+    {
+        return;
+    }
+
+    const auto selfX = x();
+    const auto view = static_cast<ProfGraphicsView*>(scene()->parent());
+    const auto visibleSceneRect = view->visibleSceneRect(); // Current visible scene rect
+    const auto sceneLeft = visibleSceneRect.left() - selfX, sceneRight = visibleSceneRect.right() - selfX;
+
+    const auto currentScale = view->currentScale(); // Current GraphicsView scale
+    const auto scaleRevert = 1.0 / currentScale; // Multiplier for reverting current GraphicsView scale
+
+    QRectF rect;
+    QBrush brush;
+    QRgb previousColor = 0;
+    brush.setStyle(Qt::SolidPattern);
+
+    _painter->save();
+    //_painter->setPen(Qt::NoPen);
+    _painter->setTransform(QTransform::fromScale(scaleRevert, 1), true);
+
+    const int levelsNumber = static_cast<int>(m_levels.size());
+    for (int i = 1; i < levelsNumber; ++i)
+        m_levelsIndexes[i] = -1;
+
+    // Searching for first visible top item
+    auto& level0 = m_levels[0];
+    auto first = ::std::lower_bound(level0.begin(), level0.end(), sceneLeft, [](const ProfBlockItem& _item, double _value)
+    {
+        return _item.left() < _value;
+    });
+
+    if (first != level0.end())
+    {
+        m_levelsIndexes[0] = first - level0.begin();
+        if (m_levelsIndexes[0] > 0)
+            m_levelsIndexes[0] -= 1;
+    }
+    else
+    {
+        m_levelsIndexes[0] = level0.size() - 1;
+    }
+
+    // Iterating through levels and draw visible items
+    for (int l = 0; l < levelsNumber; ++l)
+    {
+        auto& level = m_levels[l];
+        const auto next_level = l + 1;
+
+        for (unsigned int i = m_levelsIndexes[l], end = level.size(); i < end; ++i)
+        {
+            auto& item = level[i];
+
+            if (item.right() < sceneLeft)
+            {
+                ++m_levelsIndexes[l];
+                continue;
+            }
+
+            auto w = item.width() * currentScale;
+            if (l == 0)
+            {
+                if (w < 20)
+                {
+                    // Items which width is less than 20 will be painted as big rectangles which are hiding it's children
+                    if (item.left() > sceneRight)
+                        break;
+
+                    if (previousColor != item.color)
+                    {
+                        previousColor = item.color;
+                        brush.setColor(previousColor);
+                        _painter->setBrush(brush);
+                    }
+
+                    //rect.setRect(selfX + item.left(), item.top(), item.width(), item.totalHeight);
+                    rect.setRect((selfX + item.left()) * currentScale, item.top(), w, item.totalHeight);
+                    _painter->drawRect(rect);
+                    continue;
+                }
+            }
+
+            if (next_level < levelsNumber && m_levelsIndexes[next_level] == -1)
+                m_levelsIndexes[next_level] = item.children_begin;
+
+            if (item.left() > sceneRight)
+                break;
+            
+            if (previousColor != item.color)
+            {
+                previousColor = item.color;
+                brush.setColor(previousColor);
+                _painter->setBrush(brush);
+            }
+
+            if (w < 20)
+                _painter->setPen(Qt::NoPen);
+
+            //rect.setRect(selfX + item.left(), item.top(), item.width(), item.height());
+            rect.setRect((selfX + item.left()) * currentScale, item.top(), w, item.height());
+            _painter->drawRect(rect);
+
+            if (w < 20)
+            {
+                _painter->setPen(Qt::SolidLine);
+                continue;
+            }
+
+            if (m_bTest)
+            {
+                auto xtext = item.left();
+                if (xtext < sceneLeft)
+                {
+                    w += xtext - sceneLeft;
+                    xtext = sceneLeft;
+                }
+                xtext += selfX;
+
+                rect.setRect(xtext * currentScale, item.top(), w, item.height());
+                _painter->drawText(rect, 0, "NOT VERY LONG TEST TEXT");
+            }
+        }
+    }
+
+    //printf(" // iterations=%llu\n", iterations);
+    _painter->restore();
+}
+#endif
 
 void ProfGraphicsItem::setBoundingRect(qreal x, qreal y, qreal w, qreal h)
 {
@@ -261,82 +355,94 @@ void ProfGraphicsItem::setBoundingRect(const QRectF& _rect)
     m_rect = _rect;
 }
 
-
-void ProfGraphicsItem::reserve(unsigned int _items)
+#if DRAW_METHOD == 0
+void ProfGraphicsItem::reserve(size_t _items)
 {
     m_items.reserve(_items);
 }
+
 const ProfGraphicsItem::Children& ProfGraphicsItem::items() const
 {
     return m_items;
 }
+
 const ProfBlockItem& ProfGraphicsItem::getItem(size_t _index) const
 {
     return m_items[_index];
 }
+
 ProfBlockItem& ProfGraphicsItem::getItem(size_t _index)
 {
     return m_items[_index];
 }
+
 size_t ProfGraphicsItem::addItem()
 {
     m_items.emplace_back();
     return m_items.size() - 1;
 }
+
 size_t ProfGraphicsItem::addItem(const ProfBlockItem& _item)
 {
     m_items.emplace_back(_item);
     return m_items.size() - 1;
 }
+
 size_t ProfGraphicsItem::addItem(ProfBlockItem&& _item)
 {
     m_items.emplace_back(::std::forward<ProfBlockItem&&>(_item));
     return m_items.size() - 1;
 }
 
+#else
 
-// void ProfGraphicsItem::setLevels(unsigned int _levels)
-// {
-//     m_levels.resize(_levels);
-// }
-// 
-// void ProfGraphicsItem::reserve(unsigned short _level, unsigned int _items)
-// {
-//     m_levels[_level].reserve(_items);
-// }
-// 
-// const ProfGraphicsItem::Children& ProfGraphicsItem::items(unsigned short _level) const
-// {
-//     return m_levels[_level];
-// }
-// 
-// const ProfBlockItem& ProfGraphicsItem::getItem(unsigned short _level, size_t _index) const
-// {
-//     return m_levels[_level][_index];
-// }
-// 
-// ProfBlockItem& ProfGraphicsItem::getItem(unsigned short _level, size_t _index)
-// {
-//     return m_levels[_level][_index];
-// }
-// 
-// size_t ProfGraphicsItem::addItem(unsigned short _level)
-// {
-//     m_levels[_level].emplace_back();
-//     return m_levels[_level].size() - 1;
-// }
-// 
-// size_t ProfGraphicsItem::addItem(unsigned short _level, const ProfBlockItem& _item)
-// {
-//     m_levels[_level].emplace_back(_item);
-//     return m_levels[_level].size() - 1;
-// }
-// 
-// size_t ProfGraphicsItem::addItem(unsigned short _level, ProfBlockItem&& _item)
-// {
-//     m_levels[_level].emplace_back(::std::forward<ProfBlockItem&&>(_item));
-//     return m_levels[_level].size() - 1;
-// }
+void ProfGraphicsItem::setLevels(unsigned short _levels)
+{
+    m_levels.resize(_levels);
+
+#if DRAW_METHOD == 2
+    m_levelsIndexes.resize(_levels, -1);
+#endif
+}
+
+void ProfGraphicsItem::reserve(unsigned short _level, size_t _items)
+{
+    m_levels[_level].reserve(_items);
+}
+
+const ProfGraphicsItem::Children& ProfGraphicsItem::items(unsigned short _level) const
+{
+    return m_levels[_level];
+}
+
+const ProfBlockItem& ProfGraphicsItem::getItem(unsigned short _level, size_t _index) const
+{
+    return m_levels[_level][_index];
+}
+
+ProfBlockItem& ProfGraphicsItem::getItem(unsigned short _level, size_t _index)
+{
+    return m_levels[_level][_index];
+}
+
+size_t ProfGraphicsItem::addItem(unsigned short _level)
+{
+    m_levels[_level].emplace_back();
+    return m_levels[_level].size() - 1;
+}
+
+size_t ProfGraphicsItem::addItem(unsigned short _level, const ProfBlockItem& _item)
+{
+    m_levels[_level].emplace_back(_item);
+    return m_levels[_level].size() - 1;
+}
+
+size_t ProfGraphicsItem::addItem(unsigned short _level, ProfBlockItem&& _item)
+{
+    m_levels[_level].emplace_back(::std::forward<ProfBlockItem&&>(_item));
+    return m_levels[_level].size() - 1;
+}
+#endif
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -344,7 +450,7 @@ ProfGraphicsScene::ProfGraphicsScene(QGraphicsView* _parent, bool _test) : QGrap
 {
     if (_test)
     {
-        test(10000, 20000000, 5);
+        test(18000, 40000000, 5);
     }
 }
 
@@ -357,6 +463,7 @@ ProfGraphicsScene::~ProfGraphicsScene()
 {
 }
 
+#if DRAW_METHOD == 0
 void fillChildren(ProfGraphicsItem* _item, qreal _x, qreal _y, size_t _childrenNumber, size_t& _total_items)
 {
     size_t nchildren = _childrenNumber;
@@ -372,7 +479,7 @@ void fillChildren(ProfGraphicsItem* _item, qreal _x, qreal _y, size_t _childrenN
 
             auto& last = _item->items().back();
             auto& b = _item->getItem(j);
-            b.color = ((30 + rand() % 225) << 16) + ((30 + rand() % 225) << 8) + (30 + rand() % 225);
+            b.color = toRgb(30 + rand() % 225, 30 + rand() % 225, 30 + rand() % 225);
             b.setRect(_x, _y, last.right() - _x, GRAPHICS_ROW_SIZE);
             b.totalHeight = last.bottom() - _y;
             _x = b.right();
@@ -380,7 +487,7 @@ void fillChildren(ProfGraphicsItem* _item, qreal _x, qreal _y, size_t _childrenN
         else
         {
             auto& b = _item->getItem(j);
-            b.color = ((30 + rand() % 225) << 16) + ((30 + rand() % 225) << 8) + (30 + rand() % 225);
+            b.color = toRgb(30 + rand() % 225, 30 + rand() % 225, 30 + rand() % 225);
             b.setRect(_x, _y, 10 + rand() % 40, GRAPHICS_ROW_SIZE);
             b.totalHeight = GRAPHICS_ROW_SIZE;
             _x = b.right();
@@ -407,7 +514,7 @@ void ProfGraphicsScene::test(size_t _frames_number, size_t _total_items_number_e
 
         auto& last = item->items().back();
         auto& b = item->getItem(j);
-        b.color = ((30 + rand() % 225) << 16) + ((30 + rand() % 225) << 8) + (30 + rand() % 225);
+        b.color = toRgb(30 + rand() % 225, 30 + rand() % 225, 30 + rand() % 225);
         b.setRect(0, 0, last.right(), GRAPHICS_ROW_SIZE);
         b.totalHeight = last.bottom() - y;
         item->setBoundingRect(0, 0, b.width(), b.totalHeight);
@@ -418,7 +525,6 @@ void ProfGraphicsScene::test(size_t _frames_number, size_t _total_items_number_e
             h = last.bottom();
         }
 
-        item->addItem(b);
         ++total_items;
 
         addItem(item);
@@ -427,14 +533,101 @@ void ProfGraphicsScene::test(size_t _frames_number, size_t _total_items_number_e
     setSceneRect(0, 0, x, h);
 }
 
-void ProfGraphicsScene::test2(size_t _frames_number, size_t _total_items_number_estimate, int _depth)
+#else //////////////////////////////////////////////////////////////////////////
+
+void fillChildren(ProfGraphicsItem* _item, int _level, qreal _x, qreal _y, size_t _childrenNumber, size_t& _total_items)
 {
+    size_t nchildren = _childrenNumber;
+    _childrenNumber >>= 1;
+
+    for (size_t i = 0; i < nchildren; ++i)
+    {
+        size_t j = _item->addItem(_level);
+        auto& b = _item->getItem(_level, j);
+        b.color = toRgb(30 + rand() % 225, 30 + rand() % 225, 30 + rand() % 225);
+
+        if (_childrenNumber > 0)
+        {
+            const auto& children = _item->items(_level + 1);
+            b.children_begin = static_cast<unsigned int>(children.size());
+
+            fillChildren(_item, _level + 1, _x, _y + GRAPHICS_ROW_SIZE + 2, _childrenNumber, _total_items);
+
+            const auto& last = children.back();
+            b.setRect(_x, _y, last.right() - _x, GRAPHICS_ROW_SIZE);
+            b.totalHeight = GRAPHICS_ROW_SIZE + last.totalHeight + 2;
+        }
+        else
+        {
+            b.setRect(_x, _y, 10 + rand() % 40, GRAPHICS_ROW_SIZE);
+            b.totalHeight = GRAPHICS_ROW_SIZE;
+            b.children_begin = 0;
+        }
+
+        _x = b.right();
+        ++_total_items;
+    }
 }
+
+void ProfGraphicsScene::test(size_t _frames_number, size_t _total_items_number_estimate, int _depth)
+{
+    const auto children_per_frame = _total_items_number_estimate / _frames_number;
+    const size_t first_level_children_count = sqrt(pow(2, _depth - 1)) * pow(children_per_frame, 1.0 / double(_depth)) + 0.5;
+
+    auto item = new ProfGraphicsItem(true);
+    item->setPos(0, 0);
+
+    item->setLevels(_depth + 1);
+    item->reserve(0, _frames_number);
+    size_t chldrn = first_level_children_count;
+    size_t tot = first_level_children_count;
+    for (int i = 1; i <= _depth; ++i)
+    {
+        item->reserve(i, tot * _frames_number);
+        chldrn >>= 1;
+        tot *= chldrn;
+    }
+
+    size_t total_items = 0;
+    qreal x = 0, y = 0, h = 0;
+    for (unsigned int i = 0; i < _frames_number; ++i)
+    {
+        size_t j = item->addItem(0);
+        auto& b = item->getItem(0, j);
+        b.color = toRgb(30 + rand() % 225, 30 + rand() % 225, 30 + rand() % 225);
+
+        const auto& children = item->items(1);
+        b.children_begin = static_cast<unsigned int>(children.size());
+
+        fillChildren(item, 1, x, y + GRAPHICS_ROW_SIZE + 2, first_level_children_count, total_items);
+
+        const auto& last = children.back();
+        b.setRect(x, 0, last.right() - x, GRAPHICS_ROW_SIZE);
+        b.totalHeight = GRAPHICS_ROW_SIZE + last.totalHeight + 2;
+
+        x += b.width() + 500;
+
+        if (last.bottom() > h)
+        {
+            h = last.bottom();
+        }
+
+        ++total_items;
+    }
+
+    item->setBoundingRect(0, 0, x, item->getItem(0, 0).totalHeight);
+    addItem(item);
+
+    setSceneRect(0, 0, x, h);
+}
+#endif
+
+//////////////////////////////////////////////////////////////////////////
 
 void ProfGraphicsScene::clearSilent()
 {
     const QSignalBlocker b(this); // block all scene signals (otherwise clear() would be extremely slow!)
-    clear(); // clear would be VERY SLOW if signals would not be blocked!
+    clear();
     m_beginTime = -1;
 }
 
@@ -452,17 +645,26 @@ void ProfGraphicsScene::setTree(const thread_blocks_tree_t& _blocksTree)
 
         // fill scene with new items
         qreal h = 0;
+#if DRAW_METHOD == 0
         setTree(threadTree.second.children, h, y);
+#else
+        auto item = new ProfGraphicsItem();
+        item->setLevels(threadTree.second.sublevels);
+        const auto children_duration = setTree(item, threadTree.second.children, h, y, 0);
+        addItem(item);
+#endif
         y += h + ROW_SPACING;
     }
 
     const qreal endX = time2position(finish + 1000000);
-    setSceneRect(QRectF(0, 0, endX, y + ROW_SPACING));
+    setSceneRect(0, 0, endX, y + ROW_SPACING);
 }
 
 qreal ProfGraphicsScene::setTree(const BlocksTree::children_t& _children, qreal& _height, qreal _y)
 {
-    //return 0;
+#if DRAW_METHOD > 0
+    return 0;
+#else
     qreal total_duration = 0, prev_end = 0, maxh = 0;
     for (const auto& child : _children)
     {
@@ -487,7 +689,7 @@ qreal ProfGraphicsScene::setTree(const BlocksTree::children_t& _children, qreal&
         auto i = item->addItem();
 
         qreal h = 0;
-        const auto children_duration = setTree(item, child.children, h, _y + GRAPHICS_ROW_SIZE_FULL);
+        const auto children_duration = setTree(item, child.children, h, _y + GRAPHICS_ROW_SIZE_FULL, 1);
         if (duration < children_duration)
         {
             duration = children_duration;
@@ -501,7 +703,7 @@ qreal ProfGraphicsScene::setTree(const BlocksTree::children_t& _children, qreal&
         const auto color = child.node->block()->getColor();
         auto& b = item->getItem(i);
         b.block = &child;
-        b.color = (::profiler::colors::get_red(color) << 16) + (::profiler::colors::get_green(color) << 8) + ::profiler::colors::get_blue(color);
+        b.color = toRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
         b.setRect(0, 0, duration, GRAPHICS_ROW_SIZE);
         b.totalHeight = GRAPHICS_ROW_SIZE + h;
 
@@ -516,14 +718,19 @@ qreal ProfGraphicsScene::setTree(const BlocksTree::children_t& _children, qreal&
     _height += GRAPHICS_ROW_SIZE + maxh;
 
     return total_duration;
+#endif
 }
 
-qreal ProfGraphicsScene::setTree(ProfGraphicsItem* _item, const BlocksTree::children_t& _children, qreal& _height, qreal _y)
+qreal ProfGraphicsScene::setTree(ProfGraphicsItem* _item, const BlocksTree::children_t& _children, qreal& _height, qreal _y, unsigned int _level)
 {
     if (_children.empty())
     {
         return 0;
     }
+
+#if DRAW_METHOD > 0
+    _item->reserve(_level, _children.size());
+#endif
 
     qreal total_duration = 0, prev_end = 0, maxh = 0;
     for (const auto& child : _children)
@@ -543,10 +750,14 @@ qreal ProfGraphicsScene::setTree(ProfGraphicsItem* _item, const BlocksTree::chil
             duration = 0.1;
         }
 
+#if DRAW_METHOD == 0
         auto i = _item->addItem();
+#else
+        auto i = _item->addItem(_level);
+#endif
 
         qreal h = 0;
-        const auto children_duration = setTree(_item, child.children, h, _y + GRAPHICS_ROW_SIZE_FULL);
+        const auto children_duration = setTree(_item, child.children, h, _y + GRAPHICS_ROW_SIZE_FULL, _level + 1);
         if (duration < children_duration)
         {
             duration = children_duration;
@@ -558,9 +769,13 @@ qreal ProfGraphicsScene::setTree(ProfGraphicsItem* _item, const BlocksTree::chil
         }
 
         const auto color = child.node->block()->getColor();
+#if DRAW_METHOD == 0
         auto& b = _item->getItem(i);
+#else
+        auto& b = _item->getItem(_level, i);
+#endif
         b.block = &child;
-        b.color = (::profiler::colors::get_red(color) << 16) + (::profiler::colors::get_green(color) << 8) + ::profiler::colors::get_blue(color);
+        b.color = toRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
         b.setRect(xbegin - _item->x(), _y - _item->y(), duration, GRAPHICS_ROW_SIZE);
         b.totalHeight = GRAPHICS_ROW_SIZE + h;
 
@@ -670,7 +885,8 @@ void ProfGraphicsView::initMode()
 
     setCacheMode(QGraphicsView::CacheNone);
     setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
-    setViewportUpdateMode(QGraphicsView::MinimalViewportUpdate);
+    setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+    setOptimizationFlag(QGraphicsView::DontSavePainterState, true);
 
     connect(horizontalScrollBar(), &QScrollBar::valueChanged, this, &This::onScrollbarValueChange);
     connect(verticalScrollBar(), &QScrollBar::valueChanged, this, &This::onScrollbarValueChange);

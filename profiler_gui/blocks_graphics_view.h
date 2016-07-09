@@ -35,28 +35,22 @@
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define PROF_BLOCK_ITEM_OPT_MEMORY
-
-#ifdef PROF_BLOCK_ITEM_OPT_MEMORY
+#define DRAW_METHOD 2
 typedef float preal;
-#else
-typedef qreal preal;
-#endif
 
 #pragma pack(push, 1)
 struct ProfBlockItem
 {
-#ifdef PROF_BLOCK_ITEM_OPT_MEMORY
     const BlocksTree* block;
     preal        x, y, w, h;
-#else
-    QRectF             rect;
-    const BlocksTree* block;
-#endif
 
     float       totalHeight;
     QRgb              color;
+#if DRAW_METHOD > 0
+    unsigned int children_begin;
+#else
     bool               draw;
+#endif
 
     void setRect(preal _x, preal _y, preal _w, preal _h);
     preal left() const;
@@ -71,10 +65,16 @@ struct ProfBlockItem
 class ProfGraphicsItem : public QGraphicsItem
 {
     typedef ::std::vector<ProfBlockItem> Children;
-    //typedef ::std::vector<Children> Sublevels;
 
+#if DRAW_METHOD == 2
+    typedef ::std::vector<unsigned int> DrawIndexes;
+    DrawIndexes m_levelsIndexes;
+    typedef ::std::vector<Children> Sublevels;
+    Sublevels m_levels;
+#else
     Children   m_items;
-    //Sublevels m_levels;
+#endif
+
     QRectF      m_rect;
     const bool m_bTest;
 
@@ -90,25 +90,24 @@ public:
     void setBoundingRect(qreal x, qreal y, qreal w, qreal h);
     void setBoundingRect(const QRectF& _rect);
 
-    void reserve(unsigned int _items);
+#if DRAW_METHOD == 0
+    void reserve(size_t _items);
     const Children& items() const;
     const ProfBlockItem& getItem(size_t _index) const;
     ProfBlockItem& getItem(size_t _index);
     size_t addItem();
     size_t addItem(const ProfBlockItem& _item);
     size_t addItem(ProfBlockItem&& _item);
-
-
-//     void setLevels(unsigned int _levels);
-//     void reserve(unsigned short _level, unsigned int _items);
-// 
-//     const Children& items(unsigned short _level) const;
-//     const ProfBlockItem& getItem(unsigned short _level, size_t _index) const;
-//     ProfBlockItem& getItem(unsigned short _level, size_t _index);
-// 
-//     size_t addItem(unsigned short _level);
-//     size_t addItem(unsigned short _level, const ProfBlockItem& _item);
-//     size_t addItem(unsigned short _level, ProfBlockItem&& _item);
+#else
+    void setLevels(unsigned short _levels);
+    void reserve(unsigned short _level, size_t _items);
+    const Children& items(unsigned short _level) const;
+    const ProfBlockItem& getItem(unsigned short _level, size_t _index) const;
+    ProfBlockItem& getItem(unsigned short _level, size_t _index);
+    size_t addItem(unsigned short _level);
+    size_t addItem(unsigned short _level, const ProfBlockItem& _item);
+    size_t addItem(unsigned short _level, ProfBlockItem&& _item);
+#endif
 
 }; // END of class ProfGraphicsItem.
 
@@ -135,14 +134,13 @@ public:
 private:
 
     void test(size_t _frames_number, size_t _total_items_number_estimate, int _depth);
-    void test2(size_t _frames_number, size_t _total_items_number_estimate, int _depth);
 
     void clearSilent();
 
     void setTree(const thread_blocks_tree_t& _blocksTree);
 
     qreal setTree(const BlocksTree::children_t& _children, qreal& _height, qreal _y);
-    qreal setTree(ProfGraphicsItem* _item, const BlocksTree::children_t& _children, qreal& _height, qreal _y);
+    qreal setTree(ProfGraphicsItem* _item, const BlocksTree::children_t& _children, qreal& _height, qreal _y, unsigned int _level);
 
     inline qreal time2position(const profiler::timestamp_t& _time) const
     {
