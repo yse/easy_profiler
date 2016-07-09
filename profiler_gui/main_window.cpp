@@ -14,6 +14,8 @@
 *                   :
 *                   : * 2016/06/29 Victor Zarubkin: Added menu with tests.
 *                   :
+*                   : * 2016/06/30 Sergey Yagovtsev: Open file by command line argument
+*                   :
 *                   : *
 * ----------------- :
 * license           : TODO: add license text
@@ -25,6 +27,7 @@
 #include <QAction>
 #include <QMenu>
 #include <QMenuBar>
+#include <QCoreApplication>
 #include "main_window.h"
 #include "blocks_tree_widget.h"
 #include "blocks_graphics_view.h"
@@ -85,6 +88,13 @@ ProfMainWindow::ProfMainWindow() : QMainWindow(), m_treeWidget(nullptr), m_graph
     menu = new QMenu("Tests");
     menu->addAction(actionTestView);
     menuBar()->addMenu(menu);
+
+
+    if(QCoreApplication::arguments().size() > 1)
+    {
+        auto opened_filename = QCoreApplication::arguments().at(1).toStdString();
+        loadFile(opened_filename);
+    }
 }
 
 ProfMainWindow::~ProfMainWindow()
@@ -96,14 +106,19 @@ ProfMainWindow::~ProfMainWindow()
 void ProfMainWindow::onOpenFileClicked(bool)
 {
     auto filename = QFileDialog::getOpenFileName(this, "Open profiler log", m_lastFile.c_str(), "Profiler Log File (*.prof);;All Files (*.*)");
-    auto stdfilename = filename.toStdString();
+    loadFile(filename.toStdString());
+}
 
+//////////////////////////////////////////////////////////////////////////
+
+void ProfMainWindow::loadFile(const std::string& stdfilename)
+{
     thread_blocks_tree_t prof_blocks;
     auto nblocks = fillTreesFromFile(stdfilename.c_str(), prof_blocks, true);
 
     if (nblocks != 0)
     {
-        m_lastFile.swap(stdfilename);
+        m_lastFile = stdfilename;
         m_currentProf.swap(prof_blocks);
         static_cast<ProfTreeWidget*>(m_treeWidget->widget())->setTree(nblocks, m_currentProf);
         static_cast<ProfGraphicsView*>(m_graphicsView->widget())->setTree(m_currentProf);

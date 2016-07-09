@@ -69,13 +69,30 @@ void printTree(TreePrinter& printer, const BlocksTree& tree, int level = 0, prof
 	}
 }
 
-int main()
+int main(int argc, char* argv[])
 {
+
 	thread_blocks_tree_t threaded_trees;
+
+	const char* filename = nullptr;
+	if(argc > 1 && argv[1]){
+ 		filename = argv[1];
+    }else{
+		std::cout << "Specify prof file!" << std::endl;
+ 		return 255;
+ 	}
+
+	const char* dump_filename = nullptr;
+	if(argc > 2 && argv[2]){
+		dump_filename = argv[2];
+		PROFILER_ENABLE
+		std::cout << "Will dump reader prof file to " << dump_filename << std::endl;
+	}
+
 
 	auto start = std::chrono::system_clock::now();
 
-	auto blocks_counter = fillTreesFromFile("test.prof", threaded_trees, true);
+	auto blocks_counter = fillTreesFromFile(filename, threaded_trees, true);
 
 	auto end = std::chrono::system_clock::now();
 
@@ -86,5 +103,14 @@ int main()
 		std::cout << std::string(20, '=') << " thread "<< i.first << " "<< std::string(20, '=') << std::endl;
 		printTree(p, i.second,-1);
 	}
+	if(dump_filename!=nullptr)
+	{
+		auto bcount = profiler::dumpBlocksToFile(dump_filename);
+
+		std::cout << "Blocks count for reader: " << bcount << std::endl;
+	}
+
+
+
 	return 0;
 }

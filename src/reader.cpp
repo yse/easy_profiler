@@ -219,6 +219,7 @@ extern "C"{
 		unsigned int blocks_counter = 0;
 
 		while (!inFile.eof()){
+            PROFILER_BEGIN_BLOCK("Read block from file")
 			uint16_t sz = 0;
 			inFile.read((char*)&sz, sizeof(sz));
 			if (sz == 0)
@@ -245,14 +246,24 @@ extern "C"{
                 auto mt0 = tree.node->block()->getBegin();
                 if (mt0 < t1)//parent - starts earlier than last ends
                 {
-                    auto lower = std::lower_bound(root.children.begin(), root.children.end(), tree);
-
+                    //auto lower = std::lower_bound(root.children.begin(), root.children.end(), tree);
+                    /**/
+                    PROFILER_BEGIN_BLOCK("Find children")
+                    auto rlower1 = ++root.children.rbegin();
+                    for(; rlower1 != root.children.rend(); ++rlower1){
+                        if(mt0 > rlower1->node->block()->getBegin())
+                        {
+                            break;
+                        }
+                    }
+                    auto lower = rlower1.base();
                     std::move(lower, root.children.end(), std::back_inserter(tree.children));
 
                     root.children.erase(lower, root.children.end());
 
                     if (gather_statistics)
                     {
+                        PROFILER_BEGIN_BLOCK("Gather statistic for frame")
                         frame_statistics.clear();
 
                         //frame_statistics.reserve(tree.children.size());     // this gives slow-down on Windows
@@ -282,12 +293,13 @@ extern "C"{
 
             if (gather_statistics)
             {
+                PROFILER_BEGIN_BLOCK("Gather statistic")
                 BlocksTree& current = root.children.back();
                 update_statistics(overall_statistics, current.node, current.total_statistics);
             }
 
 		}
-
+        PROFILER_BEGIN_BLOCK("Gather statistic for roots")
 		if (gather_statistics)
 		{
 			for (auto& root_value : threaded_trees)
@@ -321,7 +333,7 @@ extern "C"{
                 ++root.sublevels;
             }
         }
-
+        PROFILER_END_BLOCK
         // No need to delete BlockStatistics instances - they will be deleted inside BlocksTree destructors
 
         return blocks_counter;

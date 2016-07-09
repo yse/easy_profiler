@@ -226,6 +226,7 @@ namespace profiler
 		void PROFILER_API beginBlock(Block* _block);
 		void PROFILER_API endBlock();
 		void PROFILER_API setEnabled(bool isEnable);
+		unsigned int PROFILER_API dumpBlocksToFile(const char* filename);
 	}
 
 	typedef uint8_t block_type_t;

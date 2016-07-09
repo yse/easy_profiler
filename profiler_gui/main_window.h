@@ -52,6 +52,10 @@ protected slots:
     void onExitClicked(bool);
     void onTestViewportClicked(bool);
 
+private:
+
+    void loadFile(const std::string& filename);
+
 }; // END of class ProfMainWindow.
 
 //////////////////////////////////////////////////////////////////////////

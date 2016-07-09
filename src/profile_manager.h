@@ -73,6 +73,7 @@ public:
 	void beginBlock(profiler::Block* _block);
 	void endBlock();
 	void setEnabled(bool isEnable);
+	unsigned int dumpBlocksToFile(const char* filename);
 };
 
 #endif

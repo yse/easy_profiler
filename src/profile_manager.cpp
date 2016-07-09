@@ -22,6 +22,11 @@ extern "C"{
 	{
 		ProfileManager::instance().beginBlock(_block);
 	}
+
+	unsigned int PROFILER_API dumpBlocksToFile(const char* filename)
+	{
+		return ProfileManager::instance().dumpBlocksToFile(filename);
+	}
 }
 
 SerilizedBlock::SerilizedBlock(Block* block):
@@ -85,14 +90,7 @@ ProfileManager::ProfileManager()
 
 ProfileManager::~ProfileManager()
 {
-	std::ofstream of("test.prof",std::fstream::binary);
-
-	for (auto* b : m_blocks){
-		uint16_t sz = b->size();
-		of.write((const char*)&sz, sizeof(uint16_t));
-		of.write(b->data(), b->size());
-		delete b;
-	}
+	//dumpBlocksToFile("test.prof");
 }
 
 ProfileManager& ProfileManager::instance()
@@ -148,4 +146,21 @@ void ProfileManager::_internalInsertBlock(profiler::Block* _block)
 {
 	guard_lock_t lock(m_storedSpin);
 	m_blocks.emplace_back(new SerilizedBlock(_block));
+}
+
+unsigned int ProfileManager::dumpBlocksToFile(const char* filename)
+{
+	std::ofstream of(filename, std::fstream::binary);
+
+	for (auto* b : m_blocks){
+		uint16_t sz = b->size();
+		of.write((const char*)&sz, sizeof(uint16_t));
+		of.write(b->data(), b->size());
+		delete b;
+	}
+	unsigned int size = (unsigned int)m_blocks.size();
+
+	m_blocks.clear();
+
+	return size;
 }
