@@ -28,6 +28,7 @@
 #include "main_window.h"
 #include "blocks_tree_widget.h"
 #include "blocks_graphics_view.h"
+//#include "graphics_scrollbar.h"
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -52,7 +53,14 @@ ProfMainWindow::ProfMainWindow() : QMainWindow(), m_treeWidget(nullptr), m_graph
     m_treeWidget->setAllowedAreas(Qt::AllDockWidgetAreas);
     m_treeWidget->setWidget(treeWidget);
 
+    //auto bar = new GraphicsHorizontalScrollbar();
+    //auto dock = new QDockWidget();
+    //dock->setMinimumHeight(20);
+    //dock->setAllowedAreas(Qt::AllDockWidgetAreas);
+    //dock->setWidget(bar);
+
     addDockWidget(Qt::TopDockWidgetArea, m_graphicsView);
+    //addDockWidget(Qt::TopDockWidgetArea, dock);
     addDockWidget(Qt::BottomDockWidgetArea, m_treeWidget);
 
     auto actionOpen = new QAction("Open", nullptr);
