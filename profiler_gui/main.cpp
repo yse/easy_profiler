@@ -1,6 +1,7 @@
 #include <QApplication>
 #include <QTreeView>
 #include <QFileSystemModel>
+#include <chrono>
 #include "treemodel.h"
 #include "blocks_graphics_view.h"
 #include "blocks_tree_widget.h"
@@ -31,6 +32,9 @@ int main(int argc, char **argv)
 // 
 // 	tree->show();
 
+    auto now = ::std::chrono::duration_cast<std::chrono::seconds>(::std::chrono::system_clock::now().time_since_epoch()).count() >> 1;
+    srand((unsigned int)now);
+
     int mode = 2;
 
     switch (mode)
@@ -41,14 +45,8 @@ int main(int argc, char **argv)
 
             if (test)
             {
-                // srand for random colors in test
-                unsigned int* rseed = new unsigned int;
-                srand(*rseed);
-                delete rseed;
-
                 ProfGraphicsView gview(true);
                 gview.show();
-
                 return app.exec();
             }
 
