@@ -875,7 +875,13 @@ qreal ProfGraphicsScene::setTree(ProfGraphicsItem* _item, const BlocksTree::chil
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-ProfGraphicsView::ProfGraphicsView(bool _test) : QGraphicsView(), m_scale(1), m_scaleCoeff(1.25), m_mouseButtons(Qt::NoButton), m_bUpdatingRect(false)
+ProfGraphicsView::ProfGraphicsView(bool _test)
+    : QGraphicsView()
+    , m_scale(1)
+    , m_scaleCoeff(1.25)
+    , m_mouseButtons(Qt::NoButton)
+    , m_bUpdatingRect(false)
+    , m_flickerSpeed(0)
 {
     initMode();
     setScene(new ProfGraphicsScene(this, _test));
@@ -883,7 +889,13 @@ ProfGraphicsView::ProfGraphicsView(bool _test) : QGraphicsView(), m_scale(1), m_
     updateVisibleSceneRect();
 }
 
-ProfGraphicsView::ProfGraphicsView(const thread_blocks_tree_t& _blocksTree) : QGraphicsView(), m_scale(1), m_scaleCoeff(1.25), m_mouseButtons(Qt::NoButton), m_bUpdatingRect(false)
+ProfGraphicsView::ProfGraphicsView(const thread_blocks_tree_t& _blocksTree)
+    : QGraphicsView()
+    , m_scale(1)
+    , m_scaleCoeff(1.25)
+    , m_mouseButtons(Qt::NoButton)
+    , m_bUpdatingRect(false)
+    , m_flickerSpeed(0)
 {
     initMode();
     setScene(new ProfGraphicsScene(_blocksTree, this));
@@ -956,6 +968,14 @@ void ProfGraphicsView::mouseMoveEvent(QMouseEvent* _event)
         // because if scrollbar does not emit valueChanged signal then viewport does not move
 
         updateVisibleSceneRect(); // Update scene visible rect only once
+
+        // Update flicker speed
+        m_flickerSpeed += delta.x() >> 1;
+        if (!m_flickerTimer.isActive())
+        {
+            // If flicker timer is not started, then start it
+            m_flickerTimer.start(20);
+        }
     }
 
     //_event->accept();
@@ -974,6 +994,7 @@ void ProfGraphicsView::initMode()
 
     connect(horizontalScrollBar(), &QScrollBar::valueChanged, this, &This::onScrollbarValueChange);
     connect(verticalScrollBar(), &QScrollBar::valueChanged, this, &This::onScrollbarValueChange);
+    connect(&m_flickerTimer, &QTimer::timeout, this, &This::onFlickerTimeout);
 }
 
 void ProfGraphicsView::updateVisibleSceneRect()
@@ -1017,6 +1038,39 @@ void ProfGraphicsView::onScrollbarValueChange(int)
 {
     if (!m_bUpdatingRect)
         updateVisibleSceneRect();
+}
+
+void ProfGraphicsView::onFlickerTimeout()
+{
+    if (m_mouseButtons & Qt::LeftButton)
+    {
+        // Fast slow-down and stop if mouse button is pressed, no flicking.
+        m_flickerSpeed >>= 1;
+    }
+    else
+    {
+        // Flick when mouse button is not pressed
+
+        auto hbar = horizontalScrollBar();
+
+        m_bUpdatingRect = true; // Block scrollbars from updating scene rect to make it possible to do it only once
+        hbar->setValue(hbar->value() - m_flickerSpeed);
+        m_bUpdatingRect = false;
+        // Seems like an ugly stub, but QSignalBlocker is also a bad decision
+        // because if scrollbar does not emit valueChanged signal then viewport does not move
+
+        updateVisibleSceneRect(); // Update scene visible rect only once
+
+        static const auto sign = [](int _value) { return _value < 0 ? -1 : 1; };
+        static const auto absmin = [](int _a, int _b) { return abs(_a) < abs(_b) ? _a : _b; };
+        m_flickerSpeed -= absmin(3 * sign(m_flickerSpeed), m_flickerSpeed);
+    }
+
+    if (m_flickerSpeed == 0)
+    {
+        // Flicker stopped, no timer needed.
+        m_flickerTimer.stop();
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

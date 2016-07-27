@@ -29,6 +29,7 @@
 #include <QGraphicsPolygonItem>
 #include <QGraphicsSimpleTextItem>
 #include <QPoint>
+#include <QTimer>
 #include <stdlib.h>
 #include <vector>
 #include "profiler/reader.h"
@@ -128,7 +129,7 @@ private:
 
     typedef ProfGraphicsScene This;
 
-    ::profiler::timestamp_t m_beginTime;
+    ::profiler::timestamp_t  m_beginTime;
 
 public:
 
@@ -164,11 +165,13 @@ private:
 
     typedef ProfGraphicsView This;
 
+    QTimer            m_flickerTimer;
     QRectF        m_visibleSceneRect;
     qreal                    m_scale;
     qreal               m_scaleCoeff;
     QPoint           m_mousePressPos;
     Qt::MouseButtons  m_mouseButtons;
+    int               m_flickerSpeed;
     bool             m_bUpdatingRect;
 
 public:
@@ -205,6 +208,7 @@ private:
 private slots:
 
     void onScrollbarValueChange(int);
+    void onFlickerTimeout();
 
 }; // END of class ProfGraphicsView.
 
