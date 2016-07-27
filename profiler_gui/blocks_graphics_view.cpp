@@ -27,7 +27,6 @@
 
 #include <QWheelEvent>
 #include <QMouseEvent>
-#include <QSignalBlocker>
 #include <QScrollBar>
 #include <math.h>
 #include <algorithm>
