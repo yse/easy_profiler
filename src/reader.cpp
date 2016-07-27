@@ -272,16 +272,51 @@ extern "C"{
 
                         for (auto& child : tree.children)
                         {
+#ifdef PROFILER_COUNT_TOTAL_CHILDREN_NUMBER
                             tree.total_children_number += child.total_children_number;
+#endif
+
                             update_statistics(frame_statistics, child.node, child.frame_statistics);
-                            if (tree.sublevels < child.sublevels)
-                                tree.sublevels = child.sublevels;
+
+#ifdef PROFILER_COUNT_DEPTH
+                            if (tree.depth < child.depth)
+                                tree.depth = child.depth;
+#endif
                         }
 
+#ifdef PROFILER_COUNT_TOTAL_CHILDREN_NUMBER
                         tree.total_children_number += static_cast<unsigned int>(tree.children.size());
-                        ++tree.sublevels;
+#endif
+
+#ifdef PROFILER_COUNT_DEPTH
+                        ++tree.depth;
+#endif
+                    }
+#if defined(PROFILER_COUNT_TOTAL_CHILDREN_NUMBER) || defined(PROFILER_COUNT_DEPTH)
+                    else
+                    {
+                        for (auto& child : tree.children)
+                        {
+#ifdef PROFILER_COUNT_TOTAL_CHILDREN_NUMBER
+                            tree.total_children_number += child.total_children_number;
+#endif
+
+#ifdef PROFILER_COUNT_DEPTH
+                            if (tree.depth < child.depth)
+                                tree.depth = child.depth;
+#endif
+                        }
+
+#ifdef PROFILER_COUNT_TOTAL_CHILDREN_NUMBER
+                        tree.total_children_number += static_cast<unsigned int>(tree.children.size());
+#endif
+
+#ifdef PROFILER_COUNT_DEPTH
+                        ++tree.depth;
+#endif
                     }
                 }
+#endif
             }
 
             root.children.push_back(std::move(tree));
@@ -299,6 +334,7 @@ extern "C"{
             }
 
 		}
+
         PROFILER_BEGIN_BLOCK("Gather statistic for roots")
 		if (gather_statistics)
 		{
@@ -309,15 +345,28 @@ extern "C"{
 				frame_statistics.clear();
 				for (auto& frame : root.children)
 				{
+#ifdef PROFILER_COUNT_TOTAL_CHILDREN_NUMBER
                     root.total_children_number += frame.total_children_number;
+#endif
+
                     update_statistics(frame_statistics, frame.node, frame.frame_statistics);
-                    if (root.sublevels < frame.sublevels)
-                        root.sublevels = frame.sublevels;
+
+#ifdef PROFILER_COUNT_DEPTH
+                    if (root.depth < frame.depth)
+                        root.depth = frame.depth;
+#endif
 				}
+
+#ifdef PROFILER_COUNT_TOTAL_CHILDREN_NUMBER
                 root.total_children_number += static_cast<unsigned int>(root.children.size());
-                ++root.sublevels;
+#endif
+
+#ifdef PROFILER_COUNT_DEPTH
+                ++root.depth;
+#endif
 			}
 		}
+#if defined(PROFILER_COUNT_TOTAL_CHILDREN_NUMBER) || defined(PROFILER_COUNT_DEPTH)
         else
         {
             for (auto& root_value : threaded_trees)
@@ -325,14 +374,26 @@ extern "C"{
                 auto& root = root_value.second;
                 for (auto& frame : root.children)
                 {
+#ifdef PROFILER_COUNT_TOTAL_CHILDREN_NUMBER
                     root.total_children_number += frame.total_children_number;
-                    if (root.sublevels < frame.sublevels)
-                        root.sublevels = frame.sublevels;
+#endif
+
+#ifdef PROFILER_COUNT_DEPTH
+                    if (root.depth < frame.depth)
+                        root.depth = frame.depth;
+#endif
                 }
+
+#ifdef PROFILER_COUNT_TOTAL_CHILDREN_NUMBER
                 root.total_children_number += static_cast<unsigned int>(root.children.size());
-                ++root.sublevels;
+#endif
+
+#ifdef PROFILER_COUNT_DEPTH
+                ++root.depth;
+#endif
             }
         }
+#endif
         PROFILER_END_BLOCK
         // No need to delete BlockStatistics instances - they will be deleted inside BlocksTree destructors
 

@@ -36,29 +36,33 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define DRAW_METHOD 2
-typedef float preal;
 
 #pragma pack(push, 1)
 struct ProfBlockItem
 {
-    const BlocksTree* block;
-    preal        x, y, w, h;
-
-    float       totalHeight;
-    QRgb              color;
+    const BlocksTree*    block;
+    qreal                    x;
+    float                    w;
+    float                    y;
+    float                    h;
+    QRgb                 color;
 #if DRAW_METHOD > 0
     unsigned int children_begin;
+#endif
+    unsigned short totalHeight;
+#if DRAW_METHOD > 0
+    char                 state;
 #else
-    bool               draw;
+    bool                 state;
 #endif
 
-    void setRect(preal _x, preal _y, preal _w, preal _h);
-    preal left() const;
-    preal top() const;
-    preal width() const;
-    preal height() const;
-    preal right() const;
-    preal bottom() const;
+    void setRect(qreal _x, float _y, float _w, float _h);
+    qreal left() const;
+    float top() const;
+    float width() const;
+    float height() const;
+    qreal right() const;
+    float bottom() const;
 };
 #pragma pack(pop)
 
@@ -99,6 +103,7 @@ public:
     size_t addItem(const ProfBlockItem& _item);
     size_t addItem(ProfBlockItem&& _item);
 #else
+    unsigned short levels() const;
     void setLevels(unsigned short _levels);
     void reserve(unsigned short _level, size_t _items);
     const Children& items(unsigned short _level) const;
@@ -140,7 +145,7 @@ private:
     void setTree(const thread_blocks_tree_t& _blocksTree);
 
     qreal setTree(const BlocksTree::children_t& _children, qreal& _height, qreal _y);
-    qreal setTree(ProfGraphicsItem* _item, const BlocksTree::children_t& _children, qreal& _height, qreal _y, unsigned int _level);
+    qreal setTree(ProfGraphicsItem* _item, const BlocksTree::children_t& _children, qreal& _height, qreal _y, unsigned short _level);
 
     inline qreal time2position(const profiler::timestamp_t& _time) const
     {

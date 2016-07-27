@@ -27,6 +27,9 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+//#define PROFILER_COUNT_TOTAL_CHILDREN_NUMBER
+#define PROFILER_COUNT_DEPTH
+
 namespace profiler {
 
     typedef uint32_t calls_number_t;
@@ -96,10 +99,25 @@ struct BlocksTree
     ::profiler::SerilizedBlock*              node;
     ::profiler::BlockStatistics* frame_statistics; ///< Pointer to statistics for this block within the parent (may be nullptr for top-level blocks)
     ::profiler::BlockStatistics* total_statistics; ///< Pointer to statistics for this block within the bounds of all frames per current thread
-    unsigned int            total_children_number; ///< Number of all children including number of grandchildren (and so on)
-    unsigned short                      sublevels; ///< Maximum number of sublevels (maximum children depth)
 
-    BlocksTree() : node(nullptr), frame_statistics(nullptr), total_statistics(nullptr), total_children_number(0), sublevels(0)
+#ifdef PROFILER_COUNT_TOTAL_CHILDREN_NUMBER
+    unsigned int            total_children_number; ///< Number of all children including number of grandchildren (and so on)
+#endif
+
+#ifdef PROFILER_COUNT_DEPTH
+    unsigned short                          depth; ///< Maximum number of sublevels (maximum children depth)
+#endif
+
+    BlocksTree()
+        : node(nullptr)
+        , frame_statistics(nullptr)
+        , total_statistics(nullptr)
+#ifdef PROFILER_COUNT_TOTAL_CHILDREN_NUMBER
+        , total_children_number(0)
+#endif
+#ifdef PROFILER_COUNT_DEPTH
+        , depth(0)
+#endif
 	{
 
     }
@@ -158,8 +176,14 @@ private:
         node = that.node;
         frame_statistics = that.frame_statistics;
         total_statistics = that.total_statistics;
+
+#ifdef PROFILER_COUNT_TOTAL_CHILDREN_NUMBER
         total_children_number = that.total_children_number;
-        sublevels = that.sublevels;
+#endif
+
+#ifdef PROFILER_COUNT_DEPTH
+        depth = that.depth;
+#endif
 
         that.node = nullptr;
         that.frame_statistics = nullptr;

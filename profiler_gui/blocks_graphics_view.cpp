@@ -35,50 +35,50 @@
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-const qreal GRAPHICS_ROW_SIZE = 16;
-const qreal GRAPHICS_ROW_SIZE_FULL = GRAPHICS_ROW_SIZE + 2;
-const qreal ROW_SPACING = 10;
+const unsigned short GRAPHICS_ROW_SIZE = 16;
+const unsigned short GRAPHICS_ROW_SIZE_FULL = GRAPHICS_ROW_SIZE + 2;
+const unsigned short ROW_SPACING = 10;
 const QRgb DEFAULT_COLOR = 0x00f0e094;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 QRgb toRgb(unsigned int _red, unsigned int _green, unsigned int _blue)
 {
-    if (_red == _green == _blue == 0)
+    if (_red == 0 && _green == 0 && _blue == 0)
         return DEFAULT_COLOR;
     return (_red << 16) + (_green << 8) + _blue;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void ProfBlockItem::setRect(preal _x, preal _y, preal _w, preal _h) {
+void ProfBlockItem::setRect(qreal _x, float _y, float _w, float _h) {
     x = _x;
     y = _y;
     w = _w;
     h = _h;
 }
 
-preal ProfBlockItem::left() const {
+qreal ProfBlockItem::left() const {
     return x;
 }
 
-preal ProfBlockItem::top() const {
+float ProfBlockItem::top() const {
     return y;
 }
 
-preal ProfBlockItem::width() const {
+float ProfBlockItem::width() const {
     return w;
 }
 
-preal ProfBlockItem::height() const {
+float ProfBlockItem::height() const {
     return h;
 }
 
-preal ProfBlockItem::right() const {
+qreal ProfBlockItem::right() const {
     return x + w;
 }
 
-preal ProfBlockItem::bottom() const {
+float ProfBlockItem::bottom() const {
     return y + h;
 }
 
@@ -139,8 +139,8 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         QRgb previousColor = 0;
         for (auto& item : m_items)
         {
-            item.draw = !(item.left() > sceneRight || item.right() < sceneLeft);
-            if (!item.draw)
+            item.state = !(item.left() > sceneRight || item.right() < sceneLeft);
+            if (!item.state)
             {
                 // this item is fully out of scene visible rect
                 continue;
@@ -164,7 +164,7 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         {
             for (auto& item : m_items)
             {
-                if (!item.draw)
+                if (!item.state)
                     continue;
 
                 auto w = item.width() * currentScale;
@@ -181,7 +181,7 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
             previousColor = 0;
             for (auto& item : m_items)
             {
-                if (!item.draw)
+                if (!item.state)
                     continue;
 
                 auto w = item.width() * currentScale;
@@ -220,28 +220,30 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         return;
     }
 
-    const auto selfX = x();
+    const auto self_x = x();
     const auto view = static_cast<ProfGraphicsView*>(scene()->parent());
-    const auto visibleSceneRect = view->visibleSceneRect(); // Current visible scene rect
-    const auto sceneLeft = visibleSceneRect.left() - selfX, sceneRight = visibleSceneRect.right() - selfX;
-
     const auto currentScale = view->currentScale(); // Current GraphicsView scale
     const auto scaleRevert = 1.0 / currentScale; // Multiplier for reverting current GraphicsView scale
+    const auto visibleSceneRect = view->visibleSceneRect(); // Current visible scene rect
+    const auto sceneLeft = visibleSceneRect.left() - self_x, sceneRight = visibleSceneRect.right() - self_x;
 
     QRectF rect;
     QBrush brush;
+    QPen pen = _painter->pen();
     QRgb previousColor = 0;
     brush.setStyle(Qt::SolidPattern);
 
     _painter->save();
-    //_painter->setPen(Qt::NoPen);
-    _painter->setTransform(QTransform::fromScale(scaleRevert, 1), true);
+    _painter->setPen(Qt::NoPen);
 
-    const int levelsNumber = static_cast<int>(m_levels.size());
-    for (int i = 1; i < levelsNumber; ++i)
+
+    // Reset indices of first visible item for each layer
+    const auto levelsNumber = levels();
+    for (unsigned short i = 1; i < levelsNumber; ++i)
         m_levelsIndexes[i] = -1;
 
-    // Searching for first visible top item
+
+    // Search for first visible top item
     auto& level0 = m_levels[0];
     auto first = ::std::lower_bound(level0.begin(), level0.end(), sceneLeft, [](const ProfBlockItem& _item, double _value)
     {
@@ -259,51 +261,99 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         m_levelsIndexes[0] = level0.size() - 1;
     }
 
-    // Iterating through levels and draw visible items
-    for (int l = 0; l < levelsNumber; ++l)
+
+    // STUB! --------------------------------------------------------
+    // 
+    // This is to make _painter->drawText() work properly
+    // (it seems there is a bug in Qt5.6 when drawText called for big coordinates,
+    // drawRect at the same time called for actually same coordinates
+    // works fine without using this additional transform fromTranslate)
+    const auto dx = m_levels[0][m_levelsIndexes[0]].left();
+    _painter->setTransform(QTransform::fromTranslate(dx, -y()), true);
+    // 
+    // END STUB! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    _painter->setTransform(QTransform::fromScale(scaleRevert, 1), true);
+
+
+    //printf("SCALE=%0.4lf // LEFT=%0.2lf // RIGHT=%0.2lf // self_x=%0.2lf\n", currentScale, sceneLeft, sceneRight, self_x);
+
+
+    // Iterate through layers and draw visible items
+    for (unsigned short l = 0; l < levelsNumber; ++l)
     {
         auto& level = m_levels[l];
         const auto next_level = l + 1;
+        char state = 1;
+        //bool changebrush = false;
 
         for (unsigned int i = m_levelsIndexes[l], end = level.size(); i < end; ++i)
         {
             auto& item = level[i];
+            if (item.state != 0) state = item.state;
 
-            if (item.right() < sceneLeft)
+            if (item.right() < sceneLeft || state == -1)
             {
                 ++m_levelsIndexes[l];
                 continue;
             }
 
-            auto w = item.width() * currentScale;
-            if (l == 0)
+            auto w = ::std::max(item.width() * currentScale, 1.0);
+
+            if (w < 20)
             {
-                if (w < 20)
+                // Items which width is less than 20 will be painted as big rectangles which are hiding it's children
+                if (item.left() > sceneRight)
+                    break;
+
+                auto x = (item.left() - dx) * currentScale;
+                //if (previousColor != item.color)
+                //{
+                //    changebrush = true;
+                //    previousColor = item.color;
+                //    QLinearGradient gradient(x, item.top(), x, item.top() + item.totalHeight);
+                //    gradient.setColorAt(0, item.color);
+                //    gradient.setColorAt(1, 0x00ffffff);
+                //    brush = QBrush(gradient);
+                //    _painter->setBrush(brush);
+                //}
+
+                if (previousColor != item.color)
                 {
-                    // Items which width is less than 20 will be painted as big rectangles which are hiding it's children
-                    if (item.left() > sceneRight)
-                        break;
-
-                    if (previousColor != item.color)
-                    {
-                        previousColor = item.color;
-                        brush.setColor(previousColor);
-                        _painter->setBrush(brush);
-                    }
-
-                    //rect.setRect(selfX + item.left(), item.top(), item.width(), item.totalHeight);
-                    rect.setRect((selfX + item.left()) * currentScale, item.top(), w, item.totalHeight);
-                    _painter->drawRect(rect);
-                    continue;
+                    previousColor = item.color;
+                    brush.setColor(previousColor);
+                    _painter->setBrush(brush);
                 }
+
+                //rect.setRect(item.left(), item.top(), item.width(), item.totalHeight);
+                //rect.setRect(item.left() * currentScale, item.top(), w, item.totalHeight);
+                rect.setRect(x, item.top(), w, item.totalHeight);
+
+                _painter->drawRect(rect);
+
+                if (next_level < levelsNumber && item.children_begin != -1)
+                    m_levels[next_level][item.children_begin].state = -1;
+
+                continue;
             }
 
-            if (next_level < levelsNumber && m_levelsIndexes[next_level] == -1)
-                m_levelsIndexes[next_level] = item.children_begin;
+            if (next_level < levelsNumber && item.children_begin != -1)
+            {
+                if (m_levelsIndexes[next_level] == -1)
+                    m_levelsIndexes[next_level] = item.children_begin;
+                m_levels[next_level][item.children_begin].state = 1;
+            }
 
             if (item.left() > sceneRight)
                 break;
             
+            //if (changebrush)
+            //{
+            //    changebrush = false;
+            //    previousColor = item.color;
+            //    brush = QBrush(previousColor);
+            //    _painter->setBrush(brush);
+            //} else
             if (previousColor != item.color)
             {
                 previousColor = item.color;
@@ -311,32 +361,35 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 _painter->setBrush(brush);
             }
 
-            if (w < 20)
-                _painter->setPen(Qt::NoPen);
-
-            //rect.setRect(selfX + item.left(), item.top(), item.width(), item.height());
-            rect.setRect((selfX + item.left()) * currentScale, item.top(), w, item.height());
+            //rect.setRect(item.left(), item.top(), item.width(), item.height());
+            //rect.setRect(item.left() * currentScale, item.top(), w, item.height());
+            rect.setRect((item.left() - dx) * currentScale, item.top(), w, item.height());
             _painter->drawRect(rect);
 
-            if (w < 20)
+            //if (w < 20)
+            //    continue;
+
+            auto xtext = 0;
+            if (item.left() < sceneLeft)
             {
-                _painter->setPen(Qt::SolidLine);
-                continue;
+                w += (item.left() - sceneLeft) * currentScale;
+                xtext = sceneLeft - dx;
+            }
+            else
+            {
+                xtext = item.left() - dx;
             }
 
-            if (m_bTest)
-            {
-                auto xtext = item.left();
-                if (xtext < sceneLeft)
-                {
-                    w += xtext - sceneLeft;
-                    xtext = sceneLeft;
-                }
-                xtext += selfX;
+            //w = item.width();
+            rect.setRect(xtext * currentScale, item.top(), w, item.height());
 
-                rect.setRect(xtext * currentScale, item.top(), w, item.height());
-                _painter->drawText(rect, 0, "NOT VERY LONG TEST TEXT");
-            }
+            auto textColor = 0x00ffffff - previousColor;
+            if (textColor == previousColor) textColor = 0;
+            pen.setColor(textColor); // Text is painted with inverse color
+            _painter->setPen(pen);
+            auto text = m_bTest ? "NOT VERY LONG TEST TEXT" : item.block->node->getBlockName();
+            _painter->drawText(rect, 0, text);
+            _painter->setPen(Qt::NoPen); // restore pen for rectangle painting
         }
     }
 
@@ -395,6 +448,11 @@ size_t ProfGraphicsItem::addItem(ProfBlockItem&& _item)
 }
 
 #else
+
+unsigned short ProfGraphicsItem::levels() const
+{
+    return static_cast<unsigned short>(m_levels.size());
+}
 
 void ProfGraphicsItem::setLevels(unsigned short _levels)
 {
@@ -545,23 +603,24 @@ void fillChildren(ProfGraphicsItem* _item, int _level, qreal _x, qreal _y, size_
         size_t j = _item->addItem(_level);
         auto& b = _item->getItem(_level, j);
         b.color = toRgb(30 + rand() % 225, 30 + rand() % 225, 30 + rand() % 225);
+        b.state = 0;
 
         if (_childrenNumber > 0)
         {
             const auto& children = _item->items(_level + 1);
             b.children_begin = static_cast<unsigned int>(children.size());
 
-            fillChildren(_item, _level + 1, _x, _y + GRAPHICS_ROW_SIZE + 2, _childrenNumber, _total_items);
+            fillChildren(_item, _level + 1, _x, _y + GRAPHICS_ROW_SIZE_FULL, _childrenNumber, _total_items);
 
             const auto& last = children.back();
             b.setRect(_x, _y, last.right() - _x, GRAPHICS_ROW_SIZE);
-            b.totalHeight = GRAPHICS_ROW_SIZE + last.totalHeight + 2;
+            b.totalHeight = GRAPHICS_ROW_SIZE_FULL + last.totalHeight;
         }
         else
         {
             b.setRect(_x, _y, 10 + rand() % 40, GRAPHICS_ROW_SIZE);
             b.totalHeight = GRAPHICS_ROW_SIZE;
-            b.children_begin = 0;
+            b.children_begin = -1;
         }
 
         _x = b.right();
@@ -571,11 +630,14 @@ void fillChildren(ProfGraphicsItem* _item, int _level, qreal _x, qreal _y, size_
 
 void ProfGraphicsScene::test(size_t _frames_number, size_t _total_items_number_estimate, int _depth)
 {
+    static const qreal X_BEGIN = 50;
+    static const qreal Y_BEGIN = 0;
+
     const auto children_per_frame = _total_items_number_estimate / _frames_number;
     const size_t first_level_children_count = sqrt(pow(2, _depth - 1)) * pow(children_per_frame, 1.0 / double(_depth)) + 0.5;
 
     auto item = new ProfGraphicsItem(true);
-    item->setPos(0, 0);
+    item->setPos(X_BEGIN, Y_BEGIN);
 
     item->setLevels(_depth + 1);
     item->reserve(0, _frames_number);
@@ -589,36 +651,33 @@ void ProfGraphicsScene::test(size_t _frames_number, size_t _total_items_number_e
     }
 
     size_t total_items = 0;
-    qreal x = 0, y = 0, h = 0;
+    qreal x = X_BEGIN;
     for (unsigned int i = 0; i < _frames_number; ++i)
     {
         size_t j = item->addItem(0);
         auto& b = item->getItem(0, j);
         b.color = toRgb(30 + rand() % 225, 30 + rand() % 225, 30 + rand() % 225);
+        b.state = 0;
 
         const auto& children = item->items(1);
         b.children_begin = static_cast<unsigned int>(children.size());
 
-        fillChildren(item, 1, x, y + GRAPHICS_ROW_SIZE + 2, first_level_children_count, total_items);
+        fillChildren(item, 1, x, Y_BEGIN + GRAPHICS_ROW_SIZE_FULL, first_level_children_count, total_items);
 
         const auto& last = children.back();
-        b.setRect(x, 0, last.right() - x, GRAPHICS_ROW_SIZE);
-        b.totalHeight = GRAPHICS_ROW_SIZE + last.totalHeight + 2;
+        b.setRect(x, Y_BEGIN, last.right() - x, GRAPHICS_ROW_SIZE);
+        b.totalHeight = GRAPHICS_ROW_SIZE_FULL + last.totalHeight;
 
         x += b.width() + 500;
-
-        if (last.bottom() > h)
-        {
-            h = last.bottom();
-        }
 
         ++total_items;
     }
 
-    item->setBoundingRect(0, 0, x, item->getItem(0, 0).totalHeight);
+    const auto h = item->getItem(0, 0).totalHeight;
+    item->setBoundingRect(0, 0, x - X_BEGIN, h);
     addItem(item);
 
-    setSceneRect(0, 0, x, h);
+    setSceneRect(0, 0, x, Y_BEGIN + h);
 }
 #endif
 
@@ -635,7 +694,7 @@ void ProfGraphicsScene::setTree(const thread_blocks_tree_t& _blocksTree)
 {
     // calculate scene size and fill it with items
     ::profiler::timestamp_t finish = 0;
-    qreal y = ROW_SPACING;
+    qreal y = 0;// ROW_SPACING;
     for (const auto& threadTree : _blocksTree)
     {
         const auto timestart = threadTree.second.children.front().node->block()->getBegin();
@@ -644,13 +703,19 @@ void ProfGraphicsScene::setTree(const thread_blocks_tree_t& _blocksTree)
         if (finish < timefinish) finish = timefinish;
 
         // fill scene with new items
-        qreal h = 0;
+        qreal h = 0, x = time2position(timestart);
 #if DRAW_METHOD == 0
         setTree(threadTree.second.children, h, y);
 #else
         auto item = new ProfGraphicsItem();
-        item->setLevels(threadTree.second.sublevels);
+        item->setLevels(threadTree.second.depth);
+        //item->setPos(x, y);
+
         const auto children_duration = setTree(item, threadTree.second.children, h, y, 0);
+
+        item->setBoundingRect(0, 0, children_duration, h);
+        item->setPos(x, y);
+
         addItem(item);
 #endif
         y += h + ROW_SPACING;
@@ -658,6 +723,13 @@ void ProfGraphicsScene::setTree(const thread_blocks_tree_t& _blocksTree)
 
     const qreal endX = time2position(finish + 1000000);
     setSceneRect(0, 0, endX, y + ROW_SPACING);
+
+    auto rect = sceneRect();
+    auto itms = items();
+    for (auto item : itms)
+    {
+        static_cast<ProfGraphicsItem*>(item)->setBoundingRect(rect);
+    }
 }
 
 qreal ProfGraphicsScene::setTree(const BlocksTree::children_t& _children, qreal& _height, qreal _y)
@@ -721,7 +793,7 @@ qreal ProfGraphicsScene::setTree(const BlocksTree::children_t& _children, qreal&
 #endif
 }
 
-qreal ProfGraphicsScene::setTree(ProfGraphicsItem* _item, const BlocksTree::children_t& _children, qreal& _height, qreal _y, unsigned int _level)
+qreal ProfGraphicsScene::setTree(ProfGraphicsItem* _item, const BlocksTree::children_t& _children, qreal& _height, qreal _y, unsigned short _level)
 {
     if (_children.empty())
     {
@@ -732,7 +804,9 @@ qreal ProfGraphicsScene::setTree(ProfGraphicsItem* _item, const BlocksTree::chil
     _item->reserve(_level, _children.size());
 #endif
 
+    const auto next_level = _level + 1;
     qreal total_duration = 0, prev_end = 0, maxh = 0;
+    //size_t num = 0;
     for (const auto& child : _children)
     {
         qreal xbegin = time2position(child.node->block()->getBegin());
@@ -754,10 +828,20 @@ qreal ProfGraphicsScene::setTree(ProfGraphicsItem* _item, const BlocksTree::chil
         auto i = _item->addItem();
 #else
         auto i = _item->addItem(_level);
+        auto& b = _item->getItem(_level, i);
+
+        if (next_level < _item->levels() && !child.children.empty())
+        {
+            b.children_begin = static_cast<unsigned int>(_item->items(next_level).size());
+        }
+        else
+        {
+            b.children_begin = -1;
+        }
 #endif
 
         qreal h = 0;
-        const auto children_duration = setTree(_item, child.children, h, _y + GRAPHICS_ROW_SIZE_FULL, _level + 1);
+        const auto children_duration = setTree(_item, child.children, h, _y + GRAPHICS_ROW_SIZE_FULL, next_level);
         if (duration < children_duration)
         {
             duration = children_duration;
@@ -771,17 +855,17 @@ qreal ProfGraphicsScene::setTree(ProfGraphicsItem* _item, const BlocksTree::chil
         const auto color = child.node->block()->getColor();
 #if DRAW_METHOD == 0
         auto& b = _item->getItem(i);
-#else
-        auto& b = _item->getItem(_level, i);
 #endif
         b.block = &child;
         b.color = toRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
-        b.setRect(xbegin - _item->x(), _y - _item->y(), duration, GRAPHICS_ROW_SIZE);
+        b.setRect(xbegin, _y, duration, GRAPHICS_ROW_SIZE);
         b.totalHeight = GRAPHICS_ROW_SIZE + h;
 
         total_duration += duration;
 
         prev_end = xbegin + duration;
+
+        //if (_level == 0 && ++num > 20) break;
     }
 
     _height += GRAPHICS_ROW_SIZE_FULL + maxh;
