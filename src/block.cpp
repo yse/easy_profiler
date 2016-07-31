@@ -40,12 +40,12 @@ inline timestamp_t getCurrentTime()
 	LARGE_INTEGER elapsedMicroseconds;
 	if (!QueryPerformanceCounter(&elapsedMicroseconds))
 		return 0;
-	elapsedMicroseconds.QuadPart *= 1000000;
+	elapsedMicroseconds.QuadPart *= 1000000000;
 	elapsedMicroseconds.QuadPart /= frequency.QuadPart;
 	return (timestamp_t)elapsedMicroseconds.QuadPart;
 #else
-	std::chrono::time_point<std::chrono::system_clock, std::chrono::microseconds> time_point;
-	time_point = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::system_clock::now());
+	std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds> time_point;
+	time_point = std::chrono::time_point_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now());
 	return time_point.time_since_epoch().count();
 #endif
 }
