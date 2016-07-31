@@ -82,6 +82,9 @@ ProfMainWindow::ProfMainWindow() : QMainWindow(), m_treeWidget(nullptr), m_graph
     menuBar()->addMenu(menu);
 
 
+    connect(graphicsView->view(), &ProfGraphicsView::treeblocksChanged, treeWidget, &ProfTreeWidget::setTreeBlocks);
+
+
     if(QCoreApplication::arguments().size() > 1)
     {
         auto opened_filename = QCoreApplication::arguments().at(1).toStdString();
@@ -112,7 +115,6 @@ void ProfMainWindow::loadFile(const std::string& stdfilename)
     {
         m_lastFile = stdfilename;
         m_currentProf.swap(prof_blocks);
-        //static_cast<ProfTreeWidget*>(m_treeWidget->widget())->setTree(nblocks, m_currentProf);
         static_cast<ProfGraphicsViewWidget*>(m_graphicsView->widget())->view()->setTree(m_currentProf);
     }
 }
@@ -132,7 +134,6 @@ void ProfMainWindow::onReloadFileClicked(bool)
     if (nblocks != 0)
     {
         m_currentProf.swap(prof_blocks);
-        //static_cast<ProfTreeWidget*>(m_treeWidget->widget())->setTree(nblocks, m_currentProf);
         static_cast<ProfGraphicsViewWidget*>(m_graphicsView->widget())->view()->setTree(m_currentProf);
     }
 }

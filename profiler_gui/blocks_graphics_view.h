@@ -26,16 +26,18 @@
 
 #include <QGraphicsView>
 #include <QGraphicsScene>
-#include <QGraphicsPolygonItem>
-#include <QGraphicsSimpleTextItem>
+#include <QGraphicsItem>
+#include <QFont>
 #include <QPoint>
 #include <QTimer>
 #include <stdlib.h>
 #include <vector>
 #include "graphics_scrollbar.h"
 #include "profiler/reader.h"
+#include "common_types.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
 
 #pragma pack(push, 1)
 struct ProfBlockItem
@@ -60,7 +62,7 @@ struct ProfBlockItem
 };
 #pragma pack(pop)
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
 
 class ProfGraphicsView;
 
@@ -73,20 +75,23 @@ class ProfGraphicsItem : public QGraphicsItem
     DrawIndexes  m_levelsIndexes;
     Sublevels           m_levels;
 
-    QRectF                m_rect;
-    QRgb       m_backgroundColor;
-    const bool           m_bTest;
+    QRectF               m_boundingRect;
+    const BlocksTree*           m_pRoot;
+    ::profiler::thread_id_t m_thread_id;
+    QRgb              m_backgroundColor;
+    const bool                  m_bTest;
 
 public:
 
     ProfGraphicsItem();
     ProfGraphicsItem(bool _test);
+    ProfGraphicsItem(::profiler::thread_id_t _thread_id, const BlocksTree* _root);
     virtual ~ProfGraphicsItem();
 
     QRectF boundingRect() const override;
     void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
 
-    QRgb backgroundColor() const;
+public:
 
     void setBoundingRect(qreal x, qreal y, qreal w, qreal h);
     void setBoundingRect(const QRectF& _rect);
@@ -103,49 +108,58 @@ public:
     size_t addItem(unsigned short _level, const ProfBlockItem& _item);
     size_t addItem(unsigned short _level, ProfBlockItem&& _item);
 
+    void getBlocks(qreal _left, qreal _right, TreeBlocks& _blocks) const;
+
 private:
 
     const ProfGraphicsView* view() const;
 
 }; // END of class ProfGraphicsItem.
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
 
-class ProfGraphicsScene : public QGraphicsScene
+class ProfChronometerItem : public QGraphicsItem
 {
-    friend class ProfGraphicsView;
-
-    Q_OBJECT
-
-private:
-
-    typedef ProfGraphicsScene This;
-
-    ::profiler::timestamp_t  m_beginTime;
+    QFont           m_font;
+    QRectF  m_boundingRect;
+    qreal  m_left, m_right;
 
 public:
 
-    ProfGraphicsScene(QGraphicsView* _parent, bool _test = false);
-    ProfGraphicsScene(const thread_blocks_tree_t& _blocksTree, QGraphicsView* _parent);
-    virtual ~ProfGraphicsScene();
+    ProfChronometerItem();
+    virtual ~ProfChronometerItem();
+
+    QRectF boundingRect() const override;
+    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
+
+public:
+
+    void setBoundingRect(qreal x, qreal y, qreal w, qreal h);
+    void setBoundingRect(const QRectF& _rect);
+    void setLeftRight(qreal _left, qreal _right);
+
+    inline qreal left() const
+    {
+        return m_left;
+    }
+
+    inline qreal right() const
+    {
+        return m_right;
+    }
+
+    inline qreal width() const
+    {
+        return m_right - m_left;
+    }
 
 private:
 
-    void test(size_t _frames_number, size_t _total_items_number_estimate, int _depth);
+    const ProfGraphicsView* view() const;
 
-    void clearSilent();
+}; // END of class ProfChronometerItem.
 
-    void setTree(const thread_blocks_tree_t& _blocksTree);
-    qreal setTree(ProfGraphicsItem* _item, const BlocksTree::children_t& _children, qreal& _height, qreal _y, unsigned short _level);
-
-    inline qreal time2position(const profiler::timestamp_t& _time) const
-    {
-        return qreal(_time - m_beginTime) * 1e-6;
-    }
-
-}; // END of class ProfGraphicsScene.
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
 
 class ProfGraphicsView : public QGraphicsView
 {
@@ -154,20 +168,25 @@ class ProfGraphicsView : public QGraphicsView
 private:
 
     typedef ProfGraphicsView This;
+    typedef ::std::vector<ProfGraphicsItem*> Items;
 
+    Items                                   m_items;
+    TreeBlocks                     m_selectedBlocks;
     QTimer                           m_flickerTimer;
     QRectF                       m_visibleSceneRect;
+    ::profiler::timestamp_t             m_beginTime;
     qreal                                   m_scale;
     qreal                                  m_offset; ///< Have to use manual offset for all scene content instead of using scrollbars because QScrollBar::value is 32-bit integer :(
     QPoint                          m_mousePressPos;
     Qt::MouseButtons                 m_mouseButtons;
     GraphicsHorizontalScrollbar*       m_pScrollbar;
+    ProfChronometerItem*          m_chronometerItem;
     int                              m_flickerSpeed;
     bool                            m_bUpdatingRect;
+    bool                                    m_bTest;
+    bool                                   m_bEmpty;
 
 public:
-
-    using QGraphicsView::scale;
 
     ProfGraphicsView(bool _test = false);
     ProfGraphicsView(const thread_blocks_tree_t& _blocksTree);
@@ -177,6 +196,7 @@ public:
     void mousePressEvent(QMouseEvent* _event) override;
     void mouseReleaseEvent(QMouseEvent* _event) override;
     void mouseMoveEvent(QMouseEvent* _event) override;
+    void resizeEvent(QResizeEvent* _event) override;
 
     inline qreal scale() const
     {
@@ -193,17 +213,27 @@ public:
         return m_visibleSceneRect;
     }
 
+    inline qreal time2position(const profiler::timestamp_t& _time) const
+    {
+        return qreal(_time - m_beginTime) * 1e-6;
+    }
+
     void setScrollbar(GraphicsHorizontalScrollbar* _scrollbar);
-    void setTree(const thread_blocks_tree_t& _blocksTree);
     void clearSilent();
 
     void test(size_t _frames_number, size_t _total_items_number_estimate, int _depth);
+    void setTree(const thread_blocks_tree_t& _blocksTree);
+
+signals:
+
+    void treeblocksChanged(const TreeBlocks& _blocks, ::profiler::timestamp_t _begin_time);
 
 private:
 
     void initMode();
     void updateVisibleSceneRect();
     void updateScene();
+    qreal setTree(ProfGraphicsItem* _item, const BlocksTree::children_t& _children, qreal& _height, qreal _y, unsigned short _level);
 
 private slots:
 
@@ -213,7 +243,7 @@ private slots:
 
 }; // END of class ProfGraphicsView.
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
 
 class ProfGraphicsViewWidget : public QWidget
 {
@@ -236,6 +266,7 @@ private:
 
 }; // END of class ProfGraphicsViewWidget.
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
 
 #endif // MY____GRAPHICS___VIEW_H

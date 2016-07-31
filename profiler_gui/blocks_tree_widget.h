@@ -31,6 +31,7 @@
 #include <unordered_map>
 #include <vector>
 #include "profiler/reader.h"
+#include "common_types.h"
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -109,6 +110,10 @@ public:
 
     void colorize(bool _colorize);
 
+    void collapseAll();
+
+    void expandAll();
+
 }; // END of class ProfTreeWidgetItem.
 
 //////////////////////////////////////////////////////////////////////////
@@ -169,12 +174,19 @@ public:
     ProfTreeWidget(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree, QWidget* _parent = nullptr);
     virtual ~ProfTreeWidget();
 
-    void setTree(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree);
     void clearSilent();
+
+public slots:
+
+    void setTree(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree);
+
+    void setTreeBlocks(const TreeBlocks& _blocks, ::profiler::timestamp_t _begin_time);
 
 protected:
 
     void setTreeInternal(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree);
+
+    void setTreeInternal(const TreeBlocks& _blocks);
 
     void setTreeInternal(const BlocksTree::children_t& _children, ProfTreeWidgetItem* _parent);
 
@@ -189,6 +201,10 @@ private slots:
     void onCollapseAllClicked(bool);
 
     void onExpandAllClicked(bool);
+
+    void onCollapseAllChildrenClicked(bool);
+
+    void onExpandAllChildrenClicked(bool);
 
     void onItemExpand(QTreeWidgetItem*);
 

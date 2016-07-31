@@ -27,7 +27,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//#define PROFILER_COUNT_TOTAL_CHILDREN_NUMBER
+#define PROFILER_COUNT_TOTAL_CHILDREN_NUMBER
 #define PROFILER_COUNT_DEPTH
 
 namespace profiler {
