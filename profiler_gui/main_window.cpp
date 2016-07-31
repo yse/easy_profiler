@@ -31,7 +31,6 @@
 #include "main_window.h"
 #include "blocks_tree_widget.h"
 #include "blocks_graphics_view.h"
-//#include "graphics_scrollbar.h"
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -44,7 +43,7 @@ ProfMainWindow::ProfMainWindow() : QMainWindow(), m_treeWidget(nullptr), m_graph
     
     setStatusBar(new QStatusBar());
 
-    auto graphicsView = new ProfGraphicsView(false);
+    auto graphicsView = new ProfGraphicsViewWidget(false);
     m_graphicsView = new QDockWidget("Blocks diagram");
     m_graphicsView->setMinimumHeight(50);
     m_graphicsView->setAllowedAreas(Qt::AllDockWidgetAreas);
@@ -56,14 +55,7 @@ ProfMainWindow::ProfMainWindow() : QMainWindow(), m_treeWidget(nullptr), m_graph
     m_treeWidget->setAllowedAreas(Qt::AllDockWidgetAreas);
     m_treeWidget->setWidget(treeWidget);
 
-    //auto bar = new GraphicsHorizontalScrollbar();
-    //auto dock = new QDockWidget();
-    //dock->setMinimumHeight(20);
-    //dock->setAllowedAreas(Qt::AllDockWidgetAreas);
-    //dock->setWidget(bar);
-
     addDockWidget(Qt::TopDockWidgetArea, m_graphicsView);
-    //addDockWidget(Qt::TopDockWidgetArea, dock);
     addDockWidget(Qt::BottomDockWidgetArea, m_treeWidget);
 
     auto actionOpen = new QAction("Open", nullptr);
@@ -120,8 +112,8 @@ void ProfMainWindow::loadFile(const std::string& stdfilename)
     {
         m_lastFile = stdfilename;
         m_currentProf.swap(prof_blocks);
-        static_cast<ProfTreeWidget*>(m_treeWidget->widget())->setTree(nblocks, m_currentProf);
-        static_cast<ProfGraphicsView*>(m_graphicsView->widget())->setTree(m_currentProf);
+        //static_cast<ProfTreeWidget*>(m_treeWidget->widget())->setTree(nblocks, m_currentProf);
+        static_cast<ProfGraphicsViewWidget*>(m_graphicsView->widget())->view()->setTree(m_currentProf);
     }
 }
 
@@ -140,8 +132,8 @@ void ProfMainWindow::onReloadFileClicked(bool)
     if (nblocks != 0)
     {
         m_currentProf.swap(prof_blocks);
-        static_cast<ProfTreeWidget*>(m_treeWidget->widget())->setTree(nblocks, m_currentProf);
-        static_cast<ProfGraphicsView*>(m_graphicsView->widget())->setTree(m_currentProf);
+        //static_cast<ProfTreeWidget*>(m_treeWidget->widget())->setTree(nblocks, m_currentProf);
+        static_cast<ProfGraphicsViewWidget*>(m_graphicsView->widget())->view()->setTree(m_currentProf);
     }
 }
 
@@ -158,7 +150,7 @@ void ProfMainWindow::onTestViewportClicked(bool)
 {
     static_cast<ProfTreeWidget*>(m_treeWidget->widget())->clearSilent();
 
-    auto view = static_cast<ProfGraphicsView*>(m_graphicsView->widget());
+    auto view = static_cast<ProfGraphicsViewWidget*>(m_graphicsView->widget())->view();
     view->clearSilent();
     m_currentProf.clear();
 

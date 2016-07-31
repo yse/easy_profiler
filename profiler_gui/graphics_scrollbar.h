@@ -21,29 +21,31 @@
 #include <stdlib.h>
 #include <QGraphicsView>
 #include <QGraphicsScene>
-#include <QGraphicsPolygonItem>
+#include <QGraphicsRectItem>
 
 //////////////////////////////////////////////////////////////////////////
 
-class GraphicsHorizontalSlider : public QGraphicsPolygonItem
+class GraphicsHorizontalSlider : public QGraphicsRectItem
 {
-    typedef QGraphicsPolygonItem     Parent;
+    typedef QGraphicsRectItem        Parent;
     typedef GraphicsHorizontalSlider   This;
 
 private:
 
-    double m_halfwidth;
+    qreal m_halfwidth;
 
 public:
 
     GraphicsHorizontalSlider();
     virtual ~GraphicsHorizontalSlider();
 
-    double width() const;
-    double halfwidth() const;
+    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
 
-    void setWidth(double _width);
-    void setHalfwidth(double _halfwidth);
+    qreal width() const;
+    qreal halfwidth() const;
+
+    void setWidth(qreal _width);
+    void setHalfwidth(qreal _halfwidth);
 
     void setColor(QRgb _color);
 
@@ -60,24 +62,44 @@ private:
     typedef QGraphicsView     Parent;
     typedef GraphicsHorizontalScrollbar   This;
 
-    double m_minimumValue, m_maximumValue, m_value;
-    GraphicsHorizontalSlider* m_slider;
+    qreal                     m_minimumValue;
+    qreal                     m_maximumValue;
+    qreal                            m_value;
+    qreal                      m_windowScale;
+    QPoint                   m_mousePressPos;
+    Qt::MouseButtons          m_mouseButtons;
+    GraphicsHorizontalSlider*       m_slider;
+    bool                        m_bScrolling;
 
 public:
 
     GraphicsHorizontalScrollbar(QWidget* _parent = nullptr);
     virtual ~GraphicsHorizontalScrollbar();
 
-    double minimum() const;
-    double maximum() const;
-    double value() const;
+    void mousePressEvent(QMouseEvent* _event) override;
+    void mouseReleaseEvent(QMouseEvent* _event) override;
+    void mouseMoveEvent(QMouseEvent* _event) override;
+    void resizeEvent(QResizeEvent* _event) override;
 
-    void setValue(double _value);
-    void setRange(double _minValue, double _maxValue);
+    qreal getWindowScale() const;
+
+    qreal minimum() const;
+    qreal maximum() const;
+    qreal range() const;
+    qreal value() const;
+
+    void setValue(qreal _value);
+    void setRange(qreal _minValue, qreal _maxValue);
+    void setSliderWidth(qreal _width);
 
 signals:
 
-    void valueChanged(double _value) const;
+    void rangeChanged();
+    void valueChanged(qreal _value);
+
+private:
+
+    void onWindowWidthChange(qreal _width);
 
 }; // END of class GraphicsHorizontalScrollbar.
 

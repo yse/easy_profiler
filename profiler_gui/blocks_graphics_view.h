@@ -32,30 +32,23 @@
 #include <QTimer>
 #include <stdlib.h>
 #include <vector>
+#include "graphics_scrollbar.h"
 #include "profiler/reader.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define DRAW_METHOD 2
-
 #pragma pack(push, 1)
 struct ProfBlockItem
 {
-    const BlocksTree*    block;
-    qreal                    x;
-    float                    w;
-    float                    y;
-    float                    h;
-    QRgb                 color;
-#if DRAW_METHOD > 0
-    unsigned int children_begin;
-#endif
-    unsigned short totalHeight;
-#if DRAW_METHOD > 0
-    char                 state;
-#else
-    bool                 state;
-#endif
+    const BlocksTree*       block;
+    qreal                       x;
+    float                       w;
+    float                       y;
+    float                       h;
+    QRgb                    color;
+    unsigned int   children_begin;
+    unsigned short    totalHeight;
+    char                    state;
 
     void setRect(qreal _x, float _y, float _w, float _h);
     qreal left() const;
@@ -67,21 +60,22 @@ struct ProfBlockItem
 };
 #pragma pack(pop)
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+class ProfGraphicsView;
+
 class ProfGraphicsItem : public QGraphicsItem
 {
-    typedef ::std::vector<ProfBlockItem> Children;
+    typedef ::std::vector<ProfBlockItem>    Children;
+    typedef ::std::vector<unsigned int>  DrawIndexes;
+    typedef ::std::vector<Children>        Sublevels;
 
-#if DRAW_METHOD == 2
-    typedef ::std::vector<unsigned int> DrawIndexes;
-    DrawIndexes m_levelsIndexes;
-    typedef ::std::vector<Children> Sublevels;
-    Sublevels m_levels;
-#else
-    Children   m_items;
-#endif
+    DrawIndexes  m_levelsIndexes;
+    Sublevels           m_levels;
 
-    QRectF      m_rect;
-    const bool m_bTest;
+    QRectF                m_rect;
+    QRgb       m_backgroundColor;
+    const bool           m_bTest;
 
 public:
 
@@ -92,18 +86,13 @@ public:
     QRectF boundingRect() const override;
     void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
 
+    QRgb backgroundColor() const;
+
     void setBoundingRect(qreal x, qreal y, qreal w, qreal h);
     void setBoundingRect(const QRectF& _rect);
 
-#if DRAW_METHOD == 0
-    void reserve(size_t _items);
-    const Children& items() const;
-    const ProfBlockItem& getItem(size_t _index) const;
-    ProfBlockItem& getItem(size_t _index);
-    size_t addItem();
-    size_t addItem(const ProfBlockItem& _item);
-    size_t addItem(ProfBlockItem&& _item);
-#else
+    void setBackgroundColor(QRgb _color);
+
     unsigned short levels() const;
     void setLevels(unsigned short _levels);
     void reserve(unsigned short _level, size_t _items);
@@ -113,7 +102,10 @@ public:
     size_t addItem(unsigned short _level);
     size_t addItem(unsigned short _level, const ProfBlockItem& _item);
     size_t addItem(unsigned short _level, ProfBlockItem&& _item);
-#endif
+
+private:
+
+    const ProfGraphicsView* view() const;
 
 }; // END of class ProfGraphicsItem.
 
@@ -144,8 +136,6 @@ private:
     void clearSilent();
 
     void setTree(const thread_blocks_tree_t& _blocksTree);
-
-    qreal setTree(const BlocksTree::children_t& _children, qreal& _height, qreal _y);
     qreal setTree(ProfGraphicsItem* _item, const BlocksTree::children_t& _children, qreal& _height, qreal _y, unsigned short _level);
 
     inline qreal time2position(const profiler::timestamp_t& _time) const
@@ -165,16 +155,19 @@ private:
 
     typedef ProfGraphicsView This;
 
-    QTimer            m_flickerTimer;
-    QRectF        m_visibleSceneRect;
-    qreal                    m_scale;
-    qreal               m_scaleCoeff;
-    QPoint           m_mousePressPos;
-    Qt::MouseButtons  m_mouseButtons;
-    int               m_flickerSpeed;
-    bool             m_bUpdatingRect;
+    QTimer                           m_flickerTimer;
+    QRectF                       m_visibleSceneRect;
+    qreal                                   m_scale;
+    qreal                                  m_offset; ///< Have to use manual offset for all scene content instead of using scrollbars because QScrollBar::value is 32-bit integer :(
+    QPoint                          m_mousePressPos;
+    Qt::MouseButtons                 m_mouseButtons;
+    GraphicsHorizontalScrollbar*       m_pScrollbar;
+    int                              m_flickerSpeed;
+    bool                            m_bUpdatingRect;
 
 public:
+
+    using QGraphicsView::scale;
 
     ProfGraphicsView(bool _test = false);
     ProfGraphicsView(const thread_blocks_tree_t& _blocksTree);
@@ -185,9 +178,14 @@ public:
     void mouseReleaseEvent(QMouseEvent* _event) override;
     void mouseMoveEvent(QMouseEvent* _event) override;
 
-    inline qreal currentScale() const
+    inline qreal scale() const
     {
         return m_scale;
+    }
+
+    inline qreal offset() const
+    {
+        return m_offset;
     }
 
     inline const QRectF& visibleSceneRect() const
@@ -195,6 +193,7 @@ public:
         return m_visibleSceneRect;
     }
 
+    void setScrollbar(GraphicsHorizontalScrollbar* _scrollbar);
     void setTree(const thread_blocks_tree_t& _blocksTree);
     void clearSilent();
 
@@ -204,13 +203,38 @@ private:
 
     void initMode();
     void updateVisibleSceneRect();
+    void updateScene();
 
 private slots:
 
     void onScrollbarValueChange(int);
+    void onGraphicsScrollbarValueChange(qreal);
     void onFlickerTimeout();
 
 }; // END of class ProfGraphicsView.
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+class ProfGraphicsViewWidget : public QWidget
+{
+    Q_OBJECT
+
+private:
+
+    ProfGraphicsView*                 m_view;
+    GraphicsHorizontalScrollbar* m_scrollbar;
+
+public:
+
+    ProfGraphicsViewWidget(bool _test = false);
+    ProfGraphicsViewWidget(const thread_blocks_tree_t& _blocksTree);
+    virtual ~ProfGraphicsViewWidget();
+
+    ProfGraphicsView* view();
+
+private:
+
+}; // END of class ProfGraphicsViewWidget.
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
