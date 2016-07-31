@@ -21,7 +21,7 @@ Block::Block(const char* _name, color_t _color, block_type_t _type) :
 		name(_name)
 {
 	tick(begin);
-	if (this->type == BLOCK_TYPE_EVENT)
+	if (BLOCK_TYPE_BLOCK != this->type)
 	{
 		end = begin;
 	}

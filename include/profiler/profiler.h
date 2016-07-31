@@ -146,6 +146,10 @@ void foo()
 */
 #define PROFILER_DISABLE profiler::setEnabled(false);
 
+#define PROFILER_SET_THREAD_NAME(name) profiler::setThreadName(name);
+
+#define PROFILER_SET_MAIN_THREAD PROFILER_SET_THREAD_NAME("Main")
+
 #else
 #define PROFILER_ADD_MARK(name)
 #define PROFILER_ADD_MARK_GROUPED(name,block_group)
@@ -158,6 +162,8 @@ void foo()
 #define PROFILER_DISABLE profiler::setEnabled(false);
 #define PROFILER_ADD_EVENT(name)
 #define PROFILER_ADD_EVENT_GROUPED(name,block_group)
+#define PROFILER_SET_THREAD_NAME(name)
+#define PROFILER_SET_MAIN_THREAD 
 #endif
 
 #include <stdint.h>
@@ -227,6 +233,7 @@ namespace profiler
 		void PROFILER_API endBlock();
 		void PROFILER_API setEnabled(bool isEnable);
 		unsigned int PROFILER_API dumpBlocksToFile(const char* filename);
+		void PROFILER_API setThreadName(const char* name);
 	}
 
 	typedef uint8_t block_type_t;
@@ -235,6 +242,7 @@ namespace profiler
 
 	const block_type_t BLOCK_TYPE_EVENT = 1;
 	const block_type_t BLOCK_TYPE_BLOCK = 2;
+	const block_type_t BLOCK_TYPE_THREAD_SIGN = 3;
 		
 #pragma pack(push,1)
 	class PROFILER_API BaseBlockData

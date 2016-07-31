@@ -27,6 +27,11 @@ extern "C"{
 	{
 		return ProfileManager::instance().dumpBlocksToFile(filename);
 	}
+
+	void PROFILER_API setThreadName(const char* name)
+	{
+		return ProfileManager::instance().setThreadName(name);
+	}
 }
 
 SerilizedBlock::SerilizedBlock(Block* block):
@@ -163,4 +168,15 @@ unsigned int ProfileManager::dumpBlocksToFile(const char* filename)
 	m_blocks.clear();
 
 	return size;
+}
+
+void ProfileManager::setThreadName(const char* name)
+{
+	profiler::Block block(name, 0, profiler::BLOCK_TYPE_THREAD_SIGN);
+	auto find_it = m_namedThreades.find(block.getThreadId());
+	if (find_it != m_namedThreades.end())
+		return;
+
+	_internalInsertBlock(&block);
+	m_namedThreades.insert(block.getThreadId());
 }
