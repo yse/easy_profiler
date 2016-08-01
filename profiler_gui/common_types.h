@@ -27,6 +27,23 @@
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
+#define PROF_MICROSECONDS(timestamp) ((timestamp) * 1e-3)
+//#define PROF_MICROSECONDS(timestamp) (timestamp)
+
+#define PROF_FROM_MICROSECONDS(to_timestamp) ((to_timestamp) * 1e3)
+//#define PROF_FROM_MICROSECONDS(to_timestamp) (to_timestamp)
+
+#define PROF_MILLISECONDS(timestamp) ((timestamp) * 1e-6)
+//#define PROF_MILLISECONDS(timestamp) ((timestamp) * 1e-3)
+
+#define PROF_FROM_MILLISECONDS(to_timestamp) ((to_timestamp) * 1e6)
+//#define PROF_FROM_MILLISECONDS(to_timestamp) ((to_timestamp) * 1e3)
+
+#define PROF_NANOSECONDS(timestamp) (timestamp)
+//#define PROF_NANOSECONDS(timestamp) ((timestamp) * 1000)
+
+//////////////////////////////////////////////////////////////////////////
+
 const QRgb DEFAULT_COLOR = 0x00f0e094;
 
 inline QRgb toRgb(unsigned int _red, unsigned int _green, unsigned int _blue)

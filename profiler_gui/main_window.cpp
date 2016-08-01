@@ -82,7 +82,7 @@ ProfMainWindow::ProfMainWindow() : QMainWindow(), m_treeWidget(nullptr), m_graph
     menuBar()->addMenu(menu);
 
 
-    connect(graphicsView->view(), &ProfGraphicsView::treeblocksChanged, treeWidget, &ProfTreeWidget::setTreeBlocks);
+    connect(graphicsView->view(), &ProfGraphicsView::intervalChanged, treeWidget, &ProfTreeWidget::setTreeBlocks);
 
 
     if(QCoreApplication::arguments().size() > 1)
@@ -155,8 +155,8 @@ void ProfMainWindow::onTestViewportClicked(bool)
     view->clearSilent();
     m_currentProf.clear();
 
-    view->test(18000, 40000000, 5);
-    //view->test(3, 300, 4);
+    view->test(18000, 40000000, 2);
+    //view->test(3, 300, 1);
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -180,15 +180,15 @@ public slots:
 
     void setTree(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree);
 
-    void setTreeBlocks(const TreeBlocks& _blocks, ::profiler::timestamp_t _begin_time);
+    void setTreeBlocks(const TreeBlocks& _blocks, ::profiler::timestamp_t _session_begin_time, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict);
 
 protected:
 
-    void setTreeInternal(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree);
+    size_t setTreeInternal(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree);
 
-    void setTreeInternal(const TreeBlocks& _blocks);
+    size_t setTreeInternal(const TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict);
 
-    void setTreeInternal(const BlocksTree::children_t& _children, ProfTreeWidgetItem* _parent);
+    size_t setTreeInternal(const BlocksTree::children_t& _children, ProfTreeWidgetItem* _parent, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict);
 
     void contextMenuEvent(QContextMenuEvent* _event) override;
 

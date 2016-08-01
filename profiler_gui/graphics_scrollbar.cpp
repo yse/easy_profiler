@@ -172,7 +172,7 @@ qreal GraphicsHorizontalScrollbar::value() const
 
 void GraphicsHorizontalScrollbar::setValue(qreal _value)
 {
-    m_value = clamp(m_minimumValue, _value, m_maximumValue - m_slider->width());
+    m_value = clamp(m_minimumValue, _value, ::std::max(m_minimumValue, m_maximumValue - m_slider->width()));
     m_slider->setX(m_value + m_slider->halfwidth());
     emit valueChanged(m_value);
 }
