@@ -99,6 +99,7 @@ struct BlocksTree
     ::profiler::SerilizedBlock*              node;
     ::profiler::BlockStatistics* frame_statistics; ///< Pointer to statistics for this block within the parent (may be nullptr for top-level blocks)
     ::profiler::BlockStatistics* total_statistics; ///< Pointer to statistics for this block within the bounds of all frames per current thread
+	const char* thread_name;
 
 #ifdef PROFILER_COUNT_TOTAL_CHILDREN_NUMBER
     unsigned int            total_children_number; ///< Number of all children including number of grandchildren (and so on)
@@ -118,6 +119,7 @@ struct BlocksTree
 #ifdef PROFILER_COUNT_DEPTH
         , depth(0)
 #endif
+		, thread_name("")
 	{
 
     }

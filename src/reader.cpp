@@ -239,6 +239,10 @@ extern "C"{
 			tree.node = new profiler::SerilizedBlock(sz, data);
 			++blocks_counter;
 
+			if (::profiler::BLOCK_TYPE_THREAD_SIGN == baseData->getType()){
+				root.thread_name = tree.node->getBlockName();
+			}
+
             if (!root.children.empty())
             {
                 BlocksTree& back = root.children.back();
