@@ -40,7 +40,7 @@ inline timestamp_t getCurrentTime()
 	LARGE_INTEGER elapsedMicroseconds;
 	if (!QueryPerformanceCounter(&elapsedMicroseconds))
 		return 0;
-	elapsedMicroseconds.QuadPart *= 1000000000;
+	elapsedMicroseconds.QuadPart *= 1000000000LL;
 	elapsedMicroseconds.QuadPart /= frequency.QuadPart;
 	return (timestamp_t)elapsedMicroseconds.QuadPart;
 #else
