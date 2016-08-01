@@ -1,21 +1,42 @@
 #!/bin/bash
 
-DISABLED_PROF=./bin/profiler_sample_disable
-ENABLED_PROF=./bin/profiler_sample_enable
+unamestr=`uname`
+SUBDIR="./bin"
+if [[ ! "$unamestr" == 'Linux' ]]; then
+	SUBDIR="./bin/Release/"
+fi
 
-DISABLE_FILE=disable.info
-ENABLE_FILE=enable.info
+DISABLED_PROF=$SUBDIR/profiler_sample_disabled_profiler
+ENABLED_PROF=$SUBDIR/profiler_sample
 
-for i in {1..100} 
+TEMP_FILE_ENABLE="enable.info"
+TEMP_FILE_DISABLE="disable.info"
+RESULT_FILE="result.csv"
+
+echo "Blocks count, dT prof enabled usec, dT prof disabled usec" > $RESULT_FILE
+
+for i in {1..9} 
 do 
-	$DISABLED_PROF >> $DISABLE_FILE
-	$ENABLED_PROF >> $ENABLE_FILE
+	OBJECTS_COUNT=$(($i*1000))
+	for j in {10..15} 
+	do 
+		RENDER_COUNT=$(($j*100))
+		for k in {10..15} 
+		do 
+			MODELLING_COUNT=$(($k*100))
+			$ENABLED_PROF $OBJECTS_COUNT $RENDER_COUNT $MODELLING_COUNT > $TEMP_FILE_ENABLE
+			$DISABLED_PROF $OBJECTS_COUNT $RENDER_COUNT $MODELLING_COUNT > $TEMP_FILE_DISABLE
+			DT_ENA=`cat $TEMP_FILE_ENABLE | grep Elapsed| awk '{print $3}'`
+			N_ENA=`cat $TEMP_FILE_ENABLE | grep Blocks| awk '{print $3}'`
+			N_DIS=`cat $TEMP_FILE_DISABLE | grep Elapsed| awk '{print $3}'`
+			echo $N_ENA,$DT_ENA,$N_DIS >> $RESULT_FILE
+		done
+	done
+	echo $obj
+
 done
 
-DISABLE_AVERAGE_TIME=`awk '{s+=$1}END{print s/NR}' RS=" " $DISABLE_FILE`
-ENABLE_AVERAGE_TIME=`awk '{s+=$1}END{print s/NR}' RS=" " $ENABLE_FILE`
+rm -rf $TEMP_FILE_ENABLE
+rm -rf $TEMP_FILE_DISABLE
 
-DT=`echo "$ENABLE_AVERAGE_TIME - $DISABLE_AVERAGE_TIME" | bc -l`
-PERCENT=`echo "$DT*100.0/$ENABLE_AVERAGE_TIME" | bc -l`
-echo "dT: $DT usec"
-echo "percent: $PERCENT%"
+echo "See result in $RESULT_FILE"

@@ -6,12 +6,16 @@
 #include <iostream>
 #include <condition_variable>
 #include "profiler/reader.h"
+#include <cstdlib>
 
 std::condition_variable cv;
 std::mutex cv_m;
 int g_i = 0;
 
-const int OBJECTS = 9000;
+int OBJECTS = 9000;
+int RENDER_SPEPS = 1600;
+int MODELLING_STEPS = 1000;
+int RESOURCE_LOADING_COUNT = 100;
 
 void loadingResources(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Lightcyan);
@@ -82,7 +86,7 @@ void prepareRender(){
 void calculatePhysics(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
     unsigned int* intarray = new unsigned int[OBJECTS];
-    for (unsigned int i = 0; i < OBJECTS; ++i)
+    for (int i = 0; i < OBJECTS; ++i)
         intarray[i] = i * i * i * i / 100 + i / 3 - (OBJECTS - i) * 15;
     delete[] intarray;
 	//std::this_thread::sleep_for(std::chrono::milliseconds(8));
@@ -97,7 +101,8 @@ void frame(){
 void loadingResourcesThread(){
 	//std::unique_lock<std::mutex> lk(cv_m);
 	//cv.wait(lk, []{return g_i == 1; });
-	for(int i = 0; i < 10; i++){
+	PROFILER_SET_THREAD_NAME("Resource loading")
+	for(int i = 0; i < RESOURCE_LOADING_COUNT; i++){
 		loadingResources();
 		PROFILER_ADD_EVENT_GROUPED("Resources Loading!",profiler::colors::Cyan);
 		std::this_thread::sleep_for(std::chrono::milliseconds(20));
@@ -107,7 +112,8 @@ void loadingResourcesThread(){
 void modellingThread(){
 	//std::unique_lock<std::mutex> lk(cv_m);
 	//cv.wait(lk, []{return g_i == 1; });
-	for (int i = 0; i < 1600; i++){
+	PROFILER_SET_THREAD_NAME("Modelling")
+		for (int i = 0; i < RENDER_SPEPS; i++){
 		modellingStep();
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
 	}
@@ -116,7 +122,8 @@ void modellingThread(){
 void renderThread(){
 	//std::unique_lock<std::mutex> lk(cv_m);
 	//cv.wait(lk, []{return g_i == 1; });
-	for (int i = 0; i < 1000; i++){
+	PROFILER_SET_THREAD_NAME("Render")
+	for (int i = 0; i < MODELLING_STEPS; i++){
 		frame();
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
 	}
@@ -175,13 +182,31 @@ one
 		five
 		six
 	seven
-
 */
-int main()
+
+int main(int argc, char* argv[])
 {
+	if (argc > 1 && argv[1]){
+		OBJECTS = std::atoi(argv[1]);
+	}
+	if (argc > 2 && argv[2]){
+		RENDER_SPEPS = std::atoi(argv[2]);
+	}
+	if (argc > 3 && argv[3]){
+		MODELLING_STEPS = std::atoi(argv[3]);
+	}
+	if (argc > 4 && argv[4]){
+		RESOURCE_LOADING_COUNT = std::atoi(argv[4]);
+	}
+
+	std::cout << "Objects count: " << OBJECTS << std::endl;
+	std::cout << "Render steps: " << RENDER_SPEPS << std::endl;
+	std::cout << "Modelling steps: " << MODELLING_STEPS << std::endl;
+	std::cout << "Resource loading count: " << RESOURCE_LOADING_COUNT << std::endl;
+
 	auto start = std::chrono::system_clock::now();
 	PROFILER_ENABLE;
-
+	PROFILER_SET_MAIN_THREAD;
 	//one();
 	//one();
 	/**/
@@ -213,17 +238,11 @@ int main()
 	auto elapsed =
 			std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
-    ::profiler::dumpBlocksToFile("sample.prof");
+	std::cout << "Elapsed time: " << elapsed.count() << " usec" << std::endl;
 
-	std::cout << elapsed.count() << " usec" << std::endl;
+	auto blocks_count = profiler::dumpBlocksToFile("test.prof");
 
-	thread_blocks_tree_t threaded_trees;
-	auto blocks_counter = fillTreesFromFile("sample.prof", threaded_trees);
-	std::cout << "Blocks count: " << blocks_counter << std::endl;
-
-    char c;
-    std::cout << "Enter something to exit: ";
-    std::cin >> c;
+	std::cout << "Blocks count: " << blocks_count << std::endl;
 
 	return 0;
 }
