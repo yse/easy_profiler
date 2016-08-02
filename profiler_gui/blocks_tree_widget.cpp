@@ -300,12 +300,21 @@ size_t ProfTreeWidget::setTreeInternal(const unsigned int _blocksNumber, const t
     const QSignalBlocker b(this);
     for (const auto& threadTree : _blocksTree)
     {
-        auto item = new ProfTreeWidgetItem(&threadTree.second);
-        item->setText(COL_NAME, QString("Thread %1").arg(threadTree.first));
+        auto& block = threadTree.second;
+        auto item = new ProfTreeWidgetItem(&block);
+
+        if (block.thread_name && block.thread_name[0] != 0)
+        {
+            item->setText(COL_NAME, QString("%1 Thread %2").arg(block.thread_name).arg(threadTree.first));
+        }
+        else
+        {
+            item->setText(COL_NAME, QString("Thread %1").arg(threadTree.first));
+        }
 
         m_items.push_back(item);
 
-        const auto children_items_number = setTreeInternal(threadTree.second.children, item, m_beginTime, finishtime + 1000000000, false);
+        const auto children_items_number = setTreeInternal(block.children, item, m_beginTime, finishtime + 1000000000, false);
 
         if (children_items_number > 0)
         {
@@ -364,7 +373,16 @@ size_t ProfTreeWidget::setTreeInternal(const TreeBlocks& _blocks, ::profiler::ti
         else
         {
             thread_item = new ProfTreeWidgetItem(block.thread_tree);
-            thread_item->setText(COL_NAME, QString("Thread %1").arg(block.thread_id));
+
+            if (block.thread_tree->thread_name && block.thread_tree->thread_name[0] != 0)
+            {
+                thread_item->setText(COL_NAME, QString("%1 Thread %2").arg(block.thread_tree->thread_name).arg(block.thread_id));
+            }
+            else
+            {
+                thread_item->setText(COL_NAME, QString("Thread %1").arg(block.thread_id));
+            }
+
             threadsMap.insert(::std::make_pair(block.thread_id, thread_item));
         }
 
