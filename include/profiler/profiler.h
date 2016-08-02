@@ -146,7 +146,11 @@ void foo()
 */
 #define PROFILER_DISABLE profiler::setEnabled(false);
 
-#define PROFILER_SET_THREAD_NAME(name) static const profiler::ThreadNameSetter TOKEN_CONCATENATE(unique_profiler_thread_name_setter_,__LINE__)(name);
+#ifdef WIN32
+#define PROFILER_SET_THREAD_NAME(name) profiler::setThreadName(name);
+#else
+#define PROFILER_SET_THREAD_NAME(name) thread_local static const profiler::ThreadNameSetter TOKEN_CONCATENATE(unique_profiler_thread_name_setter_,__LINE__)(name);
+#endif
 
 #define PROFILER_SET_MAIN_THREAD PROFILER_SET_THREAD_NAME("Main")
 
