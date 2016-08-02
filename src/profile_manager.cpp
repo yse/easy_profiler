@@ -172,11 +172,12 @@ unsigned int ProfileManager::dumpBlocksToFile(const char* filename)
 
 void ProfileManager::setThreadName(const char* name)
 {
-	profiler::Block block(name, 0, profiler::BLOCK_TYPE_THREAD_SIGN);
-	auto find_it = m_namedThreades.find(block.getThreadId());
+    auto current_thread_id = getCurrentThreadId();
+    auto find_it = m_namedThreades.find(current_thread_id);
 	if (find_it != m_namedThreades.end())
 		return;
 
+    profiler::Block block(name, current_thread_id, 0, profiler::BLOCK_TYPE_THREAD_SIGN);
 	_internalInsertBlock(&block);
-	m_namedThreades.insert(block.getThreadId());
+	m_namedThreades.insert(current_thread_id);
 }

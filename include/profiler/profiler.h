@@ -146,7 +146,7 @@ void foo()
 */
 #define PROFILER_DISABLE profiler::setEnabled(false);
 
-#define PROFILER_SET_THREAD_NAME(name) profiler::setThreadName(name);
+#define PROFILER_SET_THREAD_NAME(name) static const profiler::ThreadNameSetter TOKEN_CONCATENATE(unique_profiler_thread_name_setter_,__LINE__)(name);
 
 #define PROFILER_SET_MAIN_THREAD PROFILER_SET_THREAD_NAME("Main")
 
@@ -258,7 +258,7 @@ namespace profiler
 		void tick(timestamp_t& stamp);
 	public:
 
-		BaseBlockData(color_t _color, block_type_t _type);
+        BaseBlockData(color_t _color, block_type_t _type, thread_id_t _thread_id = 0);
 
 		inline block_type_t getType() const { return type; }
 		inline color_t getColor() const { return color; }
@@ -283,7 +283,8 @@ namespace profiler
 		const char *name;		
 	public:
 
-		Block(const char* _name, color_t _color = 0, block_type_t _type = BLOCK_TYPE_EVENT);
+		Block(const char* _name, color_t _color, block_type_t _type);
+        Block(const char* _name, thread_id_t _thread_id, color_t _color, block_type_t _type);
 		~Block();
 
 		inline const char* getName() const { return name; }		
@@ -307,7 +308,14 @@ namespace profiler
 		const char* getBlockName() const;
 	};
 
+    struct PROFILER_API ThreadNameSetter
+    {
+        ThreadNameSetter(const char* _name)
+        {
+            setThreadName(_name);
+        }
+    };
 	
-}
+} // END of namespace profiler.
 
 #endif

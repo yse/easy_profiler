@@ -6,42 +6,47 @@
 
 using namespace profiler;
 
-BaseBlockData::BaseBlockData(color_t _color, block_type_t _type) :
-		type(_type),
-		color(_color),
-		begin(0),
-		end(0),
-		thread_id(0)
+#ifdef WIN32
+struct ProfPerformanceFrequency {
+    LARGE_INTEGER frequency;
+    ProfPerformanceFrequency() { QueryPerformanceFrequency(&frequency); }
+} const WINDOWS_CPU_INFO;
+#endif
+
+BaseBlockData::BaseBlockData(color_t _color, block_type_t _type, thread_id_t _thread_id) : type(_type)
+    , color(_color)
+    , begin(0)
+    , end(0)
+    , thread_id(_thread_id)
 {
 
 }
 
-Block::Block(const char* _name, color_t _color, block_type_t _type) :
-		BaseBlockData(_color,_type),
-		name(_name)
+Block::Block(const char* _name, color_t _color, block_type_t _type)
+    : Block(_name, getCurrentThreadId(), _color, _type)
 {
-	tick(begin);
-	if (BLOCK_TYPE_BLOCK != this->type)
-	{
-		end = begin;
-	}
-	thread_id = getCurrentThreadId();
+}
+
+Block::Block(const char* _name, thread_id_t _thread_id, color_t _color, block_type_t _type)
+    : BaseBlockData(_color, _type, _thread_id)
+    , name(_name)
+{
+    tick(begin);
+    if (BLOCK_TYPE_BLOCK != this->type)
+    {
+        end = begin;
+    }
 }
 
 inline timestamp_t getCurrentTime()
 {
 #ifdef WIN32
 	//see https://msdn.microsoft.com/library/windows/desktop/dn553408(v=vs.85).aspx
-	static LARGE_INTEGER frequency;
-	static bool first=true;
-	if (first)
-		QueryPerformanceFrequency(&frequency);
-	first = false;
 	LARGE_INTEGER elapsedMicroseconds;
 	if (!QueryPerformanceCounter(&elapsedMicroseconds))
 		return 0;
 	elapsedMicroseconds.QuadPart *= 1000000000LL;
-	elapsedMicroseconds.QuadPart /= frequency.QuadPart;
+    elapsedMicroseconds.QuadPart /= WINDOWS_CPU_INFO.frequency.QuadPart;
 	return (timestamp_t)elapsedMicroseconds.QuadPart;
 #else
 	std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds> time_point;
