@@ -99,7 +99,7 @@ struct BlocksTree
     ::profiler::SerilizedBlock*              node;
     ::profiler::BlockStatistics* frame_statistics; ///< Pointer to statistics for this block within the parent (may be nullptr for top-level blocks)
     ::profiler::BlockStatistics* total_statistics; ///< Pointer to statistics for this block within the bounds of all frames per current thread
-	const char* thread_name;
+    const char*                       thread_name;
 
 #ifdef PROFILER_COUNT_TOTAL_CHILDREN_NUMBER
     unsigned int            total_children_number; ///< Number of all children including number of grandchildren (and so on)
@@ -178,6 +178,7 @@ private:
         node = that.node;
         frame_statistics = that.frame_statistics;
         total_statistics = that.total_statistics;
+        thread_name = that.thread_name;
 
 #ifdef PROFILER_COUNT_TOTAL_CHILDREN_NUMBER
         total_children_number = that.total_children_number;
