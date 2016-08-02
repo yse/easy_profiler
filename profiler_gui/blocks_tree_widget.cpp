@@ -494,7 +494,7 @@ size_t ProfTreeWidget::setTreeInternal(const BlocksTree::children_t& _children, 
 
         m_items.push_back(item);
 
-        auto children_items_number = 0;
+        size_t children_items_number = 0;
         if (!child.children.empty())
         {
             children_items_number = setTreeInternal(child.children, item, _left, _right, _strict);
