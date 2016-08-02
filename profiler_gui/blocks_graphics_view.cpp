@@ -90,39 +90,6 @@ QRgb BG2()
 
 //////////////////////////////////////////////////////////////////////////
 
-void ProfBlockItem::setRect(qreal _x, float _y, float _w, float _h) {
-    x = _x;
-    y = _y;
-    w = _w;
-    h = _h;
-}
-
-qreal ProfBlockItem::left() const {
-    return x;
-}
-
-float ProfBlockItem::top() const {
-    return y;
-}
-
-float ProfBlockItem::width() const {
-    return w;
-}
-
-float ProfBlockItem::height() const {
-    return h;
-}
-
-qreal ProfBlockItem::right() const {
-    return x + w;
-}
-
-float ProfBlockItem::bottom() const {
-    return y + h;
-}
-
-//////////////////////////////////////////////////////////////////////////
-
 ProfGraphicsItem::ProfGraphicsItem() : ProfGraphicsItem(false)
 {
 }
@@ -518,6 +485,7 @@ size_t ProfGraphicsItem::addItem(unsigned short _level, ProfBlockItem&& _item)
 
 ProfChronometerItem::ProfChronometerItem() : QGraphicsItem(), m_left(0), m_right(0), m_font(QFont("CourierNew", 16, 2))
 {
+    setZValue(10);
 }
 
 ProfChronometerItem::~ProfChronometerItem()
@@ -771,6 +739,7 @@ void ProfGraphicsView::test(size_t _frames_number, size_t _total_items_number_es
     // Create required number of items
     size_t total_items = 0;
     qreal maxX = 0;
+    const ProfGraphicsItem* longestItem = nullptr;
     for (int i = 0; i < _rows; ++i)
     {
         auto item = thread_items[i];
@@ -809,6 +778,7 @@ void ProfGraphicsView::test(size_t _frames_number, size_t _total_items_number_es
         if (maxX < x)
         {
             maxX = x;
+            longestItem = item;
         }
     }
 
@@ -822,11 +792,11 @@ void ProfGraphicsView::test(size_t _frames_number, size_t _total_items_number_es
     m_offset = 0;
     updateVisibleSceneRect();
     setScrollbar(m_pScrollbar);
+    m_pScrollbar->setMinimapFrom(longestItem->items(0));
 
     // Create new chronometer item (previous item was destroyed by scene on scene()->clear()).
     // It will be shown on mouse right button click.
     m_chronometerItem = new ProfChronometerItem();
-    m_chronometerItem->setZValue(10);
     m_chronometerItem->setBoundingRect(scene()->sceneRect());
     m_chronometerItem->hide();
     scene()->addItem(m_chronometerItem);
@@ -877,6 +847,8 @@ void ProfGraphicsView::setTree(const thread_blocks_tree_t& _blocksTree)
 
     // Calculating start and end time
     ::profiler::timestamp_t finish = 0;
+    const BlocksTree* longestTree = nullptr;
+    const ProfGraphicsItem* longestItem = nullptr;
     for (const auto& threadTree : _blocksTree)
     {
         const auto timestart = threadTree.second.children.front().node->block()->getBegin();
@@ -890,6 +862,7 @@ void ProfGraphicsView::setTree(const thread_blocks_tree_t& _blocksTree)
         if (finish < timefinish)
         {
             finish = timefinish;
+            longestTree = &threadTree.second;
         }
     }
 
@@ -912,6 +885,11 @@ void ProfGraphicsView::setTree(const thread_blocks_tree_t& _blocksTree)
         scene()->addItem(item);
 
         y += h + ROW_SPACING;
+
+        if (longestTree == &threadTree.second)
+        {
+            longestItem = item;
+        }
     }
 
     // Calculating scene rect
@@ -927,11 +905,11 @@ void ProfGraphicsView::setTree(const thread_blocks_tree_t& _blocksTree)
     // Center view on the beginning of the scene
     updateVisibleSceneRect();
     setScrollbar(m_pScrollbar);
+    m_pScrollbar->setMinimapFrom(longestItem->items(0));
 
     // Create new chronometer item (previous item was destroyed by scene on scene()->clear()).
     // It will be shown on mouse right button click.
     m_chronometerItem = new ProfChronometerItem();
-    m_chronometerItem->setZValue(10);
     m_chronometerItem->setBoundingRect(scene()->sceneRect());
     m_chronometerItem->hide();
     scene()->addItem(m_chronometerItem);
@@ -1028,6 +1006,8 @@ void ProfGraphicsView::setScrollbar(GraphicsHorizontalScrollbar* _scrollbar)
     }
 
     m_pScrollbar = _scrollbar;
+    m_pScrollbar->setMinimapFrom(nullptr);
+    m_pScrollbar->hideChrono();
     m_pScrollbar->setRange(0, scene()->width());
     m_pScrollbar->setSliderWidth(m_visibleSceneRect.width());
     m_pScrollbar->setValue(0);
@@ -1126,6 +1106,7 @@ void ProfGraphicsView::mousePressEvent(QMouseEvent* _event)
         const auto mouseX = m_offset + mapToScene(_event->pos()).x() / m_scale;
         m_chronometerItem->setLeftRight(mouseX, mouseX);
         m_chronometerItem->hide();
+        m_pScrollbar->hideChrono();
     }
 
     _event->accept();
@@ -1147,6 +1128,7 @@ void ProfGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
         if (m_chronometerItem->isVisible() && m_chronometerItem->width() < 1e-6)
         {
             m_chronometerItem->hide();
+            m_pScrollbar->hideChrono();
         }
 
         if (!m_selectedBlocks.empty())
@@ -1222,9 +1204,12 @@ void ProfGraphicsView::mouseMoveEvent(QMouseEvent* _event)
             }
         }
 
+        m_pScrollbar->setChronoPos(m_chronometerItem->left(), m_chronometerItem->right());
+
         if (!m_chronometerItem->isVisible() && m_chronometerItem->width() > 1e-6)
         {
             m_chronometerItem->show();
+            m_pScrollbar->showChrono();
         }
 
         needUpdate = true;

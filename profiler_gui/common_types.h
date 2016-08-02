@@ -55,6 +55,39 @@ inline QRgb toRgb(unsigned int _red, unsigned int _green, unsigned int _blue)
 
 //////////////////////////////////////////////////////////////////////////
 
+#pragma pack(push, 1)
+struct ProfBlockItem
+{
+    const BlocksTree*       block; ///< Pointer to profiler block
+    qreal                       x; ///< x coordinate of the item (this is made qreal=double to avoid mistakes on very wide scene)
+    float                       w; ///< Width of the item
+    float                       y; ///< y coordinate of the item
+    float                       h; ///< Height of the item
+    QRgb                    color; ///< Background color of the item
+    unsigned int   children_begin; ///< Index of first child item on the next sublevel
+    unsigned short    totalHeight; ///< Total height of the item including heights of all it's children
+    char                    state; ///< 0 = no change, 1 = paint, -1 = do not paint
+
+    inline void setRect(qreal _x, float _y, float _w, float _h) {
+        x = _x;
+        y = _y;
+        w = _w;
+        h = _h;
+    }
+
+    inline qreal left() const { return x; }
+    inline float top() const { return y; }
+    inline float width() const { return w; }
+    inline float height() const { return h; }
+    inline qreal right() const { return x + w; }
+    inline float bottom() const { return y + h; }
+};
+#pragma pack(pop)
+
+typedef ::std::vector<ProfBlockItem> ProfItems;
+
+//////////////////////////////////////////////////////////////////////////
+
 struct ProfBlock
 {
     const BlocksTree*     thread_tree;

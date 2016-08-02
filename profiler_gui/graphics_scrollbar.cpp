@@ -25,6 +25,8 @@
 
 const qreal SCALING_COEFFICIENT = 1.25;
 const qreal SCALING_COEFFICIENT_INV = 1.0 / SCALING_COEFFICIENT;
+const int DEFAULT_TOP = -40;
+const int DEFAULT_HEIGHT = 80;
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -37,7 +39,7 @@ auto const clamp = [](qreal _minValue, qreal _value, qreal _maxValue)
 
 GraphicsHorizontalSlider::GraphicsHorizontalSlider() : Parent(), m_halfwidth(0)
 {
-    setWidth(40);
+    setWidth(1);
     setBrush(Qt::SolidPattern);
 }
 
@@ -82,23 +84,115 @@ qreal GraphicsHorizontalSlider::halfwidth() const
 void GraphicsHorizontalSlider::setWidth(qreal _width)
 {
     m_halfwidth = _width * 0.5;
-    setRect(-m_halfwidth, -10, _width, 20);
+    setRect(-m_halfwidth, DEFAULT_TOP, _width, DEFAULT_HEIGHT);
 }
 
 void GraphicsHorizontalSlider::setHalfwidth(qreal _halfwidth)
 {
     m_halfwidth = _halfwidth;
-    setRect(-m_halfwidth, -10, m_halfwidth * 2.0, 20);
+    setRect(-m_halfwidth, DEFAULT_TOP, m_halfwidth * 2.0, DEFAULT_HEIGHT);
 }
 
 void GraphicsHorizontalSlider::setColor(QRgb _color)
 {
-    QColor c(_color);
-    c.setAlpha((_color & 0xff000000) >> 24);
-
     auto b = brush();
-    b.setColor(c);
+    b.setColor(QColor::fromRgba(_color));
     setBrush(b);
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+MinimapItem::MinimapItem() : Parent(), m_pSource(nullptr), m_maxDuration(0)
+{
+
+}
+
+MinimapItem::~MinimapItem()
+{
+
+}
+
+QRectF MinimapItem::boundingRect() const
+{
+    return m_boundingRect;
+}
+
+void MinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget)
+{
+    if (m_pSource == nullptr)
+    {
+        return;
+    }
+
+    const auto currentScale = static_cast<const GraphicsHorizontalScrollbar*>(scene()->parent())->getWindowScale();
+    const auto bottom = m_boundingRect.bottom();
+    const auto coeff = (m_boundingRect.height() - 5) / m_maxDuration;
+
+    QRectF rect;
+    QBrush brush(Qt::SolidPattern);
+    QRgb previousColor = 0;
+
+    brush.setColor(QColor::fromRgba(0x80808080));
+
+    _painter->save();
+    _painter->setPen(Qt::NoPen);
+    _painter->setBrush(brush);
+    _painter->setTransform(QTransform::fromScale(1.0 / currentScale, 1), true);
+
+    auto& items = *m_pSource;
+    for (const auto& item : items)
+    {
+        //if (previousColor != item.color)
+        //{
+        //    // Set background color brush for rectangle
+        //    previousColor = item.color;
+        //    brush.setColor(QColor::fromRgba(0x40000000 | item.color));
+        //    _painter->setBrush(brush);
+        //}
+
+        // Draw rectangle
+        auto h = 5 + item.width() * coeff;
+        rect.setRect(item.left() * currentScale, bottom - h, ::std::max(item.width() * currentScale, 1.0), h);
+        _painter->drawRect(rect);
+    }
+
+    _painter->restore();
+}
+
+void MinimapItem::setBoundingRect(const QRectF& _rect)
+{
+    m_boundingRect = _rect;
+}
+
+void MinimapItem::setSource(const ProfItems* _items)
+{
+    m_pSource = _items;
+
+    if (m_pSource)
+    {
+        if (m_pSource->empty())
+        {
+            m_pSource = nullptr;
+        }
+
+        m_maxDuration = 0;
+        for (const auto& item : *m_pSource)
+        {
+            if (item.width() > m_maxDuration)
+            {
+                m_maxDuration = item.width();
+            }
+        }
+    }
+
+    if (m_pSource == nullptr)
+    {
+        hide();
+    }
+    else
+    {
+        show();
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -111,6 +205,8 @@ GraphicsHorizontalScrollbar::GraphicsHorizontalScrollbar(QWidget* _parent)
     , m_windowScale(1)
     , m_mouseButtons(Qt::NoButton)
     , m_slider(nullptr)
+    , m_chronometerIndicator(nullptr)
+    , m_minimap(nullptr)
     , m_bScrolling(false)
 {
     setCacheMode(QGraphicsView::CacheNone);
@@ -121,17 +217,32 @@ GraphicsHorizontalScrollbar::GraphicsHorizontalScrollbar(QWidget* _parent)
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-    setMinimumHeight(20);
-    setMaximumHeight(20);
+    setContentsMargins(0, 0, 0, 0);
+    setMinimumHeight(DEFAULT_HEIGHT + 2);
+    setMaximumHeight(DEFAULT_HEIGHT + 2);
 
     auto selfScene = new QGraphicsScene(this);
-    selfScene->setSceneRect(0, -10, 500, 20);
+    selfScene->setSceneRect(0, DEFAULT_TOP, 500, DEFAULT_HEIGHT);
     setScene(selfScene);
 
     m_slider = new GraphicsHorizontalSlider();
-    m_slider->setPos(10, 0);
-    m_slider->setColor(0x80e00000);
+    m_slider->setPos(0, 0);
+    m_slider->setZValue(5);
+    m_slider->setColor(0x90e00000);
     selfScene->addItem(m_slider);
+
+    m_chronometerIndicator = new GraphicsHorizontalSlider();
+    m_chronometerIndicator->setPos(0, 0);
+    m_chronometerIndicator->setZValue(10);
+    m_chronometerIndicator->setColor(0x90404040);
+    selfScene->addItem(m_chronometerIndicator);
+    m_chronometerIndicator->hide();
+
+    m_minimap = new MinimapItem();
+    m_minimap->setPos(0, 0);
+    m_minimap->setBoundingRect(selfScene->sceneRect());
+    selfScene->addItem(m_minimap);
+    m_minimap->hide();
 
     centerOn(0, 0);
 }
@@ -184,7 +295,8 @@ void GraphicsHorizontalScrollbar::setRange(qreal _minValue, qreal _maxValue)
 
     m_minimumValue = _minValue;
     m_maximumValue = _maxValue;
-    scene()->setSceneRect(_minValue, -10, _maxValue - _minValue, 20);
+    scene()->setSceneRect(_minValue, DEFAULT_TOP, _maxValue - _minValue, DEFAULT_HEIGHT);
+    m_minimap->setBoundingRect(scene()->sceneRect());
     emit rangeChanged();
 
     setValue(_minValue + oldValue * range());
@@ -195,6 +307,31 @@ void GraphicsHorizontalScrollbar::setSliderWidth(qreal _width)
 {
     m_slider->setWidth(_width);
     setValue(m_value);
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void GraphicsHorizontalScrollbar::setChronoPos(qreal _left, qreal _right)
+{
+    m_chronometerIndicator->setWidth(_right - _left);
+    m_chronometerIndicator->setX(_left + m_chronometerIndicator->halfwidth());
+}
+
+void GraphicsHorizontalScrollbar::showChrono()
+{
+    m_chronometerIndicator->show();
+}
+
+void GraphicsHorizontalScrollbar::hideChrono()
+{
+    m_chronometerIndicator->hide();
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void GraphicsHorizontalScrollbar::setMinimapFrom(const ProfItems* _items)
+{
+    m_minimap->setSource(_items);
 }
 
 //////////////////////////////////////////////////////////////////////////

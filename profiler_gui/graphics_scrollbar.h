@@ -22,6 +22,7 @@
 #include <QGraphicsView>
 #include <QGraphicsScene>
 #include <QGraphicsRectItem>
+#include "common_types.h"
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -53,6 +54,37 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
+class MinimapItem : public QGraphicsItem
+{
+    typedef QGraphicsItem Parent;
+    typedef MinimapItem     This;
+
+    QRectF           m_boundingRect;
+    qreal             m_maxDuration;
+    const ProfItems*      m_pSource;
+
+public:
+
+    MinimapItem();
+    virtual ~MinimapItem();
+
+    // Public virtual methods
+
+    QRectF boundingRect() const override;
+    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
+
+public:
+
+    // Public non-virtual methods
+
+    void setBoundingRect(const QRectF& _rect);
+
+    void setSource(const ProfItems* _items);
+
+}; // END of class MinimapItem.
+
+//////////////////////////////////////////////////////////////////////////
+
 class GraphicsHorizontalScrollbar : public QGraphicsView
 {
     Q_OBJECT
@@ -62,14 +94,16 @@ private:
     typedef QGraphicsView     Parent;
     typedef GraphicsHorizontalScrollbar   This;
 
-    qreal                     m_minimumValue;
-    qreal                     m_maximumValue;
-    qreal                            m_value;
-    qreal                      m_windowScale;
-    QPoint                   m_mousePressPos;
-    Qt::MouseButtons          m_mouseButtons;
-    GraphicsHorizontalSlider*       m_slider;
-    bool                        m_bScrolling;
+    qreal                             m_minimumValue;
+    qreal                             m_maximumValue;
+    qreal                                    m_value;
+    qreal                              m_windowScale;
+    QPoint                           m_mousePressPos;
+    Qt::MouseButtons                  m_mouseButtons;
+    GraphicsHorizontalSlider*               m_slider;
+    GraphicsHorizontalSlider* m_chronometerIndicator;
+    MinimapItem*                           m_minimap;
+    bool                                m_bScrolling;
 
 public:
 
@@ -91,6 +125,16 @@ public:
     void setValue(qreal _value);
     void setRange(qreal _minValue, qreal _maxValue);
     void setSliderWidth(qreal _width);
+    void setChronoPos(qreal _left, qreal _right);
+    void showChrono();
+    void hideChrono();
+
+    void setMinimapFrom(const ProfItems* _items);
+
+    inline void setMinimapFrom(const ProfItems& _items)
+    {
+        setMinimapFrom(&_items);
+    }
 
 signals:
 

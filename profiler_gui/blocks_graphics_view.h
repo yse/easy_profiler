@@ -31,7 +31,6 @@
 #include <QPoint>
 #include <QTimer>
 #include <stdlib.h>
-#include <vector>
 #include "graphics_scrollbar.h"
 #include "profiler/reader.h"
 #include "common_types.h"
@@ -39,36 +38,11 @@
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-#pragma pack(push, 1)
-struct ProfBlockItem
-{
-    const BlocksTree*       block; ///< Pointer to profiler block
-    qreal                       x; ///< x coordinate of the item (this is made qreal=double to avoid mistakes on very wide scene)
-    float                       w; ///< Width of the item
-    float                       y; ///< y coordinate of the item
-    float                       h; ///< Height of the item
-    QRgb                    color; ///< Background color of the item
-    unsigned int   children_begin; ///< Index of first child item on the next sublevel
-    unsigned short    totalHeight; ///< Total height of the item including heights of all it's children
-    char                    state; ///< 0 = no change, 1 = paint, -1 = do not paint
-
-    void setRect(qreal _x, float _y, float _w, float _h);
-    qreal left() const;
-    float top() const;
-    float width() const;
-    float height() const;
-    qreal right() const;
-    float bottom() const;
-};
-#pragma pack(pop)
-
-//////////////////////////////////////////////////////////////////////////
-
 class ProfGraphicsView;
 
 class ProfGraphicsItem : public QGraphicsItem
 {
-    typedef ::std::vector<ProfBlockItem>    Children;
+    typedef ProfItems                       Children;
     typedef ::std::vector<unsigned int>  DrawIndexes;
     typedef ::std::vector<Children>        Sublevels;
 

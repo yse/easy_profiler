@@ -237,6 +237,7 @@ void ProfTreeWidget::setTree(const unsigned int _blocksNumber, const thread_bloc
 
     setSortingEnabled(true);
     sortByColumn(COL_BEGIN, Qt::AscendingOrder);
+    resizeColumnToContents(COL_NAME);
 
     connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
 }
@@ -252,6 +253,7 @@ void ProfTreeWidget::setTreeBlocks(const TreeBlocks& _blocks, ::profiler::timest
 
     setSortingEnabled(true);
     sortByColumn(COL_BEGIN, Qt::AscendingOrder);
+    resizeColumnToContents(COL_NAME);
 
     connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
 }
