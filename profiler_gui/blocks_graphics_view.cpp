@@ -535,7 +535,7 @@ void ProfChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     const auto currentScale = sceneView->scale();
     const auto offset = sceneView->offset();
     const auto visibleSceneRect = sceneView->visibleSceneRect();
-    const auto sceneLeft = offset, sceneRight = offset + visibleSceneRect.width() / currentScale;
+    auto sceneLeft = offset, sceneRight = offset + visibleSceneRect.width() / currentScale;
 
     if (m_left > sceneRight || m_right < sceneLeft)
     {
@@ -573,33 +573,41 @@ void ProfChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     _painter->setPen(CHRONOMETER_TEXT_COLOR);
     _painter->setFont(m_font);
 
-    //if (m_left > sceneLeft && m_right < sceneRight)
+    if (m_left < sceneLeft)
     {
-        if (textRect.width() < rect.width())
-        {
-            // Text will be drawed inside rectangle
-            _painter->drawText(rect, Qt::AlignCenter, text);
-        }
-        else
-        {
-            // Text will be drawed aside of rectangle
-            _painter->drawText(QPointF(rect.right(), rect.top() + rect.height() * 0.5 + textRect.height() * 0.33), text);
-        }
+        rect.setLeft(0);
     }
-    //else if (m_left > sceneLeft)
-    //{
-    //    if (textRect.width() < rect.width())
-    //    {
-    //        _painter->drawText(rect, Qt::AlignCenter, text);
-    //    }
-    //    else
-    //    {
-    //        _painter->drawText(QPointF(rect.right(), rect.top() + rect.height() * 0.5 + textRect.height() * 0.33), text);
-    //    }
-    //}
-    //else
-    //{
-    //}
+
+    if (m_right > sceneRight)
+    {
+        rect.setWidth((sceneRight - offset) * currentScale - rect.left());
+    }
+
+    if (textRect.width() < rect.width())
+    {
+        // Text will be drawed inside rectangle
+        _painter->drawText(rect, Qt::AlignCenter, text);
+        _painter->restore();
+        return;
+    }
+
+    sceneLeft -= offset;
+    sceneRight -= offset;
+    if (rect.right() + textRect.width() < sceneRight)
+    {
+        // Text will be drawed to the right of rectangle
+        _painter->drawText(QPointF(rect.right(), rect.top() + rect.height() * 0.5 + textRect.height() * 0.33), text);
+    }
+    else if (rect.left() - textRect.width() > sceneLeft)
+    {
+        // Text will be drawed to the left of rectangle
+        _painter->drawText(QPointF(rect.left() - textRect.width(), rect.top() + rect.height() * 0.5 + textRect.height() * 0.33), text);
+    }
+    else
+    {
+        // Text will be drawed inside rectangle
+        _painter->drawText(rect, Qt::AlignCenter | Qt::TextDontClip, text);
+    }
 
     _painter->restore();
     // END Paint!~~~~~~~~~~~~~~~~~~~~~~
