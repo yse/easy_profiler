@@ -35,10 +35,9 @@ protected:
 
     typedef ProfMainWindow This;
 
-    ::std::string            m_lastFile;
-    thread_blocks_tree_t  m_currentProf;
-    QDockWidget*           m_treeWidget;
-    QDockWidget*         m_graphicsView;
+    ::std::string     m_lastFile;
+    QDockWidget*    m_treeWidget;
+    QDockWidget*  m_graphicsView;
 
 public:
 

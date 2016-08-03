@@ -39,24 +39,30 @@ enum ColumnsIndexes
     COL_NAME = 0,
     COL_BEGIN,
     COL_DURATION,
+    COL_SELF_DURATION,
+    COL_SELF_DURATION_PERCENT,
+    COL_PERCENT_OF_PARENT,
+    COL_PERCENT_OF_FRAME,
     COL_END,
-    COL_MIN_TOTAL,
-    COL_MAX_TOTAL,
-    COL_AVERAGE_TOTAL,
-    COL_NCALLS_TOTAL,
     COL_MIN,
     COL_MAX,
     COL_AVERAGE,
     COL_NCALLS,
+    COL_MIN_TOTAL,
+    COL_MAX_TOTAL,
+    COL_AVERAGE_TOTAL,
+    COL_NCALLS_TOTAL,
 
     COL_COLUMNS_NUMBER
 };
 
 //////////////////////////////////////////////////////////////////////////
 
-ProfTreeWidgetItem::ProfTreeWidgetItem(const BlocksTree* _treeBlock, Parent* _parent)
+ProfTreeWidgetItem::ProfTreeWidgetItem(const ::profiler::BlocksTree* _treeBlock, Parent* _parent)
     : Parent(_parent)
     , m_block(_treeBlock)
+    , m_customBGColor(0)
+    , m_customTextColor(0)
 {
 }
 
@@ -70,25 +76,30 @@ bool ProfTreeWidgetItem::operator < (const Parent& _other) const
 
     switch (col)
     {
-//         case COL_UNKNOWN:
+        //case COL_UNKNOWN:
         case COL_NAME:
         {
-            // column 0 - Name
             if (parent() == nullptr)
-                return false; // Do not sort topLevelItems
+                return false; // Do not sort topLevelItems by name
             return Parent::operator < (_other);
         }
 
         case COL_NCALLS_TOTAL:
         case COL_NCALLS:
         {
-            // column 7 and 11 - N calls
             return data(col, Qt::UserRole).toUInt() < _other.data(col, Qt::UserRole).toUInt();
+        }
+
+        case COL_SELF_DURATION_PERCENT:
+        case COL_PERCENT_OF_PARENT:
+        case COL_PERCENT_OF_FRAME:
+        {
+            return data(col, Qt::UserRole).toInt() < _other.data(col, Qt::UserRole).toInt();
         }
 
         default:
         {
-            // columns [1; 6] and [8; 10] - durations
+            // durations min, max, average
             return data(col, Qt::UserRole).toULongLong() < _other.data(col, Qt::UserRole).toULongLong();
         }
     }
@@ -96,9 +107,16 @@ bool ProfTreeWidgetItem::operator < (const Parent& _other) const
     return false;
 }
 
-const BlocksTree* ProfTreeWidgetItem::block() const
+const ::profiler::BlocksTree* ProfTreeWidgetItem::block() const
 {
     return m_block;
+}
+
+::profiler::timestamp_t ProfTreeWidgetItem::duration() const
+{
+    if (m_block->node)
+        return m_block->node->block()->duration();
+    return data(COL_DURATION, Qt::UserRole).toULongLong();
 }
 
 void ProfTreeWidgetItem::setTimeSmart(int _column, const ::profiler::timestamp_t& _time)
@@ -135,12 +153,12 @@ void ProfTreeWidgetItem::setTimeMs(int _column, const ::profiler::timestamp_t& _
     setText(_column, QString::number(double(nanosecondsTime) * 1e-6, 'g', 9));
 }
 
-void ProfTreeWidgetItem::setBackgroundColor(const QColor& _color)
+void ProfTreeWidgetItem::setBackgroundColor(QRgb _color)
 {
     m_customBGColor = _color;
 }
 
-void ProfTreeWidgetItem::setTextColor(const QColor& _color)
+void ProfTreeWidgetItem::setTextColor(QRgb _color)
 {
     m_customTextColor = _color;
 }
@@ -151,8 +169,8 @@ void ProfTreeWidgetItem::colorize(bool _colorize)
     {
         for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
         {
-            setBackground(i, m_customBGColor);
-            setForeground(i, m_customTextColor);
+            setBackground(i, QColor::fromRgb(m_customBGColor));
+            setForeground(i, QColor::fromRgb(m_customTextColor));
         }
     }
     else
@@ -199,26 +217,35 @@ ProfTreeWidget::ProfTreeWidget(QWidget* _parent) : Parent(_parent), m_beginTime(
 
     auto header = new QTreeWidgetItem();
     header->setText(COL_NAME, "Name");
-    header->setText(COL_DURATION, "Duration");
     header->setText(COL_BEGIN, "Begin, ms");
+    header->setText(COL_DURATION, "Duration");
+    header->setText(COL_SELF_DURATION, "Self Dur.");
+    header->setText(COL_SELF_DURATION_PERCENT, "Self %");
+    header->setText(COL_PERCENT_OF_PARENT, "Parent %");
+    header->setText(COL_PERCENT_OF_FRAME, "Frame %");
     header->setText(COL_END, "End, ms");
     header->setText(COL_MIN_TOTAL, "Min dur. total");
     header->setText(COL_MAX_TOTAL, "Max dur. total");
     header->setText(COL_AVERAGE_TOTAL, "Average dur. total");
-    header->setText(COL_NCALLS_TOTAL, "N Calls total");
     header->setText(COL_MIN, "Min dur.");
     header->setText(COL_MAX, "Max dur.");
     header->setText(COL_AVERAGE, "Average dur.");
     header->setText(COL_NCALLS, "N Calls");
+    header->setText(COL_NCALLS_TOTAL, "N Calls total");
     setHeaderItem(header);
+
+    hideColumn(COL_END);
+
+    connect(&::profiler_gui::EASY_GLOBALS.events, &::profiler_gui::ProfGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
 }
 
-ProfTreeWidget::ProfTreeWidget(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree, QWidget* _parent) : This(_parent)
+ProfTreeWidget::ProfTreeWidget(const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, QWidget* _parent) : This(_parent)
 {
     setTreeInternal(_blocksNumber, _blocksTree);
 
     setSortingEnabled(true);
     sortByColumn(COL_BEGIN, Qt::AscendingOrder);
+    resizeColumnToContents(COL_NAME);
 
     connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
 }
@@ -229,7 +256,7 @@ ProfTreeWidget::~ProfTreeWidget()
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void ProfTreeWidget::setTree(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree)
+void ProfTreeWidget::setTree(const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree)
 {
     clearSilent();
 
@@ -242,7 +269,7 @@ void ProfTreeWidget::setTree(const unsigned int _blocksNumber, const thread_bloc
     connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
 }
 
-void ProfTreeWidget::setTreeBlocks(const TreeBlocks& _blocks, ::profiler::timestamp_t _session_begin_time, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict)
+void ProfTreeWidget::setTreeBlocks(const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _session_begin_time, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict)
 {
     clearSilent();
 
@@ -269,6 +296,7 @@ void ProfTreeWidget::clearSilent()
 
     m_items.clear();
     m_itemblocks.clear();
+    m_roots.clear();
 
     const QSignalBlocker b(this);
     clear();
@@ -276,14 +304,14 @@ void ProfTreeWidget::clearSilent()
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-size_t ProfTreeWidget::setTreeInternal(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree)
+size_t ProfTreeWidget::setTreeInternal(const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree)
 {
     m_items.reserve(_blocksNumber + _blocksTree.size()); // _blocksNumber does not include Thread root blocks
 
     decltype(m_beginTime) finishtime = 0;
     for (const auto& threadTree : _blocksTree)
     {
-        const auto node_block = threadTree.second.children.front().node->block();
+        const auto node_block = threadTree.second.tree.children.front().node->block();
         const auto startTime = node_block->getBegin();
         const auto endTime = node_block->getEnd();
 
@@ -302,34 +330,46 @@ size_t ProfTreeWidget::setTreeInternal(const unsigned int _blocksNumber, const t
     const QSignalBlocker b(this);
     for (const auto& threadTree : _blocksTree)
     {
-        auto& block = threadTree.second;
+        auto& block = threadTree.second.tree;
         auto item = new ProfTreeWidgetItem(&block);
 
-        if (block.thread_name && block.thread_name[0] != 0)
+        if (threadTree.second.thread_name && threadTree.second.thread_name[0] != 0)
         {
-            item->setText(COL_NAME, QString("%1 Thread %2").arg(block.thread_name).arg(threadTree.first));
+            item->setText(COL_NAME, QString("%1 Thread %2").arg(threadTree.second.thread_name).arg(threadTree.first));
         }
         else
         {
             item->setText(COL_NAME, QString("Thread %1").arg(threadTree.first));
         }
 
+        ::profiler::timestamp_t duration = 0;
+        if (!block.children.empty())
+        {
+            duration = block.children.back().node->block()->getEnd() - block.children.front().node->block()->getBegin();
+        }
+
+        item->setTimeSmart(COL_DURATION, duration);
+        item->setBackgroundColor(::profiler_gui::SELECTED_THREAD_BACKGROUND);
+        item->setTextColor(::profiler_gui::SELECTED_THREAD_FOREGROUND);
         m_items.push_back(item);
 
-        const auto children_items_number = setTreeInternal(block.children, item, m_beginTime, finishtime + 1000000000, false);
+        const auto children_items_number = setTreeInternal(block.children, item, nullptr, m_beginTime, finishtime + 1000000000ULL, false);
 
         if (children_items_number > 0)
         {
             total_items += children_items_number + 1;
             addTopLevelItem(item);
 
-            if (m_bColorRows)
+            if (threadTree.first == ::profiler_gui::EASY_GLOBALS.selected_thread)
             {
-                item->colorize(m_bColorRows);
+                item->colorize(true);
             }
+
+            m_roots[threadTree.first] = item;
         }
         else
         {
+            m_items.pop_back();
             delete item;
         }
     }
@@ -337,7 +377,7 @@ size_t ProfTreeWidget::setTreeInternal(const unsigned int _blocksNumber, const t
     return total_items;
 }
 
-size_t ProfTreeWidget::setTreeInternal(const TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict)
+size_t ProfTreeWidget::setTreeInternal(const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict)
 {
     if (_blocks.empty())
     {
@@ -352,7 +392,7 @@ size_t ProfTreeWidget::setTreeInternal(const TreeBlocks& _blocks, ::profiler::ti
 
     m_items.reserve(blocksNumber + _blocks.size()); // blocksNumber does not include root blocks
 
-    typedef ::std::unordered_map<::profiler::thread_id_t, ProfTreeWidgetItem*, ::btw::do_no_hash<::profiler::thread_id_t>::hasher_t> ThreadsMap;
+    typedef ::std::unordered_map<::profiler::thread_id_t, ProfTreeWidgetItem*, ::profiler_gui::do_no_hash<::profiler::thread_id_t>::hasher_t> ThreadsMap;
     ThreadsMap threadsMap;
 
     size_t total_items = 0;
@@ -366,33 +406,55 @@ size_t ProfTreeWidget::setTreeInternal(const TreeBlocks& _blocks, ::profiler::ti
             continue;
         }
 
+        ::profiler::timestamp_t duration = 0;
         ProfTreeWidgetItem* thread_item = nullptr;
-        auto thread_item_it = threadsMap.find(block.thread_id);
+        auto thread_item_it = threadsMap.find(block.root->thread_id);
         if (thread_item_it != threadsMap.end())
         {
             thread_item = thread_item_it->second;
         }
         else
         {
-            thread_item = new ProfTreeWidgetItem(block.thread_tree);
+            thread_item = new ProfTreeWidgetItem(&block.root->tree);
 
-            if (block.thread_tree->thread_name && block.thread_tree->thread_name[0] != 0)
+            if (block.root->thread_name && block.root->thread_name[0] != 0)
             {
-                thread_item->setText(COL_NAME, QString("%1 Thread %2").arg(block.thread_tree->thread_name).arg(block.thread_id));
+                thread_item->setText(COL_NAME, QString("%1 Thread %2").arg(block.root->thread_name).arg(block.root->thread_id));
             }
             else
             {
-                thread_item->setText(COL_NAME, QString("Thread %1").arg(block.thread_id));
+                thread_item->setText(COL_NAME, QString("Thread %1").arg(block.root->thread_id));
             }
 
-            threadsMap.insert(::std::make_pair(block.thread_id, thread_item));
+            if (!block.root->tree.children.empty())
+            {
+                duration = block.root->tree.children.back().node->block()->getEnd() - block.root->tree.children.front().node->block()->getBegin();
+            }
+
+            thread_item->setTimeSmart(COL_DURATION, duration);
+            thread_item->setBackgroundColor(::profiler_gui::SELECTED_THREAD_BACKGROUND);
+            thread_item->setTextColor(::profiler_gui::SELECTED_THREAD_FOREGROUND);
+            threadsMap.insert(::std::make_pair(block.root->thread_id, thread_item));
         }
 
         auto item = new ProfTreeWidgetItem(block.tree, thread_item);
+        duration = block.tree->node->block()->duration();
+
         item->setText(COL_NAME, block.tree->node->getBlockName());
-        item->setTimeSmart(COL_DURATION, block.tree->node->block()->duration());
+        item->setTimeSmart(COL_DURATION, duration);
+        item->setTimeSmart(COL_SELF_DURATION, block.tree->self_duration);
         item->setTimeMs(COL_BEGIN, startTime - m_beginTime);
         item->setTimeMs(COL_END, endTime - m_beginTime);
+
+        auto percentage = duration == 0 ? 100 : static_cast<int>(0.5 + 100. * static_cast<double>(block.tree->self_duration) / static_cast<double>(duration));
+        item->setData(COL_SELF_DURATION_PERCENT, Qt::UserRole, percentage);
+        item->setText(COL_SELF_DURATION_PERCENT, QString::number(percentage));
+
+        item->setData(COL_PERCENT_OF_PARENT, Qt::UserRole, 0);
+        item->setText(COL_PERCENT_OF_PARENT, "");
+
+        item->setData(COL_PERCENT_OF_FRAME, Qt::UserRole, 0);
+        item->setText(COL_PERCENT_OF_FRAME, "");
 
         if (block.tree->total_statistics)
         {
@@ -415,8 +477,8 @@ size_t ProfTreeWidget::setTreeInternal(const TreeBlocks& _blocks, ::profiler::ti
         }
 
         const auto color = block.tree->node->block()->getColor();
-        const auto bgColor = QColor(toRgb(profiler::colors::get_red(color), profiler::colors::get_green(color), profiler::colors::get_blue(color)));
-        const auto fgColor = QColor(QRgb(0x00ffffff - bgColor.rgb()));
+        const auto bgColor = ::profiler_gui::toRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
+        const auto fgColor = 0x00ffffff - bgColor;
         item->setBackgroundColor(bgColor);
         item->setTextColor(fgColor);
 
@@ -425,7 +487,7 @@ size_t ProfTreeWidget::setTreeInternal(const TreeBlocks& _blocks, ::profiler::ti
         size_t children_items_number = 0;
         if (!block.tree->children.empty())
         {
-            children_items_number = setTreeInternal(block.tree->children, item, _left, _right, _strict);
+            children_items_number = setTreeInternal(block.tree->children, item, item, _left, _right, _strict);
         }
 
         if (children_items_number > 0 || !_strict || (startTime >= _left && endTime <= _right))
@@ -451,11 +513,12 @@ size_t ProfTreeWidget::setTreeInternal(const TreeBlocks& _blocks, ::profiler::ti
         {
             addTopLevelItem(it.second);
 
-            if (m_bColorRows)
+            if (it.first == ::profiler_gui::EASY_GLOBALS.selected_thread)
             {
-                it.second->colorize(m_bColorRows);
+                it.second->colorize(true);
             }
 
+            m_roots[it.first] = it.second;
             m_items.push_back(it.second);
             ++total_items;
         }
@@ -468,7 +531,7 @@ size_t ProfTreeWidget::setTreeInternal(const TreeBlocks& _blocks, ::profiler::ti
     return total_items;
 }
 
-size_t ProfTreeWidget::setTreeInternal(const BlocksTree::children_t& _children, ProfTreeWidgetItem* _parent, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict)
+size_t ProfTreeWidget::setTreeInternal(const ::profiler::BlocksTree::children_t& _children, ProfTreeWidgetItem* _parent, ProfTreeWidgetItem* _frame, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict)
 {
     size_t total_items = 0;
     for (const auto& child : _children)
@@ -481,10 +544,37 @@ size_t ProfTreeWidget::setTreeInternal(const BlocksTree::children_t& _children, 
         }
 
         auto item = new ProfTreeWidgetItem(&child, _parent);
+        auto duration = child.node->block()->duration();
+
         item->setText(COL_NAME, child.node->getBlockName());
-        item->setTimeSmart(COL_DURATION, child.node->block()->duration());
+        item->setTimeSmart(COL_DURATION, duration);
+        item->setTimeSmart(COL_SELF_DURATION, child.self_duration);
         item->setTimeMs(COL_BEGIN, startTime - m_beginTime);
         item->setTimeMs(COL_END, endTime - m_beginTime);
+
+        auto percentage = duration == 0 ? 100 : static_cast<int>(0.5 + 100. * static_cast<double>(child.self_duration) / static_cast<double>(duration));
+        item->setData(COL_SELF_DURATION_PERCENT, Qt::UserRole, percentage);
+        item->setText(COL_SELF_DURATION_PERCENT, QString::number(percentage));
+
+        if (_frame != nullptr)
+        {
+            percentage = duration == 0 ? 0 : static_cast<int>(0.5 + 100. * static_cast<double>(duration) / static_cast<double>(_parent->duration()));
+            item->setData(COL_PERCENT_OF_PARENT, Qt::UserRole, percentage);
+            item->setText(COL_PERCENT_OF_PARENT, QString::number(percentage));
+
+            if (_parent != _frame)
+                percentage = duration == 0 ? 0 : static_cast<int>(0.5 + 100. * static_cast<double>(duration) / static_cast<double>(_frame->duration()));
+            item->setData(COL_PERCENT_OF_FRAME, Qt::UserRole, percentage);
+            item->setText(COL_PERCENT_OF_FRAME, QString::number(percentage));
+        }
+        else
+        {
+            item->setData(COL_PERCENT_OF_PARENT, Qt::UserRole, 0);
+            item->setText(COL_PERCENT_OF_PARENT, "");
+
+            item->setData(COL_PERCENT_OF_FRAME, Qt::UserRole, 0);
+            item->setText(COL_PERCENT_OF_FRAME, "");
+        }
 
         if (child.total_statistics)
         {
@@ -507,8 +597,8 @@ size_t ProfTreeWidget::setTreeInternal(const BlocksTree::children_t& _children, 
         }
 
         const auto color = child.node->block()->getColor();
-        const auto bgColor = QColor(toRgb(profiler::colors::get_red(color), profiler::colors::get_green(color), profiler::colors::get_blue(color)));
-        const auto fgColor = QColor(QRgb(0x00ffffff - bgColor.rgb()));
+        const auto bgColor = ::profiler_gui::toRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
+        const auto fgColor = 0x00ffffff - bgColor;
         item->setBackgroundColor(bgColor);
         item->setTextColor(fgColor);
 
@@ -517,7 +607,7 @@ size_t ProfTreeWidget::setTreeInternal(const BlocksTree::children_t& _children, 
         size_t children_items_number = 0;
         if (!child.children.empty())
         {
-            children_items_number = setTreeInternal(child.children, item, _left, _right, _strict);
+            children_items_number = setTreeInternal(child.children, item, _frame ? _frame : item, _left, _right, _strict);
         }
 
         if (children_items_number > 0 || !_strict || (startTime >= _left && endTime <= _right))
@@ -603,6 +693,19 @@ void ProfTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
         }
     }
 
+    menu.addSeparator();
+
+    auto hidemenu = menu.addMenu("Select columns");
+    auto hdr = headerItem();
+    for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+    {
+        auto columnAction = new ProfHideShowColumnAction(hdr->text(i), i);
+        columnAction->setCheckable(true);
+        columnAction->setChecked(!isColumnHidden(i));
+        connect(columnAction, &ProfHideShowColumnAction::clicked, this, &This::onHideShowColumn);
+        hidemenu->addAction(columnAction);
+    }
+
     menu.exec(QCursor::pos());
 
     _event->accept();
@@ -639,7 +742,8 @@ void ProfTreeWidget::onExpandAllClicked(bool)
 {
     disconnect(this, &Parent::itemExpanded, this, &This::onItemExpand);
     expandAll();
-    resizeColumnToContents(COL_NAME);
+    //resizeColumnToContents(COL_NAME);
+    resizeColumnsToContents();
     connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
 }
 
@@ -659,14 +763,16 @@ void ProfTreeWidget::onExpandAllChildrenClicked(bool)
     {
         disconnect(this, &Parent::itemExpanded, this, &This::onItemExpand);
         current->expandAll();
-        resizeColumnToContents(COL_NAME);
+        //resizeColumnToContents(COL_NAME);
+        resizeColumnsToContents();
         connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
     }
 }
 
 void ProfTreeWidget::onItemExpand(QTreeWidgetItem*)
 {
-    resizeColumnToContents(COL_NAME);
+    //resizeColumnToContents(COL_NAME);
+    resizeColumnsToContents();
 }
 
 void ProfTreeWidget::onColorizeRowsTriggered(bool _colorize)
@@ -681,7 +787,8 @@ void ProfTreeWidget::onColorizeRowsTriggered(bool _colorize)
 
     for (auto item : m_items)
     {
-        item->colorize(m_bColorRows);
+        if (item->parent() != nullptr)
+            item->colorize(m_bColorRows);
     }
 
     // Scroll back to previously selected item
@@ -689,6 +796,40 @@ void ProfTreeWidget::onColorizeRowsTriggered(bool _colorize)
     {
         scrollToItem(current, QAbstractItemView::PositionAtCenter);
         setCurrentItem(current);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void ProfTreeWidget::onSelectedThreadChange(::profiler::thread_id_t _id)
+{
+    for (auto& it : m_roots)
+    {
+        it.second->colorize(it.first == _id);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void ProfTreeWidget::resizeColumnsToContents()
+{
+    for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+    {
+        resizeColumnToContents(i);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void ProfTreeWidget::onHideShowColumn(int _column)
+{
+    if (isColumnHidden(_column))
+    {
+        showColumn(_column);
+    }
+    else
+    {
+        hideColumn(_column);
     }
 }
 

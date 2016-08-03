@@ -50,7 +50,7 @@ int main(int argc, char **argv)
                 return app.exec();
             }
 
-            thread_blocks_tree_t threaded_trees;
+            ::profiler::thread_blocks_tree_t threaded_trees;
             fillTreesFromFile("test.prof", threaded_trees, true);
 
             ProfGraphicsView gview(threaded_trees);
@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 
         case 1:
         {
-            thread_blocks_tree_t threaded_trees;
+            ::profiler::thread_blocks_tree_t threaded_trees;
             auto nblocks = fillTreesFromFile("test.prof", threaded_trees, true);
 
             ProfTreeWidget view(nblocks, threaded_trees);

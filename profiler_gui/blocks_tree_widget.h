@@ -32,50 +32,7 @@
 #include <vector>
 #include "profiler/reader.h"
 #include "common_types.h"
-
-//////////////////////////////////////////////////////////////////////////
-
-namespace btw {
-
-    template <const size_t SIZEOF_T>
-    struct no_hasher {
-        template <class T> inline size_t operator () (const T& _data) const {
-            return (size_t)_data;
-        }
-    };
-
-#ifdef _WIN64
-    template <> struct no_hasher<8> {
-        template <class T> inline size_t operator () (T _data) const {
-            return (size_t)_data;
-        }
-    };
-#endif
-
-    template <> struct no_hasher<4> {
-        template <class T> inline size_t operator () (T _data) const {
-            return (size_t)_data;
-        }
-    };
-
-    template <> struct no_hasher<2> {
-        template <class T> inline size_t operator () (T _data) const {
-            return (size_t)_data;
-        }
-    };
-
-    template <> struct no_hasher<1> {
-        template <class T> inline size_t operator () (T _data) const {
-            return (size_t)_data;
-        }
-    };
-
-    template <class T>
-    struct do_no_hash {
-        typedef no_hasher<sizeof(T)> hasher_t;
-    };
-
-} // END of namespace btw.
+#include "globals.h"
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -84,29 +41,33 @@ class ProfTreeWidgetItem : public QTreeWidgetItem
     typedef QTreeWidgetItem    Parent;
     typedef ProfTreeWidgetItem   This;
 
-    const BlocksTree* m_block;
-    QBrush    m_customBGColor;
-    QBrush  m_customTextColor;
+    const ::profiler::BlocksTree*           m_block;
+    QRgb                            m_customBGColor;
+    QRgb                          m_customTextColor;
 
 public:
 
     using Parent::setBackgroundColor;
     using Parent::setTextColor;
 
-    ProfTreeWidgetItem(const BlocksTree* _treeBlock, Parent* _parent = nullptr);
+    ProfTreeWidgetItem(const ::profiler::BlocksTree* _treeBlock, Parent* _parent = nullptr);
     virtual ~ProfTreeWidgetItem();
 
     bool operator < (const Parent& _other) const override;
 
-    const BlocksTree* block() const;
+public:
+
+    const ::profiler::BlocksTree* block() const;
+
+    ::profiler::timestamp_t duration() const;
 
     void setTimeSmart(int _column, const ::profiler::timestamp_t& _time);
 
     void setTimeMs(int _column, const ::profiler::timestamp_t& _time);
 
-    void setBackgroundColor(const QColor& _color);
+    void setBackgroundColor(QRgb _color);
 
-    void setTextColor(const QColor& _color);
+    void setTextColor(QRgb _color);
 
     void colorize(bool _colorize);
 
@@ -118,36 +79,24 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
-class ProfItemAction : public QAction
-{
-    Q_OBJECT
+#define DECLARE_QACTION(ClassName, DataType) \
+class ClassName : public QAction { \
+    Q_OBJECT \
+private: \
+    DataType m_item; \
+public: \
+    ClassName(const char* _label, DataType _item) : QAction(_label, nullptr), m_item(_item) { \
+        connect(this, &QAction::triggered, this, &ClassName::onToggle); } \
+    ClassName(const QString& _label, DataType _item) : QAction(_label, nullptr), m_item(_item) { \
+        connect(this, &QAction::triggered, this, &ClassName::onToggle); } \
+    virtual ~ClassName() {}\
+private: \
+    void onToggle(bool) { emit clicked(m_item); }
 
-private:
+DECLARE_QACTION(ProfItemAction, ProfTreeWidgetItem*) signals: void clicked(ProfTreeWidgetItem* _item); };
+DECLARE_QACTION(ProfHideShowColumnAction, int) signals: void clicked(int _item); };
 
-    ProfTreeWidgetItem* m_item;
-
-public:
-
-    ProfItemAction(const char* _label, ProfTreeWidgetItem* _item) : QAction(_label, nullptr), m_item(_item)
-    {
-        connect(this, &QAction::triggered, this, &ProfItemAction::onToggle);
-    }
-
-    virtual ~ProfItemAction()
-    {
-    }
-
-private:
-
-    void onToggle(bool)
-    {
-        emit clicked(m_item);
-    }
-
-signals:
-
-    void clicked(ProfTreeWidgetItem* _item);
-};
+#undef DECLARE_QACTION
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -161,34 +110,36 @@ class ProfTreeWidget : public QTreeWidget
 protected:
 
     typedef ::std::vector<ProfTreeWidgetItem*> Items;
-    typedef ::std::unordered_map<const ::profiler::SerilizedBlock*, ProfTreeWidgetItem*, ::btw::do_no_hash<const ::profiler::SerilizedBlock*>::hasher_t> BlockItemMap;
+    typedef ::std::unordered_map<const ::profiler::SerilizedBlock*, ProfTreeWidgetItem*, ::profiler_gui::do_no_hash<const ::profiler::SerilizedBlock*>::hasher_t> BlockItemMap;
+    typedef ::std::unordered_map<::profiler::thread_id_t, ProfTreeWidgetItem*, ::profiler_gui::do_no_hash<::profiler::thread_id_t>::hasher_t> RootsMap;
 
     Items                        m_items;
     BlockItemMap            m_itemblocks;
+    RootsMap                     m_roots;
     ::profiler::timestamp_t  m_beginTime;
     bool                    m_bColorRows;
 
 public:
 
     ProfTreeWidget(QWidget* _parent = nullptr);
-    ProfTreeWidget(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree, QWidget* _parent = nullptr);
+    ProfTreeWidget(const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, QWidget* _parent = nullptr);
     virtual ~ProfTreeWidget();
 
     void clearSilent();
 
 public slots:
 
-    void setTree(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree);
+    void setTree(const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree);
 
-    void setTreeBlocks(const TreeBlocks& _blocks, ::profiler::timestamp_t _session_begin_time, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict);
+    void setTreeBlocks(const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _session_begin_time, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict);
 
 protected:
 
-    size_t setTreeInternal(const unsigned int _blocksNumber, const thread_blocks_tree_t& _blocksTree);
+    size_t setTreeInternal(const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree);
 
-    size_t setTreeInternal(const TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict);
+    size_t setTreeInternal(const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict);
 
-    size_t setTreeInternal(const BlocksTree::children_t& _children, ProfTreeWidgetItem* _parent, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict);
+    size_t setTreeInternal(const ::profiler::BlocksTree::children_t& _children, ProfTreeWidgetItem* _parent, ProfTreeWidgetItem* _frame, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict);
 
     void contextMenuEvent(QContextMenuEvent* _event) override;
 
@@ -209,6 +160,12 @@ private slots:
     void onItemExpand(QTreeWidgetItem*);
 
     void onColorizeRowsTriggered(bool _colorize);
+
+    void onSelectedThreadChange(::profiler::thread_id_t _id);
+
+    void resizeColumnsToContents();
+
+    void onHideShowColumn(int _column);
 
 }; // END of class ProfTreeWidget.
 

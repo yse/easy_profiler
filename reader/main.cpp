@@ -40,7 +40,7 @@ public:
 };
 
 
-void printTree(TreePrinter& printer, const BlocksTree& tree, int level = 0, profiler::timestamp_t parent_dur = 0, profiler::timestamp_t root_dur = 0)
+void printTree(TreePrinter& printer, const ::profiler::BlocksTree& tree, int level = 0, profiler::timestamp_t parent_dur = 0, profiler::timestamp_t root_dur = 0)
 {
 	
 	if (tree.node){
@@ -72,7 +72,7 @@ void printTree(TreePrinter& printer, const BlocksTree& tree, int level = 0, prof
 int main(int argc, char* argv[])
 {
 
-	thread_blocks_tree_t threaded_trees;
+    ::profiler::thread_blocks_tree_t threaded_trees;
 
 	const char* filename = nullptr;
 	if(argc > 1 && argv[1]){
@@ -101,7 +101,7 @@ int main(int argc, char* argv[])
 	for (const auto & i : threaded_trees){
 		TreePrinter p;
 		std::cout << std::string(20, '=') << " thread "<< i.first << " "<< std::string(20, '=') << std::endl;
-		printTree(p, i.second,-1);
+		printTree(p, i.second.tree,-1);
 	}
 	if(dump_filename!=nullptr)
 	{

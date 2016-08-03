@@ -34,6 +34,7 @@
 #include "graphics_scrollbar.h"
 #include "profiler/reader.h"
 #include "common_types.h"
+#include "globals.h"
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
@@ -42,24 +43,23 @@ class ProfGraphicsView;
 
 class ProfGraphicsItem : public QGraphicsItem
 {
-    typedef ProfItems                       Children;
+    typedef ::profiler_gui::ProfItems       Children;
     typedef ::std::vector<unsigned int>  DrawIndexes;
     typedef ::std::vector<Children>        Sublevels;
 
-    DrawIndexes  m_levelsIndexes; ///< Indexes of first item on each level from which we must start painting
-    Sublevels           m_levels; ///< Arrays of items for each level
+    DrawIndexes               m_levelsIndexes; ///< Indexes of first item on each level from which we must start painting
+    Sublevels                        m_levels; ///< Arrays of items for each level
 
-    QRectF               m_boundingRect; ///< boundingRect (see QGraphicsItem)
-    const BlocksTree*           m_pRoot; ///< Pointer to the root profiler block (thread block). Used by ProfTreeWidget to restore hierarchy.
-    ::profiler::thread_id_t m_thread_id; ///< Thread id to which this item belongs
-    QRgb              m_backgroundColor; ///< Background color (to enable AlternateColors behavior like in QTreeWidget)
-    const bool                  m_bTest; ///< If true then we are running test()
+    QRectF                     m_boundingRect; ///< boundingRect (see QGraphicsItem)
+    const ::profiler::BlocksTreeRoot* m_pRoot; ///< Pointer to the root profiler block (thread block). Used by ProfTreeWidget to restore hierarchy.
+    QRgb                    m_backgroundColor; ///< Background color (to enable AlternateColors behavior like in QTreeWidget)
+    const bool                        m_bTest; ///< If true then we are running test()
 
 public:
 
     ProfGraphicsItem();
     ProfGraphicsItem(bool _test);
-    ProfGraphicsItem(::profiler::thread_id_t _thread_id, const BlocksTree* _root);
+    ProfGraphicsItem(const ::profiler::BlocksTreeRoot* _root);
     virtual ~ProfGraphicsItem();
 
     // Public virtual methods
@@ -75,6 +75,8 @@ public:
     void setBoundingRect(const QRectF& _rect);
 
     void setBackgroundColor(QRgb _color);
+
+    ::profiler::thread_id_t threadId() const;
 
     ///< Returns number of levels
     unsigned short levels() const;
@@ -101,13 +103,13 @@ public:
     
     \param _level Index of the level
     \param _index Index of required item */
-    const ProfBlockItem& getItem(unsigned short _level, size_t _index) const;
+    const ::profiler_gui::ProfBlockItem& getItem(unsigned short _level, size_t _index) const;
 
     /**\brief Returns reference to the item with required index on specified level.
 
     \param _level Index of the level
     \param _index Index of required item */
-    ProfBlockItem& getItem(unsigned short _level, size_t _index);
+    ::profiler_gui::ProfBlockItem& getItem(unsigned short _level, size_t _index);
 
     /** \brief Adds new item to required level.
     
@@ -124,7 +126,7 @@ public:
     \param _item Reference to the source item to copy from
 
     \retval Index of the new created item */
-    size_t addItem(unsigned short _level, const ProfBlockItem& _item);
+    size_t addItem(unsigned short _level, const ::profiler_gui::ProfBlockItem& _item);
 
     /** \brief Adds new item to required level.
 
@@ -134,7 +136,7 @@ public:
     \param _item Reference to the source item to move from
 
     \retval Index of the new created item */
-    size_t addItem(unsigned short _level, ProfBlockItem&& _item);
+    size_t addItem(unsigned short _level, ::profiler_gui::ProfBlockItem&& _item);
 
     /** \brief Finds top-level blocks which are intersects with required selection zone.
 
@@ -143,7 +145,7 @@ public:
     \param _left Left bound of the selection zone
     \param _right Right bound of the selection zone
     \param _blocks Reference to the array of selected blocks */
-    void getBlocks(qreal _left, qreal _right, TreeBlocks& _blocks) const;
+    void getBlocks(qreal _left, qreal _right, ::profiler_gui::TreeBlocks& _blocks) const;
 
 private:
 
@@ -212,7 +214,7 @@ private:
     typedef ::std::vector<ProfGraphicsItem*> Items;
 
     Items                                   m_items; ///< Array of all ProfGraphicsItem items
-    TreeBlocks                     m_selectedBlocks; ///< Array of items which were selected by selection zone (ProfChronometerItem)
+    ::profiler_gui::TreeBlocks     m_selectedBlocks; ///< Array of items which were selected by selection zone (ProfChronometerItem)
     QTimer                           m_flickerTimer; ///< Timer for flicking behavior
     QRectF                       m_visibleSceneRect; ///< Visible scene rectangle
     ::profiler::timestamp_t             m_beginTime; ///< Begin time of profiler session. Used to reduce values of all begin and end times of profiler blocks.
@@ -220,7 +222,7 @@ private:
     qreal                                  m_offset; ///< Have to use manual offset for all scene content instead of using scrollbars because QScrollBar::value is 32-bit integer :(
     QPoint                          m_mousePressPos; ///< Last mouse global position (used by mousePressEvent and mouseMoveEvent)
     Qt::MouseButtons                 m_mouseButtons; ///< Pressed mouse buttons
-    GraphicsHorizontalScrollbar*       m_pScrollbar; ///< Pointer to the graphics scrollbar widget
+    ProfGraphicsScrollbar*       m_pScrollbar; ///< Pointer to the graphics scrollbar widget
     ProfChronometerItem*          m_chronometerItem; ///< Pointer to the ProfChronometerItem which is displayed when you press right mouse button and move mouse left or right
     int                              m_flickerSpeed; ///< Current flicking speed
     bool                            m_bUpdatingRect; ///< Stub flag which is used to avoid excess calculations on some scene update (flicking, scaling and so on)
@@ -231,7 +233,7 @@ private:
 public:
 
     ProfGraphicsView(bool _test = false);
-    ProfGraphicsView(const thread_blocks_tree_t& _blocksTree);
+    ProfGraphicsView(const ::profiler::thread_blocks_tree_t& _blocksTree);
     virtual ~ProfGraphicsView();
 
     // Public virtual methods
@@ -246,17 +248,17 @@ public:
 
     // Public non-virtual methods
 
-    void setScrollbar(GraphicsHorizontalScrollbar* _scrollbar);
+    void setScrollbar(ProfGraphicsScrollbar* _scrollbar);
     void clearSilent();
 
     void test(size_t _frames_number, size_t _total_items_number_estimate, int _rows);
-    void setTree(const thread_blocks_tree_t& _blocksTree);
+    void setTree(const ::profiler::thread_blocks_tree_t& _blocksTree);
 
 signals:
 
     // Signals
 
-    void intervalChanged(const TreeBlocks& _blocks, ::profiler::timestamp_t _session_begin_time, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict);
+    void intervalChanged(const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _session_begin_time, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict);
 
 private:
 
@@ -266,7 +268,7 @@ private:
     void updateVisibleSceneRect();
     void updateScene();
     void scaleTo(qreal _scale);
-    qreal setTree(ProfGraphicsItem* _item, const BlocksTree::children_t& _children, qreal& _height, qreal _y, unsigned short _level);
+    qreal setTree(ProfGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, qreal _y, unsigned short _level);
     void fillTestChildren(ProfGraphicsItem* _item, const int _maxlevel, int _level, qreal _x, qreal _y, size_t _childrenNumber, size_t& _total_items);
 
 private slots:
@@ -276,6 +278,7 @@ private slots:
     void onScrollbarValueChange(int);
     void onGraphicsScrollbarValueChange(qreal);
     void onFlickerTimeout();
+    void onSelectedThreadChange(::profiler::thread_id_t _id);
 
 public:
 
@@ -335,12 +338,12 @@ class ProfGraphicsViewWidget : public QWidget
 private:
 
     ProfGraphicsView*                 m_view;
-    GraphicsHorizontalScrollbar* m_scrollbar;
+    ProfGraphicsScrollbar* m_scrollbar;
 
 public:
 
     ProfGraphicsViewWidget(bool _test = false);
-    ProfGraphicsViewWidget(const thread_blocks_tree_t& _blocksTree);
+    ProfGraphicsViewWidget(const ::profiler::thread_blocks_tree_t& _blocksTree);
     virtual ~ProfGraphicsViewWidget();
 
     ProfGraphicsView* view();

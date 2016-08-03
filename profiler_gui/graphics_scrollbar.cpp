@@ -19,6 +19,8 @@
 #include <QWheelEvent>
 #include <QMouseEvent>
 #include <QResizeEvent>
+#include <QContextMenuEvent>
+#include <QMenu>
 #include "graphics_scrollbar.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -37,21 +39,21 @@ auto const clamp = [](qreal _minValue, qreal _value, qreal _maxValue)
 
 //////////////////////////////////////////////////////////////////////////
 
-GraphicsHorizontalSlider::GraphicsHorizontalSlider() : Parent(), m_halfwidth(0)
+ProfGraphicsSliderItem::ProfGraphicsSliderItem() : Parent(), m_halfwidth(0)
 {
     setWidth(1);
     setBrush(Qt::SolidPattern);
 }
 
-GraphicsHorizontalSlider::~GraphicsHorizontalSlider()
+ProfGraphicsSliderItem::~ProfGraphicsSliderItem()
 {
 
 }
 
-void GraphicsHorizontalSlider::paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget)
+void ProfGraphicsSliderItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget)
 {
     //Parent::paint(_painter, _option, _widget);
-    const auto currentScale = static_cast<const GraphicsHorizontalScrollbar*>(scene()->parent())->getWindowScale();
+    const auto currentScale = static_cast<const ProfGraphicsScrollbar*>(scene()->parent())->getWindowScale();
     const auto br = rect();
 
     qreal w = width() * currentScale;
@@ -71,29 +73,29 @@ void GraphicsHorizontalSlider::paint(QPainter* _painter, const QStyleOptionGraph
     _painter->restore();
 }
 
-qreal GraphicsHorizontalSlider::width() const
+qreal ProfGraphicsSliderItem::width() const
 {
     return m_halfwidth * 2.0;
 }
 
-qreal GraphicsHorizontalSlider::halfwidth() const
+qreal ProfGraphicsSliderItem::halfwidth() const
 {
     return m_halfwidth;
 }
 
-void GraphicsHorizontalSlider::setWidth(qreal _width)
+void ProfGraphicsSliderItem::setWidth(qreal _width)
 {
     m_halfwidth = _width * 0.5;
     setRect(-m_halfwidth, DEFAULT_TOP, _width, DEFAULT_HEIGHT);
 }
 
-void GraphicsHorizontalSlider::setHalfwidth(qreal _halfwidth)
+void ProfGraphicsSliderItem::setHalfwidth(qreal _halfwidth)
 {
     m_halfwidth = _halfwidth;
     setRect(-m_halfwidth, DEFAULT_TOP, m_halfwidth * 2.0, DEFAULT_HEIGHT);
 }
 
-void GraphicsHorizontalSlider::setColor(QRgb _color)
+void ProfGraphicsSliderItem::setColor(QRgb _color)
 {
     auto b = brush();
     b.setColor(QColor::fromRgba(_color));
@@ -102,29 +104,29 @@ void GraphicsHorizontalSlider::setColor(QRgb _color)
 
 //////////////////////////////////////////////////////////////////////////
 
-MinimapItem::MinimapItem() : Parent(), m_pSource(nullptr), m_maxDuration(0)
+ProfMinimapItem::ProfMinimapItem() : Parent(), m_pSource(nullptr), m_maxDuration(0), m_threadId(0)
 {
 
 }
 
-MinimapItem::~MinimapItem()
+ProfMinimapItem::~ProfMinimapItem()
 {
 
 }
 
-QRectF MinimapItem::boundingRect() const
+QRectF ProfMinimapItem::boundingRect() const
 {
     return m_boundingRect;
 }
 
-void MinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget)
+void ProfMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget)
 {
     if (m_pSource == nullptr)
     {
         return;
     }
 
-    const auto currentScale = static_cast<const GraphicsHorizontalScrollbar*>(scene()->parent())->getWindowScale();
+    const auto currentScale = static_cast<const ProfGraphicsScrollbar*>(scene()->parent())->getWindowScale();
     const auto bottom = m_boundingRect.bottom();
     const auto coeff = (m_boundingRect.height() - 5) / m_maxDuration;
 
@@ -159,14 +161,20 @@ void MinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* _opt
     _painter->restore();
 }
 
-void MinimapItem::setBoundingRect(const QRectF& _rect)
+::profiler::thread_id_t ProfMinimapItem::threadId() const
+{
+    return m_threadId;
+}
+
+void ProfMinimapItem::setBoundingRect(const QRectF& _rect)
 {
     m_boundingRect = _rect;
 }
 
-void MinimapItem::setSource(const ProfItems* _items)
+void ProfMinimapItem::setSource(::profiler::thread_id_t _thread_id, const ::profiler_gui::ProfItems* _items)
 {
     m_pSource = _items;
+    m_threadId = _thread_id;
 
     if (m_pSource)
     {
@@ -197,7 +205,7 @@ void MinimapItem::setSource(const ProfItems* _items)
 
 //////////////////////////////////////////////////////////////////////////
 
-GraphicsHorizontalScrollbar::GraphicsHorizontalScrollbar(QWidget* _parent)
+ProfGraphicsScrollbar::ProfGraphicsScrollbar(QWidget* _parent)
     : Parent(_parent)
     , m_minimumValue(0)
     , m_maximumValue(500)
@@ -225,20 +233,20 @@ GraphicsHorizontalScrollbar::GraphicsHorizontalScrollbar(QWidget* _parent)
     selfScene->setSceneRect(0, DEFAULT_TOP, 500, DEFAULT_HEIGHT);
     setScene(selfScene);
 
-    m_slider = new GraphicsHorizontalSlider();
+    m_slider = new ProfGraphicsSliderItem();
     m_slider->setPos(0, 0);
     m_slider->setZValue(5);
-    m_slider->setColor(0x90e00000);
+    m_slider->setColor(0x80e00000);
     selfScene->addItem(m_slider);
 
-    m_chronometerIndicator = new GraphicsHorizontalSlider();
+    m_chronometerIndicator = new ProfGraphicsSliderItem();
     m_chronometerIndicator->setPos(0, 0);
     m_chronometerIndicator->setZValue(10);
-    m_chronometerIndicator->setColor(0x90404040);
+    m_chronometerIndicator->setColor(0x80404040);
     selfScene->addItem(m_chronometerIndicator);
     m_chronometerIndicator->hide();
 
-    m_minimap = new MinimapItem();
+    m_minimap = new ProfMinimapItem();
     m_minimap->setPos(0, 0);
     m_minimap->setBoundingRect(selfScene->sceneRect());
     selfScene->addItem(m_minimap);
@@ -247,48 +255,53 @@ GraphicsHorizontalScrollbar::GraphicsHorizontalScrollbar(QWidget* _parent)
     centerOn(0, 0);
 }
 
-GraphicsHorizontalScrollbar::~GraphicsHorizontalScrollbar()
+ProfGraphicsScrollbar::~ProfGraphicsScrollbar()
 {
 
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-qreal GraphicsHorizontalScrollbar::getWindowScale() const
+qreal ProfGraphicsScrollbar::getWindowScale() const
 {
     return m_windowScale;
 }
 
-qreal GraphicsHorizontalScrollbar::minimum() const
+::profiler::thread_id_t ProfGraphicsScrollbar::minimapThread() const
+{
+    return m_minimap->threadId();
+}
+
+qreal ProfGraphicsScrollbar::minimum() const
 {
     return m_minimumValue;
 }
 
-qreal GraphicsHorizontalScrollbar::maximum() const
+qreal ProfGraphicsScrollbar::maximum() const
 {
     return m_maximumValue;
 }
 
-qreal GraphicsHorizontalScrollbar::range() const
+qreal ProfGraphicsScrollbar::range() const
 {
     return m_maximumValue - m_minimumValue;
 }
 
-qreal GraphicsHorizontalScrollbar::value() const
+qreal ProfGraphicsScrollbar::value() const
 {
     return m_value;
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void GraphicsHorizontalScrollbar::setValue(qreal _value)
+void ProfGraphicsScrollbar::setValue(qreal _value)
 {
     m_value = clamp(m_minimumValue, _value, ::std::max(m_minimumValue, m_maximumValue - m_slider->width()));
     m_slider->setX(m_value + m_slider->halfwidth());
     emit valueChanged(m_value);
 }
 
-void GraphicsHorizontalScrollbar::setRange(qreal _minValue, qreal _maxValue)
+void ProfGraphicsScrollbar::setRange(qreal _minValue, qreal _maxValue)
 {
     const auto oldRange = range();
     const auto oldValue = oldRange < 1e-3 ? 0.0 : m_value / oldRange;
@@ -303,7 +316,7 @@ void GraphicsHorizontalScrollbar::setRange(qreal _minValue, qreal _maxValue)
     onWindowWidthChange(width());
 }
 
-void GraphicsHorizontalScrollbar::setSliderWidth(qreal _width)
+void ProfGraphicsScrollbar::setSliderWidth(qreal _width)
 {
     m_slider->setWidth(_width);
     setValue(m_value);
@@ -311,32 +324,33 @@ void GraphicsHorizontalScrollbar::setSliderWidth(qreal _width)
 
 //////////////////////////////////////////////////////////////////////////
 
-void GraphicsHorizontalScrollbar::setChronoPos(qreal _left, qreal _right)
+void ProfGraphicsScrollbar::setChronoPos(qreal _left, qreal _right)
 {
     m_chronometerIndicator->setWidth(_right - _left);
     m_chronometerIndicator->setX(_left + m_chronometerIndicator->halfwidth());
 }
 
-void GraphicsHorizontalScrollbar::showChrono()
+void ProfGraphicsScrollbar::showChrono()
 {
     m_chronometerIndicator->show();
 }
 
-void GraphicsHorizontalScrollbar::hideChrono()
+void ProfGraphicsScrollbar::hideChrono()
 {
     m_chronometerIndicator->hide();
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void GraphicsHorizontalScrollbar::setMinimapFrom(const ProfItems* _items)
+void ProfGraphicsScrollbar::setMinimapFrom(::profiler::thread_id_t _thread_id, const ::profiler_gui::ProfItems* _items)
 {
-    m_minimap->setSource(_items);
+    m_minimap->setSource(_thread_id, _items);
+    scene()->update();
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void GraphicsHorizontalScrollbar::mousePressEvent(QMouseEvent* _event)
+void ProfGraphicsScrollbar::mousePressEvent(QMouseEvent* _event)
 {
     m_mouseButtons = _event->buttons();
 
@@ -351,7 +365,7 @@ void GraphicsHorizontalScrollbar::mousePressEvent(QMouseEvent* _event)
     //QGraphicsView::mousePressEvent(_event);
 }
 
-void GraphicsHorizontalScrollbar::mouseReleaseEvent(QMouseEvent* _event)
+void ProfGraphicsScrollbar::mouseReleaseEvent(QMouseEvent* _event)
 {
     m_mouseButtons = _event->buttons();
     m_bScrolling = false;
@@ -359,7 +373,7 @@ void GraphicsHorizontalScrollbar::mouseReleaseEvent(QMouseEvent* _event)
     //QGraphicsView::mouseReleaseEvent(_event);
 }
 
-void GraphicsHorizontalScrollbar::mouseMoveEvent(QMouseEvent* _event)
+void ProfGraphicsScrollbar::mouseMoveEvent(QMouseEvent* _event)
 {
     if (m_mouseButtons & Qt::LeftButton)
     {
@@ -374,12 +388,60 @@ void GraphicsHorizontalScrollbar::mouseMoveEvent(QMouseEvent* _event)
     }
 }
 
-void GraphicsHorizontalScrollbar::resizeEvent(QResizeEvent* _event)
+void ProfGraphicsScrollbar::resizeEvent(QResizeEvent* _event)
 {
     onWindowWidthChange(_event->size().width());
 }
 
-void GraphicsHorizontalScrollbar::onWindowWidthChange(qreal _width)
+//////////////////////////////////////////////////////////////////////////
+
+void ProfGraphicsScrollbar::contextMenuEvent(QContextMenuEvent* _event)
+{
+    if (::profiler_gui::EASY_GLOBALS.profiler_blocks.empty())
+    {
+        return;
+    }
+
+    QMenu menu;
+
+    for (const auto& it : ::profiler_gui::EASY_GLOBALS.profiler_blocks)
+    {
+        QString label;
+        if (it.second.thread_name && it.second.thread_name[0] != 0)
+        {
+            label = ::std::move(QString("%1 Thread %2").arg(it.second.thread_name).arg(it.first));
+        }
+        else
+        {
+            label = ::std::move(QString("Thread %1").arg(it.first));
+        }
+
+        auto action = new ProfIdAction(label, it.first);
+        action->setCheckable(true);
+        action->setChecked(it.first == ::profiler_gui::EASY_GLOBALS.selected_thread);
+        connect(action, &ProfIdAction::clicked, this, &This::onThreadActionClicked);
+
+        menu.addAction(action);
+    }
+
+    menu.exec(QCursor::pos());
+    _event->accept();
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void ProfGraphicsScrollbar::onThreadActionClicked(::profiler::thread_id_t _id)
+{
+    if (_id != m_minimap->threadId())
+    {
+        ::profiler_gui::EASY_GLOBALS.selected_thread = _id;
+        emit ::profiler_gui::EASY_GLOBALS.events.selectedThreadChanged(_id);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void ProfGraphicsScrollbar::onWindowWidthChange(qreal _width)
 {
     const auto oldScale = m_windowScale;
     const auto scrollingRange = range();

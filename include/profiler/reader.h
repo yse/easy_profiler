@@ -27,9 +27,6 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define PROFILER_COUNT_TOTAL_CHILDREN_NUMBER
-#define PROFILER_COUNT_DEPTH
-
 namespace profiler {
 
     typedef uint32_t calls_number_t;
@@ -87,119 +84,150 @@ namespace profiler {
         _stats = nullptr;
     }
 
-} // END of namespace profiler.
+    //////////////////////////////////////////////////////////////////////////
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-struct BlocksTree
-{
-    typedef ::std::list<BlocksTree> children_t;
-
-    children_t                           children;
-    ::profiler::SerilizedBlock*              node;
-    ::profiler::BlockStatistics* frame_statistics; ///< Pointer to statistics for this block within the parent (may be nullptr for top-level blocks)
-    ::profiler::BlockStatistics* total_statistics; ///< Pointer to statistics for this block within the bounds of all frames per current thread
-    const char*                       thread_name;
-
-#ifdef PROFILER_COUNT_TOTAL_CHILDREN_NUMBER
-    unsigned int            total_children_number; ///< Number of all children including number of grandchildren (and so on)
-#endif
-
-#ifdef PROFILER_COUNT_DEPTH
-    unsigned short                          depth; ///< Maximum number of sublevels (maximum children depth)
-#endif
-
-    BlocksTree()
-        : node(nullptr)
-        , frame_statistics(nullptr)
-        , total_statistics(nullptr)
-#ifdef PROFILER_COUNT_TOTAL_CHILDREN_NUMBER
-        , total_children_number(0)
-#endif
-#ifdef PROFILER_COUNT_DEPTH
-        , depth(0)
-#endif
-		, thread_name("")
-	{
-
-    }
-
-    BlocksTree(BlocksTree&& that) : BlocksTree()
+    class BlocksTree
     {
-        makeMove(::std::forward<BlocksTree&&>(that));
-    }
+        typedef BlocksTree This;
 
-    BlocksTree& operator=(BlocksTree&& that)
-    {
-        makeMove(::std::forward<BlocksTree&&>(that));
-        return *this;
-    }
+    public:
 
-    ~BlocksTree()
-    {
-        if (node)
+        typedef ::std::list<BlocksTree> children_t;
+
+        children_t                           children; ///< List of children blocks. May be empty.
+        ::profiler::timestamp_t         self_duration; ///< Self time (excluding children blocks). This is time which was not measured by children blocks.
+        ::profiler::SerilizedBlock*              node; ///< Pointer to serilized data (type, name, begin, end etc.)
+        ::profiler::BlockStatistics* frame_statistics; ///< Pointer to statistics for this block within the parent (may be nullptr for top-level blocks)
+        ::profiler::BlockStatistics* total_statistics; ///< Pointer to statistics for this block within the bounds of all frames per current thread
+
+        unsigned int            total_children_number; ///< Number of all children including number of grandchildren (and so on)
+        unsigned short                          depth; ///< Maximum number of sublevels (maximum children depth)
+
+        BlocksTree()
+            : self_duration(0)
+            , node(nullptr)
+            , frame_statistics(nullptr)
+            , total_statistics(nullptr)
+            , total_children_number(0)
+            , depth(0)
         {
-            delete node;
+
         }
 
-        release(total_statistics);
-        release(frame_statistics);
-    }
-
-    bool operator < (const BlocksTree& other) const
-    {
-        if (!node || !other.node)
+        BlocksTree(This&& that) : BlocksTree()
         {
-            return false;
-        }
-        return node->block()->getBegin() < other.node->block()->getBegin();
-    }
-
-private:
-
-    void makeMove(BlocksTree&& that)
-    {
-        if (node && node != that.node)
-        {
-            delete node;
+            makeMove(::std::forward<This&&>(that));
         }
 
-        if (total_statistics != that.total_statistics)
+        This& operator = (This&& that)
         {
+            makeMove(::std::forward<This&&>(that));
+            return *this;
+        }
+
+        ~BlocksTree()
+        {
+            if (node)
+            {
+                delete node;
+            }
+
             release(total_statistics);
-        }
-
-        if (frame_statistics != that.frame_statistics)
-        {
             release(frame_statistics);
         }
 
-        children = ::std::move(that.children);
-        node = that.node;
-        frame_statistics = that.frame_statistics;
-        total_statistics = that.total_statistics;
-        thread_name = that.thread_name;
+        bool operator < (const This& other) const
+        {
+            if (!node || !other.node)
+            {
+                return false;
+            }
+            return node->block()->getBegin() < other.node->block()->getBegin();
+        }
 
-#ifdef PROFILER_COUNT_TOTAL_CHILDREN_NUMBER
-        total_children_number = that.total_children_number;
-#endif
+    private:
 
-#ifdef PROFILER_COUNT_DEPTH
-        depth = that.depth;
-#endif
+        BlocksTree(const This&) = delete;
+        This& operator = (const This&) = delete;
 
-        that.node = nullptr;
-        that.frame_statistics = nullptr;
-        that.total_statistics = nullptr;
-    }
+        void makeMove(This&& that)
+        {
+            if (node && node != that.node)
+            {
+                delete node;
+            }
 
-}; // END of struct BlocksTree.
+            if (total_statistics != that.total_statistics)
+            {
+                release(total_statistics);
+            }
 
+            if (frame_statistics != that.frame_statistics)
+            {
+                release(frame_statistics);
+            }
 
-typedef ::std::map<::profiler::thread_id_t, BlocksTree> thread_blocks_tree_t;
+            children = ::std::move(that.children);
+            self_duration = that.self_duration;
+            node = that.node;
+            frame_statistics = that.frame_statistics;
+            total_statistics = that.total_statistics;
+
+            total_children_number = that.total_children_number;
+            depth = that.depth;
+
+            that.node = nullptr;
+            that.frame_statistics = nullptr;
+            that.total_statistics = nullptr;
+        }
+
+    }; // END of class BlocksTree.
+
+    //////////////////////////////////////////////////////////////////////////
+
+    class BlocksTreeRoot
+    {
+        typedef BlocksTreeRoot This;
+
+    public:
+
+        BlocksTree                     tree;
+        const char*             thread_name;
+        ::profiler::thread_id_t   thread_id;
+
+        BlocksTreeRoot() : thread_name(""), thread_id(0)
+        {
+        }
+
+        BlocksTreeRoot(This&& that) : tree(::std::move(that.tree)), thread_name(that.thread_name), thread_id(that.thread_id)
+        {
+        }
+
+        This& operator = (This&& that)
+        {
+            tree = ::std::move(that.tree);
+            thread_name = that.thread_name;
+            return *this;
+        }
+
+        bool operator < (const This& other) const
+        {
+            return tree < other.tree;
+        }
+
+    private:
+
+        BlocksTreeRoot(const This&) = delete;
+        This& operator = (const This&) = delete;
+
+    }; // END of class BlocksTreeRoot.
+
+    typedef ::std::map<::profiler::thread_id_t, ::profiler::BlocksTreeRoot> thread_blocks_tree_t;
+
+} // END of namespace profiler.
 
 extern "C"{
-    unsigned int PROFILER_API fillTreesFromFile(const char* filename, thread_blocks_tree_t& threaded_trees, bool gather_statistics = false);
+    unsigned int PROFILER_API fillTreesFromFile(const char* filename, ::profiler::thread_blocks_tree_t& threaded_trees, bool gather_statistics = false);
 }
 
 

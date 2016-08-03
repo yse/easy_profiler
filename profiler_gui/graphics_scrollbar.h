@@ -22,14 +22,16 @@
 #include <QGraphicsView>
 #include <QGraphicsScene>
 #include <QGraphicsRectItem>
+#include <QAction>
 #include "common_types.h"
+#include "globals.h"
 
 //////////////////////////////////////////////////////////////////////////
 
-class GraphicsHorizontalSlider : public QGraphicsRectItem
+class ProfGraphicsSliderItem : public QGraphicsRectItem
 {
-    typedef QGraphicsRectItem        Parent;
-    typedef GraphicsHorizontalSlider   This;
+    typedef QGraphicsRectItem      Parent;
+    typedef ProfGraphicsSliderItem   This;
 
 private:
 
@@ -37,8 +39,8 @@ private:
 
 public:
 
-    GraphicsHorizontalSlider();
-    virtual ~GraphicsHorizontalSlider();
+    ProfGraphicsSliderItem();
+    virtual ~ProfGraphicsSliderItem();
 
     void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
 
@@ -50,23 +52,24 @@ public:
 
     void setColor(QRgb _color);
 
-}; // END of class GraphicsHorizontalSlider.
+}; // END of class ProfGraphicsSliderItem.
 
 //////////////////////////////////////////////////////////////////////////
 
-class MinimapItem : public QGraphicsItem
+class ProfMinimapItem : public QGraphicsItem
 {
     typedef QGraphicsItem Parent;
-    typedef MinimapItem     This;
+    typedef ProfMinimapItem This;
 
-    QRectF           m_boundingRect;
-    qreal             m_maxDuration;
-    const ProfItems*      m_pSource;
+    QRectF                           m_boundingRect;
+    qreal                             m_maxDuration;
+    const ::profiler_gui::ProfItems*      m_pSource;
+    ::profiler::thread_id_t              m_threadId;
 
 public:
 
-    MinimapItem();
-    virtual ~MinimapItem();
+    ProfMinimapItem();
+    virtual ~ProfMinimapItem();
 
     // Public virtual methods
 
@@ -77,45 +80,96 @@ public:
 
     // Public non-virtual methods
 
+    ::profiler::thread_id_t threadId() const;
+
     void setBoundingRect(const QRectF& _rect);
 
-    void setSource(const ProfItems* _items);
+    void setSource(::profiler::thread_id_t _thread_id, const ::profiler_gui::ProfItems* _items);
 
-}; // END of class MinimapItem.
+}; // END of class ProfMinimapItem.
 
 //////////////////////////////////////////////////////////////////////////
 
-class GraphicsHorizontalScrollbar : public QGraphicsView
+class ProfIdAction : public QAction
 {
     Q_OBJECT
 
 private:
 
-    typedef QGraphicsView     Parent;
-    typedef GraphicsHorizontalScrollbar   This;
+    typedef QAction      Parent;
+    typedef ProfIdAction   This;
 
-    qreal                             m_minimumValue;
-    qreal                             m_maximumValue;
-    qreal                                    m_value;
-    qreal                              m_windowScale;
-    QPoint                           m_mousePressPos;
-    Qt::MouseButtons                  m_mouseButtons;
-    GraphicsHorizontalSlider*               m_slider;
-    GraphicsHorizontalSlider* m_chronometerIndicator;
-    MinimapItem*                           m_minimap;
-    bool                                m_bScrolling;
+    ::profiler::thread_id_t m_id;
 
 public:
 
-    GraphicsHorizontalScrollbar(QWidget* _parent = nullptr);
-    virtual ~GraphicsHorizontalScrollbar();
+    ProfIdAction(const QString& _label, ::profiler::thread_id_t _id) : Parent(_label, nullptr), m_id(_id)
+    {
+        connect(this, &Parent::triggered, this, &This::onToggle);
+    }
+
+    ProfIdAction(const char* _label, ::profiler::thread_id_t _id) : Parent(_label, nullptr), m_id(_id)
+    {
+        connect(this, &Parent::triggered, this, &This::onToggle);
+    }
+
+    virtual ~ProfIdAction()
+    {
+    }
+
+private:
+
+    void onToggle(bool)
+    {
+        emit clicked(m_id);
+    }
+
+signals:
+
+    void clicked(::profiler::thread_id_t _id);
+};
+
+//////////////////////////////////////////////////////////////////////////
+
+class ProfGraphicsScrollbar : public QGraphicsView
+{
+    Q_OBJECT
+
+private:
+
+    typedef QGraphicsView         Parent;
+    typedef ProfGraphicsScrollbar   This;
+
+    qreal                           m_minimumValue;
+    qreal                           m_maximumValue;
+    qreal                                  m_value;
+    qreal                            m_windowScale;
+    QPoint                         m_mousePressPos;
+    Qt::MouseButtons                m_mouseButtons;
+    ProfGraphicsSliderItem*               m_slider;
+    ProfGraphicsSliderItem* m_chronometerIndicator;
+    ProfMinimapItem*                     m_minimap;
+    bool                              m_bScrolling;
+
+public:
+
+    ProfGraphicsScrollbar(QWidget* _parent = nullptr);
+    virtual ~ProfGraphicsScrollbar();
+
+    // Public virtual methods
 
     void mousePressEvent(QMouseEvent* _event) override;
     void mouseReleaseEvent(QMouseEvent* _event) override;
     void mouseMoveEvent(QMouseEvent* _event) override;
     void resizeEvent(QResizeEvent* _event) override;
+    void contextMenuEvent(QContextMenuEvent* _event) override;
+
+public:
+
+    // Public non-virtual methods
 
     qreal getWindowScale() const;
+    ::profiler::thread_id_t minimapThread() const;
 
     qreal minimum() const;
     qreal maximum() const;
@@ -129,11 +183,11 @@ public:
     void showChrono();
     void hideChrono();
 
-    void setMinimapFrom(const ProfItems* _items);
+    void setMinimapFrom(::profiler::thread_id_t _thread_id, const::profiler_gui::ProfItems* _items);
 
-    inline void setMinimapFrom(const ProfItems& _items)
+    inline void setMinimapFrom(::profiler::thread_id_t _thread_id, const ::profiler_gui::ProfItems& _items)
     {
-        setMinimapFrom(&_items);
+        setMinimapFrom(_thread_id, &_items);
     }
 
 signals:
@@ -141,11 +195,12 @@ signals:
     void rangeChanged();
     void valueChanged(qreal _value);
 
-private:
+private slots:
 
+    void onThreadActionClicked(::profiler::thread_id_t _id);
     void onWindowWidthChange(qreal _width);
 
-}; // END of class GraphicsHorizontalScrollbar.
+}; // END of class ProfGraphicsScrollbar.
 
 //////////////////////////////////////////////////////////////////////////
 

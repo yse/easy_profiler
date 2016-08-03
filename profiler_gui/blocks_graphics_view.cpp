@@ -48,7 +48,7 @@ const unsigned short GRAPHICS_ROW_SIZE_FULL = GRAPHICS_ROW_SIZE + 2;
 const unsigned short ROW_SPACING = 4;
 
 const QRgb BORDERS_COLOR = 0x00a07050;
-const QRgb BACKGROUND_1 = 0x00d8d8d8;
+const QRgb BACKGROUND_1 = 0x00dddddd;
 const QRgb BACKGROUND_2 = 0x00ffffff;
 const QColor CHRONOMETER_COLOR = QColor(64, 64, 64, 64);
 const QRgb CHRONOMETER_TEXT_COLOR = 0xff302010;
@@ -94,13 +94,12 @@ ProfGraphicsItem::ProfGraphicsItem() : ProfGraphicsItem(false)
 {
 }
 
-ProfGraphicsItem::ProfGraphicsItem(bool _test) : QGraphicsItem(nullptr), m_bTest(_test), m_backgroundColor(0x00ffffff), m_thread_id(0), m_pRoot(nullptr)
+ProfGraphicsItem::ProfGraphicsItem(bool _test) : QGraphicsItem(nullptr), m_bTest(_test), m_backgroundColor(0x00ffffff), m_pRoot(nullptr)
 {
 }
 
-ProfGraphicsItem::ProfGraphicsItem(::profiler::thread_id_t _thread_id, const BlocksTree* _root) : ProfGraphicsItem(false)
+ProfGraphicsItem::ProfGraphicsItem(const ::profiler::BlocksTreeRoot* _root) : ProfGraphicsItem(false)
 {
-    m_thread_id = _thread_id;
     m_pRoot = _root;
 }
 
@@ -156,7 +155,7 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
     // Search for first visible top-level item
     auto& level0 = m_levels[0];
-    auto first = ::std::lower_bound(level0.begin(), level0.end(), sceneLeft, [](const ProfBlockItem& _item, qreal _value)
+    auto first = ::std::lower_bound(level0.begin(), level0.end(), sceneLeft, [](const ::profiler_gui::ProfBlockItem& _item, qreal _value)
     {
         return _item.left() < _value;
     });
@@ -174,7 +173,15 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
 
     // Draw background --------------------------
-    brush.setColor(m_backgroundColor);
+    if (!m_bTest && m_pRoot->thread_id == ::profiler_gui::EASY_GLOBALS.selected_thread && m_pRoot->thread_id != 0)
+    {
+        brush.setColor(::profiler_gui::SELECTED_THREAD_BACKGROUND);
+    }
+    else
+    {
+        brush.setColor(m_backgroundColor);
+    }
+
     _painter->setBrush(brush);
     _painter->setPen(Qt::NoPen);
     rect.setRect(0, m_boundingRect.top() - (ROW_SPACING >> 1), visibleSceneRect.width(), m_boundingRect.height() + ROW_SPACING);
@@ -361,7 +368,7 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
 //////////////////////////////////////////////////////////////////////////
 
-void ProfGraphicsItem::getBlocks(qreal _left, qreal _right, TreeBlocks& _blocks) const
+void ProfGraphicsItem::getBlocks(qreal _left, qreal _right, ::profiler_gui::TreeBlocks& _blocks) const
 {
     //if (m_bTest)
     //{
@@ -370,7 +377,7 @@ void ProfGraphicsItem::getBlocks(qreal _left, qreal _right, TreeBlocks& _blocks)
 
     // Search for first visible top-level item
     auto& level0 = m_levels[0];
-    auto first = ::std::lower_bound(level0.begin(), level0.end(), _left, [](const ProfBlockItem& _item, qreal _value)
+    auto first = ::std::lower_bound(level0.begin(), level0.end(), _left, [](const ::profiler_gui::ProfBlockItem& _item, qreal _value)
     {
         return _item.left() < _value;
     });
@@ -405,7 +412,7 @@ void ProfGraphicsItem::getBlocks(qreal _left, qreal _right, TreeBlocks& _blocks)
             continue;
         }
 
-        _blocks.emplace_back(m_thread_id, m_pRoot, item.block);
+        _blocks.emplace_back(m_pRoot, item.block);
     }
 }
 
@@ -426,6 +433,13 @@ void ProfGraphicsItem::setBoundingRect(qreal x, qreal y, qreal w, qreal h)
 void ProfGraphicsItem::setBoundingRect(const QRectF& _rect)
 {
     m_boundingRect = _rect;
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+::profiler::thread_id_t ProfGraphicsItem::threadId() const
+{
+    return m_pRoot->thread_id;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -453,12 +467,12 @@ const ProfGraphicsItem::Children& ProfGraphicsItem::items(unsigned short _level)
     return m_levels[_level];
 }
 
-const ProfBlockItem& ProfGraphicsItem::getItem(unsigned short _level, size_t _index) const
+const ::profiler_gui::ProfBlockItem& ProfGraphicsItem::getItem(unsigned short _level, size_t _index) const
 {
     return m_levels[_level][_index];
 }
 
-ProfBlockItem& ProfGraphicsItem::getItem(unsigned short _level, size_t _index)
+::profiler_gui::ProfBlockItem& ProfGraphicsItem::getItem(unsigned short _level, size_t _index)
 {
     return m_levels[_level][_index];
 }
@@ -469,15 +483,15 @@ size_t ProfGraphicsItem::addItem(unsigned short _level)
     return m_levels[_level].size() - 1;
 }
 
-size_t ProfGraphicsItem::addItem(unsigned short _level, const ProfBlockItem& _item)
+size_t ProfGraphicsItem::addItem(unsigned short _level, const ::profiler_gui::ProfBlockItem& _item)
 {
     m_levels[_level].emplace_back(_item);
     return m_levels[_level].size() - 1;
 }
 
-size_t ProfGraphicsItem::addItem(unsigned short _level, ProfBlockItem&& _item)
+size_t ProfGraphicsItem::addItem(unsigned short _level, ::profiler_gui::ProfBlockItem&& _item)
 {
-    m_levels[_level].emplace_back(::std::forward<ProfBlockItem&&>(_item));
+    m_levels[_level].emplace_back(::std::forward<::profiler_gui::ProfBlockItem&&>(_item));
     return m_levels[_level].size() - 1;
 }
 
@@ -637,7 +651,7 @@ ProfGraphicsView::ProfGraphicsView(bool _test)
     updateVisibleSceneRect();
 }
 
-ProfGraphicsView::ProfGraphicsView(const thread_blocks_tree_t& _blocksTree)
+ProfGraphicsView::ProfGraphicsView(const ::profiler::thread_blocks_tree_t& _blocksTree)
     : QGraphicsView()
     , m_beginTime(-1)
     , m_scale(1)
@@ -672,7 +686,7 @@ void ProfGraphicsView::fillTestChildren(ProfGraphicsItem* _item, const int _maxl
     {
         size_t j = _item->addItem(_level);
         auto& b = _item->getItem(_level, j);
-        b.color = toRgb(30 + rand() % 225, 30 + rand() % 225, 30 + rand() % 225);
+        b.color = ::profiler_gui::toRgb(30 + rand() % 225, 30 + rand() % 225, 30 + rand() % 225);
         b.state = 0;
 
         if (_level < _maxlevel)
@@ -748,7 +762,7 @@ void ProfGraphicsView::test(size_t _frames_number, size_t _total_items_number_es
         {
             size_t j = item->addItem(0);
             auto& b = item->getItem(0, j);
-            b.color = toRgb(30 + rand() % 225, 30 + rand() % 225, 30 + rand() % 225);
+            b.color = ::profiler_gui::toRgb(30 + rand() % 225, 30 + rand() % 225, 30 + rand() % 225);
             b.state = 0;
 
             const auto& children = item->items(1);
@@ -792,7 +806,9 @@ void ProfGraphicsView::test(size_t _frames_number, size_t _total_items_number_es
     m_offset = 0;
     updateVisibleSceneRect();
     setScrollbar(m_pScrollbar);
-    m_pScrollbar->setMinimapFrom(longestItem->items(0));
+    m_pScrollbar->setMinimapFrom(0, longestItem->items(0));
+    ::profiler_gui::EASY_GLOBALS.selected_thread = 0;
+    emit ::profiler_gui::EASY_GLOBALS.events.selectedThreadChanged(0);
 
     // Create new chronometer item (previous item was destroyed by scene on scene()->clear()).
     // It will be shown on mouse right button click.
@@ -837,7 +853,7 @@ void ProfGraphicsView::clearSilent()
     emit intervalChanged(m_selectedBlocks, m_beginTime, 0, 0, false);
 }
 
-void ProfGraphicsView::setTree(const thread_blocks_tree_t& _blocksTree)
+void ProfGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTree)
 {
     // clear scene
     clearSilent();
@@ -847,12 +863,13 @@ void ProfGraphicsView::setTree(const thread_blocks_tree_t& _blocksTree)
 
     // Calculating start and end time
     ::profiler::timestamp_t finish = 0;
-    const BlocksTree* longestTree = nullptr;
+    const ::profiler::BlocksTree* longestTree = nullptr;
     const ProfGraphicsItem* longestItem = nullptr;
     for (const auto& threadTree : _blocksTree)
     {
-        const auto timestart = threadTree.second.children.front().node->block()->getBegin();
-        const auto timefinish = threadTree.second.children.back().node->block()->getEnd();
+        const auto& tree = threadTree.second.tree;
+        const auto timestart = tree.children.front().node->block()->getBegin();
+        const auto timefinish = tree.children.back().node->block()->getEnd();
 
         if (m_beginTime > timestart)
         {
@@ -862,7 +879,7 @@ void ProfGraphicsView::setTree(const thread_blocks_tree_t& _blocksTree)
         if (finish < timefinish)
         {
             finish = timefinish;
-            longestTree = &threadTree.second;
+            longestTree = &tree;
         }
     }
 
@@ -872,12 +889,13 @@ void ProfGraphicsView::setTree(const thread_blocks_tree_t& _blocksTree)
     for (const auto& threadTree : _blocksTree)
     {
         // fill scene with new items
-        qreal h = 0, x = time2position(threadTree.second.children.front().node->block()->getBegin());
-        auto item = new ProfGraphicsItem(threadTree.first, &threadTree.second);
-        item->setLevels(threadTree.second.depth);
+        const auto& tree = threadTree.second.tree;
+        qreal h = 0, x = time2position(tree.children.front().node->block()->getBegin());
+        auto item = new ProfGraphicsItem(&threadTree.second);
+        item->setLevels(tree.depth);
         item->setPos(0, y);
 
-        const auto children_duration = setTree(item, threadTree.second.children, h, y, 0);
+        const auto children_duration = setTree(item, tree.children, h, y, 0);
 
         item->setBoundingRect(0, 0, children_duration + x, h);
         item->setBackgroundColor(GetBackgroundColor());
@@ -886,7 +904,7 @@ void ProfGraphicsView::setTree(const thread_blocks_tree_t& _blocksTree)
 
         y += h + ROW_SPACING;
 
-        if (longestTree == &threadTree.second)
+        if (longestTree == &tree)
         {
             longestItem = item;
         }
@@ -905,7 +923,9 @@ void ProfGraphicsView::setTree(const thread_blocks_tree_t& _blocksTree)
     // Center view on the beginning of the scene
     updateVisibleSceneRect();
     setScrollbar(m_pScrollbar);
-    m_pScrollbar->setMinimapFrom(longestItem->items(0));
+    m_pScrollbar->setMinimapFrom(longestItem->threadId(), longestItem->items(0));
+    ::profiler_gui::EASY_GLOBALS.selected_thread = longestItem->threadId();
+    emit ::profiler_gui::EASY_GLOBALS.events.selectedThreadChanged(longestItem->threadId());
 
     // Create new chronometer item (previous item was destroyed by scene on scene()->clear()).
     // It will be shown on mouse right button click.
@@ -921,7 +941,7 @@ void ProfGraphicsView::setTree(const thread_blocks_tree_t& _blocksTree)
     scaleTo(BASE_SCALE);
 }
 
-qreal ProfGraphicsView::setTree(ProfGraphicsItem* _item, const BlocksTree::children_t& _children, qreal& _height, qreal _y, unsigned short _level)
+qreal ProfGraphicsView::setTree(ProfGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, qreal _y, unsigned short _level)
 {
     static const qreal MIN_DURATION = 0.25;
 
@@ -983,7 +1003,7 @@ qreal ProfGraphicsView::setTree(ProfGraphicsItem* _item, const BlocksTree::child
 
         const auto color = child.node->block()->getColor();
         b.block = &child;
-        b.color = toRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
+        b.color = ::profiler_gui::toRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
         b.setRect(xbegin, _y, duration, GRAPHICS_ROW_SIZE);
         b.totalHeight = GRAPHICS_ROW_SIZE + h;
 
@@ -998,20 +1018,23 @@ qreal ProfGraphicsView::setTree(ProfGraphicsItem* _item, const BlocksTree::child
 
 //////////////////////////////////////////////////////////////////////////
 
-void ProfGraphicsView::setScrollbar(GraphicsHorizontalScrollbar* _scrollbar)
+void ProfGraphicsView::setScrollbar(ProfGraphicsScrollbar* _scrollbar)
 {
     if (m_pScrollbar)
     {
-        disconnect(m_pScrollbar, &GraphicsHorizontalScrollbar::valueChanged, this, &This::onGraphicsScrollbarValueChange);
+        disconnect(m_pScrollbar, &ProfGraphicsScrollbar::valueChanged, this, &This::onGraphicsScrollbarValueChange);
     }
 
     m_pScrollbar = _scrollbar;
-    m_pScrollbar->setMinimapFrom(nullptr);
+    m_pScrollbar->setMinimapFrom(0, nullptr);
     m_pScrollbar->hideChrono();
     m_pScrollbar->setRange(0, scene()->width());
     m_pScrollbar->setSliderWidth(m_visibleSceneRect.width());
     m_pScrollbar->setValue(0);
-    connect(m_pScrollbar, &GraphicsHorizontalScrollbar::valueChanged, this, &This::onGraphicsScrollbarValueChange);
+    connect(m_pScrollbar, &ProfGraphicsScrollbar::valueChanged, this, &This::onGraphicsScrollbarValueChange);
+
+    ::profiler_gui::EASY_GLOBALS.selected_thread = 0;
+    emit ::profiler_gui::EASY_GLOBALS.events.selectedThreadChanged(0);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1273,6 +1296,7 @@ void ProfGraphicsView::initMode()
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     connect(verticalScrollBar(), &QScrollBar::valueChanged, this, &This::onScrollbarValueChange);
     connect(&m_flickerTimer, &QTimer::timeout, this, &This::onFlickerTimeout);
+    connect(&::profiler_gui::EASY_GLOBALS.events, &::profiler_gui::ProfGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1329,9 +1353,38 @@ void ProfGraphicsView::onFlickerTimeout()
 
 //////////////////////////////////////////////////////////////////////////
 
+void ProfGraphicsView::onSelectedThreadChange(::profiler::thread_id_t _id)
+{
+    if (m_pScrollbar == nullptr || m_pScrollbar->minimapThread() == _id || m_bTest)
+    {
+        return;
+    }
+
+    if (_id == 0)
+    {
+        m_pScrollbar->setMinimapFrom(0, nullptr);
+        return;
+    }
+
+    for (auto item : m_items)
+    {
+        if (item->threadId() == _id)
+        {
+            m_pScrollbar->setMinimapFrom(_id, item->items(0));
+            updateScene();
+            return;
+        }
+    }
+
+    m_pScrollbar->setMinimapFrom(0, nullptr);
+    updateScene();
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 ProfGraphicsViewWidget::ProfGraphicsViewWidget(bool _test)
     : QWidget(nullptr)
-    , m_scrollbar(new GraphicsHorizontalScrollbar(nullptr))
+    , m_scrollbar(new ProfGraphicsScrollbar(nullptr))
     , m_view(new ProfGraphicsView(_test))
 {
     auto lay = new QVBoxLayout(this);
@@ -1343,9 +1396,9 @@ ProfGraphicsViewWidget::ProfGraphicsViewWidget(bool _test)
     m_view->setScrollbar(m_scrollbar);
 }
 
-ProfGraphicsViewWidget::ProfGraphicsViewWidget(const thread_blocks_tree_t& _blocksTree)
+ProfGraphicsViewWidget::ProfGraphicsViewWidget(const ::profiler::thread_blocks_tree_t& _blocksTree)
     : QWidget(nullptr)
-    , m_scrollbar(new GraphicsHorizontalScrollbar(nullptr))
+    , m_scrollbar(new ProfGraphicsScrollbar(nullptr))
     , m_view(new ProfGraphicsView(_blocksTree))
 {
     auto lay = new QVBoxLayout(this);

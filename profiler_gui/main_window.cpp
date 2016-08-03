@@ -108,14 +108,14 @@ void ProfMainWindow::onOpenFileClicked(bool)
 
 void ProfMainWindow::loadFile(const std::string& stdfilename)
 {
-    thread_blocks_tree_t prof_blocks;
+    ::profiler::thread_blocks_tree_t prof_blocks;
     auto nblocks = fillTreesFromFile(stdfilename.c_str(), prof_blocks, true);
 
     if (nblocks != 0)
     {
         m_lastFile = stdfilename;
-        m_currentProf.swap(prof_blocks);
-        static_cast<ProfGraphicsViewWidget*>(m_graphicsView->widget())->view()->setTree(m_currentProf);
+        ::profiler_gui::EASY_GLOBALS.profiler_blocks.swap(prof_blocks);
+        static_cast<ProfGraphicsViewWidget*>(m_graphicsView->widget())->view()->setTree(::profiler_gui::EASY_GLOBALS.profiler_blocks);
     }
 }
 
@@ -128,13 +128,13 @@ void ProfMainWindow::onReloadFileClicked(bool)
         return;
     }
 
-    thread_blocks_tree_t prof_blocks;
+    ::profiler::thread_blocks_tree_t prof_blocks;
     auto nblocks = fillTreesFromFile(m_lastFile.c_str(), prof_blocks, true);
 
     if (nblocks != 0)
     {
-        m_currentProf.swap(prof_blocks);
-        static_cast<ProfGraphicsViewWidget*>(m_graphicsView->widget())->view()->setTree(m_currentProf);
+        ::profiler_gui::EASY_GLOBALS.profiler_blocks.swap(prof_blocks);
+        static_cast<ProfGraphicsViewWidget*>(m_graphicsView->widget())->view()->setTree(::profiler_gui::EASY_GLOBALS.profiler_blocks);
     }
 }
 
@@ -153,7 +153,7 @@ void ProfMainWindow::onTestViewportClicked(bool)
 
     auto view = static_cast<ProfGraphicsViewWidget*>(m_graphicsView->widget())->view();
     view->clearSilent();
-    m_currentProf.clear();
+    ::profiler_gui::EASY_GLOBALS.profiler_blocks.clear();
 
     view->test(18000, 40000000, 2);
     //view->test(3, 300, 1);
