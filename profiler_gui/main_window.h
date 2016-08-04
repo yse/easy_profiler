@@ -54,6 +54,9 @@ protected slots:
 private:
 
     void loadFile(const std::string& filename);
+	void closeEvent(QCloseEvent *close_event);
+
+	void saveSettings();
 
 }; // END of class ProfMainWindow.
 

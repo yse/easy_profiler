@@ -28,6 +28,9 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QCoreApplication>
+#include <qevent.h>
+#include <QSettings>
+
 #include "main_window.h"
 #include "blocks_tree_widget.h"
 #include "blocks_graphics_view.h"
@@ -90,6 +93,17 @@ ProfMainWindow::ProfMainWindow() : QMainWindow(), m_treeWidget(nullptr), m_graph
         auto opened_filename = QCoreApplication::arguments().at(1).toStdString();
         loadFile(opened_filename);
     }
+
+	QSettings settings(profiler_gui::ORGANAZATION_NAME, profiler_gui::APPLICATION_NAME);
+	settings.beginGroup("main");
+
+	auto geometry = settings.value("geometry").toByteArray();
+
+	if (!geometry.isEmpty()){
+		restoreGeometry(geometry);
+	}
+	
+	settings.endGroup();
 }
 
 ProfMainWindow::~ProfMainWindow()
@@ -176,6 +190,23 @@ void ProfMainWindow::onTestViewportClicked(bool)
 
 //////////////////////////////////////////////////////////////////////////
 
-
+void ProfMainWindow::closeEvent(QCloseEvent *close_event)
+{
+	saveSettings();
+	close_event->setAccepted(true);
+	QMainWindow::closeEvent(close_event);
+}
 
 //////////////////////////////////////////////////////////////////////////
+
+
+void ProfMainWindow::saveSettings()
+{
+	QSettings settings(profiler_gui::ORGANAZATION_NAME, profiler_gui::APPLICATION_NAME);
+	settings.beginGroup("main");
+
+	settings.setValue("geometry", this->saveGeometry());
+
+	settings.endGroup();
+}
+

@@ -165,6 +165,10 @@ private slots:
 
     void onHideShowColumn(int _column);
 
+protected:
+
+	void saveSettings();
+
 }; // END of class ProfTreeWidget.
 
 //////////////////////////////////////////////////////////////////////////
