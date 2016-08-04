@@ -141,7 +141,7 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     QRectF rect;
     QBrush brush;
     QRgb previousColor = 0;
-    Qt::PenStyle previousPenStyle = Qt::SolidLine;
+    Qt::PenStyle previousPenStyle = Qt::NoPen;
     brush.setStyle(Qt::SolidPattern);
 
     _painter->save();
@@ -198,7 +198,11 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     // Shifting coordinates to current screen offset
     _painter->setTransform(QTransform::fromTranslate(dx - offset * currentScale, -y()), true);
 
-    _painter->setPen(BORDERS_COLOR);
+    if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders)
+    {
+        previousPenStyle = Qt::SolidLine;
+        _painter->setPen(BORDERS_COLOR);
+    }
 
     // Iterate through layers and draw visible items
     for (unsigned short l = 0; l < levelsNumber; ++l)
@@ -254,20 +258,23 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     _painter->setBrush(brush);
                 }
 
-                if (w < 3)
+                if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders)
                 {
-                    // Do not paint borders for very narrow items
-                    if (previousPenStyle != Qt::NoPen)
+                    if (w < 3)
                     {
-                        previousPenStyle = Qt::NoPen;
-                        _painter->setPen(Qt::NoPen);
+                        // Do not paint borders for very narrow items
+                        if (previousPenStyle != Qt::NoPen)
+                        {
+                            previousPenStyle = Qt::NoPen;
+                            _painter->setPen(Qt::NoPen);
+                        }
                     }
-                }
-                else if (previousPenStyle != Qt::SolidLine)
-                {
-                    // Restore pen for item which is wide enough to paint borders
-                    previousPenStyle = Qt::SolidLine;
-                    _painter->setPen(BORDERS_COLOR);
+                    else if (previousPenStyle != Qt::SolidLine)
+                    {
+                        // Restore pen for item which is wide enough to paint borders
+                        previousPenStyle = Qt::SolidLine;
+                        _painter->setPen(BORDERS_COLOR);
+                    }
                 }
 
                 // Draw rectangle
@@ -316,12 +323,20 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 _painter->setBrush(brush);
             }
 
-            // Draw text-----------------------------------
-            // calculating text coordinates
+            if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders && previousPenStyle != Qt::SolidLine)
+            {
+                // Restore pen for item which is wide enough to paint borders
+                previousPenStyle = Qt::SolidLine;
+                _painter->setPen(BORDERS_COLOR);
+            }
+
+            // Draw rectangle
             const auto x = item.left() * currentScale - dx;
             rect.setRect(x, item.top(), w, item.height());
             _painter->drawRect(rect);
 
+            // Draw text-----------------------------------
+            // calculating text coordinates
             auto xtext = x;
             if (item.left() < sceneLeft)
             {

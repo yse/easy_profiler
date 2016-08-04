@@ -72,6 +72,7 @@ namespace profiler_gui {
         ProfBlocks                            gui_blocks;
         ::profiler::thread_id_t          selected_thread;
         unsigned int                      selected_block;
+        bool                 draw_graphics_items_borders;
 
     private:
 
