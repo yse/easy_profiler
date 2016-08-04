@@ -44,6 +44,10 @@ public:
     ProfMainWindow();
     virtual ~ProfMainWindow();
 
+    // Public virtual methods
+
+    void closeEvent(QCloseEvent* close_event) override;
+
 protected slots:
 
     void onOpenFileClicked(bool);
@@ -53,8 +57,9 @@ protected slots:
 
 private:
 
+    // Private non-virtual methods
+
     void loadFile(const std::string& filename);
-	void closeEvent(QCloseEvent *close_event);
 
 	void saveSettings();
 

@@ -29,8 +29,7 @@
 #include <QContextMenuEvent>
 #include <QSignalBlocker>
 #include <QSettings>
-#include <qtextcodec.h>
-
+#include <QTextCodec>
 #include "blocks_tree_widget.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -238,23 +237,22 @@ ProfTreeWidget::ProfTreeWidget(QWidget* _parent) : Parent(_parent), m_beginTime(
     header->setText(COL_NCALLS_TOTAL, "N Calls total");
     setHeaderItem(header);
 
-    //hideColumn(COL_END);
     connect(&::profiler_gui::EASY_GLOBALS.events, &::profiler_gui::ProfGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
-	
-	QSettings settings(profiler_gui::ORGANAZATION_NAME, profiler_gui::APPLICATION_NAME);
-	settings.beginGroup("tree_widget");
 
-	auto color_rows_set = settings.value("color_rows");
-	if (!color_rows_set.isNull())
-		m_bColorRows = color_rows_set.toBool();
+    QSettings settings(profiler_gui::ORGANAZATION_NAME, profiler_gui::APPLICATION_NAME);
+    settings.beginGroup("tree_widget");
 
-	for (int i = 0; i < columnCount(); i++)
-	{
-		if (settings.value(QString("Column") + QString::number(i)).toBool())
-			hideColumn(i);
-	}
+    auto color_rows_set = settings.value("color_rows");
+    if (!color_rows_set.isNull())
+        m_bColorRows = color_rows_set.toBool();
 
-	settings.endGroup();
+    for (int i = 0; i < columnCount(); i++)
+    {
+        if (settings.value(QString("Column") + QString::number(i)).toBool())
+            hideColumn(i);
+    }
+
+    settings.endGroup();
 }
 
 ProfTreeWidget::ProfTreeWidget(const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, QWidget* _parent) : This(_parent)

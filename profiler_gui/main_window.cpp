@@ -28,9 +28,8 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QCoreApplication>
-#include <qevent.h>
+#include <QCloseEvent>
 #include <QSettings>
-
 #include "main_window.h"
 #include "blocks_tree_widget.h"
 #include "blocks_graphics_view.h"
@@ -190,15 +189,13 @@ void ProfMainWindow::onTestViewportClicked(bool)
 
 //////////////////////////////////////////////////////////////////////////
 
-void ProfMainWindow::closeEvent(QCloseEvent *close_event)
+void ProfMainWindow::closeEvent(QCloseEvent* close_event)
 {
-	saveSettings();
-	close_event->setAccepted(true);
-	QMainWindow::closeEvent(close_event);
+    saveSettings();
+    QMainWindow::closeEvent(close_event);
 }
 
 //////////////////////////////////////////////////////////////////////////
-
 
 void ProfMainWindow::saveSettings()
 {
