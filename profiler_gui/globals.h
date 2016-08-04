@@ -32,6 +32,9 @@ class ProfTreeWidgetItem;
 
 namespace profiler_gui {
 
+	const QString ORGANAZATION_NAME = "EasyProfiler";
+	const QString APPLICATION_NAME = "Easy profiler gui application";
+
     //////////////////////////////////////////////////////////////////////////
 
     class ProfGlobalSignals final : public QObject

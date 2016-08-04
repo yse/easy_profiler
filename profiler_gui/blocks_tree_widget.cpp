@@ -28,6 +28,9 @@
 #include <QMenu>
 #include <QContextMenuEvent>
 #include <QSignalBlocker>
+#include <QSettings>
+#include <qtextcodec.h>
+
 #include "blocks_tree_widget.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -64,6 +67,7 @@ ProfTreeWidgetItem::ProfTreeWidgetItem(const ::profiler::BlocksTree* _treeBlock,
     , m_customBGColor(0)
     , m_customTextColor(0)
 {
+
 }
 
 ProfTreeWidgetItem::~ProfTreeWidgetItem()
@@ -234,9 +238,23 @@ ProfTreeWidget::ProfTreeWidget(QWidget* _parent) : Parent(_parent), m_beginTime(
     header->setText(COL_NCALLS_TOTAL, "N Calls total");
     setHeaderItem(header);
 
-    hideColumn(COL_END);
-
+    //hideColumn(COL_END);
     connect(&::profiler_gui::EASY_GLOBALS.events, &::profiler_gui::ProfGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
+	
+	QSettings settings(profiler_gui::ORGANAZATION_NAME, profiler_gui::APPLICATION_NAME);
+	settings.beginGroup("tree_widget");
+
+	auto color_rows_set = settings.value("color_rows");
+	if (!color_rows_set.isNull())
+		m_bColorRows = color_rows_set.toBool();
+
+	for (int i = 0; i < columnCount(); i++)
+	{
+		if (settings.value(QString("Column") + QString::number(i)).toBool())
+			hideColumn(i);
+	}
+
+	settings.endGroup();
 }
 
 ProfTreeWidget::ProfTreeWidget(const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, QWidget* _parent) : This(_parent)
@@ -252,6 +270,7 @@ ProfTreeWidget::ProfTreeWidget(const unsigned int _blocksNumber, const ::profile
 
 ProfTreeWidget::~ProfTreeWidget()
 {
+	saveSettings();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -452,7 +471,11 @@ size_t ProfTreeWidget::setTreeInternal(const ::profiler_gui::TreeBlocks& _blocks
         auto item = new ProfTreeWidgetItem(block.tree, thread_item);
         duration = endTime - startTime;
 
-        item->setText(COL_NAME, block.tree->node->getBlockName());
+		/*QByteArray msg(block.tree->node->getBlockName());
+		QTextCodec *codec = QTextCodec::codecForName("Windows-1251");
+		QString strf = codec->toUnicode(msg);
+		*/
+		item->setText(COL_NAME, block.tree->node->getBlockName());
         item->setTimeSmart(COL_DURATION, duration);
         item->setTimeMs(COL_BEGIN, startTime - m_beginTime);
         item->setTimeMs(COL_END, endTime - m_beginTime);
@@ -577,8 +600,12 @@ size_t ProfTreeWidget::setTreeInternal(const ::profiler::BlocksTree::children_t&
             continue;
         }
 
+		/*QByteArray msg(child.node->getBlockName());
+		QTextCodec *codec = QTextCodec::codecForName("Windows-1251");
+		QString strf = codec->toUnicode(msg);*/
+
         auto item = new ProfTreeWidgetItem(&child, _parent);
-        item->setText(COL_NAME, child.node->getBlockName());
+		item->setText(COL_NAME, child.node->getBlockName());
         item->setTimeSmart(COL_DURATION, duration);
         item->setTimeMs(COL_BEGIN, startTime - m_beginTime);
         item->setTimeMs(COL_END, endTime - m_beginTime);
@@ -736,11 +763,12 @@ void ProfTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 
     auto hidemenu = menu.addMenu("Select columns");
     auto hdr = headerItem();
-    for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+
+	for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
     {
         auto columnAction = new ProfHideShowColumnAction(hdr->text(i), i);
         columnAction->setCheckable(true);
-        columnAction->setChecked(!isColumnHidden(i));
+		columnAction->setChecked(!isColumnHidden(i));
         connect(columnAction, &ProfHideShowColumnAction::clicked, this, &This::onHideShowColumn);
         hidemenu->addAction(columnAction);
     }
@@ -873,3 +901,18 @@ void ProfTreeWidget::onHideShowColumn(int _column)
 }
 
 //////////////////////////////////////////////////////////////////////////
+
+void ProfTreeWidget::saveSettings()
+{
+	QSettings settings(profiler_gui::ORGANAZATION_NAME, profiler_gui::APPLICATION_NAME);
+	settings.beginGroup("tree_widget");
+
+	settings.setValue("color_rows", m_bColorRows);
+
+	for (int i = 0; i < columnCount(); i++)
+	{
+		settings.setValue(QString("Column") + QString::number(i) , isColumnHidden(i));
+	}
+
+	settings.endGroup();
+}
