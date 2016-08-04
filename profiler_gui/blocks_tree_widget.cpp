@@ -764,9 +764,6 @@ void ProfTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     auto hidemenu = menu.addMenu("Select columns");
     auto hdr = headerItem();
 
-	QSettings settings(profiler_gui::ORGANAZATION_NAME, profiler_gui::APPLICATION_NAME);
-	settings.beginGroup("tree_widget");
-
 	for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
     {
         auto columnAction = new ProfHideShowColumnAction(hdr->text(i), i);
@@ -775,8 +772,6 @@ void ProfTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
         connect(columnAction, &ProfHideShowColumnAction::clicked, this, &This::onHideShowColumn);
         hidemenu->addAction(columnAction);
     }
-
-	settings.endGroup();
 
     menu.exec(QCursor::pos());
 
