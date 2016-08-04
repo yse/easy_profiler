@@ -92,7 +92,7 @@ public:
     
     \param _level Index of the level
     \param _items Desired number of items on this level */
-    void reserve(unsigned short _level, size_t _items);
+    void reserve(unsigned short _level, unsigned int _items);
 
     /**\brief Returns reference to the array of items of specified level.
     
@@ -103,40 +103,20 @@ public:
     
     \param _level Index of the level
     \param _index Index of required item */
-    const ::profiler_gui::ProfBlockItem& getItem(unsigned short _level, size_t _index) const;
+    const ::profiler_gui::ProfBlockItem& getItem(unsigned short _level, unsigned int _index) const;
 
     /**\brief Returns reference to the item with required index on specified level.
 
     \param _level Index of the level
     \param _index Index of required item */
-    ::profiler_gui::ProfBlockItem& getItem(unsigned short _level, size_t _index);
+    ::profiler_gui::ProfBlockItem& getItem(unsigned short _level, unsigned int _index);
 
     /** \brief Adds new item to required level.
     
     \param _level Index of the level
     
     \retval Index of the new created item */
-    size_t addItem(unsigned short _level);
-
-    /** \brief Adds new item to required level.
-
-    Constructs new item using copy constructor.
-
-    \param _level Index of the level
-    \param _item Reference to the source item to copy from
-
-    \retval Index of the new created item */
-    size_t addItem(unsigned short _level, const ::profiler_gui::ProfBlockItem& _item);
-
-    /** \brief Adds new item to required level.
-
-    Constructs new item using move constructor.
-
-    \param _level Index of the level
-    \param _item Reference to the source item to move from
-
-    \retval Index of the new created item */
-    size_t addItem(unsigned short _level, ::profiler_gui::ProfBlockItem&& _item);
+    unsigned int addItem(unsigned short _level);
 
     /** \brief Finds top-level blocks which are intersects with required selection zone.
 
@@ -251,7 +231,7 @@ public:
     void setScrollbar(ProfGraphicsScrollbar* _scrollbar);
     void clearSilent();
 
-    void test(size_t _frames_number, size_t _total_items_number_estimate, int _rows);
+    void test(unsigned int _frames_number, unsigned int _total_items_number_estimate, int _rows);
     void setTree(const ::profiler::thread_blocks_tree_t& _blocksTree);
 
 signals:
@@ -269,7 +249,7 @@ private:
     void updateScene();
     void scaleTo(qreal _scale);
     qreal setTree(ProfGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, qreal _y, unsigned short _level);
-    void fillTestChildren(ProfGraphicsItem* _item, const int _maxlevel, int _level, qreal _x, qreal _y, size_t _childrenNumber, size_t& _total_items);
+    void fillTestChildren(ProfGraphicsItem* _item, const int _maxlevel, int _level, qreal _x, qreal _y, unsigned int _childrenNumber, unsigned int& _total_items);
 
 private slots:
 

@@ -38,6 +38,7 @@ namespace profiler_gui {
 
     ProfGlobals::ProfGlobals()
         : selected_thread(0)
+        , selected_block(0)
     {
 
     }

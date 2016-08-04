@@ -31,14 +31,14 @@ namespace profiler {
 
     typedef uint32_t calls_number_t;
 
-    struct BlockStatistics
+    struct BlockStatistics final
     {
-        ::profiler::timestamp_t               total_duration; ///< Summary duration of all block calls
-        ::profiler::timestamp_t                 min_duration; ///< Cached block->duration() value. TODO: Remove this if memory consumption will be too high
-        ::profiler::timestamp_t                 max_duration; ///< Cached block->duration() value. TODO: Remove this if memory consumption will be too high
-        const ::profiler::SerilizedBlock* min_duration_block; ///< Will be used in GUI to jump to the block with min duration
-        const ::profiler::SerilizedBlock* max_duration_block; ///< Will be used in GUI to jump to the block with max duration
-        ::profiler::calls_number_t              calls_number; ///< Block calls number
+        ::profiler::timestamp_t        total_duration; ///< Summary duration of all block calls
+        ::profiler::timestamp_t          min_duration; ///< Cached block->duration() value. TODO: Remove this if memory consumption will be too high
+        ::profiler::timestamp_t          max_duration; ///< Cached block->duration() value. TODO: Remove this if memory consumption will be too high
+        unsigned int               min_duration_block; ///< Will be used in GUI to jump to the block with min duration
+        unsigned int               max_duration_block; ///< Will be used in GUI to jump to the block with max duration
+        ::profiler::calls_number_t       calls_number; ///< Block calls number
 
         // TODO: It is better to replace SerilizedBlock* with BlocksTree*, but this requires to store pointers in children list.
 
@@ -46,18 +46,18 @@ namespace profiler {
             : total_duration(0)
             , min_duration(0)
             , max_duration(0)
-            , min_duration_block(nullptr)
-            , max_duration_block(nullptr)
+            , min_duration_block(0)
+            , max_duration_block(0)
             , calls_number(1)
         {
         }
 
-        BlockStatistics(::profiler::timestamp_t _duration, const ::profiler::SerilizedBlock* _block)
+        BlockStatistics(::profiler::timestamp_t _duration, unsigned int _block_index)
             : total_duration(_duration)
             , min_duration(_duration)
             , max_duration(_duration)
-            , min_duration_block(_block)
-            , max_duration_block(_block)
+            , min_duration_block(_block_index)
+            , max_duration_block(_block_index)
             , calls_number(1)
         {
         }
@@ -95,19 +95,19 @@ namespace profiler {
         typedef ::std::list<BlocksTree> children_t;
 
         children_t                           children; ///< List of children blocks. May be empty.
-        ::profiler::timestamp_t         self_duration; ///< Self time (excluding children blocks). This is time which was not measured by children blocks.
         ::profiler::SerilizedBlock*              node; ///< Pointer to serilized data (type, name, begin, end etc.)
         ::profiler::BlockStatistics* frame_statistics; ///< Pointer to statistics for this block within the parent (may be nullptr for top-level blocks)
         ::profiler::BlockStatistics* total_statistics; ///< Pointer to statistics for this block within the bounds of all frames per current thread
 
+        unsigned int                      block_index; ///< Index of this block
         unsigned int            total_children_number; ///< Number of all children including number of grandchildren (and so on)
         unsigned short                          depth; ///< Maximum number of sublevels (maximum children depth)
 
         BlocksTree()
-            : self_duration(0)
-            , node(nullptr)
+            : node(nullptr)
             , frame_statistics(nullptr)
             , total_statistics(nullptr)
+            , block_index(0)
             , total_children_number(0)
             , depth(0)
         {
@@ -168,11 +168,11 @@ namespace profiler {
             }
 
             children = ::std::move(that.children);
-            self_duration = that.self_duration;
             node = that.node;
             frame_statistics = that.frame_statistics;
             total_statistics = that.total_statistics;
 
+            block_index = that.block_index;
             total_children_number = that.total_children_number;
             depth = that.depth;
 
@@ -185,7 +185,7 @@ namespace profiler {
 
     //////////////////////////////////////////////////////////////////////////
 
-    class BlocksTreeRoot
+    class BlocksTreeRoot final
     {
         typedef BlocksTreeRoot This;
 

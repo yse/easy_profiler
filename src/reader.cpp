@@ -162,10 +162,10 @@ typedef ::std::unordered_map<::std::string, ::profiler::BlockStatistics*> StatsM
 automatically receive statistics update.
 
 */
-void update_statistics(StatsMap& _stats_map, ::profiler::SerilizedBlock* _current, ::profiler::BlockStatistics*& _stats)
+void update_statistics(StatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::BlockStatistics*& _stats)
 {
-    auto duration = _current->block()->duration();
-    StatsMap::key_type key(_current->getBlockName());
+    auto duration = _current.node->block()->duration();
+    StatsMap::key_type key(_current.node->getBlockName());
     auto it = _stats_map.find(key);
     if (it != _stats_map.end())
     {
@@ -180,7 +180,7 @@ void update_statistics(StatsMap& _stats_map, ::profiler::SerilizedBlock* _curren
         if (duration > _stats->max_duration)
         {
             // update max duration
-            _stats->max_duration_block = _current;
+            _stats->max_duration_block = _current.block_index;
             _stats->max_duration = duration;
         }
 
@@ -188,7 +188,7 @@ void update_statistics(StatsMap& _stats_map, ::profiler::SerilizedBlock* _curren
         if (duration < _stats->min_duration)
         {
             // update min duraton
-            _stats->min_duration_block = _current;
+            _stats->min_duration_block = _current.block_index;
             _stats->min_duration = duration;
         }
 
@@ -198,7 +198,7 @@ void update_statistics(StatsMap& _stats_map, ::profiler::SerilizedBlock* _curren
     {
         // This is first time the block appear in the file.
         // Create new statistics.
-        _stats = new ::profiler::BlockStatistics(duration, _current);
+        _stats = new ::profiler::BlockStatistics(duration, _current.block_index);
         _stats_map.insert(::std::make_pair(key, _stats));
     }
 }
@@ -238,8 +238,7 @@ extern "C"{
 
             ::profiler::BlocksTree tree;
 			tree.node = new ::profiler::SerilizedBlock(sz, data);
-            tree.self_duration = tree.node->block()->duration();
-			++blocks_counter;
+			tree.block_index = ++blocks_counter;
 
             if (::profiler::BLOCK_TYPE_THREAD_SIGN == baseData->getType())
             {
@@ -280,7 +279,7 @@ extern "C"{
 
                         for (auto& child : tree.children)
                         {
-                            update_statistics(frame_statistics, child.node, child.frame_statistics);
+                            update_statistics(frame_statistics, child, child.frame_statistics);
 
                             children_duration += child.node->block()->duration();
                             tree.total_children_number += child.total_children_number;
@@ -299,7 +298,6 @@ extern "C"{
                         }
                     }
 
-                    tree.self_duration -= children_duration;
                     tree.total_children_number += static_cast<unsigned int>(tree.children.size());
                     ++tree.depth;
                 }
@@ -316,7 +314,7 @@ extern "C"{
             {
                 PROFILER_BEGIN_BLOCK("Gather statistics")
                 auto& current = root.tree.children.back();
-                update_statistics(overall_statistics, current.node, current.total_statistics);
+                update_statistics(overall_statistics, current, current.total_statistics);
             }
 
 		}
@@ -333,7 +331,7 @@ extern "C"{
                 for (auto& frame : root.tree.children)
 				{
                     root.tree.total_children_number += frame.total_children_number;
-                    update_statistics(frame_statistics, frame.node, frame.frame_statistics);
+                    update_statistics(frame_statistics, frame, frame.frame_statistics);
                     if (root.tree.depth < frame.depth)
                         root.tree.depth = frame.depth;
 				}

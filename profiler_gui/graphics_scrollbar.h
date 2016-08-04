@@ -63,6 +63,7 @@ class ProfMinimapItem : public QGraphicsItem
 
     QRectF                           m_boundingRect;
     qreal                             m_maxDuration;
+    qreal                             m_minDuration;
     const ::profiler_gui::ProfItems*      m_pSource;
     ::profiler::thread_id_t              m_threadId;
 

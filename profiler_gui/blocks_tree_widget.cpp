@@ -287,16 +287,22 @@ void ProfTreeWidget::setTreeBlocks(const ::profiler_gui::TreeBlocks& _blocks, ::
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void ProfTreeWidget::clearSilent()
+void ProfTreeWidget::clearSilent(bool _global)
 {
     m_beginTime = -1;
 
     setSortingEnabled(false);
     disconnect(this, &Parent::itemExpanded, this, &This::onItemExpand);
 
+    if (!_global)
+    {
+        for (auto item : m_items)
+        {
+            ::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index].tree_item = nullptr;
+        }
+    }
+
     m_items.clear();
-    m_itemblocks.clear();
-    m_roots.clear();
 
     const QSignalBlocker b(this);
     clear();
@@ -353,7 +359,8 @@ size_t ProfTreeWidget::setTreeInternal(const unsigned int _blocksNumber, const :
         item->setTextColor(::profiler_gui::SELECTED_THREAD_FOREGROUND);
         m_items.push_back(item);
 
-        const auto children_items_number = setTreeInternal(block.children, item, nullptr, m_beginTime, finishtime + 1000000000ULL, false);
+        ::profiler::timestamp_t children_duration = 0;
+        const auto children_items_number = setTreeInternal(block.children, item, nullptr, m_beginTime, finishtime + 1000000000ULL, false, children_duration);
 
         if (children_items_number > 0)
         {
@@ -366,6 +373,11 @@ size_t ProfTreeWidget::setTreeInternal(const unsigned int _blocksNumber, const :
             }
 
             m_roots[threadTree.first] = item;
+
+            if (children_duration > 0)
+            {
+                item->setTimeSmart(COL_SELF_DURATION, children_duration);
+            }
         }
         else
         {
@@ -438,17 +450,12 @@ size_t ProfTreeWidget::setTreeInternal(const ::profiler_gui::TreeBlocks& _blocks
         }
 
         auto item = new ProfTreeWidgetItem(block.tree, thread_item);
-        duration = block.tree->node->block()->duration();
+        duration = endTime - startTime;
 
         item->setText(COL_NAME, block.tree->node->getBlockName());
         item->setTimeSmart(COL_DURATION, duration);
-        item->setTimeSmart(COL_SELF_DURATION, block.tree->self_duration);
         item->setTimeMs(COL_BEGIN, startTime - m_beginTime);
         item->setTimeMs(COL_END, endTime - m_beginTime);
-
-        auto percentage = duration == 0 ? 100 : static_cast<int>(0.5 + 100. * static_cast<double>(block.tree->self_duration) / static_cast<double>(duration));
-        item->setData(COL_SELF_DURATION_PERCENT, Qt::UserRole, percentage);
-        item->setText(COL_SELF_DURATION_PERCENT, QString::number(percentage));
 
         item->setData(COL_PERCENT_OF_PARENT, Qt::UserRole, 0);
         item->setText(COL_PERCENT_OF_PARENT, "");
@@ -485,15 +492,27 @@ size_t ProfTreeWidget::setTreeInternal(const ::profiler_gui::TreeBlocks& _blocks
         m_items.push_back(item);
 
         size_t children_items_number = 0;
+        ::profiler::timestamp_t children_duration = 0;
         if (!block.tree->children.empty())
         {
-            children_items_number = setTreeInternal(block.tree->children, item, item, _left, _right, _strict);
+            children_items_number = setTreeInternal(block.tree->children, item, item, _left, _right, _strict, children_duration);
         }
+
+        int percentage = 100;
+        auto self_duration = duration - children_duration;
+        if (children_duration > 0 && duration > 0)
+        {
+            percentage = static_cast<int>(0.5 + 100. * static_cast<double>(self_duration) / static_cast<double>(duration));
+        }
+
+        item->setTimeSmart(COL_SELF_DURATION, self_duration);
+        item->setData(COL_SELF_DURATION_PERCENT, Qt::UserRole, percentage);
+        item->setText(COL_SELF_DURATION_PERCENT, QString::number(percentage));
 
         if (children_items_number > 0 || !_strict || (startTime >= _left && endTime <= _right))
         {
             total_items += children_items_number + 1;
-            m_itemblocks[block.tree->node] = item;
+            ::profiler_gui::EASY_GLOBALS.gui_blocks[block.tree->block_index].tree_item = item;
 
             if (m_bColorRows)
             {
@@ -509,56 +528,64 @@ size_t ProfTreeWidget::setTreeInternal(const ::profiler_gui::TreeBlocks& _blocks
 
     for (auto& it : threadsMap)
     {
-        if (it.second->childCount() > 0)
+        auto item = it.second;
+
+        if (item->childCount() > 0)
         {
-            addTopLevelItem(it.second);
+            addTopLevelItem(item);
 
             if (it.first == ::profiler_gui::EASY_GLOBALS.selected_thread)
             {
-                it.second->colorize(true);
+                item->colorize(true);
             }
 
-            m_roots[it.first] = it.second;
-            m_items.push_back(it.second);
+            m_roots[it.first] = item;
+            m_items.push_back(item);
             ++total_items;
+
+            // Calculate clean duration (sum of all children durations)
+            ::profiler::timestamp_t children_duration = 0;
+            auto itemBlock = item->block();
+            for (const auto& child : itemBlock->children)
+            {
+                children_duration += child.node->block()->duration();
+            }
+
+            item->setTimeSmart(COL_SELF_DURATION, children_duration);
         }
         else
         {
-            delete it.second;
+            delete item;
         }
     }
 
     return total_items;
 }
 
-size_t ProfTreeWidget::setTreeInternal(const ::profiler::BlocksTree::children_t& _children, ProfTreeWidgetItem* _parent, ProfTreeWidgetItem* _frame, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict)
+size_t ProfTreeWidget::setTreeInternal(const ::profiler::BlocksTree::children_t& _children, ProfTreeWidgetItem* _parent, ProfTreeWidgetItem* _frame, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration)
 {
     size_t total_items = 0;
     for (const auto& child : _children)
     {
         const auto startTime = child.node->block()->getBegin();
         const auto endTime = child.node->block()->getEnd();
+        const auto duration = endTime - startTime;
+        _duration += duration;
+
         if (startTime > _right || endTime < _left)
         {
             continue;
         }
 
         auto item = new ProfTreeWidgetItem(&child, _parent);
-        auto duration = child.node->block()->duration();
-
         item->setText(COL_NAME, child.node->getBlockName());
         item->setTimeSmart(COL_DURATION, duration);
-        item->setTimeSmart(COL_SELF_DURATION, child.self_duration);
         item->setTimeMs(COL_BEGIN, startTime - m_beginTime);
         item->setTimeMs(COL_END, endTime - m_beginTime);
 
-        auto percentage = duration == 0 ? 100 : static_cast<int>(0.5 + 100. * static_cast<double>(child.self_duration) / static_cast<double>(duration));
-        item->setData(COL_SELF_DURATION_PERCENT, Qt::UserRole, percentage);
-        item->setText(COL_SELF_DURATION_PERCENT, QString::number(percentage));
-
         if (_frame != nullptr)
         {
-            percentage = duration == 0 ? 0 : static_cast<int>(0.5 + 100. * static_cast<double>(duration) / static_cast<double>(_parent->duration()));
+            auto percentage = duration == 0 ? 0 : static_cast<int>(0.5 + 100. * static_cast<double>(duration) / static_cast<double>(_parent->duration()));
             item->setData(COL_PERCENT_OF_PARENT, Qt::UserRole, percentage);
             item->setText(COL_PERCENT_OF_PARENT, QString::number(percentage));
 
@@ -605,15 +632,27 @@ size_t ProfTreeWidget::setTreeInternal(const ::profiler::BlocksTree::children_t&
         m_items.push_back(item);
 
         size_t children_items_number = 0;
+        ::profiler::timestamp_t children_duration = 0;
         if (!child.children.empty())
         {
-            children_items_number = setTreeInternal(child.children, item, _frame ? _frame : item, _left, _right, _strict);
+            children_items_number = setTreeInternal(child.children, item, _frame ? _frame : item, _left, _right, _strict, children_duration);
         }
+
+        int percentage = 100;
+        auto self_duration = duration - children_duration;
+        if (children_duration > 0 && duration > 0)
+        {
+            percentage = static_cast<int>(0.5 + 100. * static_cast<double>(self_duration) / static_cast<double>(duration));
+        }
+
+        item->setTimeSmart(COL_SELF_DURATION, self_duration);
+        item->setData(COL_SELF_DURATION_PERCENT, Qt::UserRole, percentage);
+        item->setText(COL_SELF_DURATION_PERCENT, QString::number(percentage));
 
         if (children_items_number > 0 || !_strict || (startTime >= _left && endTime <= _right))
         {
             total_items += children_items_number + 1;
-            m_itemblocks[child.node] = item;
+            ::profiler_gui::EASY_GLOBALS.gui_blocks[child.block_index].tree_item = item;
 
             if (m_bColorRows)
             {
@@ -715,21 +754,21 @@ void ProfTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 
 void ProfTreeWidget::onJumpToMinItemClicked(ProfTreeWidgetItem* _item)
 {
-    auto it = m_itemblocks.find(_item->block()->total_statistics->min_duration_block);
-    if (it != m_itemblocks.end())
+    auto item = ::profiler_gui::EASY_GLOBALS.gui_blocks[_item->block()->total_statistics->min_duration_block].tree_item;
+    if (item != nullptr)
     {
-        scrollToItem(it->second, QAbstractItemView::PositionAtCenter);
-        setCurrentItem(it->second);
+        scrollToItem(item, QAbstractItemView::PositionAtCenter);
+        setCurrentItem(item);
     }
 }
 
 void ProfTreeWidget::onJumpToMaxItemClicked(ProfTreeWidgetItem* _item)
 {
-    auto it = m_itemblocks.find(_item->block()->total_statistics->max_duration_block);
-    if (it != m_itemblocks.end())
+    auto item = ::profiler_gui::EASY_GLOBALS.gui_blocks[_item->block()->total_statistics->max_duration_block].tree_item;
+    if (item != nullptr)
     {
-        scrollToItem(it->second, QAbstractItemView::PositionAtCenter);
-        setCurrentItem(it->second);
+        scrollToItem(item, QAbstractItemView::PositionAtCenter);
+        setCurrentItem(item);
     }
 }
 

@@ -25,9 +25,16 @@
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
+class ProfGraphicsItem;
+class ProfTreeWidgetItem;
+
+//////////////////////////////////////////////////////////////////////////
+
 namespace profiler_gui {
 
-    class ProfGlobalSignals : public QObject
+    //////////////////////////////////////////////////////////////////////////
+
+    class ProfGlobalSignals final : public QObject
     {
         Q_OBJECT
 
@@ -39,15 +46,32 @@ namespace profiler_gui {
     signals:
 
         void selectedThreadChanged(::profiler::thread_id_t _id);
+        void selectedBlockChanged(unsigned int _block_index);
     };
 
-    struct ProfGlobals
+    //////////////////////////////////////////////////////////////////////////
+
+    struct ProfBlock final
+    {
+        ProfGraphicsItem*         graphics_item;
+        ProfTreeWidgetItem*           tree_item;
+        unsigned short      graphics_item_level;
+        unsigned int        graphics_item_index;
+    };
+
+    typedef ::std::vector<ProfBlock> ProfBlocks;
+
+    //////////////////////////////////////////////////////////////////////////
+
+    struct ProfGlobals final
     {
         static ProfGlobals& instance();
 
         ProfGlobalSignals                         events;
         ::profiler::thread_blocks_tree_t profiler_blocks;
-        ::profiler::thread_id_t              selected_thread;
+        ProfBlocks                            gui_blocks;
+        ::profiler::thread_id_t          selected_thread;
+        unsigned int                      selected_block;
 
     private:
 
@@ -55,6 +79,8 @@ namespace profiler_gui {
     };
 
     static ProfGlobals& EASY_GLOBALS = ProfGlobals::instance();
+
+    //////////////////////////////////////////////////////////////////////////
 
 } // END of namespace profiler_gui.
 

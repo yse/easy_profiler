@@ -104,7 +104,7 @@ void ProfGraphicsSliderItem::setColor(QRgb _color)
 
 //////////////////////////////////////////////////////////////////////////
 
-ProfMinimapItem::ProfMinimapItem() : Parent(), m_pSource(nullptr), m_maxDuration(0), m_threadId(0)
+ProfMinimapItem::ProfMinimapItem() : Parent(), m_pSource(nullptr), m_maxDuration(0), m_minDuration(0), m_threadId(0)
 {
 
 }
@@ -128,32 +128,37 @@ void ProfMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* 
 
     const auto currentScale = static_cast<const ProfGraphicsScrollbar*>(scene()->parent())->getWindowScale();
     const auto bottom = m_boundingRect.bottom();
-    const auto coeff = (m_boundingRect.height() - 5) / m_maxDuration;
+    const auto coeff = m_boundingRect.height() / (m_maxDuration - m_minDuration);
+    const auto heightRevert = 1.0 / m_boundingRect.height();
 
     QRectF rect;
     QBrush brush(Qt::SolidPattern);
     QRgb previousColor = 0;
 
-    brush.setColor(QColor::fromRgba(0x80808080));
+    //brush.setColor(QColor::fromRgba(0x80808080));
 
     _painter->save();
     _painter->setPen(Qt::NoPen);
-    _painter->setBrush(brush);
+    //_painter->setBrush(brush);
     _painter->setTransform(QTransform::fromScale(1.0 / currentScale, 1), true);
 
     auto& items = *m_pSource;
     for (const auto& item : items)
     {
-        //if (previousColor != item.color)
-        //{
-        //    // Set background color brush for rectangle
-        //    previousColor = item.color;
-        //    brush.setColor(QColor::fromRgba(0x40000000 | item.color));
-        //    _painter->setBrush(brush);
-        //}
-
         // Draw rectangle
-        auto h = 5 + item.width() * coeff;
+
+        const auto h = ::std::max((item.width() - m_minDuration) * coeff, 5.0);
+        const auto col = h * heightRevert;
+        const auto color = ::profiler_gui::toRgb(col * 255, (1.0 - col) * 255, 0); // item.color;
+
+        if (previousColor != color)
+        {
+            // Set background color brush for rectangle
+            previousColor = color;
+            brush.setColor(QColor::fromRgba(0x80000000 | color));
+            _painter->setBrush(brush);
+        }
+
         rect.setRect(item.left() * currentScale, bottom - h, ::std::max(item.width() * currentScale, 1.0), h);
         _painter->drawRect(rect);
     }
@@ -184,11 +189,19 @@ void ProfMinimapItem::setSource(::profiler::thread_id_t _thread_id, const ::prof
         }
 
         m_maxDuration = 0;
+        m_minDuration = 1e30;
         for (const auto& item : *m_pSource)
         {
-            if (item.width() > m_maxDuration)
+            auto w = item.width();
+
+            if (w > m_maxDuration)
             {
                 m_maxDuration = item.width();
+            }
+
+            if (w < m_minDuration)
+            {
+                m_minDuration = w;
             }
         }
     }

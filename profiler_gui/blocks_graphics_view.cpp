@@ -53,7 +53,7 @@ const QRgb BACKGROUND_2 = 0x00ffffff;
 const QColor CHRONOMETER_COLOR = QColor(64, 64, 64, 64);
 const QRgb CHRONOMETER_TEXT_COLOR = 0xff302010;
 
-const int TEST_PROGRESSION_BASE = 4;
+const unsigned int TEST_PROGRESSION_BASE = 4;
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -168,7 +168,7 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     }
     else
     {
-        m_levelsIndexes[0] = level0.size() - 1;
+        m_levelsIndexes[0] = static_cast<unsigned int>(level0.size() - 1);
     }
 
 
@@ -208,7 +208,7 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         char state = 1;
         //bool changebrush = false;
 
-        for (unsigned int i = m_levelsIndexes[l], end = level.size(); i < end; ++i)
+        for (unsigned int i = m_levelsIndexes[l], end = static_cast<unsigned int>(level.size()); i < end; ++i)
         {
             auto& item = level[i];
 
@@ -455,7 +455,7 @@ void ProfGraphicsItem::setLevels(unsigned short _levels)
     m_levelsIndexes.resize(_levels, -1);
 }
 
-void ProfGraphicsItem::reserve(unsigned short _level, size_t _items)
+void ProfGraphicsItem::reserve(unsigned short _level, unsigned int _items)
 {
     m_levels[_level].reserve(_items);
 }
@@ -467,32 +467,20 @@ const ProfGraphicsItem::Children& ProfGraphicsItem::items(unsigned short _level)
     return m_levels[_level];
 }
 
-const ::profiler_gui::ProfBlockItem& ProfGraphicsItem::getItem(unsigned short _level, size_t _index) const
+const ::profiler_gui::ProfBlockItem& ProfGraphicsItem::getItem(unsigned short _level, unsigned int _index) const
 {
     return m_levels[_level][_index];
 }
 
-::profiler_gui::ProfBlockItem& ProfGraphicsItem::getItem(unsigned short _level, size_t _index)
+::profiler_gui::ProfBlockItem& ProfGraphicsItem::getItem(unsigned short _level, unsigned int _index)
 {
     return m_levels[_level][_index];
 }
 
-size_t ProfGraphicsItem::addItem(unsigned short _level)
+unsigned int ProfGraphicsItem::addItem(unsigned short _level)
 {
     m_levels[_level].emplace_back();
-    return m_levels[_level].size() - 1;
-}
-
-size_t ProfGraphicsItem::addItem(unsigned short _level, const ::profiler_gui::ProfBlockItem& _item)
-{
-    m_levels[_level].emplace_back(_item);
-    return m_levels[_level].size() - 1;
-}
-
-size_t ProfGraphicsItem::addItem(unsigned short _level, ::profiler_gui::ProfBlockItem&& _item)
-{
-    m_levels[_level].emplace_back(::std::forward<::profiler_gui::ProfBlockItem&&>(_item));
-    return m_levels[_level].size() - 1;
+    return static_cast<unsigned int>(m_levels[_level].size() - 1);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -677,14 +665,14 @@ ProfGraphicsView::~ProfGraphicsView()
 
 //////////////////////////////////////////////////////////////////////////
 
-void ProfGraphicsView::fillTestChildren(ProfGraphicsItem* _item, const int _maxlevel, int _level, qreal _x, qreal _y, size_t _childrenNumber, size_t& _total_items)
+void ProfGraphicsView::fillTestChildren(ProfGraphicsItem* _item, const int _maxlevel, int _level, qreal _x, qreal _y, unsigned int _childrenNumber, unsigned int& _total_items)
 {
-    size_t nchildren = _childrenNumber;
+    unsigned int nchildren = _childrenNumber;
     _childrenNumber = TEST_PROGRESSION_BASE;
 
-    for (size_t i = 0; i < nchildren; ++i)
+    for (unsigned int i = 0; i < nchildren; ++i)
     {
-        size_t j = _item->addItem(_level);
+        auto j = _item->addItem(_level);
         auto& b = _item->getItem(_level, j);
         b.color = ::profiler_gui::toRgb(30 + rand() % 225, 30 + rand() % 225, 30 + rand() % 225);
         b.state = 0;
@@ -712,7 +700,7 @@ void ProfGraphicsView::fillTestChildren(ProfGraphicsItem* _item, const int _maxl
     }
 }
 
-void ProfGraphicsView::test(size_t _frames_number, size_t _total_items_number_estimate, int _rows)
+void ProfGraphicsView::test(unsigned int _frames_number, unsigned int _total_items_number_estimate, int _rows)
 {
     static const qreal X_BEGIN = 50;
     static const qreal Y_BEGIN = 0;
@@ -721,9 +709,9 @@ void ProfGraphicsView::test(size_t _frames_number, size_t _total_items_number_es
 
     // Calculate items number for first level
     _rows = ::std::max(1, _rows);
-    const size_t children_per_frame = static_cast<size_t>(0.5 + static_cast<double>(_total_items_number_estimate) / static_cast<double>(_rows * _frames_number));
+    const auto children_per_frame = static_cast<unsigned int>(0.5 + static_cast<double>(_total_items_number_estimate) / static_cast<double>(_rows * _frames_number));
     const int max_depth = logn<TEST_PROGRESSION_BASE>(children_per_frame * (TEST_PROGRESSION_BASE - 1) * 0.5 + 1);
-    const size_t first_level_children_count = children_per_frame * (1.0 - TEST_PROGRESSION_BASE) / (1.0 - pow(TEST_PROGRESSION_BASE, max_depth)) + 0.5;
+    const auto first_level_children_count = static_cast<unsigned int>(static_cast<double>(children_per_frame) * (1.0 - TEST_PROGRESSION_BASE) / (1.0 - pow(TEST_PROGRESSION_BASE, max_depth)) + 0.5);
 
     ::std::vector<ProfGraphicsItem*> thread_items(_rows);
     for (int i = 0; i < _rows; ++i)
@@ -738,7 +726,7 @@ void ProfGraphicsView::test(size_t _frames_number, size_t _total_items_number_es
     }
 
     // Calculate items number for each sublevel
-    size_t chldrn = first_level_children_count;
+    auto chldrn = first_level_children_count;
     for (int i = 1; i <= max_depth; ++i)
     {
         for (int i = 0; i < _rows; ++i)
@@ -751,7 +739,7 @@ void ProfGraphicsView::test(size_t _frames_number, size_t _total_items_number_es
     }
 
     // Create required number of items
-    size_t total_items = 0;
+    unsigned int total_items = 0;
     qreal maxX = 0;
     const ProfGraphicsItem* longestItem = nullptr;
     for (int i = 0; i < _rows; ++i)
@@ -760,7 +748,7 @@ void ProfGraphicsView::test(size_t _frames_number, size_t _total_items_number_es
         qreal x = X_BEGIN, y = item->y();
         for (unsigned int i = 0; i < _frames_number; ++i)
         {
-            size_t j = item->addItem(0);
+            auto j = item->addItem(0);
             auto& b = item->getItem(0, j);
             b.color = ::profiler_gui::toRgb(30 + rand() % 225, 30 + rand() % 225, 30 + rand() % 225);
             b.state = 0;
@@ -796,7 +784,7 @@ void ProfGraphicsView::test(size_t _frames_number, size_t _total_items_number_es
         }
     }
 
-    printf("TOTAL ITEMS = %llu\n", total_items);
+    printf("TOTAL ITEMS = %u\n", total_items);
 
     // Calculate scene rect
     auto item = thread_items.back();
@@ -950,7 +938,7 @@ qreal ProfGraphicsView::setTree(ProfGraphicsItem* _item, const ::profiler::Block
         return 0;
     }
 
-    _item->reserve(_level, _children.size());
+    _item->reserve(_level, static_cast<unsigned int>(_children.size()));
 
     const auto next_level = _level + 1;
     qreal total_duration = 0, prev_end = 0, maxh = 0;
@@ -979,6 +967,11 @@ qreal ProfGraphicsView::setTree(ProfGraphicsItem* _item, const ::profiler::Block
 
         auto i = _item->addItem(_level);
         auto& b = _item->getItem(_level, i);
+
+        auto& gui_block = ::profiler_gui::EASY_GLOBALS.gui_blocks[child.block_index];
+        gui_block.graphics_item = _item;
+        gui_block.graphics_item_level = _level;
+        gui_block.graphics_item_index = i;
 
         if (next_level < _item->levels() && !child.children.empty())
         {

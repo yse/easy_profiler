@@ -101,7 +101,7 @@ inline QRgb toRgb(unsigned int _red, unsigned int _green, unsigned int _blue)
 //////////////////////////////////////////////////////////////////////////
 
 #pragma pack(push, 1)
-struct ProfBlockItem
+struct ProfBlockItem final
 {
     const ::profiler::BlocksTree* block; ///< Pointer to profiler block
     qreal                             x; ///< x coordinate of the item (this is made qreal=double to avoid mistakes on very wide scene)
@@ -134,24 +134,24 @@ typedef ::std::vector<ProfBlockItem> ProfItems;
 
 //////////////////////////////////////////////////////////////////////////
 
-struct ProfBlock
+struct ProfSelectedBlock final
 {
     const ::profiler::BlocksTreeRoot* root;
     const ::profiler::BlocksTree*     tree;
 
-    ProfBlock() : root(nullptr), tree(nullptr)
+    ProfSelectedBlock() : root(nullptr), tree(nullptr)
     {
     }
 
-    ProfBlock(const ::profiler::BlocksTreeRoot* _root, const ::profiler::BlocksTree* _tree)
+    ProfSelectedBlock(const ::profiler::BlocksTreeRoot* _root, const ::profiler::BlocksTree* _tree)
         : root(_root)
         , tree(_tree)
     {
     }
 
-}; // END of struct ProfBlock.
+}; // END of struct ProfSelectedBlock.
 
-typedef ::std::vector<ProfBlock> TreeBlocks;
+typedef ::std::vector<ProfSelectedBlock> TreeBlocks;
 
 } // END of namespace profiler_gui.
 

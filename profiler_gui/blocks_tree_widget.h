@@ -110,11 +110,9 @@ class ProfTreeWidget : public QTreeWidget
 protected:
 
     typedef ::std::vector<ProfTreeWidgetItem*> Items;
-    typedef ::std::unordered_map<const ::profiler::SerilizedBlock*, ProfTreeWidgetItem*, ::profiler_gui::do_no_hash<const ::profiler::SerilizedBlock*>::hasher_t> BlockItemMap;
     typedef ::std::unordered_map<::profiler::thread_id_t, ProfTreeWidgetItem*, ::profiler_gui::do_no_hash<::profiler::thread_id_t>::hasher_t> RootsMap;
 
     Items                        m_items;
-    BlockItemMap            m_itemblocks;
     RootsMap                     m_roots;
     ::profiler::timestamp_t  m_beginTime;
     bool                    m_bColorRows;
@@ -125,7 +123,7 @@ public:
     ProfTreeWidget(const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, QWidget* _parent = nullptr);
     virtual ~ProfTreeWidget();
 
-    void clearSilent();
+    void clearSilent(bool _global = false);
 
 public slots:
 
@@ -139,7 +137,7 @@ protected:
 
     size_t setTreeInternal(const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict);
 
-    size_t setTreeInternal(const ::profiler::BlocksTree::children_t& _children, ProfTreeWidgetItem* _parent, ProfTreeWidgetItem* _frame, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict);
+    size_t setTreeInternal(const ::profiler::BlocksTree::children_t& _children, ProfTreeWidgetItem* _parent, ProfTreeWidgetItem* _frame, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration);
 
     void contextMenuEvent(QContextMenuEvent* _event) override;
 
