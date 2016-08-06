@@ -51,6 +51,7 @@ public:
     void setHalfwidth(qreal _halfwidth);
 
     void setColor(QRgb _color);
+    void setColor(const QColor& _color);
 
 }; // END of class ProfGraphicsSliderItem.
 

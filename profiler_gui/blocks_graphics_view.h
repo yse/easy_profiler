@@ -139,12 +139,16 @@ private:
 class ProfChronometerItem : public QGraphicsItem
 {
     QFont           m_font; ///< Font which is used to draw text
+    QPolygonF  m_indicator; ///< Indicator displayed when this chrono item is out of screen (displaying only for main item)
     QRectF  m_boundingRect; ///< boundingRect (see QGraphicsItem)
+    QColor         m_color; ///< Color of the item
     qreal  m_left, m_right; ///< Left and right bounds of the selection zone
+    bool           m_bMain; ///< Is this chronometer main (true, by default)
+    bool        m_bReverse;
 
 public:
 
-    ProfChronometerItem();
+    ProfChronometerItem(bool _main = true);
     virtual ~ProfChronometerItem();
 
     // Public virtual methods
@@ -156,9 +160,19 @@ public:
 
     // Public non-virtual methods
 
+    void setColor(const QColor& _color);
+
     void setBoundingRect(qreal x, qreal y, qreal w, qreal h);
     void setBoundingRect(const QRectF& _rect);
+
     void setLeftRight(qreal _left, qreal _right);
+
+    void setReverse(bool _reverse);
+
+    inline bool reverse() const
+    {
+        return m_bReverse;
+    }
 
     inline qreal left() const
     {
@@ -202,13 +216,15 @@ private:
     qreal                                  m_offset; ///< Have to use manual offset for all scene content instead of using scrollbars because QScrollBar::value is 32-bit integer :(
     QPoint                          m_mousePressPos; ///< Last mouse global position (used by mousePressEvent and mouseMoveEvent)
     Qt::MouseButtons                 m_mouseButtons; ///< Pressed mouse buttons
-    ProfGraphicsScrollbar*       m_pScrollbar; ///< Pointer to the graphics scrollbar widget
-    ProfChronometerItem*          m_chronometerItem; ///< Pointer to the ProfChronometerItem which is displayed when you press right mouse button and move mouse left or right
-    int                              m_flickerSpeed; ///< Current flicking speed
+    ProfGraphicsScrollbar*             m_pScrollbar; ///< Pointer to the graphics scrollbar widget
+    ProfChronometerItem*          m_chronometerItem; ///< Pointer to the ProfChronometerItem which is displayed when you press right mouse button and move mouse left or right. This item is used to select blocks to display in tree widget.
+    ProfChronometerItem*       m_chronometerItemAux; ///< Pointer to the ProfChronometerItem which is displayed when you double click left mouse button and move mouse left or right. This item is used only to measure time.
+    int                             m_flickerSpeedX; ///< Current flicking speed x
+    int                             m_flickerSpeedY; ///< Current flicking speed y
+    bool                             m_bDoubleClick; ///< Is mouse buttons double clicked
     bool                            m_bUpdatingRect; ///< Stub flag which is used to avoid excess calculations on some scene update (flicking, scaling and so on)
     bool                                    m_bTest; ///< Testing flag (true when test() is called)
     bool                                   m_bEmpty; ///< Indicates whether scene is empty and has no items
-    bool                         m_bStrictSelection; ///< Strict selection flag used by ProfTreeWidget to interpret left and right bounds of selection zone in different ways
 
 public:
 
@@ -220,6 +236,7 @@ public:
 
     void wheelEvent(QWheelEvent* _event) override;
     void mousePressEvent(QMouseEvent* _event) override;
+    void mouseDoubleClickEvent(QMouseEvent* _event) override;
     void mouseReleaseEvent(QMouseEvent* _event) override;
     void mouseMoveEvent(QMouseEvent* _event) override;
     void resizeEvent(QResizeEvent* _event) override;
@@ -244,6 +261,8 @@ private:
 
     // Private non-virtual methods
 
+    ProfChronometerItem* createChronometer(bool _main = true);
+    bool moveChrono(ProfChronometerItem* _chronometerItem, qreal _mouseX);
     void initMode();
     void updateVisibleSceneRect();
     void updateScene();

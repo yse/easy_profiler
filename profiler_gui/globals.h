@@ -20,6 +20,7 @@
 
 #include <string>
 #include <QObject>
+#include <QColor>
 #include "common_types.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -34,6 +35,10 @@ namespace profiler_gui {
 
 	const QString ORGANAZATION_NAME = "EasyProfiler";
 	const QString APPLICATION_NAME = "Easy profiler gui application";
+
+    const QColor CHRONOMETER_COLOR = QColor::fromRgba(0x402020c0);
+    const QRgb SELECTED_THREAD_BACKGROUND = 0x00d8d840;
+    const QRgb SELECTED_THREAD_FOREGROUND = 0x00ffffff - SELECTED_THREAD_BACKGROUND;
 
     //////////////////////////////////////////////////////////////////////////
 

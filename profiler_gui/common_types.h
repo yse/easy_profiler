@@ -87,8 +87,6 @@ struct do_no_hash {
 
 //////////////////////////////////////////////////////////////////////////
 
-const QRgb SELECTED_THREAD_BACKGROUND = 0x00d8d840;
-const QRgb SELECTED_THREAD_FOREGROUND = 0x00ffffff - SELECTED_THREAD_BACKGROUND;
 const QRgb DEFAULT_COLOR = 0x00f0e094;
 
 inline QRgb toRgb(unsigned int _red, unsigned int _green, unsigned int _blue)

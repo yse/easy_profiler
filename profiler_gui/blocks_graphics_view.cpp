@@ -34,6 +34,8 @@
 #include <algorithm>
 #include "blocks_graphics_view.h"
 
+using namespace profiler_gui;
+
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
@@ -50,10 +52,11 @@ const unsigned short ROW_SPACING = 4;
 const QRgb BORDERS_COLOR = 0x00a07050;
 const QRgb BACKGROUND_1 = 0x00dddddd;
 const QRgb BACKGROUND_2 = 0x00ffffff;
-const QColor CHRONOMETER_COLOR = QColor(64, 64, 64, 64);
-const QRgb CHRONOMETER_TEXT_COLOR = 0xff302010;
+const QColor CHRONOMETER_COLOR2 = QColor::fromRgba(0x40408040);
 
 const unsigned int TEST_PROGRESSION_BASE = 4;
+
+const int FLICKER_INTERVAL = 16; // 60Hz
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -500,9 +503,10 @@ unsigned int ProfGraphicsItem::addItem(unsigned short _level)
 
 //////////////////////////////////////////////////////////////////////////
 
-ProfChronometerItem::ProfChronometerItem() : QGraphicsItem(), m_left(0), m_right(0), m_font(QFont("CourierNew", 16, 2))
+ProfChronometerItem::ProfChronometerItem(bool _main) : QGraphicsItem(), m_font(QFont("CourierNew", 16, 2)), m_color(CHRONOMETER_COLOR), m_left(0), m_right(0), m_bMain(_main), m_bReverse(false)
 {
     setZValue(10);
+    m_indicator.reserve(3);
 }
 
 ProfChronometerItem::~ProfChronometerItem()
@@ -525,6 +529,36 @@ void ProfChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     if (m_left > sceneRight || m_right < sceneLeft)
     {
         // This item is out of screen
+
+        if (m_bMain)
+        {
+            auto vcenter = visibleSceneRect.top() + visibleSceneRect.height() * 0.5;
+
+            m_indicator.clear();
+            if (m_left > sceneRight)
+            {
+                auto vbar = sceneView->verticalScrollBar();
+                sceneRight = ((sceneRight - offset) * currentScale) - 2 - (vbar->isVisible() ? vbar->width() : 0);
+                m_indicator.push_back(QPointF(sceneRight - 10, vcenter - 10));
+                m_indicator.push_back(QPointF(sceneRight, vcenter));
+                m_indicator.push_back(QPointF(sceneRight - 10, vcenter + 10));
+            }
+            else
+            {
+                sceneLeft = (sceneLeft - offset) * currentScale;
+                m_indicator.push_back(QPointF(sceneLeft + 10, vcenter - 10));
+                m_indicator.push_back(QPointF(sceneLeft, vcenter));
+                m_indicator.push_back(QPointF(sceneLeft + 10, vcenter + 10));
+            }
+
+            _painter->save();
+            _painter->setTransform(QTransform::fromTranslate(-x(), -y()), true);
+            _painter->setBrush(QColor::fromRgb(m_color.rgb()));
+            _painter->setPen(Qt::NoPen);
+            _painter->drawPolygon(m_indicator);
+            _painter->restore();
+        }
+
         return;
     }
 
@@ -550,12 +584,12 @@ void ProfChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     _painter->setTransform(QTransform::fromTranslate(-x(), -y()), true);
 
     // draw transparent rectangle
-    _painter->setBrush(CHRONOMETER_COLOR);
+    _painter->setBrush(m_color);
     _painter->setPen(Qt::NoPen);
     _painter->drawRect(rect);
 
     // draw text
-    _painter->setPen(CHRONOMETER_TEXT_COLOR);
+    _painter->setPen(0xffffffff - m_color.rgb());
     _painter->setFont(m_font);
 
     if (m_left < sceneLeft)
@@ -566,6 +600,11 @@ void ProfChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     if (m_right > sceneRight)
     {
         rect.setWidth((sceneRight - offset) * currentScale - rect.left());
+    }
+
+    if (!m_bMain)
+    {
+        rect.setTop(rect.top() + textRect.height() * 1.33);
     }
 
     if (textRect.width() < rect.width())
@@ -598,6 +637,11 @@ void ProfChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     // END Paint!~~~~~~~~~~~~~~~~~~~~~~
 }
 
+void ProfChronometerItem::setColor(const QColor& _color)
+{
+    m_color = _color;
+}
+
 void ProfChronometerItem::setBoundingRect(qreal x, qreal y, qreal w, qreal h)
 {
     m_boundingRect.setRect(x, y, w, h);
@@ -622,6 +666,11 @@ void ProfChronometerItem::setLeftRight(qreal _left, qreal _right)
     }
 }
 
+void ProfChronometerItem::setReverse(bool _reverse)
+{
+    m_bReverse = _reverse;
+}
+
 const ProfGraphicsView* ProfChronometerItem::view() const
 {
     return static_cast<const ProfGraphicsView*>(scene()->parent());
@@ -637,11 +686,13 @@ ProfGraphicsView::ProfGraphicsView(bool _test)
     , m_mouseButtons(Qt::NoButton)
     , m_pScrollbar(nullptr)
     , m_chronometerItem(nullptr)
-    , m_flickerSpeed(0)
+    , m_chronometerItemAux(nullptr)
+    , m_flickerSpeedX(0)
+    , m_flickerSpeedY(0)
+    , m_bDoubleClick(false)
     , m_bUpdatingRect(false)
     , m_bTest(_test)
     , m_bEmpty(true)
-    , m_bStrictSelection(false)
 {
     initMode();
     setScene(new QGraphicsScene(this));
@@ -662,11 +713,13 @@ ProfGraphicsView::ProfGraphicsView(const ::profiler::thread_blocks_tree_t& _bloc
     , m_mouseButtons(Qt::NoButton)
     , m_pScrollbar(nullptr)
     , m_chronometerItem(nullptr)
-    , m_flickerSpeed(0)
+    , m_chronometerItemAux(nullptr)
+    , m_flickerSpeedX(0)
+    , m_flickerSpeedY(0)
+    , m_bDoubleClick(false)
     , m_bUpdatingRect(false)
     , m_bTest(false)
     , m_bEmpty(true)
-    , m_bStrictSelection(false)
 {
     initMode();
     setScene(new QGraphicsScene(this));
@@ -676,6 +729,19 @@ ProfGraphicsView::ProfGraphicsView(const ::profiler::thread_blocks_tree_t& _bloc
 
 ProfGraphicsView::~ProfGraphicsView()
 {
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+ProfChronometerItem* ProfGraphicsView::createChronometer(bool _main)
+{
+    auto chronoItem = new ProfChronometerItem(_main);
+    chronoItem->setColor(_main ? CHRONOMETER_COLOR : CHRONOMETER_COLOR2);
+    chronoItem->setBoundingRect(scene()->sceneRect());
+    chronoItem->hide();
+    scene()->addItem(chronoItem);
+
+    return chronoItem;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -815,10 +881,8 @@ void ProfGraphicsView::test(unsigned int _frames_number, unsigned int _total_ite
 
     // Create new chronometer item (previous item was destroyed by scene on scene()->clear()).
     // It will be shown on mouse right button click.
-    m_chronometerItem = new ProfChronometerItem();
-    m_chronometerItem->setBoundingRect(scene()->sceneRect());
-    m_chronometerItem->hide();
-    scene()->addItem(m_chronometerItem);
+    m_chronometerItem = createChronometer(true);
+    m_chronometerItemAux = createChronometer(false);
 
     // Set necessary flags
     m_bTest = true;
@@ -837,7 +901,8 @@ void ProfGraphicsView::clearSilent()
 
     // Stop flicking
     m_flickerTimer.stop();
-    m_flickerSpeed = 0;
+    m_flickerSpeedX = 0;
+    m_flickerSpeedY = 0;
 
     // Clear all items
     scene()->clear();
@@ -932,10 +997,8 @@ void ProfGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
 
     // Create new chronometer item (previous item was destroyed by scene on scene()->clear()).
     // It will be shown on mouse right button click.
-    m_chronometerItem = new ProfChronometerItem();
-    m_chronometerItem->setBoundingRect(scene()->sceneRect());
-    m_chronometerItem->hide();
-    scene()->addItem(m_chronometerItem);
+    m_chronometerItem = createChronometer(true);
+    m_chronometerItemAux = createChronometer(false);
 
     // Setting flags
     m_bTest = false;
@@ -1133,11 +1196,33 @@ void ProfGraphicsView::mousePressEvent(QMouseEvent* _event)
 
     if (m_mouseButtons & Qt::RightButton)
     {
-        m_bStrictSelection = false;
         const auto mouseX = m_offset + mapToScene(_event->pos()).x() / m_scale;
         m_chronometerItem->setLeftRight(mouseX, mouseX);
+        m_chronometerItem->setReverse(false);
         m_chronometerItem->hide();
         m_pScrollbar->hideChrono();
+    }
+
+    _event->accept();
+}
+
+void ProfGraphicsView::mouseDoubleClickEvent(QMouseEvent* _event)
+{
+    if (m_bEmpty)
+    {
+        _event->accept();
+        return;
+    }
+
+    m_mouseButtons = _event->buttons();
+    m_bDoubleClick = true;
+
+    if (m_mouseButtons & Qt::LeftButton)
+    {
+        const auto mouseX = m_offset + mapToScene(_event->pos()).x() / m_scale;
+        m_chronometerItemAux->setLeftRight(mouseX, mouseX);
+        m_chronometerItemAux->setReverse(false);
+        m_chronometerItemAux->hide();
     }
 
     _event->accept();
@@ -1184,18 +1269,63 @@ void ProfGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
         }
     }
 
+    if (m_mouseButtons & Qt::LeftButton)
+    {
+        if (m_chronometerItemAux->isVisible() && m_chronometerItemAux->width() < 1e-6)
+        {
+            m_chronometerItemAux->hide();
+        }
+    }
+
+    m_bDoubleClick = false;
     m_mouseButtons = _event->buttons();
     _event->accept();
 
     if (changedSelection)
     {
-        emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_chronometerItem->left()), position2time(m_chronometerItem->right()), m_bStrictSelection);
+        emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_chronometerItem->left()), position2time(m_chronometerItem->right()), m_chronometerItem->reverse());
     }
 
-    m_bStrictSelection = false;
+    m_chronometerItem->setReverse(false);
 }
 
 //////////////////////////////////////////////////////////////////////////
+
+bool ProfGraphicsView::moveChrono(ProfChronometerItem* _chronometerItem, qreal _mouseX)
+{
+    if (_chronometerItem->reverse())
+    {
+        if (_mouseX > _chronometerItem->right())
+        {
+            _chronometerItem->setReverse(false);
+            _chronometerItem->setLeftRight(_chronometerItem->right(), _mouseX);
+        }
+        else
+        {
+            _chronometerItem->setLeftRight(_mouseX, _chronometerItem->right());
+        }
+    }
+    else
+    {
+        if (_mouseX < _chronometerItem->left())
+        {
+            _chronometerItem->setReverse(true);
+            _chronometerItem->setLeftRight(_mouseX, _chronometerItem->left());
+        }
+        else
+        {
+            _chronometerItem->setLeftRight(_chronometerItem->left(), _mouseX);
+        }
+    }
+
+    if (!_chronometerItem->isVisible() && _chronometerItem->width() > 1e-6)
+    {
+        _chronometerItem->show();
+        return true;
+    }
+
+    return false;
+}
 
 void ProfGraphicsView::mouseMoveEvent(QMouseEvent* _event)
 {
@@ -1210,36 +1340,11 @@ void ProfGraphicsView::mouseMoveEvent(QMouseEvent* _event)
     if (m_mouseButtons & Qt::RightButton)
     {
         const auto mouseX = m_offset + mapToScene(_event->pos()).x() / m_scale;
-        if (m_bStrictSelection)
-        {
-            if (mouseX > m_chronometerItem->right())
-            {
-                m_bStrictSelection = false;
-                m_chronometerItem->setLeftRight(m_chronometerItem->right(), mouseX);
-            }
-            else
-            {
-                m_chronometerItem->setLeftRight(mouseX, m_chronometerItem->right());
-            }
-        }
-        else
-        {
-            if (mouseX < m_chronometerItem->left())
-            {
-                m_bStrictSelection = true;
-                m_chronometerItem->setLeftRight(mouseX, m_chronometerItem->left());
-            }
-            else
-            {
-                m_chronometerItem->setLeftRight(m_chronometerItem->left(), mouseX);
-            }
-        }
-
+        bool showItem = moveChrono(m_chronometerItem, mouseX);
         m_pScrollbar->setChronoPos(m_chronometerItem->left(), m_chronometerItem->right());
 
-        if (!m_chronometerItem->isVisible() && m_chronometerItem->width() > 1e-6)
+        if (showItem)
         {
-            m_chronometerItem->show();
             m_pScrollbar->showChrono();
         }
 
@@ -1248,26 +1353,35 @@ void ProfGraphicsView::mouseMoveEvent(QMouseEvent* _event)
 
     if (m_mouseButtons & Qt::LeftButton)
     {
-        const auto pos = _event->globalPos();
-        const auto delta = pos - m_mousePressPos;
-        m_mousePressPos = pos;
-
-        auto vbar = verticalScrollBar();
-
-        m_bUpdatingRect = true; // Block scrollbars from updating scene rect to make it possible to do it only once
-        vbar->setValue(vbar->value() - delta.y());        m_pScrollbar->setValue(m_pScrollbar->value() - delta.x() / m_scale);
-        m_bUpdatingRect = false;
-        // Seems like an ugly stub, but QSignalBlocker is also a bad decision
-        // because if scrollbar does not emit valueChanged signal then viewport does not move
-
-        updateVisibleSceneRect(); // Update scene visible rect only once
-
-        // Update flicker speed
-        m_flickerSpeed += delta.x() >> 1;
-        if (!m_flickerTimer.isActive())
+        if (m_bDoubleClick)
         {
-            // If flicker timer is not started, then start it
-            m_flickerTimer.start(20);
+            const auto mouseX = m_offset + mapToScene(_event->pos()).x() / m_scale;
+            moveChrono(m_chronometerItemAux, mouseX);
+        }
+        else
+        {
+            const auto pos = _event->globalPos();
+            const auto delta = pos - m_mousePressPos;
+            m_mousePressPos = pos;
+
+            auto vbar = verticalScrollBar();
+
+            m_bUpdatingRect = true; // Block scrollbars from updating scene rect to make it possible to do it only once
+            vbar->setValue(vbar->value() - delta.y());            m_pScrollbar->setValue(m_pScrollbar->value() - delta.x() / m_scale);
+            m_bUpdatingRect = false;
+            // Seems like an ugly stub, but QSignalBlocker is also a bad decision
+            // because if scrollbar does not emit valueChanged signal then viewport does not move
+
+            updateVisibleSceneRect(); // Update scene visible rect only once
+
+            // Update flicker speed
+            m_flickerSpeedX += delta.x() >> 2;
+            m_flickerSpeedY += delta.y() >> 1;
+            if (!m_flickerTimer.isActive())
+            {
+                // If flicker timer is not started, then start it
+                m_flickerTimer.start(FLICKER_INTERVAL);
+            }
         }
 
         needUpdate = true;
@@ -1287,6 +1401,7 @@ void ProfGraphicsView::resizeEvent(QResizeEvent* _event)
 {
     updateVisibleSceneRect(); // Update scene visible rect only once
     updateScene(); // repaint scene
+    QGraphicsView::resizeEvent(_event);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1335,24 +1450,30 @@ void ProfGraphicsView::onFlickerTimeout()
     if (m_mouseButtons & Qt::LeftButton)
     {
         // Fast slow-down and stop if mouse button is pressed, no flicking.
-        m_flickerSpeed >>= 1;
+        m_flickerSpeedX >>= 1;
+        m_flickerSpeedY >>= 1;
     }
     else
     {
         // Flick when mouse button is not pressed
 
+        auto vbar = verticalScrollBar();
+
         m_bUpdatingRect = true; // Block scrollbars from updating scene rect to make it possible to do it only once
-        m_pScrollbar->setValue(m_pScrollbar->value() - m_flickerSpeed / m_scale);
+        m_pScrollbar->setValue(m_pScrollbar->value() - m_flickerSpeedX / m_scale);
+        vbar->setValue(vbar->value() - m_flickerSpeedY);
         m_bUpdatingRect = false;
         // Seems like an ugly stub, but QSignalBlocker is also a bad decision
         // because if scrollbar does not emit valueChanged signal then viewport does not move
 
         updateVisibleSceneRect(); // Update scene visible rect only once
         updateScene(); // repaint scene
-        m_flickerSpeed -= absmin(3 * sign(m_flickerSpeed), m_flickerSpeed);
+
+        m_flickerSpeedX -= absmin(sign(m_flickerSpeedX), m_flickerSpeedX);
+        m_flickerSpeedY -= absmin(sign(m_flickerSpeedY), m_flickerSpeedY);
     }
 
-    if (m_flickerSpeed == 0)
+    if (m_flickerSpeedX == 0 && m_flickerSpeedY == 0)
     {
         // Flicker stopped, no timer needed.
         m_flickerTimer.stop();

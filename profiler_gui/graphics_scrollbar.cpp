@@ -65,11 +65,24 @@ void ProfGraphicsSliderItem::paint(QPainter* _painter, const QStyleOptionGraphic
         w = 1.0;
     }
 
+    QRectF r(dx + br.left() * currentScale, br.top(), w, br.height());
+
+    //auto center = r.center();
+    //auto b = brush();
+    //QPolygonF indicator;
+    //indicator.reserve(3);
+    //indicator.push_back(QPointF(center.x() - 4, r.top()));
+    //indicator.push_back(QPointF(center.x(), r.top() + 5));
+    //indicator.push_back(QPointF(center.x() + 4, r.top()));
+
     _painter->save();
     _painter->setTransform(QTransform::fromScale(1.0 / currentScale, 1), true);
     _painter->setBrush(brush());
     _painter->setPen(Qt::NoPen);
-    _painter->drawRect(QRectF(dx + br.left() * currentScale, br.top(), w, br.height()));
+    _painter->drawRect(r);
+    //b.setColor(b.color().rgb());
+    //_painter->setBrush(b);
+    //_painter->drawPolygon(indicator);
     _painter->restore();
 }
 
@@ -97,8 +110,13 @@ void ProfGraphicsSliderItem::setHalfwidth(qreal _halfwidth)
 
 void ProfGraphicsSliderItem::setColor(QRgb _color)
 {
+    setColor(QColor::fromRgba(_color));
+}
+
+void ProfGraphicsSliderItem::setColor(const QColor& _color)
+{
     auto b = brush();
-    b.setColor(QColor::fromRgba(_color));
+    b.setColor(_color);
     setBrush(b);
 }
 
@@ -233,6 +251,7 @@ ProfGraphicsScrollbar::ProfGraphicsScrollbar(QWidget* _parent)
     setCacheMode(QGraphicsView::CacheNone);
     setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
     setViewportUpdateMode(QGraphicsView::BoundingRectViewportUpdate);
+    //setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
     setOptimizationFlag(QGraphicsView::DontSavePainterState, true);
 
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -255,7 +274,7 @@ ProfGraphicsScrollbar::ProfGraphicsScrollbar(QWidget* _parent)
     m_chronometerIndicator = new ProfGraphicsSliderItem();
     m_chronometerIndicator->setPos(0, 0);
     m_chronometerIndicator->setZValue(10);
-    m_chronometerIndicator->setColor(0x80404040);
+    m_chronometerIndicator->setColor(::profiler_gui::CHRONOMETER_COLOR);
     selfScene->addItem(m_chronometerIndicator);
     m_chronometerIndicator->hide();
 
@@ -371,7 +390,7 @@ void ProfGraphicsScrollbar::mousePressEvent(QMouseEvent* _event)
     {
         m_bScrolling = true;
         m_mousePressPos = _event->pos();
-        setValue(mapToScene(m_mousePressPos).x() - m_minimumValue);
+        setValue(mapToScene(m_mousePressPos).x() - m_minimumValue - m_slider->halfwidth());
     }
 
     _event->accept();
