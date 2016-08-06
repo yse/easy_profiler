@@ -238,7 +238,7 @@ extern "C"{
 
             ::profiler::BlocksTree tree;
 			tree.node = new ::profiler::SerilizedBlock(sz, data);
-			tree.block_index = ++blocks_counter;
+			tree.block_index = blocks_counter++;
 
             if (::profiler::BLOCK_TYPE_THREAD_SIGN == baseData->getType())
             {
