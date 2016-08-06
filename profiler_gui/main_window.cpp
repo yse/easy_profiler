@@ -97,10 +97,16 @@ ProfMainWindow::ProfMainWindow() : QMainWindow(), m_treeWidget(nullptr), m_graph
 	settings.beginGroup("main");
 
 	auto geometry = settings.value("geometry").toByteArray();
+    if (!geometry.isEmpty())
+    {
+        restoreGeometry(geometry);
+    }
 
-	if (!geometry.isEmpty()){
-		restoreGeometry(geometry);
-	}
+    auto last_file = settings.value("last_file");
+    if (!last_file.isNull())
+    {
+        m_lastFile = last_file.toString().toStdString();
+    }
 	
 	settings.endGroup();
 }
@@ -203,6 +209,7 @@ void ProfMainWindow::saveSettings()
 	settings.beginGroup("main");
 
 	settings.setValue("geometry", this->saveGeometry());
+    settings.setValue("last_file", m_lastFile.c_str());
 
 	settings.endGroup();
 }
