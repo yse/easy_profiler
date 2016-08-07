@@ -51,7 +51,7 @@ Block will be automatically completed by destructor
 
 \ingroup profiler
 */
-#define PROFILER_BEGIN_BLOCK(name)	profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,0,profiler::BLOCK_TYPE_BLOCK);\
+#define PROFILER_BEGIN_BLOCK(name)	profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,profiler::colors::Clay,profiler::BLOCK_TYPE_BLOCK);\
 									profiler::beginBlock(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
 
 /** Macro of beginning of block with custom name and custom identification
@@ -199,12 +199,12 @@ namespace profiler
 		const color_t Magenta      = (Red   | Blue);
 		const color_t Cyan         = (Green | Blue);
 		const color_t Yellow       = (Red   | Green);
-		const color_t Lightred     = 0x60;
-		const color_t Lightgreen   = 0x0C;
-		const color_t Lightblue    = 0x01;
-		const color_t Lightmagenta = (Lightred   | Lightblue);
-		const color_t Lightcyan    = (Lightgreen | Lightblue);
-		const color_t Lightyellow  = (Lightred   | Lightgreen);
+		const color_t Darkred      = 0x60;
+		const color_t Darkgreen    = 0x0C;
+		const color_t Darkblue     = 0x01;
+		const color_t Darkmagenta  = (Darkred   | Darkblue);
+		const color_t Darkcyan     = (Darkgreen | Darkblue);
+		const color_t Darkyellow   = (Darkred   | Darkgreen);
 		const color_t Navy         = 0x02;
 		const color_t Teal         = 0x12;
 		const color_t Maroon       = 0x80;
@@ -212,6 +212,12 @@ namespace profiler
 		const color_t Olive        = 0x90;
 		const color_t Grey         = 0x92;
 		const color_t Silver       = 0xDB;
+        const color_t Orange       = 0xF4;
+        const color_t Coral        = 0xF6;
+        const color_t Brick        = 0xED;
+        const color_t Clay         = 0xD6;
+        const color_t Skin         = 0xFA;
+        const color_t Palegold     = 0xFE;
 
 		inline int get_red(color_t color){
 			return (color >> 5) * 0x20;

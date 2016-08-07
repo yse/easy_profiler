@@ -18,7 +18,7 @@ int MODELLING_STEPS = 1000;
 int RESOURCE_LOADING_COUNT = 100;
 
 void loadingResources(){
-	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Lightcyan);
+	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Darkcyan);
 	std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }
 
@@ -64,7 +64,7 @@ void calcBrain(){
 }
 
 void calculateBehavior(){
-	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Lightblue);
+	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Darkblue);
     calcPhys();
     calcBrain();
 }
@@ -76,7 +76,7 @@ void modellingStep(){
 }
 
 void prepareRender(){
-	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Lightred);
+	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Darkred);
     volatile int i = 0;
     for (; i < 200000; ++i);
 	//std::this_thread::sleep_for(std::chrono::milliseconds(8));
