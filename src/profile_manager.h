@@ -65,7 +65,7 @@ class ProfileManager
 
 	void _internalInsertBlock(profiler::Block* _block);
 
-	typedef std::list<profiler::SerilizedBlock*> serialized_list_t;
+	typedef std::list<profiler::SerializedBlock*> serialized_list_t;
 	serialized_list_t m_blocks;
 
 	set_of_thread_id m_namedThreades;

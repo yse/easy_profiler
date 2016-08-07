@@ -300,16 +300,16 @@ namespace profiler
 		inline const char* getName() const { return name; }		
 	};
 
-	class PROFILER_API SerilizedBlock
+	class PROFILER_API SerializedBlock
 	{
 		uint16_t m_size;
 		char* m_data;
 	public:
-		SerilizedBlock(profiler::Block* block);
-		SerilizedBlock(uint16_t _size, char* _data);
-		SerilizedBlock(SerilizedBlock&& that);
-		SerilizedBlock(const SerilizedBlock& other);
-		~SerilizedBlock();
+		SerializedBlock(profiler::Block* block);
+		SerializedBlock(uint16_t _size, char* _data);
+		SerializedBlock(SerializedBlock&& that);
+		SerializedBlock(const SerializedBlock& other);
+		~SerializedBlock();
 
 		const char* const data() const { return m_data; }
 		uint16_t size() const { return m_size; }

@@ -114,7 +114,7 @@ void TreeModel::setupModelData(const QByteArray &lines, TreeItem *parent)
 
     indentations << 0;
 
-    typedef std::map<profiler::timestamp_t, profiler::SerilizedBlock> blocks_map_t;
+    typedef std::map<profiler::timestamp_t, profiler::SerializedBlock> blocks_map_t;
     typedef std::map<size_t, blocks_map_t> thread_map_t;
     thread_map_t blocksList;
     QByteArray array(lines);
@@ -131,7 +131,7 @@ void TreeModel::setupModelData(const QByteArray &lines, TreeItem *parent)
         profiler::BaseBlockData* baseData = (profiler::BaseBlockData*)data;
         blocksList[baseData->getThreadId()].emplace(
                     baseData->getBegin(),
-                    /*std::move(*/profiler::SerilizedBlock(sz, data))/*)*/;
+                    /*std::move(*/profiler::SerializedBlock(sz, data))/*)*/;
     }
 
 

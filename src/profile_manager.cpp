@@ -34,7 +34,7 @@ extern "C"{
 	}
 }
 
-SerilizedBlock::SerilizedBlock(Block* block):
+SerializedBlock::SerializedBlock(Block* block):
 		m_size(0),
 		m_data(nullptr)
 {
@@ -47,7 +47,7 @@ SerilizedBlock::SerilizedBlock(Block* block):
 	strncpy(&m_data[sizeof(BaseBlockData)], block->getName(), name_len);
 }
 
-SerilizedBlock::SerilizedBlock(uint16_t _size, char* _data) :
+SerializedBlock::SerializedBlock(uint16_t _size, char* _data) :
 		m_size(_size),
 		m_data(_data)
 {
@@ -55,7 +55,7 @@ SerilizedBlock::SerilizedBlock(uint16_t _size, char* _data) :
 	//memcpy(&m_data[0], _data, m_size);
 }
 
-SerilizedBlock::~SerilizedBlock()
+SerializedBlock::~SerializedBlock()
 {
 	if (m_data){
 		delete[] m_data;
@@ -63,14 +63,14 @@ SerilizedBlock::~SerilizedBlock()
 	}
 }
 
-SerilizedBlock::SerilizedBlock(const SerilizedBlock& other)
+SerializedBlock::SerializedBlock(const SerializedBlock& other)
 {
 	m_size = other.m_size;
 	m_data = new char[m_size];
 	memcpy(&m_data[0], other.m_data, m_size);
 }
 
-SerilizedBlock::SerilizedBlock(SerilizedBlock&& that)
+SerializedBlock::SerializedBlock(SerializedBlock&& that)
 {
 	m_size = that.m_size;
 	m_data = that.m_data;
@@ -78,12 +78,12 @@ SerilizedBlock::SerilizedBlock(SerilizedBlock&& that)
 	that.m_data = nullptr;
 }
 
-const BaseBlockData * SerilizedBlock::block() const
+const BaseBlockData * SerializedBlock::block() const
 {
 	return (const BaseBlockData*)m_data;
 }
 
-const char* SerilizedBlock::getBlockName() const
+const char* SerializedBlock::getBlockName() const
 {
 	return (const char*)&m_data[sizeof(profiler::BaseBlockData)];
 }
@@ -150,7 +150,7 @@ void ProfileManager::setEnabled(bool isEnable)
 void ProfileManager::_internalInsertBlock(profiler::Block* _block)
 {
 	guard_lock_t lock(m_storedSpin);
-	m_blocks.emplace_back(new SerilizedBlock(_block));
+	m_blocks.emplace_back(new SerializedBlock(_block));
 }
 
 unsigned int ProfileManager::dumpBlocksToFile(const char* filename)
@@ -180,6 +180,6 @@ void ProfileManager::setThreadName(const char* name)
         return;
 
     profiler::Block block(name, current_thread_id, 0, profiler::BLOCK_TYPE_THREAD_SIGN);
-    m_blocks.emplace_back(new SerilizedBlock(&block));
+    m_blocks.emplace_back(new SerializedBlock(&block));
     m_namedThreades.insert(current_thread_id);
 }

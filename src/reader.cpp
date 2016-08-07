@@ -257,7 +257,7 @@ extern "C"{
             auto& per_thread_statistics = thread_statistics[block_thread_id];
 
             ::profiler::BlocksTree tree;
-			tree.node = new ::profiler::SerilizedBlock(sz, data);
+			tree.node = new ::profiler::SerializedBlock(sz, data);
 			tree.block_index = blocks_counter++;
 
             if (::profiler::BLOCK_TYPE_THREAD_SIGN == baseData->getType())

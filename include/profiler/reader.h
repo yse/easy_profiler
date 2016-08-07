@@ -95,7 +95,7 @@ namespace profiler {
         typedef ::std::list<BlocksTree> children_t;
 
         children_t                                children; ///< List of children blocks. May be empty.
-        ::profiler::SerilizedBlock*                   node; ///< Pointer to serilized data (type, name, begin, end etc.)
+        ::profiler::SerializedBlock*                   node; ///< Pointer to serilized data (type, name, begin, end etc.)
         ::profiler::BlockStatistics*      per_parent_stats; ///< Pointer to statistics for this block within the parent (may be nullptr for top-level blocks)
         ::profiler::BlockStatistics*       per_frame_stats; ///< Pointer to statistics for this block within the frame (may be nullptr for top-level blocks)
         ::profiler::BlockStatistics*      per_thread_stats; ///< Pointer to statistics for this block within the bounds of all frames per current thread
