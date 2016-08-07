@@ -52,7 +52,7 @@ const unsigned short ROW_SPACING = 4;
 const QRgb BORDERS_COLOR = 0x00a07050;
 const QRgb BACKGROUND_1 = 0x00dddddd;
 const QRgb BACKGROUND_2 = 0x00ffffff;
-const QColor CHRONOMETER_COLOR2 = QColor::fromRgba(0x40408040);
+const QColor CHRONOMETER_COLOR2 = QColor::fromRgba(0x20408040);
 
 const unsigned int TEST_PROGRESSION_BASE = 4;
 
@@ -589,6 +589,7 @@ void ProfChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     _painter->drawRect(rect);
 
     // draw text
+    _painter->setCompositionMode(QPainter::CompositionMode_Difference); // This lets the text to be visible on every background
     _painter->setPen(0xffffffff - m_color.rgb());
     _painter->setFont(m_font);
 
@@ -604,7 +605,7 @@ void ProfChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
 
     if (!m_bMain)
     {
-        rect.setTop(rect.top() + textRect.height() * 1.33);
+        rect.setTop(rect.top() + textRect.height() * 1.5);
     }
 
     if (textRect.width() < rect.width())
@@ -979,7 +980,7 @@ void ProfGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     }
 
     // Calculating scene rect
-    const qreal endX = time2position(finish) + 1.0;
+    const qreal endX = time2position(finish) + 1500.0;
     scene()->setSceneRect(0, 0, endX, y);
 
     // Stub! :O
@@ -1074,7 +1075,7 @@ qreal ProfGraphicsView::setTree(ProfGraphicsItem* _item, const ::profiler::Block
 
         const auto color = child.node->block()->getColor();
         b.block = &child;
-        b.color = ::profiler_gui::toRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
+        b.color = ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
         b.setRect(xbegin, _y, duration, GRAPHICS_ROW_SIZE);
         b.totalHeight = GRAPHICS_ROW_SIZE + h;
 
@@ -1113,6 +1114,10 @@ void ProfGraphicsView::setScrollbar(ProfGraphicsScrollbar* _scrollbar)
 void ProfGraphicsView::updateVisibleSceneRect()
 {
     m_visibleSceneRect = mapToScene(rect()).boundingRect();
+
+    auto vbar = verticalScrollBar();
+    if (vbar && vbar->isVisible())
+        m_visibleSceneRect.setWidth(m_visibleSceneRect.width() - vbar->width() - 2);
 }
 
 void ProfGraphicsView::updateScene()
@@ -1375,7 +1380,7 @@ void ProfGraphicsView::mouseMoveEvent(QMouseEvent* _event)
             updateVisibleSceneRect(); // Update scene visible rect only once
 
             // Update flicker speed
-            m_flickerSpeedX += delta.x() >> 2;
+            m_flickerSpeedX += delta.x() >> 1;
             m_flickerSpeedY += delta.y() >> 1;
             if (!m_flickerTimer.isActive())
             {

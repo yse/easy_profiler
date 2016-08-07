@@ -60,6 +60,7 @@ public:
     const ::profiler::BlocksTree* block() const;
 
     ::profiler::timestamp_t duration() const;
+    ::profiler::timestamp_t selfDuration() const;
 
     void setTimeSmart(int _column, const ::profiler::timestamp_t& _time);
 
@@ -137,7 +138,7 @@ protected:
 
     size_t setTreeInternal(const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict);
 
-    size_t setTreeInternal(const ::profiler::BlocksTree::children_t& _children, ProfTreeWidgetItem* _parent, ProfTreeWidgetItem* _frame, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration);
+    size_t setTreeInternal(const ::profiler::BlocksTree::children_t& _children, ProfTreeWidgetItem* _parent, ProfTreeWidgetItem* _frame, ProfTreeWidgetItem* _thread, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration);
 
     void contextMenuEvent(QContextMenuEvent* _event) override;
 
@@ -167,6 +168,7 @@ private slots:
 
 protected:
 
+    void loadSettings();
 	void saveSettings();
 
 }; // END of class ProfTreeWidget.

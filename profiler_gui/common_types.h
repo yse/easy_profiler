@@ -87,13 +87,18 @@ struct do_no_hash {
 
 //////////////////////////////////////////////////////////////////////////
 
-const QRgb DEFAULT_COLOR = 0x00f0e094;
+const QRgb DEFAULT_COLOR = 0x00d4b494;//0x00f0e094;
 
 inline QRgb toRgb(unsigned int _red, unsigned int _green, unsigned int _blue)
 {
+    return (_red << 16) + (_green << 8) + _blue;
+}
+
+inline QRgb fromProfilerRgb(unsigned int _red, unsigned int _green, unsigned int _blue)
+{
     if (_red == 0 && _green == 0 && _blue == 0)
         return DEFAULT_COLOR;
-    return (_red << 16) + (_green << 8) + _blue;
+    return toRgb(_red, _green, _blue) | 0x00141414;
 }
 
 //////////////////////////////////////////////////////////////////////////

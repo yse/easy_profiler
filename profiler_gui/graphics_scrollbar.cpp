@@ -167,13 +167,14 @@ void ProfMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* 
 
         const auto h = ::std::max((item.width() - m_minDuration) * coeff, 5.0);
         const auto col = h * heightRevert;
-        const auto color = ::profiler_gui::toRgb(col * 255, (1.0 - col) * 255, 0); // item.color;
+        //const auto color = ::profiler_gui::toRgb(col * 255, (1.0 - col) * 255, 0); // item.color;
+        const auto color = 0x00ffffff & QColor::fromHsvF((1.0 - col) * 0.35, 0.85, 0.85).rgb();
 
         if (previousColor != color)
         {
             // Set background color brush for rectangle
             previousColor = color;
-            brush.setColor(QColor::fromRgba(0x80000000 | color));
+            brush.setColor(QColor::fromRgba(0xc0000000 | color));
             _painter->setBrush(brush);
         }
 
@@ -274,7 +275,7 @@ ProfGraphicsScrollbar::ProfGraphicsScrollbar(QWidget* _parent)
     m_chronometerIndicator = new ProfGraphicsSliderItem();
     m_chronometerIndicator->setPos(0, 0);
     m_chronometerIndicator->setZValue(10);
-    m_chronometerIndicator->setColor(::profiler_gui::CHRONOMETER_COLOR);
+    m_chronometerIndicator->setColor(0x40000000 | ::profiler_gui::CHRONOMETER_COLOR.rgba());
     selfScene->addItem(m_chronometerIndicator);
     m_chronometerIndicator->hide();
 

@@ -94,19 +94,21 @@ namespace profiler {
 
         typedef ::std::list<BlocksTree> children_t;
 
-        children_t                           children; ///< List of children blocks. May be empty.
-        ::profiler::SerilizedBlock*              node; ///< Pointer to serilized data (type, name, begin, end etc.)
-        ::profiler::BlockStatistics* frame_statistics; ///< Pointer to statistics for this block within the parent (may be nullptr for top-level blocks)
-        ::profiler::BlockStatistics* total_statistics; ///< Pointer to statistics for this block within the bounds of all frames per current thread
+        children_t                                children; ///< List of children blocks. May be empty.
+        ::profiler::SerilizedBlock*                   node; ///< Pointer to serilized data (type, name, begin, end etc.)
+        ::profiler::BlockStatistics*      per_parent_stats; ///< Pointer to statistics for this block within the parent (may be nullptr for top-level blocks)
+        ::profiler::BlockStatistics*       per_frame_stats; ///< Pointer to statistics for this block within the frame (may be nullptr for top-level blocks)
+        ::profiler::BlockStatistics*      per_thread_stats; ///< Pointer to statistics for this block within the bounds of all frames per current thread
 
-        unsigned int                      block_index; ///< Index of this block
-        unsigned int            total_children_number; ///< Number of all children including number of grandchildren (and so on)
-        unsigned short                          depth; ///< Maximum number of sublevels (maximum children depth)
+        unsigned int                           block_index; ///< Index of this block
+        unsigned int                 total_children_number; ///< Number of all children including number of grandchildren (and so on)
+        unsigned short                               depth; ///< Maximum number of sublevels (maximum children depth)
 
         BlocksTree()
             : node(nullptr)
-            , frame_statistics(nullptr)
-            , total_statistics(nullptr)
+            , per_parent_stats(nullptr)
+            , per_frame_stats(nullptr)
+            , per_thread_stats(nullptr)
             , block_index(0)
             , total_children_number(0)
             , depth(0)
@@ -132,8 +134,9 @@ namespace profiler {
                 delete node;
             }
 
-            release(total_statistics);
-            release(frame_statistics);
+            release(per_thread_stats);
+            release(per_parent_stats);
+            release(per_frame_stats);
         }
 
         bool operator < (const This& other) const
@@ -157,28 +160,35 @@ namespace profiler {
                 delete node;
             }
 
-            if (total_statistics != that.total_statistics)
+            if (per_thread_stats != that.per_thread_stats)
             {
-                release(total_statistics);
+                release(per_thread_stats);
             }
 
-            if (frame_statistics != that.frame_statistics)
+            if (per_parent_stats != that.per_parent_stats)
             {
-                release(frame_statistics);
+                release(per_parent_stats);
+            }
+
+            if (per_frame_stats != that.per_frame_stats)
+            {
+                release(per_frame_stats);
             }
 
             children = ::std::move(that.children);
             node = that.node;
-            frame_statistics = that.frame_statistics;
-            total_statistics = that.total_statistics;
+            per_parent_stats = that.per_parent_stats;
+            per_frame_stats = that.per_frame_stats;
+            per_thread_stats = that.per_thread_stats;
 
             block_index = that.block_index;
             total_children_number = that.total_children_number;
             depth = that.depth;
 
             that.node = nullptr;
-            that.frame_statistics = nullptr;
-            that.total_statistics = nullptr;
+            that.per_parent_stats = nullptr;
+            that.per_frame_stats = nullptr;
+            that.per_thread_stats = nullptr;
         }
 
     }; // END of class BlocksTree.
