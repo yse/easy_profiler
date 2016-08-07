@@ -61,6 +61,7 @@ private:
 
     void loadFile(const std::string& filename);
 
+    void loadSettings();
 	void saveSettings();
 
 }; // END of class ProfMainWindow.

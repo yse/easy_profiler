@@ -83,32 +83,15 @@ ProfMainWindow::ProfMainWindow() : QMainWindow(), m_treeWidget(nullptr), m_graph
     menu->addAction(actionTestView);
     menuBar()->addMenu(menu);
 
-
     connect(graphicsView->view(), &ProfGraphicsView::intervalChanged, treeWidget, &ProfTreeWidget::setTreeBlocks);
 
+    loadSettings();
 
     if(QCoreApplication::arguments().size() > 1)
     {
         auto opened_filename = QCoreApplication::arguments().at(1).toStdString();
         loadFile(opened_filename);
     }
-
-	QSettings settings(profiler_gui::ORGANAZATION_NAME, profiler_gui::APPLICATION_NAME);
-	settings.beginGroup("main");
-
-	auto geometry = settings.value("geometry").toByteArray();
-    if (!geometry.isEmpty())
-    {
-        restoreGeometry(geometry);
-    }
-
-    auto last_file = settings.value("last_file");
-    if (!last_file.isNull())
-    {
-        m_lastFile = last_file.toString().toStdString();
-    }
-	
-	settings.endGroup();
 }
 
 ProfMainWindow::~ProfMainWindow()
@@ -203,9 +186,29 @@ void ProfMainWindow::closeEvent(QCloseEvent* close_event)
 
 //////////////////////////////////////////////////////////////////////////
 
+void ProfMainWindow::loadSettings()
+{
+    QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
+    settings.beginGroup("main");
+
+    auto geometry = settings.value("geometry").toByteArray();
+    if (!geometry.isEmpty())
+    {
+        restoreGeometry(geometry);
+    }
+
+    auto last_file = settings.value("last_file");
+    if (!last_file.isNull())
+    {
+        m_lastFile = last_file.toString().toStdString();
+    }
+
+    settings.endGroup();
+}
+
 void ProfMainWindow::saveSettings()
 {
-	QSettings settings(profiler_gui::ORGANAZATION_NAME, profiler_gui::APPLICATION_NAME);
+	QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
 	settings.beginGroup("main");
 
 	settings.setValue("geometry", this->saveGeometry());
@@ -214,3 +217,4 @@ void ProfMainWindow::saveSettings()
 	settings.endGroup();
 }
 
+//////////////////////////////////////////////////////////////////////////
