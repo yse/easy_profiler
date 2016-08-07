@@ -537,8 +537,7 @@ void ProfChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
             m_indicator.clear();
             if (m_left > sceneRight)
             {
-                auto vbar = sceneView->verticalScrollBar();
-                sceneRight = ((sceneRight - offset) * currentScale) - 2 - (vbar->isVisible() ? vbar->width() : 0);
+                sceneRight = (sceneRight - offset) * currentScale;
                 m_indicator.push_back(QPointF(sceneRight - 10, vcenter - 10));
                 m_indicator.push_back(QPointF(sceneRight, vcenter));
                 m_indicator.push_back(QPointF(sceneRight - 10, vcenter + 10));
@@ -1404,9 +1403,9 @@ void ProfGraphicsView::mouseMoveEvent(QMouseEvent* _event)
 
 void ProfGraphicsView::resizeEvent(QResizeEvent* _event)
 {
+    QGraphicsView::resizeEvent(_event);
     updateVisibleSceneRect(); // Update scene visible rect only once
     updateScene(); // repaint scene
-    QGraphicsView::resizeEvent(_event);
 }
 
 //////////////////////////////////////////////////////////////////////////
