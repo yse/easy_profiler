@@ -74,25 +74,43 @@ int main(int argc, char* argv[])
 
     ::profiler::thread_blocks_tree_t threaded_trees;
 
-	const char* filename = nullptr;
-	if(argc > 1 && argv[1]){
+	::std::string filename;
+	if(argc > 1 && argv[1])
+    {
  		filename = argv[1];
-    }else{
-		std::cout << "Specify prof file!" << std::endl;
- 		return 255;
+    }
+    else
+    {
+		std::cout << "Specify prof file: ";
+        std::getline(std::cin, filename);
+ 		//return 255;
  	}
 
-	const char* dump_filename = nullptr;
-	if(argc > 2 && argv[2]){
+	::std::string dump_filename;
+	if(argc > 2 && argv[2])
+    {
 		dump_filename = argv[2];
-		PROFILER_ENABLE
-		std::cout << "Will dump reader prof file to " << dump_filename << std::endl;
 	}
+    else
+    {
+        std::cout << "Specify output prof file: ";
+        std::getline(std::cin, dump_filename);
+    }
+
+    if (dump_filename.size() > 2)
+    {
+        PROFILER_ENABLE
+        std::cout << "Will dump reader prof file to " << dump_filename << std::endl;
+    }
+    else
+    {
+        dump_filename.clear();
+    }
 
 
 	auto start = std::chrono::system_clock::now();
 
-	auto blocks_counter = fillTreesFromFile(filename, threaded_trees, true);
+	auto blocks_counter = fillTreesFromFile(filename.c_str(), threaded_trees, true);
 
 	auto end = std::chrono::system_clock::now();
 
@@ -103,9 +121,10 @@ int main(int argc, char* argv[])
 		std::cout << std::string(20, '=') << " thread "<< i.first << " "<< std::string(20, '=') << std::endl;
 		printTree(p, i.second.tree,-1);
 	}
-	if(dump_filename!=nullptr)
+
+	if(!dump_filename.empty())
 	{
-		auto bcount = profiler::dumpBlocksToFile(dump_filename);
+		auto bcount = profiler::dumpBlocksToFile(dump_filename.c_str());
 
 		std::cout << "Blocks count for reader: " << bcount << std::endl;
 	}
