@@ -409,7 +409,8 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
             }
             else
             {
-                _painter->drawText(rect, 0, item.block->node->getBlockName());
+
+                _painter->drawText(rect, 0, ::profiler_gui::toUnicode(item.block->node->getBlockName()));
             }
 
             // restore previous pen color
@@ -444,6 +445,11 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     }
 
     _painter->restore();
+}
+
+QRect ProfGraphicsItem::getRect() const
+{
+    return view()->mapFromScene(m_boundingRect).boundingRect();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1225,6 +1231,11 @@ void ProfGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     scaleTo(BASE_SCALE);
 }
 
+const ProfGraphicsView::Items &ProfGraphicsView::getItems() const
+{
+    return m_items;
+}
+
 qreal ProfGraphicsView::setTree(ProfGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, qreal _y, unsigned short _level)
 {
     static const qreal MIN_DURATION = 0.25;
@@ -1810,26 +1821,29 @@ ProfGraphicsViewWidget::ProfGraphicsViewWidget(bool _test)
     : QWidget(nullptr)
     , m_scrollbar(new ProfGraphicsScrollbar(nullptr))
     , m_view(new ProfGraphicsView(_test))
+    //, m_threadWidget(new ProfThreadViewWidget(this,m_view))
 {
-    auto lay = new QVBoxLayout(this);
-    lay->setContentsMargins(1, 0, 1, 0);
-    lay->addWidget(m_view);
-    lay->setSpacing(1);
-    lay->addWidget(m_scrollbar);
-    setLayout(lay);
-    m_view->setScrollbar(m_scrollbar);
+    initWidget();
 }
 
 ProfGraphicsViewWidget::ProfGraphicsViewWidget(const ::profiler::thread_blocks_tree_t& _blocksTree)
     : QWidget(nullptr)
     , m_scrollbar(new ProfGraphicsScrollbar(nullptr))
     , m_view(new ProfGraphicsView(_blocksTree))
+    //, m_threadWidget(new ProfThreadViewWidget(this,m_view))
 {
-    auto lay = new QVBoxLayout(this);
+    initWidget();
+}
+
+void ProfGraphicsViewWidget::initWidget()
+{
+    auto lay = new QGridLayout(this);
     lay->setContentsMargins(1, 0, 1, 0);
-    lay->addWidget(m_view);
+    lay->addWidget(m_view,0,1);
     lay->setSpacing(1);
-    lay->addWidget(m_scrollbar);
+    lay->addWidget(m_scrollbar,1,1);
+    //lay->setSpacing(1);
+    //lay->addWidget(m_threadWidget,0,0);
     setLayout(lay);
     m_view->setScrollbar(m_scrollbar);
 }
@@ -1846,3 +1860,48 @@ ProfGraphicsView* ProfGraphicsViewWidget::view()
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
+
+ProfThreadViewWidget::ProfThreadViewWidget(QWidget *parent, ProfGraphicsView* view):QWidget(parent),
+    m_view(view)
+  , m_label(new QLabel("",this))
+{
+    m_layout = new QHBoxLayout;
+    //QPushButton *button1 = new QPushButton();
+
+    //m_layout->addWidget(m_label);
+    //setLayout(m_layout);
+    //show();
+    connect(&::profiler_gui::EASY_GLOBALS.events, &::profiler_gui::ProfGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
+}
+
+ProfThreadViewWidget::~ProfThreadViewWidget()
+{
+
+}
+
+void ProfThreadViewWidget::onSelectedThreadChange()
+{
+/*
+    auto threadName = ::profiler_gui::EASY_GLOBALS.profiler_blocks[::profiler_gui::EASY_GLOBALS.selected_thread].thread_name;
+    if(threadName[0]!=0)
+    {
+        m_label->setText(threadName);
+    }
+    else
+    {
+        m_label->setText(QString("Thread %1").arg(::profiler_gui::EASY_GLOBALS.selected_thread));
+    }
+*/
+    QLayoutItem *ditem;
+    while ((ditem = m_layout->takeAt(0)))
+        delete ditem;
+
+    const auto& items = m_view->getItems();
+    for(const auto& item: items)
+    {
+        m_layout->addWidget(new QLabel(QString("Thread %1").arg(item->threadId())));
+        m_layout->setSpacing(1);
+    }
+    setLayout(m_layout);
+
+}

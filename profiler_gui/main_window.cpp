@@ -34,7 +34,7 @@
 #include "blocks_tree_widget.h"
 #include "blocks_graphics_view.h"
 #include "globals.h"
-
+#include <QTextCodec>
 //////////////////////////////////////////////////////////////////////////
 
 ProfMainWindow::ProfMainWindow() : QMainWindow(), m_treeWidget(nullptr), m_graphicsView(nullptr)
@@ -82,6 +82,40 @@ ProfMainWindow::ProfMainWindow() : QMainWindow(), m_treeWidget(nullptr), m_graph
 
     menu = new QMenu("Tests");
     menu->addAction(actionTestView);
+    menuBar()->addMenu(menu);
+
+
+    QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
+    settings.beginGroup("main");
+
+    QString encoding = settings.value("encoding","UTF-8").toString();
+
+    auto default_codec_mib = QTextCodec::codecForName(encoding.toStdString().c_str())->mibEnum() ;
+    auto default_codec = QTextCodec::codecForMib(default_codec_mib);
+    QTextCodec::setCodecForLocale(default_codec);
+    settings.endGroup();
+
+    menu = new QMenu("Settings");
+    auto encodingMenu = menu->addMenu(tr("&Encoding"));
+
+    QActionGroup* codecs_actions = new QActionGroup(this);
+    codecs_actions->setExclusive(true);
+    foreach (int mib, QTextCodec::availableMibs())
+    {
+        auto codec = QTextCodec::codecForMib(mib)->name();
+
+        QAction* action = new QAction(codec,codecs_actions);
+
+        action->setCheckable(true);
+        if(mib == default_codec_mib)
+        {
+            action->setChecked(true);
+        }
+        encodingMenu->addAction(action);
+        connect(action, &QAction::triggered, this, &This::onEncodingChanged);
+
+    }
+
     menuBar()->addMenu(menu);
 
     connect(graphicsView->view(), &ProfGraphicsView::intervalChanged, treeWidget, &ProfTreeWidget::setTreeBlocks);
@@ -179,6 +213,14 @@ void ProfMainWindow::onTestViewportClicked(bool)
     //view->test(3, 300, 1);
 }
 
+void ProfMainWindow::onEncodingChanged(bool)
+{
+   auto _sender = qobject_cast<QAction*>(sender());
+   auto name = _sender->text();
+   QTextCodec *codec = QTextCodec::codecForName(name.toStdString().c_str());
+   QTextCodec::setCodecForLocale(codec);
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 void ProfMainWindow::closeEvent(QCloseEvent* close_event)
@@ -216,6 +258,7 @@ void ProfMainWindow::saveSettings()
 
 	settings.setValue("geometry", this->saveGeometry());
     settings.setValue("last_file", m_lastFile.c_str());
+    settings.setValue("encoding", QTextCodec::codecForLocale()->name());
 
 	settings.endGroup();
 }
