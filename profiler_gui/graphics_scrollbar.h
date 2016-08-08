@@ -177,6 +177,8 @@ public:
     qreal maximum() const;
     qreal range() const;
     qreal value() const;
+    qreal sliderWidth() const;
+    qreal sliderHalfWidth() const;
 
     void setValue(qreal _value);
     void setRange(qreal _minValue, qreal _maxValue);

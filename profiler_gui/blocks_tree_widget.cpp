@@ -252,6 +252,7 @@ ProfTreeWidget::ProfTreeWidget(QWidget* _parent) : Parent(_parent), m_beginTime(
 
     header->setText(COL_DURATION, "Duration");
     header->setText(COL_SELF_DURATION, "Self Dur.");
+    //header->setToolTip(COL_SELF_DURATION, "");
     header->setText(COL_DURATION_SUM_PER_PARENT, "Tot. Dur./Parent");
     header->setText(COL_DURATION_SUM_PER_FRAME, "Tot. Dur./Frame");
     header->setText(COL_DURATION_SUM_PER_THREAD, "Tot. Dur./Thread");
@@ -283,6 +284,7 @@ ProfTreeWidget::ProfTreeWidget(QWidget* _parent) : Parent(_parent), m_beginTime(
     setHeaderItem(header);
 
     connect(&::profiler_gui::EASY_GLOBALS.events, &::profiler_gui::ProfGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
+    connect(&::profiler_gui::EASY_GLOBALS.events, &::profiler_gui::ProfGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
 
     loadSettings();
 }
@@ -332,6 +334,7 @@ void ProfTreeWidget::setTreeBlocks(const ::profiler_gui::TreeBlocks& _blocks, ::
     resizeColumnToContents(COL_NAME);
 
     connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
+    onSelectedBlockChange(::profiler_gui::EASY_GLOBALS.selected_block);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -813,30 +816,46 @@ void ProfTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     connect(action, &QAction::triggered, this, &This::onColorizeRowsTriggered);
     menu.addAction(action);
 
-    if (item != nullptr && col >= 0)
+    if (item != nullptr)
     {
-        switch (col)
-        {
-            case COL_MIN_PER_THREAD:
-            case COL_MIN_PER_PARENT:
-            case COL_MIN_PER_FRAME:
-            {
-                menu.addSeparator();
-                auto itemAction = new ProfItemAction("Jump to such item", item);
-                connect(itemAction, &ProfItemAction::clicked, this, &This::onJumpToMinItemClicked);
-                menu.addAction(itemAction);
-                break;
-            }
+        auto itemAction = new ProfItemAction("Show this item on scene", item->block()->block_index);
+        itemAction->setToolTip("Scroll graphics scene to current item in the tree");
+        connect(itemAction, &ProfItemAction::clicked, this, &This::onJumpToItemClicked);
+        menu.addAction(itemAction);
 
-            case COL_MAX_PER_THREAD:
-            case COL_MAX_PER_PARENT:
-            case COL_MAX_PER_FRAME:
+        if (col >= 0)
+        {
+            switch (col)
             {
-                menu.addSeparator();
-                auto itemAction = new ProfItemAction("Jump to such item", item);
-                connect(itemAction, &ProfItemAction::clicked, this, &This::onJumpToMaxItemClicked);
-                menu.addAction(itemAction);
-                break;
+                case COL_MIN_PER_THREAD:
+                case COL_MIN_PER_PARENT:
+                case COL_MIN_PER_FRAME:
+                case COL_MAX_PER_THREAD:
+                case COL_MAX_PER_PARENT:
+                case COL_MAX_PER_FRAME:
+                {
+                    unsigned int i = -1;
+                    switch (col)
+                    {
+                        case COL_MIN_PER_THREAD: i = item->block()->per_thread_stats->min_duration_block; break;
+                        case COL_MIN_PER_PARENT: i = item->block()->per_parent_stats->min_duration_block; break;
+                        case COL_MIN_PER_FRAME: i = item->block()->per_frame_stats->min_duration_block; break;
+                        case COL_MAX_PER_THREAD: i = item->block()->per_thread_stats->max_duration_block; break;
+                        case COL_MAX_PER_PARENT: i = item->block()->per_parent_stats->max_duration_block; break;
+                        case COL_MAX_PER_FRAME: i = item->block()->per_frame_stats->max_duration_block; break;
+                    }
+
+                    if (i != -1)
+                    {
+                        menu.addSeparator();
+                        itemAction = new ProfItemAction("Jump to such item", i);
+                        itemAction->setToolTip("Jump to item with min/max duration (depending on clicked column)");
+                        connect(itemAction, &ProfItemAction::clicked, this, &This::onJumpToItemClicked);
+                        menu.addAction(itemAction);
+                    }
+
+                    break;
+                }
             }
         }
     }
@@ -862,24 +881,10 @@ void ProfTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void ProfTreeWidget::onJumpToMinItemClicked(ProfTreeWidgetItem* _item)
+void ProfTreeWidget::onJumpToItemClicked(unsigned int _block_index)
 {
-    auto item = ::profiler_gui::EASY_GLOBALS.gui_blocks[_item->block()->per_thread_stats->min_duration_block].tree_item;
-    if (item != nullptr)
-    {
-        scrollToItem(item, QAbstractItemView::PositionAtCenter);
-        setCurrentItem(item);
-    }
-}
-
-void ProfTreeWidget::onJumpToMaxItemClicked(ProfTreeWidgetItem* _item)
-{
-    auto item = ::profiler_gui::EASY_GLOBALS.gui_blocks[_item->block()->per_thread_stats->max_duration_block].tree_item;
-    if (item != nullptr)
-    {
-        scrollToItem(item, QAbstractItemView::PositionAtCenter);
-        setCurrentItem(item);
-    }
+    ::profiler_gui::EASY_GLOBALS.selected_block = _block_index;
+    emit ::profiler_gui::EASY_GLOBALS.events.selectedBlockChanged(_block_index);
 }
 
 void ProfTreeWidget::onCollapseAllClicked(bool)
@@ -955,6 +960,21 @@ void ProfTreeWidget::onSelectedThreadChange(::profiler::thread_id_t _id)
     for (auto& it : m_roots)
     {
         it.second->colorize(it.first == _id);
+    }
+}
+
+void ProfTreeWidget::onSelectedBlockChange(unsigned int _block_index)
+{
+    if (_block_index < ::profiler_gui::EASY_GLOBALS.gui_blocks.size())
+    {
+        auto item = ::profiler_gui::EASY_GLOBALS.gui_blocks[_block_index].tree_item;
+        if (item != nullptr)
+            scrollToItem(item, QAbstractItemView::PositionAtCenter);
+        setCurrentItem(item);
+    }
+    else
+    {
+        setCurrentItem(nullptr);
     }
 }
 

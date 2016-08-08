@@ -94,7 +94,7 @@ public: \
 private: \
     void onToggle(bool) { emit clicked(m_item); }
 
-DECLARE_QACTION(ProfItemAction, ProfTreeWidgetItem*) signals: void clicked(ProfTreeWidgetItem* _item); };
+DECLARE_QACTION(ProfItemAction, unsigned int) signals: void clicked(unsigned int _item); };
 DECLARE_QACTION(ProfHideShowColumnAction, int) signals: void clicked(int _item); };
 
 #undef DECLARE_QACTION
@@ -144,9 +144,7 @@ protected:
 
 private slots:
 
-    void onJumpToMinItemClicked(ProfTreeWidgetItem* _item);
-
-    void onJumpToMaxItemClicked(ProfTreeWidgetItem* _item);
+    void onJumpToItemClicked(unsigned int _block_index);
 
     void onCollapseAllClicked(bool);
 
@@ -161,6 +159,8 @@ private slots:
     void onColorizeRowsTriggered(bool _colorize);
 
     void onSelectedThreadChange(::profiler::thread_id_t _id);
+
+    void onSelectedBlockChange(unsigned int _block_index);
 
     void resizeColumnsToContents();
 

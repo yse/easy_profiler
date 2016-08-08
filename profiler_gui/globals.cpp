@@ -38,7 +38,7 @@ namespace profiler_gui {
 
     ProfGlobals::ProfGlobals()
         : selected_thread(0)
-        , selected_block(0)
+        , selected_block(-1)
         , draw_graphics_items_borders(true)
     {
 

@@ -127,6 +127,8 @@ public:
     \param _blocks Reference to the array of selected blocks */
     void getBlocks(qreal _left, qreal _right, ::profiler_gui::TreeBlocks& _blocks) const;
 
+    const ::profiler_gui::ProfBlockItem* intersect(const QPointF& _pos) const;
+
 private:
 
     ///< Returns pointer to the ProfGraphicsView widget.
@@ -145,6 +147,7 @@ class ProfChronometerItem : public QGraphicsItem
     qreal  m_left, m_right; ///< Left and right bounds of the selection zone
     bool           m_bMain; ///< Is this chronometer main (true, by default)
     bool        m_bReverse;
+    bool          m_bHover; ///< Mouse hover above indicator
 
 public:
 
@@ -168,6 +171,15 @@ public:
     void setLeftRight(qreal _left, qreal _right);
 
     void setReverse(bool _reverse);
+
+    void setHover(bool _hover);
+
+    bool contains(const QPointF& _pos) const;
+
+    inline bool hover() const
+    {
+        return m_bHover;
+    }
 
     inline bool reverse() const
     {
@@ -215,6 +227,7 @@ private:
     qreal                                   m_scale; ///< Current scale
     qreal                                  m_offset; ///< Have to use manual offset for all scene content instead of using scrollbars because QScrollBar::value is 32-bit integer :(
     QPoint                          m_mousePressPos; ///< Last mouse global position (used by mousePressEvent and mouseMoveEvent)
+    QPoint                          m_mouseMovePath; ///< Mouse move path between press and release of any button
     Qt::MouseButtons                 m_mouseButtons; ///< Pressed mouse buttons
     ProfGraphicsScrollbar*             m_pScrollbar; ///< Pointer to the graphics scrollbar widget
     ProfChronometerItem*          m_chronometerItem; ///< Pointer to the ProfChronometerItem which is displayed when you press right mouse button and move mouse left or right. This item is used to select blocks to display in tree widget.
@@ -278,6 +291,7 @@ private slots:
     void onGraphicsScrollbarValueChange(qreal);
     void onFlickerTimeout();
     void onSelectedThreadChange(::profiler::thread_id_t _id);
+    void onSelectedBlockChange(unsigned int _block_index);
 
 public:
 

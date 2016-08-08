@@ -157,7 +157,7 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
 
     // Search for first visible top-level item
-    auto& level0 = m_levels[0];
+    auto& level0 = m_levels.front();
     auto first = ::std::lower_bound(level0.begin(), level0.end(), sceneLeft, [](const ::profiler_gui::ProfBlockItem& _item, qreal _value)
     {
         return _item.left() < _value;
@@ -261,7 +261,16 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     _painter->setBrush(brush);
                 }
 
-                if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders)
+                bool changepen = false;
+                if (!m_bTest && item.block->block_index == ::profiler_gui::EASY_GLOBALS.selected_block)
+                {
+                    changepen = true;
+                    QPen pen(Qt::SolidLine);
+                    pen.setColor(Qt::red);
+                    pen.setWidth(2);
+                    _painter->setPen(pen);
+                }
+                else if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders)
                 {
                     if (w < 3)
                     {
@@ -283,6 +292,14 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 // Draw rectangle
                 rect.setRect(x, item.top(), w, item.totalHeight);
                 _painter->drawRect(rect);
+
+                if (changepen)
+                {
+                    if (previousPenStyle == Qt::NoPen)
+                        _painter->setPen(Qt::NoPen);
+                    else
+                        _painter->setPen(BORDERS_COLOR); // restore pen for rectangle painting
+                }
 
                 if (next_level < levelsNumber && item.children_begin != -1)
                 {
@@ -326,7 +343,14 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 _painter->setBrush(brush);
             }
 
-            if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders && previousPenStyle != Qt::SolidLine)
+            if (!m_bTest && item.block->block_index == ::profiler_gui::EASY_GLOBALS.selected_block)
+            {
+                QPen pen(Qt::SolidLine);
+                pen.setColor(Qt::red);
+                pen.setWidth(2);
+                _painter->setPen(pen);
+            }
+            else if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders && previousPenStyle != Qt::SolidLine)
             {
                 // Restore pen for item which is wide enough to paint borders
                 previousPenStyle = Qt::SolidLine;
@@ -370,13 +394,9 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
             // restore previous pen color
             if (previousPenStyle == Qt::NoPen)
-            {
                 _painter->setPen(Qt::NoPen);
-            }
             else
-            {
                 _painter->setPen(BORDERS_COLOR); // restore pen for rectangle painting
-            }
             // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         }
     }
@@ -394,7 +414,7 @@ void ProfGraphicsItem::getBlocks(qreal _left, qreal _right, ::profiler_gui::Tree
     //}
 
     // Search for first visible top-level item
-    auto& level0 = m_levels[0];
+    auto& level0 = m_levels.front();
     auto first = ::std::lower_bound(level0.begin(), level0.end(), _left, [](const ::profiler_gui::ProfBlockItem& _item, qreal _value)
     {
         return _item.left() < _value;
@@ -432,6 +452,128 @@ void ProfGraphicsItem::getBlocks(qreal _left, qreal _right, ::profiler_gui::Tree
 
         _blocks.emplace_back(m_pRoot, item.block);
     }
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+const ::profiler_gui::ProfBlockItem* ProfGraphicsItem::intersect(const QPointF& _pos) const
+{
+    if (m_levels.empty() || m_levels.front().empty())
+    {
+        return nullptr;
+    }
+
+    const auto& level0 = m_levels.front();
+    const auto top = level0.front().top();
+
+    if (top > _pos.y())
+    {
+        return nullptr;
+    }
+
+    const auto bottom = top + m_levels.size() * GRAPHICS_ROW_SIZE_FULL;
+    if (bottom < _pos.y())
+    {
+        return nullptr;
+    }
+
+    const unsigned int levelIndex = static_cast<unsigned int>(_pos.y() - top) / GRAPHICS_ROW_SIZE_FULL;
+    if (levelIndex >= m_levels.size())
+    {
+        return nullptr;
+    }
+
+    const auto currentScale = view()->scale();
+    unsigned int i = 0;
+    size_t itemIndex = -1;
+    size_t firstItem = 0, lastItem = static_cast<unsigned int>(level0.size());
+    while (i <= levelIndex)
+    {
+        const auto& level = m_levels[i];
+
+        // Search for first visible item
+        auto first = ::std::lower_bound(level.begin() + firstItem, level.begin() + lastItem, _pos.x(), [](const ::profiler_gui::ProfBlockItem& _item, qreal _value)
+        {
+            return _item.left() < _value;
+        });
+
+        if (first != level.end())
+        {
+            itemIndex = first - level.begin();
+            if (itemIndex != 0)
+                --itemIndex;
+        }
+        else
+        {
+            itemIndex = level.size() - 1;
+        }
+
+        for (auto size = level.size(); itemIndex < size; ++itemIndex)
+        {
+            const auto& item = level[itemIndex];
+
+            if (item.left() > _pos.x())
+            {
+                return nullptr;
+            }
+
+            if (item.right() < _pos.x())
+            {
+                continue;
+            }
+
+            const auto w = item.width() * currentScale;
+            if (i == levelIndex || w < 20)
+            {
+                return &item;
+            }
+
+            if (item.children_begin == -1)
+            {
+                if (itemIndex != 0)
+                {
+                    auto j = itemIndex;
+                    firstItem = 0;
+                    do {
+
+                        --j;
+                        const auto& item2 = level[j];
+                        if (item2.children_begin != -1)
+                        {
+                            firstItem = item2.children_begin;
+                            break;
+                        }
+
+                    } while (j != 0);
+                }
+                else
+                {
+                    firstItem = 0;
+                }
+            }
+            else
+            {
+                firstItem = item.children_begin;
+            }
+
+            lastItem = m_levels[i + 1].size();
+            for (auto j = itemIndex + 1; j < size; ++j)
+            {
+                const auto& item2 = level[j];
+                if (item2.children_begin != -1)
+                {
+                    lastItem = item2.children_begin;
+                    break;
+                }
+            }
+
+            break;
+        }
+
+        ++i;
+    }
+
+    return nullptr;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -503,7 +645,7 @@ unsigned int ProfGraphicsItem::addItem(unsigned short _level)
 
 //////////////////////////////////////////////////////////////////////////
 
-ProfChronometerItem::ProfChronometerItem(bool _main) : QGraphicsItem(), m_font(QFont("CourierNew", 16, 2)), m_color(CHRONOMETER_COLOR), m_left(0), m_right(0), m_bMain(_main), m_bReverse(false)
+ProfChronometerItem::ProfChronometerItem(bool _main) : QGraphicsItem(), m_font(QFont("CourierNew", 16, 2)), m_color(CHRONOMETER_COLOR), m_left(0), m_right(0), m_bMain(_main), m_bReverse(false), m_bHover(false)
 {
     setZValue(10);
     m_indicator.reserve(3);
@@ -526,34 +668,41 @@ void ProfChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     const auto visibleSceneRect = sceneView->visibleSceneRect();
     auto sceneLeft = offset, sceneRight = offset + visibleSceneRect.width() / currentScale;
 
+    if (m_bMain)
+        m_indicator.clear();
+
     if (m_left > sceneRight || m_right < sceneLeft)
     {
         // This item is out of screen
 
         if (m_bMain)
         {
+            const int size = m_bHover ? 12 : 10;
             auto vcenter = visibleSceneRect.top() + visibleSceneRect.height() * 0.5;
+            auto color = QColor::fromRgb(m_color.rgb());
+            auto pen = _painter->pen();
+            pen.setColor(color);
 
             m_indicator.clear();
             if (m_left > sceneRight)
             {
                 sceneRight = (sceneRight - offset) * currentScale;
-                m_indicator.push_back(QPointF(sceneRight - 10, vcenter - 10));
+                m_indicator.push_back(QPointF(sceneRight - size, vcenter - size));
                 m_indicator.push_back(QPointF(sceneRight, vcenter));
-                m_indicator.push_back(QPointF(sceneRight - 10, vcenter + 10));
+                m_indicator.push_back(QPointF(sceneRight - size, vcenter + size));
             }
             else
             {
                 sceneLeft = (sceneLeft - offset) * currentScale;
-                m_indicator.push_back(QPointF(sceneLeft + 10, vcenter - 10));
+                m_indicator.push_back(QPointF(sceneLeft + size, vcenter - size));
                 m_indicator.push_back(QPointF(sceneLeft, vcenter));
-                m_indicator.push_back(QPointF(sceneLeft + 10, vcenter + 10));
+                m_indicator.push_back(QPointF(sceneLeft + size, vcenter + size));
             }
 
             _painter->save();
             _painter->setTransform(QTransform::fromTranslate(-x(), -y()), true);
-            _painter->setBrush(QColor::fromRgb(m_color.rgb()));
-            _painter->setPen(Qt::NoPen);
+            _painter->setBrush(m_bHover ? QColor::fromRgb(0xffff0000) : color);
+            _painter->setPen(pen);
             _painter->drawPolygon(m_indicator);
             _painter->restore();
         }
@@ -637,6 +786,15 @@ void ProfChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     // END Paint!~~~~~~~~~~~~~~~~~~~~~~
 }
 
+bool ProfChronometerItem::contains(const QPointF& _pos) const
+{
+    const auto sceneView = view();
+    const auto clickX = (_pos.x() - sceneView->offset()) * sceneView->scale() - x();
+    if (!m_indicator.empty() && m_indicator.containsPoint(QPointF(clickX, _pos.y()), Qt::OddEvenFill))
+        return true;
+    return false;
+}
+
 void ProfChronometerItem::setColor(const QColor& _color)
 {
     m_color = _color;
@@ -669,6 +827,11 @@ void ProfChronometerItem::setLeftRight(qreal _left, qreal _right)
 void ProfChronometerItem::setReverse(bool _reverse)
 {
     m_bReverse = _reverse;
+}
+
+void ProfChronometerItem::setHover(bool _hover)
+{
+    m_bHover = _hover;
 }
 
 const ProfGraphicsView* ProfChronometerItem::view() const
@@ -875,9 +1038,13 @@ void ProfGraphicsView::test(unsigned int _frames_number, unsigned int _total_ite
     m_offset = 0;
     updateVisibleSceneRect();
     setScrollbar(m_pScrollbar);
-    m_pScrollbar->setMinimapFrom(0, longestItem->items(0));
-    ::profiler_gui::EASY_GLOBALS.selected_thread = 0;
-    emit ::profiler_gui::EASY_GLOBALS.events.selectedThreadChanged(0);
+
+    if (longestItem != nullptr)
+    {
+        m_pScrollbar->setMinimapFrom(0, longestItem->items(0));
+        ::profiler_gui::EASY_GLOBALS.selected_thread = 0;
+        emit::profiler_gui::EASY_GLOBALS.events.selectedThreadChanged(0);
+    }
 
     // Create new chronometer item (previous item was destroyed by scene on scene()->clear()).
     // It will be shown on mouse right button click.
@@ -925,6 +1092,11 @@ void ProfGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
 {
     // clear scene
     clearSilent();
+
+    if (_blocksTree.empty())
+    {
+        return;
+    }
 
     // set new blocks tree
     // calculate scene size and fill it with items
@@ -991,9 +1163,13 @@ void ProfGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     // Center view on the beginning of the scene
     updateVisibleSceneRect();
     setScrollbar(m_pScrollbar);
-    m_pScrollbar->setMinimapFrom(longestItem->threadId(), longestItem->items(0));
-    ::profiler_gui::EASY_GLOBALS.selected_thread = longestItem->threadId();
-    emit ::profiler_gui::EASY_GLOBALS.events.selectedThreadChanged(longestItem->threadId());
+
+    if (longestItem != nullptr)
+    {
+        m_pScrollbar->setMinimapFrom(longestItem->threadId(), longestItem->items(0));
+        ::profiler_gui::EASY_GLOBALS.selected_thread = longestItem->threadId();
+        emit::profiler_gui::EASY_GLOBALS.events.selectedThreadChanged(longestItem->threadId());
+    }
 
     // Create new chronometer item (previous item was destroyed by scene on scene()->clear()).
     // It will be shown on mouse right button click.
@@ -1192,15 +1368,11 @@ void ProfGraphicsView::mousePressEvent(QMouseEvent* _event)
     }
 
     m_mouseButtons = _event->buttons();
-
-    if (m_mouseButtons & Qt::LeftButton)
-    {
-        m_mousePressPos = _event->globalPos();
-    }
+    m_mousePressPos = _event->pos();
 
     if (m_mouseButtons & Qt::RightButton)
     {
-        const auto mouseX = m_offset + mapToScene(_event->pos()).x() / m_scale;
+        const auto mouseX = m_offset + mapToScene(m_mousePressPos).x() / m_scale;
         m_chronometerItem->setLeftRight(mouseX, mouseX);
         m_chronometerItem->setReverse(false);
         m_chronometerItem->hide();
@@ -1219,11 +1391,12 @@ void ProfGraphicsView::mouseDoubleClickEvent(QMouseEvent* _event)
     }
 
     m_mouseButtons = _event->buttons();
+    m_mousePressPos = _event->pos();
     m_bDoubleClick = true;
 
     if (m_mouseButtons & Qt::LeftButton)
     {
-        const auto mouseX = m_offset + mapToScene(_event->pos()).x() / m_scale;
+        const auto mouseX = m_offset + mapToScene(m_mousePressPos).x() / m_scale;
         m_chronometerItemAux->setLeftRight(mouseX, mouseX);
         m_chronometerItemAux->setReverse(false);
         m_chronometerItemAux->hide();
@@ -1242,12 +1415,13 @@ void ProfGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
         return;
     }
 
-    bool changedSelection = false;
+    bool changedSelection = false, clicked = false, changedSelectedItem = false;
     if (m_mouseButtons & Qt::RightButton)
     {
         if (m_chronometerItem->isVisible() && m_chronometerItem->width() < 1e-6)
         {
             m_chronometerItem->hide();
+            m_chronometerItem->setHover(false);
             m_pScrollbar->hideChrono();
         }
 
@@ -1279,10 +1453,39 @@ void ProfGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
         {
             m_chronometerItemAux->hide();
         }
+        else if (m_chronometerItem->isVisible() && m_chronometerItem->hover())
+        {
+            // Jump to selected zone
+            clicked = true;
+            m_flickerSpeedX = m_flickerSpeedY = 0;
+            m_pScrollbar->setValue(m_chronometerItem->left() + m_chronometerItem->width() * 0.5 - m_pScrollbar->sliderHalfWidth());
+        }
+
+        if (!clicked && m_mouseMovePath.manhattanLength() < 5 && !m_bTest)
+        {
+            // Handle Click
+
+            clicked = true;
+            auto mouseClickPos = mapToScene(m_mousePressPos);
+            mouseClickPos.setX(m_offset + mouseClickPos.x() / m_scale);
+
+            // Try to select one of item blocks
+            for (auto item : m_items)
+            {
+                auto block = item->intersect(mouseClickPos);
+                if (block)
+                {
+                    changedSelectedItem = true;
+                    ::profiler_gui::EASY_GLOBALS.selected_block = block->block->block_index;
+                    break;
+                }
+            }
+        }
     }
 
     m_bDoubleClick = false;
     m_mouseButtons = _event->buttons();
+    m_mouseMovePath = QPoint();
     _event->accept();
 
     if (changedSelection)
@@ -1291,6 +1494,15 @@ void ProfGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
     }
 
     m_chronometerItem->setReverse(false);
+
+    if (changedSelectedItem)
+    {
+        m_bUpdatingRect = true;
+        emit ::profiler_gui::EASY_GLOBALS.events.selectedBlockChanged(::profiler_gui::EASY_GLOBALS.selected_block);
+        m_bUpdatingRect = false;
+
+        updateScene();
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1333,18 +1545,29 @@ bool ProfGraphicsView::moveChrono(ProfChronometerItem* _chronometerItem, qreal _
 
 void ProfGraphicsView::mouseMoveEvent(QMouseEvent* _event)
 {
-    if (m_bEmpty)
+    if (m_bEmpty || (m_mouseButtons == 0 && !m_chronometerItem->isVisible()))
     {
         _event->accept();
         return;
     }
 
     bool needUpdate = false;
+    const auto pos = _event->pos();
+    const auto delta = pos - m_mousePressPos;
+    m_mousePressPos = pos;
+
+    if (m_mouseButtons != 0)
+    {
+        m_mouseMovePath.setX(m_mouseMovePath.x() + ::std::abs(delta.x()));
+        m_mouseMovePath.setY(m_mouseMovePath.y() + ::std::abs(delta.y()));
+    }
+
+    auto mouseScenePos = mapToScene(m_mousePressPos);
+    mouseScenePos.setX(m_offset + mouseScenePos.x() / m_scale);
 
     if (m_mouseButtons & Qt::RightButton)
     {
-        const auto mouseX = m_offset + mapToScene(_event->pos()).x() / m_scale;
-        bool showItem = moveChrono(m_chronometerItem, mouseX);
+        bool showItem = moveChrono(m_chronometerItem, mouseScenePos.x());
         m_pScrollbar->setChronoPos(m_chronometerItem->left(), m_chronometerItem->right());
 
         if (showItem)
@@ -1359,15 +1582,10 @@ void ProfGraphicsView::mouseMoveEvent(QMouseEvent* _event)
     {
         if (m_bDoubleClick)
         {
-            const auto mouseX = m_offset + mapToScene(_event->pos()).x() / m_scale;
-            moveChrono(m_chronometerItemAux, mouseX);
+            moveChrono(m_chronometerItemAux, mouseScenePos.x());
         }
         else
         {
-            const auto pos = _event->globalPos();
-            const auto delta = pos - m_mousePressPos;
-            m_mousePressPos = pos;
-
             auto vbar = verticalScrollBar();
 
             m_bUpdatingRect = true; // Block scrollbars from updating scene rect to make it possible to do it only once
@@ -1389,6 +1607,13 @@ void ProfGraphicsView::mouseMoveEvent(QMouseEvent* _event)
         }
 
         needUpdate = true;
+    }
+
+    if (m_chronometerItem->isVisible())
+    {
+        auto prevValue = m_chronometerItem->hover();
+        m_chronometerItem->setHover(m_chronometerItem->contains(mouseScenePos));
+        needUpdate = needUpdate || (prevValue != m_chronometerItem->hover());
     }
 
     if (needUpdate)
@@ -1424,6 +1649,7 @@ void ProfGraphicsView::initMode()
     connect(verticalScrollBar(), &QScrollBar::valueChanged, this, &This::onScrollbarValueChange);
     connect(&m_flickerTimer, &QTimer::timeout, this, &This::onFlickerTimeout);
     connect(&::profiler_gui::EASY_GLOBALS.events, &::profiler_gui::ProfGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
+    connect(&::profiler_gui::EASY_GLOBALS.events, &::profiler_gui::ProfGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1511,6 +1737,27 @@ void ProfGraphicsView::onSelectedThreadChange(::profiler::thread_id_t _id)
 
     m_pScrollbar->setMinimapFrom(0, nullptr);
     updateScene();
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void ProfGraphicsView::onSelectedBlockChange(unsigned int _block_index)
+{
+    if (!m_bUpdatingRect)
+    {
+        if (_block_index < ::profiler_gui::EASY_GLOBALS.gui_blocks.size())
+        {
+            // Scroll to item
+
+            const auto& guiblock = ::profiler_gui::EASY_GLOBALS.gui_blocks[_block_index];
+            const auto& item = guiblock.graphics_item->items(guiblock.graphics_item_level)[guiblock.graphics_item_index];
+
+            m_flickerSpeedX = m_flickerSpeedY = 0;
+            m_pScrollbar->setValue(item.left() + item.width() * 0.5 - m_pScrollbar->sliderHalfWidth());
+        }
+
+        updateScene();
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////

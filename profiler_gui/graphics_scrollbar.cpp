@@ -206,21 +206,23 @@ void ProfMinimapItem::setSource(::profiler::thread_id_t _thread_id, const ::prof
         {
             m_pSource = nullptr;
         }
-
-        m_maxDuration = 0;
-        m_minDuration = 1e30;
-        for (const auto& item : *m_pSource)
+        else
         {
-            auto w = item.width();
-
-            if (w > m_maxDuration)
+            m_maxDuration = 0;
+            m_minDuration = 1e30;
+            for (const auto& item : *m_pSource)
             {
-                m_maxDuration = item.width();
-            }
+                auto w = item.width();
 
-            if (w < m_minDuration)
-            {
-                m_minDuration = w;
+                if (w > m_maxDuration)
+                {
+                    m_maxDuration = item.width();
+                }
+
+                if (w < m_minDuration)
+                {
+                    m_minDuration = w;
+                }
             }
         }
     }
@@ -323,6 +325,16 @@ qreal ProfGraphicsScrollbar::range() const
 qreal ProfGraphicsScrollbar::value() const
 {
     return m_value;
+}
+
+qreal ProfGraphicsScrollbar::sliderWidth() const
+{
+    return m_slider->width();
+}
+
+qreal ProfGraphicsScrollbar::sliderHalfWidth() const
+{
+    return m_slider->halfwidth();
 }
 
 //////////////////////////////////////////////////////////////////////////

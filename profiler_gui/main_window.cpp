@@ -144,6 +144,7 @@ void ProfMainWindow::onReloadFileClicked(bool)
         static_cast<ProfTreeWidget*>(m_treeWidget->widget())->clearSilent(true);
 
         ::profiler_gui::EASY_GLOBALS.selected_thread = 0;
+        ::profiler_gui::EASY_GLOBALS.selected_block = -1;
         ::profiler_gui::EASY_GLOBALS.profiler_blocks.swap(prof_blocks);
         ::profiler_gui::EASY_GLOBALS.gui_blocks.resize(nblocks);
         memset(::profiler_gui::EASY_GLOBALS.gui_blocks.data(), 0, sizeof(::profiler_gui::ProfBlock) * nblocks);
@@ -171,6 +172,7 @@ void ProfMainWindow::onTestViewportClicked(bool)
     ::profiler_gui::EASY_GLOBALS.gui_blocks.clear();
     ::profiler_gui::EASY_GLOBALS.profiler_blocks.clear();
     ::profiler_gui::EASY_GLOBALS.selected_thread = 0;
+    ::profiler_gui::EASY_GLOBALS.selected_block = -1;
 
     view->test(18000, 40000000, 2);
     //view->test(3, 300, 1);
