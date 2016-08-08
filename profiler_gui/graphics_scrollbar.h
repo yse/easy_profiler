@@ -23,6 +23,7 @@
 #include <QGraphicsScene>
 #include <QGraphicsRectItem>
 #include <QAction>
+#include <QPolygonF>
 #include "common_types.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -34,11 +35,12 @@ class ProfGraphicsSliderItem : public QGraphicsRectItem
 
 private:
 
+    QPolygonF m_leftIndicator, m_rightIndicator;
     qreal m_halfwidth;
 
 public:
 
-    ProfGraphicsSliderItem();
+    ProfGraphicsSliderItem(bool _main);
     virtual ~ProfGraphicsSliderItem();
 
     void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
