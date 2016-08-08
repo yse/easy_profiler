@@ -32,7 +32,6 @@
 #include <vector>
 #include "profiler/reader.h"
 #include "common_types.h"
-#include "globals.h"
 
 //////////////////////////////////////////////////////////////////////////
 

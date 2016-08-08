@@ -22,6 +22,7 @@
 #include <QObject>
 #include <QColor>
 #include "common_types.h"
+#include "globals_qobjects.h"
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
@@ -31,6 +32,8 @@ class ProfTreeWidgetItem;
 
 //////////////////////////////////////////////////////////////////////////
 
+const unsigned int NEGATIVE_ONE = std::numeric_limits<unsigned int>::max();
+
 namespace profiler_gui {
 
 	const QString ORGANAZATION_NAME = "EasyProfiler";
@@ -39,23 +42,6 @@ namespace profiler_gui {
     const QColor CHRONOMETER_COLOR = QColor::fromRgba(0x202020c0);
     const QRgb SELECTED_THREAD_BACKGROUND = 0x00e0e060;
     const QRgb SELECTED_THREAD_FOREGROUND = 0x00ffffff - SELECTED_THREAD_BACKGROUND;
-
-    //////////////////////////////////////////////////////////////////////////
-
-    class ProfGlobalSignals final : public QObject
-    {
-        Q_OBJECT
-
-    public:
-
-        ProfGlobalSignals();
-        virtual ~ProfGlobalSignals();
-
-    signals:
-
-        void selectedThreadChanged(::profiler::thread_id_t _id);
-        void selectedBlockChanged(unsigned int _block_index);
-    };
 
     //////////////////////////////////////////////////////////////////////////
 
@@ -86,9 +72,9 @@ namespace profiler_gui {
 
         ProfGlobals();
     };
-
+#ifndef IGNORE_GLOBALS_DECLARATION
     static ProfGlobals& EASY_GLOBALS = ProfGlobals::instance();
-
+#endif
     //////////////////////////////////////////////////////////////////////////
 
 } // END of namespace profiler_gui.

@@ -34,6 +34,8 @@
 #include <algorithm>
 #include "blocks_graphics_view.h"
 
+#include "globals.h"
+
 using namespace profiler_gui;
 
 //////////////////////////////////////////////////////////////////////////
@@ -301,7 +303,7 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         _painter->setPen(BORDERS_COLOR); // restore pen for rectangle painting
                 }
 
-                if (next_level < levelsNumber && item.children_begin != -1)
+                if (next_level < levelsNumber && item.children_begin != NEGATIVE_ONE)
                 {
                     // Mark that we would not paint children of current item
                     m_levels[next_level][item.children_begin].state = -1;
@@ -310,9 +312,9 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 continue;
             }
 
-            if (next_level < levelsNumber && item.children_begin != -1)
+            if (next_level < levelsNumber && item.children_begin != NEGATIVE_ONE)
             {
-                if (m_levelsIndexes[next_level] == -1)
+                if (m_levelsIndexes[next_level] == NEGATIVE_ONE)
                 {
                     // Mark first potentially visible child item on next sublevel
                     m_levelsIndexes[next_level] = item.children_begin;
@@ -528,7 +530,7 @@ const ::profiler_gui::ProfBlockItem* ProfGraphicsItem::intersect(const QPointF& 
                 return &item;
             }
 
-            if (item.children_begin == -1)
+            if (item.children_begin == NEGATIVE_ONE)
             {
                 if (itemIndex != 0)
                 {
@@ -538,7 +540,7 @@ const ::profiler_gui::ProfBlockItem* ProfGraphicsItem::intersect(const QPointF& 
 
                         --j;
                         const auto& item2 = level[j];
-                        if (item2.children_begin != -1)
+                        if (item2.children_begin != NEGATIVE_ONE)
                         {
                             firstItem = item2.children_begin;
                             break;
@@ -560,7 +562,7 @@ const ::profiler_gui::ProfBlockItem* ProfGraphicsItem::intersect(const QPointF& 
             for (auto j = itemIndex + 1; j < size; ++j)
             {
                 const auto& item2 = level[j];
-                if (item2.children_begin != -1)
+                if (item2.children_begin != NEGATIVE_ONE)
                 {
                     lastItem = item2.children_begin;
                     break;
@@ -1589,7 +1591,8 @@ void ProfGraphicsView::mouseMoveEvent(QMouseEvent* _event)
             auto vbar = verticalScrollBar();
 
             m_bUpdatingRect = true; // Block scrollbars from updating scene rect to make it possible to do it only once
-            vbar->setValue(vbar->value() - delta.y());            m_pScrollbar->setValue(m_pScrollbar->value() - delta.x() / m_scale);
+            vbar->setValue(vbar->value() - delta.y());
+            m_pScrollbar->setValue(m_pScrollbar->value() - delta.x() / m_scale);
             m_bUpdatingRect = false;
             // Seems like an ugly stub, but QSignalBlocker is also a bad decision
             // because if scrollbar does not emit valueChanged signal then viewport does not move
