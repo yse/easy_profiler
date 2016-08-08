@@ -34,6 +34,7 @@ namespace profiler_gui {
         : selected_thread(0)
         , selected_block(-1)
         , draw_graphics_items_borders(true)
+        , display_only_relevant_stats(true)
     {
 
     }
