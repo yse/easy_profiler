@@ -208,6 +208,7 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     }
 
     // Iterate through layers and draw visible items
+    bool selectedItemsWasPainted = false;
     for (unsigned short l = 0; l < levelsNumber; ++l)
     {
         auto& level = m_levels[l];
@@ -256,6 +257,7 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 bool changepen = false;
                 if (!m_bTest && item.block->block_index == ::profiler_gui::EASY_GLOBALS.selected_block)
                 {
+                    selectedItemsWasPainted = true;
                     changepen = true;
                     QPen pen(Qt::SolidLine);
                     pen.setColor(Qt::red);
@@ -345,6 +347,7 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
             if (!m_bTest && item.block->block_index == ::profiler_gui::EASY_GLOBALS.selected_block)
             {
+                selectedItemsWasPainted = true;
                 QPen pen(Qt::SolidLine);
                 pen.setColor(Qt::red);
                 pen.setWidth(2);
@@ -413,6 +416,28 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
             else
                 _painter->setPen(BORDERS_COLOR); // restore pen for rectangle painting
             // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        }
+    }
+
+    if (!selectedItemsWasPainted && !m_bTest && ::profiler_gui::EASY_GLOBALS.selected_block < ::profiler_gui::EASY_GLOBALS.gui_blocks.size())
+    {
+        const auto& guiblock = ::profiler_gui::EASY_GLOBALS.gui_blocks[::profiler_gui::EASY_GLOBALS.selected_block];
+        if (guiblock.graphics_item == this)
+        {
+            const auto& item = m_levels[guiblock.graphics_item_level][guiblock.graphics_item_index];
+            if (item.left() < sceneRight && item.right() > sceneLeft)
+            {
+                QPen pen(Qt::SolidLine);
+                pen.setColor(Qt::red);
+                pen.setWidth(2);
+                _painter->setPen(pen);
+
+                brush.setColor(previousColor);
+                _painter->setBrush(brush);
+
+                rect.setRect(item.left() * currentScale - dx, item.top(), ::std::max(item.width() * currentScale, 1.0), item.totalHeight);
+                _painter->drawRect(rect);
+            }
         }
     }
 
