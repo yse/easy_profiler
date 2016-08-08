@@ -1796,10 +1796,14 @@ void ProfGraphicsView::onSelectedBlockChange(unsigned int _block_index)
             const auto& item = guiblock.graphics_item->items(guiblock.graphics_item_level)[guiblock.graphics_item_index];
 
             m_flickerSpeedX = m_flickerSpeedY = 0;
+
+            m_bUpdatingRect = true;
             verticalScrollBar()->setValue(static_cast<int>(item.top() - m_visibleSceneRect.height() * 0.5));
             m_pScrollbar->setValue(item.left() + item.width() * 0.5 - m_pScrollbar->sliderHalfWidth());
+            m_bUpdatingRect = false;
         }
 
+        updateVisibleSceneRect();
         updateScene();
     }
 }
