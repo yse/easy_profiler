@@ -24,7 +24,6 @@
 #include <QGraphicsRectItem>
 #include <QAction>
 #include "common_types.h"
-#include "globals.h"
 
 //////////////////////////////////////////////////////////////////////////
 

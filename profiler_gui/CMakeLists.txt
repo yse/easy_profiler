@@ -17,6 +17,7 @@ add_executable(${PROJECT_NAME}
     blocks_tree_widget.cpp
     globals.h
     globals.cpp
+    globals_qobjects.cpp
     graphics_scrollbar.h
     graphics_scrollbar.cpp
     main_window.h

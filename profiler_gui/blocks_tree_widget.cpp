@@ -31,6 +31,7 @@
 #include <QSettings>
 #include <QTextCodec>
 #include "blocks_tree_widget.h"
+#include "globals.h"
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -834,7 +835,7 @@ void ProfTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
                 case COL_MAX_PER_PARENT:
                 case COL_MAX_PER_FRAME:
                 {
-                    unsigned int i = -1;
+                    unsigned int i = NEGATIVE_ONE;
                     switch (col)
                     {
                         case COL_MIN_PER_THREAD: i = item->block()->per_thread_stats->min_duration_block; break;
@@ -845,7 +846,7 @@ void ProfTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
                         case COL_MAX_PER_FRAME: i = item->block()->per_frame_stats->max_duration_block; break;
                     }
 
-                    if (i != -1)
+                    if (i != NEGATIVE_ONE)
                     {
                         menu.addSeparator();
                         itemAction = new ProfItemAction("Jump to such item", i);

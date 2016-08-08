@@ -22,6 +22,7 @@
 #include <QContextMenuEvent>
 #include <QMenu>
 #include "graphics_scrollbar.h"
+#include "globals.h"
 
 //////////////////////////////////////////////////////////////////////////
 

@@ -33,6 +33,7 @@
 #include "main_window.h"
 #include "blocks_tree_widget.h"
 #include "blocks_graphics_view.h"
+#include "globals.h"
 
 //////////////////////////////////////////////////////////////////////////
 

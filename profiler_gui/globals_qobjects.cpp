@@ -1,45 +1,35 @@
 /************************************************************************
-* file name         : globals.cpp
+* file name         : globals_qobjects.cpp
 * ----------------- :
-* creation time     : 2016/08/03
-* copyright         : (c) 2016 Victor Zarubkin
+* creation time     : 2016/08/08
+* copyright         : (c) 2016 Victor Zarubkin, Sergey Yagovtsev
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : The file contains implementation of global constants and variables for profiler gui.
+* description       : The file contains implementation of ProfGlobalSignals QObject class.
 * ----------------- :
-* change log        : * 2016/08/03 Victor Zarubkin: initial commit.
+* change log        : * 2016/08/08 Sergey Yagovtsev: moved sources from globals.cpp
 *                   :
 *                   : *
 * ----------------- :
 * license           : TODO: add license text
 ************************************************************************/
 
-#define IGNORE_GLOBALS_DECLARATION
-#include "globals.h"
-#undef IGNORE_GLOBALS_DECLARATION
+#include "globals_qobjects.h"
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
 namespace profiler_gui {
 
-    ProfGlobals& ProfGlobals::instance()
+    ProfGlobalSignals::ProfGlobalSignals() : QObject()
     {
-        static ProfGlobals globals;
-        return globals;
     }
 
-    ProfGlobals::ProfGlobals()
-        : selected_thread(0)
-        , selected_block(-1)
-        , draw_graphics_items_borders(true)
+    ProfGlobalSignals::~ProfGlobalSignals()
     {
-
     }
 
 } // END of namespace profiler_gui.
 
 //////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////
-
