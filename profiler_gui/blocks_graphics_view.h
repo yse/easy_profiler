@@ -30,6 +30,8 @@
 #include <QFont>
 #include <QPoint>
 #include <QTimer>
+#include <QLabel>
+#include <QLayout>
 #include <stdlib.h>
 #include "graphics_scrollbar.h"
 #include "profiler/reader.h"
@@ -64,11 +66,14 @@ public:
     // Public virtual methods
 
     QRectF boundingRect() const override;
+
     void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
 
 public:
 
     // Public non-virtual methods
+
+    QRect getRect() const;
 
     void setBoundingRect(qreal x, qreal y, qreal w, qreal h);
     void setBoundingRect(const QRectF& _rect);
@@ -263,6 +268,8 @@ public:
     void test(unsigned int _frames_number, unsigned int _total_items_number_estimate, int _rows);
     void setTree(const ::profiler::thread_blocks_tree_t& _blocksTree);
 
+    const Items& getItems() const;
+
 signals:
 
     // Signals
@@ -341,6 +348,24 @@ private:
 
 }; // END of class ProfGraphicsView.
 
+class ProfThreadViewWidget : public QWidget
+{
+    Q_OBJECT
+private:
+    ProfGraphicsView*                 m_view;
+    QLabel*                           m_label;
+    typedef ProfThreadViewWidget This;
+
+    QHBoxLayout *m_layout;
+
+public:
+   ProfThreadViewWidget(QWidget *parent, ProfGraphicsView* view);
+   virtual ~ProfThreadViewWidget();
+public slots:
+   void onSelectedThreadChange();
+};
+
+
 //////////////////////////////////////////////////////////////////////////
 
 class ProfGraphicsViewWidget : public QWidget
@@ -351,6 +376,7 @@ private:
 
     ProfGraphicsView*                 m_view;
     ProfGraphicsScrollbar* m_scrollbar;
+    //ProfThreadViewWidget* m_threadWidget;
 
 public:
 
@@ -362,7 +388,10 @@ public:
 
 private:
 
+    void initWidget();
+
 }; // END of class ProfGraphicsViewWidget.
+
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////

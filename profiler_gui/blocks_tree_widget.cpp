@@ -522,11 +522,7 @@ size_t ProfTreeWidget::setTreeInternal(const ::profiler_gui::TreeBlocks& _blocks
         auto item = new ProfTreeWidgetItem(block.tree, thread_item);
         duration = endTime - startTime;
 
-		/*QByteArray msg(block.tree->node->getBlockName());
-		QTextCodec *codec = QTextCodec::codecForName("Windows-1251");
-		QString strf = codec->toUnicode(msg);
-		*/
-		item->setText(COL_NAME, block.tree->node->getBlockName());
+        item->setText(COL_NAME, ::profiler_gui::toUnicode(block.tree->node->getBlockName()));
         item->setTimeSmart(COL_DURATION, duration);
         item->setTimeMs(COL_BEGIN, startTime - m_beginTime);
         item->setTimeMs(COL_END, endTime - m_beginTime);
@@ -672,12 +668,8 @@ size_t ProfTreeWidget::setTreeInternal(const ::profiler::BlocksTree::children_t&
             continue;
         }
 
-		/*QByteArray msg(child.node->getBlockName());
-		QTextCodec *codec = QTextCodec::codecForName("Windows-1251");
-		QString strf = codec->toUnicode(msg);*/
-
         auto item = new ProfTreeWidgetItem(&child, _parent);
-		item->setText(COL_NAME, child.node->getBlockName());
+        item->setText(COL_NAME, ::profiler_gui::toUnicode(child.node->getBlockName()));
         item->setTimeSmart(COL_DURATION, duration);
         item->setTimeMs(COL_BEGIN, startTime - m_beginTime);
         item->setTimeMs(COL_END, endTime - m_beginTime);

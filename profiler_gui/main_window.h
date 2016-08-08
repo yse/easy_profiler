@@ -54,6 +54,7 @@ protected slots:
     void onReloadFileClicked(bool);
     void onExitClicked(bool);
     void onTestViewportClicked(bool);
+    void onEncodingChanged(bool);
 
 private:
 

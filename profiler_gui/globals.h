@@ -21,6 +21,7 @@
 #include <string>
 #include <QObject>
 #include <QColor>
+#include <QTextCodec>
 #include "common_types.h"
 #include "globals_qobjects.h"
 
@@ -55,6 +56,12 @@ namespace profiler_gui {
     };
 
     typedef ::std::vector<ProfBlock> ProfBlocks;
+
+    template <class T>
+    inline QString toUnicode(const T& _inputString)
+    {
+        return QTextCodec::codecForLocale()->toUnicode(_inputString);
+    }
 
     //////////////////////////////////////////////////////////////////////////
 
