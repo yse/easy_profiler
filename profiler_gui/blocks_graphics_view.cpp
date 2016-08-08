@@ -1883,7 +1883,7 @@ ProfThreadViewWidget::~ProfThreadViewWidget()
 
 }
 
-void ProfThreadViewWidget::onSelectedThreadChange()
+void ProfThreadViewWidget::onSelectedThreadChange(::profiler::thread_id_t _id)
 {
 /*
     auto threadName = ::profiler_gui::EASY_GLOBALS.profiler_blocks[::profiler_gui::EASY_GLOBALS.selected_thread].thread_name;

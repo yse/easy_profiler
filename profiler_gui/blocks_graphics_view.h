@@ -362,7 +362,7 @@ public:
    ProfThreadViewWidget(QWidget *parent, ProfGraphicsView* view);
    virtual ~ProfThreadViewWidget();
 public slots:
-   void onSelectedThreadChange();
+   void onSelectedThreadChange(::profiler::thread_id_t _id);
 };
 
 
