@@ -58,7 +58,7 @@ namespace profiler_gui {
     typedef ::std::vector<ProfBlock> ProfBlocks;
 
     template <class T>
-    inline QString toUnicode(const T& _inputString)
+    inline auto toUnicode(const T& _inputString) -> decltype(QTextCodec::codecForLocale()->toUnicode(_inputString))
     {
         return QTextCodec::codecForLocale()->toUnicode(_inputString);
     }
