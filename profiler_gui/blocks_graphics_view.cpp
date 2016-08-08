@@ -255,14 +255,6 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 //    _painter->setBrush(brush);
                 //}
 
-                if (previousColor != item.color)
-                {
-                    // Set background color brush for rectangle
-                    previousColor = item.color;
-                    brush.setColor(previousColor);
-                    _painter->setBrush(brush);
-                }
-
                 bool changepen = false;
                 if (!m_bTest && item.block->block_index == ::profiler_gui::EASY_GLOBALS.selected_block)
                 {
@@ -271,23 +263,38 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     pen.setColor(Qt::red);
                     pen.setWidth(2);
                     _painter->setPen(pen);
+
+                    previousColor = SELECTED_ITEM_COLOR;
+                    brush.setColor(previousColor);
+                    _painter->setBrush(brush);
                 }
-                else if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders)
+                else
                 {
-                    if (w < 3)
+                    if (previousColor != item.color)
                     {
-                        // Do not paint borders for very narrow items
-                        if (previousPenStyle != Qt::NoPen)
-                        {
-                            previousPenStyle = Qt::NoPen;
-                            _painter->setPen(Qt::NoPen);
-                        }
+                        // Set background color brush for rectangle
+                        previousColor = item.color;
+                        brush.setColor(previousColor);
+                        _painter->setBrush(brush);
                     }
-                    else if (previousPenStyle != Qt::SolidLine)
+
+                    if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders)
                     {
-                        // Restore pen for item which is wide enough to paint borders
-                        previousPenStyle = Qt::SolidLine;
-                        _painter->setPen(BORDERS_COLOR);
+                        if (w < 3)
+                        {
+                            // Do not paint borders for very narrow items
+                            if (previousPenStyle != Qt::NoPen)
+                            {
+                                previousPenStyle = Qt::NoPen;
+                                _painter->setPen(Qt::NoPen);
+                            }
+                        }
+                        else if (previousPenStyle != Qt::SolidLine)
+                        {
+                            // Restore pen for item which is wide enough to paint borders
+                            previousPenStyle = Qt::SolidLine;
+                            _painter->setPen(BORDERS_COLOR);
+                        }
                     }
                 }
 
@@ -337,13 +344,6 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
             //    brush = QBrush(previousColor);
             //    _painter->setBrush(brush);
             //} else
-            if (previousColor != item.color)
-            {
-                // Set background color brush for rectangle
-                previousColor = item.color;
-                brush.setColor(previousColor);
-                _painter->setBrush(brush);
-            }
 
             if (!m_bTest && item.block->block_index == ::profiler_gui::EASY_GLOBALS.selected_block)
             {
@@ -351,12 +351,27 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 pen.setColor(Qt::red);
                 pen.setWidth(2);
                 _painter->setPen(pen);
+
+                previousColor = SELECTED_ITEM_COLOR;
+                brush.setColor(previousColor);
+                _painter->setBrush(brush);
             }
-            else if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders && previousPenStyle != Qt::SolidLine)
+            else
             {
-                // Restore pen for item which is wide enough to paint borders
-                previousPenStyle = Qt::SolidLine;
-                _painter->setPen(BORDERS_COLOR);
+                if (previousColor != item.color)
+                {
+                    // Set background color brush for rectangle
+                    previousColor = item.color;
+                    brush.setColor(previousColor);
+                    _painter->setBrush(brush);
+                }
+
+                if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders && previousPenStyle != Qt::SolidLine)
+                {
+                    // Restore pen for item which is wide enough to paint borders
+                    previousPenStyle = Qt::SolidLine;
+                    _painter->setPen(BORDERS_COLOR);
+                }
             }
 
             // Draw rectangle
