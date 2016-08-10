@@ -17,13 +17,13 @@ echo "Blocks count, dT prof enabled usec, dT prof disabled usec" > $RESULT_FILE
 
 for i in {1..9} 
 do 
-	OBJECTS_COUNT=$(($i*1000))
+        OBJECTS_COUNT=$(($i*10))
 	for j in {10..15} 
 	do 
-		RENDER_COUNT=$(($j*100))
+                RENDER_COUNT=$(($j*100))
 		for k in {10..15} 
 		do 
-			MODELLING_COUNT=$(($k*100))
+                        MODELLING_COUNT=$(($k*100))
 			$ENABLED_PROF $OBJECTS_COUNT $RENDER_COUNT $MODELLING_COUNT > $TEMP_FILE_ENABLE
 			$DISABLED_PROF $OBJECTS_COUNT $RENDER_COUNT $MODELLING_COUNT > $TEMP_FILE_DISABLE
 			DT_ENA=`cat $TEMP_FILE_ENABLE | grep Elapsed| awk '{print $3}'`
@@ -32,7 +32,7 @@ do
 			echo $N_ENA,$DT_ENA,$N_DIS >> $RESULT_FILE
 		done
 	done
-	echo $obj
+        echo $i
 
 done
 

@@ -7,6 +7,7 @@
 #include <condition_variable>
 #include "profiler/reader.h"
 #include <cstdlib>
+#include <math.h>
 
 std::condition_variable cv;
 std::mutex cv_m;
@@ -15,11 +16,19 @@ int g_i = 0;
 int OBJECTS = 9000;
 int RENDER_SPEPS = 1600;
 int MODELLING_STEPS = 1000;
-int RESOURCE_LOADING_COUNT = 100;
+int RESOURCE_LOADING_COUNT = 50;
+
+void localSleep(int magic=200000)
+{
+    //PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
+    volatile int i = 0;
+    for (; i < magic; ++i);
+}
 
 void loadingResources(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Darkcyan);
-	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    localSleep();
+//	std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }
 
 void prepareMath(){
@@ -45,20 +54,32 @@ void calcIntersect(){
 	//std::this_thread::sleep_for(std::chrono::milliseconds(4));
 }
 
+double multModel(double i)
+{
+    PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
+    return i * sin(i) * cos(i);
+}
+
 void calcPhys(){
     PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
-    int* intarray = new int[OBJECTS];
+    double* intarray = new double[OBJECTS];
     for (int i = 0; i < OBJECTS; ++i)
-        intarray[i] = i * i + i / 3 - (OBJECTS - i) / 2;
+        intarray[i] = multModel(double(i)) + double(i / 3) - double((OBJECTS - i) / 2);
     calcIntersect();
     delete[] intarray;
 }
 
+double calcSubbrain(int i)
+{
+    PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
+    return i * i * i - i / 10 + (OBJECTS - i) * 7 ;
+}
+
 void calcBrain(){
     PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
-    int* intarray = new int[OBJECTS];
+    double* intarray = new double[OBJECTS];
     for (int i = 0; i < OBJECTS; ++i)
-        intarray[i] = i * i * i - i / 10 + (OBJECTS - i) * 7 + i * 180 / 3;
+        intarray[i] = calcSubbrain(double(i)) + double(i * 180 / 3);
     delete[] intarray;
 	//std::this_thread::sleep_for(std::chrono::milliseconds(3));
 }
@@ -77,17 +98,28 @@ void modellingStep(){
 
 void prepareRender(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Darkred);
-    volatile int i = 0;
-    for (; i < 200000; ++i);
+    localSleep();
 	//std::this_thread::sleep_for(std::chrono::milliseconds(8));
 
+}
+
+int multPhys(int i)
+{
+    PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
+    return i * i * i * i / 100;
+}
+
+int calcPhysicForObject(int i)
+{
+    PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
+    return  multPhys(i) + i / 3 - (OBJECTS - i) * 15;
 }
 
 void calculatePhysics(){
 	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
     unsigned int* intarray = new unsigned int[OBJECTS];
     for (int i = 0; i < OBJECTS; ++i)
-        intarray[i] = i * i * i * i / 100 + i / 3 - (OBJECTS - i) * 15;
+        intarray[i] = calcPhysicForObject(i);
     delete[] intarray;
 	//std::this_thread::sleep_for(std::chrono::milliseconds(8));
 }
@@ -105,7 +137,7 @@ void loadingResourcesThread(){
 	for(int i = 0; i < RESOURCE_LOADING_COUNT; i++){
 		loadingResources();
 		PROFILER_ADD_EVENT_GROUPED("Resources Loading!",profiler::colors::Cyan);
-		std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        //std::this_thread::sleep_for(std::chrono::milliseconds(20));
 	}
 }
 
@@ -115,7 +147,8 @@ void modellingThread(){
 	PROFILER_SET_THREAD_NAME("Modelling")
 		for (int i = 0; i < RENDER_SPEPS; i++){
 		modellingStep();
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        localSleep(300000);
+        //std::this_thread::sleep_for(std::chrono::milliseconds(20));
 	}
 }
 
@@ -125,7 +158,8 @@ void renderThread(){
 	PROFILER_SET_THREAD_NAME("Render")
 	for (int i = 0; i < MODELLING_STEPS; i++){
 		frame();
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        localSleep(300000);
+        //std::this_thread::sleep_for(std::chrono::milliseconds(20));
 	}
 }
 
