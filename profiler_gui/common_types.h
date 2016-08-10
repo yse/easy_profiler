@@ -23,6 +23,7 @@
 #include <vector>
 #include <unordered_map>
 #include <QRgb>
+#include <QString>
 #include "profiler/reader.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -155,6 +156,40 @@ struct ProfSelectedBlock final
 }; // END of struct ProfSelectedBlock.
 
 typedef ::std::vector<ProfSelectedBlock> TreeBlocks;
+
+//////////////////////////////////////////////////////////////////////////
+
+inline QString timeStringReal(qreal _interval, int _precision = 1)
+{
+    if (_interval < 1) // interval in nanoseconds
+        return QString("%1 ns").arg(_interval * 1e3, 0, 'f', _precision);
+
+    if (_interval < 1e3) // interval in microseconds
+        return QString("%1 us").arg(_interval, 0, 'f', _precision);
+
+    if (_interval < 1e6) // interval in milliseconds
+        return QString("%1 ms").arg(_interval * 1e-3, 0, 'f', _precision);
+
+    // interval in seconds
+    return QString("%1 sec").arg(_interval * 1e-6, 0, 'f', _precision);
+}
+
+inline QString timeStringInt(qreal _interval)
+{
+    if (_interval < 1) // interval in nanoseconds
+        return QString("%1 ns").arg(static_cast<int>(_interval * 1e3));
+
+    if (_interval < 1e3) // interval in microseconds
+        return QString("%1 us").arg(static_cast<int>(_interval));
+
+    if (_interval < 1e6) // interval in milliseconds
+        return QString("%1 ms").arg(static_cast<int>(_interval * 1e-3));
+
+    // interval in seconds
+    return QString("%1 sec").arg(static_cast<int>(_interval * 1e-6));
+}
+
+//////////////////////////////////////////////////////////////////////////
 
 } // END of namespace profiler_gui.
 

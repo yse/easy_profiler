@@ -28,7 +28,7 @@
 #include <QWheelEvent>
 #include <QMouseEvent>
 #include <QScrollBar>
-#include <QVBoxLayout>
+#include <QGridLayout>
 #include <QFontMetrics>
 #include <math.h>
 #include <algorithm>
@@ -54,6 +54,8 @@ const unsigned short ROW_SPACING = 4;
 const QRgb BORDERS_COLOR = 0x00a07050;
 const QRgb BACKGROUND_1 = 0x00dddddd;
 const QRgb BACKGROUND_2 = 0x00ffffff;
+const QRgb TIMELINE_BACKGROUND = 0x20303030;
+const QRgb SELECTED_ITEM_COLOR = 0x000050a0;
 const QColor CHRONOMETER_COLOR2 = QColor::fromRgba(0x20408040);
 
 const unsigned int TEST_PROGRESSION_BASE = 4;
@@ -77,29 +79,11 @@ inline T logn(T _value)
 
 //////////////////////////////////////////////////////////////////////////
 
-QRgb BG1();
-QRgb BG2();
-QRgb (*GetBackgroundColor)() = BG1;
-
-QRgb BG1()
-{
-    GetBackgroundColor = BG2;
-    return BACKGROUND_1;
-}
-
-QRgb BG2()
-{
-    GetBackgroundColor = BG1;
-    return BACKGROUND_2;
-}
-
-//////////////////////////////////////////////////////////////////////////
-
 ProfGraphicsItem::ProfGraphicsItem() : ProfGraphicsItem(false)
 {
 }
 
-ProfGraphicsItem::ProfGraphicsItem(bool _test) : QGraphicsItem(nullptr), m_bTest(_test), m_backgroundColor(0x00ffffff), m_pRoot(nullptr)
+ProfGraphicsItem::ProfGraphicsItem(bool _test) : QGraphicsItem(nullptr), m_bTest(_test), m_pRoot(nullptr)
 {
 }
 
@@ -177,22 +161,6 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     }
 
 
-    // Draw background --------------------------
-    if (!m_bTest && m_pRoot->thread_id == ::profiler_gui::EASY_GLOBALS.selected_thread && m_pRoot->thread_id != 0)
-    {
-        brush.setColor(::profiler_gui::SELECTED_THREAD_BACKGROUND);
-    }
-    else
-    {
-        brush.setColor(m_backgroundColor);
-    }
-
-    _painter->setBrush(brush);
-    _painter->setPen(Qt::NoPen);
-    rect.setRect(0, m_boundingRect.top() - (ROW_SPACING >> 1), visibleSceneRect.width(), m_boundingRect.height() + ROW_SPACING);
-    _painter->drawRect(rect);
-    // END. Draw background. ~~~~~~~~~~~~~~~~~~~~
-
 
     // This is to make _painter->drawText() work properly
     // (it seems there is a bug in Qt5.6 when drawText called for big coordinates,
@@ -200,14 +168,20 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     // works fine without using this additional shifting)
     auto dx = level0[m_levelsIndexes[0]].left() * currentScale;
 
+
+
     // Shifting coordinates to current screen offset
     _painter->setTransform(QTransform::fromTranslate(dx - offset * currentScale, -y()), true);
+
+
 
     if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders)
     {
         previousPenStyle = Qt::SolidLine;
         _painter->setPen(BORDERS_COLOR);
     }
+
+
 
     // Iterate through layers and draw visible items
     bool selectedItemsWasPainted = false;
@@ -626,13 +600,6 @@ const ::profiler_gui::ProfBlockItem* ProfGraphicsItem::intersect(const QPointF& 
 
 //////////////////////////////////////////////////////////////////////////
 
-void ProfGraphicsItem::setBackgroundColor(QRgb _color)
-{
-    m_backgroundColor = _color;
-}
-
-//////////////////////////////////////////////////////////////////////////
-
 void ProfGraphicsItem::setBoundingRect(qreal x, qreal y, qreal w, qreal h)
 {
     m_boundingRect.setRect(x, y, w, h);
@@ -695,7 +662,7 @@ unsigned int ProfGraphicsItem::addItem(unsigned short _level)
 
 ProfChronometerItem::ProfChronometerItem(bool _main) : QGraphicsItem(), m_font(QFont("CourierNew", 16, 2)), m_color(CHRONOMETER_COLOR), m_left(0), m_right(0), m_bMain(_main), m_bReverse(false), m_bHover(false)
 {
-    setZValue(10);
+    //setZValue(_main ? 10 : 9);
     m_indicator.reserve(3);
 }
 
@@ -758,20 +725,15 @@ void ProfChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
         return;
     }
 
-    const auto selectedInterval = width();
+    auto selectedInterval = width();
     QRectF rect((m_left - offset) * currentScale, visibleSceneRect.top(), ::std::max(selectedInterval * currentScale, 1.0), visibleSceneRect.height());
+    selectedInterval = units2microseconds(selectedInterval);
 
-    QString text; // Displayed text
-    if (selectedInterval < 1.0) // interval in nanoseconds
-        text = ::std::move(QString("%1 ns").arg(selectedInterval * 1e3, 0, 'f', 1));
-    else if (selectedInterval < 1e3) // interval in microseconds
-        text = ::std::move(QString("%1 us").arg(selectedInterval, 0, 'f', 1));
-    else if (selectedInterval < 1e6) // interval in milliseconds
-        text = ::std::move(QString("%1 ms").arg(selectedInterval * 1e-3, 0, 'f', 1));
-    else // interval in seconds
-        text = ::std::move(QString("%1 sec").arg(selectedInterval * 1e-6, 0, 'f', 1));
-
+    const QString text = ::profiler_gui::timeStringReal(selectedInterval); // Displayed text
     const auto textRect = QFontMetrics(m_font).boundingRect(text); // Calculate displayed text boundingRect
+    const auto rgb = m_color.rgb() & 0x00ffffff;
+
+
 
     // Paint!--------------------------
     _painter->save();
@@ -784,9 +746,17 @@ void ProfChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     _painter->setPen(Qt::NoPen);
     _painter->drawRect(rect);
 
+    // draw left and right borders
+    _painter->setBrush(Qt::NoBrush);
+    _painter->setPen(QColor::fromRgba(0xa0000000 | rgb));
+    if (m_left > sceneLeft)
+        _painter->drawLine(QPointF(rect.left(), rect.top()), QPointF(rect.left(), rect.bottom()));
+    if (m_right < sceneRight)
+        _painter->drawLine(QPointF(rect.right(), rect.top()), QPointF(rect.right(), rect.bottom()));
+
     // draw text
     _painter->setCompositionMode(QPainter::CompositionMode_Difference); // This lets the text to be visible on every background
-    _painter->setPen(0xffffffff - m_color.rgb());
+    _painter->setPen(0xffffffff - rgb);
     _painter->setFont(m_font);
 
     if (m_left < sceneLeft)
@@ -889,35 +859,108 @@ const ProfGraphicsView* ProfChronometerItem::view() const
 
 //////////////////////////////////////////////////////////////////////////
 
-ProfGraphicsView::ProfGraphicsView(bool _test)
-    : QGraphicsView()
-    , m_beginTime(-1)
-    , m_scale(1)
-    , m_offset(0)
-    , m_mouseButtons(Qt::NoButton)
-    , m_pScrollbar(nullptr)
-    , m_chronometerItem(nullptr)
-    , m_chronometerItemAux(nullptr)
-    , m_flickerSpeedX(0)
-    , m_flickerSpeedY(0)
-    , m_bDoubleClick(false)
-    , m_bUpdatingRect(false)
-    , m_bTest(_test)
-    , m_bEmpty(true)
+void ProfBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget)
 {
-    initMode();
-    setScene(new QGraphicsScene(this));
+    const auto sceneView = static_cast<const ProfGraphicsView*>(scene()->parent());
+    const auto visibleSceneRect = sceneView->visibleSceneRect();
+    const auto currentScale = sceneView->scale();
+    const auto offset = sceneView->offset();
+    const auto left = offset * currentScale;
 
-    if (_test)
+    QRectF rect;
+
+    _painter->save();
+    _painter->setTransform(QTransform::fromTranslate(-x(), -y()));
+
+    const auto& items = sceneView->getItems();
+    if (!items.empty())
     {
-        test(18000, 40000000, 2);
+        static const auto OVERLAP = ROW_SPACING >> 1;
+        static const QBrush brushes[2] = {QColor::fromRgb(BACKGROUND_1), QColor::fromRgb(BACKGROUND_2)};
+        const bool isTest = (items.front()->items(0).front().block == nullptr);
+        int i = -1;
+
+        // Draw background
+        _painter->setPen(Qt::NoPen);
+        for (auto item : items)
+        {
+            ++i;
+
+            auto br = item->boundingRect();
+            auto top = item->y() + br.top() - visibleSceneRect.top();
+            auto bottom = top + br.height();
+
+            if (top > visibleSceneRect.height() || bottom < 0)
+            {
+                continue;
+            }
+
+            if (!isTest && item->threadId() == ::profiler_gui::EASY_GLOBALS.selected_thread)
+            {
+                _painter->setBrush(QBrush(QColor::fromRgb(::profiler_gui::SELECTED_THREAD_BACKGROUND)));
+            }
+            else
+            {
+                _painter->setBrush(brushes[i & 1]);
+            }
+
+            rect.setRect(0, top - OVERLAP, visibleSceneRect.width(), br.height() + OVERLAP);
+            _painter->drawRect(rect);
+        }
     }
 
-    updateVisibleSceneRect();
+    // Draw timeline scale marks ----------------
+    //_painter->setBrush(Qt::NoBrush);
+    //_painter->setPen(QColor::fromRgba(TIMELINE_BACKGROUND));
+    _painter->setBrush(QColor::fromRgba(TIMELINE_BACKGROUND));
+
+    const auto step = sceneView->timelineStep() * currentScale;
+    const auto steps = static_cast<int>(visibleSceneRect.width() / step);
+    auto first = static_cast<quint64>(offset / sceneView->timelineStep());
+    const int addend = (first & 1) ? 1 : 0;
+
+    for (qreal curr = (first - addend) * step, last = (first + steps + 2) * step; curr < last; curr += 2 * step)
+    {
+        auto x1 = curr - left;
+        rect.setRect(x1, 0, step, visibleSceneRect.height());
+        _painter->drawRect(rect);
+        //_painter->drawLine(QPointF(x1, 0), QPointF(x1, visibleSceneRect.height()));
+    }
+    // END Draw timeline scale marks ~~~~~~~~~~~~
+
+    _painter->restore();
 }
 
-ProfGraphicsView::ProfGraphicsView(const ::profiler::thread_blocks_tree_t& _blocksTree)
-    : QGraphicsView()
+//////////////////////////////////////////////////////////////////////////
+
+void ProfTimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget)
+{
+    const auto sceneView = static_cast<const ProfGraphicsView*>(scene()->parent());
+    const auto visibleSceneRect = sceneView->visibleSceneRect();
+    const auto step = sceneView->timelineStep() * sceneView->scale();
+    const QString text = ::profiler_gui::timeStringInt(units2microseconds(sceneView->timelineStep())); // Displayed text
+
+    // Draw scale indicator
+    _painter->save();
+    _painter->setTransform(QTransform::fromTranslate(-x(), -y()));
+    _painter->setCompositionMode(QPainter::CompositionMode_Difference);
+    _painter->setBrush(Qt::white);
+    _painter->setPen(Qt::NoPen);
+
+    QRectF rect(visibleSceneRect.width() - 10 - step, visibleSceneRect.height() - 25, step, 5);
+    _painter->drawRect(rect);
+
+    rect.translate(0, 5);
+    _painter->setPen(Qt::white);
+    _painter->drawText(rect, Qt::AlignRight | Qt::TextDontClip, text);
+
+    _painter->restore();
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+ProfGraphicsView::ProfGraphicsView(QWidget* _parent)
+    : QGraphicsView(_parent)
     , m_beginTime(-1)
     , m_scale(1)
     , m_offset(0)
@@ -934,7 +977,6 @@ ProfGraphicsView::ProfGraphicsView(const ::profiler::thread_blocks_tree_t& _bloc
 {
     initMode();
     setScene(new QGraphicsScene(this));
-    setTree(_blocksTree);
     updateVisibleSceneRect();
 }
 
@@ -982,7 +1024,7 @@ void ProfGraphicsView::fillTestChildren(ProfGraphicsItem* _item, const int _maxl
         }
         else
         {
-            b.setRect(_x, _y, to_microseconds(10 + rand() % 190), GRAPHICS_ROW_SIZE);
+            b.setRect(_x, _y, units2microseconds(10 + rand() % 190), GRAPHICS_ROW_SIZE);
             b.totalHeight = GRAPHICS_ROW_SIZE;
             b.children_begin = -1;
         }
@@ -1004,6 +1046,11 @@ void ProfGraphicsView::test(unsigned int _frames_number, unsigned int _total_ite
     const auto children_per_frame = static_cast<unsigned int>(0.5 + static_cast<double>(_total_items_number_estimate) / static_cast<double>(_rows * _frames_number));
     const int max_depth = logn<TEST_PROGRESSION_BASE>(children_per_frame * (TEST_PROGRESSION_BASE - 1) * 0.5 + 1);
     const auto first_level_children_count = static_cast<unsigned int>(static_cast<double>(children_per_frame) * (1.0 - TEST_PROGRESSION_BASE) / (1.0 - pow(TEST_PROGRESSION_BASE, max_depth)) + 0.5);
+
+
+    auto bgItem = new ProfBackgroundItem();
+    scene()->addItem(bgItem);
+
 
     ::std::vector<ProfGraphicsItem*> thread_items(_rows);
     for (int i = 0; i < _rows; ++i)
@@ -1061,10 +1108,6 @@ void ProfGraphicsView::test(unsigned int _frames_number, unsigned int _total_ite
 
         const auto h = item->getItem(0, 0).totalHeight;
         item->setBoundingRect(0, 0, x, h);
-        if (_rows > 1)
-        {
-            item->setBackgroundColor(GetBackgroundColor());
-        }
 
         m_items.push_back(item);
         scene()->addItem(item);
@@ -1096,8 +1139,13 @@ void ProfGraphicsView::test(unsigned int _frames_number, unsigned int _total_ite
 
     // Create new chronometer item (previous item was destroyed by scene on scene()->clear()).
     // It will be shown on mouse right button click.
-    m_chronometerItem = createChronometer(true);
     m_chronometerItemAux = createChronometer(false);
+    m_chronometerItem = createChronometer(true);
+
+    bgItem->setBoundingRect(scene()->sceneRect());
+    auto indicator = new ProfTimelineIndicatorItem();
+    indicator->setBoundingRect(scene()->sceneRect());
+    scene()->addItem(indicator);
 
     // Set necessary flags
     m_bTest = true;
@@ -1112,8 +1160,6 @@ void ProfGraphicsView::clearSilent()
 {
     const QSignalBlocker blocker(this), sceneBlocker(scene()); // block all scene signals (otherwise clear() would be extremely slow!)
 
-    GetBackgroundColor = BG1; // reset background color
-
     // Stop flicking
     m_flickerTimer.stop();
     m_flickerSpeedX = 0;
@@ -1126,6 +1172,7 @@ void ProfGraphicsView::clearSilent()
 
     m_beginTime = -1; // reset begin time
     m_scale = 1; // scale back to initial 100% scale
+    m_timelineStep = 1;
     m_offset = 0; // scroll back to the beginning of the scene
 
     // Reset necessary flags
@@ -1145,6 +1192,9 @@ void ProfGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     {
         return;
     }
+
+    auto bgItem = new ProfBackgroundItem();
+    scene()->addItem(bgItem);
 
     // set new blocks tree
     // calculate scene size and fill it with items
@@ -1186,7 +1236,6 @@ void ProfGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         const auto children_duration = setTree(item, tree.children, h, y, 0);
 
         item->setBoundingRect(0, 0, children_duration + x, h);
-        item->setBackgroundColor(GetBackgroundColor());
         m_items.push_back(item);
         scene()->addItem(item);
 
@@ -1201,12 +1250,8 @@ void ProfGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     // Calculating scene rect
     const qreal endX = time2position(finish) + 1500.0;
     scene()->setSceneRect(0, 0, endX, y);
-
-    // Stub! :O
-    for (auto item : m_items)
-    {
-        item->setBoundingRect(0, 0, endX, item->boundingRect().height());
-    }
+    //for (auto item : m_items)
+    //    item->setBoundingRect(0, 0, endX, item->boundingRect().height());
 
     // Center view on the beginning of the scene
     updateVisibleSceneRect();
@@ -1221,8 +1266,13 @@ void ProfGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
 
     // Create new chronometer item (previous item was destroyed by scene on scene()->clear()).
     // It will be shown on mouse right button click.
-    m_chronometerItem = createChronometer(true);
     m_chronometerItemAux = createChronometer(false);
+    m_chronometerItem = createChronometer(true);
+
+    bgItem->setBoundingRect(0, 0, endX, y);
+    auto indicator = new ProfTimelineIndicatorItem();
+    indicator->setBoundingRect(0, 0, endX, y);
+    scene()->addItem(indicator);
 
     // Setting flags
     m_bTest = false;
@@ -1348,6 +1398,27 @@ void ProfGraphicsView::updateVisibleSceneRect()
         m_visibleSceneRect.setWidth(m_visibleSceneRect.width() - vbar->width() - 2);
 }
 
+void ProfGraphicsView::updateTimelineStep(qreal _windowWidth)
+{
+    const auto time = units2microseconds(_windowWidth);
+    if (time < 100)
+        m_timelineStep = 1e-2;
+    else if (time < 10e3)
+        m_timelineStep = 1;
+    else if (time < 10e6)
+        m_timelineStep = 1e3;
+    else
+        m_timelineStep = 1e6;
+
+    auto steps = time / m_timelineStep;
+    while (steps > 50) {
+        m_timelineStep *= 10;
+        steps *= 0.1;
+    }
+
+    m_timelineStep = microseconds2units(m_timelineStep);
+}
+
 void ProfGraphicsView::updateScene()
 {
     scene()->update(m_visibleSceneRect);
@@ -1371,6 +1442,7 @@ void ProfGraphicsView::scaleTo(qreal _scale)
     const auto windowWidth = m_visibleSceneRect.width() / m_scale;
     m_pScrollbar->setSliderWidth(windowWidth);
 
+    updateTimelineStep(windowWidth);
     updateScene();
 }
 
@@ -1406,6 +1478,7 @@ void ProfGraphicsView::wheelEvent(QWheelEvent* _event)
     m_pScrollbar->setValue(m_offset);
     m_bUpdatingRect = false;
 
+    updateTimelineStep(windowWidth);
     updateScene(); // repaint scene
     _event->accept();
 }
@@ -1821,19 +1894,10 @@ void ProfGraphicsView::onSelectedBlockChange(unsigned int _block_index)
 
 //////////////////////////////////////////////////////////////////////////
 
-ProfGraphicsViewWidget::ProfGraphicsViewWidget(bool _test)
-    : QWidget(nullptr)
+ProfGraphicsViewWidget::ProfGraphicsViewWidget(QWidget* _parent)
+    : QWidget(_parent)
     , m_scrollbar(new ProfGraphicsScrollbar(nullptr))
-    , m_view(new ProfGraphicsView(_test))
-    //, m_threadWidget(new ProfThreadViewWidget(this,m_view))
-{
-    initWidget();
-}
-
-ProfGraphicsViewWidget::ProfGraphicsViewWidget(const ::profiler::thread_blocks_tree_t& _blocksTree)
-    : QWidget(nullptr)
-    , m_scrollbar(new ProfGraphicsScrollbar(nullptr))
-    , m_view(new ProfGraphicsView(_blocksTree))
+    , m_view(new ProfGraphicsView(nullptr))
     //, m_threadWidget(new ProfThreadViewWidget(this,m_view))
 {
     initWidget();
@@ -1843,12 +1907,13 @@ void ProfGraphicsViewWidget::initWidget()
 {
     auto lay = new QGridLayout(this);
     lay->setContentsMargins(1, 0, 1, 0);
-    lay->addWidget(m_view,0,1);
+    lay->addWidget(m_view, 0, 1);
     lay->setSpacing(1);
-    lay->addWidget(m_scrollbar,1,1);
+    lay->addWidget(m_scrollbar, 1, 1);
     //lay->setSpacing(1);
-    //lay->addWidget(m_threadWidget,0,0);
+    //lay->addWidget(m_threadWidget, 0, 0);
     setLayout(lay);
+
     m_view->setScrollbar(m_scrollbar);
 }
 

@@ -298,17 +298,6 @@ ProfTreeWidget::ProfTreeWidget(QWidget* _parent) : Parent(_parent), m_beginTime(
     loadSettings();
 }
 
-ProfTreeWidget::ProfTreeWidget(const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, QWidget* _parent) : This(_parent)
-{
-    setTreeInternal(_blocksNumber, _blocksTree);
-
-    setSortingEnabled(true);
-    sortByColumn(COL_BEGIN, Qt::AscendingOrder);
-    resizeColumnToContents(COL_NAME);
-
-    connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
-}
-
 ProfTreeWidget::~ProfTreeWidget()
 {
 	saveSettings();

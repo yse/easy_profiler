@@ -46,7 +46,7 @@ ProfMainWindow::ProfMainWindow() : QMainWindow(), m_treeWidget(nullptr), m_graph
     
     setStatusBar(new QStatusBar());
 
-    auto graphicsView = new ProfGraphicsViewWidget(false);
+    auto graphicsView = new ProfGraphicsViewWidget();
     m_graphicsView = new QDockWidget("Blocks diagram");
     m_graphicsView->setMinimumHeight(50);
     m_graphicsView->setAllowedAreas(Qt::AllDockWidgetAreas);

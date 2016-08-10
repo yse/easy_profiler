@@ -42,6 +42,22 @@
 
 class ProfGraphicsView;
 
+//////////////////////////////////////////////////////////////////////////
+
+inline qreal units2microseconds(qreal _value)
+{
+    return _value;
+    //return _value * 1e3;
+}
+
+inline qreal microseconds2units(qreal _value)
+{
+    return _value;
+    //return _value * 1e-3;
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 class ProfGraphicsItem : public QGraphicsItem
 {
     typedef ::profiler_gui::ProfItems       Children;
@@ -53,7 +69,6 @@ class ProfGraphicsItem : public QGraphicsItem
 
     QRectF                     m_boundingRect; ///< boundingRect (see QGraphicsItem)
     const ::profiler::BlocksTreeRoot* m_pRoot; ///< Pointer to the root profiler block (thread block). Used by ProfTreeWidget to restore hierarchy.
-    QRgb                    m_backgroundColor; ///< Background color (to enable AlternateColors behavior like in QTreeWidget)
     const bool                        m_bTest; ///< If true then we are running test()
 
 public:
@@ -77,8 +92,6 @@ public:
 
     void setBoundingRect(qreal x, qreal y, qreal w, qreal h);
     void setBoundingRect(const QRectF& _rect);
-
-    void setBackgroundColor(QRgb _color);
 
     ::profiler::thread_id_t threadId() const;
 
@@ -214,6 +227,25 @@ private:
 
 //////////////////////////////////////////////////////////////////////////
 
+#define EASY_QGRAPHICSITEM(ClassName) \
+class ClassName : public QGraphicsItem { \
+    QRectF m_boundingRect; \
+public: \
+    ClassName() : QGraphicsItem() {} \
+    virtual ~ClassName() {} \
+    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override; \
+    QRectF boundingRect() const override { return m_boundingRect; } \
+    void setBoundingRect(qreal x, qreal y, qreal w, qreal h) { m_boundingRect.setRect(x, y, w, h); } \
+    void setBoundingRect(const QRectF& _rect) { m_boundingRect = _rect; } \
+}
+
+EASY_QGRAPHICSITEM(ProfBackgroundItem);
+EASY_QGRAPHICSITEM(ProfTimelineIndicatorItem);
+
+#undef EASY_QGRAPHICSITEM
+
+//////////////////////////////////////////////////////////////////////////
+
 class ProfGraphicsView : public QGraphicsView
 {
     Q_OBJECT
@@ -230,6 +262,7 @@ private:
     ::profiler::timestamp_t             m_beginTime; ///< Begin time of profiler session. Used to reduce values of all begin and end times of profiler blocks.
     qreal                                   m_scale; ///< Current scale
     qreal                                  m_offset; ///< Have to use manual offset for all scene content instead of using scrollbars because QScrollBar::value is 32-bit integer :(
+    qreal                            m_timelineStep; ///< 
     QPoint                          m_mousePressPos; ///< Last mouse global position (used by mousePressEvent and mouseMoveEvent)
     QPoint                          m_mouseMovePath; ///< Mouse move path between press and release of any button
     Qt::MouseButtons                 m_mouseButtons; ///< Pressed mouse buttons
@@ -245,8 +278,7 @@ private:
 
 public:
 
-    ProfGraphicsView(bool _test = false);
-    ProfGraphicsView(const ::profiler::thread_blocks_tree_t& _blocksTree);
+    ProfGraphicsView(QWidget* _parent = nullptr);
     virtual ~ProfGraphicsView();
 
     // Public virtual methods
@@ -284,6 +316,7 @@ private:
     bool moveChrono(ProfChronometerItem* _chronometerItem, qreal _mouseX);
     void initMode();
     void updateVisibleSceneRect();
+    void updateTimelineStep(qreal _windowWidth);
     void updateScene();
     void scaleTo(qreal _scale);
     qreal setTree(ProfGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, qreal _y, unsigned short _level);
@@ -318,6 +351,11 @@ public:
         return m_visibleSceneRect;
     }
 
+    inline qreal timelineStep() const
+    {
+        return m_timelineStep;
+    }
+
 private:
 
     // Private inline methods
@@ -332,18 +370,6 @@ private:
     {
         return PROF_FROM_MICROSECONDS(_pos);
         //return PROF_FROM_MILLISECONDS(_pos);
-    }
-
-    inline qreal to_microseconds(qreal _value) const
-    {
-        return _value;
-        //return _value * 1e-3;
-    }
-
-    inline qreal to_milliseconds(qreal _value) const
-    {
-        return _value * 1e3;
-        //return _value;
     }
 
 }; // END of class ProfGraphicsView.
@@ -380,8 +406,7 @@ private:
 
 public:
 
-    ProfGraphicsViewWidget(bool _test = false);
-    ProfGraphicsViewWidget(const ::profiler::thread_blocks_tree_t& _blocksTree);
+    ProfGraphicsViewWidget(QWidget* _parent = nullptr);
     virtual ~ProfGraphicsViewWidget();
 
     ProfGraphicsView* view();

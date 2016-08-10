@@ -121,7 +121,6 @@ protected:
 public:
 
     ProfTreeWidget(QWidget* _parent = nullptr);
-    ProfTreeWidget(const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, QWidget* _parent = nullptr);
     virtual ~ProfTreeWidget();
 
     void clearSilent(bool _global = false);
