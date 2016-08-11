@@ -110,26 +110,20 @@ struct ProfBlockItem final
     const ::profiler::BlocksTree* block; ///< Pointer to profiler block
     qreal                             x; ///< x coordinate of the item (this is made qreal=double to avoid mistakes on very wide scene)
     float                             w; ///< Width of the item
-    float                             y; ///< y coordinate of the item
-    float                             h; ///< Height of the item
     QRgb                          color; ///< Background color of the item
     unsigned int         children_begin; ///< Index of first child item on the next sublevel
     unsigned short          totalHeight; ///< Total height of the item including heights of all it's children
     char                          state; ///< 0 = no change, 1 = paint, -1 = do not paint
 
-    inline void setRect(qreal _x, float _y, float _w, float _h) {
-        x = _x;
-        y = _y;
-        w = _w;
-        h = _h;
-    }
+    // Possible optimizations:
+    // 1) We can save 1 more byte per block if we will use char instead of short + real time calculations for "totalHeight" var;
+    // 2) We can save 12 bytes per block if "x" and "w" vars will be removed (all this information exist inside BlocksTree),
+    //      but this will make impossible to run graphics test without loading any .prof file.
 
+    inline void setPos(qreal _x, float _w) { x = _x; w = _w; }
     inline qreal left() const { return x; }
-    inline float top() const { return y; }
-    inline float width() const { return w; }
-    inline float height() const { return h; }
     inline qreal right() const { return x + w; }
-    inline float bottom() const { return y + h; }
+    inline float width() const { return w; }
 
 }; // END of struct ProfBlockItem.
 #pragma pack(pop)
@@ -187,6 +181,20 @@ inline QString timeStringInt(qreal _interval)
 
     // interval in seconds
     return QString("%1 sec").arg(static_cast<int>(_interval * 1e-6));
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+template <class T> inline T numeric_max() {
+    return ::std::numeric_limits<T>::max();
+}
+
+template <class T> inline T numeric_max(T) {
+    return ::std::numeric_limits<T>::max();
+}
+
+template <class T> inline void set_max(T& _value) {
+    _value = ::std::numeric_limits<T>::max();
 }
 
 //////////////////////////////////////////////////////////////////////////

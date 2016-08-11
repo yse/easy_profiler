@@ -30,6 +30,7 @@
 #include <QScrollBar>
 #include <QGridLayout>
 #include <QFontMetrics>
+#include <QDebug>
 #include <math.h>
 #include <algorithm>
 #include "blocks_graphics_view.h"
@@ -48,8 +49,9 @@ const qreal MAX_SCALE = pow(SCALING_COEFFICIENT, 30); // ~800
 const qreal BASE_SCALE = pow(SCALING_COEFFICIENT_INV, 25); // ~0.003
 
 const unsigned short GRAPHICS_ROW_SIZE = 16;
-const unsigned short GRAPHICS_ROW_SIZE_FULL = GRAPHICS_ROW_SIZE + 2;
-const unsigned short ROW_SPACING = 4;
+const unsigned short GRAPHICS_ROW_SPACING = 2;
+const unsigned short GRAPHICS_ROW_SIZE_FULL = GRAPHICS_ROW_SIZE + GRAPHICS_ROW_SPACING;
+const unsigned short THREADS_ROW_SPACING = 4;
 
 const QRgb BORDERS_COLOR = 0x00a07050;
 const QRgb BACKGROUND_1 = 0x00dddddd;
@@ -79,15 +81,11 @@ inline T logn(T _value)
 
 //////////////////////////////////////////////////////////////////////////
 
-ProfGraphicsItem::ProfGraphicsItem() : ProfGraphicsItem(false)
+ProfGraphicsItem::ProfGraphicsItem(unsigned char _index, bool _test) : QGraphicsItem(nullptr), m_bTest(_test), m_pRoot(nullptr), m_index(_index)
 {
 }
 
-ProfGraphicsItem::ProfGraphicsItem(bool _test) : QGraphicsItem(nullptr), m_bTest(_test), m_pRoot(nullptr)
-{
-}
-
-ProfGraphicsItem::ProfGraphicsItem(const ::profiler::BlocksTreeRoot* _root) : ProfGraphicsItem(false)
+ProfGraphicsItem::ProfGraphicsItem(unsigned char _index, const::profiler::BlocksTreeRoot* _root) : ProfGraphicsItem(_index, false)
 {
     m_pRoot = _root;
 }
@@ -138,8 +136,7 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
     // Reset indices of first visible item for each layer
     const auto levelsNumber = levels();
-    for (unsigned short i = 1; i < levelsNumber; ++i)
-        m_levelsIndexes[i] = -1;
+    for (unsigned char i = 1; i < levelsNumber; ++i) ::profiler_gui::set_max(m_levelsIndexes[i]);
 
 
     // Search for first visible top-level item
@@ -185,23 +182,25 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
     // Iterate through layers and draw visible items
     bool selectedItemsWasPainted = false;
-    for (unsigned short l = 0; l < levelsNumber; ++l)
+    for (unsigned char l = 0; l < levelsNumber; ++l)
     {
         auto& level = m_levels[l];
-        const auto next_level = l + 1;
+        const short next_level = l + 1;
         char state = 1;
         //bool changebrush = false;
 
+        const auto top = levelY(l);
         for (unsigned int i = m_levelsIndexes[l], end = static_cast<unsigned int>(level.size()); i < end; ++i)
         {
             auto& item = level[i];
+            static const auto MAX_CHILD_INDEX = ::profiler_gui::numeric_max(item.children_begin);
 
             if (item.state != 0)
             {
                 state = item.state;
             }
 
-            if (item.right() < sceneLeft || state == -1 || (l == 0 && (item.top() > visibleSceneRect.bottom() || (item.top() + item.totalHeight) < visibleSceneRect.top())))
+            if (item.right() < sceneLeft || state == -1 || (l == 0 && (top > visibleSceneRect.bottom() || (top + item.totalHeight) < visibleSceneRect.top())))
             {
                 // This item is not visible
                 ++m_levelsIndexes[l];
@@ -275,7 +274,7 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 }
 
                 // Draw rectangle
-                rect.setRect(x, item.top(), w, item.totalHeight);
+                rect.setRect(x, top, w, item.totalHeight);
                 _painter->drawRect(rect);
 
                 if (changepen)
@@ -286,7 +285,7 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         _painter->setPen(BORDERS_COLOR); // restore pen for rectangle painting
                 }
 
-                if (next_level < levelsNumber && item.children_begin != NEGATIVE_ONE)
+                if (next_level < levelsNumber && item.children_begin != MAX_CHILD_INDEX)
                 {
                     // Mark that we would not paint children of current item
                     m_levels[next_level][item.children_begin].state = -1;
@@ -295,9 +294,9 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 continue;
             }
 
-            if (next_level < levelsNumber && item.children_begin != NEGATIVE_ONE)
+            if (next_level < levelsNumber && item.children_begin != MAX_CHILD_INDEX)
             {
-                if (m_levelsIndexes[next_level] == NEGATIVE_ONE)
+                if (m_levelsIndexes[next_level] == MAX_CHILD_INDEX)
                 {
                     // Mark first potentially visible child item on next sublevel
                     m_levelsIndexes[next_level] = item.children_begin;
@@ -353,7 +352,7 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
             // Draw rectangle
             const auto x = item.left() * currentScale - dx;
-            rect.setRect(x, item.top(), w, item.height());
+            rect.setRect(x, top, w, GRAPHICS_ROW_SIZE);
             _painter->drawRect(rect);
 
             // Draw text-----------------------------------
@@ -367,7 +366,7 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 xtext = sceneLeft * currentScale - dx;
             }
 
-            rect.setRect(xtext + 1, item.top(), w - 1, item.height());
+            rect.setRect(xtext + 1, top, w - 1, GRAPHICS_ROW_SIZE);
 
             // text will be painted with inverse color
             auto textColor = 0x00ffffff - previousColor;
@@ -399,7 +398,7 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     if (!selectedItemsWasPainted && !m_bTest && ::profiler_gui::EASY_GLOBALS.selected_block < ::profiler_gui::EASY_GLOBALS.gui_blocks.size())
     {
         const auto& guiblock = ::profiler_gui::EASY_GLOBALS.gui_blocks[::profiler_gui::EASY_GLOBALS.selected_block];
-        if (guiblock.graphics_item == this)
+        if (guiblock.graphics_item == m_index)
         {
             const auto& item = m_levels[guiblock.graphics_item_level][guiblock.graphics_item_index];
             if (item.left() < sceneRight && item.right() > sceneLeft)
@@ -412,7 +411,7 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 brush.setColor(previousColor);
                 _painter->setBrush(brush);
 
-                rect.setRect(item.left() * currentScale - dx, item.top(), ::std::max(item.width() * currentScale, 1.0), item.totalHeight);
+                rect.setRect(item.left() * currentScale - dx, levelY(guiblock.graphics_item_level), ::std::max(item.width() * currentScale, 1.0), item.totalHeight);
                 _painter->drawRect(rect);
             }
         }
@@ -486,7 +485,7 @@ const ::profiler_gui::ProfBlockItem* ProfGraphicsItem::intersect(const QPointF& 
     }
 
     const auto& level0 = m_levels.front();
-    const auto top = level0.front().top();
+    const auto top = y();
 
     if (top > _pos.y())
     {
@@ -507,7 +506,7 @@ const ::profiler_gui::ProfBlockItem* ProfGraphicsItem::intersect(const QPointF& 
 
     const auto currentScale = view()->scale();
     unsigned int i = 0;
-    size_t itemIndex = -1;
+    size_t itemIndex = ::std::numeric_limits<size_t>::max();
     size_t firstItem = 0, lastItem = static_cast<unsigned int>(level0.size());
     while (i <= levelIndex)
     {
@@ -533,6 +532,7 @@ const ::profiler_gui::ProfBlockItem* ProfGraphicsItem::intersect(const QPointF& 
         for (auto size = level.size(); itemIndex < size; ++itemIndex)
         {
             const auto& item = level[itemIndex];
+            static const auto MAX_CHILD_INDEX = ::profiler_gui::numeric_max(item.children_begin);
 
             if (item.left() > _pos.x())
             {
@@ -550,7 +550,7 @@ const ::profiler_gui::ProfBlockItem* ProfGraphicsItem::intersect(const QPointF& 
                 return &item;
             }
 
-            if (item.children_begin == NEGATIVE_ONE)
+            if (item.children_begin == MAX_CHILD_INDEX)
             {
                 if (itemIndex != 0)
                 {
@@ -560,7 +560,7 @@ const ::profiler_gui::ProfBlockItem* ProfGraphicsItem::intersect(const QPointF& 
 
                         --j;
                         const auto& item2 = level[j];
-                        if (item2.children_begin != NEGATIVE_ONE)
+                        if (item2.children_begin != MAX_CHILD_INDEX)
                         {
                             firstItem = item2.children_begin;
                             break;
@@ -582,7 +582,7 @@ const ::profiler_gui::ProfBlockItem* ProfGraphicsItem::intersect(const QPointF& 
             for (auto j = itemIndex + 1; j < size; ++j)
             {
                 const auto& item2 = level[j];
-                if (item2.children_begin != NEGATIVE_ONE)
+                if (item2.children_begin != MAX_CHILD_INDEX)
                 {
                     lastItem = item2.children_begin;
                     break;
@@ -619,40 +619,48 @@ void ProfGraphicsItem::setBoundingRect(const QRectF& _rect)
 
 //////////////////////////////////////////////////////////////////////////
 
-unsigned short ProfGraphicsItem::levels() const
+unsigned char ProfGraphicsItem::levels() const
 {
-    return static_cast<unsigned short>(m_levels.size());
+    return static_cast<unsigned char>(m_levels.size());
 }
 
-void ProfGraphicsItem::setLevels(unsigned short _levels)
+float ProfGraphicsItem::levelY(unsigned char _level) const
 {
+    return y() + static_cast<int>(_level) * static_cast<int>(GRAPHICS_ROW_SIZE_FULL);
+}
+
+void ProfGraphicsItem::setLevels(unsigned char _levels)
+{
+    typedef decltype(m_levelsIndexes) IndexesT;
+    static const auto MAX_CHILD_INDEX = ::profiler_gui::numeric_max<IndexesT::value_type>();
+
     m_levels.resize(_levels);
-    m_levelsIndexes.resize(_levels, -1);
+    m_levelsIndexes.resize(_levels, MAX_CHILD_INDEX);
 }
 
-void ProfGraphicsItem::reserve(unsigned short _level, unsigned int _items)
+void ProfGraphicsItem::reserve(unsigned char _level, unsigned int _items)
 {
     m_levels[_level].reserve(_items);
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-const ProfGraphicsItem::Children& ProfGraphicsItem::items(unsigned short _level) const
+const ProfGraphicsItem::Children& ProfGraphicsItem::items(unsigned char _level) const
 {
     return m_levels[_level];
 }
 
-const ::profiler_gui::ProfBlockItem& ProfGraphicsItem::getItem(unsigned short _level, unsigned int _index) const
+const ::profiler_gui::ProfBlockItem& ProfGraphicsItem::getItem(unsigned char _level, unsigned int _index) const
 {
     return m_levels[_level][_index];
 }
 
-::profiler_gui::ProfBlockItem& ProfGraphicsItem::getItem(unsigned short _level, unsigned int _index)
+::profiler_gui::ProfBlockItem& ProfGraphicsItem::getItem(unsigned char _level, unsigned int _index)
 {
     return m_levels[_level][_index];
 }
 
-unsigned int ProfGraphicsItem::addItem(unsigned short _level)
+unsigned int ProfGraphicsItem::addItem(unsigned char _level)
 {
     m_levels[_level].emplace_back();
     return static_cast<unsigned int>(m_levels[_level].size() - 1);
@@ -875,7 +883,7 @@ void ProfBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
     const auto& items = sceneView->getItems();
     if (!items.empty())
     {
-        static const auto OVERLAP = ROW_SPACING >> 1;
+        static const auto OVERLAP = THREADS_ROW_SPACING >> 1;
         static const QBrush brushes[2] = {QColor::fromRgb(BACKGROUND_1), QColor::fromRgb(BACKGROUND_2)};
         const bool isTest = (items.front()->items(0).front().block == nullptr);
         int i = -1;
@@ -961,7 +969,7 @@ void ProfTimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGrap
 
 ProfGraphicsView::ProfGraphicsView(QWidget* _parent)
     : QGraphicsView(_parent)
-    , m_beginTime(-1)
+    , m_beginTime(::std::numeric_limits<decltype(m_beginTime)>::max())
     , m_scale(1)
     , m_offset(0)
     , m_mouseButtons(Qt::NoButton)
@@ -999,7 +1007,7 @@ ProfChronometerItem* ProfGraphicsView::createChronometer(bool _main)
 
 //////////////////////////////////////////////////////////////////////////
 
-void ProfGraphicsView::fillTestChildren(ProfGraphicsItem* _item, const int _maxlevel, int _level, qreal _x, qreal _y, unsigned int _childrenNumber, unsigned int& _total_items)
+void ProfGraphicsView::fillTestChildren(ProfGraphicsItem* _item, const int _maxlevel, int _level, qreal _x, unsigned int _childrenNumber, unsigned int& _total_items)
 {
     unsigned int nchildren = _childrenNumber;
     _childrenNumber = TEST_PROGRESSION_BASE;
@@ -1016,17 +1024,17 @@ void ProfGraphicsView::fillTestChildren(ProfGraphicsItem* _item, const int _maxl
             const auto& children = _item->items(_level + 1);
             b.children_begin = static_cast<unsigned int>(children.size());
 
-            fillTestChildren(_item, _maxlevel, _level + 1, _x, _y + GRAPHICS_ROW_SIZE_FULL, _childrenNumber, _total_items);
+            fillTestChildren(_item, _maxlevel, _level + 1, _x, _childrenNumber, _total_items);
 
             const auto& last = children.back();
-            b.setRect(_x, _y, last.right() - _x, GRAPHICS_ROW_SIZE);
+            b.setPos(_x, last.right() - _x);
             b.totalHeight = GRAPHICS_ROW_SIZE_FULL + last.totalHeight;
         }
         else
         {
-            b.setRect(_x, _y, units2microseconds(10 + rand() % 190), GRAPHICS_ROW_SIZE);
+            b.setPos(_x, units2microseconds(10 + rand() % 190));
             b.totalHeight = GRAPHICS_ROW_SIZE;
-            b.children_begin = -1;
+            ::profiler_gui::set_max(b.children_begin);
         }
 
         _x = b.right();
@@ -1034,7 +1042,7 @@ void ProfGraphicsView::fillTestChildren(ProfGraphicsItem* _item, const int _maxl
     }
 }
 
-void ProfGraphicsView::test(unsigned int _frames_number, unsigned int _total_items_number_estimate, int _rows)
+void ProfGraphicsView::test(unsigned int _frames_number, unsigned int _total_items_number_estimate, unsigned char _rows)
 {
     static const qreal X_BEGIN = 50;
     static const qreal Y_BEGIN = 0;
@@ -1042,9 +1050,9 @@ void ProfGraphicsView::test(unsigned int _frames_number, unsigned int _total_ite
     clearSilent(); // Clear scene
 
     // Calculate items number for first level
-    _rows = ::std::max(1, _rows);
+    _rows = ::std::max((unsigned char)1, _rows);
     const auto children_per_frame = static_cast<unsigned int>(0.5 + static_cast<double>(_total_items_number_estimate) / static_cast<double>(_rows * _frames_number));
-    const int max_depth = logn<TEST_PROGRESSION_BASE>(children_per_frame * (TEST_PROGRESSION_BASE - 1) * 0.5 + 1);
+    const unsigned char max_depth = ::std::min(254, static_cast<int>(logn<TEST_PROGRESSION_BASE>(children_per_frame * (TEST_PROGRESSION_BASE - 1) * 0.5 + 1)));
     const auto first_level_children_count = static_cast<unsigned int>(static_cast<double>(children_per_frame) * (1.0 - TEST_PROGRESSION_BASE) / (1.0 - pow(TEST_PROGRESSION_BASE, max_depth)) + 0.5);
 
 
@@ -1053,12 +1061,12 @@ void ProfGraphicsView::test(unsigned int _frames_number, unsigned int _total_ite
 
 
     ::std::vector<ProfGraphicsItem*> thread_items(_rows);
-    for (int i = 0; i < _rows; ++i)
+    for (unsigned char i = 0; i < _rows; ++i)
     {
-        auto item = new ProfGraphicsItem(true);
+        auto item = new ProfGraphicsItem(i, true);
         thread_items[i] = item;
 
-        item->setPos(0, Y_BEGIN + i * (max_depth * GRAPHICS_ROW_SIZE_FULL + ROW_SPACING * 5));
+        item->setPos(0, Y_BEGIN + i * (max_depth * GRAPHICS_ROW_SIZE_FULL + THREADS_ROW_SPACING * 5));
 
         item->setLevels(max_depth + 1);
         item->reserve(0, _frames_number);
@@ -1066,11 +1074,11 @@ void ProfGraphicsView::test(unsigned int _frames_number, unsigned int _total_ite
 
     // Calculate items number for each sublevel
     auto chldrn = first_level_children_count;
-    for (int i = 1; i <= max_depth; ++i)
+    for (unsigned char i = 1; i <= max_depth; ++i)
     {
-        for (int i = 0; i < _rows; ++i)
+        for (unsigned char j = 0; j < _rows; ++j)
         {
-            auto item = thread_items[i];
+            auto item = thread_items[j];
             item->reserve(i, chldrn * _frames_number);
         }
 
@@ -1081,11 +1089,11 @@ void ProfGraphicsView::test(unsigned int _frames_number, unsigned int _total_ite
     unsigned int total_items = 0;
     qreal maxX = 0;
     const ProfGraphicsItem* longestItem = nullptr;
-    for (int i = 0; i < _rows; ++i)
+    for (unsigned char i = 0; i < _rows; ++i)
     {
         auto item = thread_items[i];
         qreal x = X_BEGIN, y = item->y();
-        for (unsigned int i = 0; i < _frames_number; ++i)
+        for (unsigned int f = 0; f < _frames_number; ++f)
         {
             auto j = item->addItem(0);
             auto& b = item->getItem(0, j);
@@ -1095,10 +1103,10 @@ void ProfGraphicsView::test(unsigned int _frames_number, unsigned int _total_ite
             const auto& children = item->items(1);
             b.children_begin = static_cast<unsigned int>(children.size());
 
-            fillTestChildren(item, max_depth, 1, x, y + GRAPHICS_ROW_SIZE_FULL, first_level_children_count, total_items);
+            fillTestChildren(item, max_depth, 1, x, first_level_children_count, total_items);
 
             const auto& last = children.back();
-            b.setRect(x, y, last.right() - x, GRAPHICS_ROW_SIZE);
+            b.setPos(x, last.right() - x);
             b.totalHeight = GRAPHICS_ROW_SIZE_FULL + last.totalHeight;
 
             x += b.width() * 1.2;
@@ -1170,7 +1178,7 @@ void ProfGraphicsView::clearSilent()
     m_items.clear();
     m_selectedBlocks.clear();
 
-    m_beginTime = -1; // reset begin time
+    m_beginTime = ::std::numeric_limits<decltype(m_beginTime)>::max(); // reset begin time
     m_scale = 1; // scale back to initial 100% scale
     m_timelineStep = 1;
     m_offset = 0; // scroll back to the beginning of the scene
@@ -1229,7 +1237,7 @@ void ProfGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         // fill scene with new items
         const auto& tree = threadTree.second.tree;
         qreal h = 0, x = time2position(tree.children.front().node->block()->getBegin());
-        auto item = new ProfGraphicsItem(&threadTree.second);
+        auto item = new ProfGraphicsItem(static_cast<unsigned char>(m_items.size()), &threadTree.second);
         item->setLevels(tree.depth);
         item->setPos(0, y);
 
@@ -1239,11 +1247,17 @@ void ProfGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         m_items.push_back(item);
         scene()->addItem(item);
 
-        y += h + ROW_SPACING;
+        y += h + THREADS_ROW_SPACING;
 
         if (longestTree == &tree)
         {
             longestItem = item;
+        }
+
+        if (m_items.size() == 0xff)
+        {
+            qWarning() << "Maximum threads number (255 threads) exceeded! See ProfGraphicsView::setTree() : " << __LINE__ << " in file " << __FILE__;
+            break;
         }
     }
 
@@ -1286,7 +1300,7 @@ const ProfGraphicsView::Items &ProfGraphicsView::getItems() const
     return m_items;
 }
 
-qreal ProfGraphicsView::setTree(ProfGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, qreal _y, unsigned short _level)
+qreal ProfGraphicsView::setTree(ProfGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, qreal _y, short _level)
 {
     static const qreal MIN_DURATION = 0.25;
 
@@ -1295,9 +1309,11 @@ qreal ProfGraphicsView::setTree(ProfGraphicsItem* _item, const ::profiler::Block
         return 0;
     }
 
-    _item->reserve(_level, static_cast<unsigned int>(_children.size()));
+    const auto level = static_cast<unsigned char>(_level);
+    _item->reserve(level, static_cast<unsigned int>(_children.size()));
 
-    const auto next_level = _level + 1;
+    const short next_level = _level + 1;
+    bool warned = false;
     qreal total_duration = 0, prev_end = 0, maxh = 0;
     qreal start_time = -1;
     for (const auto& child : _children)
@@ -1322,25 +1338,36 @@ qreal ProfGraphicsView::setTree(ProfGraphicsItem* _item, const ::profiler::Block
             duration = MIN_DURATION;
         }
 
-        auto i = _item->addItem(_level);
-        auto& b = _item->getItem(_level, i);
+        auto i = _item->addItem(level);
+        auto& b = _item->getItem(level, i);
 
         auto& gui_block = ::profiler_gui::EASY_GLOBALS.gui_blocks[child.block_index];
-        gui_block.graphics_item = _item;
-        gui_block.graphics_item_level = _level;
+        gui_block.graphics_item = _item->index();
+        gui_block.graphics_item_level = level;
         gui_block.graphics_item_index = i;
 
-        if (next_level < _item->levels() && !child.children.empty())
+        if (next_level < 256 && next_level < _item->levels() && !child.children.empty())
         {
-            b.children_begin = static_cast<unsigned int>(_item->items(next_level).size());
+            b.children_begin = static_cast<unsigned int>(_item->items(static_cast<unsigned char>(next_level)).size());
         }
         else
         {
-            b.children_begin = -1;
+            ::profiler_gui::set_max(b.children_begin);
         }
 
         qreal h = 0;
-        const auto children_duration = setTree(_item, child.children, h, _y + GRAPHICS_ROW_SIZE_FULL, next_level);
+        qreal children_duration = 0;
+
+        if (next_level < 256)
+        {
+            children_duration = setTree(_item, child.children, h, _y + GRAPHICS_ROW_SIZE_FULL, next_level);
+        }
+        else if (!child.children.empty() && !warned)
+        {
+            warned = true;
+            qWarning() << "Maximum blocks depth (255) exceeded! See ProfGraphicsView::setTree() : " << __LINE__ << " in file " << __FILE__;
+        }
+
         if (duration < children_duration)
         {
             duration = children_duration;
@@ -1354,7 +1381,7 @@ qreal ProfGraphicsView::setTree(ProfGraphicsItem* _item, const ::profiler::Block
         const auto color = child.node->block()->getColor();
         b.block = &child;
         b.color = ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
-        b.setRect(xbegin, _y, duration, GRAPHICS_ROW_SIZE);
+        b.setPos(xbegin, duration);
         b.totalHeight = GRAPHICS_ROW_SIZE + h;
 
         prev_end = xbegin + duration;
@@ -1411,7 +1438,7 @@ void ProfGraphicsView::updateTimelineStep(qreal _windowWidth)
         m_timelineStep = 1e6;
 
     auto steps = time / m_timelineStep;
-    while (steps > 50) {
+    while (steps > 60) {
         m_timelineStep *= 10;
         steps *= 0.1;
     }
@@ -1877,12 +1904,13 @@ void ProfGraphicsView::onSelectedBlockChange(unsigned int _block_index)
             // Scroll to item
 
             const auto& guiblock = ::profiler_gui::EASY_GLOBALS.gui_blocks[_block_index];
-            const auto& item = guiblock.graphics_item->items(guiblock.graphics_item_level)[guiblock.graphics_item_index];
+            const auto thread_item = m_items[guiblock.graphics_item];
+            const auto& item = thread_item->items(guiblock.graphics_item_level)[guiblock.graphics_item_index];
 
             m_flickerSpeedX = m_flickerSpeedY = 0;
 
             m_bUpdatingRect = true;
-            verticalScrollBar()->setValue(static_cast<int>(item.top() - m_visibleSceneRect.height() * 0.5));
+            verticalScrollBar()->setValue(static_cast<int>(thread_item->levelY(guiblock.graphics_item_level) - m_visibleSceneRect.height() * 0.5));
             m_pScrollbar->setValue(item.left() + item.width() * 0.5 - m_pScrollbar->sliderHalfWidth());
             m_bUpdatingRect = false;
         }

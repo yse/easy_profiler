@@ -31,8 +31,6 @@
 class ProfGraphicsItem;
 class ProfTreeWidgetItem;
 
-const unsigned int NEGATIVE_ONE = std::numeric_limits<unsigned int>::max();
-
 //////////////////////////////////////////////////////////////////////////
 
 namespace profiler_gui {
@@ -46,13 +44,15 @@ namespace profiler_gui {
 
     //////////////////////////////////////////////////////////////////////////
 
+#pragma pack(push, 1)
     struct ProfBlock final
     {
-        ProfGraphicsItem*         graphics_item;
-        ProfTreeWidgetItem*           tree_item;
-        unsigned short      graphics_item_level;
-        unsigned int        graphics_item_index;
+        unsigned int            tree_item;
+        unsigned int  graphics_item_index;
+        unsigned char graphics_item_level;
+        unsigned char       graphics_item;
     };
+#pragma pack(pop)
 
     typedef ::std::vector<ProfBlock> ProfBlocks;
 

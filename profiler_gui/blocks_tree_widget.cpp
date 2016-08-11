@@ -244,7 +244,7 @@ void ProfTreeWidgetItem::expandAll()
 
 //////////////////////////////////////////////////////////////////////////
 
-ProfTreeWidget::ProfTreeWidget(QWidget* _parent) : Parent(_parent), m_beginTime(-1), m_bColorRows(true)
+ProfTreeWidget::ProfTreeWidget(QWidget* _parent) : Parent(_parent), m_beginTime(::std::numeric_limits<decltype(m_beginTime)>::max()), m_bColorRows(true)
 {
     setAutoFillBackground(false);
     setAlternatingRowColors(true);
@@ -339,7 +339,7 @@ void ProfTreeWidget::setTreeBlocks(const ::profiler_gui::TreeBlocks& _blocks, ::
 
 void ProfTreeWidget::clearSilent(bool _global)
 {
-    m_beginTime = -1;
+    m_beginTime = ::std::numeric_limits<decltype(m_beginTime)>::max();
 
     setSortingEnabled(false);
     disconnect(this, &Parent::itemExpanded, this, &This::onItemExpand);
@@ -348,7 +348,7 @@ void ProfTreeWidget::clearSilent(bool _global)
     {
         for (auto item : m_items)
         {
-            ::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index].tree_item = nullptr;
+            ::profiler_gui::set_max(::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index].tree_item);
         }
     }
 
@@ -602,7 +602,7 @@ size_t ProfTreeWidget::setTreeInternal(const ::profiler_gui::TreeBlocks& _blocks
         if (children_items_number > 0 || !_strict || (startTime >= _left && endTime <= _right))
         {
             total_items += children_items_number + 1;
-            ::profiler_gui::EASY_GLOBALS.gui_blocks[block.tree->block_index].tree_item = item;
+            ::profiler_gui::EASY_GLOBALS.gui_blocks[block.tree->block_index].tree_item = static_cast<unsigned int>(m_items.size() - 1);
 
             if (m_bColorRows)
             {
@@ -770,7 +770,7 @@ size_t ProfTreeWidget::setTreeInternal(const ::profiler::BlocksTree::children_t&
         if (children_items_number > 0 || !_strict || (startTime >= _left && endTime <= _right))
         {
             total_items += children_items_number + 1;
-            ::profiler_gui::EASY_GLOBALS.gui_blocks[child.block_index].tree_item = item;
+            ::profiler_gui::EASY_GLOBALS.gui_blocks[child.block_index].tree_item = static_cast<unsigned int>(m_items.size() - 1);
 
             if (m_bColorRows)
             {
@@ -842,7 +842,7 @@ void ProfTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
                 case COL_MAX_PER_PARENT:
                 case COL_MAX_PER_FRAME:
                 {
-                    unsigned int i = NEGATIVE_ONE;
+                    auto i = ::profiler_gui::numeric_max<unsigned int>();
                     switch (col)
                     {
                         case COL_MIN_PER_THREAD: i = item->block()->per_thread_stats->min_duration_block; break;
@@ -853,7 +853,7 @@ void ProfTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
                         case COL_MAX_PER_FRAME: i = item->block()->per_frame_stats->max_duration_block; break;
                     }
 
-                    if (i != NEGATIVE_ONE)
+                    if (i != ::profiler_gui::numeric_max(i))
                     {
                         menu.addSeparator();
                         itemAction = new ProfItemAction("Jump to such item", i);
@@ -973,17 +973,18 @@ void ProfTreeWidget::onSelectedThreadChange(::profiler::thread_id_t _id)
 
 void ProfTreeWidget::onSelectedBlockChange(unsigned int _block_index)
 {
+    ProfTreeWidgetItem* item = nullptr;
+
     if (_block_index < ::profiler_gui::EASY_GLOBALS.gui_blocks.size())
     {
-        auto item = ::profiler_gui::EASY_GLOBALS.gui_blocks[_block_index].tree_item;
-        if (item != nullptr)
-            scrollToItem(item, QAbstractItemView::PositionAtCenter);
-        setCurrentItem(item);
+        const auto i = ::profiler_gui::EASY_GLOBALS.gui_blocks[_block_index].tree_item;
+        if (i < m_items.size())
+            item = m_items[i];
     }
-    else
-    {
-        setCurrentItem(nullptr);
-    }
+
+    if (item != nullptr)
+        scrollToItem(item, QAbstractItemView::PositionAtCenter);
+    setCurrentItem(item);
 }
 
 //////////////////////////////////////////////////////////////////////////

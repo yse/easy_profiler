@@ -70,12 +70,12 @@ class ProfGraphicsItem : public QGraphicsItem
     QRectF                     m_boundingRect; ///< boundingRect (see QGraphicsItem)
     const ::profiler::BlocksTreeRoot* m_pRoot; ///< Pointer to the root profiler block (thread block). Used by ProfTreeWidget to restore hierarchy.
     const bool                        m_bTest; ///< If true then we are running test()
+    unsigned char                     m_index; ///< This item's index in the list of items of ProfGraphicsView
 
 public:
 
-    ProfGraphicsItem();
-    ProfGraphicsItem(bool _test);
-    ProfGraphicsItem(const ::profiler::BlocksTreeRoot* _root);
+    ProfGraphicsItem(unsigned char _index, bool _test);
+    ProfGraphicsItem(unsigned char _index, const::profiler::BlocksTreeRoot* _root);
     virtual ~ProfGraphicsItem();
 
     // Public virtual methods
@@ -96,44 +96,46 @@ public:
     ::profiler::thread_id_t threadId() const;
 
     ///< Returns number of levels
-    unsigned short levels() const;
+    unsigned char levels() const;
+
+    float levelY(unsigned char _level) const;
 
     /** \brief Sets number of levels.
     
     \note Must be set before doing anything else.
     
     \param _levels Desired number of levels */
-    void setLevels(unsigned short _levels);
+    void setLevels(unsigned char _levels);
 
     /** \brief Reserves memory for desired number of items on specified level.
     
     \param _level Index of the level
     \param _items Desired number of items on this level */
-    void reserve(unsigned short _level, unsigned int _items);
+    void reserve(unsigned char _level, unsigned int _items);
 
     /**\brief Returns reference to the array of items of specified level.
     
     \param _level Index of the level */
-    const Children& items(unsigned short _level) const;
+    const Children& items(unsigned char _level) const;
 
     /**\brief Returns reference to the item with required index on specified level.
     
     \param _level Index of the level
     \param _index Index of required item */
-    const ::profiler_gui::ProfBlockItem& getItem(unsigned short _level, unsigned int _index) const;
+    const ::profiler_gui::ProfBlockItem& getItem(unsigned char _level, unsigned int _index) const;
 
     /**\brief Returns reference to the item with required index on specified level.
 
     \param _level Index of the level
     \param _index Index of required item */
-    ::profiler_gui::ProfBlockItem& getItem(unsigned short _level, unsigned int _index);
+    ::profiler_gui::ProfBlockItem& getItem(unsigned char _level, unsigned int _index);
 
     /** \brief Adds new item to required level.
     
     \param _level Index of the level
     
     \retval Index of the new created item */
-    unsigned int addItem(unsigned short _level);
+    unsigned int addItem(unsigned char _level);
 
     /** \brief Finds top-level blocks which are intersects with required selection zone.
 
@@ -150,6 +152,16 @@ private:
 
     ///< Returns pointer to the ProfGraphicsView widget.
     const ProfGraphicsView* view() const;
+
+public:
+
+    // Public inline methods
+
+    ///< Returns this item's index in the list of graphics items of ProfGraphicsView
+    inline unsigned char index() const
+    {
+        return m_index;
+    }
 
 }; // END of class ProfGraphicsItem.
 
@@ -297,7 +309,7 @@ public:
     void setScrollbar(ProfGraphicsScrollbar* _scrollbar);
     void clearSilent();
 
-    void test(unsigned int _frames_number, unsigned int _total_items_number_estimate, int _rows);
+    void test(unsigned int _frames_number, unsigned int _total_items_number_estimate, unsigned char _rows);
     void setTree(const ::profiler::thread_blocks_tree_t& _blocksTree);
 
     const Items& getItems() const;
@@ -319,8 +331,8 @@ private:
     void updateTimelineStep(qreal _windowWidth);
     void updateScene();
     void scaleTo(qreal _scale);
-    qreal setTree(ProfGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, qreal _y, unsigned short _level);
-    void fillTestChildren(ProfGraphicsItem* _item, const int _maxlevel, int _level, qreal _x, qreal _y, unsigned int _childrenNumber, unsigned int& _total_items);
+    qreal setTree(ProfGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, qreal _y, short _level);
+    void fillTestChildren(ProfGraphicsItem* _item, const int _maxlevel, int _level, qreal _x, unsigned int _childrenNumber, unsigned int& _total_items);
 
 private slots:
 
