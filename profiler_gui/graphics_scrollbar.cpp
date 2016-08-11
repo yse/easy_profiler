@@ -185,7 +185,7 @@ void ProfMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* 
         // Draw rectangle
 
         const auto h = ::std::max((item.width() - m_minDuration) * coeff, 5.0);
-        const auto col = h * heightRevert;
+        const auto col = ::std::min(h * heightRevert, 0.9999999);
         //const auto color = ::profiler_gui::toRgb(col * 255, (1.0 - col) * 255, 0); // item.color;
         const auto color = 0x00ffffff & QColor::fromHsvF((1.0 - col) * 0.35, 0.85, 0.85).rgb();
 
