@@ -1,6 +1,6 @@
 /**
 Lightweight profiler library for c++
-Copyright(C) 2016  Sergey Yagovtsev
+Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
 
 This program is free software : you can redistribute it and / or modify
 it under the terms of the GNU General Public License as published by
@@ -51,8 +51,11 @@ Block will be automatically completed by destructor
 
 \ingroup profiler
 */
-#define PROFILER_BEGIN_BLOCK(name)	profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,profiler::colors::Clay,profiler::BLOCK_TYPE_BLOCK);\
-									profiler::beginBlock(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
+#define PROFILER_BEGIN_BLOCK(name)\
+    static const profiler::BlockSourceInfo TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__)(__FILE__, __LINE__);\
+    profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,profiler::colors::Clay,profiler::BLOCK_TYPE_BLOCK,\
+            TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__).id());\
+	profiler::beginBlock(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
 
 /** Macro of beginning of block with custom name and custom identification
 
@@ -73,8 +76,11 @@ Block will be automatically completed by destructor
 
 \ingroup profiler
 */
-#define PROFILER_BEGIN_BLOCK_GROUPED(name,block_group)	profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,block_group,profiler::BLOCK_TYPE_BLOCK);\
-														profiler::beginBlock(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
+#define PROFILER_BEGIN_BLOCK_GROUPED(name,block_group)\
+    static const profiler::BlockSourceInfo TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__)(__FILE__, __LINE__);\
+    profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,block_group,profiler::BLOCK_TYPE_BLOCK,\
+            TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__).id());\
+	profiler::beginBlock(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
 
 /** Macro of beginning of function block with default identification
 
@@ -130,11 +136,17 @@ void foo()
 */
 #define PROFILER_END_BLOCK profiler::endBlock();
 
-#define PROFILER_ADD_EVENT(name)	profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,0,profiler::BLOCK_TYPE_EVENT);\
-									profiler::beginBlock(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
+#define PROFILER_ADD_EVENT(name)	\
+    static const profiler::BlockSourceInfo TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__)(__FILE__, __LINE__);\
+    profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,0,profiler::BLOCK_TYPE_EVENT,\
+            TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__).id());\
+	profiler::beginBlock(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
 
-#define PROFILER_ADD_EVENT_GROUPED(name,block_group)	profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,block_group,profiler::BLOCK_TYPE_EVENT);\
-														profiler::beginBlock(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
+#define PROFILER_ADD_EVENT_GROUPED(name,block_group)\
+    static const profiler::BlockSourceInfo TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__)(__FILE__, __LINE__);\
+    profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,block_group,profiler::BLOCK_TYPE_EVENT,\
+            TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__).id());\
+	profiler::beginBlock(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
 
 /** Macro enabling profiler
 \ingroup profiler
@@ -237,6 +249,7 @@ namespace profiler
 
 
 	class Block;
+    class BlockSourceInfo;
 	
 	extern "C"{
 		void PROFILER_API beginBlock(Block* _block);
@@ -249,31 +262,49 @@ namespace profiler
 	typedef uint8_t block_type_t;
 	typedef uint64_t timestamp_t;
 	typedef uint32_t thread_id_t;
+    typedef uint32_t source_id_t;
 
 	const block_type_t BLOCK_TYPE_EVENT = 1;
 	const block_type_t BLOCK_TYPE_BLOCK = 2;
 	const block_type_t BLOCK_TYPE_THREAD_SIGN = 3;
+
+#define EASY_USE_OLD_FILE_FORMAT
 		
 #pragma pack(push,1)
 	class PROFILER_API BaseBlockData
 	{
 	protected:
 
-		block_type_t type;
-		color_t color;
-		timestamp_t begin;
-		timestamp_t end;
-		thread_id_t thread_id;
+#ifdef EASY_USE_OLD_FILE_FORMAT
+        block_type_t type;
+        color_t color;
+        timestamp_t begin;
+        timestamp_t end;
+        thread_id_t thread_id;
+#else
+        timestamp_t begin;
+        timestamp_t end;
+        thread_id_t thread_id;
+        source_id_t source_id;
+        block_type_t type;
+        color_t color;
+#endif
 
 		void tick(timestamp_t& stamp);
 	public:
 
-        BaseBlockData(color_t _color, block_type_t _type, thread_id_t _thread_id = 0);
+        BaseBlockData(source_id_t _source_id, color_t _color, block_type_t _type, thread_id_t _thread_id = 0);
 
 		inline block_type_t getType() const { return type; }
 		inline color_t getColor() const { return color; }
 		inline timestamp_t getBegin() const { return begin; }
 		inline thread_id_t getThreadId() const { return thread_id; }
+
+#ifdef EASY_USE_OLD_FILE_FORMAT
+        inline source_id_t getSourceId() const { return -1; }
+#else
+        inline source_id_t getSourceId() const { return source_id; }
+#endif
 
 		inline timestamp_t getEnd() const { return end; }
 		inline bool isFinished() const { return end != 0; }
@@ -288,19 +319,32 @@ namespace profiler
 	};
 #pragma pack(pop)
 
-	class PROFILER_API Block : public BaseBlockData
+    class PROFILER_API Block final : public BaseBlockData
 	{
 		const char *name;		
 	public:
 
-		Block(const char* _name, color_t _color, block_type_t _type);
-        Block(const char* _name, thread_id_t _thread_id, color_t _color, block_type_t _type);
+        Block(const char* _name, color_t _color, block_type_t _type, source_id_t _source_id);
+        Block(const char* _name, thread_id_t _thread_id, color_t _color, block_type_t _type, source_id_t _source_id);
 		~Block();
 
 		inline const char* getName() const { return name; }		
 	};
 
-	class PROFILER_API SerializedBlock
+    class PROFILER_API SourceBlock final
+    {
+        const char* m_filename;
+        int             m_line;
+
+    public:
+
+        SourceBlock(const char* _filename, int _line);
+
+        const char* file() const { return m_filename; }
+        int line() const { return m_line; }
+    };
+
+    class PROFILER_API SerializedBlock final
 	{
 		uint16_t m_size;
 		char* m_data;
@@ -318,12 +362,23 @@ namespace profiler
 		const char* getBlockName() const;
 	};
 
-    struct PROFILER_API ThreadNameSetter
+    struct PROFILER_API ThreadNameSetter final
     {
         ThreadNameSetter(const char* _name)
         {
             setThreadName(_name);
         }
+    };
+
+    class PROFILER_API BlockSourceInfo final
+    {
+        unsigned int m_id;
+
+    public:
+
+        BlockSourceInfo(const char* _filename, int _linenumber);
+
+        unsigned int id() const { return m_id; }
     };
 	
 } // END of namespace profiler.

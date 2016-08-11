@@ -13,22 +13,26 @@ struct ProfPerformanceFrequency {
 } const WINDOWS_CPU_INFO;
 #endif
 
-BaseBlockData::BaseBlockData(color_t _color, block_type_t _type, thread_id_t _thread_id) : type(_type)
-    , color(_color)
-    , begin(0)
+BaseBlockData::BaseBlockData(source_id_t _source_id, color_t _color, block_type_t _type, thread_id_t _thread_id)
+    : begin(0)
     , end(0)
     , thread_id(_thread_id)
+#ifndef EASY_USE_OLD_FILE_FORMAT
+    , source_id(_source_id)
+#endif
+    , type(_type)
+    , color(_color)
 {
 
 }
 
-Block::Block(const char* _name, color_t _color, block_type_t _type)
-    : Block(_name, getCurrentThreadId(), _color, _type)
+Block::Block(const char* _name, color_t _color, block_type_t _type, source_id_t _source_id)
+    : Block(_name, getCurrentThreadId(), _color, _type, _source_id)
 {
 }
 
-Block::Block(const char* _name, thread_id_t _thread_id, color_t _color, block_type_t _type)
-    : BaseBlockData(_color, _type, _thread_id)
+Block::Block(const char* _name, thread_id_t _thread_id, color_t _color, block_type_t _type, source_id_t _source_id)
+    : BaseBlockData(_source_id, _color, _type, _thread_id)
     , name(_name)
 {
     tick(begin);

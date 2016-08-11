@@ -1,6 +1,6 @@
 /**
 Lightweight profiler library for c++
-Copyright(C) 2016  Sergey Yagovtsev
+Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
 
 This program is free software : you can redistribute it and / or modify
 it under the terms of the GNU General Public License as published by

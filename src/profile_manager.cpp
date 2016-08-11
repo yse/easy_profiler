@@ -18,7 +18,7 @@ extern "C"{
     {
         ProfileManager::instance().setEnabled(isEnable);
     }
-	void PROFILER_API beginBlock(Block* _block)
+    void PROFILER_API beginBlock(Block* _block)
 	{
 		ProfileManager::instance().beginBlock(_block);
 	}
@@ -87,6 +87,20 @@ const char* SerializedBlock::getBlockName() const
 {
 	return (const char*)&m_data[sizeof(profiler::BaseBlockData)];
 }
+
+//////////////////////////////////////////////////////////////////////////
+
+BlockSourceInfo::BlockSourceInfo(const char* _filename, int _linenumber) : m_id(ProfileManager::instance().addSource(_filename, _linenumber))
+{
+
+}
+
+SourceBlock::SourceBlock(const char* _filename, int _line) : m_filename(_filename), m_line(_line)
+{
+
+}
+
+//////////////////////////////////////////////////////////////////////////
 
 ProfileManager::ProfileManager()
 {
@@ -183,3 +197,16 @@ void ProfileManager::setThreadName(const char* name)
     m_blocks.emplace_back(new SerializedBlock(&block));
     m_namedThreades.insert(current_thread_id);
 }
+
+//////////////////////////////////////////////////////////////////////////
+
+unsigned int ProfileManager::addSource(const char* _filename, int _line)
+{
+    guard_lock_t lock(m_storedSpin);
+    const auto id = static_cast<unsigned int>(m_sources.size());
+    m_sources.emplace_back(_filename, _line);
+    return id;
+}
+
+//////////////////////////////////////////////////////////////////////////
+

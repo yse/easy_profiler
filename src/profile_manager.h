@@ -1,6 +1,6 @@
 /**
 Lightweight profiler library for c++
-Copyright(C) 2016  Sergey Yagovtsev
+Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
 
 This program is free software : you can redistribute it and / or modify
 it under the terms of the GNU General Public License as published by
@@ -27,6 +27,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #include <map>
 #include <list>
 #include <set>
+#include <vector>
 
 #ifdef WIN32
 #include <Windows.h>
@@ -56,6 +57,7 @@ class ProfileManager
 	typedef std::stack<profiler::Block*> stack_of_blocks_t;
 	typedef std::map<size_t, stack_of_blocks_t> map_of_threads_stacks;
 	typedef std::set<size_t> set_of_thread_id;
+    typedef std::vector<profiler::SourceBlock> sources;
 
 	map_of_threads_stacks m_openedBracketsMap;
 
@@ -65,18 +67,24 @@ class ProfileManager
 
 	void _internalInsertBlock(profiler::Block* _block);
 
+    sources m_sources;
+
 	typedef std::list<profiler::SerializedBlock*> serialized_list_t;
 	serialized_list_t m_blocks;
 
 	set_of_thread_id m_namedThreades;
+
 public:
+
     static ProfileManager& instance();
 	~ProfileManager();
-	void beginBlock(profiler::Block* _block);
+
+    void beginBlock(profiler::Block* _block);
 	void endBlock();
 	void setEnabled(bool isEnable);
 	unsigned int dumpBlocksToFile(const char* filename);
 	void setThreadName(const char* name);
+    unsigned int addSource(const char* _filename, int _line);
 };
 
 #endif
