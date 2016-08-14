@@ -34,58 +34,53 @@ extern "C"{
 	}
 }
 
-SerializedBlock::SerializedBlock(Block* block):
-		m_size(0),
-		m_data(nullptr)
+SerializedBlock::SerializedBlock(const Block* block)
+    : m_size(sizeof(BaseBlockData))
+    , m_data(nullptr)
 {
-	m_size += sizeof(BaseBlockData);
-	uint16_t name_len = (uint16_t)strlen(block->getName()) + 1;
-	m_size += name_len;
+    uint16_t name_len = static_cast<uint16_t>(strlen(block->getName()) + 1);
+    m_size += name_len;
 
-	m_data = new char[m_size];
-	memcpy(&m_data[0], block, sizeof(BaseBlockData));
-	strncpy(&m_data[sizeof(BaseBlockData)], block->getName(), name_len);
+    m_data = new char[m_size];
+    memcpy(m_data, block, sizeof(BaseBlockData));
+    strncpy(m_data + sizeof(BaseBlockData), block->getName(), name_len);
 }
 
-SerializedBlock::SerializedBlock(uint16_t _size, char* _data) :
-		m_size(_size),
-		m_data(_data)
+SerializedBlock::SerializedBlock(uint16_t _size, char* _data)
+    : m_size(_size)
+    , m_data(_data)
 {
-	//m_data = new char[m_size];
-	//memcpy(&m_data[0], _data, m_size);
 }
 
 SerializedBlock::~SerializedBlock()
 {
-	if (m_data){
-		delete[] m_data;
-		m_data = nullptr;
-	}
+    if (m_data != nullptr)
+        delete[] m_data;
 }
 
 SerializedBlock::SerializedBlock(const SerializedBlock& other)
+    : m_size(other.m_size)
+    , m_data(new char[other.m_size])
 {
-	m_size = other.m_size;
-	m_data = new char[m_size];
-	memcpy(&m_data[0], other.m_data, m_size);
+    memcpy(m_data, other.m_data, m_size);
 }
 
 SerializedBlock::SerializedBlock(SerializedBlock&& that)
+    : m_size(that.m_size)
+    , m_data(that.m_data)
 {
-	m_size = that.m_size;
-	m_data = that.m_data;
-	that.m_size = 0;
-	that.m_data = nullptr;
+    that.m_size = 0;
+    that.m_data = nullptr;
 }
 
 const BaseBlockData * SerializedBlock::block() const
 {
-	return (const BaseBlockData*)m_data;
+    return reinterpret_cast<const BaseBlockData*>(m_data);
 }
 
 const char* SerializedBlock::getBlockName() const
 {
-	return (const char*)&m_data[sizeof(profiler::BaseBlockData)];
+    return m_data + sizeof(BaseBlockData);
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -162,7 +162,7 @@ typedef ::std::unordered_map<::std::string, ::profiler::BlockStatistics*> StatsM
 automatically receive statistics update.
 
 */
-void update_statistics(StatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::BlockStatistics*& _stats)
+::profiler::BlockStatistics* update_statistics(StatsMap& _stats_map, const ::profiler::BlocksTree& _current)
 {
     auto duration = _current.node->block()->duration();
     StatsMap::key_type key(_current.node->getBlockName());
@@ -171,44 +171,43 @@ void update_statistics(StatsMap& _stats_map, const ::profiler::BlocksTree& _curr
     {
         // Update already existing statistics
 
-        _stats = it->second; // write pointer to statistics into output (this is BlocksTree:: per_thread_stats or per_parent_stats or per_frame_stats)
+        auto stats = it->second; // write pointer to statistics into output (this is BlocksTree:: per_thread_stats or per_parent_stats or per_frame_stats)
 
-        ++_stats->calls_number; // update calls number of this block
-        _stats->total_duration += duration; // update summary duration of all block calls
+        ++stats->calls_number; // update calls number of this block
+        stats->total_duration += duration; // update summary duration of all block calls
 
-        //if (duration > _stats->max_duration_block->block()->duration())
-        if (duration > _stats->max_duration)
+        if (duration > stats->max_duration)
         {
             // update max duration
-            _stats->max_duration_block = _current.block_index;
-            _stats->max_duration = duration;
+            stats->max_duration_block = _current.block_index;
+            stats->max_duration = duration;
         }
 
-        //if (duration < _stats->min_duration_block->block()->duration())
-        if (duration < _stats->min_duration)
+        if (duration < stats->min_duration)
         {
             // update min duraton
-            _stats->min_duration_block = _current.block_index;
-            _stats->min_duration = duration;
+            stats->min_duration_block = _current.block_index;
+            stats->min_duration = duration;
         }
 
         // average duration is calculated inside average_duration() method by dividing total_duration to the calls_number
+
+        return stats;
     }
-    else
-    {
-        // This is first time the block appear in the file.
-        // Create new statistics.
-        _stats = new ::profiler::BlockStatistics(duration, _current.block_index);
-        _stats_map.insert(::std::make_pair(key, _stats));
-    }
+
+    // This is first time the block appear in the file.
+    // Create new statistics.
+    auto stats = new ::profiler::BlockStatistics(duration, _current.block_index);
+    _stats_map.insert(::std::make_pair(key, stats));
+
+    return stats;
 }
 
 //////////////////////////////////////////////////////////////////////////
 
 void update_statistics_recursive(StatsMap& _stats_map, ::profiler::BlocksTree& _current)
 {
-    update_statistics(_stats_map, _current, _current.per_frame_stats);
-
+    _current.per_frame_stats = update_statistics(_stats_map, _current);
     for (auto& child : _current.children)
     {
         update_statistics_recursive(_stats_map, child);
@@ -231,9 +230,7 @@ extern "C"{
             return 0;
 		}
 
-        //StatsMap overall_statistics;
         PerThreadStats thread_statistics, parent_statistics, frame_statistics;
-
 		unsigned int blocks_counter = 0;
 
 		while (!inFile.eof()){
@@ -249,16 +246,16 @@ extern "C"{
             // TODO: use salloc::shared_allocator for allocation/deallocation safety
 			char* data = new char[sz];
 			inFile.read((char*)&data[0], sz);
-			::profiler::BaseBlockData* baseData = (::profiler::BaseBlockData*)data;
+			auto baseData = reinterpret_cast<::profiler::BaseBlockData*>(data);
+
+            ::profiler::BlocksTree tree;
+			tree.node = new ::profiler::SerializedBlock(sz, data);
+			tree.block_index = blocks_counter++;
 
             auto block_thread_id = baseData->getThreadId();
             auto& root = threaded_trees[block_thread_id];
             auto& per_parent_statistics = parent_statistics[block_thread_id];
             auto& per_thread_statistics = thread_statistics[block_thread_id];
-
-            ::profiler::BlocksTree tree;
-			tree.node = new ::profiler::SerializedBlock(sz, data);
-			tree.block_index = blocks_counter++;
 
             if (::profiler::BLOCK_TYPE_THREAD_SIGN == baseData->getType())
             {
@@ -299,10 +296,9 @@ extern "C"{
 
                         for (auto& child : tree.children)
                         {
-                            update_statistics(per_parent_statistics, child, child.per_parent_stats);
+                            child.per_parent_stats = update_statistics(per_parent_statistics, child);
 
                             children_duration += child.node->block()->duration();
-                            tree.total_children_number += child.total_children_number;
                             if (tree.depth < child.depth)
                                 tree.depth = child.depth;
                         }
@@ -312,13 +308,11 @@ extern "C"{
                         for (const auto& child : tree.children)
                         {
                             children_duration += child.node->block()->duration();
-                            tree.total_children_number += child.total_children_number;
                             if (tree.depth < child.depth)
                                 tree.depth = child.depth;
                         }
                     }
 
-                    tree.total_children_number += static_cast<unsigned int>(tree.children.size());
                     ++tree.depth;
                 }
             }
@@ -334,13 +328,13 @@ extern "C"{
             {
                 PROFILER_BEGIN_BLOCK_GROUPED("Gather per thread statistics", ::profiler::colors::Coral)
                 auto& current = root.tree.children.back();
-                update_statistics(per_thread_statistics, current, current.per_thread_stats);
+                current.per_thread_stats = update_statistics(per_thread_statistics, current);
             }
 
 		}
 
         PROFILER_BEGIN_BLOCK_GROUPED("Gather statistics for roots", ::profiler::colors::Purple)
-		if (gather_statistics)
+        if (gather_statistics)
 		{
 			for (auto& it : threaded_trees)
 			{
@@ -351,20 +345,19 @@ extern "C"{
                 auto& per_frame_statistics = frame_statistics[it.first];
 
 				per_parent_statistics.clear();
+                root.tree.shrink_to_fit();
                 for (auto& frame : root.tree.children)
 				{
-                    update_statistics(per_parent_statistics, frame, frame.per_parent_stats);
+                    frame.per_parent_stats = update_statistics(per_parent_statistics, frame);
 
                     // TODO: Optimize per frame stats gathering
                     per_frame_statistics.clear();
                     update_statistics_recursive(per_frame_statistics, frame);
 
-                    root.tree.total_children_number += frame.total_children_number;
                     if (root.tree.depth < frame.depth)
                         root.tree.depth = frame.depth;
 				}
 
-                root.tree.total_children_number += static_cast<unsigned int>(root.tree.children.size());
                 ++root.tree.depth;
 			}
 		}
@@ -375,14 +368,13 @@ extern "C"{
                 auto& root = it.second;
                 root.thread_id = it.first;
 
+                root.tree.shrink_to_fit();
                 for (auto& frame : root.tree.children)
                 {
-                    root.tree.total_children_number += frame.total_children_number;
                     if (root.tree.depth < frame.depth)
                         root.tree.depth = frame.depth;
                 }
 
-                root.tree.total_children_number += static_cast<unsigned int>(root.tree.children.size());
                 ++root.tree.depth;
             }
         }

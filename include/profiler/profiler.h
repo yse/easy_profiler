@@ -346,10 +346,12 @@ namespace profiler
 
     class PROFILER_API SerializedBlock final
 	{
-		uint16_t m_size;
-		char* m_data;
+		char*    m_data;
+        uint16_t m_size;
+
 	public:
-		SerializedBlock(profiler::Block* block);
+
+		SerializedBlock(const profiler::Block* block);
 		SerializedBlock(uint16_t _size, char* _data);
 		SerializedBlock(SerializedBlock&& that);
 		SerializedBlock(const SerializedBlock& other);

@@ -21,8 +21,8 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include <list>
 #include <map>
+#include <vector>
 #include "profiler/profiler.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -30,29 +30,19 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 namespace profiler {
 
     typedef uint32_t calls_number_t;
+    typedef uint32_t block_index_t;
 
+#pragma pack(push, 1)
     struct BlockStatistics final
     {
         ::profiler::timestamp_t        total_duration; ///< Summary duration of all block calls
         ::profiler::timestamp_t          min_duration; ///< Cached block->duration() value. TODO: Remove this if memory consumption will be too high
         ::profiler::timestamp_t          max_duration; ///< Cached block->duration() value. TODO: Remove this if memory consumption will be too high
-        unsigned int               min_duration_block; ///< Will be used in GUI to jump to the block with min duration
-        unsigned int               max_duration_block; ///< Will be used in GUI to jump to the block with max duration
+        ::profiler::block_index_t  min_duration_block; ///< Will be used in GUI to jump to the block with min duration
+        ::profiler::block_index_t  max_duration_block; ///< Will be used in GUI to jump to the block with max duration
         ::profiler::calls_number_t       calls_number; ///< Block calls number
 
-        // TODO: It is better to replace SerilizedBlock* with BlocksTree*, but this requires to store pointers in children list.
-
-        BlockStatistics()
-            : total_duration(0)
-            , min_duration(0)
-            , max_duration(0)
-            , min_duration_block(0)
-            , max_duration_block(0)
-            , calls_number(1)
-        {
-        }
-
-        BlockStatistics(::profiler::timestamp_t _duration, unsigned int _block_index)
+        BlockStatistics(::profiler::timestamp_t _duration, ::profiler::block_index_t _block_index)
             : total_duration(_duration)
             , min_duration(_duration)
             , max_duration(_duration)
@@ -68,6 +58,7 @@ namespace profiler {
         }
 
     }; // END of struct BlockStatistics.
+#pragma pack(pop)
 
     inline void release(BlockStatistics*& _stats)
     {
@@ -92,16 +83,15 @@ namespace profiler {
 
     public:
 
-        typedef ::std::list<BlocksTree> children_t;
+        typedef ::std::vector<BlocksTree> children_t;
 
         children_t                                children; ///< List of children blocks. May be empty.
-        ::profiler::SerializedBlock*                   node; ///< Pointer to serilized data (type, name, begin, end etc.)
+        ::profiler::SerializedBlock*                  node; ///< Pointer to serilized data (type, name, begin, end etc.)
         ::profiler::BlockStatistics*      per_parent_stats; ///< Pointer to statistics for this block within the parent (may be nullptr for top-level blocks)
         ::profiler::BlockStatistics*       per_frame_stats; ///< Pointer to statistics for this block within the frame (may be nullptr for top-level blocks)
         ::profiler::BlockStatistics*      per_thread_stats; ///< Pointer to statistics for this block within the bounds of all frames per current thread
 
-        unsigned int                           block_index; ///< Index of this block
-        unsigned int                 total_children_number; ///< Number of all children including number of grandchildren (and so on)
+        ::profiler::block_index_t              block_index; ///< Index of this block
         unsigned short                               depth; ///< Maximum number of sublevels (maximum children depth)
 
         BlocksTree()
@@ -110,7 +100,6 @@ namespace profiler {
             , per_frame_stats(nullptr)
             , per_thread_stats(nullptr)
             , block_index(0)
-            , total_children_number(0)
             , depth(0)
         {
 
@@ -148,6 +137,21 @@ namespace profiler {
             return node->block()->getBegin() < other.node->block()->getBegin();
         }
 
+        void shrink_to_fit()
+        {
+            //for (auto& child : children)
+            //    child.shrink_to_fit();
+
+            // shrink version 1:
+            //children.shrink_to_fit();
+
+            // shrink version 2:
+            //children_t new_children;
+            //new_children.reserve(children.size());
+            //::std::move(children.begin(), children.end(), ::std::back_inserter(new_children));
+            //new_children.swap(children);
+        }
+
     private:
 
         BlocksTree(const This&) = delete;
@@ -182,7 +186,6 @@ namespace profiler {
             per_thread_stats = that.per_thread_stats;
 
             block_index = that.block_index;
-            total_children_number = that.total_children_number;
             depth = that.depth;
 
             that.node = nullptr;
@@ -217,6 +220,7 @@ namespace profiler {
         {
             tree = ::std::move(that.tree);
             thread_name = that.thread_name;
+            thread_id = that.thread_id;
             return *this;
         }
 
