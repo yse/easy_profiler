@@ -51,7 +51,7 @@ const qreal BASE_SCALE = pow(SCALING_COEFFICIENT_INV, 25); // ~0.003
 const unsigned short GRAPHICS_ROW_SIZE = 16;
 const unsigned short GRAPHICS_ROW_SPACING = 2;
 const unsigned short GRAPHICS_ROW_SIZE_FULL = GRAPHICS_ROW_SIZE + GRAPHICS_ROW_SPACING;
-const unsigned short THREADS_ROW_SPACING = 4;
+const unsigned short THREADS_ROW_SPACING = 8;
 
 const QRgb BORDERS_COLOR = 0x00a07050;
 const QRgb BACKGROUND_1 = 0x00dddddd;
@@ -382,8 +382,7 @@ void ProfGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
             }
             else
             {
-
-                _painter->drawText(rect, 0, ::profiler_gui::toUnicode(item.block->node->getBlockName()));
+                _painter->drawText(rect, 0, ::profiler_gui::toUnicode(item.block->node->getName()));
             }
 
             // restore previous pen color

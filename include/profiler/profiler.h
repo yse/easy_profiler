@@ -195,6 +195,8 @@ void foo()
 #define  PROFILER_API
 #endif
 
+class ProfileManager;
+
 namespace profiler
 {	
 	typedef uint8_t color_t; //RRR-GGG-BB
@@ -321,14 +323,14 @@ namespace profiler
 
     class PROFILER_API Block final : public BaseBlockData
 	{
-		const char *name;		
+		const char* m_name;		
 	public:
 
         Block(const char* _name, color_t _color, block_type_t _type, source_id_t _source_id);
         Block(const char* _name, thread_id_t _thread_id, color_t _color, block_type_t _type, source_id_t _source_id);
 		~Block();
 
-		inline const char* getName() const { return name; }		
+		inline const char* getName() const { return m_name; }		
 	};
 
     class PROFILER_API SourceBlock final
@@ -344,27 +346,29 @@ namespace profiler
         int line() const { return m_line; }
     };
 
-#pragma pack(push,1)
-    class PROFILER_API SerializedBlock final
-	{
-        uint16_t m_size;
-		char*    m_data;
+    class PROFILER_API SerializedBlock final : public BaseBlockData
+    {
+        friend ::ProfileManager;
 
-	public:
+    public:
 
-		SerializedBlock(const profiler::Block* block);
-		SerializedBlock(uint16_t _size, char* _data);
-		SerializedBlock(SerializedBlock&& that);
-		SerializedBlock(const SerializedBlock& other);
-		~SerializedBlock();
+        ///< Deprecated. For backward compatibility.
+        inline const BaseBlockData* block() const { return this; }
 
-		const char* const data() const { return m_data; }
-		uint16_t size() const { return m_size; }
+        inline const char* data() const { return reinterpret_cast<const char*>(this); }
+        inline const char* getName() const { return data() + sizeof(BaseBlockData); }
 
-		const BaseBlockData * block() const;
-		const char* getBlockName() const;
-	};
-#pragma pack(pop)
+    private:
+
+        static SerializedBlock* create(const profiler::Block* block, uint64_t& memory_size);
+        static void destroy(SerializedBlock* that);
+
+        SerializedBlock(const profiler::Block* block, uint16_t name_length);
+
+        SerializedBlock(const SerializedBlock&) = delete;
+        SerializedBlock& operator = (const SerializedBlock&) = delete;
+        ~SerializedBlock() = delete;
+    };
 
     struct PROFILER_API ThreadNameSetter final
     {

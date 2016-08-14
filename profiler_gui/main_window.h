@@ -35,9 +35,10 @@ protected:
 
     typedef ProfMainWindow This;
 
-    ::std::string     m_lastFile;
-    QDockWidget*    m_treeWidget;
-    QDockWidget*  m_graphicsView;
+    ::std::string                    m_lastFile;
+    QDockWidget*                   m_treeWidget;
+    QDockWidget*                 m_graphicsView;
+    ::profiler::SerializedData m_serializedData;
 
 public:
 

@@ -34,6 +34,7 @@
 #include <iterator>
 #include <algorithm>
 #include <unordered_map>
+#include <thread>
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -165,7 +166,7 @@ automatically receive statistics update.
 ::profiler::BlockStatistics* update_statistics(StatsMap& _stats_map, const ::profiler::BlocksTree& _current)
 {
     auto duration = _current.node->block()->duration();
-    StatsMap::key_type key(_current.node->getBlockName());
+    StatsMap::key_type key(_current.node->getName());
     auto it = _stats_map.find(key);
     if (it != _stats_map.end())
     {
@@ -220,20 +221,33 @@ typedef ::std::map<::profiler::thread_id_t, StatsMap> PerThreadStats;
 
 extern "C"{
 
-    unsigned int fillTreesFromFile(const char* filename, ::profiler::thread_blocks_tree_t& threaded_trees, bool gather_statistics)
+    unsigned int fillTreesFromFile(const char* filename, ::profiler::SerializedData& serialized_blocks, ::profiler::thread_blocks_tree_t& threaded_trees, bool gather_statistics)
 	{
         PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(::profiler::colors::Cyan)
 
 		::std::ifstream inFile(filename, ::std::fstream::binary);
 
-		if (!inFile.is_open()){
+		if (!inFile.is_open())
+        {
             return 0;
 		}
 
         PerThreadStats thread_statistics, parent_statistics, frame_statistics;
 		unsigned int blocks_counter = 0;
 
-		while (!inFile.eof()){
+        uint64_t memory_size = 0;
+        inFile.read((char*)&memory_size, sizeof(uint64_t));
+        if (memory_size == 0)
+        {
+            return 0;
+        }
+
+        serialized_blocks.set(new char[memory_size]);
+        //memset(serialized_blocks[0], 0, memory_size);
+        uint64_t i = 0;
+
+		while (!inFile.eof())
+        {
             PROFILER_BEGIN_BLOCK_GROUPED("Read block from file", ::profiler::colors::Green)
 			uint16_t sz = 0;
 			inFile.read((char*)&sz, sizeof(sz));
@@ -244,12 +258,13 @@ extern "C"{
 			}
 
             // TODO: use salloc::shared_allocator for allocation/deallocation safety
-			char* data = new char[sz];
-			inFile.read((char*)&data[0], sz);
-			auto baseData = reinterpret_cast<::profiler::BaseBlockData*>(data);
+            char* data = serialized_blocks[i];//new char[sz];
+			inFile.read(data, sz);
+            i += sz;
+			auto baseData = reinterpret_cast<::profiler::SerializedBlock*>(data);
 
             ::profiler::BlocksTree tree;
-			tree.node = new ::profiler::SerializedBlock(sz, data);
+            tree.node = baseData;// new ::profiler::SerializedBlock(sz, data);
 			tree.block_index = blocks_counter++;
 
             auto block_thread_id = baseData->getThreadId();
@@ -259,7 +274,7 @@ extern "C"{
 
             if (::profiler::BLOCK_TYPE_THREAD_SIGN == baseData->getType())
             {
-                root.thread_name = tree.node->getBlockName();
+                root.thread_name = tree.node->getName();
             }
 
             if (!root.tree.children.empty())
@@ -336,30 +351,41 @@ extern "C"{
         PROFILER_BEGIN_BLOCK_GROUPED("Gather statistics for roots", ::profiler::colors::Purple)
         if (gather_statistics)
 		{
+            ::std::vector<::std::thread> statistics_threads;
+            statistics_threads.reserve(threaded_trees.size());
+
 			for (auto& it : threaded_trees)
 			{
                 auto& root = it.second;
                 root.thread_id = it.first;
-
-                auto& per_parent_statistics = parent_statistics[it.first];
-                auto& per_frame_statistics = frame_statistics[it.first];
-
-				per_parent_statistics.clear();
                 root.tree.shrink_to_fit();
-                for (auto& frame : root.tree.children)
-				{
-                    frame.per_parent_stats = update_statistics(per_parent_statistics, frame);
 
-                    // TODO: Optimize per frame stats gathering
-                    per_frame_statistics.clear();
-                    update_statistics_recursive(per_frame_statistics, frame);
+                auto& per_frame_statistics = frame_statistics[root.thread_id];
+                auto& per_parent_statistics = parent_statistics[it.first];
+				per_parent_statistics.clear();
 
-                    if (root.tree.depth < frame.depth)
-                        root.tree.depth = frame.depth;
-				}
+                statistics_threads.emplace_back(::std::move(::std::thread([&per_parent_statistics, &per_frame_statistics](::profiler::BlocksTreeRoot& root)
+                {
+                    for (auto& frame : root.tree.children)
+                    {
+                        frame.per_parent_stats = update_statistics(per_parent_statistics, frame);
 
-                ++root.tree.depth;
+                        // TODO: Optimize per frame stats gathering
+                        per_frame_statistics.clear();
+                        update_statistics_recursive(per_frame_statistics, frame);
+
+                        if (root.tree.depth < frame.depth)
+                            root.tree.depth = frame.depth;
+                    }
+
+                    ++root.tree.depth;
+                }, ::std::ref(root))));
 			}
+
+            for (auto& t : statistics_threads)
+            {
+                t.join();
+            }
 		}
         else
         {

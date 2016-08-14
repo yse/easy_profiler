@@ -527,7 +527,7 @@ size_t ProfTreeWidget::setTreeInternal(const ::profiler_gui::TreeBlocks& _blocks
         auto item = new ProfTreeWidgetItem(block.tree, thread_item);
         duration = endTime - startTime;
 
-        item->setText(COL_NAME, ::profiler_gui::toUnicode(block.tree->node->getBlockName()));
+        item->setText(COL_NAME, ::profiler_gui::toUnicode(block.tree->node->getName()));
         item->setTimeSmart(COL_DURATION, duration);
         item->setTimeMs(COL_BEGIN, startTime - m_beginTime);
         item->setTimeMs(COL_END, endTime - m_beginTime);
@@ -675,7 +675,7 @@ size_t ProfTreeWidget::setTreeInternal(const ::profiler::BlocksTree::children_t&
         }
 
         auto item = new ProfTreeWidgetItem(&child, _parent);
-        item->setText(COL_NAME, ::profiler_gui::toUnicode(child.node->getBlockName()));
+        item->setText(COL_NAME, ::profiler_gui::toUnicode(child.node->getName()));
         item->setTimeSmart(COL_DURATION, duration);
         item->setTimeMs(COL_BEGIN, startTime - m_beginTime);
         item->setTimeMs(COL_END, endTime - m_beginTime);

@@ -118,10 +118,10 @@ namespace profiler {
 
         ~BlocksTree()
         {
-            if (node)
-            {
-                delete node;
-            }
+            //if (node)
+            //{
+            //    delete node;
+            //}
 
             release(per_thread_stats);
             release(per_parent_stats);
@@ -159,10 +159,10 @@ namespace profiler {
 
         void makeMove(This&& that)
         {
-            if (node && node != that.node)
-            {
-                delete node;
-            }
+            //if (node && node != that.node)
+            //{
+            //    delete node;
+            //}
 
             if (per_thread_stats != that.per_thread_stats)
             {
@@ -238,10 +238,69 @@ namespace profiler {
 
     typedef ::std::map<::profiler::thread_id_t, ::profiler::BlocksTreeRoot> thread_blocks_tree_t;
 
+    //////////////////////////////////////////////////////////////////////////
+
+    class SerializedData final
+    {
+        char* m_data;
+
+    public:
+
+        SerializedData() : m_data(nullptr)
+        {
+        }
+
+        SerializedData(SerializedData&& that) : m_data(that.m_data)
+        {
+            that.m_data = nullptr;
+        }
+
+        ~SerializedData()
+        {
+            clear();
+        }
+
+        SerializedData& operator = (SerializedData&& that)
+        {
+            clear();
+            m_data = that.m_data;
+            that.m_data = nullptr;
+            return *this;
+        }
+
+        char* operator[](uint64_t i)
+        {
+            return m_data + i;
+        }
+
+        void clear()
+        {
+            if (m_data)
+            {
+                delete[] m_data;
+                m_data = nullptr;
+            }
+        }
+
+        void set(char* _data)
+        {
+            clear();
+            m_data = _data;
+        }
+
+    private:
+
+        SerializedData(const SerializedData&) = delete;
+        SerializedData& operator = (const SerializedData&) = delete;
+
+    }; // END of class SerializedData.
+
+    //////////////////////////////////////////////////////////////////////////
+
 } // END of namespace profiler.
 
 extern "C"{
-    unsigned int PROFILER_API fillTreesFromFile(const char* filename, ::profiler::thread_blocks_tree_t& threaded_trees, bool gather_statistics = false);
+    unsigned int PROFILER_API fillTreesFromFile(const char* filename, ::profiler::SerializedData& serialized_blocks, ::profiler::thread_blocks_tree_t& threaded_trees, bool gather_statistics = false);
 }
 
 

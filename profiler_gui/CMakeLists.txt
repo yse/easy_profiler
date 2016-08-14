@@ -22,10 +22,10 @@ add_executable(${PROJECT_NAME}
     graphics_scrollbar.cpp
     main_window.h
     main_window.cpp
-    treemodel.h
-    treemodel.cpp
-    treeitem.h
-    treeitem.cpp
+    #treemodel.h
+    #treemodel.cpp
+    #treeitem.h
+    #treeitem.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} Qt5::Widgets easy_profiler)

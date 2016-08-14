@@ -7,85 +7,61 @@
 
 using namespace profiler;
 
+auto& MANAGER = ProfileManager::instance();
+
 extern "C"{
 
     void PROFILER_API endBlock()
     {
-        ProfileManager::instance().endBlock();
+        MANAGER.endBlock();
     }
 
     void PROFILER_API setEnabled(bool isEnable)
     {
-        ProfileManager::instance().setEnabled(isEnable);
+        MANAGER.setEnabled(isEnable);
     }
     void PROFILER_API beginBlock(Block* _block)
 	{
-		ProfileManager::instance().beginBlock(_block);
+        MANAGER.beginBlock(_block);
 	}
 
 	unsigned int PROFILER_API dumpBlocksToFile(const char* filename)
 	{
-		return ProfileManager::instance().dumpBlocksToFile(filename);
+        return MANAGER.dumpBlocksToFile(filename);
 	}
 
 	void PROFILER_API setThreadName(const char* name)
 	{
-		return ProfileManager::instance().setThreadName(name);
+        return MANAGER.setThreadName(name);
 	}
 }
 
-SerializedBlock::SerializedBlock(const Block* block)
-    : m_size(sizeof(BaseBlockData))
-    , m_data(nullptr)
+SerializedBlock* SerializedBlock::create(const Block* block, uint64_t& memory_size)
 {
-    uint16_t name_len = static_cast<uint16_t>(strlen(block->getName()) + 1);
-    m_size += name_len;
-
-    m_data = new char[m_size];
-    memcpy(m_data, block, sizeof(BaseBlockData));
-    strncpy(m_data + sizeof(BaseBlockData), block->getName(), name_len);
+    auto name_length = static_cast<uint16_t>(strlen(block->getName()));
+    auto size = static_cast<uint16_t>(sizeof(BaseBlockData) + sizeof(uint16_t) + name_length + 1);
+    auto data = ::new char[size];
+    ::new (static_cast<void*>(data)) SerializedBlock(block, name_length);
+    memory_size += size;
+    return reinterpret_cast<SerializedBlock*>(data);
 }
 
-SerializedBlock::SerializedBlock(uint16_t _size, char* _data)
-    : m_size(_size)
-    , m_data(_data)
+void SerializedBlock::destroy(SerializedBlock* that)
 {
+    ::delete[] reinterpret_cast<char*>(that);
 }
 
-SerializedBlock::~SerializedBlock()
+SerializedBlock::SerializedBlock(const Block* block, uint16_t name_length)
+    : BaseBlockData(*block)
 {
-    if (m_data != nullptr)
-        delete[] m_data;
-}
-
-SerializedBlock::SerializedBlock(const SerializedBlock& other)
-    : m_size(other.m_size)
-    , m_data(new char[other.m_size])
-{
-    memcpy(m_data, other.m_data, m_size);
-}
-
-SerializedBlock::SerializedBlock(SerializedBlock&& that)
-    : m_size(that.m_size)
-    , m_data(that.m_data)
-{
-    that.m_size = 0;
-    that.m_data = nullptr;
-}
-
-const BaseBlockData * SerializedBlock::block() const
-{
-    return reinterpret_cast<const BaseBlockData*>(m_data);
-}
-
-const char* SerializedBlock::getBlockName() const
-{
-    return m_data + sizeof(BaseBlockData);
+    auto name = const_cast<char*>(getName());
+    strncpy(name, block->getName(), name_length);
+    name[name_length] = 0;
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-BlockSourceInfo::BlockSourceInfo(const char* _filename, int _linenumber) : m_id(ProfileManager::instance().addSource(_filename, _linenumber))
+BlockSourceInfo::BlockSourceInfo(const char* _filename, int _linenumber) : m_id(MANAGER.addSource(_filename, _linenumber))
 {
 
 }
@@ -159,24 +135,31 @@ void ProfileManager::setEnabled(bool isEnable)
 void ProfileManager::_internalInsertBlock(profiler::Block* _block)
 {
 	guard_lock_t lock(m_storedSpin);
-	m_blocks.emplace_back(new SerializedBlock(_block));
+    m_blocks.emplace_back(SerializedBlock::create(_block, m_blocksMemorySize));
 }
 
 unsigned int ProfileManager::dumpBlocksToFile(const char* filename)
 {
-	std::ofstream of(filename, std::fstream::binary);
+    ::std::ofstream of(filename, std::fstream::binary);
 
-	for (auto* b : m_blocks){
-		uint16_t sz = b->size();
-		of.write((const char*)&sz, sizeof(uint16_t));
-		of.write(b->data(), b->size());
-		delete b;
-	}
-	unsigned int size = (unsigned int)m_blocks.size();
+    auto blocks_number = static_cast<uint32_t>(m_blocks.size());
+    //of.write((const char*)&blocks_number, sizeof(uint32_t));
+    of.write((const char*)&m_blocksMemorySize, sizeof(uint64_t));
 
-	m_blocks.clear();
+    for (auto b : m_blocks)
+    {
+        auto sz = static_cast<uint16_t>(sizeof(BaseBlockData) + strlen(b->getName()) + 1);
 
-	return size;
+        of.write((const char*)&sz, sizeof(uint16_t));
+        of.write(b->data(), sz);
+
+        SerializedBlock::destroy(b);
+    }
+
+    m_blocksMemorySize = 0;
+    m_blocks.clear();
+
+    return blocks_number;
 }
 
 void ProfileManager::setThreadName(const char* name)
@@ -189,7 +172,7 @@ void ProfileManager::setThreadName(const char* name)
         return;
 
     profiler::Block block(name, current_thread_id, 0, profiler::BLOCK_TYPE_THREAD_SIGN);
-    m_blocks.emplace_back(new SerializedBlock(&block));
+    m_blocks.emplace_back(SerializedBlock::create(&block, m_blocksMemorySize));
     m_namedThreades.insert(current_thread_id);
 }
 

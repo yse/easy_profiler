@@ -74,6 +74,8 @@ class ProfileManager
 
 	set_of_thread_id m_namedThreades;
 
+    uint64_t m_blocksMemorySize = 0;
+
 public:
 
     static ProfileManager& instance();

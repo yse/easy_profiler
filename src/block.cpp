@@ -33,7 +33,7 @@ Block::Block(const char* _name, color_t _color, block_type_t _type, source_id_t 
 
 Block::Block(const char* _name, thread_id_t _thread_id, color_t _color, block_type_t _type, source_id_t _source_id)
     : BaseBlockData(_source_id, _color, _type, _thread_id)
-    , name(_name)
+    , m_name(_name)
 {
     tick(begin);
     if (BLOCK_TYPE_BLOCK != this->type)

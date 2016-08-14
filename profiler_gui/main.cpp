@@ -6,9 +6,9 @@
 #include "main_window.h"
 #include "profiler/reader.h"
 
-#ifdef WIN32
-#pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
-#endif
+//#ifdef WIN32
+//#pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
+//#endif
 
 int main(int argc, char **argv)
 {

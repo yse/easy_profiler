@@ -48,7 +48,7 @@ void printTree(TreePrinter& printer, const ::profiler::BlocksTree& tree, int lev
 		float duration_ms = duration / 1e6f;
 		float percent = parent_dur ? float(duration) / float(parent_dur)*100.0f : 100.0f;
 		float rpercent = root_dur ? float(duration) / float(root_dur)*100.0f : 100.0f;
-		std::cout << std::string(level, '\t') << tree.node->getBlockName() 
+		std::cout << std::string(level, '\t') << tree.node->getName() 
 			<< std::string(5 - level, '\t') 
 			/*<< std::string(level, ' ')*/ << percent << "%| " 
 			<< rpercent << "%| "
@@ -74,23 +74,23 @@ int main(int argc, char* argv[])
 
     ::profiler::thread_blocks_tree_t threaded_trees;
 
-	::std::string filename;
-	if(argc > 1 && argv[1])
+    ::std::string filename;// = "test.prof";
+    if (argc > 1 && argv[1])
     {
- 		filename = argv[1];
+        filename = argv[1];
     }
     else
     {
-		std::cout << "Specify prof file: ";
+        std::cout << "Specify prof file: ";
         std::getline(std::cin, filename);
- 		//return 255;
- 	}
+        //return 255;
+    }
 
-	::std::string dump_filename;
-	if(argc > 2 && argv[2])
+    ::std::string dump_filename;
+    if (argc > 2 && argv[2])
     {
-		dump_filename = argv[2];
-	}
+        dump_filename = argv[2];
+    }
     else
     {
         std::cout << "Specify output prof file: ";
@@ -108,28 +108,31 @@ int main(int argc, char* argv[])
     }
 
 
-	auto start = std::chrono::system_clock::now();
+    auto start = std::chrono::system_clock::now();
 
-	auto blocks_counter = fillTreesFromFile(filename.c_str(), threaded_trees, true);
+    ::profiler::SerializedData data;
+    auto blocks_counter = fillTreesFromFile(filename.c_str(), data, threaded_trees, true);
 
-	auto end = std::chrono::system_clock::now();
+    auto end = std::chrono::system_clock::now();
 
-	std::cout << "Blocks count: " << blocks_counter << std::endl;
-	std::cout << "dT =  " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << " usec" << std::endl;
-	for (const auto & i : threaded_trees){
-		TreePrinter p;
-		std::cout << std::string(20, '=') << " thread "<< i.first << " "<< std::string(20, '=') << std::endl;
-		printTree(p, i.second.tree,-1);
-	}
+    std::cout << "Blocks count: " << blocks_counter << std::endl;
+    std::cout << "dT =  " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << " usec" << std::endl;
+    //for (const auto & i : threaded_trees){
+    //	TreePrinter p;
+    //	std::cout << std::string(20, '=') << " thread "<< i.first << " "<< std::string(20, '=') << std::endl;
+    //	printTree(p, i.second.tree,-1);
+    //}
 
-	if(!dump_filename.empty())
-	{
-		auto bcount = profiler::dumpBlocksToFile(dump_filename.c_str());
+    if (!dump_filename.empty())
+    {
+        auto bcount = profiler::dumpBlocksToFile(dump_filename.c_str());
 
-		std::cout << "Blocks count for reader: " << bcount << std::endl;
-	}
+        std::cout << "Blocks count for reader: " << bcount << std::endl;
+    }
+
+    //char c;
+    //::std::cin >> c;
 
 
-
-	return 0;
+    return 0;
 }
