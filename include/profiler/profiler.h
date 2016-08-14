@@ -344,10 +344,11 @@ namespace profiler
         int line() const { return m_line; }
     };
 
+#pragma pack(push,1)
     class PROFILER_API SerializedBlock final
 	{
-		char*    m_data;
         uint16_t m_size;
+		char*    m_data;
 
 	public:
 
@@ -363,6 +364,7 @@ namespace profiler
 		const BaseBlockData * block() const;
 		const char* getBlockName() const;
 	};
+#pragma pack(pop)
 
     struct PROFILER_API ThreadNameSetter final
     {
