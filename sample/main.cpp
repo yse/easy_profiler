@@ -13,7 +13,7 @@ std::condition_variable cv;
 std::mutex cv_m;
 int g_i = 0;
 
-int OBJECTS = 9000;
+int OBJECTS = 500;
 int RENDER_SPEPS = 1600;
 int MODELLING_STEPS = 1000;
 int RESOURCE_LOADING_COUNT = 50;
