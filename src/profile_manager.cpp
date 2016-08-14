@@ -39,7 +39,7 @@ extern "C"{
 SerializedBlock* SerializedBlock::create(const Block* block, uint64_t& memory_size)
 {
     auto name_length = static_cast<uint16_t>(strlen(block->getName()));
-    auto size = static_cast<uint16_t>(sizeof(BaseBlockData) + sizeof(uint16_t) + name_length + 1);
+    auto size = static_cast<uint16_t>(sizeof(BaseBlockData) + name_length + 1);
     auto data = ::new char[size];
     ::new (static_cast<void*>(data)) SerializedBlock(block, name_length);
     memory_size += size;
