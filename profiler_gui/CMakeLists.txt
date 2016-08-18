@@ -22,6 +22,10 @@ add_executable(${PROJECT_NAME}
     graphics_scrollbar.cpp
     main_window.h
     main_window.cpp
+    tree_widget_item.h
+    tree_widget_item.cpp
+    tree_widget_loader.h
+    tree_widget_loader.cpp
     #treemodel.h
     #treemodel.cpp
     #treeitem.h

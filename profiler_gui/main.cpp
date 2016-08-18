@@ -37,7 +37,7 @@ int main(int argc, char **argv)
     auto now = ::std::chrono::duration_cast<std::chrono::seconds>(::std::chrono::system_clock::now().time_since_epoch()).count() >> 1;
     srand((unsigned int)now);
 
-    ProfMainWindow window;
+    EasyMainWindow window;
     window.show();
 
     return app.exec();

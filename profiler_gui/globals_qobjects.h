@@ -5,21 +5,24 @@
 #include "profiler/profiler.h"
 
 namespace profiler_gui {
-    class ProfGlobalSignals final : public QObject
+
+    class EasyGlobalSignals final : public QObject
     {
         Q_OBJECT
 
     public:
 
-        ProfGlobalSignals();
-        virtual ~ProfGlobalSignals();
+        EasyGlobalSignals();
+        virtual ~EasyGlobalSignals();
 
     signals:
 
         void selectedThreadChanged(::profiler::thread_id_t _id);
         void selectedBlockChanged(unsigned int _block_index);
-    };
+        void itemsExpandStateChanged();
 
-}
+    }; // END of class EasyGlobalSignals.
+
+} // END of namespace profiler_gui.
 
 #endif // GLOBALS_QOBJECTS_H

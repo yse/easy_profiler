@@ -23,6 +23,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 #include <map>
 #include <vector>
+#include <atomic>
 #include "profiler/profiler.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -288,6 +289,13 @@ namespace profiler {
             m_data = _data;
         }
 
+        void swap(SerializedData& other)
+        {
+            auto temp = other.m_data;
+            other.m_data = m_data;
+            m_data = temp;
+        }
+
     private:
 
         SerializedData(const SerializedData&) = delete;
@@ -300,9 +308,13 @@ namespace profiler {
 } // END of namespace profiler.
 
 extern "C"{
-    unsigned int PROFILER_API fillTreesFromFile(const char* filename, ::profiler::SerializedData& serialized_blocks, ::profiler::thread_blocks_tree_t& threaded_trees, bool gather_statistics = false);
+    unsigned int PROFILER_API fillTreesFromFile(::std::atomic<int>& progress, const char* filename, ::profiler::SerializedData& serialized_blocks, ::profiler::thread_blocks_tree_t& threaded_trees, bool gather_statistics = false);
 }
 
+inline unsigned int fillTreesFromFile(const char* filename, ::profiler::SerializedData& serialized_blocks, ::profiler::thread_blocks_tree_t& threaded_trees, bool gather_statistics = false) {
+    ::std::atomic<int> progress = ATOMIC_VAR_INIT(0);
+    return fillTreesFromFile(progress, filename, serialized_blocks, threaded_trees, gather_statistics);
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -6,8 +6,8 @@
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- : 
-* description       : The file contains declaration of TreeWidget and it's auxiliary classes
-*                   : for displyaing easy_profiler blocks tree.
+* description       : The file contains declaration of EasyTreeWidget and it's auxiliary classes
+*                   : for displyaing EasyProfiler blocks tree.
 * ----------------- : 
 * change log        : * 2016/06/26 Victor Zarubkin: moved sources from tree_view.h
 *                   :       and renamed classes from My* to Prof*.
@@ -17,66 +17,20 @@
 *                   :
 *                   : * 2016/06/29 Victor Zarubkin: Added clearSilent() method.
 *                   :
-*                   : * 
+*                   : * 2016/08/18 Victor Zarubkin: Added loading blocks hierarchy in separate thread;
+*                   :       Moved sources of TreeWidgetItem into tree_widget_item.h/.cpp
 * ----------------- : 
 * license           : TODO: add license text
 ************************************************************************/
 
-#ifndef MY____TREE___VIEW_H
-#define MY____TREE___VIEW_H
+#ifndef EASY__TREE_WIDGET__H_
+#define EASY__TREE_WIDGET__H_
 
 #include <QTreeWidget>
 #include <QAction>
-#include <stdlib.h>
-#include <unordered_map>
-#include <vector>
+#include <QTimer>
+#include "tree_widget_loader.h"
 #include "profiler/reader.h"
-#include "common_types.h"
-
-//////////////////////////////////////////////////////////////////////////
-
-class ProfTreeWidgetItem : public QTreeWidgetItem
-{
-    typedef QTreeWidgetItem    Parent;
-    typedef ProfTreeWidgetItem   This;
-
-    const ::profiler::BlocksTree*           m_block;
-    QRgb                            m_customBGColor;
-    QRgb                          m_customTextColor;
-
-public:
-
-    using Parent::setBackgroundColor;
-    using Parent::setTextColor;
-
-    ProfTreeWidgetItem(const ::profiler::BlocksTree* _treeBlock, Parent* _parent = nullptr);
-    virtual ~ProfTreeWidgetItem();
-
-    bool operator < (const Parent& _other) const override;
-
-public:
-
-    const ::profiler::BlocksTree* block() const;
-
-    ::profiler::timestamp_t duration() const;
-    ::profiler::timestamp_t selfDuration() const;
-
-    void setTimeSmart(int _column, const ::profiler::timestamp_t& _time, const QString& _prefix = "");
-
-    void setTimeMs(int _column, const ::profiler::timestamp_t& _time);
-    void setTimeMs(int _column, const ::profiler::timestamp_t& _time, const QString& _prefix);
-
-    void setBackgroundColor(QRgb _color);
-
-    void setTextColor(QRgb _color);
-
-    void colorize(bool _colorize);
-
-    void collapseAll();
-
-    void expandAll();
-
-}; // END of class ProfTreeWidgetItem.
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -90,38 +44,40 @@ public: \
         connect(this, &QAction::triggered, this, &ClassName::onToggle); } \
     ClassName(const QString& _label, DataType _item) : QAction(_label, nullptr), m_item(_item) { \
         connect(this, &QAction::triggered, this, &ClassName::onToggle); } \
-    virtual ~ClassName() {}\
+    virtual ~ClassName() {} \
 private: \
     void onToggle(bool) { emit clicked(m_item); }
 
-DECLARE_QACTION(ProfItemAction, unsigned int) signals: void clicked(unsigned int _item); };
-DECLARE_QACTION(ProfHideShowColumnAction, int) signals: void clicked(int _item); };
+DECLARE_QACTION(EasyItemAction, unsigned int) signals: void clicked(unsigned int _item); };
+DECLARE_QACTION(EasyHideShowColumnAction, int) signals: void clicked(int _item); };
 
 #undef DECLARE_QACTION
 
 //////////////////////////////////////////////////////////////////////////
 
-class ProfTreeWidget : public QTreeWidget
+class EasyTreeWidget : public QTreeWidget
 {
     Q_OBJECT
 
     typedef QTreeWidget    Parent;
-    typedef ProfTreeWidget   This;
+    typedef EasyTreeWidget   This;
 
 protected:
 
-    typedef ::std::vector<ProfTreeWidgetItem*> Items;
-    typedef ::std::unordered_map<::profiler::thread_id_t, ProfTreeWidgetItem*, ::profiler_gui::do_no_hash<::profiler::thread_id_t>::hasher_t> RootsMap;
-
-    Items                        m_items;
-    RootsMap                     m_roots;
-    ::profiler::timestamp_t  m_beginTime;
-    bool                    m_bColorRows;
+    EasyTreeWidgetLoader  m_hierarchyBuilder;
+    Items                            m_items;
+    RootsMap                         m_roots;
+    ::profiler_gui::TreeBlocks m_inputBlocks;
+    QTimer                       m_fillTimer;
+    ::profiler::timestamp_t      m_beginTime;
+    class QProgressDialog*        m_progress;
+    bool                        m_bColorRows;
+    bool                           m_bLocked;
 
 public:
 
-    ProfTreeWidget(QWidget* _parent = nullptr);
-    virtual ~ProfTreeWidget();
+    EasyTreeWidget(QWidget* _parent = nullptr);
+    virtual ~EasyTreeWidget();
 
     void clearSilent(bool _global = false);
 
@@ -133,13 +89,9 @@ public slots:
 
 protected:
 
-    size_t setTreeInternal(const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree);
-
-    size_t setTreeInternal(const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict);
-
-    size_t setTreeInternal(const ::profiler::BlocksTree::children_t& _children, ProfTreeWidgetItem* _parent, ProfTreeWidgetItem* _frame, ProfTreeWidgetItem* _thread, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration);
-
     void contextMenuEvent(QContextMenuEvent* _event) override;
+    void resizeEvent(QResizeEvent* _event) override;
+    void moveEvent(QMoveEvent* _event) override;
 
 private slots:
 
@@ -153,7 +105,8 @@ private slots:
 
     void onExpandAllChildrenClicked(bool);
 
-    void onItemExpand(QTreeWidgetItem*);
+    void onItemExpand(QTreeWidgetItem* _item);
+    void onItemCollapse(QTreeWidgetItem* _item);
 
     void onColorizeRowsTriggered(bool _colorize);
 
@@ -165,13 +118,16 @@ private slots:
 
     void onHideShowColumn(int _column);
 
+    void onFillTimerTimeout();
+
 protected:
 
     void loadSettings();
 	void saveSettings();
+    void alignProgressBar();
 
-}; // END of class ProfTreeWidget.
+}; // END of class EasyTreeWidget.
 
 //////////////////////////////////////////////////////////////////////////
 
-#endif // MY____TREE___VIEW_H
+#endif // EASY__TREE_WIDGET__H_

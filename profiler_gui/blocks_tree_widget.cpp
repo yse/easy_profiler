@@ -6,7 +6,7 @@
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : The file contains implementation of TreeWidget and it's auxiliary classes
+* description       : The file contains implementation of EasyTreeWidget and it's auxiliary classes
 *                   : for displyaing easy_profiler blocks tree.
 * ----------------- :
 * change log        : * 2016/06/26 Victor Zarubkin: Moved sources from tree_view.h
@@ -19,20 +19,21 @@
 *                   :
 *                   : * 2016/06/29 Victor Zarubkin: Added clearSilent() method.
 *                   :
-*                   : * 
+*                   : * 2016/08/18 Victor Zarubkin: Moved sources of TreeWidgetItem into tree_widget_item.h/.cpp
 * ----------------- :
 * license           : TODO: add license text
 ************************************************************************/
 
-#include <algorithm>
 #include <QMenu>
 #include <QContextMenuEvent>
 #include <QSignalBlocker>
 #include <QSettings>
-#include <QTextCodec>
+#include <QProgressDialog>
+#include <QResizeEvent>
+#include <QMoveEvent>
 #include "blocks_tree_widget.h"
+#include "tree_widget_item.h"
 #include "globals.h"
-
 
 #ifdef max
 #undef max
@@ -44,216 +45,7 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-enum ColumnsIndexes
-{
-    COL_UNKNOWN = -1,
-
-    COL_NAME = 0,
-
-    COL_BEGIN,
-
-    COL_DURATION,
-    COL_SELF_DURATION,
-    COL_DURATION_SUM_PER_PARENT,
-    COL_DURATION_SUM_PER_FRAME,
-    COL_DURATION_SUM_PER_THREAD,
-
-    COL_SELF_DURATION_PERCENT,
-    COL_PERCENT_PER_PARENT,
-    COL_PERCENT_PER_FRAME,
-    COL_PERCENT_SUM_PER_PARENT,
-    COL_PERCENT_SUM_PER_FRAME,
-    COL_PERCENT_SUM_PER_THREAD,
-
-    COL_END,
-
-    COL_MIN_PER_FRAME,
-    COL_MAX_PER_FRAME,
-    COL_AVERAGE_PER_FRAME,
-    COL_NCALLS_PER_FRAME,
-
-    COL_MIN_PER_THREAD,
-    COL_MAX_PER_THREAD,
-    COL_AVERAGE_PER_THREAD,
-    COL_NCALLS_PER_THREAD,
-
-    COL_MIN_PER_PARENT,
-    COL_MAX_PER_PARENT,
-    COL_AVERAGE_PER_PARENT,
-    COL_NCALLS_PER_PARENT,
-
-    COL_COLUMNS_NUMBER
-};
-
-//////////////////////////////////////////////////////////////////////////
-
-ProfTreeWidgetItem::ProfTreeWidgetItem(const ::profiler::BlocksTree* _treeBlock, Parent* _parent)
-    : Parent(_parent)
-    , m_block(_treeBlock)
-    , m_customBGColor(0)
-    , m_customTextColor(0)
-{
-
-}
-
-ProfTreeWidgetItem::~ProfTreeWidgetItem()
-{
-}
-
-bool ProfTreeWidgetItem::operator < (const Parent& _other) const
-{
-    const auto col = treeWidget()->sortColumn();
-
-    switch (col)
-    {
-        //case COL_UNKNOWN:
-        case COL_NAME:
-        {
-            if (parent() == nullptr)
-                return false; // Do not sort topLevelItems by name
-            return Parent::operator < (_other);
-        }
-
-        case COL_NCALLS_PER_THREAD:
-        case COL_NCALLS_PER_PARENT:
-        case COL_NCALLS_PER_FRAME:
-        {
-            return data(col, Qt::UserRole).toUInt() < _other.data(col, Qt::UserRole).toUInt();
-        }
-
-        case COL_SELF_DURATION_PERCENT:
-        case COL_PERCENT_PER_PARENT:
-        case COL_PERCENT_PER_FRAME:
-        case COL_PERCENT_SUM_PER_PARENT:
-        case COL_PERCENT_SUM_PER_FRAME:
-        case COL_PERCENT_SUM_PER_THREAD:
-        {
-            return data(col, Qt::UserRole).toInt() < _other.data(col, Qt::UserRole).toInt();
-        }
-
-        default:
-        {
-            // durations min, max, average
-            return data(col, Qt::UserRole).toULongLong() < _other.data(col, Qt::UserRole).toULongLong();
-        }
-    }
-
-    return false;
-}
-
-const ::profiler::BlocksTree* ProfTreeWidgetItem::block() const
-{
-    return m_block;
-}
-
-::profiler::timestamp_t ProfTreeWidgetItem::duration() const
-{
-    if (m_block->node)
-        return m_block->node->block()->duration();
-    return data(COL_DURATION, Qt::UserRole).toULongLong();
-}
-
-::profiler::timestamp_t ProfTreeWidgetItem::selfDuration() const
-{
-    return data(COL_SELF_DURATION, Qt::UserRole).toULongLong();
-}
-
-void ProfTreeWidgetItem::setTimeSmart(int _column, const ::profiler::timestamp_t& _time, const QString& _prefix)
-{
-    const ::profiler::timestamp_t nanosecondsTime = PROF_NANOSECONDS(_time);
-
-    setData(_column, Qt::UserRole, (quint64)nanosecondsTime);
-
-    setToolTip(_column, QString("%1 ns").arg(nanosecondsTime));
-
-    if (_time < 1e3)
-    {
-        setText(_column, QString("%1%2 ns").arg(_prefix).arg(nanosecondsTime));
-    }
-    else if (_time < 1e6)
-    {
-        setText(_column, QString("%1%2 us").arg(_prefix).arg(double(nanosecondsTime) * 1e-3, 0, 'f', 3));
-    }
-    else if (_time < 1e9)
-    {
-        setText(_column, QString("%1%2 ms").arg(_prefix).arg(double(nanosecondsTime) * 1e-6, 0, 'f', 3));
-    }
-    else
-    {
-        setText(_column, QString("%1%2 s").arg(_prefix).arg(double(nanosecondsTime) * 1e-9, 0, 'f', 3));
-    }
-}
-
-void ProfTreeWidgetItem::setTimeMs(int _column, const ::profiler::timestamp_t& _time)
-{
-    const ::profiler::timestamp_t nanosecondsTime = PROF_NANOSECONDS(_time);
-    setData(_column, Qt::UserRole, (quint64)nanosecondsTime);
-    setToolTip(_column, QString("%1 ns").arg(nanosecondsTime));
-    setText(_column, QString::number(double(nanosecondsTime) * 1e-6, 'g', 9));
-}
-
-void ProfTreeWidgetItem::setTimeMs(int _column, const ::profiler::timestamp_t& _time, const QString& _prefix)
-{
-    const ::profiler::timestamp_t nanosecondsTime = PROF_NANOSECONDS(_time);
-    setData(_column, Qt::UserRole, (quint64)nanosecondsTime);
-    setToolTip(_column, QString("%1 ns").arg(nanosecondsTime));
-    setText(_column, QString("%1%2").arg(_prefix).arg(double(nanosecondsTime) * 1e-6, 0, 'g', 9));
-}
-
-void ProfTreeWidgetItem::setBackgroundColor(QRgb _color)
-{
-    m_customBGColor = _color;
-}
-
-void ProfTreeWidgetItem::setTextColor(QRgb _color)
-{
-    m_customTextColor = _color;
-}
-
-void ProfTreeWidgetItem::colorize(bool _colorize)
-{
-    if (_colorize)
-    {
-        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
-        {
-            setBackground(i, QColor::fromRgb(m_customBGColor));
-            setForeground(i, QColor::fromRgb(m_customTextColor));
-        }
-    }
-    else
-    {
-        const QBrush nobrush;
-        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
-        {
-            setBackground(i, nobrush);
-            setForeground(i, nobrush);
-        }
-    }
-}
-
-void ProfTreeWidgetItem::collapseAll()
-{
-    for (int i = 0, childrenNumber = childCount(); i < childrenNumber; ++i)
-    {
-        static_cast<ProfTreeWidgetItem*>(child(i))->collapseAll();
-    }
-
-    setExpanded(false);
-}
-
-void ProfTreeWidgetItem::expandAll()
-{
-    for (int i = 0, childrenNumber = childCount(); i < childrenNumber; ++i)
-    {
-        static_cast<ProfTreeWidgetItem*>(child(i))->expandAll();
-    }
-
-    setExpanded(true);
-}
-
-//////////////////////////////////////////////////////////////////////////
-
-ProfTreeWidget::ProfTreeWidget(QWidget* _parent) : Parent(_parent), m_beginTime(::std::numeric_limits<decltype(m_beginTime)>::max()), m_bColorRows(true)
+EasyTreeWidget::EasyTreeWidget(QWidget* _parent) : Parent(_parent), m_beginTime(::std::numeric_limits<decltype(m_beginTime)>::max()), m_progress(nullptr), m_bColorRows(true), m_bLocked(false)
 {
     setAutoFillBackground(false);
     setAlternatingRowColors(true);
@@ -301,33 +93,100 @@ ProfTreeWidget::ProfTreeWidget(QWidget* _parent) : Parent(_parent), m_beginTime(
 
     setHeaderItem(header);
 
-    connect(&::profiler_gui::EASY_GLOBALS.events, &::profiler_gui::ProfGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
-    connect(&::profiler_gui::EASY_GLOBALS.events, &::profiler_gui::ProfGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
+    connect(&::profiler_gui::EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
+    connect(&::profiler_gui::EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
+    connect(&m_fillTimer, &QTimer::timeout, this, &This::onFillTimerTimeout);
 
     loadSettings();
+
+    m_progress = new QProgressDialog("Building blocks hierarchy...", "", 0, 100, this, Qt::FramelessWindowHint);
+    m_progress->setAttribute(Qt::WA_TranslucentBackground);
+    m_progress->setCancelButton(nullptr);
+    m_progress->hide();
+
+    QTimer::singleShot(40, this, &This::alignProgressBar);
 }
 
-ProfTreeWidget::~ProfTreeWidget()
+EasyTreeWidget::~EasyTreeWidget()
 {
 	saveSettings();
+    delete m_progress;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void ProfTreeWidget::setTree(const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree)
+void EasyTreeWidget::onFillTimerTimeout()
+{
+    if (m_hierarchyBuilder.done())
+    {
+        m_fillTimer.stop();
+
+        ThreadedItems toplevelitems;
+        m_hierarchyBuilder.takeItems(m_items);
+        m_hierarchyBuilder.takeTopLevelItems(toplevelitems);
+        m_hierarchyBuilder.interrupt();
+        {
+            const QSignalBlocker b(this);
+            for (auto& item : toplevelitems)
+            {
+                addTopLevelItem(item.second);
+                m_roots[item.first] = item.second;
+            }
+        }
+
+        if (m_progress)
+        {
+            m_progress->setValue(100);
+            m_progress->hide();
+        }
+
+        m_bLocked = false;
+        m_inputBlocks.clear();
+
+        setSortingEnabled(true);
+        sortByColumn(COL_BEGIN, Qt::AscendingOrder);
+        resizeColumnToContents(COL_NAME);
+
+        connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
+        connect(this, &Parent::itemCollapsed, this, &This::onItemCollapse);
+        onSelectedThreadChange(::profiler_gui::EASY_GLOBALS.selected_thread);
+        onSelectedBlockChange(::profiler_gui::EASY_GLOBALS.selected_block);
+    }
+    else
+    {
+        m_progress->setValue(m_hierarchyBuilder.progress());
+    }
+}
+
+void EasyTreeWidget::setTree(const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree)
 {
     clearSilent();
 
-    setTreeInternal(_blocksNumber, _blocksTree);
+    if (!_blocksTree.empty())
+    {
+        m_bLocked = true;
+        m_progress->setValue(0);
+        m_progress->show();
+        m_hierarchyBuilder.fillTree(m_beginTime, _blocksNumber, _blocksTree, m_bColorRows);
+        m_fillTimer.start(20);
+    }
 
-    setSortingEnabled(true);
-    sortByColumn(COL_BEGIN, Qt::AscendingOrder);
-    resizeColumnToContents(COL_NAME);
-
-    connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
+    //StubLocker l;
+    //ThreadedItems toplevelitems;
+    //FillTreeClass<StubLocker>::setTreeInternal1(l, m_items, toplevelitems, m_beginTime, _blocksNumber, _blocksTree, m_bColorRows);
+    //{
+    //    const QSignalBlocker b(this);
+    //    for (auto& item : toplevelitems)
+    //    {
+    //        addTopLevelItem(item.second);
+    //        m_roots[item.first] = item.second;
+    //        if (item.first == ::profiler_gui::EASY_GLOBALS.selected_thread)
+    //            item.second->colorize(true);
+    //    }
+    //}
 }
 
-void ProfTreeWidget::setTreeBlocks(const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _session_begin_time, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict)
+void EasyTreeWidget::setTreeBlocks(const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _session_begin_time, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict)
 {
     clearSilent();
 
@@ -335,30 +194,65 @@ void ProfTreeWidget::setTreeBlocks(const ::profiler_gui::TreeBlocks& _blocks, ::
     _left += m_beginTime;// - ::std::min(m_beginTime, 1000ULL);
     _right += m_beginTime;// + 1000;
 
-    setTreeInternal(_blocks, _left, _right, _strict);
+    m_inputBlocks = _blocks;
+    if (!m_inputBlocks.empty())
+    {
+        m_bLocked = true;
+        m_progress->setValue(0);
+        m_progress->show();
+        m_hierarchyBuilder.fillTreeBlocks(m_inputBlocks, _session_begin_time, _left, _right, _strict, m_bColorRows);
+        m_fillTimer.start(20);
+    }
 
-    setSortingEnabled(true);
-    sortByColumn(COL_BEGIN, Qt::AscendingOrder);
-    resizeColumnToContents(COL_NAME);
+    //StubLocker l;
+    //ThreadedItems toplevelitems;
+    //FillTreeClass<StubLocker>::setTreeInternal2(l, m_items, toplevelitems, m_beginTime, _blocks, _left, _right, _strict, m_bColorRows);
+    //{
+    //    const QSignalBlocker b(this);
+    //    for (auto& item : toplevelitems)
+    //    {
+    //        addTopLevelItem(item.second);
+    //        m_roots[item.first] = item.second;
+    //        if (item.first == ::profiler_gui::EASY_GLOBALS.selected_thread)
+    //            item.second->colorize(true);
+    //    }
+    //}
 
-    connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
-    onSelectedBlockChange(::profiler_gui::EASY_GLOBALS.selected_block);
+    //setSortingEnabled(true);
+    //sortByColumn(COL_BEGIN, Qt::AscendingOrder);
+    //resizeColumnToContents(COL_NAME);
+
+    //connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
+    //connect(this, &Parent::itemCollapsed, this, &This::onItemCollapse);
+    //onSelectedBlockChange(::profiler_gui::EASY_GLOBALS.selected_block);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void ProfTreeWidget::clearSilent(bool _global)
+void EasyTreeWidget::clearSilent(bool _global)
 {
+    m_hierarchyBuilder.interrupt();
+
+    if (m_progress)
+    {
+        m_progress->setValue(100);
+        m_progress->hide();
+    }
+
+    m_bLocked = false;
     m_beginTime = ::std::numeric_limits<decltype(m_beginTime)>::max();
 
     setSortingEnabled(false);
     disconnect(this, &Parent::itemExpanded, this, &This::onItemExpand);
+    disconnect(this, &Parent::itemCollapsed, this, &This::onItemCollapse);
 
     if (!_global)
     {
         for (auto item : m_items)
         {
-            ::profiler_gui::set_max(::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index].tree_item);
+            auto& gui_block = ::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index];
+            ::profiler_gui::set_max(gui_block.tree_item);
+            gui_block.expanded = false;
         }
     }
 
@@ -367,459 +261,23 @@ void ProfTreeWidget::clearSilent(bool _global)
 
     const QSignalBlocker b(this);
     clear();
+
+    if (!_global)
+        emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
 
-size_t ProfTreeWidget::setTreeInternal(const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree)
+void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 {
-    m_items.reserve(_blocksNumber + _blocksTree.size()); // _blocksNumber does not include Thread root blocks
-
-    decltype(m_beginTime) finishtime = 0;
-    for (const auto& threadTree : _blocksTree)
+    if (m_bLocked)
     {
-        const auto node_block = threadTree.second.tree.children.front().node->block();
-        const auto startTime = node_block->getBegin();
-        const auto endTime = node_block->getEnd();
-
-        if (m_beginTime > startTime)
-        {
-            m_beginTime = startTime;
-        }
-
-        if (finishtime < endTime)
-        {
-            finishtime = endTime;
-        }
+        _event->accept();
+        return;
     }
 
-    size_t total_items = 0;
-    const QSignalBlocker b(this);
-    for (const auto& threadTree : _blocksTree)
-    {
-        auto& block = threadTree.second.tree;
-        auto item = new ProfTreeWidgetItem(&block);
-
-        if (threadTree.second.thread_name && threadTree.second.thread_name[0] != 0)
-        {
-            item->setText(COL_NAME, QString("%1 Thread %2").arg(threadTree.second.thread_name).arg(threadTree.first));
-        }
-        else
-        {
-            item->setText(COL_NAME, QString("Thread %1").arg(threadTree.first));
-        }
-
-        ::profiler::timestamp_t duration = 0;
-        if (!block.children.empty())
-        {
-            duration = block.children.back().node->block()->getEnd() - block.children.front().node->block()->getBegin();
-        }
-
-        item->setTimeSmart(COL_DURATION, duration);
-        item->setBackgroundColor(::profiler_gui::SELECTED_THREAD_BACKGROUND);
-        item->setTextColor(::profiler_gui::SELECTED_THREAD_FOREGROUND);
-        m_items.push_back(item);
-
-        // TODO: Optimize children duration calculation (it must be calculated before setTreeInternal now)
-        ::profiler::timestamp_t children_duration = 0;
-        for (const auto& child : block.children)
-            children_duration += child.node->block()->duration();
-        item->setTimeSmart(COL_SELF_DURATION, children_duration);
-
-        children_duration = 0;
-        const auto children_items_number = setTreeInternal(block.children, item, nullptr, item, m_beginTime, finishtime + 1000000000ULL, false, children_duration);
-
-        if (children_items_number > 0)
-        {
-            total_items += children_items_number + 1;
-            addTopLevelItem(item);
-
-            if (threadTree.first == ::profiler_gui::EASY_GLOBALS.selected_thread)
-            {
-                item->colorize(true);
-            }
-
-            m_roots[threadTree.first] = item;
-        }
-        else
-        {
-            m_items.pop_back();
-            delete item;
-        }
-    }
-
-    return total_items;
-}
-
-auto calculateTotalChildrenNumber(const ::profiler::BlocksTree* _tree) -> decltype(_tree->children.size())
-{
-    auto children_number = _tree->children.size();
-    for (const auto& child : _tree->children)
-        children_number += calculateTotalChildrenNumber(&child);
-    return children_number;
-}
-
-size_t ProfTreeWidget::setTreeInternal(const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict)
-{
-    if (_blocks.empty())
-    {
-        return 0;
-    }
-
-    //size_t blocksNumber = 0;
-    //for (const auto& block : _blocks)
-    //    blocksNumber += calculateTotalChildrenNumber(block.tree);
-    //    //blocksNumber += block.tree->total_children_number;
-    //m_items.reserve(blocksNumber + _blocks.size()); // blocksNumber does not include root blocks
-
-    typedef ::std::unordered_map<::profiler::thread_id_t, ProfTreeWidgetItem*, ::profiler_gui::do_no_hash<::profiler::thread_id_t>::hasher_t> ThreadsMap;
-    ThreadsMap threadsMap;
-
-    size_t total_items = 0;
-    const QSignalBlocker b(this);
-    for (const auto& block : _blocks)
-    {
-        const auto startTime = block.tree->node->block()->getBegin();
-        const auto endTime = block.tree->node->block()->getEnd();
-        if (startTime > _right || endTime < _left)
-        {
-            continue;
-        }
-
-        ::profiler::timestamp_t duration = 0;
-        ProfTreeWidgetItem* thread_item = nullptr;
-        auto thread_item_it = threadsMap.find(block.root->thread_id);
-        if (thread_item_it != threadsMap.end())
-        {
-            thread_item = thread_item_it->second;
-        }
-        else
-        {
-            thread_item = new ProfTreeWidgetItem(&block.root->tree);
-
-            if (block.root->thread_name && block.root->thread_name[0] != 0)
-            {
-                thread_item->setText(COL_NAME, QString("%1 Thread %2").arg(block.root->thread_name).arg(block.root->thread_id));
-            }
-            else
-            {
-                thread_item->setText(COL_NAME, QString("Thread %1").arg(block.root->thread_id));
-            }
-
-            if (!block.root->tree.children.empty())
-            {
-                duration = block.root->tree.children.back().node->block()->getEnd() - block.root->tree.children.front().node->block()->getBegin();
-            }
-
-            thread_item->setTimeSmart(COL_DURATION, duration);
-            thread_item->setBackgroundColor(::profiler_gui::SELECTED_THREAD_BACKGROUND);
-            thread_item->setTextColor(::profiler_gui::SELECTED_THREAD_FOREGROUND);
-
-            // Calculate clean duration (sum of all children durations)
-            ::profiler::timestamp_t children_duration = 0;
-            for (const auto& child : block.root->tree.children)
-                children_duration += child.node->block()->duration();
-            thread_item->setTimeSmart(COL_SELF_DURATION, children_duration);
-
-            threadsMap.insert(::std::make_pair(block.root->thread_id, thread_item));
-        }
-
-        auto item = new ProfTreeWidgetItem(block.tree, thread_item);
-        duration = endTime - startTime;
-
-        item->setText(COL_NAME, ::profiler_gui::toUnicode(block.tree->node->getName()));
-        item->setTimeSmart(COL_DURATION, duration);
-        item->setTimeMs(COL_BEGIN, startTime - m_beginTime);
-        item->setTimeMs(COL_END, endTime - m_beginTime);
-
-        item->setData(COL_PERCENT_PER_PARENT, Qt::UserRole, 0);
-        item->setText(COL_PERCENT_PER_PARENT, "");
-
-        item->setData(COL_PERCENT_PER_FRAME, Qt::UserRole, 0);
-        item->setText(COL_PERCENT_PER_FRAME, "");
-
-        if (block.tree->per_thread_stats != nullptr) // if there is per_thread_stats then there are other stats also
-        {
-            const auto& per_thread_stats = block.tree->per_thread_stats;
-            const auto& per_parent_stats = block.tree->per_parent_stats;
-            const auto& per_frame_stats = block.tree->per_frame_stats;
-
-
-            if (per_thread_stats->calls_number > 1 || !::profiler_gui::EASY_GLOBALS.display_only_relevant_stats)
-            {
-                item->setTimeSmart(COL_MIN_PER_THREAD, per_thread_stats->min_duration, "min ");
-                item->setTimeSmart(COL_MAX_PER_THREAD, per_thread_stats->max_duration, "max ");
-                item->setTimeSmart(COL_AVERAGE_PER_THREAD, per_thread_stats->average_duration());
-                item->setTimeSmart(COL_DURATION_SUM_PER_THREAD, per_thread_stats->total_duration);
-            }
-
-            item->setData(COL_NCALLS_PER_THREAD, Qt::UserRole, per_thread_stats->calls_number);
-            item->setText(COL_NCALLS_PER_THREAD, QString::number(per_thread_stats->calls_number));
-
-            auto percentage_per_thread = static_cast<int>(0.5 + 100. * static_cast<double>(per_thread_stats->total_duration) / static_cast<double>(thread_item->selfDuration()));
-            item->setData(COL_PERCENT_SUM_PER_THREAD, Qt::UserRole, percentage_per_thread);
-            item->setText(COL_PERCENT_SUM_PER_THREAD, QString::number(percentage_per_thread));
-
-
-            if (per_parent_stats->calls_number > 1 || !::profiler_gui::EASY_GLOBALS.display_only_relevant_stats)
-            {
-                item->setTimeSmart(COL_MIN_PER_PARENT, per_parent_stats->min_duration, "min ");
-                item->setTimeSmart(COL_MAX_PER_PARENT, per_parent_stats->max_duration, "max ");
-                item->setTimeSmart(COL_AVERAGE_PER_PARENT, per_parent_stats->average_duration());
-                item->setTimeSmart(COL_DURATION_SUM_PER_PARENT, per_parent_stats->total_duration);
-            }
-
-            item->setData(COL_NCALLS_PER_PARENT, Qt::UserRole, per_parent_stats->calls_number);
-            item->setText(COL_NCALLS_PER_PARENT, QString::number(per_parent_stats->calls_number));
-
-
-            if (per_frame_stats->calls_number > 1 || !::profiler_gui::EASY_GLOBALS.display_only_relevant_stats)
-            {
-                item->setTimeSmart(COL_MIN_PER_FRAME, per_frame_stats->min_duration, "min ");
-                item->setTimeSmart(COL_MAX_PER_FRAME, per_frame_stats->max_duration, "max ");
-                item->setTimeSmart(COL_AVERAGE_PER_FRAME, per_frame_stats->average_duration());
-                item->setTimeSmart(COL_DURATION_SUM_PER_FRAME, per_frame_stats->total_duration);
-            }
-
-            item->setData(COL_NCALLS_PER_FRAME, Qt::UserRole, per_frame_stats->calls_number);
-            item->setText(COL_NCALLS_PER_FRAME, QString::number(per_frame_stats->calls_number));
-        }
-        else
-        {
-            item->setData(COL_PERCENT_SUM_PER_THREAD, Qt::UserRole, 0);
-            item->setText(COL_PERCENT_SUM_PER_THREAD, "");
-        }
-
-        const auto color = block.tree->node->block()->getColor();
-        const auto bgColor = ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
-        const auto fgColor = 0x00ffffff - bgColor;
-        item->setBackgroundColor(bgColor);
-        item->setTextColor(fgColor);
-
-        m_items.push_back(item);
-
-        size_t children_items_number = 0;
-        ::profiler::timestamp_t children_duration = 0;
-        if (!block.tree->children.empty())
-        {
-            children_items_number = setTreeInternal(block.tree->children, item, item, thread_item, _left, _right, _strict, children_duration);
-        }
-
-        int percentage = 100;
-        auto self_duration = duration - children_duration;
-        if (children_duration > 0 && duration > 0)
-        {
-            percentage = static_cast<int>(0.5 + 100. * static_cast<double>(self_duration) / static_cast<double>(duration));
-        }
-
-        item->setTimeSmart(COL_SELF_DURATION, self_duration);
-        item->setData(COL_SELF_DURATION_PERCENT, Qt::UserRole, percentage);
-        item->setText(COL_SELF_DURATION_PERCENT, QString::number(percentage));
-
-        if (children_items_number > 0 || !_strict || (startTime >= _left && endTime <= _right))
-        {
-            total_items += children_items_number + 1;
-            ::profiler_gui::EASY_GLOBALS.gui_blocks[block.tree->block_index].tree_item = static_cast<unsigned int>(m_items.size() - 1);
-
-            if (m_bColorRows)
-            {
-                item->colorize(m_bColorRows);
-            }
-        }
-        else
-        {
-            m_items.pop_back();
-            delete item;
-        }
-    }
-
-    for (auto& it : threadsMap)
-    {
-        auto item = it.second;
-
-        if (item->childCount() > 0)
-        {
-            addTopLevelItem(item);
-
-            if (it.first == ::profiler_gui::EASY_GLOBALS.selected_thread)
-            {
-                item->colorize(true);
-            }
-
-            m_roots[it.first] = item;
-            m_items.push_back(item);
-            ++total_items;
-        }
-        else
-        {
-            delete item;
-        }
-    }
-
-    return total_items;
-}
-
-size_t ProfTreeWidget::setTreeInternal(const ::profiler::BlocksTree::children_t& _children, ProfTreeWidgetItem* _parent, ProfTreeWidgetItem* _frame, ProfTreeWidgetItem* _thread, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration)
-{
-    size_t total_items = 0;
-    for (const auto& child : _children)
-    {
-        const auto startTime = child.node->block()->getBegin();
-        const auto endTime = child.node->block()->getEnd();
-        const auto duration = endTime - startTime;
-        _duration += duration;
-
-        if (startTime > _right || endTime < _left)
-        {
-            continue;
-        }
-
-        auto item = new ProfTreeWidgetItem(&child, _parent);
-        item->setText(COL_NAME, ::profiler_gui::toUnicode(child.node->getName()));
-        item->setTimeSmart(COL_DURATION, duration);
-        item->setTimeMs(COL_BEGIN, startTime - m_beginTime);
-        item->setTimeMs(COL_END, endTime - m_beginTime);
-        item->setData(COL_PERCENT_SUM_PER_THREAD, Qt::UserRole, 0);
-
-        if (child.per_thread_stats != nullptr) // if there is per_thread_stats then there are other stats also
-        {
-            const auto& per_thread_stats = child.per_thread_stats;
-            const auto& per_parent_stats = child.per_parent_stats;
-            const auto& per_frame_stats = child.per_frame_stats;
-
-            auto percentage = duration == 0 ? 0 : static_cast<int>(0.5 + 100. * static_cast<double>(duration) / static_cast<double>(_parent->duration()));
-            auto percentage_sum = static_cast<int>(0.5 + 100. * static_cast<double>(per_parent_stats->total_duration) / static_cast<double>(_parent->duration()));
-            item->setData(COL_PERCENT_PER_PARENT, Qt::UserRole, percentage);
-            item->setText(COL_PERCENT_PER_PARENT, QString::number(percentage));
-            item->setData(COL_PERCENT_SUM_PER_PARENT, Qt::UserRole, percentage_sum);
-            item->setText(COL_PERCENT_SUM_PER_PARENT, QString::number(percentage_sum));
-
-            if (_frame != nullptr)
-            {
-                if (_parent != _frame)
-                {
-                    percentage = duration == 0 ? 0 : static_cast<int>(0.5 + 100. * static_cast<double>(duration) / static_cast<double>(_frame->duration()));
-                    percentage_sum = static_cast<int>(0.5 + 100. * static_cast<double>(per_frame_stats->total_duration) / static_cast<double>(_frame->duration()));
-                }
-
-                item->setData(COL_PERCENT_PER_FRAME, Qt::UserRole, percentage);
-                item->setText(COL_PERCENT_PER_FRAME, QString::number(percentage));
-                item->setData(COL_PERCENT_SUM_PER_FRAME, Qt::UserRole, percentage_sum);
-                item->setText(COL_PERCENT_SUM_PER_FRAME, QString::number(percentage_sum));
-            }
-            else
-            {
-                item->setData(COL_PERCENT_PER_FRAME, Qt::UserRole, 0);
-                item->setText(COL_PERCENT_PER_FRAME, "");
-                item->setData(COL_PERCENT_SUM_PER_FRAME, Qt::UserRole, 0);
-                item->setText(COL_PERCENT_SUM_PER_FRAME, "");
-            }
-
-
-            if (per_thread_stats->calls_number > 1 || !::profiler_gui::EASY_GLOBALS.display_only_relevant_stats)
-            {
-                item->setTimeSmart(COL_MIN_PER_THREAD, per_thread_stats->min_duration, "min ");
-                item->setTimeSmart(COL_MAX_PER_THREAD, per_thread_stats->max_duration, "max ");
-                item->setTimeSmart(COL_AVERAGE_PER_THREAD, per_thread_stats->average_duration());
-                item->setTimeSmart(COL_DURATION_SUM_PER_THREAD, per_thread_stats->total_duration);
-            }
-
-            item->setData(COL_NCALLS_PER_THREAD, Qt::UserRole, per_thread_stats->calls_number);
-            item->setText(COL_NCALLS_PER_THREAD, QString::number(per_thread_stats->calls_number));
-
-            if (_thread)
-            {
-                auto percentage_per_thread = static_cast<int>(0.5 + 100. * static_cast<double>(per_thread_stats->total_duration) / static_cast<double>(_thread->selfDuration()));
-                item->setData(COL_PERCENT_SUM_PER_THREAD, Qt::UserRole, percentage_per_thread);
-                item->setText(COL_PERCENT_SUM_PER_THREAD, QString::number(percentage_per_thread));
-            }
-
-
-            if (per_parent_stats->calls_number > 1 || !::profiler_gui::EASY_GLOBALS.display_only_relevant_stats)
-            {
-                item->setTimeSmart(COL_MIN_PER_PARENT, per_parent_stats->min_duration, "min ");
-                item->setTimeSmart(COL_MAX_PER_PARENT, per_parent_stats->max_duration, "max ");
-                item->setTimeSmart(COL_AVERAGE_PER_PARENT, per_parent_stats->average_duration());
-                item->setTimeSmart(COL_DURATION_SUM_PER_PARENT, per_parent_stats->total_duration);
-            }
-
-            item->setData(COL_NCALLS_PER_PARENT, Qt::UserRole, per_parent_stats->calls_number);
-            item->setText(COL_NCALLS_PER_PARENT, QString::number(per_parent_stats->calls_number));
-
-
-            if (per_frame_stats->calls_number > 1 || !::profiler_gui::EASY_GLOBALS.display_only_relevant_stats)
-            {
-                item->setTimeSmart(COL_MIN_PER_FRAME, per_frame_stats->min_duration, "min ");
-                item->setTimeSmart(COL_MAX_PER_FRAME, per_frame_stats->max_duration, "max ");
-                item->setTimeSmart(COL_AVERAGE_PER_FRAME, per_frame_stats->average_duration());
-                item->setTimeSmart(COL_DURATION_SUM_PER_FRAME, per_frame_stats->total_duration);
-            }
-
-            item->setData(COL_NCALLS_PER_FRAME, Qt::UserRole, per_frame_stats->calls_number);
-            item->setText(COL_NCALLS_PER_FRAME, QString::number(per_frame_stats->calls_number));
-        }
-        else
-        {
-            item->setData(COL_PERCENT_PER_PARENT, Qt::UserRole, 0);
-            item->setText(COL_PERCENT_PER_PARENT, "");
-            item->setData(COL_PERCENT_SUM_PER_PARENT, Qt::UserRole, 0);
-            item->setText(COL_PERCENT_SUM_PER_PARENT, "");
-            item->setData(COL_PERCENT_SUM_PER_THREAD, Qt::UserRole, 0);
-            item->setText(COL_PERCENT_SUM_PER_THREAD, "");
-        }
-
-        const auto color = child.node->block()->getColor();
-        const auto bgColor = ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
-        const auto fgColor = 0x00ffffff - bgColor;
-        item->setBackgroundColor(bgColor);
-        item->setTextColor(fgColor);
-
-        m_items.push_back(item);
-
-        size_t children_items_number = 0;
-        ::profiler::timestamp_t children_duration = 0;
-        if (!child.children.empty())
-        {
-            children_items_number = setTreeInternal(child.children, item, _frame ? _frame : item, _thread, _left, _right, _strict, children_duration);
-        }
-
-        int percentage = 100;
-        auto self_duration = duration - children_duration;
-        if (children_duration > 0 && duration > 0)
-        {
-            percentage = static_cast<int>(0.5 + 100. * static_cast<double>(self_duration) / static_cast<double>(duration));
-        }
-
-        item->setTimeSmart(COL_SELF_DURATION, self_duration);
-        item->setData(COL_SELF_DURATION_PERCENT, Qt::UserRole, percentage);
-        item->setText(COL_SELF_DURATION_PERCENT, QString::number(percentage));
-
-        if (children_items_number > 0 || !_strict || (startTime >= _left && endTime <= _right))
-        {
-            total_items += children_items_number + 1;
-            ::profiler_gui::EASY_GLOBALS.gui_blocks[child.block_index].tree_item = static_cast<unsigned int>(m_items.size() - 1);
-
-            if (m_bColorRows)
-            {
-                item->colorize(m_bColorRows);
-            }
-        }
-        else
-        {
-            m_items.pop_back();
-            delete item;
-        }
-    }
-
-    return total_items;
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-void ProfTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
-{
     const auto col = currentColumn();
-    auto item = static_cast<ProfTreeWidgetItem*>(currentItem());
+    auto item = static_cast<EasyTreeWidgetItem*>(currentItem());
     QMenu menu;
 
     auto action = new QAction("Expand all", nullptr);
@@ -853,9 +311,9 @@ void ProfTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 
     if (item != nullptr)
     {
-        auto itemAction = new ProfItemAction("Show this item on scene", item->block()->block_index);
+        auto itemAction = new EasyItemAction("Show this item on scene", item->block()->block_index);
         itemAction->setToolTip("Scroll graphics scene to current item in the tree");
-        connect(itemAction, &ProfItemAction::clicked, this, &This::onJumpToItemClicked);
+        connect(itemAction, &EasyItemAction::clicked, this, &This::onJumpToItemClicked);
         menu.addAction(itemAction);
 
         if (col >= 0)
@@ -884,9 +342,9 @@ void ProfTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
                     if (i != ::profiler_gui::numeric_max(i))
                     {
                         menu.addSeparator();
-                        itemAction = new ProfItemAction("Jump to such item", i);
+                        itemAction = new EasyItemAction("Jump to such item", i);
                         itemAction->setToolTip("Jump to item with min/max duration (depending on clicked column)");
-                        connect(itemAction, &ProfItemAction::clicked, this, &This::onJumpToItemClicked);
+                        connect(itemAction, &EasyItemAction::clicked, this, &This::onJumpToItemClicked);
                         menu.addAction(itemAction);
                     }
 
@@ -903,10 +361,10 @@ void ProfTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 
 	for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
     {
-        auto columnAction = new ProfHideShowColumnAction(hdr->text(i), i);
+        auto columnAction = new EasyHideShowColumnAction(hdr->text(i), i);
         columnAction->setCheckable(true);
 		columnAction->setChecked(!isColumnHidden(i));
-        connect(columnAction, &ProfHideShowColumnAction::clicked, this, &This::onHideShowColumn);
+        connect(columnAction, &EasyHideShowColumnAction::clicked, this, &This::onHideShowColumn);
         hidemenu->addAction(columnAction);
     }
 
@@ -915,57 +373,92 @@ void ProfTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     _event->accept();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
 
-void ProfTreeWidget::onJumpToItemClicked(unsigned int _block_index)
+void EasyTreeWidget::resizeEvent(QResizeEvent* _event)
+{
+    Parent::resizeEvent(_event);
+    alignProgressBar();
+}
+
+void EasyTreeWidget::moveEvent(QMoveEvent* _event)
+{
+    Parent::moveEvent(_event);
+    alignProgressBar();
+}
+
+void EasyTreeWidget::alignProgressBar()
+{
+    auto pos = mapToGlobal(rect().center());
+    m_progress->move(pos.x() - (m_progress->width() >> 1), pos.y() - (m_progress->height() >> 1));
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void EasyTreeWidget::onJumpToItemClicked(unsigned int _block_index)
 {
     ::profiler_gui::EASY_GLOBALS.selected_block = _block_index;
     emit ::profiler_gui::EASY_GLOBALS.events.selectedBlockChanged(_block_index);
 }
 
-void ProfTreeWidget::onCollapseAllClicked(bool)
+void EasyTreeWidget::onCollapseAllClicked(bool)
 {
+    const QSignalBlocker b(this);
     collapseAll();
+
+    for (auto item : m_items)
+        ::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index].expanded = false;
+    emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
 }
 
-void ProfTreeWidget::onExpandAllClicked(bool)
+void EasyTreeWidget::onExpandAllClicked(bool)
 {
-    disconnect(this, &Parent::itemExpanded, this, &This::onItemExpand);
+    const QSignalBlocker b(this);
     expandAll();
-    //resizeColumnToContents(COL_NAME);
     resizeColumnsToContents();
-    connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
+
+    for (auto item : m_items)
+        ::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index].expanded = true;
+    emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
 }
 
-void ProfTreeWidget::onCollapseAllChildrenClicked(bool)
+void EasyTreeWidget::onCollapseAllChildrenClicked(bool)
 {
-    auto current = static_cast<ProfTreeWidgetItem*>(currentItem());
+    auto current = static_cast<EasyTreeWidgetItem*>(currentItem());
     if (current != nullptr)
     {
+        const QSignalBlocker b(this);
         current->collapseAll();
+        emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
     }
 }
 
-void ProfTreeWidget::onExpandAllChildrenClicked(bool)
+void EasyTreeWidget::onExpandAllChildrenClicked(bool)
 {
-    auto current = static_cast<ProfTreeWidgetItem*>(currentItem());
+    auto current = static_cast<EasyTreeWidgetItem*>(currentItem());
     if (current != nullptr)
     {
-        disconnect(this, &Parent::itemExpanded, this, &This::onItemExpand);
+        const QSignalBlocker b(this);
         current->expandAll();
-        //resizeColumnToContents(COL_NAME);
         resizeColumnsToContents();
-        connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
+        emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
     }
 }
 
-void ProfTreeWidget::onItemExpand(QTreeWidgetItem*)
+void EasyTreeWidget::onItemExpand(QTreeWidgetItem* _item)
 {
-    //resizeColumnToContents(COL_NAME);
     resizeColumnsToContents();
+    ::profiler_gui::EASY_GLOBALS.gui_blocks[static_cast<EasyTreeWidgetItem*>(_item)->block()->block_index].expanded = true;
+    emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
 }
 
-void ProfTreeWidget::onColorizeRowsTriggered(bool _colorize)
+void EasyTreeWidget::onItemCollapse(QTreeWidgetItem* _item)
+{
+    ::profiler_gui::EASY_GLOBALS.gui_blocks[static_cast<EasyTreeWidgetItem*>(_item)->block()->block_index].expanded = false;
+    emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
+}
+
+void EasyTreeWidget::onColorizeRowsTriggered(bool _colorize)
 {
     const QSignalBlocker b(this);
 
@@ -991,7 +484,7 @@ void ProfTreeWidget::onColorizeRowsTriggered(bool _colorize)
 
 //////////////////////////////////////////////////////////////////////////
 
-void ProfTreeWidget::onSelectedThreadChange(::profiler::thread_id_t _id)
+void EasyTreeWidget::onSelectedThreadChange(::profiler::thread_id_t _id)
 {
     for (auto& it : m_roots)
     {
@@ -999,9 +492,9 @@ void ProfTreeWidget::onSelectedThreadChange(::profiler::thread_id_t _id)
     }
 }
 
-void ProfTreeWidget::onSelectedBlockChange(unsigned int _block_index)
+void EasyTreeWidget::onSelectedBlockChange(unsigned int _block_index)
 {
-    ProfTreeWidgetItem* item = nullptr;
+    EasyTreeWidgetItem* item = nullptr;
 
     if (_block_index < ::profiler_gui::EASY_GLOBALS.gui_blocks.size())
     {
@@ -1011,13 +504,25 @@ void ProfTreeWidget::onSelectedBlockChange(unsigned int _block_index)
     }
 
     if (item != nullptr)
+    {
+        const QSignalBlocker b(this);
+        expandItem(item);
+        setCurrentItem(item);
         scrollToItem(item, QAbstractItemView::PositionAtCenter);
-    setCurrentItem(item);
+        resizeColumnsToContents();
+
+        ::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index].expanded = true;
+        emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
+    }
+    else
+    {
+        setCurrentItem(item);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void ProfTreeWidget::resizeColumnsToContents()
+void EasyTreeWidget::resizeColumnsToContents()
 {
     for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
     {
@@ -1027,7 +532,7 @@ void ProfTreeWidget::resizeColumnsToContents()
 
 //////////////////////////////////////////////////////////////////////////
 
-void ProfTreeWidget::onHideShowColumn(int _column)
+void EasyTreeWidget::onHideShowColumn(int _column)
 {
     if (isColumnHidden(_column))
     {
@@ -1041,7 +546,7 @@ void ProfTreeWidget::onHideShowColumn(int _column)
 
 //////////////////////////////////////////////////////////////////////////
 
-void ProfTreeWidget::loadSettings()
+void EasyTreeWidget::loadSettings()
 {
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
     settings.beginGroup("tree_widget");
@@ -1059,7 +564,7 @@ void ProfTreeWidget::loadSettings()
     settings.endGroup();
 }
 
-void ProfTreeWidget::saveSettings()
+void EasyTreeWidget::saveSettings()
 {
 	QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
 	settings.beginGroup("tree_widget");

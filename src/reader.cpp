@@ -221,14 +221,16 @@ typedef ::std::map<::profiler::thread_id_t, StatsMap> PerThreadStats;
 
 extern "C"{
 
-    unsigned int fillTreesFromFile(const char* filename, ::profiler::SerializedData& serialized_blocks, ::profiler::thread_blocks_tree_t& threaded_trees, bool gather_statistics)
+    unsigned int fillTreesFromFile(::std::atomic<int>& progress, const char* filename, ::profiler::SerializedData& serialized_blocks, ::profiler::thread_blocks_tree_t& threaded_trees, bool gather_statistics)
 	{
         PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(::profiler::colors::Cyan)
 
 		::std::ifstream inFile(filename, ::std::fstream::binary);
+        progress.store(0);
 
 		if (!inFile.is_open())
         {
+            progress.store(100);
             return 0;
 		}
 
@@ -239,6 +241,7 @@ extern "C"{
         inFile.read((char*)&memory_size, sizeof(uint64_t));
         if (memory_size == 0)
         {
+            progress.store(100);
             return 0;
         }
 
@@ -346,7 +349,18 @@ extern "C"{
                 current.per_thread_stats = update_statistics(per_thread_statistics, current);
             }
 
+            if (progress.load() < 0)
+                break;
+            progress.store(static_cast<int>(90 * i / memory_size));
 		}
+
+        if (progress.load() < 0)
+        {
+            progress.store(100);
+            serialized_blocks.clear();
+            threaded_trees.clear();
+            return 0;
+        }
 
         PROFILER_BEGIN_BLOCK_GROUPED("Gather statistics for roots", ::profiler::colors::Purple)
         if (gather_statistics)
@@ -382,13 +396,16 @@ extern "C"{
                 }, ::std::ref(root))));
 			}
 
+            int j = 0, n = static_cast<int>(statistics_threads.size());
             for (auto& t : statistics_threads)
             {
                 t.join();
+                progress.store(90 + (10 * ++j) / n);
             }
 		}
         else
         {
+            int j = 0, n = static_cast<int>(threaded_trees.size());
             for (auto& it : threaded_trees)
             {
                 auto& root = it.second;
@@ -402,11 +419,14 @@ extern "C"{
                 }
 
                 ++root.tree.depth;
+
+                progress.store(90 + (10 * ++j) / n);
             }
         }
         PROFILER_END_BLOCK
         // No need to delete BlockStatistics instances - they will be deleted inside BlocksTree destructors
 
+        progress.store(100);
         return blocks_counter;
 	}
 }

@@ -28,11 +28,6 @@
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-class ProfGraphicsItem;
-class ProfTreeWidgetItem;
-
-//////////////////////////////////////////////////////////////////////////
-
 namespace profiler_gui {
 
 	const QString ORGANAZATION_NAME = "EasyProfiler";
@@ -45,16 +40,17 @@ namespace profiler_gui {
     //////////////////////////////////////////////////////////////////////////
 
 #pragma pack(push, 1)
-    struct ProfBlock final
+    struct EasyBlock final
     {
         unsigned int            tree_item;
         unsigned int  graphics_item_index;
         unsigned char graphics_item_level;
         unsigned char       graphics_item;
+        bool                     expanded;
     };
 #pragma pack(pop)
 
-    typedef ::std::vector<ProfBlock> ProfBlocks;
+    typedef ::std::vector<EasyBlock> EasyBlocks;
 
     template <class T>
     inline auto toUnicode(const T& _inputString) -> decltype(QTextCodec::codecForLocale()->toUnicode(_inputString))
@@ -64,13 +60,13 @@ namespace profiler_gui {
 
     //////////////////////////////////////////////////////////////////////////
 
-    struct ProfGlobals final
+    struct EasyGlobals final
     {
-        static ProfGlobals& instance();
+        static EasyGlobals& instance();
 
-        ProfGlobalSignals                         events; ///< Global signals
+        EasyGlobalSignals                         events; ///< Global signals
         ::profiler::thread_blocks_tree_t profiler_blocks; ///< Profiler blocks tree loaded from file
-        ProfBlocks                            gui_blocks; ///< Profiler graphics blocks builded by GUI
+        EasyBlocks                            gui_blocks; ///< Profiler graphics blocks builded by GUI
         ::profiler::thread_id_t          selected_thread; ///< Current selected thread id
         unsigned int                      selected_block; ///< Current selected profiler block index
         bool                 draw_graphics_items_borders; ///< Draw borders for graphics blocks or not
@@ -78,10 +74,10 @@ namespace profiler_gui {
 
     private:
 
-        ProfGlobals();
+        EasyGlobals();
     };
 #ifndef IGNORE_GLOBALS_DECLARATION
-    static ProfGlobals& EASY_GLOBALS = ProfGlobals::instance();
+    static EasyGlobals& EASY_GLOBALS = EasyGlobals::instance();
 #endif
     //////////////////////////////////////////////////////////////////////////
 
