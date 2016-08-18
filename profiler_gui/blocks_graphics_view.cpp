@@ -31,6 +31,7 @@
 #include <QGridLayout>
 #include <QFontMetrics>
 #include <QDebug>
+#include <QSignalBlocker>
 #include <math.h>
 #include <algorithm>
 #include "blocks_graphics_view.h"
