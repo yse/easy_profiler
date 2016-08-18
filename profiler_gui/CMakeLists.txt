@@ -32,4 +32,8 @@ add_executable(${PROJECT_NAME}
     #treeitem.cpp
 )
 
-target_link_libraries(${PROJECT_NAME} Qt5::Widgets easy_profiler)
+if(UNIX)
+    set(SPECIAL_LIB pthread)
+endif(UNIX)
+
+target_link_libraries(${PROJECT_NAME} Qt5::Widgets easy_profiler ${SPECIAL_LIB})
