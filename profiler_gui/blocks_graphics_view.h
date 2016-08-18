@@ -175,7 +175,7 @@ class EasyChronometerItem : public QGraphicsItem
 
 public:
 
-    EasyChronometerItem(bool _main = true);
+    explicit EasyChronometerItem(bool _main = true);
     virtual ~EasyChronometerItem();
 
     // Public virtual methods
@@ -284,7 +284,7 @@ private:
 
 public:
 
-    EasyGraphicsView(QWidget* _parent = nullptr);
+    explicit EasyGraphicsView(QWidget* _parent = nullptr);
     virtual ~EasyGraphicsView();
 
     // Public virtual methods
@@ -412,7 +412,7 @@ private:
 
 public:
 
-    EasyGraphicsViewWidget(QWidget* _parent = nullptr);
+    explicit EasyGraphicsViewWidget(QWidget* _parent = nullptr);
     virtual ~EasyGraphicsViewWidget();
 
     EasyGraphicsView* view();

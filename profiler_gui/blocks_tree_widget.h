@@ -76,7 +76,7 @@ protected:
 
 public:
 
-    EasyTreeWidget(QWidget* _parent = nullptr);
+    explicit EasyTreeWidget(QWidget* _parent = nullptr);
     virtual ~EasyTreeWidget();
 
     void clearSilent(bool _global = false);

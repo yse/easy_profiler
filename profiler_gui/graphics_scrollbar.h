@@ -39,7 +39,7 @@ private:
 
 public:
 
-    EasyGraphicsSliderItem(bool _main);
+    explicit EasyGraphicsSliderItem(bool _main);
     virtual ~EasyGraphicsSliderItem();
 
     void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
@@ -155,7 +155,7 @@ private:
 
 public:
 
-    EasyGraphicsScrollbar(QWidget* _parent = nullptr);
+    explicit EasyGraphicsScrollbar(QWidget* _parent = nullptr);
     virtual ~EasyGraphicsScrollbar();
 
     // Public virtual methods
