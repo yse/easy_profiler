@@ -11,13 +11,11 @@ script:
   - cmake .. && make
 before_install:
   - sudo add-apt-repository --yes ppa:ubuntu-sdk-team/ppa
-install:
   - sudo apt-get update -qq
   - sudo apt-get install qt5-qmake qtbase5-dev qtdeclarative5-dev libqt5webkit5-dev libsqlite3-dev
 addons:
   apt:
     sources:
-      - george-edison55-precise-backports # cmake 3.2.3 / doxygen 1.8.3
       - ubuntu-toolchain-r-test
       - llvm-toolchain-precise-3.7
     packages:
