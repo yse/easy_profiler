@@ -378,7 +378,7 @@ extern "C"{
                 auto& per_parent_statistics = parent_statistics[it.first];
 				per_parent_statistics.clear();
 
-                statistics_threads.emplace_back(::std::move(::std::thread([&per_parent_statistics, &per_frame_statistics](::profiler::BlocksTreeRoot& root)
+                statistics_threads.emplace_back(::std::thread([&per_parent_statistics, &per_frame_statistics](::profiler::BlocksTreeRoot& root)
                 {
                     for (auto& frame : root.tree.children)
                     {
@@ -393,7 +393,7 @@ extern "C"{
                     }
 
                     ++root.tree.depth;
-                }, ::std::ref(root))));
+                }, ::std::ref(root)));
 			}
 
             int j = 0, n = static_cast<int>(statistics_threads.size());
