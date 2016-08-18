@@ -60,7 +60,7 @@ protected:
 
 public:
 
-    cstring(const char* _str) : str(_str), str_len(strlen(_str))
+    explicit cstring(const char* _str) : str(_str), str_len(strlen(_str))
     {
     }
 
@@ -105,7 +105,7 @@ public:
 
     size_t str_hash;
 
-    hashed_cstr(const char* _str) : Parent(_str), str_hash(0)
+    explicit hashed_cstr(const char* _str) : Parent(_str), str_hash(0)
     {
         str_hash = ::std::_Hash_seq((const unsigned char *)str, str_len);
     }

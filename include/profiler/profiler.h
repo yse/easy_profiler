@@ -360,7 +360,7 @@ namespace profiler
 
     private:
 
-        static SerializedBlock* create(const profiler::Block* block, uint64_t& memory_size);
+        static SerializedBlock* create(const Block &block, uint64_t& memory_size);
         static void destroy(SerializedBlock* that);
 
         SerializedBlock(const profiler::Block* block, uint16_t name_length);

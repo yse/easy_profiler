@@ -36,12 +36,12 @@ extern "C"{
 	}
 }
 
-SerializedBlock* SerializedBlock::create(const Block* block, uint64_t& memory_size)
+SerializedBlock* SerializedBlock::create(const Block& block, uint64_t& memory_size)
 {
-    auto name_length = static_cast<uint16_t>(strlen(block->getName()));
+    auto name_length = static_cast<uint16_t>(strlen(block.getName()));
     auto size = static_cast<uint16_t>(sizeof(BaseBlockData) + name_length + 1);
     auto data = ::new char[size];
-    ::new (static_cast<void*>(data)) SerializedBlock(block, name_length);
+    ::new (static_cast<void*>(data)) SerializedBlock(&block, name_length);
     memory_size += size;
     return reinterpret_cast<SerializedBlock*>(data);
 }
@@ -93,14 +93,14 @@ ProfileManager& ProfileManager::instance()
 
 void ProfileManager::beginBlock(Block* _block)
 {
-	if (!m_isEnabled)
+    if (!m_isEnabled || !_block)
 		return;
 	if (BLOCK_TYPE_BLOCK == _block->getType()){
 		guard_lock_t lock(m_spin);
 		m_openedBracketsMap[_block->getThreadId()].push(_block);
 	}
 	else{
-		_internalInsertBlock(_block);
+        _internalInsertBlock(*_block);
 	}
 	
 }
@@ -120,10 +120,13 @@ void ProfileManager::endBlock()
 
 	Block* lastBlock = stackOfOpenedBlocks.top();
 
-	if (lastBlock && !lastBlock->isFinished()){
-		lastBlock->finish();
+    if (lastBlock )
+    {
+        if(!lastBlock->isFinished())
+            lastBlock->finish();
+        _internalInsertBlock(*lastBlock);
 	}
-	_internalInsertBlock(lastBlock);
+
 	stackOfOpenedBlocks.pop();
 }
 
@@ -132,7 +135,7 @@ void ProfileManager::setEnabled(bool isEnable)
 	m_isEnabled = isEnable;
 }
 
-void ProfileManager::_internalInsertBlock(profiler::Block* _block)
+void ProfileManager::_internalInsertBlock(profiler::Block& _block)
 {
 	guard_lock_t lock(m_storedSpin);
     m_blocks.emplace_back(SerializedBlock::create(_block, m_blocksMemorySize));
@@ -172,7 +175,7 @@ void ProfileManager::setThreadName(const char* name)
         return;
 
     profiler::Block block(name, current_thread_id, 0, profiler::BLOCK_TYPE_THREAD_SIGN);
-    m_blocks.emplace_back(SerializedBlock::create(&block, m_blocksMemorySize));
+    m_blocks.emplace_back(SerializedBlock::create(block, m_blocksMemorySize));
     m_namedThreades.insert(current_thread_id);
 }
 
