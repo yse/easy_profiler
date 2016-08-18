@@ -8,6 +8,7 @@ script:
   - mkdir build
   - cd build
   - cmake --version
+  - qmake-qt5 -v
   - cmake .. && make
 before_install:
   - sudo add-apt-repository --yes ppa:ubuntu-sdk-team/ppa
