@@ -54,13 +54,14 @@ const unsigned short GRAPHICS_ROW_SIZE = 16;
 const unsigned short GRAPHICS_ROW_SPACING = 2;
 const unsigned short GRAPHICS_ROW_SIZE_FULL = GRAPHICS_ROW_SIZE + GRAPHICS_ROW_SPACING;
 const unsigned short THREADS_ROW_SPACING = 8;
+const unsigned short TIMELINE_ROW_SIZE = 20;
 
 const QRgb BORDERS_COLOR = 0x00a07050;
 const QRgb BACKGROUND_1 = 0x00dddddd;
 const QRgb BACKGROUND_2 = 0x00ffffff;
 const QRgb TIMELINE_BACKGROUND = 0x20303030;
 const QRgb SELECTED_ITEM_COLOR = 0x000050a0;
-const QColor CHRONOMETER_COLOR2 = QColor::fromRgba(0x20408040);
+const QColor CHRONOMETER_COLOR2 = QColor::fromRgba(0x40408040);
 
 const unsigned int TEST_PROGRESSION_BASE = 4;
 
@@ -134,8 +135,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     brush.setStyle(Qt::SolidPattern);
 
     _painter->save();
-
-
+    
     // Reset indices of first visible item for each layer
     const auto levelsNumber = levels();
     for (unsigned char i = 1; i < levelsNumber; ++i) ::profiler_gui::set_max(m_levelsIndexes[i]);
@@ -171,7 +171,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
     // Shifting coordinates to current screen offset
     _painter->setTransform(QTransform::fromTranslate(dx - offset * currentScale, -y()), true);
-
+    _painter->setClipRect(QRectF(0, visibleSceneRect.top(), scene()->width(), visibleSceneRect.height()));
 
 
     if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders)
@@ -208,7 +208,13 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
             if (item.right() < sceneLeft || state == -1 || (l == 0 && (top > visibleSceneRect.bottom() || (top + item.totalHeight) < visibleSceneRect.top())))
             {
                 // This item is not visible
-                ++m_levelsIndexes[l];
+
+                if (next_level < levelsNumber && item.children_begin != MAX_CHILD_INDEX)
+                {
+                    // Mark that we would not paint children of current item
+                    m_levels[next_level][item.children_begin].state = -1;
+                }
+
                 continue;
             }
 
@@ -779,7 +785,7 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     selectedInterval = units2microseconds(selectedInterval);
 
     const QString text = ::profiler_gui::timeStringReal(selectedInterval); // Displayed text
-    const auto textRect = QFontMetrics(CHRONOMETER_FONT).boundingRect(text); // Calculate displayed text boundingRect
+    const auto textRect = QFontMetricsF(CHRONOMETER_FONT).boundingRect(text); // Calculate displayed text boundingRect
     const auto rgb = m_color.rgb() & 0x00ffffff;
 
 
@@ -791,13 +797,19 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     _painter->setTransform(QTransform::fromTranslate(-x(), -y()), true);
 
     // draw transparent rectangle
-    _painter->setBrush(m_color);
+    auto vcenter = rect.top() + rect.height() * 0.5;
+    QLinearGradient g(rect.left(), vcenter, rect.right(), vcenter);
+    g.setColorAt(0, m_color);
+    g.setColorAt(0.15, QColor::fromRgba(0x14000000 | rgb));
+    g.setColorAt(0.85, QColor::fromRgba(0x14000000 | rgb));
+    g.setColorAt(1, m_color);
+    _painter->setBrush(g);
     _painter->setPen(Qt::NoPen);
     _painter->drawRect(rect);
 
     // draw left and right borders
     _painter->setBrush(Qt::NoBrush);
-    _painter->setPen(QColor::fromRgba(0xa0000000 | rgb));
+    _painter->setPen(QColor::fromRgba(0xd0000000 | rgb));
     if (m_left > sceneLeft)
         _painter->drawLine(QPointF(rect.left(), rect.top()), QPointF(rect.left(), rect.bottom()));
     if (m_right < sceneRight)
@@ -913,11 +925,13 @@ void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
     const auto currentScale = sceneView->scale();
     const auto offset = sceneView->offset();
     const auto left = offset * currentScale;
+    const auto h = visibleSceneRect.height();
 
     QRectF rect;
 
     _painter->save();
     _painter->setTransform(QTransform::fromTranslate(-x(), -y()));
+    _painter->setClipRect(QRectF(0, 0, visibleSceneRect.width(), h));
 
     const auto& items = sceneView->getItems();
     if (!items.empty())
@@ -937,7 +951,7 @@ void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
             auto top = item->y() + br.top() - visibleSceneRect.top();
             auto bottom = top + br.height();
 
-            if (top > visibleSceneRect.height() || bottom < 0)
+            if (top > h || bottom < 0)
             {
                 continue;
             }
@@ -951,27 +965,71 @@ void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
                 _painter->setBrush(brushes[i & 1]);
             }
 
-            rect.setRect(0, top - OVERLAP, visibleSceneRect.width(), br.height() + OVERLAP);
+            rect.setRect(0, top - OVERLAP, visibleSceneRect.width(), br.height() + THREADS_ROW_SPACING);
             _painter->drawRect(rect);
         }
     }
 
     // Draw timeline scale marks ----------------
-    //_painter->setBrush(Qt::NoBrush);
-    //_painter->setPen(QColor::fromRgba(TIMELINE_BACKGROUND));
     _painter->setBrush(QColor::fromRgba(TIMELINE_BACKGROUND));
 
-    const auto step = sceneView->timelineStep() * currentScale;
-    const auto steps = static_cast<int>(visibleSceneRect.width() / step);
-    auto first = static_cast<quint64>(offset / sceneView->timelineStep());
-    const int addend = (first & 1) ? 1 : 0;
+    const auto sceneStep = sceneView->timelineStep();
+    const auto factor = ::profiler_gui::timeFactor(sceneStep);
+    const auto step = sceneStep * currentScale;
+    auto first = static_cast<quint64>(offset / sceneStep);
+    const int odd = first & 1;
+    const auto nsteps = (1 + odd) * 2 + static_cast<int>(visibleSceneRect.width() / step);
+    first -= odd;
 
-    for (qreal curr = (first - addend) * step, last = (first + steps + 2) * step; curr < last; curr += 2 * step)
+    QPen pen(Qt::gray);
+    pen.setWidth(2);
+    _painter->setClipping(false);
+    _painter->setPen(pen);
+    _painter->drawLine(QPointF(0, h), QPointF(visibleSceneRect.width(), h));
+    _painter->setPen(Qt::gray);
+
+    QLineF marks[20];
+    qreal first_x = first * sceneStep;
+    const auto textWidth = QFontMetricsF(_painter->font()).boundingRect(QString::number(static_cast<quint64>(0.5 + first_x * factor))).width() + 10;
+    const int n = 1 + static_cast<int>(textWidth / step);
+    int next = first % n;
+    if (next)
+        next = n - next;
+
+    first_x *= currentScale;
+    for (int i = 0; i < nsteps; ++i, --next)
     {
-        auto x1 = curr - left;
-        rect.setRect(x1, 0, step, visibleSceneRect.height());
-        _painter->drawRect(rect);
-        //_painter->drawLine(QPointF(x1, 0), QPointF(x1, visibleSceneRect.height()));
+        auto current = first_x - left + step * i;
+
+        if ((i & 1) == 0)
+        {
+            rect.setRect(current, 0, step, h);
+            _painter->drawRect(rect);
+
+            for (int j = 0; j < 20; ++j)
+            {
+                auto xmark = current + j * step * 0.1;
+                marks[j].setP1(QPointF(xmark, h));
+                marks[j].setP2(QPointF(xmark, h + ((j % 5) ? 4 : 8)));
+            }
+
+            _painter->drawLines(marks, 20);
+        }
+
+        if (next <= 0)
+        {
+            next = n;
+            _painter->setPen(Qt::black);
+            _painter->drawText(QPointF(current + 1, h + 17), QString::number(static_cast<quint64>(0.5 + (current + left) * factor / currentScale)));
+            _painter->setPen(Qt::gray);
+        }
+
+        // TEST
+        // this is for testing (order of lines will be painted):
+        //_painter->setPen(Qt::black);
+        //_painter->drawText(QPointF(current + step * 0.4, h - 20), QString::number(i));
+        //_painter->setPen(Qt::gray);
+        // TEST
     }
     // END Draw timeline scale marks ~~~~~~~~~~~~
 
@@ -994,7 +1052,7 @@ void EasyTimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGrap
     _painter->setBrush(Qt::white);
     _painter->setPen(Qt::NoPen);
 
-    QRectF rect(visibleSceneRect.width() - 10 - step, visibleSceneRect.height() - 25, step, 5);
+    QRectF rect(visibleSceneRect.width() - 10 - step, visibleSceneRect.height() - 20, step, 5);
     _painter->drawRect(rect);
 
     rect.translate(0, 5);
@@ -1270,7 +1328,7 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
 
     // Filling scene with items
     m_items.reserve(_blocksTree.size());
-    qreal y = 0;
+    qreal y = TIMELINE_ROW_SIZE;
     for (const auto& threadTree : _blocksTree)
     {
         // fill scene with new items
@@ -1302,7 +1360,7 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
 
     // Calculating scene rect
     const qreal endX = time2position(finish) + 1500.0;
-    scene()->setSceneRect(0, 0, endX, y);
+    scene()->setSceneRect(0, 0, endX, y + TIMELINE_ROW_SIZE);
     //for (auto item : m_items)
     //    item->setBoundingRect(0, 0, endX, item->boundingRect().height());
 
@@ -1462,6 +1520,7 @@ void EasyGraphicsView::updateVisibleSceneRect()
     auto vbar = verticalScrollBar();
     if (vbar && vbar->isVisible())
         m_visibleSceneRect.setWidth(m_visibleSceneRect.width() - vbar->width() - 2);
+    m_visibleSceneRect.setHeight(m_visibleSceneRect.height() - TIMELINE_ROW_SIZE);
 }
 
 void EasyGraphicsView::updateTimelineStep(qreal _windowWidth)
@@ -1476,8 +1535,9 @@ void EasyGraphicsView::updateTimelineStep(qreal _windowWidth)
     else
         m_timelineStep = 1e6;
 
+    const auto optimal_steps = static_cast<int>(40 * m_visibleSceneRect.width() / 1500);
     auto steps = time / m_timelineStep;
-    while (steps > 60) {
+    while (steps > optimal_steps) {
         m_timelineStep *= 10;
         steps *= 0.1;
     }
@@ -1607,7 +1667,7 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
         return;
     }
 
-    bool changedSelection = false, clicked = false, changedSelectedItem = false;
+    bool changedSelection = false, changedSelectedItem = false;
     if (m_mouseButtons & Qt::RightButton)
     {
         if (m_chronometerItem->isVisible() && m_chronometerItem->width() < 1e-6)
@@ -1641,6 +1701,8 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
 
     if (m_mouseButtons & Qt::LeftButton)
     {
+        bool clicked = false;
+
         if (m_chronometerItemAux->isVisible() && m_chronometerItemAux->width() < 1e-6)
         {
             m_chronometerItemAux->hide();
@@ -1657,7 +1719,7 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
         {
             // Handle Click
 
-            clicked = true;
+            //clicked = true;
             auto mouseClickPos = mapToScene(m_mousePressPos);
             mouseClickPos.setX(m_offset + mouseClickPos.x() / m_scale);
 

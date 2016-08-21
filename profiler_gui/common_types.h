@@ -153,6 +153,21 @@ typedef ::std::vector<ProfSelectedBlock> TreeBlocks;
 
 //////////////////////////////////////////////////////////////////////////
 
+inline qreal timeFactor(qreal _interval)
+{
+    if (_interval < 1) // interval in nanoseconds
+        return 1e3;
+
+    if (_interval < 1e3) // interval in microseconds
+        return 1;
+
+    if (_interval < 1e6) // interval in milliseconds
+        return 1e-3;
+
+    // interval in seconds
+    return 1e-6;
+}
+
 inline QString timeStringReal(qreal _interval, int _precision = 1)
 {
     if (_interval < 1) // interval in nanoseconds
