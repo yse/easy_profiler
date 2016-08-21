@@ -1499,12 +1499,6 @@ void EasyGraphicsView::setScrollbar(EasyGraphicsScrollbar* _scrollbar)
         disconnect(m_pScrollbar, &EasyGraphicsScrollbar::valueChanged, this, &This::onGraphicsScrollbarValueChange);
     }
 
-    if(!_scrollbar)
-    {
-        qWarning() << "Zero pointer in EasyGraphicsView::setScrollbar(EasyGraphicsScrollbar*): " << __LINE__ << " in file " << __FILE__;
-        return;
-    }
-
     m_pScrollbar = _scrollbar;
     m_pScrollbar->setMinimapFrom(0, nullptr);
     m_pScrollbar->hideChrono();
