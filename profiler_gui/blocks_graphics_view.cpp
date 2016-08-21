@@ -57,7 +57,7 @@ const unsigned short GRAPHICS_ROW_SIZE_FULL = GRAPHICS_ROW_SIZE + GRAPHICS_ROW_S
 const unsigned short THREADS_ROW_SPACING = 8;
 const unsigned short TIMELINE_ROW_SIZE = 20;
 
-const QRgb BORDERS_COLOR = 0x00a07050;
+const QRgb BORDERS_COLOR = 0x00686868;// 0x00a07050;
 const QRgb BACKGROUND_1 = 0x00dddddd;
 const QRgb BACKGROUND_2 = 0x00ffffff;
 const QRgb TIMELINE_BACKGROUND = 0x20303030;
@@ -131,7 +131,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
     QRectF rect;
     QBrush brush;
-    QRgb previousColor = 0;
+    QRgb previousColor = 0, inverseColor = 0x00ffffff;
     Qt::PenStyle previousPenStyle = Qt::NoPen;
     brush.setStyle(Qt::SolidPattern);
 
@@ -172,7 +172,6 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
     // Shifting coordinates to current screen offset
     _painter->setTransform(QTransform::fromTranslate(dx - offset * currentScale, -y()), true);
-    _painter->setClipRect(QRectF(0, visibleSceneRect.top(), scene()->width(), visibleSceneRect.height()));
 
 
     if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders)
@@ -189,6 +188,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
     // Iterate through layers and draw visible items
     bool selectedItemsWasPainted = false;
+    const auto visibleBottom = visibleSceneRect.bottom() - 1;
     for (unsigned char l = 0; l < levelsNumber; ++l)
     {
         auto& level = m_levels[l];
@@ -206,7 +206,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 state = item.state;
             }
 
-            if (item.right() < sceneLeft || state == -1 || (l == 0 && (top > visibleSceneRect.bottom() || (top + item.totalHeight) < visibleSceneRect.top())))
+            if (item.right() < sceneLeft || state == -1 || top > visibleBottom || (top + item.totalHeight) < visibleSceneRect.top())
             {
                 // This item is not visible
 
@@ -233,6 +233,9 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
                 x = item.left() * currentScale - dx;
                 h = item.totalHeight;
+                const auto dh = top + h - visibleBottom;
+                if (dh > 0)
+                    h -= dh;
 
                 bool changepen = false;
                 if (item.block->block_index == ::profiler_gui::EASY_GLOBALS.selected_block)
@@ -245,22 +248,25 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     _painter->setPen(pen);
 
                     previousColor = SELECTED_ITEM_COLOR;
+                    inverseColor = 0x00ffffff - previousColor;
                     brush.setColor(previousColor);
                     _painter->setBrush(brush);
                 }
                 else
                 {
-                    if (previousColor != item.color)
+                    const bool colorChange = (previousColor != item.color);
+                    if (colorChange)
                     {
                         // Set background color brush for rectangle
                         previousColor = item.color;
+                        inverseColor = 0x00ffffff - previousColor;
                         brush.setColor(previousColor);
                         _painter->setBrush(brush);
                     }
 
                     if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders)
                     {
-                        if (w < 3)
+                        if (w < 2)
                         {
                             // Do not paint borders for very narrow items
                             if (previousPenStyle != Qt::NoPen)
@@ -269,17 +275,17 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                                 _painter->setPen(Qt::NoPen);
                             }
                         }
-                        else if (previousPenStyle != Qt::SolidLine)
+                        else if (previousPenStyle != Qt::SolidLine || colorChange)
                         {
                             // Restore pen for item which is wide enough to paint borders
                             previousPenStyle = Qt::SolidLine;
-                            _painter->setPen(BORDERS_COLOR);
+                            _painter->setPen(BORDERS_COLOR & inverseColor);// BORDERS_COLOR);
                         }
                     }
                 }
 
                 // Draw rectangle
-                rect.setRect(x, top, w, item.totalHeight);
+                rect.setRect(x, top, w, h);
                 _painter->drawRect(rect);
 
                 if (changepen)
@@ -287,7 +293,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     if (previousPenStyle == Qt::NoPen)
                         _painter->setPen(Qt::NoPen);
                     else
-                        _painter->setPen(BORDERS_COLOR); // restore pen for rectangle painting
+                        _painter->setPen(BORDERS_COLOR & inverseColor);// BORDERS_COLOR); // restore pen for rectangle painting
                 }
 
                 if (next_level < levelsNumber && item.children_begin != MAX_CHILD_INDEX)
@@ -330,31 +336,38 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     _painter->setPen(pen);
 
                     previousColor = SELECTED_ITEM_COLOR;
+                    inverseColor = 0x00ffffff - previousColor;
                     brush.setColor(previousColor);
                     _painter->setBrush(brush);
                 }
                 else
                 {
-                    if (previousColor != item.color)
+                    const bool colorChange = (previousColor != item.color);
+                    if (colorChange)
                     {
                         // Set background color brush for rectangle
                         previousColor = item.color;
+                        inverseColor = 0x00ffffff - previousColor;
                         brush.setColor(previousColor);
                         _painter->setBrush(brush);
                     }
 
-                    if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders && previousPenStyle != Qt::SolidLine)
+                    if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders && (previousPenStyle != Qt::SolidLine || colorChange))
                     {
                         // Restore pen for item which is wide enough to paint borders
                         previousPenStyle = Qt::SolidLine;
-                        _painter->setPen(BORDERS_COLOR);
+                        _painter->setPen(BORDERS_COLOR & inverseColor);// BORDERS_COLOR);
                     }
                 }
 
                 // Draw rectangle
                 x = item.left() * currentScale - dx;
                 h = GRAPHICS_ROW_SIZE;
-                rect.setRect(x, top, w, GRAPHICS_ROW_SIZE);
+                const auto dh = top + h - visibleBottom;
+                if (dh > 0)
+                    h -= dh;
+
+                rect.setRect(x, top, w, h);
                 _painter->drawRect(rect);
 
                 flags = item.width() < 1 ? 0 : Qt::AlignHCenter;
@@ -379,7 +392,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
             rect.setRect(xtext + 1, top, w - 1, h);
 
             // text will be painted with inverse color
-            auto textColor = 0x00ffffff - previousColor;
+            auto textColor = inverseColor;
             if (textColor == previousColor) textColor = 0;
             _painter->setPen(textColor);
 
@@ -390,7 +403,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
             if (previousPenStyle == Qt::NoPen)
                 _painter->setPen(Qt::NoPen);
             else
-                _painter->setPen(BORDERS_COLOR); // restore pen for rectangle painting
+                _painter->setPen(BORDERS_COLOR & inverseColor);// BORDERS_COLOR); // restore pen for rectangle painting
             // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         }
     }
@@ -444,12 +457,6 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
                     // drawing text
                     _painter->drawText(rect, Qt::AlignCenter, ::profiler_gui::toUnicode(item.block->node->getName()));
-
-                    // restore previous pen color
-                    if (previousPenStyle == Qt::NoPen)
-                        _painter->setPen(Qt::NoPen);
-                    else
-                        _painter->setPen(BORDERS_COLOR); // restore pen for rectangle painting
                     // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                 }
             }
@@ -927,19 +934,18 @@ void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
     const auto offset = sceneView->offset();
     const auto left = offset * currentScale;
     const auto h = visibleSceneRect.height();
+    const auto visibleBottom = h - 1;
 
     QRectF rect;
 
     _painter->save();
     _painter->setTransform(QTransform::fromTranslate(-x(), -y()));
-    _painter->setClipRect(QRectF(0, 0, visibleSceneRect.width(), h));
 
     const auto& items = sceneView->getItems();
     if (!items.empty())
     {
         static const auto OVERLAP = THREADS_ROW_SPACING >> 1;
         static const QBrush brushes[2] = {QColor::fromRgb(BACKGROUND_1), QColor::fromRgb(BACKGROUND_2)};
-        const bool isTest = (items.front()->items(0).front().block == nullptr);
         int i = -1;
 
         // Draw background
@@ -953,20 +959,18 @@ void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
             auto bottom = top + br.height();
 
             if (top > h || bottom < 0)
-            {
                 continue;
-            }
 
-            if (!isTest && item->threadId() == ::profiler_gui::EASY_GLOBALS.selected_thread)
-            {
+            if (item->threadId() == ::profiler_gui::EASY_GLOBALS.selected_thread)
                 _painter->setBrush(QBrush(QColor::fromRgb(::profiler_gui::SELECTED_THREAD_BACKGROUND)));
-            }
             else
-            {
                 _painter->setBrush(brushes[i & 1]);
-            }
 
             rect.setRect(0, top - OVERLAP, visibleSceneRect.width(), br.height() + THREADS_ROW_SPACING);
+            const auto dh = rect.bottom() - visibleBottom;
+            if (dh > 0)
+                rect.setHeight(rect.height() - dh);
+
             _painter->drawRect(rect);
         }
     }
@@ -984,7 +988,6 @@ void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
 
     QPen pen(Qt::gray);
     pen.setWidth(2);
-    _painter->setClipping(false);
     _painter->setPen(pen);
     _painter->drawLine(QPointF(0, h), QPointF(visibleSceneRect.width(), h));
     _painter->setPen(Qt::gray);
