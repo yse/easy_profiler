@@ -373,9 +373,11 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
             ::profiler_gui::EASY_GLOBALS.gui_blocks[block.tree->block_index].tree_item = item_index;
 
             if (_colorizeRows)
-            {
                 item->colorize(_colorizeRows);
-            }
+
+            if (::profiler_gui::EASY_GLOBALS.gui_blocks[block.tree->block_index].expanded)
+                item->setExpanded(true);
+
         }
         else
         {
@@ -562,9 +564,10 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
             ::profiler_gui::EASY_GLOBALS.gui_blocks[child.block_index].tree_item = item_index;
 
             if (_colorizeRows)
-            {
                 item->colorize(_colorizeRows);
-            }
+
+            if (::profiler_gui::EASY_GLOBALS.gui_blocks[child.block_index].expanded)
+                item->setExpanded(true);
         }
         else
         {

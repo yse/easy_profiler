@@ -37,6 +37,9 @@ namespace profiler_gui {
     const QRgb SELECTED_THREAD_BACKGROUND = 0x00e0e060;
     const QRgb SELECTED_THREAD_FOREGROUND = 0x00ffffff - SELECTED_THREAD_BACKGROUND;
 
+    const qreal SCALING_COEFFICIENT = 1.25;
+    const qreal SCALING_COEFFICIENT_INV = 1.0 / SCALING_COEFFICIENT;
+
     //////////////////////////////////////////////////////////////////////////
 
 #pragma pack(push, 1)

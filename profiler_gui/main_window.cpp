@@ -32,10 +32,15 @@
 #include <QSettings>
 #include <QTextCodec>
 #include <QProgressDialog>
+#include <QSignalBlocker>
 #include "main_window.h"
 #include "blocks_tree_widget.h"
 #include "blocks_graphics_view.h"
 #include "globals.h"
+
+//////////////////////////////////////////////////////////////////////////
+
+const int LOADER_TIMER_INTERVAL = 40;
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -72,6 +77,12 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     auto actionExit = new QAction("Exit", nullptr);
     connect(actionExit, &QAction::triggered, this, &This::onExitClicked);
 
+    auto actionExpand = new QAction("Expand all", nullptr);
+    connect(actionExpand, &QAction::triggered, this, &This::onExpandAllClicked);
+
+    auto actionCollapse = new QAction("Collapse all", nullptr);
+    connect(actionCollapse, &QAction::triggered, this, &This::onCollapseAllClicked);
+
     auto menu = new QMenu("File");
     menu->addAction(actionOpen);
     menu->addAction(actionReload);
@@ -79,6 +90,10 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     menu->addAction(actionExit);
     menuBar()->addMenu(menu);
 
+    menu = new QMenu("View");
+    menu->addAction(actionExpand);
+    menu->addAction(actionCollapse);
+    menuBar()->addMenu(menu);
 
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
     settings.beginGroup("main");
@@ -127,7 +142,8 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     m_progress->setFixedWidth(300);
     m_progress->setWindowTitle("EasyProfiler");
     m_progress->setModal(true);
-    m_progress->hide();
+    m_progress->setValue(100);
+    //m_progress->hide();
     connect(m_progress, &QProgressDialog::canceled, this, &This::onFileReaderCancel);
 
     if(QCoreApplication::arguments().size() > 1)
@@ -155,8 +171,8 @@ void EasyMainWindow::onOpenFileClicked(bool)
 void EasyMainWindow::loadFile(const std::string& stdfilename)
 {
     m_progress->setValue(0);
-    m_progress->show();
-    m_readerTimer.start(20);
+    //m_progress->show();
+    m_readerTimer.start(LOADER_TIMER_INTERVAL);
     m_reader.load(stdfilename);
 
 //     ::profiler::SerializedData data;
@@ -209,6 +225,32 @@ void EasyMainWindow::onEncodingChanged(bool)
 void EasyMainWindow::onDrawBordersChanged(bool _checked)
 {
     ::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders = _checked;
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void EasyMainWindow::onExpandAllClicked(bool)
+{
+    for (auto& block : ::profiler_gui::EASY_GLOBALS.gui_blocks)
+        block.expanded = true;
+
+    emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
+
+    auto tree = static_cast<EasyTreeWidget*>(m_treeWidget->widget());
+    const QSignalBlocker b(tree);
+    tree->expandAll();
+}
+
+void EasyMainWindow::onCollapseAllClicked(bool)
+{
+    for (auto& block : ::profiler_gui::EASY_GLOBALS.gui_blocks)
+        block.expanded = false;
+
+    emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
+
+    auto tree = static_cast<EasyTreeWidget*>(m_treeWidget->widget());
+    const QSignalBlocker b(tree);
+    tree->collapseAll();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -285,7 +327,7 @@ void EasyMainWindow::onFileReaderTimeout()
 
         m_readerTimer.stop();
         m_progress->setValue(100);
-        m_progress->hide();
+        //m_progress->hide();
     }
     else
     {
@@ -297,7 +339,8 @@ void EasyMainWindow::onFileReaderCancel()
 {
     m_readerTimer.stop();
     m_reader.interrupt();
-    m_progress->hide();
+    m_progress->setValue(100);
+    //m_progress->hide();
 }
 
 //////////////////////////////////////////////////////////////////////////

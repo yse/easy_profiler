@@ -73,6 +73,7 @@ protected:
     class QProgressDialog*        m_progress;
     bool                        m_bColorRows;
     bool                           m_bLocked;
+    bool             m_bSilentExpandCollapse;
 
 public:
 

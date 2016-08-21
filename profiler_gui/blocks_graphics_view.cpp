@@ -45,11 +45,9 @@ using namespace profiler_gui;
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-const qreal SCALING_COEFFICIENT = 1.25;
-const qreal SCALING_COEFFICIENT_INV = 1.0 / SCALING_COEFFICIENT;
-const qreal MIN_SCALE = pow(SCALING_COEFFICIENT_INV, 70);
-const qreal MAX_SCALE = pow(SCALING_COEFFICIENT, 30); // ~800
-const qreal BASE_SCALE = pow(SCALING_COEFFICIENT_INV, 25); // ~0.003
+const qreal MIN_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT_INV, 70);
+const qreal MAX_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT, 30); // ~800
+const qreal BASE_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT_INV, 25); // ~0.003
 
 const unsigned short GRAPHICS_ROW_SIZE = 16;
 const unsigned short GRAPHICS_ROW_SPACING = 2;
@@ -305,7 +303,10 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 if (w < 20)
                     continue;
 
-                flags = Qt::AlignCenter;
+                if (item.totalHeight > GRAPHICS_ROW_SIZE)
+                    flags = Qt::AlignCenter;
+                else if (!(item.width() < 1))
+                    flags = Qt::AlignHCenter;
             }
             else
             {
@@ -370,7 +371,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 rect.setRect(x, top, w, h);
                 _painter->drawRect(rect);
 
-                flags = item.width() < 1 ? 0 : Qt::AlignHCenter;
+                if (!(item.width() < 1))
+                    flags = Qt::AlignHCenter;
             }
 
             // Draw text-----------------------------------
@@ -1013,8 +1015,7 @@ void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
             for (int j = 0; j < 20; ++j)
             {
                 auto xmark = current + j * step * 0.1;
-                marks[j].setP1(QPointF(xmark, h));
-                marks[j].setP2(QPointF(xmark, h + ((j % 5) ? 4 : 8)));
+                marks[j].setLine(xmark, h, xmark, h + ((j % 5) ? 4 : 8));
             }
 
             _painter->drawLines(marks, 20);
@@ -1053,14 +1054,23 @@ void EasyTimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGrap
     _painter->save();
     _painter->setTransform(QTransform::fromTranslate(-x(), -y()));
     _painter->setCompositionMode(QPainter::CompositionMode_Difference);
-    _painter->setBrush(Qt::white);
-    _painter->setPen(Qt::NoPen);
+    _painter->setBrush(Qt::NoBrush);
 
-    QRectF rect(visibleSceneRect.width() - 10 - step, visibleSceneRect.height() - 20, step, 5);
-    _painter->drawRect(rect);
+    //_painter->setBrush(Qt::white);
+    //_painter->setPen(Qt::NoPen);
 
-    rect.translate(0, 5);
-    _painter->setPen(Qt::white);
+    QPen pen(Qt::white);
+    pen.setWidth(2);
+    pen.setJoinStyle(Qt::MiterJoin);
+    _painter->setPen(pen);
+
+    QRectF rect(visibleSceneRect.width() - 10 - step, visibleSceneRect.height() - 20, step, 10);
+    const auto rect_right = rect.right();
+    const QPointF points[] = {{rect.left(), rect.bottom()}, {rect.left(), rect.top()}, {rect_right, rect.top()}, {rect_right, rect.top() + 5}};
+    _painter->drawPolyline(points, sizeof(points) / sizeof(QPointF));
+    //_painter->drawRect(rect);
+
+    rect.translate(0, 3);
     _painter->drawText(rect, Qt::AlignRight | Qt::TextDontClip, text);
 
     _painter->restore();
@@ -1073,6 +1083,7 @@ EasyGraphicsView::EasyGraphicsView(QWidget* _parent)
     , m_beginTime(::std::numeric_limits<decltype(m_beginTime)>::max())
     , m_scale(1)
     , m_offset(0)
+    , m_timelineStep(0)
     , m_mouseButtons(Qt::NoButton)
     , m_pScrollbar(nullptr)
     , m_chronometerItem(nullptr)
@@ -1611,7 +1622,7 @@ void EasyGraphicsView::onGraphicsScrollbarWheel(qreal _mouseX, int _wheelDelta)
 
 void EasyGraphicsView::onWheel(qreal _mouseX, int _wheelDelta)
 {
-    const decltype(m_scale) scaleCoeff = _wheelDelta > 0 ? SCALING_COEFFICIENT : SCALING_COEFFICIENT_INV;
+    const decltype(m_scale) scaleCoeff = _wheelDelta > 0 ? ::profiler_gui::SCALING_COEFFICIENT : ::profiler_gui::SCALING_COEFFICIENT_INV;
 
     // Remember current mouse position
     const auto mousePosition = m_offset + _mouseX / m_scale;
@@ -1729,6 +1740,8 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
         }
     }
 
+    const ::profiler_gui::ProfBlockItem* selectedBlock = nullptr;
+    const auto previouslySelectedBlock = ::profiler_gui::EASY_GLOBALS.selected_block;
     if (m_mouseButtons & Qt::LeftButton)
     {
         bool clicked = false;
@@ -1760,9 +1773,16 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
                 if (block)
                 {
                     changedSelectedItem = true;
+                    selectedBlock = block;
                     ::profiler_gui::EASY_GLOBALS.selected_block = block->block->block_index;
                     break;
                 }
+            }
+
+            if (!changedSelectedItem && ::profiler_gui::EASY_GLOBALS.selected_block != ::profiler_gui::numeric_max(::profiler_gui::EASY_GLOBALS.selected_block))
+            {
+                changedSelectedItem = true;
+                ::profiler_gui::set_max(::profiler_gui::EASY_GLOBALS.selected_block);
             }
         }
     }
@@ -1782,6 +1802,11 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
     if (changedSelectedItem)
     {
         m_bUpdatingRect = true;
+        if (selectedBlock != nullptr && previouslySelectedBlock == ::profiler_gui::EASY_GLOBALS.selected_block && !selectedBlock->block->children.empty())
+        {
+            ::profiler_gui::EASY_GLOBALS.gui_blocks[previouslySelectedBlock].expanded = !::profiler_gui::EASY_GLOBALS.gui_blocks[previouslySelectedBlock].expanded;
+            emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
+        }
         emit ::profiler_gui::EASY_GLOBALS.events.selectedBlockChanged(::profiler_gui::EASY_GLOBALS.selected_block);
         m_bUpdatingRect = false;
 
@@ -1968,6 +1993,8 @@ void EasyGraphicsView::onFlickerTimeout()
         // Fast slow-down and stop if mouse button is pressed, no flicking.
         m_flickerSpeedX >>= 1;
         m_flickerSpeedY >>= 1;
+        if (m_flickerSpeedX == -1) m_flickerSpeedX = 0;
+        if (m_flickerSpeedY == -1) m_flickerSpeedY = 0;
     }
     else
     {

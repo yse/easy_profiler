@@ -45,7 +45,17 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyTreeWidget::EasyTreeWidget(QWidget* _parent) : Parent(_parent), m_beginTime(::std::numeric_limits<decltype(m_beginTime)>::max()), m_progress(nullptr), m_bColorRows(true), m_bLocked(false)
+const int HIERARCHY_BUILDER_TIMER_INTERVAL = 40;
+
+//////////////////////////////////////////////////////////////////////////
+
+EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
+    : Parent(_parent)
+    , m_beginTime(::std::numeric_limits<decltype(m_beginTime)>::max())
+    , m_progress(nullptr)
+    , m_bColorRows(true)
+    , m_bLocked(false)
+    , m_bSilentExpandCollapse(false)
 {
     setAutoFillBackground(false);
     setAlternatingRowColors(true);
@@ -102,7 +112,8 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent) : Parent(_parent), m_beginTime(
     m_progress = new QProgressDialog("Building blocks hierarchy...", "", 0, 100, this, Qt::FramelessWindowHint);
     m_progress->setAttribute(Qt::WA_TranslucentBackground);
     m_progress->setCancelButton(nullptr);
-    m_progress->hide();
+    m_progress->setValue(100);
+    //m_progress->hide();
 
     QTimer::singleShot(40, this, &This::alignProgressBar);
 }
@@ -113,7 +124,7 @@ EasyTreeWidget::~EasyTreeWidget()
     delete m_progress;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
 
 void EasyTreeWidget::onFillTimerTimeout()
 {
@@ -137,7 +148,7 @@ void EasyTreeWidget::onFillTimerTimeout()
         if (m_progress)
         {
             m_progress->setValue(100);
-            m_progress->hide();
+            //m_progress->hide();
         }
 
         m_bLocked = false;
@@ -145,7 +156,8 @@ void EasyTreeWidget::onFillTimerTimeout()
 
         setSortingEnabled(true);
         sortByColumn(COL_BEGIN, Qt::AscendingOrder);
-        resizeColumnToContents(COL_NAME);
+        //resizeColumnToContents(COL_NAME);
+        resizeColumnsToContents();
 
         connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
         connect(this, &Parent::itemCollapsed, this, &This::onItemCollapse);
@@ -166,9 +178,9 @@ void EasyTreeWidget::setTree(const unsigned int _blocksNumber, const ::profiler:
     {
         m_bLocked = true;
         m_progress->setValue(0);
-        m_progress->show();
+        //m_progress->show();
         m_hierarchyBuilder.fillTree(m_beginTime, _blocksNumber, _blocksTree, m_bColorRows);
-        m_fillTimer.start(20);
+        m_fillTimer.start(HIERARCHY_BUILDER_TIMER_INTERVAL);
     }
 
     //StubLocker l;
@@ -199,9 +211,9 @@ void EasyTreeWidget::setTreeBlocks(const ::profiler_gui::TreeBlocks& _blocks, ::
     {
         m_bLocked = true;
         m_progress->setValue(0);
-        m_progress->show();
+        //m_progress->show();
         m_hierarchyBuilder.fillTreeBlocks(m_inputBlocks, _session_begin_time, _left, _right, _strict, m_bColorRows);
-        m_fillTimer.start(20);
+        m_fillTimer.start(HIERARCHY_BUILDER_TIMER_INTERVAL);
     }
 
     //StubLocker l;
@@ -227,7 +239,7 @@ void EasyTreeWidget::setTreeBlocks(const ::profiler_gui::TreeBlocks& _blocks, ::
     //onSelectedBlockChange(::profiler_gui::EASY_GLOBALS.selected_block);
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
 
 void EasyTreeWidget::clearSilent(bool _global)
 {
@@ -236,7 +248,7 @@ void EasyTreeWidget::clearSilent(bool _global)
     if (m_progress)
     {
         m_progress->setValue(100);
-        m_progress->hide();
+        //m_progress->hide();
     }
 
     m_bLocked = false;
@@ -404,7 +416,10 @@ void EasyTreeWidget::onJumpToItemClicked(unsigned int _block_index)
 void EasyTreeWidget::onCollapseAllClicked(bool)
 {
     const QSignalBlocker b(this);
+
+    m_bSilentExpandCollapse = true;
     collapseAll();
+    m_bSilentExpandCollapse = false;
 
     for (auto item : m_items)
         ::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index].expanded = false;
@@ -414,11 +429,14 @@ void EasyTreeWidget::onCollapseAllClicked(bool)
 void EasyTreeWidget::onExpandAllClicked(bool)
 {
     const QSignalBlocker b(this);
+
+    m_bSilentExpandCollapse = true;
     expandAll();
     resizeColumnsToContents();
+    m_bSilentExpandCollapse = false;
 
     for (auto item : m_items)
-        ::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index].expanded = true;
+        ::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index].expanded = !item->block()->children.empty();
     emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
 }
 
@@ -428,7 +446,11 @@ void EasyTreeWidget::onCollapseAllChildrenClicked(bool)
     if (current != nullptr)
     {
         const QSignalBlocker b(this);
+
+        m_bSilentExpandCollapse = true;
         current->collapseAll();
+        m_bSilentExpandCollapse = false;
+
         emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
     }
 }
@@ -439,23 +461,33 @@ void EasyTreeWidget::onExpandAllChildrenClicked(bool)
     if (current != nullptr)
     {
         const QSignalBlocker b(this);
+
+        m_bSilentExpandCollapse = true;
         current->expandAll();
         resizeColumnsToContents();
+        m_bSilentExpandCollapse = false;
+
         emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
     }
 }
 
 void EasyTreeWidget::onItemExpand(QTreeWidgetItem* _item)
 {
-    resizeColumnsToContents();
     ::profiler_gui::EASY_GLOBALS.gui_blocks[static_cast<EasyTreeWidgetItem*>(_item)->block()->block_index].expanded = true;
-    emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
+
+    if (!m_bSilentExpandCollapse)
+    {
+        resizeColumnsToContents();
+        emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
+    }
 }
 
 void EasyTreeWidget::onItemCollapse(QTreeWidgetItem* _item)
 {
     ::profiler_gui::EASY_GLOBALS.gui_blocks[static_cast<EasyTreeWidgetItem*>(_item)->block()->block_index].expanded = false;
-    emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
+
+    if (!m_bSilentExpandCollapse)
+        emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
 }
 
 void EasyTreeWidget::onColorizeRowsTriggered(bool _colorize)
@@ -505,13 +537,19 @@ void EasyTreeWidget::onSelectedBlockChange(unsigned int _block_index)
 
     if (item != nullptr)
     {
-        const QSignalBlocker b(this);
-        expandItem(item);
+        //const QSignalBlocker b(this);
+
+        m_bSilentExpandCollapse = true;
         setCurrentItem(item);
         scrollToItem(item, QAbstractItemView::PositionAtCenter);
+        if (::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index].expanded)
+            expandItem(item);
+        else
+            collapseItem(item);
         resizeColumnsToContents();
+        m_bSilentExpandCollapse = false;
 
-        ::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index].expanded = true;
+        //::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index].expanded = item->isExpanded();
         emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
     }
     else

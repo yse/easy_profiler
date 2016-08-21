@@ -90,6 +90,8 @@ protected slots:
     void onExitClicked(bool);
     void onEncodingChanged(bool);
     void onDrawBordersChanged(bool);
+    void onExpandAllClicked(bool);
+    void onCollapseAllClicked(bool);
     void onFileReaderTimeout();
     void onFileReaderCancel();
 
