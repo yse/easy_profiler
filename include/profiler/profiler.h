@@ -55,7 +55,7 @@ Block will be automatically completed by destructor
     static const profiler::BlockSourceInfo TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__)(__FILE__, __LINE__);\
     profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,profiler::colors::Clay,profiler::BLOCK_TYPE_BLOCK,\
             TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__).id());\
-	profiler::beginBlock(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
+	profiler::beginBlock(TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
 
 /** Macro of beginning of block with custom name and custom identification
 
@@ -80,7 +80,7 @@ Block will be automatically completed by destructor
     static const profiler::BlockSourceInfo TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__)(__FILE__, __LINE__);\
     profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,block_group,profiler::BLOCK_TYPE_BLOCK,\
             TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__).id());\
-	profiler::beginBlock(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
+	profiler::beginBlock(TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
 
 /** Macro of beginning of function block with default identification
 
@@ -140,13 +140,13 @@ void foo()
     static const profiler::BlockSourceInfo TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__)(__FILE__, __LINE__);\
     profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,0,profiler::BLOCK_TYPE_EVENT,\
             TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__).id());\
-	profiler::beginBlock(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
+	profiler::beginBlock(TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
 
 #define PROFILER_ADD_EVENT_GROUPED(name,block_group)\
     static const profiler::BlockSourceInfo TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__)(__FILE__, __LINE__);\
     profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,block_group,profiler::BLOCK_TYPE_EVENT,\
             TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__).id());\
-	profiler::beginBlock(&TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
+	profiler::beginBlock(TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
 
 /** Macro enabling profiler
 \ingroup profiler
@@ -254,7 +254,7 @@ namespace profiler
     class BlockSourceInfo;
 	
 	extern "C"{
-		void PROFILER_API beginBlock(Block* _block);
+		void PROFILER_API beginBlock(Block& _block);
 		void PROFILER_API endBlock();
 		void PROFILER_API setEnabled(bool isEnable);
 		unsigned int PROFILER_API dumpBlocksToFile(const char* filename);
@@ -363,7 +363,7 @@ namespace profiler
         static SerializedBlock* create(const Block &block, uint64_t& memory_size);
         static void destroy(SerializedBlock* that);
 
-        SerializedBlock(const profiler::Block* block, uint16_t name_length);
+        SerializedBlock(const profiler::Block& block, uint16_t name_length);
 
         SerializedBlock(const SerializedBlock&) = delete;
         SerializedBlock& operator = (const SerializedBlock&) = delete;

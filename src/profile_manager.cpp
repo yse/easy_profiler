@@ -20,7 +20,7 @@ extern "C"{
     {
         MANAGER.setEnabled(isEnable);
     }
-    void PROFILER_API beginBlock(Block* _block)
+    void PROFILER_API beginBlock(Block& _block)
 	{
         MANAGER.beginBlock(_block);
 	}
@@ -41,7 +41,7 @@ SerializedBlock* SerializedBlock::create(const Block& block, uint64_t& memory_si
     auto name_length = static_cast<uint16_t>(strlen(block.getName()));
     auto size = static_cast<uint16_t>(sizeof(BaseBlockData) + name_length + 1);
     auto data = ::new char[size];
-    ::new (static_cast<void*>(data)) SerializedBlock(&block, name_length);
+    ::new (static_cast<void*>(data)) SerializedBlock(block, name_length);
     memory_size += size;
     return reinterpret_cast<SerializedBlock*>(data);
 }
@@ -51,11 +51,11 @@ void SerializedBlock::destroy(SerializedBlock* that)
     ::delete[] reinterpret_cast<char*>(that);
 }
 
-SerializedBlock::SerializedBlock(const Block* block, uint16_t name_length)
-    : BaseBlockData(*block)
+SerializedBlock::SerializedBlock(const Block& block, uint16_t name_length)
+    : BaseBlockData(block)
 {
     auto name = const_cast<char*>(getName());
-    strncpy(name, block->getName(), name_length);
+    strncpy(name, block.getName(), name_length);
     name[name_length] = 0;
 }
 
@@ -91,16 +91,17 @@ ProfileManager& ProfileManager::instance()
     return m_profileManager;
 }
 
-void ProfileManager::beginBlock(Block* _block)
+void ProfileManager::beginBlock(Block& _block)
 {
-    if (!m_isEnabled || !_block)
+    if (!m_isEnabled)
 		return;
-	if (BLOCK_TYPE_BLOCK == _block->getType()){
+
+	if (BLOCK_TYPE_BLOCK == _block.getType()){
 		guard_lock_t lock(m_spin);
-		m_openedBracketsMap[_block->getThreadId()].push(_block);
+		m_openedBracketsMap[_block.getThreadId()].emplace(_block);
 	}
 	else{
-        _internalInsertBlock(*_block);
+        _internalInsertBlock(_block);
 	}
 	
 }
@@ -118,14 +119,10 @@ void ProfileManager::endBlock()
 	if (stackOfOpenedBlocks.empty())
 		return;
 
-	Block* lastBlock = stackOfOpenedBlocks.top();
-
-    if (lastBlock )
-    {
-        if(!lastBlock->isFinished())
-            lastBlock->finish();
-        _internalInsertBlock(*lastBlock);
-	}
+    Block& lastBlock = stackOfOpenedBlocks.top();
+    if(!lastBlock.isFinished())
+        lastBlock.finish();
+    _internalInsertBlock(lastBlock);
 
 	stackOfOpenedBlocks.pop();
 }
@@ -135,7 +132,7 @@ void ProfileManager::setEnabled(bool isEnable)
 	m_isEnabled = isEnable;
 }
 
-void ProfileManager::_internalInsertBlock(profiler::Block& _block)
+void ProfileManager::_internalInsertBlock(const profiler::Block& _block)
 {
 	guard_lock_t lock(m_storedSpin);
     m_blocks.emplace_back(SerializedBlock::create(_block, m_blocksMemorySize));

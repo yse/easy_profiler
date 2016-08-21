@@ -28,6 +28,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #include <list>
 #include <set>
 #include <vector>
+#include <functional>
 
 #ifdef WIN32
 #include <Windows.h>
@@ -54,7 +55,7 @@ class ProfileManager
 
 	bool m_isEnabled = false;
 
-	typedef std::stack<profiler::Block*> stack_of_blocks_t;
+    typedef std::stack<::std::reference_wrapper<profiler::Block> > stack_of_blocks_t;
 	typedef std::map<size_t, stack_of_blocks_t> map_of_threads_stacks;
 	typedef std::set<size_t> set_of_thread_id;
     typedef std::vector<profiler::SourceBlock> sources;
@@ -65,7 +66,7 @@ class ProfileManager
 	profiler::spin_lock m_storedSpin;
 	typedef profiler::guard_lock<profiler::spin_lock> guard_lock_t;
 
-    void _internalInsertBlock(profiler::Block &_block);
+    void _internalInsertBlock(const profiler::Block &_block);
 
     sources m_sources;
 
@@ -81,7 +82,7 @@ public:
     static ProfileManager& instance();
 	~ProfileManager();
 
-    void beginBlock(profiler::Block* _block);
+    void beginBlock(profiler::Block& _block);
 	void endBlock();
 	void setEnabled(bool isEnable);
 	unsigned int dumpBlocksToFile(const char* filename);
