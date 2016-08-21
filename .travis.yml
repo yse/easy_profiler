@@ -1,6 +1,7 @@
 sudo: required
 dist: trusty
 language: cpp
+cache: ccache
 compiler:
   - clang
   - gcc
@@ -10,7 +11,7 @@ script:
   - cmake --version
   - source /opt/qt55/bin/qt55-env.sh
   - qmake -v
-  - cmake .. && make
+  - cmake .. && make -j3
 before_install:
   - sudo add-apt-repository --yes ppa:beineri/opt-qt551-trusty
   - sudo apt-get update -qq
