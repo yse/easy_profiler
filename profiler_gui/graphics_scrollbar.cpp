@@ -289,8 +289,7 @@ EasyGraphicsScrollbar::EasyGraphicsScrollbar(QWidget* _parent)
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
     setContentsMargins(0, 0, 0, 0);
-    setMinimumHeight(DEFAULT_HEIGHT + 2);
-    setMaximumHeight(DEFAULT_HEIGHT + 2);
+    setFixedHeight(DEFAULT_HEIGHT + 2);
 
     auto selfScene = new QGraphicsScene(this);
     selfScene->setSceneRect(0, DEFAULT_TOP, 500, DEFAULT_HEIGHT);

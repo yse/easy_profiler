@@ -124,6 +124,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     loadSettings();
 
     m_progress = new QProgressDialog("Loading file...", "Cancel", 0, 100, this);
+    m_progress->setFixedWidth(300);
     m_progress->setWindowTitle("EasyProfiler");
     m_progress->setModal(true);
     m_progress->hide();
