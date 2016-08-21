@@ -1,4 +1,4 @@
-# easy_profiler [![License](https://img.shields.io/badge/license-GPL3-blue.svg)](https://github.com/yse/easy_profiler/blob/develop/COPYING)
+# easy_profiler [![License](https://img.shields.io/badge/license-GPL3-blue.svg)](https://github.com/yse/easy_profiler/blob/develop/COPYING)[![Build Status](https://travis-ci.org/yse/easy_profiler.svg?branch=develop)](https://travis-ci.org/yse/easy_profiler)
 Lightweight profiler library for c++ 
 
 You can profile any function in you code. Furthermore this library provide profiling of any block of code.
