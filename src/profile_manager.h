@@ -65,7 +65,7 @@ class ProfileManager
 	profiler::spin_lock m_storedSpin;
 	typedef profiler::guard_lock<profiler::spin_lock> guard_lock_t;
 
-	void _internalInsertBlock(profiler::Block* _block);
+    void _internalInsertBlock(profiler::Block &_block);
 
     sources m_sources;
 
