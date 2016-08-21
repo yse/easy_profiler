@@ -1495,9 +1495,13 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
 
 void EasyGraphicsView::setScrollbar(EasyGraphicsScrollbar* _scrollbar)
 {
-    if (m_pScrollbar)
+    auto const prevScrollbar = m_pScrollbar;
+    const bool makeConnect = prevScrollbar == nullptr || prevScrollbar != _scrollbar;
+
+    if (prevScrollbar != nullptr && prevScrollbar != _scrollbar)
     {
-        disconnect(m_pScrollbar, &EasyGraphicsScrollbar::valueChanged, this, &This::onGraphicsScrollbarValueChange);
+        disconnect(prevScrollbar, &EasyGraphicsScrollbar::valueChanged, this, &This::onGraphicsScrollbarValueChange);
+        disconnect(prevScrollbar, &EasyGraphicsScrollbar::wheeled, this, &This::onWheel);
     }
 
     m_pScrollbar = _scrollbar;
@@ -1506,7 +1510,12 @@ void EasyGraphicsView::setScrollbar(EasyGraphicsScrollbar* _scrollbar)
     m_pScrollbar->setRange(0, scene()->width());
     m_pScrollbar->setSliderWidth(m_visibleSceneRect.width());
     m_pScrollbar->setValue(0);
-    connect(m_pScrollbar, &EasyGraphicsScrollbar::valueChanged, this, &This::onGraphicsScrollbarValueChange);
+
+    if (makeConnect)
+    {
+        connect(m_pScrollbar, &EasyGraphicsScrollbar::valueChanged, this, &This::onGraphicsScrollbarValueChange);
+        connect(m_pScrollbar, &EasyGraphicsScrollbar::wheeled, this, &This::onWheel);
+    }
 
     ::profiler_gui::EASY_GLOBALS.selected_thread = 0;
     emit ::profiler_gui::EASY_GLOBALS.events.selectedThreadChanged(0);
@@ -1575,17 +1584,19 @@ void EasyGraphicsView::scaleTo(qreal _scale)
 
 void EasyGraphicsView::wheelEvent(QWheelEvent* _event)
 {
-    if (m_bEmpty)
-    {
-        _event->accept();
-        return;
-    }
+    if (!m_bEmpty)
+        onWheel(mapToScene(_event->pos()).x(), _event->delta());
+    _event->accept();
+}
 
-    const decltype(m_scale) scaleCoeff = _event->delta() > 0 ? SCALING_COEFFICIENT : SCALING_COEFFICIENT_INV;
+void EasyGraphicsView::onWheel(qreal _mouseX, int _wheelDelta)
+{
+    printf("onWheel(%lf)\n", _mouseX);
+
+    const decltype(m_scale) scaleCoeff = _wheelDelta > 0 ? SCALING_COEFFICIENT : SCALING_COEFFICIENT_INV;
 
     // Remember current mouse position
-    const auto mouseX = mapToScene(_event->pos()).x();
-    const auto mousePosition = m_offset + mouseX / m_scale;
+    const auto mousePosition = m_offset + _mouseX / m_scale;
 
     // have to limit scale because of Qt's QPainter feature: it doesn't draw text
     // with very big coordinates (but it draw rectangles with the same coordinates good).
@@ -1598,7 +1609,7 @@ void EasyGraphicsView::wheelEvent(QWheelEvent* _event)
     m_pScrollbar->setSliderWidth(windowWidth);
 
     // Calculate new offset to simulate QGraphicsView::AnchorUnderMouse scaling behavior
-    m_offset = clamp(0., mousePosition - mouseX / m_scale, scene()->width() - windowWidth);
+    m_offset = clamp(0., mousePosition - _mouseX / m_scale, scene()->width() - windowWidth);
 
     // Update slider position
     m_bUpdatingRect = true; // To be sure that updateVisibleSceneRect will not be called by scrollbar change
@@ -1607,7 +1618,6 @@ void EasyGraphicsView::wheelEvent(QWheelEvent* _event)
 
     updateTimelineStep(windowWidth);
     updateScene(); // repaint scene
-    _event->accept();
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -163,6 +163,7 @@ public:
     void mousePressEvent(QMouseEvent* _event) override;
     void mouseReleaseEvent(QMouseEvent* _event) override;
     void mouseMoveEvent(QMouseEvent* _event) override;
+    void wheelEvent(QWheelEvent* _event) override;
     void resizeEvent(QResizeEvent* _event) override;
     void contextMenuEvent(QContextMenuEvent* _event) override;
 
@@ -198,6 +199,7 @@ signals:
 
     void rangeChanged();
     void valueChanged(qreal _value);
+    void wheeled(qreal _mouseX, int _wheelDelta);
 
 private slots:
 

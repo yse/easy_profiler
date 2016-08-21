@@ -330,6 +330,7 @@ private slots:
 
     // Private Slots
 
+    void onWheel(qreal _mouseX, int _wheelDelta);
     void onScrollbarValueChange(int);
     void onGraphicsScrollbarValueChange(qreal);
     void onFlickerTimeout();

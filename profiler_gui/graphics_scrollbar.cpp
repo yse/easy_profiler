@@ -460,6 +460,13 @@ void EasyGraphicsScrollbar::mouseMoveEvent(QMouseEvent* _event)
     }
 }
 
+void EasyGraphicsScrollbar::wheelEvent(QWheelEvent* _event)
+{
+    setValue(mapToScene(_event->pos()).x() - m_minimumValue - m_slider->halfwidth());
+    emit wheeled(m_slider->halfwidth() * m_windowScale, _event->delta());
+    _event->accept();
+}
+
 void EasyGraphicsScrollbar::resizeEvent(QResizeEvent* _event)
 {
     onWindowWidthChange(_event->size().width());
