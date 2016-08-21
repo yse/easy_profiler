@@ -1501,7 +1501,7 @@ void EasyGraphicsView::setScrollbar(EasyGraphicsScrollbar* _scrollbar)
     if (prevScrollbar != nullptr && prevScrollbar != _scrollbar)
     {
         disconnect(prevScrollbar, &EasyGraphicsScrollbar::valueChanged, this, &This::onGraphicsScrollbarValueChange);
-        disconnect(prevScrollbar, &EasyGraphicsScrollbar::wheeled, this, &This::onWheel);
+        disconnect(prevScrollbar, &EasyGraphicsScrollbar::wheeled, this, &This::onGraphicsScrollbarWheel);
     }
 
     m_pScrollbar = _scrollbar;
@@ -1514,7 +1514,7 @@ void EasyGraphicsView::setScrollbar(EasyGraphicsScrollbar* _scrollbar)
     if (makeConnect)
     {
         connect(m_pScrollbar, &EasyGraphicsScrollbar::valueChanged, this, &This::onGraphicsScrollbarValueChange);
-        connect(m_pScrollbar, &EasyGraphicsScrollbar::wheeled, this, &This::onWheel);
+        connect(m_pScrollbar, &EasyGraphicsScrollbar::wheeled, this, &This::onGraphicsScrollbarWheel);
     }
 
     ::profiler_gui::EASY_GLOBALS.selected_thread = 0;
@@ -1589,10 +1589,25 @@ void EasyGraphicsView::wheelEvent(QWheelEvent* _event)
     _event->accept();
 }
 
+void EasyGraphicsView::onGraphicsScrollbarWheel(qreal _mouseX, int _wheelDelta)
+{
+    for (auto item : m_items)
+    {
+        if (item->threadId() == ::profiler_gui::EASY_GLOBALS.selected_thread)
+        {
+            m_bUpdatingRect = true;
+            auto vbar = verticalScrollBar();
+            vbar->setValue(item->y() + (item->boundingRect().height() - vbar->pageStep()) * 0.5);
+            m_bUpdatingRect = false;
+            break;
+        }
+    }
+
+    onWheel(_mouseX, _wheelDelta);
+}
+
 void EasyGraphicsView::onWheel(qreal _mouseX, int _wheelDelta)
 {
-    printf("onWheel(%lf)\n", _mouseX);
-
     const decltype(m_scale) scaleCoeff = _wheelDelta > 0 ? SCALING_COEFFICIENT : SCALING_COEFFICIENT_INV;
 
     // Remember current mouse position
@@ -1602,7 +1617,7 @@ void EasyGraphicsView::onWheel(qreal _mouseX, int _wheelDelta)
     // with very big coordinates (but it draw rectangles with the same coordinates good).
     m_scale = clamp(MIN_SCALE, m_scale * scaleCoeff, MAX_SCALE);
 
-    updateVisibleSceneRect(); // Update scene rect
+    //updateVisibleSceneRect(); // Update scene rect
 
     // Update slider width for scrollbar
     const auto windowWidth = m_visibleSceneRect.width() / m_scale;
@@ -1616,6 +1631,7 @@ void EasyGraphicsView::onWheel(qreal _mouseX, int _wheelDelta)
     m_pScrollbar->setValue(m_offset);
     m_bUpdatingRect = false;
 
+    updateVisibleSceneRect(); // Update scene rect
     updateTimelineStep(windowWidth);
     updateScene(); // repaint scene
 }
