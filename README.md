@@ -24,3 +24,4 @@ void frame(){
 	PROFILER_END_BLOCK;
 }
 ```
+[![Analytics](https://ga-beacon.appspot.com/UA-82899176-1/easy_profiler/readme)](https://github.com/yse/easy_profiler)
