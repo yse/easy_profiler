@@ -17,32 +17,67 @@
 #ifndef EASY_PROFILER_GUI__MAIN_WINDOW__H
 #define EASY_PROFILER_GUI__MAIN_WINDOW__H
 
-#include <QMainWindow>
 #include <string>
+#include <thread>
+#include <atomic>
+#include <QMainWindow>
+#include <QTimer>
 #include "profiler/reader.h"
 
 //////////////////////////////////////////////////////////////////////////
 
-class ProfTreeWidget;
-class ProfGraphicsView;
 class QDockWidget;
 
-class ProfMainWindow : public QMainWindow
+//////////////////////////////////////////////////////////////////////////
+
+class EasyFileReader final
+{
+    ::profiler::SerializedData   m_serializedData; ///< 
+    ::profiler::thread_blocks_tree_t m_blocksTree; ///< 
+    ::std::string                      m_filename; ///< 
+    ::std::thread                        m_thread; ///< 
+    ::std::atomic_bool                    m_bDone; ///< 
+    ::std::atomic<int>                 m_progress; ///< 
+    ::std::atomic<unsigned int>            m_size; ///< 
+
+public:
+
+    EasyFileReader();
+    ~EasyFileReader();
+
+    bool done() const;
+    int progress() const;
+    unsigned int size() const;
+
+    void load(const ::std::string& _filename);
+    void interrupt();
+    void get(::profiler::SerializedData& _data, ::profiler::thread_blocks_tree_t& _tree, ::std::string& _filename);
+
+}; // END of class EasyFileReader.
+
+//////////////////////////////////////////////////////////////////////////
+
+class EasyMainWindow : public QMainWindow
 {
     Q_OBJECT
 
 protected:
 
-    typedef ProfMainWindow This;
+    typedef EasyMainWindow This;
+    typedef QMainWindow  Parent;
 
-    ::std::string     m_lastFile;
-    QDockWidget*    m_treeWidget;
-    QDockWidget*  m_graphicsView;
+    ::std::string                    m_lastFile;
+    QDockWidget*                   m_treeWidget;
+    QDockWidget*                 m_graphicsView;
+    class QProgressDialog*           m_progress;
+    QTimer                        m_readerTimer;
+    ::profiler::SerializedData m_serializedData;
+    EasyFileReader                     m_reader;
 
 public:
 
-    ProfMainWindow();
-    virtual ~ProfMainWindow();
+    EasyMainWindow();
+    virtual ~EasyMainWindow();
 
     // Public virtual methods
 
@@ -53,8 +88,10 @@ protected slots:
     void onOpenFileClicked(bool);
     void onReloadFileClicked(bool);
     void onExitClicked(bool);
-    void onTestViewportClicked(bool);
     void onEncodingChanged(bool);
+    void onDrawBordersChanged(bool);
+    void onFileReaderTimeout();
+    void onFileReaderCancel();
 
 private:
 
@@ -65,7 +102,7 @@ private:
     void loadSettings();
 	void saveSettings();
 
-}; // END of class ProfMainWindow.
+}; // END of class EasyMainWindow.
 
 //////////////////////////////////////////////////////////////////////////
 

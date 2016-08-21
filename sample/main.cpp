@@ -79,7 +79,7 @@ void calcBrain(){
     PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
     double* intarray = new double[OBJECTS];
     for (int i = 0; i < OBJECTS; ++i)
-        intarray[i] = calcSubbrain(double(i)) + double(i * 180 / 3);
+        intarray[i] = calcSubbrain(i) + double(i * 180 / 3);
     delete[] intarray;
 	//std::this_thread::sleep_for(std::chrono::milliseconds(3));
 }
@@ -137,6 +137,7 @@ void loadingResourcesThread(){
 	for(int i = 0; i < RESOURCE_LOADING_COUNT; i++){
 		loadingResources();
 		PROFILER_ADD_EVENT_GROUPED("Resources Loading!",profiler::colors::Cyan);
+        localSleep(1200000);
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));
 	}
 }
@@ -147,7 +148,7 @@ void modellingThread(){
 	PROFILER_SET_THREAD_NAME("Modelling")
 		for (int i = 0; i < RENDER_SPEPS; i++){
 		modellingStep();
-        localSleep(300000);
+        localSleep(1200000);
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));
 	}
 }
@@ -158,7 +159,7 @@ void renderThread(){
 	PROFILER_SET_THREAD_NAME("Render")
 	for (int i = 0; i < MODELLING_STEPS; i++){
 		frame();
-        localSleep(300000);
+        localSleep(1200000);
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));
 	}
 }

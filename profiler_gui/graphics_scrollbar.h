@@ -15,33 +15,32 @@
 * license           : TODO: add license text
 ************************************************************************/
 
-#ifndef EASY_PROFILER__GRAPHICS_SCROLLBAR__H
-#define EASY_PROFILER__GRAPHICS_SCROLLBAR__H
+#ifndef EASY__GRAPHICS_SCROLLBAR__H
+#define EASY__GRAPHICS_SCROLLBAR__H
 
 #include <stdlib.h>
 #include <QGraphicsView>
-#include <QGraphicsScene>
 #include <QGraphicsRectItem>
 #include <QAction>
-#include <QPolygonF>
+//#include <QPolygonF>
 #include "common_types.h"
 
 //////////////////////////////////////////////////////////////////////////
 
-class ProfGraphicsSliderItem : public QGraphicsRectItem
+class EasyGraphicsSliderItem : public QGraphicsRectItem
 {
     typedef QGraphicsRectItem      Parent;
-    typedef ProfGraphicsSliderItem   This;
+    typedef EasyGraphicsSliderItem   This;
 
 private:
 
-    QPolygonF m_leftIndicator, m_rightIndicator;
+    //QPolygonF m_leftIndicator, m_rightIndicator;
     qreal m_halfwidth;
 
 public:
 
-    ProfGraphicsSliderItem(bool _main);
-    virtual ~ProfGraphicsSliderItem();
+    explicit EasyGraphicsSliderItem(bool _main);
+    virtual ~EasyGraphicsSliderItem();
 
     void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
 
@@ -54,14 +53,14 @@ public:
     void setColor(QRgb _color);
     void setColor(const QColor& _color);
 
-}; // END of class ProfGraphicsSliderItem.
+}; // END of class EasyGraphicsSliderItem.
 
 //////////////////////////////////////////////////////////////////////////
 
-class ProfMinimapItem : public QGraphicsItem
+class EasyMinimapItem : public QGraphicsItem
 {
     typedef QGraphicsItem Parent;
-    typedef ProfMinimapItem This;
+    typedef EasyMinimapItem This;
 
     QRectF                           m_boundingRect;
     qreal                             m_maxDuration;
@@ -71,8 +70,8 @@ class ProfMinimapItem : public QGraphicsItem
 
 public:
 
-    ProfMinimapItem();
-    virtual ~ProfMinimapItem();
+    EasyMinimapItem();
+    virtual ~EasyMinimapItem();
 
     // Public virtual methods
 
@@ -89,34 +88,34 @@ public:
 
     void setSource(::profiler::thread_id_t _thread_id, const ::profiler_gui::ProfItems* _items);
 
-}; // END of class ProfMinimapItem.
+}; // END of class EasyMinimapItem.
 
 //////////////////////////////////////////////////////////////////////////
 
-class ProfIdAction : public QAction
+class EasyIdAction : public QAction
 {
     Q_OBJECT
 
 private:
 
     typedef QAction      Parent;
-    typedef ProfIdAction   This;
+    typedef EasyIdAction   This;
 
     ::profiler::thread_id_t m_id;
 
 public:
 
-    ProfIdAction(const QString& _label, ::profiler::thread_id_t _id) : Parent(_label, nullptr), m_id(_id)
+    EasyIdAction(const QString& _label, ::profiler::thread_id_t _id) : Parent(_label, nullptr), m_id(_id)
     {
         connect(this, &Parent::triggered, this, &This::onToggle);
     }
 
-    ProfIdAction(const char* _label, ::profiler::thread_id_t _id) : Parent(_label, nullptr), m_id(_id)
+    EasyIdAction(const char* _label, ::profiler::thread_id_t _id) : Parent(_label, nullptr), m_id(_id)
     {
         connect(this, &Parent::triggered, this, &This::onToggle);
     }
 
-    virtual ~ProfIdAction()
+    virtual ~EasyIdAction()
     {
     }
 
@@ -134,14 +133,14 @@ signals:
 
 //////////////////////////////////////////////////////////////////////////
 
-class ProfGraphicsScrollbar : public QGraphicsView
+class EasyGraphicsScrollbar : public QGraphicsView
 {
     Q_OBJECT
 
 private:
 
     typedef QGraphicsView         Parent;
-    typedef ProfGraphicsScrollbar   This;
+    typedef EasyGraphicsScrollbar   This;
 
     qreal                           m_minimumValue;
     qreal                           m_maximumValue;
@@ -149,15 +148,15 @@ private:
     qreal                            m_windowScale;
     QPoint                         m_mousePressPos;
     Qt::MouseButtons                m_mouseButtons;
-    ProfGraphicsSliderItem*               m_slider;
-    ProfGraphicsSliderItem* m_chronometerIndicator;
-    ProfMinimapItem*                     m_minimap;
+    EasyGraphicsSliderItem*               m_slider;
+    EasyGraphicsSliderItem* m_chronometerIndicator;
+    EasyMinimapItem*                     m_minimap;
     bool                              m_bScrolling;
 
 public:
 
-    ProfGraphicsScrollbar(QWidget* _parent = nullptr);
-    virtual ~ProfGraphicsScrollbar();
+    explicit EasyGraphicsScrollbar(QWidget* _parent = nullptr);
+    virtual ~EasyGraphicsScrollbar();
 
     // Public virtual methods
 
@@ -205,8 +204,8 @@ private slots:
     void onThreadActionClicked(::profiler::thread_id_t _id);
     void onWindowWidthChange(qreal _width);
 
-}; // END of class ProfGraphicsScrollbar.
+}; // END of class EasyGraphicsScrollbar.
 
 //////////////////////////////////////////////////////////////////////////
 
-#endif // EASY_PROFILER__GRAPHICS_SCROLLBAR__H
+#endif // EASY__GRAPHICS_SCROLLBAR__H

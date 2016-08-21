@@ -6,7 +6,7 @@
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : The file contains implementation of ProfGlobalSignals QObject class.
+* description       : The file contains implementation of EasyGlobalSignals QObject class.
 * ----------------- :
 * change log        : * 2016/08/08 Sergey Yagovtsev: moved sources from globals.cpp
 *                   :
@@ -22,11 +22,11 @@
 
 namespace profiler_gui {
 
-    ProfGlobalSignals::ProfGlobalSignals() : QObject()
+    EasyGlobalSignals::EasyGlobalSignals() : QObject()
     {
     }
 
-    ProfGlobalSignals::~ProfGlobalSignals()
+    EasyGlobalSignals::~EasyGlobalSignals()
     {
     }
 

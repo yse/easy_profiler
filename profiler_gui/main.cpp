@@ -6,9 +6,9 @@
 #include "main_window.h"
 #include "profiler/reader.h"
 
-#ifdef WIN32
-#pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
-#endif
+//#ifdef WIN32
+//#pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
+//#endif
 
 int main(int argc, char **argv)
 {
@@ -37,7 +37,7 @@ int main(int argc, char **argv)
     auto now = ::std::chrono::duration_cast<std::chrono::seconds>(::std::chrono::system_clock::now().time_since_epoch()).count() >> 1;
     srand((unsigned int)now);
 
-    ProfMainWindow window;
+    EasyMainWindow window;
     window.show();
 
     return app.exec();

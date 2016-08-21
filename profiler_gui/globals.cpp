@@ -24,13 +24,13 @@
 
 namespace profiler_gui {
 
-    ProfGlobals& ProfGlobals::instance()
+    EasyGlobals& EasyGlobals::instance()
     {
-        static ProfGlobals globals;
+        static EasyGlobals globals;
         return globals;
     }
 
-    ProfGlobals::ProfGlobals()
+    EasyGlobals::EasyGlobals()
         : selected_thread(0)
         , selected_block(-1)
         , draw_graphics_items_borders(true)

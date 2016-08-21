@@ -48,7 +48,7 @@ namespace profiler{
 		T&  m_mutex;
 		bool m_isLocked = false;
 	public:
-		guard_lock(T& m) :m_mutex(m){
+        explicit guard_lock(T& m) :m_mutex(m){
 			m_mutex.lock();
 			m_isLocked = true;
 		}

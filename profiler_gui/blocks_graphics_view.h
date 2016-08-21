@@ -21,13 +21,11 @@
 * license           : TODO: add license text
 ************************************************************************/
 
-#ifndef MY____GRAPHICS___VIEW_H
-#define MY____GRAPHICS___VIEW_H
+#ifndef EASY__GRAPHICS_VIEW__H_
+#define EASY__GRAPHICS_VIEW__H_
 
 #include <QGraphicsView>
-#include <QGraphicsScene>
 #include <QGraphicsItem>
-#include <QFont>
 #include <QPoint>
 #include <QTimer>
 #include <QLabel>
@@ -40,7 +38,7 @@
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-class ProfGraphicsView;
+class EasyGraphicsView;
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -58,7 +56,7 @@ inline qreal microseconds2units(qreal _value)
 
 //////////////////////////////////////////////////////////////////////////
 
-class ProfGraphicsItem : public QGraphicsItem
+class EasyGraphicsItem : public QGraphicsItem
 {
     typedef ::profiler_gui::ProfItems       Children;
     typedef ::std::vector<unsigned int>  DrawIndexes;
@@ -69,14 +67,12 @@ class ProfGraphicsItem : public QGraphicsItem
 
     QRectF                     m_boundingRect; ///< boundingRect (see QGraphicsItem)
     const ::profiler::BlocksTreeRoot* m_pRoot; ///< Pointer to the root profiler block (thread block). Used by ProfTreeWidget to restore hierarchy.
-    const bool                        m_bTest; ///< If true then we are running test()
-    unsigned char                     m_index; ///< This item's index in the list of items of ProfGraphicsView
+    unsigned char                     m_index; ///< This item's index in the list of items of EasyGraphicsView
 
 public:
 
-    ProfGraphicsItem(unsigned char _index, bool _test);
-    ProfGraphicsItem(unsigned char _index, const::profiler::BlocksTreeRoot* _root);
-    virtual ~ProfGraphicsItem();
+    EasyGraphicsItem(unsigned char _index, const::profiler::BlocksTreeRoot* _root);
+    virtual ~EasyGraphicsItem();
 
     // Public virtual methods
 
@@ -150,38 +146,37 @@ public:
 
 private:
 
-    ///< Returns pointer to the ProfGraphicsView widget.
-    const ProfGraphicsView* view() const;
+    ///< Returns pointer to the EasyGraphicsView widget.
+    const EasyGraphicsView* view() const;
 
 public:
 
     // Public inline methods
 
-    ///< Returns this item's index in the list of graphics items of ProfGraphicsView
+    ///< Returns this item's index in the list of graphics items of EasyGraphicsView
     inline unsigned char index() const
     {
         return m_index;
     }
 
-}; // END of class ProfGraphicsItem.
+}; // END of class EasyGraphicsItem.
 
 //////////////////////////////////////////////////////////////////////////
 
-class ProfChronometerItem : public QGraphicsItem
+class EasyChronometerItem : public QGraphicsItem
 {
-    QFont           m_font; ///< Font which is used to draw text
     QPolygonF  m_indicator; ///< Indicator displayed when this chrono item is out of screen (displaying only for main item)
     QRectF  m_boundingRect; ///< boundingRect (see QGraphicsItem)
     QColor         m_color; ///< Color of the item
     qreal  m_left, m_right; ///< Left and right bounds of the selection zone
     bool           m_bMain; ///< Is this chronometer main (true, by default)
-    bool        m_bReverse;
-    bool          m_bHover; ///< Mouse hover above indicator
+    bool        m_bReverse; ///< 
+    bool m_bHoverIndicator; ///< Mouse hover above indicator
 
 public:
 
-    ProfChronometerItem(bool _main = true);
-    virtual ~ProfChronometerItem();
+    explicit EasyChronometerItem(bool _main = true);
+    virtual ~EasyChronometerItem();
 
     // Public virtual methods
 
@@ -205,9 +200,9 @@ public:
 
     bool contains(const QPointF& _pos) const;
 
-    inline bool hover() const
+    inline bool hoverIndicator() const
     {
-        return m_bHover;
+        return m_bHoverIndicator;
     }
 
     inline bool reverse() const
@@ -232,10 +227,10 @@ public:
 
 private:
 
-    ///< Returns pointer to the ProfGraphicsView widget.
-    const ProfGraphicsView* view() const;
+    ///< Returns pointer to the EasyGraphicsView widget.
+    const EasyGraphicsView* view() const;
 
-}; // END of class ProfChronometerItem.
+}; // END of class EasyChronometerItem.
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -251,24 +246,24 @@ public: \
     void setBoundingRect(const QRectF& _rect) { m_boundingRect = _rect; } \
 }
 
-EASY_QGRAPHICSITEM(ProfBackgroundItem);
-EASY_QGRAPHICSITEM(ProfTimelineIndicatorItem);
+EASY_QGRAPHICSITEM(EasyBackgroundItem);
+EASY_QGRAPHICSITEM(EasyTimelineIndicatorItem);
 
 #undef EASY_QGRAPHICSITEM
 
 //////////////////////////////////////////////////////////////////////////
 
-class ProfGraphicsView : public QGraphicsView
+class EasyGraphicsView : public QGraphicsView
 {
     Q_OBJECT
 
 private:
 
-    typedef ProfGraphicsView This;
-    typedef ::std::vector<ProfGraphicsItem*> Items;
+    typedef EasyGraphicsView This;
+    typedef ::std::vector<EasyGraphicsItem*> Items;
 
-    Items                                   m_items; ///< Array of all ProfGraphicsItem items
-    ::profiler_gui::TreeBlocks     m_selectedBlocks; ///< Array of items which were selected by selection zone (ProfChronometerItem)
+    Items                                   m_items; ///< Array of all EasyGraphicsItem items
+    ::profiler_gui::TreeBlocks     m_selectedBlocks; ///< Array of items which were selected by selection zone (EasyChronometerItem)
     QTimer                           m_flickerTimer; ///< Timer for flicking behavior
     QRectF                       m_visibleSceneRect; ///< Visible scene rectangle
     ::profiler::timestamp_t             m_beginTime; ///< Begin time of profiler session. Used to reduce values of all begin and end times of profiler blocks.
@@ -278,20 +273,19 @@ private:
     QPoint                          m_mousePressPos; ///< Last mouse global position (used by mousePressEvent and mouseMoveEvent)
     QPoint                          m_mouseMovePath; ///< Mouse move path between press and release of any button
     Qt::MouseButtons                 m_mouseButtons; ///< Pressed mouse buttons
-    ProfGraphicsScrollbar*             m_pScrollbar; ///< Pointer to the graphics scrollbar widget
-    ProfChronometerItem*          m_chronometerItem; ///< Pointer to the ProfChronometerItem which is displayed when you press right mouse button and move mouse left or right. This item is used to select blocks to display in tree widget.
-    ProfChronometerItem*       m_chronometerItemAux; ///< Pointer to the ProfChronometerItem which is displayed when you double click left mouse button and move mouse left or right. This item is used only to measure time.
+    EasyGraphicsScrollbar*             m_pScrollbar; ///< Pointer to the graphics scrollbar widget
+    EasyChronometerItem*          m_chronometerItem; ///< Pointer to the EasyChronometerItem which is displayed when you press right mouse button and move mouse left or right. This item is used to select blocks to display in tree widget.
+    EasyChronometerItem*       m_chronometerItemAux; ///< Pointer to the EasyChronometerItem which is displayed when you double click left mouse button and move mouse left or right. This item is used only to measure time.
     int                             m_flickerSpeedX; ///< Current flicking speed x
     int                             m_flickerSpeedY; ///< Current flicking speed y
     bool                             m_bDoubleClick; ///< Is mouse buttons double clicked
     bool                            m_bUpdatingRect; ///< Stub flag which is used to avoid excess calculations on some scene update (flicking, scaling and so on)
-    bool                                    m_bTest; ///< Testing flag (true when test() is called)
     bool                                   m_bEmpty; ///< Indicates whether scene is empty and has no items
 
 public:
 
-    ProfGraphicsView(QWidget* _parent = nullptr);
-    virtual ~ProfGraphicsView();
+    explicit EasyGraphicsView(QWidget* _parent = nullptr);
+    virtual ~EasyGraphicsView();
 
     // Public virtual methods
 
@@ -306,10 +300,9 @@ public:
 
     // Public non-virtual methods
 
-    void setScrollbar(ProfGraphicsScrollbar* _scrollbar);
+    void setScrollbar(EasyGraphicsScrollbar* _scrollbar);
     void clearSilent();
 
-    void test(unsigned int _frames_number, unsigned int _total_items_number_estimate, unsigned char _rows);
     void setTree(const ::profiler::thread_blocks_tree_t& _blocksTree);
 
     const Items& getItems() const;
@@ -324,15 +317,14 @@ private:
 
     // Private non-virtual methods
 
-    ProfChronometerItem* createChronometer(bool _main = true);
-    bool moveChrono(ProfChronometerItem* _chronometerItem, qreal _mouseX);
+    EasyChronometerItem* createChronometer(bool _main = true);
+    bool moveChrono(EasyChronometerItem* _chronometerItem, qreal _mouseX);
     void initMode();
     void updateVisibleSceneRect();
     void updateTimelineStep(qreal _windowWidth);
     void updateScene();
     void scaleTo(qreal _scale);
-    qreal setTree(ProfGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, qreal _y, short _level);
-    void fillTestChildren(ProfGraphicsItem* _item, const int _maxlevel, int _level, qreal _x, unsigned int _childrenNumber, unsigned int& _total_items);
+    qreal setTree(EasyGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, qreal _y, short _level);
 
 private slots:
 
@@ -343,6 +335,7 @@ private slots:
     void onFlickerTimeout();
     void onSelectedThreadChange(::profiler::thread_id_t _id);
     void onSelectedBlockChange(unsigned int _block_index);
+    void onItemsEspandStateChange();
 
 public:
 
@@ -384,53 +377,53 @@ private:
         //return PROF_FROM_MILLISECONDS(_pos);
     }
 
-}; // END of class ProfGraphicsView.
+}; // END of class EasyGraphicsView.
 
-class ProfThreadViewWidget : public QWidget
+//////////////////////////////////////////////////////////////////////////
+
+class EasyThreadViewWidget : public QWidget
 {
     Q_OBJECT
 private:
-    ProfGraphicsView*                 m_view;
+    EasyGraphicsView*                 m_view;
     QLabel*                           m_label;
-    typedef ProfThreadViewWidget This;
+    typedef EasyThreadViewWidget This;
 
     QHBoxLayout *m_layout;
 
 public:
-   ProfThreadViewWidget(QWidget *parent, ProfGraphicsView* view);
-   virtual ~ProfThreadViewWidget();
+   EasyThreadViewWidget(QWidget *parent, EasyGraphicsView* view);
+   virtual ~EasyThreadViewWidget();
 public slots:
    void onSelectedThreadChange(::profiler::thread_id_t _id);
 };
 
-
 //////////////////////////////////////////////////////////////////////////
 
-class ProfGraphicsViewWidget : public QWidget
+class EasyGraphicsViewWidget : public QWidget
 {
     Q_OBJECT
 
 private:
 
-    ProfGraphicsView*                 m_view;
-    ProfGraphicsScrollbar* m_scrollbar;
-    //ProfThreadViewWidget* m_threadWidget;
+    EasyGraphicsView*                 m_view;
+    EasyGraphicsScrollbar* m_scrollbar;
+    //EasyThreadViewWidget* m_threadWidget;
 
 public:
 
-    ProfGraphicsViewWidget(QWidget* _parent = nullptr);
-    virtual ~ProfGraphicsViewWidget();
+    explicit EasyGraphicsViewWidget(QWidget* _parent = nullptr);
+    virtual ~EasyGraphicsViewWidget();
 
-    ProfGraphicsView* view();
+    EasyGraphicsView* view();
 
 private:
 
     void initWidget();
 
-}; // END of class ProfGraphicsViewWidget.
-
+}; // END of class EasyGraphicsViewWidget.
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-#endif // MY____GRAPHICS___VIEW_H
+#endif // EASY__GRAPHICS_VIEW__H_

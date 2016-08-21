@@ -16,6 +16,7 @@
 ************************************************************************/
 
 #include <algorithm>
+#include <QGraphicsScene>
 #include <QWheelEvent>
 #include <QMouseEvent>
 #include <QResizeEvent>
@@ -41,33 +42,33 @@ auto const clamp = [](qreal _minValue, qreal _value, qreal _maxValue)
 
 //////////////////////////////////////////////////////////////////////////
 
-ProfGraphicsSliderItem::ProfGraphicsSliderItem(bool _main) : Parent(), m_halfwidth(0)
+EasyGraphicsSliderItem::EasyGraphicsSliderItem(bool _main) : Parent(), m_halfwidth(0)
 {
-    m_leftIndicator.reserve(3);
-    m_rightIndicator.reserve(3);
-
-    const auto vcenter = DEFAULT_TOP + (_main ? INDICATOR_SIZE : DEFAULT_HEIGHT - INDICATOR_SIZE);
-    m_leftIndicator.push_back(QPointF(-INDICATOR_SIZE, vcenter - INDICATOR_SIZE));
-    m_leftIndicator.push_back(QPointF(0, vcenter));
-    m_leftIndicator.push_back(QPointF(-INDICATOR_SIZE, vcenter + INDICATOR_SIZE));
-
-    m_rightIndicator.push_back(QPointF(INDICATOR_SIZE, vcenter - INDICATOR_SIZE));
-    m_rightIndicator.push_back(QPointF(0, vcenter));
-    m_rightIndicator.push_back(QPointF(INDICATOR_SIZE, vcenter + INDICATOR_SIZE));
+//     m_leftIndicator.reserve(3);
+//     m_rightIndicator.reserve(3);
+// 
+//     const auto vcenter = DEFAULT_TOP + (_main ? INDICATOR_SIZE : DEFAULT_HEIGHT - INDICATOR_SIZE);
+//     m_leftIndicator.push_back(QPointF(-INDICATOR_SIZE, vcenter - INDICATOR_SIZE));
+//     m_leftIndicator.push_back(QPointF(0, vcenter));
+//     m_leftIndicator.push_back(QPointF(-INDICATOR_SIZE, vcenter + INDICATOR_SIZE));
+// 
+//     m_rightIndicator.push_back(QPointF(INDICATOR_SIZE, vcenter - INDICATOR_SIZE));
+//     m_rightIndicator.push_back(QPointF(0, vcenter));
+//     m_rightIndicator.push_back(QPointF(INDICATOR_SIZE, vcenter + INDICATOR_SIZE));
 
     setWidth(1);
     setBrush(Qt::SolidPattern);
 }
 
-ProfGraphicsSliderItem::~ProfGraphicsSliderItem()
+EasyGraphicsSliderItem::~EasyGraphicsSliderItem()
 {
 
 }
 
-void ProfGraphicsSliderItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget)
+void EasyGraphicsSliderItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget)
 {
     //Parent::paint(_painter, _option, _widget);
-    const auto currentScale = static_cast<const ProfGraphicsScrollbar*>(scene()->parent())->getWindowScale();
+    const auto currentScale = static_cast<const EasyGraphicsScrollbar*>(scene()->parent())->getWindowScale();
     const auto br = rect();
 
     qreal w = width() * currentScale;
@@ -80,59 +81,67 @@ void ProfGraphicsSliderItem::paint(QPainter* _painter, const QStyleOptionGraphic
     }
 
     QRectF r(dx + br.left() * currentScale, br.top(), w, br.height());
+    const auto r_right = r.right();
+    const auto r_bottom = r.bottom();
+    auto b = brush();
 
     _painter->save();
     _painter->setTransform(QTransform::fromScale(1.0 / currentScale, 1), true);
-    _painter->setBrush(brush());
+    _painter->setBrush(b);
     _painter->setPen(Qt::NoPen);
     _painter->drawRect(r);
 
-    if (w < INDICATOR_SIZE)
-    {
-        m_leftIndicator[0].setX(r.left() - INDICATOR_SIZE);
-        m_leftIndicator[1].setX(r.left());
-        m_leftIndicator[2].setX(r.left() - INDICATOR_SIZE);
+    // Draw left and right borders
+    _painter->setPen(QColor::fromRgba(0xe0000000 | b.color().rgb()));
+    _painter->drawLine(QPointF(r.left(), r.top()), QPointF(r.left(), r_bottom));
+    _painter->drawLine(QPointF(r_right, r.top()), QPointF(r_right, r_bottom));
 
-        const auto r_right = r.right();
-        m_rightIndicator[0].setX(r_right + INDICATOR_SIZE);
-        m_rightIndicator[1].setX(r_right);
-        m_rightIndicator[2].setX(r_right + INDICATOR_SIZE);
-
-        _painter->drawPolygon(m_leftIndicator);
-        _painter->drawPolygon(m_rightIndicator);
-    }
+//     // Draw triangle indicators for small slider
+//     if (w < INDICATOR_SIZE)
+//     {
+//         m_leftIndicator[0].setX(r.left() - INDICATOR_SIZE);
+//         m_leftIndicator[1].setX(r.left());
+//         m_leftIndicator[2].setX(r.left() - INDICATOR_SIZE);
+// 
+//         m_rightIndicator[0].setX(r_right + INDICATOR_SIZE);
+//         m_rightIndicator[1].setX(r_right);
+//         m_rightIndicator[2].setX(r_right + INDICATOR_SIZE);
+// 
+//         _painter->drawPolygon(m_leftIndicator);
+//         _painter->drawPolygon(m_rightIndicator);
+//     }
 
     _painter->restore();
 }
 
-qreal ProfGraphicsSliderItem::width() const
+qreal EasyGraphicsSliderItem::width() const
 {
     return m_halfwidth * 2.0;
 }
 
-qreal ProfGraphicsSliderItem::halfwidth() const
+qreal EasyGraphicsSliderItem::halfwidth() const
 {
     return m_halfwidth;
 }
 
-void ProfGraphicsSliderItem::setWidth(qreal _width)
+void EasyGraphicsSliderItem::setWidth(qreal _width)
 {
     m_halfwidth = _width * 0.5;
     setRect(-m_halfwidth, DEFAULT_TOP, _width, DEFAULT_HEIGHT);
 }
 
-void ProfGraphicsSliderItem::setHalfwidth(qreal _halfwidth)
+void EasyGraphicsSliderItem::setHalfwidth(qreal _halfwidth)
 {
     m_halfwidth = _halfwidth;
     setRect(-m_halfwidth, DEFAULT_TOP, m_halfwidth * 2.0, DEFAULT_HEIGHT);
 }
 
-void ProfGraphicsSliderItem::setColor(QRgb _color)
+void EasyGraphicsSliderItem::setColor(QRgb _color)
 {
     setColor(QColor::fromRgba(_color));
 }
 
-void ProfGraphicsSliderItem::setColor(const QColor& _color)
+void EasyGraphicsSliderItem::setColor(const QColor& _color)
 {
     auto b = brush();
     b.setColor(_color);
@@ -141,29 +150,29 @@ void ProfGraphicsSliderItem::setColor(const QColor& _color)
 
 //////////////////////////////////////////////////////////////////////////
 
-ProfMinimapItem::ProfMinimapItem() : Parent(), m_pSource(nullptr), m_maxDuration(0), m_minDuration(0), m_threadId(0)
+EasyMinimapItem::EasyMinimapItem() : Parent(), m_pSource(nullptr), m_maxDuration(0), m_minDuration(0), m_threadId(0)
 {
 
 }
 
-ProfMinimapItem::~ProfMinimapItem()
+EasyMinimapItem::~EasyMinimapItem()
 {
 
 }
 
-QRectF ProfMinimapItem::boundingRect() const
+QRectF EasyMinimapItem::boundingRect() const
 {
     return m_boundingRect;
 }
 
-void ProfMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget)
+void EasyMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget)
 {
     if (m_pSource == nullptr)
     {
         return;
     }
 
-    const auto currentScale = static_cast<const ProfGraphicsScrollbar*>(scene()->parent())->getWindowScale();
+    const auto currentScale = static_cast<const EasyGraphicsScrollbar*>(scene()->parent())->getWindowScale();
     const auto bottom = m_boundingRect.bottom();
     const auto coeff = m_boundingRect.height() / (m_maxDuration - m_minDuration);
     const auto heightRevert = 1.0 / m_boundingRect.height();
@@ -204,17 +213,17 @@ void ProfMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* 
     _painter->restore();
 }
 
-::profiler::thread_id_t ProfMinimapItem::threadId() const
+::profiler::thread_id_t EasyMinimapItem::threadId() const
 {
     return m_threadId;
 }
 
-void ProfMinimapItem::setBoundingRect(const QRectF& _rect)
+void EasyMinimapItem::setBoundingRect(const QRectF& _rect)
 {
     m_boundingRect = _rect;
 }
 
-void ProfMinimapItem::setSource(::profiler::thread_id_t _thread_id, const ::profiler_gui::ProfItems* _items)
+void EasyMinimapItem::setSource(::profiler::thread_id_t _thread_id, const ::profiler_gui::ProfItems* _items)
 {
     m_pSource = _items;
     m_threadId = _thread_id;
@@ -258,7 +267,7 @@ void ProfMinimapItem::setSource(::profiler::thread_id_t _thread_id, const ::prof
 
 //////////////////////////////////////////////////////////////////////////
 
-ProfGraphicsScrollbar::ProfGraphicsScrollbar(QWidget* _parent)
+EasyGraphicsScrollbar::EasyGraphicsScrollbar(QWidget* _parent)
     : Parent(_parent)
     , m_minimumValue(0)
     , m_maximumValue(500)
@@ -280,27 +289,26 @@ ProfGraphicsScrollbar::ProfGraphicsScrollbar(QWidget* _parent)
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
     setContentsMargins(0, 0, 0, 0);
-    setMinimumHeight(DEFAULT_HEIGHT + 2);
-    setMaximumHeight(DEFAULT_HEIGHT + 2);
+    setFixedHeight(DEFAULT_HEIGHT + 2);
 
     auto selfScene = new QGraphicsScene(this);
     selfScene->setSceneRect(0, DEFAULT_TOP, 500, DEFAULT_HEIGHT);
     setScene(selfScene);
 
-    m_slider = new ProfGraphicsSliderItem(true);
+    m_slider = new EasyGraphicsSliderItem(true);
     m_slider->setPos(0, 0);
     m_slider->setZValue(5);
-    m_slider->setColor(0x80e00000);
+    m_slider->setColor(0x40c0c0c0);
     selfScene->addItem(m_slider);
 
-    m_chronometerIndicator = new ProfGraphicsSliderItem(false);
+    m_chronometerIndicator = new EasyGraphicsSliderItem(false);
     m_chronometerIndicator->setPos(0, 0);
     m_chronometerIndicator->setZValue(10);
     m_chronometerIndicator->setColor(0x40000000 | ::profiler_gui::CHRONOMETER_COLOR.rgba());
     selfScene->addItem(m_chronometerIndicator);
     m_chronometerIndicator->hide();
 
-    m_minimap = new ProfMinimapItem();
+    m_minimap = new EasyMinimapItem();
     m_minimap->setPos(0, 0);
     m_minimap->setBoundingRect(selfScene->sceneRect());
     selfScene->addItem(m_minimap);
@@ -309,63 +317,63 @@ ProfGraphicsScrollbar::ProfGraphicsScrollbar(QWidget* _parent)
     centerOn(0, 0);
 }
 
-ProfGraphicsScrollbar::~ProfGraphicsScrollbar()
+EasyGraphicsScrollbar::~EasyGraphicsScrollbar()
 {
 
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-qreal ProfGraphicsScrollbar::getWindowScale() const
+qreal EasyGraphicsScrollbar::getWindowScale() const
 {
     return m_windowScale;
 }
 
-::profiler::thread_id_t ProfGraphicsScrollbar::minimapThread() const
+::profiler::thread_id_t EasyGraphicsScrollbar::minimapThread() const
 {
     return m_minimap->threadId();
 }
 
-qreal ProfGraphicsScrollbar::minimum() const
+qreal EasyGraphicsScrollbar::minimum() const
 {
     return m_minimumValue;
 }
 
-qreal ProfGraphicsScrollbar::maximum() const
+qreal EasyGraphicsScrollbar::maximum() const
 {
     return m_maximumValue;
 }
 
-qreal ProfGraphicsScrollbar::range() const
+qreal EasyGraphicsScrollbar::range() const
 {
     return m_maximumValue - m_minimumValue;
 }
 
-qreal ProfGraphicsScrollbar::value() const
+qreal EasyGraphicsScrollbar::value() const
 {
     return m_value;
 }
 
-qreal ProfGraphicsScrollbar::sliderWidth() const
+qreal EasyGraphicsScrollbar::sliderWidth() const
 {
     return m_slider->width();
 }
 
-qreal ProfGraphicsScrollbar::sliderHalfWidth() const
+qreal EasyGraphicsScrollbar::sliderHalfWidth() const
 {
     return m_slider->halfwidth();
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void ProfGraphicsScrollbar::setValue(qreal _value)
+void EasyGraphicsScrollbar::setValue(qreal _value)
 {
     m_value = clamp(m_minimumValue, _value, ::std::max(m_minimumValue, m_maximumValue - m_slider->width()));
     m_slider->setX(m_value + m_slider->halfwidth());
     emit valueChanged(m_value);
 }
 
-void ProfGraphicsScrollbar::setRange(qreal _minValue, qreal _maxValue)
+void EasyGraphicsScrollbar::setRange(qreal _minValue, qreal _maxValue)
 {
     const auto oldRange = range();
     const auto oldValue = oldRange < 1e-3 ? 0.0 : m_value / oldRange;
@@ -380,7 +388,7 @@ void ProfGraphicsScrollbar::setRange(qreal _minValue, qreal _maxValue)
     onWindowWidthChange(width());
 }
 
-void ProfGraphicsScrollbar::setSliderWidth(qreal _width)
+void EasyGraphicsScrollbar::setSliderWidth(qreal _width)
 {
     m_slider->setWidth(_width);
     setValue(m_value);
@@ -388,25 +396,25 @@ void ProfGraphicsScrollbar::setSliderWidth(qreal _width)
 
 //////////////////////////////////////////////////////////////////////////
 
-void ProfGraphicsScrollbar::setChronoPos(qreal _left, qreal _right)
+void EasyGraphicsScrollbar::setChronoPos(qreal _left, qreal _right)
 {
     m_chronometerIndicator->setWidth(_right - _left);
     m_chronometerIndicator->setX(_left + m_chronometerIndicator->halfwidth());
 }
 
-void ProfGraphicsScrollbar::showChrono()
+void EasyGraphicsScrollbar::showChrono()
 {
     m_chronometerIndicator->show();
 }
 
-void ProfGraphicsScrollbar::hideChrono()
+void EasyGraphicsScrollbar::hideChrono()
 {
     m_chronometerIndicator->hide();
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void ProfGraphicsScrollbar::setMinimapFrom(::profiler::thread_id_t _thread_id, const ::profiler_gui::ProfItems* _items)
+void EasyGraphicsScrollbar::setMinimapFrom(::profiler::thread_id_t _thread_id, const ::profiler_gui::ProfItems* _items)
 {
     m_minimap->setSource(_thread_id, _items);
     scene()->update();
@@ -414,7 +422,7 @@ void ProfGraphicsScrollbar::setMinimapFrom(::profiler::thread_id_t _thread_id, c
 
 //////////////////////////////////////////////////////////////////////////
 
-void ProfGraphicsScrollbar::mousePressEvent(QMouseEvent* _event)
+void EasyGraphicsScrollbar::mousePressEvent(QMouseEvent* _event)
 {
     m_mouseButtons = _event->buttons();
 
@@ -429,7 +437,7 @@ void ProfGraphicsScrollbar::mousePressEvent(QMouseEvent* _event)
     //QGraphicsView::mousePressEvent(_event);
 }
 
-void ProfGraphicsScrollbar::mouseReleaseEvent(QMouseEvent* _event)
+void EasyGraphicsScrollbar::mouseReleaseEvent(QMouseEvent* _event)
 {
     m_mouseButtons = _event->buttons();
     m_bScrolling = false;
@@ -437,7 +445,7 @@ void ProfGraphicsScrollbar::mouseReleaseEvent(QMouseEvent* _event)
     //QGraphicsView::mouseReleaseEvent(_event);
 }
 
-void ProfGraphicsScrollbar::mouseMoveEvent(QMouseEvent* _event)
+void EasyGraphicsScrollbar::mouseMoveEvent(QMouseEvent* _event)
 {
     if (m_mouseButtons & Qt::LeftButton)
     {
@@ -452,14 +460,14 @@ void ProfGraphicsScrollbar::mouseMoveEvent(QMouseEvent* _event)
     }
 }
 
-void ProfGraphicsScrollbar::resizeEvent(QResizeEvent* _event)
+void EasyGraphicsScrollbar::resizeEvent(QResizeEvent* _event)
 {
     onWindowWidthChange(_event->size().width());
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void ProfGraphicsScrollbar::contextMenuEvent(QContextMenuEvent* _event)
+void EasyGraphicsScrollbar::contextMenuEvent(QContextMenuEvent* _event)
 {
     if (::profiler_gui::EASY_GLOBALS.profiler_blocks.empty())
     {
@@ -480,10 +488,10 @@ void ProfGraphicsScrollbar::contextMenuEvent(QContextMenuEvent* _event)
             label = ::std::move(QString("Thread %1").arg(it.first));
         }
 
-        auto action = new ProfIdAction(label, it.first);
+        auto action = new EasyIdAction(label, it.first);
         action->setCheckable(true);
         action->setChecked(it.first == ::profiler_gui::EASY_GLOBALS.selected_thread);
-        connect(action, &ProfIdAction::clicked, this, &This::onThreadActionClicked);
+        connect(action, &EasyIdAction::clicked, this, &This::onThreadActionClicked);
 
         menu.addAction(action);
     }
@@ -494,7 +502,7 @@ void ProfGraphicsScrollbar::contextMenuEvent(QContextMenuEvent* _event)
 
 //////////////////////////////////////////////////////////////////////////
 
-void ProfGraphicsScrollbar::onThreadActionClicked(::profiler::thread_id_t _id)
+void EasyGraphicsScrollbar::onThreadActionClicked(::profiler::thread_id_t _id)
 {
     if (_id != m_minimap->threadId())
     {
@@ -505,7 +513,7 @@ void ProfGraphicsScrollbar::onThreadActionClicked(::profiler::thread_id_t _id)
 
 //////////////////////////////////////////////////////////////////////////
 
-void ProfGraphicsScrollbar::onWindowWidthChange(qreal _width)
+void EasyGraphicsScrollbar::onWindowWidthChange(qreal _width)
 {
     const auto oldScale = m_windowScale;
     const auto scrollingRange = range();
