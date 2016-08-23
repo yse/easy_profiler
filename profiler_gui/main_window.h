@@ -93,6 +93,7 @@ protected slots:
     void onDrawBordersChanged(bool);
     void onCollapseItemsAfterCloseChanged(bool);
     void onAllItemsExpandedByDefaultChange(bool);
+    void onBindExpandStatusChange(bool);
     void onExpandAllClicked(bool);
     void onCollapseAllClicked(bool);
     void onFileReaderTimeout();
@@ -105,7 +106,8 @@ private:
     void loadFile(const QString& filename);
 
     void loadSettings();
-	void saveSettings();
+    void loadGeometry();
+	void saveSettingsAndGeometry();
 
 }; // END of class EasyMainWindow.
 

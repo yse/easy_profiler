@@ -69,6 +69,8 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     addDockWidget(Qt::TopDockWidgetArea, m_graphicsView);
     addDockWidget(Qt::BottomDockWidgetArea, m_treeWidget);
 
+    loadSettings();
+
 
 
     auto menu = new QMenu("&File");
@@ -101,7 +103,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     action->setChecked(::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders);
     connect(action, &QAction::triggered, this, &This::onDrawBordersChanged);
 
-    action = menu->addAction("Collapse item on tree reset");
+    action = menu->addAction("Collapse items on tree reset");
     action->setCheckable(true);
     action->setChecked(::profiler_gui::EASY_GLOBALS.collapse_items_on_tree_close);
     connect(action, &QAction::triggered, this, &This::onCollapseItemsAfterCloseChanged);
@@ -111,23 +113,19 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     action->setChecked(::profiler_gui::EASY_GLOBALS.all_items_expanded_by_default);
     connect(action, &QAction::triggered, this, &This::onAllItemsExpandedByDefaultChange);
 
+    action = menu->addAction("Bind scene and tree expand");
+    action->setCheckable(true);
+    action->setChecked(::profiler_gui::EASY_GLOBALS.bind_scene_and_tree_expand_status);
+    connect(action, &QAction::triggered, this, &This::onBindExpandStatusChange);
+
     menuBar()->addMenu(menu);
-
-    QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
-    settings.beginGroup("main");
-
-    QString encoding = settings.value("encoding","UTF-8").toString();
-
-    auto default_codec_mib = QTextCodec::codecForName(encoding.toStdString().c_str())->mibEnum() ;
-    auto default_codec = QTextCodec::codecForMib(default_codec_mib);
-    QTextCodec::setCodecForLocale(default_codec);
-    settings.endGroup();
 
     menu = new QMenu("&Settings");
     auto encodingMenu = menu->addMenu(tr("&Encoding"));
 
     QActionGroup* codecs_actions = new QActionGroup(this);
     codecs_actions->setExclusive(true);
+    auto default_codec_mib = QTextCodec::codecForLocale()->mibEnum();
     foreach (int mib, QTextCodec::availableMibs())
     {
         auto codec = QTextCodec::codecForMib(mib)->name();
@@ -148,7 +146,6 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     connect(graphicsView->view(), &EasyGraphicsView::intervalChanged, treeWidget, &EasyTreeWidget::setTreeBlocks);
     connect(&m_readerTimer, &QTimer::timeout, this, &This::onFileReaderTimeout);
 
-    loadSettings();
 
     m_progress = new QProgressDialog("Loading file...", "Cancel", 0, 100, this);
     m_progress->setFixedWidth(300);
@@ -157,6 +154,9 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     m_progress->setValue(100);
     //m_progress->hide();
     connect(m_progress, &QProgressDialog::canceled, this, &This::onFileReaderCancel);
+
+
+    loadGeometry();
 
     if(QCoreApplication::arguments().size() > 1)
     {
@@ -253,6 +253,11 @@ void EasyMainWindow::onAllItemsExpandedByDefaultChange(bool _checked)
     ::profiler_gui::EASY_GLOBALS.all_items_expanded_by_default = _checked;
 }
 
+void EasyMainWindow::onBindExpandStatusChange(bool _checked)
+{
+    ::profiler_gui::EASY_GLOBALS.bind_scene_and_tree_expand_status = _checked;
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 void EasyMainWindow::onExpandAllClicked(bool)
@@ -283,7 +288,7 @@ void EasyMainWindow::onCollapseAllClicked(bool)
 
 void EasyMainWindow::closeEvent(QCloseEvent* close_event)
 {
-    saveSettings();
+    saveSettingsAndGeometry();
     Parent::closeEvent(close_event);
 }
 
@@ -293,12 +298,6 @@ void EasyMainWindow::loadSettings()
 {
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
     settings.beginGroup("main");
-
-    auto geometry = settings.value("geometry").toByteArray();
-    if (!geometry.isEmpty())
-    {
-        restoreGeometry(geometry);
-    }
 
     auto last_file = settings.value("last_file");
     if (!last_file.isNull())
@@ -324,10 +323,31 @@ void EasyMainWindow::loadSettings()
         ::profiler_gui::EASY_GLOBALS.all_items_expanded_by_default = flag.toBool();
     }
 
+    flag = settings.value("bind_scene_and_tree_expand_status");
+    if (!flag.isNull())
+    {
+        ::profiler_gui::EASY_GLOBALS.bind_scene_and_tree_expand_status = flag.toBool();
+    }
+
+    QString encoding = settings.value("encoding", "UTF-8").toString();
+    auto default_codec_mib = QTextCodec::codecForName(encoding.toStdString().c_str())->mibEnum();
+    auto default_codec = QTextCodec::codecForMib(default_codec_mib);
+    QTextCodec::setCodecForLocale(default_codec);
+
     settings.endGroup();
 }
 
-void EasyMainWindow::saveSettings()
+void EasyMainWindow::loadGeometry()
+{
+    QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
+    settings.beginGroup("main");
+    auto geometry = settings.value("geometry").toByteArray();
+    if (!geometry.isEmpty())
+        restoreGeometry(geometry);
+    settings.endGroup();
+}
+
+void EasyMainWindow::saveSettingsAndGeometry()
 {
 	QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
 	settings.beginGroup("main");
@@ -337,6 +357,7 @@ void EasyMainWindow::saveSettings()
     settings.setValue("draw_graphics_items_borders", ::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders);
     settings.setValue("collapse_items_on_tree_close", ::profiler_gui::EASY_GLOBALS.collapse_items_on_tree_close);
     settings.setValue("all_items_expanded_by_default", ::profiler_gui::EASY_GLOBALS.all_items_expanded_by_default);
+    settings.setValue("bind_scene_and_tree_expand_status", ::profiler_gui::EASY_GLOBALS.bind_scene_and_tree_expand_status);
     settings.setValue("encoding", QTextCodec::codecForLocale()->name());
 
 	settings.endGroup();

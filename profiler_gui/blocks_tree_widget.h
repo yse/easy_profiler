@@ -108,6 +108,7 @@ private slots:
 
     void onItemExpand(QTreeWidgetItem* _item);
     void onItemCollapse(QTreeWidgetItem* _item);
+    void onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidgetItem*);
 
     void onColorizeRowsTriggered(bool _colorize);
 

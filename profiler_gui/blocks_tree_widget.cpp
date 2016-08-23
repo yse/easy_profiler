@@ -161,6 +161,7 @@ void EasyTreeWidget::onFillTimerTimeout()
 
         connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
         connect(this, &Parent::itemCollapsed, this, &This::onItemCollapse);
+        connect(this, &Parent::currentItemChanged, this, &This::onCurrentItemChange);
         onSelectedThreadChange(::profiler_gui::EASY_GLOBALS.selected_thread);
         onSelectedBlockChange(::profiler_gui::EASY_GLOBALS.selected_block);
     }
@@ -257,6 +258,7 @@ void EasyTreeWidget::clearSilent(bool _global)
     setSortingEnabled(false);
     disconnect(this, &Parent::itemExpanded, this, &This::onItemExpand);
     disconnect(this, &Parent::itemCollapsed, this, &This::onItemCollapse);
+    disconnect(this, &Parent::currentItemChanged, this, &This::onCurrentItemChange);
 
     if (!_global)
     {
@@ -294,42 +296,41 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     const auto col = currentColumn();
     auto item = static_cast<EasyTreeWidgetItem*>(currentItem());
     QMenu menu;
+    QAction* action = nullptr;
 
-    auto action = new QAction("Expand all", nullptr);
-    connect(action, &QAction::triggered, this, &This::onExpandAllClicked);
-    menu.addAction(action);
-
-    action = new QAction("Collapse all", nullptr);
-    connect(action, &QAction::triggered, this, &This::onCollapseAllClicked);
-    menu.addAction(action);
-
-    if (item != nullptr && col >= 0)
+    if (!m_items.empty())
     {
+        action = menu.addAction("Expand all");
+        connect(action, &QAction::triggered, this, &This::onExpandAllClicked);
+
+        action = menu.addAction("Collapse all");
+        connect(action, &QAction::triggered, this, &This::onCollapseAllClicked);
+
+        if (item != nullptr && col >= 0)
+        {
+            menu.addSeparator();
+
+            action = menu.addAction("Expand all children");
+            connect(action, &QAction::triggered, this, &This::onExpandAllChildrenClicked);
+
+            action = menu.addAction("Collapse all children");
+            connect(action, &QAction::triggered, this, &This::onCollapseAllChildrenClicked);
+        }
+
         menu.addSeparator();
-
-        action = new QAction("Expand all children", nullptr);
-        connect(action, &QAction::triggered, this, &This::onExpandAllChildrenClicked);
-        menu.addAction(action);
-
-        action = new QAction("Collapse all children", nullptr);
-        connect(action, &QAction::triggered, this, &This::onCollapseAllChildrenClicked);
-        menu.addAction(action);
     }
 
-    menu.addSeparator();
-
-    action = new QAction("Color rows", nullptr);
+    action = menu.addAction("Color rows");
     action->setCheckable(true);
     action->setChecked(m_bColorRows);
     connect(action, &QAction::triggered, this, &This::onColorizeRowsTriggered);
-    menu.addAction(action);
 
     if (item != nullptr)
     {
-        auto itemAction = new EasyItemAction("Show this item on scene", item->block()->block_index);
-        itemAction->setToolTip("Scroll graphics scene to current item in the tree");
-        connect(itemAction, &EasyItemAction::clicked, this, &This::onJumpToItemClicked);
-        menu.addAction(itemAction);
+        //auto itemAction = new EasyItemAction("Show this item on scene", item->block()->block_index);
+        //itemAction->setToolTip("Scroll graphics scene to current item in the tree");
+        //connect(itemAction, &EasyItemAction::clicked, this, &This::onJumpToItemClicked);
+        //menu.addAction(itemAction);
 
         if (col >= 0)
         {
@@ -357,7 +358,7 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
                     if (i != ::profiler_gui::numeric_max(i))
                     {
                         menu.addSeparator();
-                        itemAction = new EasyItemAction("Jump to such item", i);
+                        auto itemAction = new EasyItemAction("Jump to such item", i);
                         itemAction->setToolTip("Jump to item with min/max duration (depending on clicked column)");
                         connect(itemAction, &EasyItemAction::clicked, this, &This::onJumpToItemClicked);
                         menu.addAction(itemAction);
@@ -424,9 +425,12 @@ void EasyTreeWidget::onCollapseAllClicked(bool)
     collapseAll();
     m_bSilentExpandCollapse = false;
 
-    for (auto item : m_items)
-        ::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index].expanded = false;
-    emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
+    if (::profiler_gui::EASY_GLOBALS.bind_scene_and_tree_expand_status)
+    {
+        for (auto item : m_items)
+            ::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index].expanded = false;
+        emit::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
+    }
 }
 
 void EasyTreeWidget::onExpandAllClicked(bool)
@@ -438,9 +442,12 @@ void EasyTreeWidget::onExpandAllClicked(bool)
     resizeColumnsToContents();
     m_bSilentExpandCollapse = false;
 
-    for (auto item : m_items)
-        ::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index].expanded = !item->block()->children.empty();
-    emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
+    if (::profiler_gui::EASY_GLOBALS.bind_scene_and_tree_expand_status)
+    {
+        for (auto item : m_items)
+            ::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index].expanded = !item->block()->children.empty();
+        emit::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
+    }
 }
 
 void EasyTreeWidget::onCollapseAllChildrenClicked(bool)
@@ -474,8 +481,16 @@ void EasyTreeWidget::onExpandAllChildrenClicked(bool)
     }
 }
 
+//////////////////////////////////////////////////////////////////////////
+
 void EasyTreeWidget::onItemExpand(QTreeWidgetItem* _item)
 {
+    if (!::profiler_gui::EASY_GLOBALS.bind_scene_and_tree_expand_status)
+    {
+        resizeColumnsToContents();
+        return;
+    }
+
     ::profiler_gui::EASY_GLOBALS.gui_blocks[static_cast<EasyTreeWidgetItem*>(_item)->block()->block_index].expanded = true;
 
     if (!m_bSilentExpandCollapse)
@@ -487,11 +502,30 @@ void EasyTreeWidget::onItemExpand(QTreeWidgetItem* _item)
 
 void EasyTreeWidget::onItemCollapse(QTreeWidgetItem* _item)
 {
+    if (!::profiler_gui::EASY_GLOBALS.bind_scene_and_tree_expand_status)
+        return;
+
     ::profiler_gui::EASY_GLOBALS.gui_blocks[static_cast<EasyTreeWidgetItem*>(_item)->block()->block_index].expanded = false;
 
     if (!m_bSilentExpandCollapse)
         emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
 }
+
+//////////////////////////////////////////////////////////////////////////
+
+void EasyTreeWidget::onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidgetItem*)
+{
+    if (_item == nullptr)
+        ::profiler_gui::set_max(::profiler_gui::EASY_GLOBALS.selected_block);
+    else
+        ::profiler_gui::EASY_GLOBALS.selected_block = static_cast<EasyTreeWidgetItem*>(_item)->block()->block_index;
+
+    disconnect(&::profiler_gui::EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
+    emit ::profiler_gui::EASY_GLOBALS.events.selectedBlockChanged(::profiler_gui::EASY_GLOBALS.selected_block);
+    connect(&::profiler_gui::EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
+}
+
+//////////////////////////////////////////////////////////////////////////
 
 void EasyTreeWidget::onColorizeRowsTriggered(bool _colorize)
 {
@@ -529,6 +563,8 @@ void EasyTreeWidget::onSelectedThreadChange(::profiler::thread_id_t _id)
 
 void EasyTreeWidget::onSelectedBlockChange(unsigned int _block_index)
 {
+    disconnect(this, &Parent::currentItemChanged, this, &This::onCurrentItemChange);
+
     EasyTreeWidgetItem* item = nullptr;
 
     if (_block_index < ::profiler_gui::EASY_GLOBALS.gui_blocks.size())
@@ -542,23 +578,35 @@ void EasyTreeWidget::onSelectedBlockChange(unsigned int _block_index)
     {
         //const QSignalBlocker b(this);
 
-        m_bSilentExpandCollapse = true;
-        setCurrentItem(item);
-        scrollToItem(item, QAbstractItemView::PositionAtCenter);
-        if (::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index].expanded)
-            expandItem(item);
-        else
-            collapseItem(item);
-        resizeColumnsToContents();
-        m_bSilentExpandCollapse = false;
+        if (::profiler_gui::EASY_GLOBALS.bind_scene_and_tree_expand_status)
+        {
+            m_bSilentExpandCollapse = true;
+            setCurrentItem(item);
+            scrollToItem(item, QAbstractItemView::PositionAtCenter);
+            if (::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index].expanded)
+                expandItem(item);
+            else
+                collapseItem(item);
+            resizeColumnsToContents();
+            m_bSilentExpandCollapse = false;
 
-        //::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index].expanded = item->isExpanded();
-        emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
+            emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
+        }
+        else
+        {
+            disconnect(this, &Parent::itemExpanded, this, &This::onItemExpand);
+            setCurrentItem(item);
+            scrollToItem(item, QAbstractItemView::PositionAtCenter);
+            resizeColumnsToContents();
+            connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
+        }
     }
     else
     {
         setCurrentItem(item);
     }
+
+    connect(this, &Parent::currentItemChanged, this, &This::onCurrentItemChange);
 }
 
 //////////////////////////////////////////////////////////////////////////

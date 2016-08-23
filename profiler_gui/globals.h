@@ -75,7 +75,9 @@ namespace profiler_gui {
         bool                 draw_graphics_items_borders; ///< Draw borders for graphics blocks or not
         bool                 display_only_relevant_stats; ///< Display only relevant information in ProfTreeWidget (excludes min, max, average times if there are only 1 calls number)
         bool                collapse_items_on_tree_close; ///< Collapse all items which were displayed in the hierarchy tree after tree close/reset
-        bool               all_items_expanded_by_default; ///< 
+        bool               all_items_expanded_by_default; ///< Expand all items after file is opened
+        bool           bind_scene_and_tree_expand_status; /** \brief If true then items on graphics scene and in the tree (blocks hierarchy) are binded on each other
+                                                                so expanding/collapsing items on scene also expands/collapse items in the tree. */
 
     private:
 
