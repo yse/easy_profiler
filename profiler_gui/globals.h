@@ -63,6 +63,16 @@ namespace profiler_gui {
 
     //////////////////////////////////////////////////////////////////////////
 
+    enum ChronometerTextPosition
+    {
+        ChronoTextPosition_Center = 0,
+        ChronoTextPosition_Top,
+        ChronoTextPosition_Bottom,
+
+    }; // END of enum ChronometerTextPosition.
+
+    //////////////////////////////////////////////////////////////////////////
+
     struct EasyGlobals final
     {
         static EasyGlobals& instance();
@@ -72,6 +82,7 @@ namespace profiler_gui {
         EasyBlocks                            gui_blocks; ///< Profiler graphics blocks builded by GUI
         ::profiler::thread_id_t          selected_thread; ///< Current selected thread id
         unsigned int                      selected_block; ///< Current selected profiler block index
+        ChronometerTextPosition     chrono_text_position; ///< 
         bool                 draw_graphics_items_borders; ///< Draw borders for graphics blocks or not
         bool                 display_only_relevant_stats; ///< Display only relevant information in ProfTreeWidget (excludes min, max, average times if there are only 1 calls number)
         bool                collapse_items_on_tree_close; ///< Collapse all items which were displayed in the hierarchy tree after tree close/reset
@@ -82,7 +93,9 @@ namespace profiler_gui {
     private:
 
         EasyGlobals();
-    };
+
+    }; // END of struct EasyGlobals.
+
 #ifndef IGNORE_GLOBALS_DECLARATION
     static EasyGlobals& EASY_GLOBALS = EasyGlobals::instance();
 #endif

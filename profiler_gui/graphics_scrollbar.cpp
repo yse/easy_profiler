@@ -326,6 +326,7 @@ EasyGraphicsScrollbar::EasyGraphicsScrollbar(QWidget* _parent)
     m_slider->setPos(0, 0);
     m_slider->setColor(0x40c0c0c0);
     selfScene->addItem(m_slider);
+    m_slider->hide();
 
     centerOn(0, 0);
 }
@@ -430,6 +431,7 @@ void EasyGraphicsScrollbar::hideChrono()
 void EasyGraphicsScrollbar::setMinimapFrom(::profiler::thread_id_t _thread_id, const ::profiler_gui::ProfItems* _items)
 {
     m_minimap->setSource(_thread_id, _items);
+    m_slider->setVisible(m_minimap->isVisible());
     scene()->update();
 }
 

@@ -58,7 +58,7 @@ const qreal MIN_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT_INV, 70);
 const qreal MAX_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT, 30); // ~800
 const qreal BASE_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT_INV, 25); // ~0.003
 
-const unsigned short GRAPHICS_ROW_SIZE = 16;
+const unsigned short GRAPHICS_ROW_SIZE = 18;
 const unsigned short GRAPHICS_ROW_SPACING = 2;
 const unsigned short GRAPHICS_ROW_SIZE_FULL = GRAPHICS_ROW_SIZE + GRAPHICS_ROW_SPACING;
 const unsigned short THREADS_ROW_SPACING = 8;
@@ -76,6 +76,7 @@ const unsigned int TEST_PROGRESSION_BASE = 4;
 const int FLICKER_INTERVAL = 16; // 60Hz
 
 const auto CHRONOMETER_FONT = QFont("CourierNew", 16, 2);
+const auto ITEMS_FONT = QFont("CourierNew", 10);// , 2);
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -143,6 +144,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     brush.setStyle(Qt::SolidPattern);
 
     _painter->save();
+    _painter->setFont(ITEMS_FONT);
     
     // Reset indices of first visible item for each layer
     const auto levelsNumber = levels();
@@ -861,15 +863,29 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
         rect.setWidth((sceneRight - offset) * currentScale - rect.left());
     }
 
-    if (!m_bMain)
+    int textFlags = 0;
+    switch (::profiler_gui::EASY_GLOBALS.chrono_text_position)
     {
-        rect.setTop(rect.top() + textRect.height() * 1.5);
+        case ::profiler_gui::ChronoTextPosition_Top:
+            textFlags = Qt::AlignTop | Qt::AlignHCenter;
+            if (!m_bMain) rect.setTop(rect.top() + textRect.height() * 0.75);
+            break;
+
+        case ::profiler_gui::ChronoTextPosition_Center:
+            textFlags = Qt::AlignCenter;
+            if (!m_bMain) rect.setTop(rect.top() + textRect.height() * 1.5);
+            break;
+
+        case ::profiler_gui::ChronoTextPosition_Bottom:
+            textFlags = Qt::AlignBottom | Qt::AlignHCenter;
+            if (!m_bMain) rect.setHeight(rect.height() - textRect.height() * 0.75);
+            break;
     }
 
     if (textRect.width() < rect.width())
     {
         // Text will be drawed inside rectangle
-        _painter->drawText(rect, Qt::AlignCenter, text);
+        _painter->drawText(rect, textFlags, text);
         _painter->restore();
         return;
     }
@@ -877,18 +893,20 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     if (m_right + textRect.width() < sceneRight)
     {
         // Text will be drawed to the right of rectangle
-        _painter->drawText(QPointF(rect.right(), rect.top() + rect.height() * 0.5 + textRect.height() * 0.33), text);
+        rect.translate(rect.width(), 0);
+        textFlags &= ~Qt::AlignHCenter;
+        textFlags |= Qt::AlignLeft;
     }
     else if (m_left - textRect.width() > sceneLeft)
     {
         // Text will be drawed to the left of rectangle
-        _painter->drawText(QPointF(rect.left() - textRect.width(), rect.top() + rect.height() * 0.5 + textRect.height() * 0.33), text);
+        rect.translate(-rect.width(), 0);
+        textFlags &= ~Qt::AlignHCenter;
+        textFlags |= Qt::AlignRight;
     }
-    else
-    {
-        // Text will be drawed inside rectangle
-        _painter->drawText(rect, Qt::AlignCenter | Qt::TextDontClip, text);
-    }
+    //else // Text will be drawed inside rectangle
+
+    _painter->drawText(rect, textFlags | Qt::TextDontClip, text);
 
     _painter->restore();
     // END Paint!~~~~~~~~~~~~~~~~~~~~~~
@@ -1980,9 +1998,13 @@ void EasyGraphicsView::initMode()
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     connect(verticalScrollBar(), &QScrollBar::valueChanged, this, &This::onScrollbarValueChange);
     connect(&m_flickerTimer, &QTimer::timeout, this, &This::onFlickerTimeout);
-    connect(&::profiler_gui::EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
-    connect(&::profiler_gui::EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
-    connect(&::profiler_gui::EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::itemsExpandStateChanged, this, &This::onItemsEspandStateChange);
+
+    auto globalSignals = &::profiler_gui::EASY_GLOBALS.events;
+    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
+    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
+    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::itemsExpandStateChanged, this, &This::onItemsEspandStateChange);
+    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::drawBordersChanged, this, &This::updateScene);
+    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::chronoPositionChanged, this, &This::updateScene);
 }
 
 //////////////////////////////////////////////////////////////////////////

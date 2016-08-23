@@ -118,26 +118,55 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     action->setChecked(::profiler_gui::EASY_GLOBALS.bind_scene_and_tree_expand_status);
     connect(action, &QAction::triggered, this, &This::onBindExpandStatusChange);
 
+    menu->addSeparator();
+    auto submenu = menu->addMenu("Chronometer text");
+    auto actionGroup = new QActionGroup(this);
+    actionGroup->setExclusive(true);
+
+    action = new QAction("At top", actionGroup);
+    action->setCheckable(true);
+    action->setData(static_cast<int>(::profiler_gui::ChronoTextPosition_Top));
+    if (::profiler_gui::EASY_GLOBALS.chrono_text_position == ::profiler_gui::ChronoTextPosition_Top)
+        action->setChecked(true);
+    submenu->addAction(action);
+    connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
+
+    action = new QAction("At center", actionGroup);
+    action->setCheckable(true);
+    action->setData(static_cast<int>(::profiler_gui::ChronoTextPosition_Center));
+    if (::profiler_gui::EASY_GLOBALS.chrono_text_position == ::profiler_gui::ChronoTextPosition_Center)
+        action->setChecked(true);
+    submenu->addAction(action);
+    connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
+
+    action = new QAction("At bottom", actionGroup);
+    action->setCheckable(true);
+    action->setData(static_cast<int>(::profiler_gui::ChronoTextPosition_Bottom));
+    if (::profiler_gui::EASY_GLOBALS.chrono_text_position == ::profiler_gui::ChronoTextPosition_Bottom)
+        action->setChecked(true);
+    submenu->addAction(action);
+    connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
+
     menuBar()->addMenu(menu);
 
-    menu = new QMenu("&Settings");
-    auto encodingMenu = menu->addMenu(tr("&Encoding"));
 
-    QActionGroup* codecs_actions = new QActionGroup(this);
-    codecs_actions->setExclusive(true);
+
+    menu = new QMenu("&Settings");
+    submenu = menu->addMenu("&Encoding");
+    actionGroup = new QActionGroup(this);
+    actionGroup->setExclusive(true);
+
     auto default_codec_mib = QTextCodec::codecForLocale()->mibEnum();
     foreach (int mib, QTextCodec::availableMibs())
     {
         auto codec = QTextCodec::codecForMib(mib)->name();
 
-        QAction* action = new QAction(codec,codecs_actions);
-
+        action = new QAction(codec, actionGroup);
         action->setCheckable(true);
-        if(mib == default_codec_mib)
-        {
+        if (mib == default_codec_mib)
             action->setChecked(true);
-        }
-        encodingMenu->addAction(action);
+
+        submenu->addAction(action);
         connect(action, &QAction::triggered, this, &This::onEncodingChanged);
     }
 
@@ -238,9 +267,17 @@ void EasyMainWindow::onEncodingChanged(bool)
    QTextCodec::setCodecForLocale(codec);
 }
 
+void EasyMainWindow::onChronoTextPosChanged(bool)
+{
+    auto _sender = qobject_cast<QAction*>(sender());
+    ::profiler_gui::EASY_GLOBALS.chrono_text_position = static_cast<::profiler_gui::ChronometerTextPosition>(_sender->data().toInt());
+    emit ::profiler_gui::EASY_GLOBALS.events.chronoPositionChanged();
+}
+
 void EasyMainWindow::onDrawBordersChanged(bool _checked)
 {
     ::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders = _checked;
+    emit ::profiler_gui::EASY_GLOBALS.events.drawBordersChanged();
 }
 
 void EasyMainWindow::onCollapseItemsAfterCloseChanged(bool _checked)
@@ -305,6 +342,14 @@ void EasyMainWindow::loadSettings()
         m_lastFile = last_file.toString();
     }
 
+
+    auto val = settings.value("chrono_text_position");
+    if (!val.isNull())
+    {
+        ::profiler_gui::EASY_GLOBALS.chrono_text_position = static_cast<::profiler_gui::ChronometerTextPosition>(val.toInt());
+    }
+
+
     auto flag = settings.value("draw_graphics_items_borders");
     if (!flag.isNull())
     {
@@ -354,6 +399,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
 
 	settings.setValue("geometry", this->saveGeometry());
     settings.setValue("last_file", m_lastFile);
+    settings.setValue("chrono_text_position", static_cast<int>(::profiler_gui::EASY_GLOBALS.chrono_text_position));
     settings.setValue("draw_graphics_items_borders", ::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders);
     settings.setValue("collapse_items_on_tree_close", ::profiler_gui::EASY_GLOBALS.collapse_items_on_tree_close);
     settings.setValue("all_items_expanded_by_default", ::profiler_gui::EASY_GLOBALS.all_items_expanded_by_default);

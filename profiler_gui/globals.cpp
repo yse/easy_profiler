@@ -32,7 +32,8 @@ namespace profiler_gui {
 
     EasyGlobals::EasyGlobals()
         : selected_thread(0)
-        , selected_block(-1)
+        , selected_block(::profiler_gui::numeric_max<decltype(selected_block)>())
+        , chrono_text_position(ChronoTextPosition_Center)
         , draw_graphics_items_borders(true)
         , display_only_relevant_stats(true)
         , collapse_items_on_tree_close(false)
