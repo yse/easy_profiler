@@ -74,6 +74,8 @@ namespace profiler_gui {
         unsigned int                      selected_block; ///< Current selected profiler block index
         bool                 draw_graphics_items_borders; ///< Draw borders for graphics blocks or not
         bool                 display_only_relevant_stats; ///< Display only relevant information in ProfTreeWidget (excludes min, max, average times if there are only 1 calls number)
+        bool                collapse_items_on_tree_close; ///< Collapse all items which were displayed in the hierarchy tree after tree close/reset
+        bool               all_items_expanded_by_default; ///< 
 
     private:
 

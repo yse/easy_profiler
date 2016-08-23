@@ -34,7 +34,7 @@ class EasyFileReader final
 {
     ::profiler::SerializedData   m_serializedData; ///< 
     ::profiler::thread_blocks_tree_t m_blocksTree; ///< 
-    ::std::string                      m_filename; ///< 
+    QString                            m_filename; ///< 
     ::std::thread                        m_thread; ///< 
     ::std::atomic_bool                    m_bDone; ///< 
     ::std::atomic<int>                 m_progress; ///< 
@@ -48,10 +48,11 @@ public:
     bool done() const;
     int progress() const;
     unsigned int size() const;
+    const QString& filename() const;
 
-    void load(const ::std::string& _filename);
+    void load(const QString& _filename);
     void interrupt();
-    void get(::profiler::SerializedData& _data, ::profiler::thread_blocks_tree_t& _tree, ::std::string& _filename);
+    void get(::profiler::SerializedData& _data, ::profiler::thread_blocks_tree_t& _tree, QString& _filename);
 
 }; // END of class EasyFileReader.
 
@@ -66,7 +67,7 @@ protected:
     typedef EasyMainWindow This;
     typedef QMainWindow  Parent;
 
-    ::std::string                    m_lastFile;
+    QString                          m_lastFile;
     QDockWidget*                   m_treeWidget;
     QDockWidget*                 m_graphicsView;
     class QProgressDialog*           m_progress;
@@ -90,6 +91,8 @@ protected slots:
     void onExitClicked(bool);
     void onEncodingChanged(bool);
     void onDrawBordersChanged(bool);
+    void onCollapseItemsAfterCloseChanged(bool);
+    void onAllItemsExpandedByDefaultChange(bool);
     void onExpandAllClicked(bool);
     void onCollapseAllClicked(bool);
     void onFileReaderTimeout();
@@ -99,7 +102,7 @@ private:
 
     // Private non-virtual methods
 
-    void loadFile(const std::string& filename);
+    void loadFile(const QString& filename);
 
     void loadSettings();
 	void saveSettings();

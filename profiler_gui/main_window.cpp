@@ -33,6 +33,7 @@
 #include <QTextCodec>
 #include <QProgressDialog>
 #include <QSignalBlocker>
+#include <QDebug>
 #include "main_window.h"
 #include "blocks_tree_widget.h"
 #include "blocks_graphics_view.h"
@@ -68,31 +69,48 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     addDockWidget(Qt::TopDockWidgetArea, m_graphicsView);
     addDockWidget(Qt::BottomDockWidgetArea, m_treeWidget);
 
-    auto actionOpen = new QAction("Open", nullptr);
-    connect(actionOpen, &QAction::triggered, this, &This::onOpenFileClicked);
 
-    auto actionReload = new QAction("Reload", nullptr);
-    connect(actionReload, &QAction::triggered, this, &This::onReloadFileClicked);
 
-    auto actionExit = new QAction("Exit", nullptr);
-    connect(actionExit, &QAction::triggered, this, &This::onExitClicked);
+    auto menu = new QMenu("&File");
 
-    auto actionExpand = new QAction("Expand all", nullptr);
-    connect(actionExpand, &QAction::triggered, this, &This::onExpandAllClicked);
+    auto action = menu->addAction("&Open");
+    connect(action, &QAction::triggered, this, &This::onOpenFileClicked);
 
-    auto actionCollapse = new QAction("Collapse all", nullptr);
-    connect(actionCollapse, &QAction::triggered, this, &This::onCollapseAllClicked);
+    action = menu->addAction("&Reload");
+    connect(action, &QAction::triggered, this, &This::onReloadFileClicked);
 
-    auto menu = new QMenu("File");
-    menu->addAction(actionOpen);
-    menu->addAction(actionReload);
     menu->addSeparator();
-    menu->addAction(actionExit);
+    action = menu->addAction("&Exit");
+    connect(action, &QAction::triggered, this, &This::onExitClicked);
+
     menuBar()->addMenu(menu);
 
-    menu = new QMenu("View");
-    menu->addAction(actionExpand);
-    menu->addAction(actionCollapse);
+
+
+    menu = new QMenu("&View");
+
+    action = menu->addAction("Expand all");
+    connect(action, &QAction::triggered, this, &This::onExpandAllClicked);
+
+    action = menu->addAction("Collapse all");
+    connect(action, &QAction::triggered, this, &This::onCollapseAllClicked);
+
+    menu->addSeparator();
+    action = menu->addAction("Draw items' borders");
+    action->setCheckable(true);
+    action->setChecked(::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders);
+    connect(action, &QAction::triggered, this, &This::onDrawBordersChanged);
+
+    action = menu->addAction("Collapse item on tree reset");
+    action->setCheckable(true);
+    action->setChecked(::profiler_gui::EASY_GLOBALS.collapse_items_on_tree_close);
+    connect(action, &QAction::triggered, this, &This::onCollapseItemsAfterCloseChanged);
+
+    action = menu->addAction("Expand all on file open");
+    action->setCheckable(true);
+    action->setChecked(::profiler_gui::EASY_GLOBALS.all_items_expanded_by_default);
+    connect(action, &QAction::triggered, this, &This::onAllItemsExpandedByDefaultChange);
+
     menuBar()->addMenu(menu);
 
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
@@ -105,7 +123,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     QTextCodec::setCodecForLocale(default_codec);
     settings.endGroup();
 
-    menu = new QMenu("Settings");
+    menu = new QMenu("&Settings");
     auto encodingMenu = menu->addMenu(tr("&Encoding"));
 
     QActionGroup* codecs_actions = new QActionGroup(this);
@@ -125,12 +143,6 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
         connect(action, &QAction::triggered, this, &This::onEncodingChanged);
     }
 
-    menu->addSeparator();
-    auto actionBorders = menu->addAction("Draw items' borders");
-    actionBorders->setCheckable(true);
-    actionBorders->setChecked(::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders);
-    connect(actionBorders, &QAction::triggered, this, &This::onDrawBordersChanged);
-
     menuBar()->addMenu(menu);
 
     connect(graphicsView->view(), &EasyGraphicsView::intervalChanged, treeWidget, &EasyTreeWidget::setTreeBlocks);
@@ -148,7 +160,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
 
     if(QCoreApplication::arguments().size() > 1)
     {
-        auto opened_filename = QCoreApplication::arguments().at(1).toStdString();
+        auto opened_filename = QCoreApplication::arguments().at(1);
         loadFile(opened_filename);
     }
 }
@@ -162,18 +174,22 @@ EasyMainWindow::~EasyMainWindow()
 
 void EasyMainWindow::onOpenFileClicked(bool)
 {
-    auto filename = QFileDialog::getOpenFileName(this, "Open profiler log", m_lastFile.c_str(), "Profiler Log File (*.prof);;All Files (*.*)");
-    loadFile(filename.toStdString());
+    auto filename = QFileDialog::getOpenFileName(this, "Open profiler log", m_lastFile, "Profiler Log File (*.prof);;All Files (*.*)");
+    loadFile(filename);
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::loadFile(const std::string& stdfilename)
+void EasyMainWindow::loadFile(const QString& filename)
 {
+    const auto i = filename.lastIndexOf(QChar('/'));
+    const auto j = filename.lastIndexOf(QChar('\\'));
+    m_progress->setLabelText(QString("Loading %1...").arg(filename.mid(::std::max(i, j) + 1)));
+
     m_progress->setValue(0);
     //m_progress->show();
     m_readerTimer.start(LOADER_TIMER_INTERVAL);
-    m_reader.load(stdfilename);
+    m_reader.load(filename);
 
 //     ::profiler::SerializedData data;
 //     ::profiler::thread_blocks_tree_t prof_blocks;
@@ -200,7 +216,7 @@ void EasyMainWindow::loadFile(const std::string& stdfilename)
 
 void EasyMainWindow::onReloadFileClicked(bool)
 {
-    if (m_lastFile.empty())
+    if (m_lastFile.isEmpty())
         return;
     loadFile(m_lastFile);
 }
@@ -225,6 +241,16 @@ void EasyMainWindow::onEncodingChanged(bool)
 void EasyMainWindow::onDrawBordersChanged(bool _checked)
 {
     ::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders = _checked;
+}
+
+void EasyMainWindow::onCollapseItemsAfterCloseChanged(bool _checked)
+{
+    ::profiler_gui::EASY_GLOBALS.collapse_items_on_tree_close = _checked;
+}
+
+void EasyMainWindow::onAllItemsExpandedByDefaultChange(bool _checked)
+{
+    ::profiler_gui::EASY_GLOBALS.all_items_expanded_by_default = _checked;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -277,7 +303,25 @@ void EasyMainWindow::loadSettings()
     auto last_file = settings.value("last_file");
     if (!last_file.isNull())
     {
-        m_lastFile = last_file.toString().toStdString();
+        m_lastFile = last_file.toString();
+    }
+
+    auto flag = settings.value("draw_graphics_items_borders");
+    if (!flag.isNull())
+    {
+        ::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders = flag.toBool();
+    }
+
+    flag = settings.value("collapse_items_on_tree_close");
+    if (!flag.isNull())
+    {
+        ::profiler_gui::EASY_GLOBALS.collapse_items_on_tree_close = flag.toBool();
+    }
+
+    flag = settings.value("all_items_expanded_by_default");
+    if (!flag.isNull())
+    {
+        ::profiler_gui::EASY_GLOBALS.all_items_expanded_by_default = flag.toBool();
     }
 
     settings.endGroup();
@@ -289,7 +333,10 @@ void EasyMainWindow::saveSettings()
 	settings.beginGroup("main");
 
 	settings.setValue("geometry", this->saveGeometry());
-    settings.setValue("last_file", m_lastFile.c_str());
+    settings.setValue("last_file", m_lastFile);
+    settings.setValue("draw_graphics_items_borders", ::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders);
+    settings.setValue("collapse_items_on_tree_close", ::profiler_gui::EASY_GLOBALS.collapse_items_on_tree_close);
+    settings.setValue("all_items_expanded_by_default", ::profiler_gui::EASY_GLOBALS.all_items_expanded_by_default);
     settings.setValue("encoding", QTextCodec::codecForLocale()->name());
 
 	settings.endGroup();
@@ -308,10 +355,16 @@ void EasyMainWindow::onFileReaderTimeout()
 
             ::profiler::SerializedData data;
             ::profiler::thread_blocks_tree_t prof_blocks;
-            ::std::string stdfilename;
-            m_reader.get(data, prof_blocks, stdfilename);
+            QString filename;
+            m_reader.get(data, prof_blocks, filename);
 
-            m_lastFile = ::std::move(stdfilename);
+            if (prof_blocks.size() > 0xff)
+            {
+                qWarning() << "Warning: file " << filename << " contains " << prof_blocks.size() << " threads!";
+                qWarning() << "Warning:    Currently, maximum number of displayed threads is 255! Some threads will not be displayed.";
+            }
+
+            m_lastFile = ::std::move(filename);
             m_serializedData = ::std::move(data);
             ::profiler_gui::EASY_GLOBALS.selected_thread = 0;
             ::profiler_gui::set_max(::profiler_gui::EASY_GLOBALS.selected_block);
@@ -322,12 +375,21 @@ void EasyMainWindow::onFileReaderTimeout()
 
             static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->setTree(::profiler_gui::EASY_GLOBALS.profiler_blocks);
         }
+        else
+        {
+            qWarning() << "Warning: Can not open file " << m_reader.filename();
+        }
 
         m_reader.interrupt();
 
         m_readerTimer.stop();
         m_progress->setValue(100);
         //m_progress->hide();
+
+        if (::profiler_gui::EASY_GLOBALS.all_items_expanded_by_default)
+        {
+            onExpandAllClicked(true);
+        }
     }
     else
     {
@@ -370,15 +432,20 @@ unsigned int EasyFileReader::size() const
     return m_size.load();
 }
 
-void EasyFileReader::load(const ::std::string& _filename)
+const QString& EasyFileReader::filename() const
+{
+    return m_filename;
+}
+
+void EasyFileReader::load(const QString& _filename)
 {
     interrupt();
 
     m_filename = _filename;
-    m_thread = ::std::move(::std::thread([](::std::atomic_bool& isDone, ::std::atomic<unsigned int>& blocks_number, ::std::atomic<int>& progress, const char* filename, ::profiler::SerializedData& serialized_blocks, ::profiler::thread_blocks_tree_t& threaded_trees) {
-        blocks_number.store(fillTreesFromFile(progress, filename, serialized_blocks, threaded_trees, true));
+    m_thread = ::std::move(::std::thread([](::std::atomic_bool& isDone, ::std::atomic<unsigned int>& blocks_number, ::std::atomic<int>& progress, const QString& filename, ::profiler::SerializedData& serialized_blocks, ::profiler::thread_blocks_tree_t& threaded_trees) {
+        blocks_number.store(fillTreesFromFile(progress, filename.toStdString().c_str(), serialized_blocks, threaded_trees, true));
         isDone.store(true);
-    }, ::std::ref(m_bDone), ::std::ref(m_size), ::std::ref(m_progress), m_filename.c_str(), ::std::ref(m_serializedData), ::std::ref(m_blocksTree)));
+    }, ::std::ref(m_bDone), ::std::ref(m_size), ::std::ref(m_progress), ::std::ref(m_filename), ::std::ref(m_serializedData), ::std::ref(m_blocksTree)));
 }
 
 void EasyFileReader::interrupt()
@@ -394,7 +461,7 @@ void EasyFileReader::interrupt()
     m_blocksTree.clear();
 }
 
-void EasyFileReader::get(::profiler::SerializedData& _data, ::profiler::thread_blocks_tree_t& _tree, ::std::string& _filename)
+void EasyFileReader::get(::profiler::SerializedData& _data, ::profiler::thread_blocks_tree_t& _tree, QString& _filename)
 {
     if (done())
     {

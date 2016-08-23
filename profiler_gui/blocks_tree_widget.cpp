@@ -178,7 +178,7 @@ void EasyTreeWidget::setTree(const unsigned int _blocksNumber, const ::profiler:
     {
         m_bLocked = true;
         m_progress->setValue(0);
-        //m_progress->show();
+        m_progress->show();
         m_hierarchyBuilder.fillTree(m_beginTime, _blocksNumber, _blocksTree, m_bColorRows);
         m_fillTimer.start(HIERARCHY_BUILDER_TIMER_INTERVAL);
     }
@@ -211,7 +211,7 @@ void EasyTreeWidget::setTreeBlocks(const ::profiler_gui::TreeBlocks& _blocks, ::
     {
         m_bLocked = true;
         m_progress->setValue(0);
-        //m_progress->show();
+        m_progress->show();
         m_hierarchyBuilder.fillTreeBlocks(m_inputBlocks, _session_begin_time, _left, _right, _strict, m_bColorRows);
         m_fillTimer.start(HIERARCHY_BUILDER_TIMER_INTERVAL);
     }
@@ -260,19 +260,22 @@ void EasyTreeWidget::clearSilent(bool _global)
 
     if (!_global)
     {
-        for (auto item : m_items)
+        if (::profiler_gui::EASY_GLOBALS.collapse_items_on_tree_close) for (auto item : m_items)
         {
             auto& gui_block = ::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index];
             ::profiler_gui::set_max(gui_block.tree_item);
             gui_block.expanded = false;
+        }
+        else for (auto item : m_items)
+        {
+            ::profiler_gui::set_max(::profiler_gui::EASY_GLOBALS.gui_blocks[item->block()->block_index].tree_item);
         }
     }
 
     m_items.clear();
     m_roots.clear();
 
-    const QSignalBlocker b(this);
-    clear();
+    { const QSignalBlocker b(this); clear(); } // clear without emitting any signals
 
     if (!_global)
         emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();

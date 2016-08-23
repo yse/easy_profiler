@@ -35,6 +35,8 @@ namespace profiler_gui {
         , selected_block(-1)
         , draw_graphics_items_borders(true)
         , display_only_relevant_stats(true)
+        , collapse_items_on_tree_close(false)
+        , all_items_expanded_by_default(true)
     {
 
     }
