@@ -42,19 +42,22 @@ auto const clamp = [](qreal _minValue, qreal _value, qreal _maxValue)
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyGraphicsSliderItem::EasyGraphicsSliderItem(bool _main) : Parent(), m_halfwidth(0)
+EasyGraphicsSliderItem::EasyGraphicsSliderItem(bool _main) : Parent(), m_halfwidth(0), m_bMain(_main)
 {
-//     m_leftIndicator.reserve(3);
-//     m_rightIndicator.reserve(3);
-// 
-//     const auto vcenter = DEFAULT_TOP + (_main ? INDICATOR_SIZE : DEFAULT_HEIGHT - INDICATOR_SIZE);
-//     m_leftIndicator.push_back(QPointF(-INDICATOR_SIZE, vcenter - INDICATOR_SIZE));
-//     m_leftIndicator.push_back(QPointF(0, vcenter));
-//     m_leftIndicator.push_back(QPointF(-INDICATOR_SIZE, vcenter + INDICATOR_SIZE));
-// 
-//     m_rightIndicator.push_back(QPointF(INDICATOR_SIZE, vcenter - INDICATOR_SIZE));
-//     m_rightIndicator.push_back(QPointF(0, vcenter));
-//     m_rightIndicator.push_back(QPointF(INDICATOR_SIZE, vcenter + INDICATOR_SIZE));
+    m_indicator.reserve(3);
+
+    if (_main)
+    {
+        m_indicator.push_back(QPointF(0, DEFAULT_TOP + INDICATOR_SIZE));
+        m_indicator.push_back(QPointF(-INDICATOR_SIZE, DEFAULT_TOP));
+        m_indicator.push_back(QPointF(INDICATOR_SIZE, DEFAULT_TOP));
+    }
+    else
+    {
+        m_indicator.push_back(QPointF(0, DEFAULT_TOP + DEFAULT_HEIGHT - INDICATOR_SIZE));
+        m_indicator.push_back(QPointF(-INDICATOR_SIZE, DEFAULT_TOP + DEFAULT_HEIGHT));
+        m_indicator.push_back(QPointF(INDICATOR_SIZE, DEFAULT_TOP + DEFAULT_HEIGHT));
+    }
 
     setWidth(1);
     setBrush(Qt::SolidPattern);
@@ -74,13 +77,13 @@ void EasyGraphicsSliderItem::paint(QPainter* _painter, const QStyleOptionGraphic
     qreal w = width() * currentScale;
     qreal dx = 0;
 
-    if (w < 1.0)
-    {
-        dx = (w - 1.0) * 0.5;
-        w = 1.0;
-    }
+//     if (w < 1.0)
+//     {
+//         dx = (w - 1.0) * 0.5;
+//         w = 1.0;
+//     }
 
-    QRectF r(dx + br.left() * currentScale, br.top(), w, br.height());
+    QRectF r(dx + br.left() * currentScale, br.top() + INDICATOR_SIZE, w, br.height() - (INDICATOR_SIZE << 1));
     const auto r_right = r.right();
     const auto r_bottom = r.bottom();
     auto b = brush();
@@ -88,28 +91,31 @@ void EasyGraphicsSliderItem::paint(QPainter* _painter, const QStyleOptionGraphic
     _painter->save();
     _painter->setTransform(QTransform::fromScale(1.0 / currentScale, 1), true);
     _painter->setBrush(b);
-    _painter->setPen(Qt::NoPen);
-    _painter->drawRect(r);
+    
+    if (w > 1)
+    {
+        _painter->setPen(Qt::NoPen);
+        _painter->drawRect(r);
 
-    // Draw left and right borders
-    _painter->setPen(QColor::fromRgba(0xe0000000 | b.color().rgb()));
-    _painter->drawLine(QPointF(r.left(), r.top()), QPointF(r.left(), r_bottom));
-    _painter->drawLine(QPointF(r_right, r.top()), QPointF(r_right, r_bottom));
+        // Draw left and right borders
+        auto cmode = _painter->compositionMode();
+        if (m_bMain) _painter->setCompositionMode(QPainter::CompositionMode_Exclusion);
+        _painter->setPen(QColor::fromRgba(0xe0000000 | b.color().rgb()));
+        _painter->drawLine(QPointF(r.left(), r.top()), QPointF(r.left(), r_bottom));
+        _painter->drawLine(QPointF(r_right, r.top()), QPointF(r_right, r_bottom));
+        if (!m_bMain) _painter->setCompositionMode(cmode);
+    }
+    else
+    {
+        _painter->setPen(QColor::fromRgba(0xe0000000 | b.color().rgb()));
+        _painter->drawLine(QPointF(r.left(), r.top()), QPointF(r.left(), r_bottom));
+        if (m_bMain) _painter->setCompositionMode(QPainter::CompositionMode_Exclusion);
+    }
 
-//     // Draw triangle indicators for small slider
-//     if (w < INDICATOR_SIZE)
-//     {
-//         m_leftIndicator[0].setX(r.left() - INDICATOR_SIZE);
-//         m_leftIndicator[1].setX(r.left());
-//         m_leftIndicator[2].setX(r.left() - INDICATOR_SIZE);
-// 
-//         m_rightIndicator[0].setX(r_right + INDICATOR_SIZE);
-//         m_rightIndicator[1].setX(r_right);
-//         m_rightIndicator[2].setX(r_right + INDICATOR_SIZE);
-// 
-//         _painter->drawPolygon(m_leftIndicator);
-//         _painter->drawPolygon(m_rightIndicator);
-//     }
+    // Draw triangle indicators for small slider
+    _painter->setTransform(QTransform::fromTranslate(r.left() + w * 0.5, 0), true);
+    _painter->setPen(b.color().rgb());
+    _painter->drawPolygon(m_indicator);
 
     _painter->restore();
 }
@@ -210,6 +216,10 @@ void EasyMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* 
         _painter->drawRect(rect);
     }
 
+    _painter->setPen(Qt::darkGray);
+    _painter->drawLine(0, bottom, m_boundingRect.width(), bottom);
+    _painter->drawLine(0, m_boundingRect.top(), m_boundingRect.width(), m_boundingRect.top());
+
     _painter->restore();
 }
 
@@ -221,6 +231,11 @@ void EasyMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* 
 void EasyMinimapItem::setBoundingRect(const QRectF& _rect)
 {
     m_boundingRect = _rect;
+}
+
+void EasyMinimapItem::setBoundingRect(qreal x, qreal y, qreal w, qreal h)
+{
+    m_boundingRect.setRect(x, y, w, h);
 }
 
 void EasyMinimapItem::setSource(::profiler::thread_id_t _thread_id, const ::profiler_gui::ProfItems* _items)
@@ -295,24 +310,22 @@ EasyGraphicsScrollbar::EasyGraphicsScrollbar(QWidget* _parent)
     selfScene->setSceneRect(0, DEFAULT_TOP, 500, DEFAULT_HEIGHT);
     setScene(selfScene);
 
-    m_slider = new EasyGraphicsSliderItem(true);
-    m_slider->setPos(0, 0);
-    m_slider->setZValue(5);
-    m_slider->setColor(0x40c0c0c0);
-    selfScene->addItem(m_slider);
+    m_minimap = new EasyMinimapItem();
+    m_minimap->setPos(0, 0);
+    m_minimap->setBoundingRect(0, DEFAULT_TOP + INDICATOR_SIZE, scene()->width(), DEFAULT_HEIGHT - (INDICATOR_SIZE << 1));
+    selfScene->addItem(m_minimap);
+    m_minimap->hide();
 
     m_chronometerIndicator = new EasyGraphicsSliderItem(false);
     m_chronometerIndicator->setPos(0, 0);
-    m_chronometerIndicator->setZValue(10);
     m_chronometerIndicator->setColor(0x40000000 | ::profiler_gui::CHRONOMETER_COLOR.rgba());
     selfScene->addItem(m_chronometerIndicator);
     m_chronometerIndicator->hide();
 
-    m_minimap = new EasyMinimapItem();
-    m_minimap->setPos(0, 0);
-    m_minimap->setBoundingRect(selfScene->sceneRect());
-    selfScene->addItem(m_minimap);
-    m_minimap->hide();
+    m_slider = new EasyGraphicsSliderItem(true);
+    m_slider->setPos(0, 0);
+    m_slider->setColor(0x40c0c0c0);
+    selfScene->addItem(m_slider);
 
     centerOn(0, 0);
 }
@@ -381,7 +394,7 @@ void EasyGraphicsScrollbar::setRange(qreal _minValue, qreal _maxValue)
     m_minimumValue = _minValue;
     m_maximumValue = _maxValue;
     scene()->setSceneRect(_minValue, DEFAULT_TOP, _maxValue - _minValue, DEFAULT_HEIGHT);
-    m_minimap->setBoundingRect(scene()->sceneRect());
+    m_minimap->setBoundingRect(_minValue, DEFAULT_TOP + INDICATOR_SIZE, _maxValue, DEFAULT_HEIGHT - (INDICATOR_SIZE << 1));
     emit rangeChanged();
 
     setValue(_minValue + oldValue * range());

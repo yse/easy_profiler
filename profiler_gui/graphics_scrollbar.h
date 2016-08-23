@@ -22,7 +22,7 @@
 #include <QGraphicsView>
 #include <QGraphicsRectItem>
 #include <QAction>
-//#include <QPolygonF>
+#include <QPolygonF>
 #include "common_types.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -34,8 +34,9 @@ class EasyGraphicsSliderItem : public QGraphicsRectItem
 
 private:
 
-    //QPolygonF m_leftIndicator, m_rightIndicator;
+    QPolygonF m_indicator;
     qreal m_halfwidth;
+    bool m_bMain;
 
 public:
 
@@ -85,6 +86,7 @@ public:
     ::profiler::thread_id_t threadId() const;
 
     void setBoundingRect(const QRectF& _rect);
+    void setBoundingRect(qreal x, qreal y, qreal w, qreal h);
 
     void setSource(::profiler::thread_id_t _thread_id, const ::profiler_gui::ProfItems* _items);
 
