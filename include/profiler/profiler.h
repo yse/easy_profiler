@@ -19,18 +19,30 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #ifndef ____PROFILER____H_______
 #define ____PROFILER____H_______
 
-#define TOKEN_JOIN(x, y) x ## y
-#define TOKEN_CONCATENATE(x, y) TOKEN_JOIN(x, y)
-
 #if defined ( WIN32 )
 #define __func__ __FUNCTION__
 #endif
 
 #ifndef FULL_DISABLE_PROFILER
 
+#define TOKEN_JOIN(x, y) x ## y
+#define TOKEN_CONCATENATE(x, y) TOKEN_JOIN(x, y)
+#define PROFILER_UNIQUE_BLOCK(x) TOKEN_CONCATENATE(unique_profiler_mark_name_, x)
+#define PROFILER_UNIQUE_DESC(x) TOKEN_CONCATENATE(unique_profiler_descriptor_, x)
+
 /**
 \defgroup profiler Profiler
 */
+
+/** Macro used to check compile-time strings.
+
+Compiler automatically concatenates "A" "B" into "AB" if both A and B strings
+can be identified at compile-time.
+
+\ingroup profiler
+*/
+#define COMPILETIME_TEST "_compiletime_test"
+
 
 /** Macro of beginning of block with custom name and default identification
 
@@ -51,11 +63,26 @@ Block will be automatically completed by destructor
 
 \ingroup profiler
 */
-#define PROFILER_BEGIN_BLOCK(name)\
-    static const profiler::BlockSourceInfo TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__)(__FILE__, __LINE__);\
-    profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,profiler::colors::Clay,profiler::BLOCK_TYPE_BLOCK,\
-            TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__).id());\
-	profiler::beginBlock(TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
+#define PROFILER_BEGIN_BLOCK(compiletime_name)\
+    static const ::profiler::StaticBlockDescriptor PROFILER_UNIQUE_DESC(__LINE__)(compiletime_name, __FILE__, __LINE__,\
+        ::profiler::BLOCK_TYPE_BLOCK, ::profiler::DefaultBlockColor);\
+    ::profiler::Block PROFILER_UNIQUE_BLOCK(__LINE__)(compiletime_name COMPILETIME_TEST, ::profiler::BLOCK_TYPE_BLOCK,\
+        PROFILER_UNIQUE_DESC(__LINE__).id(), compiletime_name);\
+    ::profiler::beginBlock(PROFILER_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
+
+#define EASY_BLOCK(compiletime_name)\
+    static const ::profiler::StaticBlockDescriptor PROFILER_UNIQUE_DESC(__LINE__)(compiletime_name, __FILE__, __LINE__,\
+        ::profiler::BLOCK_TYPE_BLOCK, ::profiler::DefaultBlockColor);\
+    ::profiler::Block PROFILER_UNIQUE_BLOCK(__LINE__)(compiletime_name COMPILETIME_TEST, ::profiler::BLOCK_TYPE_BLOCK,\
+        PROFILER_UNIQUE_DESC(__LINE__).id());\
+    ::profiler::beginBlock(PROFILER_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
+
+#define EASY_BLOCK_DYNAMIC(compiletime_name, runtime_name)\
+    static const ::profiler::StaticBlockDescriptor PROFILER_UNIQUE_DESC(__LINE__)(compiletime_name, __FILE__, __LINE__,\
+        ::profiler::BLOCK_TYPE_BLOCK, ::profiler::DefaultBlockColor);\
+    ::profiler::Block PROFILER_UNIQUE_BLOCK(__LINE__)(compiletime_name COMPILETIME_TEST, ::profiler::BLOCK_TYPE_BLOCK,\
+        PROFILER_UNIQUE_DESC(__LINE__).id(), runtime_name);\
+    ::profiler::beginBlock(PROFILER_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
 /** Macro of beginning of block with custom name and custom identification
 
@@ -65,7 +92,7 @@ Block will be automatically completed by destructor
 	{
 		// some code ...
 		if(something){
-			PROFILER_BEGIN_BLOCK("Calling someThirdPartyLongFunction()",profiler::colors::Red);
+			PROFILER_BEGIN_BLOCK("Calling someThirdPartyLongFunction()", ::profiler::colors::Red);
 			someThirdPartyLongFunction();
 			return;
 		}
@@ -76,11 +103,12 @@ Block will be automatically completed by destructor
 
 \ingroup profiler
 */
-#define PROFILER_BEGIN_BLOCK_GROUPED(name,block_group)\
-    static const profiler::BlockSourceInfo TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__)(__FILE__, __LINE__);\
-    profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,block_group,profiler::BLOCK_TYPE_BLOCK,\
-            TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__).id());\
-	profiler::beginBlock(TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
+#define PROFILER_BEGIN_BLOCK_GROUPED(compiletime_name, block_group)\
+    static const ::profiler::StaticBlockDescriptor PROFILER_UNIQUE_DESC(__LINE__)(compiletime_name, __FILE__, __LINE__,\
+        ::profiler::BLOCK_TYPE_BLOCK, block_group);\
+    ::profiler::Block PROFILER_UNIQUE_BLOCK(__LINE__)(compiletime_name COMPILETIME_TEST, ::profiler::BLOCK_TYPE_BLOCK,\
+        PROFILER_UNIQUE_DESC(__LINE__).id());\
+    ::profiler::beginBlock(PROFILER_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
 /** Macro of beginning of function block with default identification
 
@@ -114,7 +142,7 @@ Name of block automatically created with function name
 
 \ingroup profiler
 */
-#define PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(block_color) PROFILER_BEGIN_BLOCK_GROUPED(__func__,block_color)
+#define PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(block_color) PROFILER_BEGIN_BLOCK_GROUPED(__func__, block_color)
 
 /** Macro of completion of last nearest open block
 
@@ -134,56 +162,56 @@ void foo()
 
 \ingroup profiler
 */
-#define PROFILER_END_BLOCK profiler::endBlock();
+#define PROFILER_END_BLOCK ::profiler::endBlock();
 
-#define PROFILER_ADD_EVENT(name)	\
-    static const profiler::BlockSourceInfo TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__)(__FILE__, __LINE__);\
-    profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,0,profiler::BLOCK_TYPE_EVENT,\
-            TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__).id());\
-	profiler::beginBlock(TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
+#define PROFILER_ADD_EVENT(compiletime_name)	\
+    static const ::profiler::StaticBlockDescriptor PROFILER_UNIQUE_DESC(__LINE__)(compiletime_name, __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT);\
+    ::profiler::Block PROFILER_UNIQUE_BLOCK(__LINE__)(compiletime_name COMPILETIME_TEST, ::profiler::BLOCK_TYPE_EVENT,\
+        PROFILER_UNIQUE_DESC(__LINE__).id());\
+    ::profiler::beginBlock(PROFILER_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
-#define PROFILER_ADD_EVENT_GROUPED(name,block_group)\
-    static const profiler::BlockSourceInfo TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__)(__FILE__, __LINE__);\
-    profiler::Block TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__)(name,block_group,profiler::BLOCK_TYPE_EVENT,\
-            TOKEN_CONCATENATE(unique_profiler_source_name_,__LINE__).id());\
-	profiler::beginBlock(TOKEN_CONCATENATE(unique_profiler_mark_name_,__LINE__));
+#define PROFILER_ADD_EVENT_GROUPED(compiletime_name, block_group)\
+    static const ::profiler::StaticBlockDescriptor PROFILER_UNIQUE_DESC(__LINE__)(compiletime_name, __FILE__, __LINE__,\
+        ::profiler::BLOCK_TYPE_EVENT, block_group);\
+    ::profiler::Block PROFILER_UNIQUE_BLOCK(__LINE__)(compiletime_name COMPILETIME_TEST, ::profiler::BLOCK_TYPE_EVENT,\
+        PROFILER_UNIQUE_DESC(__LINE__).id());\
+    ::profiler::beginBlock(PROFILER_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
 /** Macro enabling profiler
 \ingroup profiler
 */
-#define PROFILER_ENABLE profiler::setEnabled(true);
+#define PROFILER_ENABLE ::profiler::setEnabled(true);
 
 /** Macro disabling profiler
 \ingroup profiler
 */
-#define PROFILER_DISABLE profiler::setEnabled(false);
+#define PROFILER_DISABLE ::profiler::setEnabled(false);
 
 #ifdef WIN32
-#define PROFILER_SET_THREAD_NAME(name) profiler::setThreadName(name);
+#define PROFILER_SET_THREAD_NAME(name) ::profiler::setThreadName(name);
 #else
-#define PROFILER_SET_THREAD_NAME(name) thread_local static const profiler::ThreadNameSetter TOKEN_CONCATENATE(unique_profiler_thread_name_setter_,__LINE__)(name);
+#define PROFILER_SET_THREAD_NAME(name) thread_local static const ::profiler::ThreadNameSetter TOKEN_CONCATENATE(unique_profiler_thread_name_setter_, __LINE__)(name);
 #endif
 
 #define PROFILER_SET_MAIN_THREAD PROFILER_SET_THREAD_NAME("Main")
 
 #else
-#define PROFILER_ADD_MARK(name)
-#define PROFILER_ADD_MARK_GROUPED(name,block_group)
 #define PROFILER_BEGIN_BLOCK(name)
-#define PROFILER_BEGIN_BLOCK_GROUPED(name,block_group)
-#define PROFILER_BEGIN_FUNCTION_BLOCK PROFILER_BEGIN_BLOCK(__func__)
-#define PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(block_group) PROFILER_BEGIN_BLOCK_GROUPED(__func__,block_group)
-#define PROFILER_END_BLOCK profiler::endBlock();
-#define PROFILER_ENABLE profiler::setEnabled(true);
-#define PROFILER_DISABLE profiler::setEnabled(false);
+#define PROFILER_BEGIN_BLOCK_GROUPED(name, block_group)
+#define PROFILER_BEGIN_FUNCTION_BLOCK 
+#define PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(block_group) 
+#define PROFILER_END_BLOCK 
+#define PROFILER_ENABLE 
+#define PROFILER_DISABLE 
 #define PROFILER_ADD_EVENT(name)
-#define PROFILER_ADD_EVENT_GROUPED(name,block_group)
+#define PROFILER_ADD_EVENT_GROUPED(name, block_group)
 #define PROFILER_SET_THREAD_NAME(name)
 #define PROFILER_SET_MAIN_THREAD 
 #endif
 
 #include <stdint.h>
 #include <cstddef>
+#include "profiler/profiler_colors.h"
 
 #ifdef _WIN32
 #ifdef	_BUILD_PROFILER
@@ -196,62 +224,12 @@ void foo()
 #endif
 
 class ProfileManager;
+class ThreadStorage;
 
-namespace profiler
-{	
-	typedef uint8_t color_t; //RRR-GGG-BB
-
-	namespace colors{
-
-		const color_t Black        = 0x00;
-		const color_t Lightgray    = 0x6E;
-		const color_t Darkgray     = 0x25;
-		const color_t White        = 0xFF;
-		const color_t Red          = 0xE0;
-		const color_t Green        = 0x1C;
-		const color_t Blue         = 0x03;
-		const color_t Magenta      = (Red   | Blue);
-		const color_t Cyan         = (Green | Blue);
-		const color_t Yellow       = (Red   | Green);
-		const color_t Darkred      = 0x60;
-		const color_t Darkgreen    = 0x0C;
-		const color_t Darkblue     = 0x01;
-		const color_t Darkmagenta  = (Darkred   | Darkblue);
-		const color_t Darkcyan     = (Darkgreen | Darkblue);
-		const color_t Darkyellow   = (Darkred   | Darkgreen);
-		const color_t Navy         = 0x02;
-		const color_t Teal         = 0x12;
-		const color_t Maroon       = 0x80;
-		const color_t Purple       = 0x82;
-		const color_t Olive        = 0x90;
-		const color_t Grey         = 0x92;
-		const color_t Silver       = 0xDB;
-        const color_t Orange       = 0xF4;
-        const color_t Coral        = 0xF6;
-        const color_t Brick        = 0xED;
-        const color_t Clay         = 0xD6;
-        const color_t Skin         = 0xFA;
-        const color_t Palegold     = 0xFE;
-
-		inline int get_red(color_t color){
-			return (color >> 5) * 0x20;
-		}
-		inline int get_green(color_t color){
-			return ((color & 0x1C) >> 2) * 0x20;
-		}
-		inline int get_blue(color_t color){
-			return (color & 3) * 0x40;
-		}
-
-		inline int convert_to_rgb(color_t color){
-			return ((get_red(color) & 0xFF) << 16) | ((get_green(color) & 0xFF) << 8) | (get_blue(color) & 0xFF);
-		}
-
-	}
-
+namespace profiler {
 
 	class Block;
-    class BlockSourceInfo;
+    class StaticBlockDescriptor;
 	
 	extern "C"{
 		void PROFILER_API beginBlock(Block& _block);
@@ -261,115 +239,104 @@ namespace profiler
 		void PROFILER_API setThreadName(const char* name);
 	}
 
-	typedef uint8_t block_type_t;
 	typedef uint64_t timestamp_t;
 	typedef uint32_t thread_id_t;
-    typedef uint32_t source_id_t;
+    typedef uint32_t  block_id_t;
 
-	const block_type_t BLOCK_TYPE_EVENT = 1;
-	const block_type_t BLOCK_TYPE_BLOCK = 2;
-	const block_type_t BLOCK_TYPE_THREAD_SIGN = 3;
+    enum BlockType : uint8_t
+    {
+        BLOCK_TYPE_EVENT = 0,
+        BLOCK_TYPE_BLOCK,
+        BLOCK_TYPE_THREAD_SIGN,
+        BLOCK_TYPE_CONTEXT_SWITCH,
 
-#define EASY_USE_OLD_FILE_FORMAT
+        BLOCK_TYPES_NUMBER
+    };
+    typedef BlockType block_type_t;
 		
 #pragma pack(push,1)
-	class PROFILER_API BaseBlockData
-	{
-	protected:
+    class PROFILER_API BaseBlockDescriptor
+    {
+    protected:
 
-#ifdef EASY_USE_OLD_FILE_FORMAT
-        block_type_t type;
-        color_t color;
-        timestamp_t begin;
-        timestamp_t end;
-        thread_id_t thread_id;
-#else
-        timestamp_t begin;
-        timestamp_t end;
-        thread_id_t thread_id;
-        source_id_t source_id;
-        block_type_t type;
-        color_t color;
-#endif
+        int           m_line; ///< Line number in the source file
+        block_type_t  m_type; ///< Type of the block (See BlockType)
+        color_t      m_color; ///< Color of the block packed into 1-byte structure
 
-		void tick(timestamp_t& stamp);
-	public:
+        BaseBlockDescriptor(int _line, block_type_t _block_type, color_t _color);
 
-        BaseBlockData(source_id_t _source_id, color_t _color, block_type_t _type, thread_id_t _thread_id = 0);
+    public:
 
-		inline block_type_t getType() const { return type; }
-		inline color_t getColor() const { return color; }
-		inline timestamp_t getBegin() const { return begin; }
-		inline thread_id_t getThreadId() const { return thread_id; }
+        inline int line() const { return m_line; }
+        inline block_type_t type() const { return m_type; }
+        inline color_t color() const { return m_color; }
+        inline rgb32_t rgb() const { return ::profiler::colors::convert_to_rgb(m_color); }
+    };
 
-#ifdef EASY_USE_OLD_FILE_FORMAT
-        inline source_id_t getSourceId() const { return -1; }
-#else
-        inline source_id_t getSourceId() const { return source_id; }
-#endif
+    class PROFILER_API BlockDescriptor final : public BaseBlockDescriptor
+    {
+        const char*     m_name; ///< Static name of all blocks of the same type (blocks can have dynamic name) which is, in pair with descriptor id, a unique block identifier
+        const char* m_filename; ///< Source file name where this block is declared
 
-		inline timestamp_t getEnd() const { return end; }
-		inline bool isFinished() const { return end != 0; }
-		inline bool isCleared() const { return end >= begin; }
-		inline void finish(){ tick(end); }
-		timestamp_t duration() const { return (end - begin); }
+    public:
 
-        inline bool startsEarlierThan(const BaseBlockData& another) const {return this->begin < another.begin;}
-        inline bool endsEarlierThan(const BaseBlockData& another) const {return this->end < another.end;}
-        inline bool startsLaterThan(const BaseBlockData& another) const {return !this->startsEarlierThan(another);}
-        inline bool endsLaterThan(const BaseBlockData& another) const {return !this->endsEarlierThan(another);}
-	};
+        BlockDescriptor(uint64_t& _used_mem, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color);
+
+        const char* name() const { return m_name; }
+        const char* file() const { return m_filename; }
+    };
+
+    class PROFILER_API BaseBlockData
+    {
+    protected:
+
+        timestamp_t m_begin;
+        timestamp_t   m_end;
+        block_id_t     m_id;
+
+    public:
+
+        BaseBlockData(timestamp_t _begin_time, block_id_t _id);
+
+        inline timestamp_t begin() const { return m_begin; }
+        inline timestamp_t end() const { return m_end; }
+        inline block_id_t id() const { return m_id; }
+        timestamp_t duration() const { return m_end - m_begin; }
+    };
 #pragma pack(pop)
 
     class PROFILER_API Block final : public BaseBlockData
-	{
-		const char* m_name;		
-	public:
-
-        Block(const char* _name, color_t _color, block_type_t _type, source_id_t _source_id);
-        Block(const char* _name, thread_id_t _thread_id, color_t _color, block_type_t _type, source_id_t _source_id);
-		~Block();
-
-		inline const char* getName() const { return m_name; }		
-	};
-
-    class PROFILER_API SourceBlock final
-    {
-        const char* m_filename;
-        int             m_line;
-
-    public:
-
-        SourceBlock(const char* _filename, int _line);
-
-        const char* file() const { return m_filename; }
-        int line() const { return m_line; }
-    };
-
-    class PROFILER_API SerializedBlock final : public BaseBlockData
     {
         friend ::ProfileManager;
 
-    public:
-
-        ///< Deprecated. For backward compatibility.
-        inline const BaseBlockData* block() const { return this; }
-
-        inline const char* data() const { return reinterpret_cast<const char*>(this); }
-        inline const char* getName() const { return data() + sizeof(BaseBlockData); }
+        const char* m_name;
 
     private:
 
-        static SerializedBlock* create(const Block &block, uint64_t& memory_size);
-        static void destroy(SerializedBlock* that);
+        void finish();
+        inline bool isFinished() const { return m_end >= m_begin; }
 
-        SerializedBlock(const profiler::Block& block, uint16_t name_length);
+    public:
 
-        SerializedBlock(const SerializedBlock&) = delete;
-        SerializedBlock& operator = (const SerializedBlock&) = delete;
-        ~SerializedBlock() = delete;
+        Block(const char*, block_type_t _block_type, block_id_t _id, const char* _name = "");
+        ~Block();
+
+        inline const char* name() const { return m_name; }
     };
 
+    //////////////////////////////////////////////////////////////////////
+
+    class PROFILER_API StaticBlockDescriptor final
+    {
+        block_id_t m_id;
+
+    public:
+
+        StaticBlockDescriptor(const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color = colors::Random);
+        block_id_t id() const { return m_id; }
+    };
+
+#ifndef WIN32
     struct PROFILER_API ThreadNameSetter final
     {
         ThreadNameSetter(const char* _name)
@@ -377,17 +344,9 @@ namespace profiler
             setThreadName(_name);
         }
     };
+#endif
 
-    class PROFILER_API BlockSourceInfo final
-    {
-        unsigned int m_id;
-
-    public:
-
-        BlockSourceInfo(const char* _filename, int _linenumber);
-
-        unsigned int id() const { return m_id; }
-    };
+    //////////////////////////////////////////////////////////////////////
 	
 } // END of namespace profiler.
 

@@ -13,35 +13,6 @@ struct ProfPerformanceFrequency {
 } const WINDOWS_CPU_INFO;
 #endif
 
-BaseBlockData::BaseBlockData(source_id_t _source_id, color_t _color, block_type_t _type, thread_id_t _thread_id)
-    : begin(0)
-    , end(0)
-    , thread_id(_thread_id)
-#ifndef EASY_USE_OLD_FILE_FORMAT
-    , source_id(_source_id)
-#endif
-    , type(_type)
-    , color(_color)
-{
-
-}
-
-Block::Block(const char* _name, color_t _color, block_type_t _type, source_id_t _source_id)
-    : Block(_name, getCurrentThreadId(), _color, _type, _source_id)
-{
-}
-
-Block::Block(const char* _name, thread_id_t _thread_id, color_t _color, block_type_t _type, source_id_t _source_id)
-    : BaseBlockData(_source_id, _color, _type, _thread_id)
-    , m_name(_name)
-{
-    tick(begin);
-    if (BLOCK_TYPE_BLOCK != this->type)
-    {
-        end = begin;
-    }
-}
-
 inline timestamp_t getCurrentTime()
 {
 #ifdef WIN32
@@ -59,20 +30,31 @@ inline timestamp_t getCurrentTime()
 #endif
 }
 
-void BaseBlockData::tick(timestamp_t& stamp)
+BaseBlockData::BaseBlockData(timestamp_t _begin_time, block_id_t _descriptor_id)
+    : m_begin(_begin_time)
+    , m_end(0)
+    , m_id(_descriptor_id)
 {
-	stamp = getCurrentTime();
+
+}
+
+Block::Block(const char*, block_type_t _block_type, block_id_t _descriptor_id, const char* _name)
+    : BaseBlockData(getCurrentTime(), _descriptor_id)
+    , m_name(_name)
+{
+    if (_block_type != BLOCK_TYPE_BLOCK)
+    {
+        m_end = m_begin;
+    }
+}
+
+void Block::finish()
+{
+    m_end = getCurrentTime();
 }
 
 Block::~Block()
 {
-	if (this->type == BLOCK_TYPE_BLOCK)
-	{
-		if (this->isCleared())//this block was cleared by END_BLOCK macros
-			return;
-		if (!this->isFinished())
-			this->finish();
-
-		endBlock();
-	}
+    if (!isFinished())
+        ::profiler::endBlock();
 }

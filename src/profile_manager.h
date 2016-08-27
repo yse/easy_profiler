@@ -30,6 +30,8 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #include <vector>
 #include <functional>
 
+//////////////////////////////////////////////////////////////////////////
+
 #ifdef WIN32
 #include <Windows.h>
 #else
@@ -46,36 +48,89 @@ inline uint32_t getCurrentThreadId()
 #endif
 }
 
+namespace profiler { class SerializedBlock; }
+
+//////////////////////////////////////////////////////////////////////////
+
+template <class T, uint16_t N>
+class chunk_allocator final
+{
+    struct chunk {
+        T data[N] = {};
+    };
+
+    std::list<chunk> m_chunks;
+    uint16_t           m_size;
+
+public:
+
+    chunk_allocator() : m_size(0)
+    {
+        m_chunks.emplace_back();
+    }
+
+    T* allocate(uint16_t n)
+    {
+        if (m_size + n <= N)
+        {
+            T* data = m_chunks.back().data + m_size;
+            m_size += n;
+            return data;
+        }
+
+        m_size = 0;
+        m_chunks.emplace_back();
+        return m_chunks.back().data;
+    }
+
+    void clear()
+    {
+        m_size = 0;
+        m_chunks.clear();
+        m_chunks.emplace_back();
+    }
+};
+
+//////////////////////////////////////////////////////////////////////////
+
+class ThreadStorage
+{
+    typedef std::stack<std::reference_wrapper<profiler::Block> > stack_of_blocks_t;
+    typedef std::vector<profiler::SerializedBlock*> serialized_list_t;
+
+    chunk_allocator<char, 1024> m_allocator;
+
+public:
+
+    stack_of_blocks_t         openedList;
+    serialized_list_t         closedList;
+    uint64_t          usedMemorySize = 0;
+    bool                   named = false;
+
+    void store(const profiler::Block& _block);
+    void clearClosed();
+};
+
+//////////////////////////////////////////////////////////////////////////
+
 class ProfileManager
 {
-	ProfileManager();
-	ProfileManager(const ProfileManager& p) = delete;
-	ProfileManager& operator=(const ProfileManager&) = delete;
-    static ProfileManager m_profileManager;
+    friend profiler::StaticBlockDescriptor;
 
-	bool m_isEnabled = false;
+    ProfileManager();
+    ProfileManager(const ProfileManager& p) = delete;
+    ProfileManager& operator=(const ProfileManager&) = delete;
 
-    typedef std::stack<::std::reference_wrapper<profiler::Block> > stack_of_blocks_t;
-	typedef std::map<size_t, stack_of_blocks_t> map_of_threads_stacks;
-	typedef std::set<size_t> set_of_thread_id;
-    typedef std::vector<profiler::SourceBlock> sources;
+    typedef profiler::guard_lock<profiler::spin_lock> guard_lock_t;
+    typedef std::map<profiler::thread_id_t, ThreadStorage> map_of_threads_stacks;
+    typedef std::vector<profiler::BlockDescriptor> block_descriptors_t;
 
-	map_of_threads_stacks m_openedBracketsMap;
-
-	profiler::spin_lock m_spin;
-	profiler::spin_lock m_storedSpin;
-	typedef profiler::guard_lock<profiler::spin_lock> guard_lock_t;
-
-    void _internalInsertBlock(const profiler::Block &_block);
-
-    sources m_sources;
-
-	typedef std::list<profiler::SerializedBlock*> serialized_list_t;
-	serialized_list_t m_blocks;
-
-	set_of_thread_id m_namedThreades;
-
-    uint64_t m_blocksMemorySize = 0;
+    map_of_threads_stacks     m_threads;
+    block_descriptors_t   m_descriptors;
+    uint64_t       m_usedMemorySize = 0;
+    profiler::spin_lock          m_spin;
+    profiler::spin_lock    m_storedSpin;
+    bool            m_isEnabled = false;
 
 public:
 
@@ -85,9 +140,25 @@ public:
     void beginBlock(profiler::Block& _block);
 	void endBlock();
 	void setEnabled(bool isEnable);
-	unsigned int dumpBlocksToFile(const char* filename);
+    uint32_t dumpBlocksToFile(const char* filename);
 	void setThreadName(const char* name);
-    unsigned int addSource(const char* _filename, int _line);
+
+private:
+
+    template <class ... TArgs>
+    uint32_t addBlockDescriptor(TArgs ... _args)
+    {
+        guard_lock_t lock(m_storedSpin);
+        const auto id = static_cast<uint32_t>(m_descriptors.size());
+        m_descriptors.emplace_back(m_usedMemorySize, _args...);
+        return id;
+    }
+
+    ThreadStorage& threadStorage(profiler::thread_id_t _thread_id)
+    {
+        guard_lock_t lock(m_spin);
+        return m_threads[_thread_id];
+    }
 };
 
 #endif
