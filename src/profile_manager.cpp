@@ -185,10 +185,10 @@ uint32_t ProfileManager::dumpBlocksToFile(const char* filename)
     {
         const auto name_size = static_cast<uint16_t>(strlen(descriptor.name()) + 1);
         const auto filename_size = static_cast<uint16_t>(strlen(descriptor.file()) + 1);
-        const auto size = static_cast<uint16_t>(sizeof(profiler::BaseBlockDescriptor)) + name_size + filename_size + sizeof(uint16_t);
+        const auto size = static_cast<uint16_t>(sizeof(profiler::BaseBlockDescriptor) + name_size + filename_size + sizeof(uint16_t));
 
         of.write(size);
-        of.write(static_cast<const profiler::BaseBlockDescriptor&>(descriptor));
+        of.write<profiler::BaseBlockDescriptor>(descriptor);
         of.write(name_size);
         of.write(descriptor.name(), name_size);
         of.write(descriptor.file(), filename_size);

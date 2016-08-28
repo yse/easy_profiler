@@ -311,20 +311,10 @@ extern "C" {
 
             char* data = serialized_descriptors[i];
             inFile.read(data, sz);
-            //auto base_offset = data;
-            //inFile.read(data, sizeof(::profiler::BaseBlockDescriptor));
-            //auto base = reinterpret_cast<::profiler::BaseBlockDescriptor*>(data);
-            //data = data + sizeof(::profiler::BaseBlockDescriptor);
-            //inFile.read(data, sizeof(uint16_t));
-            //auto name_len = reinterpret_cast<uint16_t*>(data);
-            //data = data + sizeof(uint16_t);
-            //inFile.read(data, *name_len);
-            //data = data + *name_len;
-            //inFile.read(data, sz - ::std::distance(base_offset, data));
-            i += sz;
             auto descriptor = reinterpret_cast<::profiler::SerializedBlockDescriptor*>(data);
             descriptors.push_back(descriptor);
 
+            i += sz;
             progress.store(static_cast<int>(10 * i / descriptors_memory_size));
         }
 

@@ -55,9 +55,7 @@ namespace profiler { class SerializedBlock; }
 template <class T, uint16_t N>
 class chunk_allocator final
 {
-    struct chunk {
-        T data[N] = {};
-    };
+    struct chunk { T data[N]; };
 
     std::list<chunk> m_chunks;
     uint16_t           m_size;

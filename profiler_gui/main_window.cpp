@@ -216,7 +216,7 @@ void EasyMainWindow::loadFile(const QString& filename)
     m_progress->setLabelText(QString("Loading %1...").arg(filename.mid(::std::max(i, j) + 1)));
 
     m_progress->setValue(0);
-    //m_progress->show();
+    m_progress->show();
     m_readerTimer.start(LOADER_TIMER_INTERVAL);
     m_reader.load(filename);
 }
