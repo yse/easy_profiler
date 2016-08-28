@@ -831,12 +831,18 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     // instead of scrollbar we're using manual offset
     _painter->setTransform(QTransform::fromTranslate(-x(), -y()), true);
 
+    if (m_left < sceneLeft)
+        rect.setLeft(0);
+
+    if (m_right > sceneRight)
+        rect.setWidth((sceneRight - offset) * currentScale - rect.left());
+
     // draw transparent rectangle
     auto vcenter = rect.top() + rect.height() * 0.5;
     QLinearGradient g(rect.left(), vcenter, rect.right(), vcenter);
     g.setColorAt(0, m_color);
-    g.setColorAt(0.15, QColor::fromRgba(0x14000000 | rgb));
-    g.setColorAt(0.85, QColor::fromRgba(0x14000000 | rgb));
+    g.setColorAt(0.15, QColor::fromRgba(0x10000000 | rgb));
+    g.setColorAt(0.85, QColor::fromRgba(0x10000000 | rgb));
     g.setColorAt(1, m_color);
     _painter->setBrush(g);
     _painter->setPen(Qt::NoPen);
@@ -854,16 +860,6 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     _painter->setCompositionMode(QPainter::CompositionMode_Difference); // This lets the text to be visible on every background
     _painter->setPen(0xffffffff - rgb);
     _painter->setFont(CHRONOMETER_FONT);
-
-    if (m_left < sceneLeft)
-    {
-        rect.setLeft(0);
-    }
-
-    if (m_right > sceneRight)
-    {
-        rect.setWidth((sceneRight - offset) * currentScale - rect.left());
-    }
 
     int textFlags = 0;
     switch (::profiler_gui::EASY_GLOBALS.chrono_text_position)
