@@ -47,6 +47,7 @@ namespace profiler {
 
     //////////////////////////////////////////////////////////////////////////
 
+#pragma pack(push, 1)
     class PROFILER_API SerializedBlockDescriptor final : public BaseBlockDescriptor
     {
         uint16_t m_nameLength;
@@ -73,6 +74,7 @@ namespace profiler {
         ~SerializedBlockDescriptor() = delete;
 
     }; // END of SerializedBlockDescriptor.
+#pragma pack(pop)
 
     //////////////////////////////////////////////////////////////////////////
 

@@ -79,6 +79,7 @@ namespace profiler_gui {
 
         EasyGlobalSignals                         events; ///< Global signals
         ::profiler::thread_blocks_tree_t profiler_blocks; ///< Profiler blocks tree loaded from file
+        ::profiler::descriptors_list_t       descriptors; ///< Profiler block descriptors list
         EasyBlocks                            gui_blocks; ///< Profiler graphics blocks builded by GUI
         ::profiler::thread_id_t          selected_thread; ///< Current selected thread id
         unsigned int                      selected_block; ///< Current selected profiler block index

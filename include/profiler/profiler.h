@@ -67,7 +67,7 @@ Block will be automatically completed by destructor
     static const ::profiler::StaticBlockDescriptor PROFILER_UNIQUE_DESC(__LINE__)(compiletime_name, __FILE__, __LINE__,\
         ::profiler::BLOCK_TYPE_BLOCK, ::profiler::DefaultBlockColor);\
     ::profiler::Block PROFILER_UNIQUE_BLOCK(__LINE__)(compiletime_name COMPILETIME_TEST, ::profiler::BLOCK_TYPE_BLOCK,\
-        PROFILER_UNIQUE_DESC(__LINE__).id(), compiletime_name);\
+        PROFILER_UNIQUE_DESC(__LINE__).id());\
     ::profiler::beginBlock(PROFILER_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
 #define EASY_BLOCK(compiletime_name)\
@@ -77,10 +77,10 @@ Block will be automatically completed by destructor
         PROFILER_UNIQUE_DESC(__LINE__).id());\
     ::profiler::beginBlock(PROFILER_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
-#define EASY_BLOCK_DYNAMIC(compiletime_name, runtime_name)\
-    static const ::profiler::StaticBlockDescriptor PROFILER_UNIQUE_DESC(__LINE__)(compiletime_name, __FILE__, __LINE__,\
+#define EASY_BLOCK_RUNTIME(runtime_name)\
+    static const ::profiler::StaticBlockDescriptor PROFILER_UNIQUE_DESC(__LINE__)("", __FILE__, __LINE__,\
         ::profiler::BLOCK_TYPE_BLOCK, ::profiler::DefaultBlockColor);\
-    ::profiler::Block PROFILER_UNIQUE_BLOCK(__LINE__)(compiletime_name COMPILETIME_TEST, ::profiler::BLOCK_TYPE_BLOCK,\
+    ::profiler::Block PROFILER_UNIQUE_BLOCK(__LINE__)(nullptr, ::profiler::BLOCK_TYPE_BLOCK,\
         PROFILER_UNIQUE_DESC(__LINE__).id(), runtime_name);\
     ::profiler::beginBlock(PROFILER_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
@@ -302,6 +302,8 @@ namespace profiler {
         inline timestamp_t end() const { return m_end; }
         inline block_id_t id() const { return m_id; }
         timestamp_t duration() const { return m_end - m_begin; }
+
+        void setId(block_id_t _id) { m_id = _id; }
     };
 #pragma pack(pop)
 

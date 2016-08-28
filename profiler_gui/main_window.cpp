@@ -219,26 +219,6 @@ void EasyMainWindow::loadFile(const QString& filename)
     //m_progress->show();
     m_readerTimer.start(LOADER_TIMER_INTERVAL);
     m_reader.load(filename);
-
-//     ::profiler::SerializedData data;
-//     ::profiler::thread_blocks_tree_t prof_blocks;
-//     auto nblocks = fillTreesFromFile(stdfilename.c_str(), data, prof_blocks, true);
-// 
-//     if (nblocks != 0)
-//     {
-//         static_cast<EasyTreeWidget*>(m_treeWidget->widget())->clearSilent(true);
-// 
-//         m_lastFile = stdfilename;
-//         m_serializedData = ::std::move(data);
-//         ::profiler_gui::EASY_GLOBALS.selected_thread = 0;
-//         ::profiler_gui::set_max(::profiler_gui::EASY_GLOBALS.selected_block);
-//         ::profiler_gui::EASY_GLOBALS.profiler_blocks.swap(prof_blocks);
-//         ::profiler_gui::EASY_GLOBALS.gui_blocks.resize(nblocks);
-//         memset(::profiler_gui::EASY_GLOBALS.gui_blocks.data(), 0, sizeof(::profiler_gui::EasyBlock) * nblocks);
-//         for (auto& guiblock : ::profiler_gui::EASY_GLOBALS.gui_blocks) ::profiler_gui::set_max(guiblock.tree_item);
-// 
-//         static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->setTree(::profiler_gui::EASY_GLOBALS.profiler_blocks);
-//     }
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -420,10 +400,11 @@ void EasyMainWindow::onFileReaderTimeout()
         {
             static_cast<EasyTreeWidget*>(m_treeWidget->widget())->clearSilent(true);
 
-            ::profiler::SerializedData data;
+            ::profiler::SerializedData serialized_blocks, serialized_descriptors;
+            ::profiler::descriptors_list_t descriptors;
             ::profiler::thread_blocks_tree_t prof_blocks;
             QString filename;
-            m_reader.get(data, prof_blocks, filename);
+            m_reader.get(serialized_blocks, serialized_descriptors, descriptors, prof_blocks, filename);
 
             if (prof_blocks.size() > 0xff)
             {
@@ -432,10 +413,12 @@ void EasyMainWindow::onFileReaderTimeout()
             }
 
             m_lastFile = ::std::move(filename);
-            m_serializedData = ::std::move(data);
+            m_serializedBlocks = ::std::move(serialized_blocks);
+            m_serializedDescriptors = ::std::move(serialized_descriptors);
             ::profiler_gui::EASY_GLOBALS.selected_thread = 0;
             ::profiler_gui::set_max(::profiler_gui::EASY_GLOBALS.selected_block);
             ::profiler_gui::EASY_GLOBALS.profiler_blocks.swap(prof_blocks);
+            ::profiler_gui::EASY_GLOBALS.descriptors.swap(descriptors);
             ::profiler_gui::EASY_GLOBALS.gui_blocks.resize(nblocks);
             memset(::profiler_gui::EASY_GLOBALS.gui_blocks.data(), 0, sizeof(::profiler_gui::EasyBlock) * nblocks);
             for (auto& guiblock : ::profiler_gui::EASY_GLOBALS.gui_blocks) ::profiler_gui::set_max(guiblock.tree_item);
@@ -444,7 +427,7 @@ void EasyMainWindow::onFileReaderTimeout()
         }
         else
         {
-            qWarning() << "Warning: Can not open file " << m_reader.filename();
+            qWarning() << "Warning: Can not open file " << m_reader.filename() << " or file is corrupted";
         }
 
         m_reader.interrupt();
@@ -509,10 +492,11 @@ void EasyFileReader::load(const QString& _filename)
     interrupt();
 
     m_filename = _filename;
-    m_thread = ::std::move(::std::thread([](::std::atomic_bool& isDone, ::std::atomic<unsigned int>& blocks_number, ::std::atomic<int>& progress, const QString& filename, ::profiler::SerializedData& serialized_blocks, ::profiler::thread_blocks_tree_t& threaded_trees) {
-        blocks_number.store(fillTreesFromFile(progress, filename.toStdString().c_str(), serialized_blocks, threaded_trees, true));
-        isDone.store(true);
-    }, ::std::ref(m_bDone), ::std::ref(m_size), ::std::ref(m_progress), ::std::ref(m_filename), ::std::ref(m_serializedData), ::std::ref(m_blocksTree)));
+    m_thread = ::std::move(::std::thread([this]() {
+        m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_serializedBlocks, m_serializedDescriptors, m_descriptors, m_blocksTree, true));
+        m_progress.store(100);
+        m_bDone.store(true);
+    }));
 }
 
 void EasyFileReader::interrupt()
@@ -524,15 +508,20 @@ void EasyFileReader::interrupt()
     m_bDone.store(false);
     m_progress.store(0);
     m_size.store(0);
-    m_serializedData.clear();
+    m_serializedBlocks.clear();
+    m_serializedDescriptors.clear();
+    m_descriptors.clear();
     m_blocksTree.clear();
 }
 
-void EasyFileReader::get(::profiler::SerializedData& _data, ::profiler::thread_blocks_tree_t& _tree, QString& _filename)
+void EasyFileReader::get(::profiler::SerializedData& _serializedBlocks, ::profiler::SerializedData& _serializedDescriptors,
+                         ::profiler::descriptors_list_t& _descriptors, ::profiler::thread_blocks_tree_t& _tree, QString& _filename)
 {
     if (done())
     {
-        m_serializedData.swap(_data);
+        m_serializedBlocks.swap(_serializedBlocks);
+        m_serializedDescriptors.swap(_serializedDescriptors);
+        ::profiler::descriptors_list_t(m_descriptors).swap(_descriptors);
         m_blocksTree.swap(_tree);
         m_filename.swap(_filename);
     }

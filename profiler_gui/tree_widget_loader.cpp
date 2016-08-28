@@ -126,9 +126,9 @@ void FillTreeClass<T>::setTreeInternal1(T& _safelocker, Items& _items, ThreadedI
     ::profiler::timestamp_t finishtime = 0;
     for (const auto& threadTree : _blocksTree)
     {
-        const auto node_block = threadTree.second.tree.children.front().node->block();
-        const auto startTime = node_block->getBegin();
-        const auto endTime = node_block->getEnd();
+        const auto node_block = threadTree.second.tree.children.front().node;
+        const auto startTime = node_block->begin();
+        const auto endTime = node_block->end();
 
         if (_beginTime > startTime)
             _beginTime = startTime;
@@ -160,7 +160,7 @@ void FillTreeClass<T>::setTreeInternal1(T& _safelocker, Items& _items, ThreadedI
         ::profiler::timestamp_t duration = 0;
         if (!block.children.empty())
         {
-            duration = block.children.back().node->block()->getEnd() - block.children.front().node->block()->getBegin();
+            duration = block.children.back().node->end() - block.children.front().node->begin();
         }
 
         item->setTimeSmart(COL_DURATION, duration);
@@ -172,7 +172,7 @@ void FillTreeClass<T>::setTreeInternal1(T& _safelocker, Items& _items, ThreadedI
         // TODO: Optimize children duration calculation (it must be calculated before setTreeInternal now)
         ::profiler::timestamp_t children_duration = 0;
         for (const auto& child : block.children)
-            children_duration += child.node->block()->duration();
+            children_duration += child.node->duration();
         item->setTimeSmart(COL_SELF_DURATION, children_duration);
 
         children_duration = 0;
@@ -226,8 +226,8 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
         if (_safelocker.interrupted())
             break;
 
-        const auto startTime = block.tree->node->block()->getBegin();
-        const auto endTime = block.tree->node->block()->getEnd();
+        const auto startTime = block.tree->node->begin();
+        const auto endTime = block.tree->node->end();
         if (startTime > _right || endTime < _left)
         {
             _safelocker.setProgress((90 * ++i) / total);
@@ -256,7 +256,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
 
             if (!block.root->tree.children.empty())
             {
-                duration = block.root->tree.children.back().node->block()->getEnd() - block.root->tree.children.front().node->block()->getBegin();
+                duration = block.root->tree.children.back().node->end() - block.root->tree.children.front().node->begin();
             }
 
             thread_item->setTimeSmart(COL_DURATION, duration);
@@ -266,7 +266,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
             // Calculate clean duration (sum of all children durations)
             ::profiler::timestamp_t children_duration = 0;
             for (const auto& child : block.root->tree.children)
-                children_duration += child.node->block()->duration();
+                children_duration += child.node->duration();
             thread_item->setTimeSmart(COL_SELF_DURATION, children_duration);
 
             threadsMap.insert(::std::make_pair(block.root->thread_id, thread_item));
@@ -275,7 +275,8 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
         auto item = new EasyTreeWidgetItem(block.tree, thread_item);
         duration = endTime - startTime;
 
-        item->setText(COL_NAME, ::profiler_gui::toUnicode(block.tree->node->getName()));
+        auto name = *block.tree->node->name() != 0 ? block.tree->node->name() : ::profiler_gui::EASY_GLOBALS.descriptors[block.tree->node->id()]->name();
+        item->setText(COL_NAME, ::profiler_gui::toUnicode(name));
         item->setTimeSmart(COL_DURATION, duration);
         item->setTimeMs(COL_BEGIN, startTime - _beginTime);
         item->setTimeMs(COL_END, endTime - _beginTime);
@@ -338,7 +339,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
             item->setText(COL_PERCENT_SUM_PER_THREAD, "");
         }
 
-        const auto color = block.tree->node->block()->getColor();
+        const auto color = ::profiler_gui::EASY_GLOBALS.descriptors[block.tree->node->id()]->color();
         const auto bgColor = ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
         const auto fgColor = 0x00ffffff - bgColor;
         item->setBackgroundColor(bgColor);
@@ -425,8 +426,8 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
         if (_safelocker.interrupted())
             break;
 
-        const auto startTime = child.node->block()->getBegin();
-        const auto endTime = child.node->block()->getEnd();
+        const auto startTime = child.node->begin();
+        const auto endTime = child.node->end();
         const auto duration = endTime - startTime;
         _duration += duration;
 
@@ -436,7 +437,9 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
         }
 
         auto item = new EasyTreeWidgetItem(&child, _parent);
-        item->setText(COL_NAME, ::profiler_gui::toUnicode(child.node->getName()));
+
+        auto name = *child.node->name() != 0 ? child.node->name() : ::profiler_gui::EASY_GLOBALS.descriptors[child.node->id()]->name();
+        item->setText(COL_NAME, ::profiler_gui::toUnicode(name));
         item->setTimeSmart(COL_DURATION, duration);
         item->setTimeMs(COL_BEGIN, startTime - _beginTime);
         item->setTimeMs(COL_END, endTime - _beginTime);
@@ -529,7 +532,7 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
             item->setText(COL_PERCENT_SUM_PER_THREAD, "");
         }
 
-        const auto color = child.node->block()->getColor();
+        const auto color = ::profiler_gui::EASY_GLOBALS.descriptors[child.node->id()]->color();
         const auto bgColor = ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
         const auto fgColor = 0x00ffffff - bgColor;
         item->setBackgroundColor(bgColor);

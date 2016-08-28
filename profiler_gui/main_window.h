@@ -32,13 +32,15 @@ class QDockWidget;
 
 class EasyFileReader final
 {
-    ::profiler::SerializedData   m_serializedData; ///< 
-    ::profiler::thread_blocks_tree_t m_blocksTree; ///< 
-    QString                            m_filename; ///< 
-    ::std::thread                        m_thread; ///< 
-    ::std::atomic_bool                    m_bDone; ///< 
-    ::std::atomic<int>                 m_progress; ///< 
-    ::std::atomic<unsigned int>            m_size; ///< 
+    ::profiler::SerializedData      m_serializedBlocks; ///< 
+    ::profiler::SerializedData m_serializedDescriptors; ///< 
+    ::profiler::descriptors_list_t       m_descriptors; ///< 
+    ::profiler::thread_blocks_tree_t      m_blocksTree; ///< 
+    QString                                 m_filename; ///< 
+    ::std::thread                             m_thread; ///< 
+    ::std::atomic_bool                         m_bDone; ///< 
+    ::std::atomic<int>                      m_progress; ///< 
+    ::std::atomic<unsigned int>                 m_size; ///< 
 
 public:
 
@@ -52,7 +54,8 @@ public:
 
     void load(const QString& _filename);
     void interrupt();
-    void get(::profiler::SerializedData& _data, ::profiler::thread_blocks_tree_t& _tree, QString& _filename);
+    void get(::profiler::SerializedData& _serializedBlocks, ::profiler::SerializedData& _serializedDescriptors,
+             ::profiler::descriptors_list_t& _descriptors, ::profiler::thread_blocks_tree_t& _tree, QString& _filename);
 
 }; // END of class EasyFileReader.
 
@@ -67,13 +70,14 @@ protected:
     typedef EasyMainWindow This;
     typedef QMainWindow  Parent;
 
-    QString                          m_lastFile;
-    QDockWidget*                   m_treeWidget;
-    QDockWidget*                 m_graphicsView;
-    class QProgressDialog*           m_progress;
-    QTimer                        m_readerTimer;
-    ::profiler::SerializedData m_serializedData;
-    EasyFileReader                     m_reader;
+    QString                                 m_lastFile;
+    QDockWidget*                          m_treeWidget;
+    QDockWidget*                        m_graphicsView;
+    class QProgressDialog*                  m_progress;
+    QTimer                               m_readerTimer;
+    ::profiler::SerializedData      m_serializedBlocks;
+    ::profiler::SerializedData m_serializedDescriptors;
+    EasyFileReader                            m_reader;
 
 public:
 

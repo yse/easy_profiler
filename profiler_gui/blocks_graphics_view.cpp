@@ -422,7 +422,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
             _painter->setPen(textColor);
 
             // drawing text
-            _painter->drawText(rect, flags, ::profiler_gui::toUnicode(item.block->node->getName()));
+            auto name = *item.block->node->name() != 0 ? item.block->node->name() : ::profiler_gui::EASY_GLOBALS.descriptors[item.block->node->id()]->name();
+            _painter->drawText(rect, flags, ::profiler_gui::toUnicode(name));
 
             // restore previous pen color
             if (previousPenStyle == Qt::NoPen)
@@ -481,7 +482,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     _painter->setPen(textColor);
 
                     // drawing text
-                    _painter->drawText(rect, Qt::AlignCenter, ::profiler_gui::toUnicode(item.block->node->getName()));
+                    auto name = *item.block->node->name() != 0 ? item.block->node->name() : ::profiler_gui::EASY_GLOBALS.descriptors[item.block->node->id()]->name();
+                    _painter->drawText(rect, Qt::AlignCenter, ::profiler_gui::toUnicode(name));
                     // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                 }
             }
@@ -1365,8 +1367,8 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     for (const auto& threadTree : _blocksTree)
     {
         const auto& tree = threadTree.second.tree;
-        const auto timestart = tree.children.front().node->block()->getBegin();
-        const auto timefinish = tree.children.back().node->block()->getEnd();
+        const auto timestart = tree.children.front().node->begin();
+        const auto timefinish = tree.children.back().node->end();
 
         if (m_beginTime > timestart)
         {
@@ -1393,7 +1395,7 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
 
         // fill scene with new items
         const auto& tree = threadTree.second.tree;
-        qreal h = 0, x = time2position(tree.children.front().node->block()->getBegin());
+        qreal h = 0, x = time2position(tree.children.front().node->begin());
         auto item = new EasyGraphicsItem(static_cast<unsigned char>(m_items.size()), &threadTree.second);
         item->setLevels(tree.depth);
         item->setPos(0, y);
@@ -1469,13 +1471,13 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
     qreal start_time = -1;
     for (const auto& child : _children)
     {
-        auto xbegin = time2position(child.node->block()->getBegin());
+        auto xbegin = time2position(child.node->begin());
         if (start_time < 0)
         {
             start_time = xbegin;
         }
 
-        auto duration = time2position(child.node->block()->getEnd()) - xbegin;
+        auto duration = time2position(child.node->end()) - xbegin;
 
         //const auto dt = xbegin - prev_end;
         //if (dt < 0)
@@ -1529,7 +1531,7 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
             maxh = h;
         }
 
-        const auto color = child.node->block()->getColor();
+        const auto color = ::profiler_gui::EASY_GLOBALS.descriptors[child.node->id()]->color();
         b.block = &child;
         b.color = ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
         b.setPos(xbegin, duration);

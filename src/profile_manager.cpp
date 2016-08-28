@@ -53,6 +53,14 @@ StaticBlockDescriptor::StaticBlockDescriptor(const char* _name, const char* _fil
 
 }
 
+BaseBlockDescriptor::BaseBlockDescriptor(int _line, block_type_t _block_type, color_t _color)
+    : m_line(_line)
+    , m_type(_block_type)
+    , m_color(_color)
+{
+
+}
+
 BlockDescriptor::BlockDescriptor(uint64_t& _used_mem, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
     : BaseBlockDescriptor(_line, _block_type, _color)
     , m_name(_name)
@@ -135,9 +143,30 @@ void ProfileManager::setEnabled(bool isEnable)
 	m_isEnabled = isEnable;
 }
 
+//////////////////////////////////////////////////////////////////////////
+
+class FileWriter final
+{
+    std::ofstream m_file;
+
+public:
+
+    FileWriter(const char* _filename) : m_file(_filename, std::fstream::binary) { }
+
+    template <typename T> void write(const char* _data, T _size) {
+        m_file.write(_data, _size);
+    }
+
+    template <class T> void write(const T& _data) {
+        m_file.write((const char*)&_data, sizeof(T));
+    }
+};
+
+//////////////////////////////////////////////////////////////////////////
+
 uint32_t ProfileManager::dumpBlocksToFile(const char* filename)
 {
-    std::ofstream of(filename, std::fstream::binary);
+    FileWriter of(filename);
 
     uint64_t usedMemorySize = 0;
     uint32_t blocks_number = 0;
@@ -147,33 +176,33 @@ uint32_t ProfileManager::dumpBlocksToFile(const char* filename)
         blocks_number += static_cast<uint32_t>(thread_storage.second.closedList.size());
     }
 
-    of.write((const char*)&blocks_number, sizeof(decltype(blocks_number)));
-    of.write((const char*)&usedMemorySize, sizeof(decltype(usedMemorySize)));
+    of.write(blocks_number);
+    of.write(usedMemorySize);
+    of.write(static_cast<uint32_t>(m_descriptors.size()));
+    of.write(m_usedMemorySize);
 
-    auto descriptors_number = static_cast<uint32_t>(m_descriptors.size());
-    of.write((const char*)&descriptors_number, sizeof(decltype(descriptors_number)));
-    of.write((const char*)&m_usedMemorySize, sizeof(decltype(m_usedMemorySize)));
     for (const auto& descriptor : m_descriptors)
     {
         const auto name_size = static_cast<uint16_t>(strlen(descriptor.name()) + 1);
         const auto filename_size = static_cast<uint16_t>(strlen(descriptor.file()) + 1);
         const auto size = static_cast<uint16_t>(sizeof(profiler::BaseBlockDescriptor)) + name_size + filename_size + sizeof(uint16_t);
 
-        of.write((const char*)&size, sizeof(uint16_t));
-        of.write((const char*)&descriptor, sizeof(profiler::BaseBlockDescriptor));
-        of.write((const char*)&name_size, sizeof(uint16_t));
+        of.write(size);
+        of.write(static_cast<const profiler::BaseBlockDescriptor&>(descriptor));
+        of.write(name_size);
         of.write(descriptor.name(), name_size);
         of.write(descriptor.file(), filename_size);
     }
 
     for (auto& thread_storage : m_threads)
     {
-        of.write((const char*)&thread_storage.first, sizeof(decltype(thread_storage.first)));
+        of.write(thread_storage.first);
+        of.write(static_cast<uint32_t>(thread_storage.second.closedList.size()));
 
         for (auto b : thread_storage.second.closedList)
         {
             auto sz = static_cast<uint16_t>(sizeof(BaseBlockData) + strlen(b->name()) + 1);
-            of.write((const char*)&sz, sizeof(uint16_t));
+            of.write(sz);
             of.write(b->data(), sz);
         }
 

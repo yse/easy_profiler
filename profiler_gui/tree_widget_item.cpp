@@ -83,7 +83,7 @@ const ::profiler::BlocksTree* EasyTreeWidgetItem::block() const
 ::profiler::timestamp_t EasyTreeWidgetItem::duration() const
 {
     if (m_block->node)
-        return m_block->node->block()->duration();
+        return m_block->node->duration();
     return data(COL_DURATION, Qt::UserRole).toULongLong();
 }
 
