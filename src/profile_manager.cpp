@@ -31,9 +31,9 @@ extern "C"{
         return MANAGER.dumpBlocksToFile(filename);
 	}
 
-	void PROFILER_API setThreadName(const char* name)
+    void PROFILER_API setThreadName(const char* name, const char* filename, const char* _funcname, int line)
 	{
-        return MANAGER.setThreadName(name);
+        return MANAGER.setThreadName(name, filename, _funcname, line);
 	}
 }
 
@@ -66,7 +66,7 @@ BlockDescriptor::BlockDescriptor(uint64_t& _used_mem, const char* _name, const c
     , m_name(_name)
     , m_filename(_filename)
 {
-    _used_mem += sizeof(profiler::BaseBlockDescriptor) + strlen(_name) + strlen(_filename) + 2;
+    _used_mem += sizeof(profiler::SerializedBlockDescriptor) + strlen(_name) + strlen(_filename) + 2;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -185,7 +185,7 @@ uint32_t ProfileManager::dumpBlocksToFile(const char* filename)
     {
         const auto name_size = static_cast<uint16_t>(strlen(descriptor.name()) + 1);
         const auto filename_size = static_cast<uint16_t>(strlen(descriptor.file()) + 1);
-        const auto size = static_cast<uint16_t>(sizeof(profiler::BaseBlockDescriptor) + name_size + filename_size + sizeof(uint16_t));
+        const auto size = static_cast<uint16_t>(sizeof(profiler::SerializedBlockDescriptor) + name_size + filename_size);
 
         of.write(size);
         of.write<profiler::BaseBlockDescriptor>(descriptor);
@@ -212,14 +212,14 @@ uint32_t ProfileManager::dumpBlocksToFile(const char* filename)
     return blocks_number;
 }
 
-void ProfileManager::setThreadName(const char* name)
+void ProfileManager::setThreadName(const char* name, const char* filename, const char* _funcname, int line)
 {
     auto& thread_storage = threadStorage(getCurrentThreadId());
     if (thread_storage.named)
         return;
 
-    const auto id = addBlockDescriptor("ThreadName", __FILE__, __LINE__, profiler::BLOCK_TYPE_THREAD_SIGN, profiler::colors::Random);
-    thread_storage.store(profiler::Block(nullptr, profiler::BLOCK_TYPE_THREAD_SIGN, id, name));
+    const auto id = addBlockDescriptor(_funcname, filename, line, profiler::BLOCK_TYPE_THREAD_SIGN, profiler::colors::Random);
+    thread_storage.store(profiler::Block(profiler::BLOCK_TYPE_THREAD_SIGN, id, name));
     thread_storage.named = true;
 }
 

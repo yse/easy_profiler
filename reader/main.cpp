@@ -99,7 +99,7 @@ int main(int argc, char* argv[])
 
     if (dump_filename.size() > 2)
     {
-        PROFILER_ENABLE
+        EASY_PROFILER_ENABLE;
         std::cout << "Will dump reader prof file to " << dump_filename << std::endl;
     }
     else

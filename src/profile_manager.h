@@ -139,7 +139,7 @@ public:
 	void endBlock();
 	void setEnabled(bool isEnable);
     uint32_t dumpBlocksToFile(const char* filename);
-	void setThreadName(const char* name);
+    void setThreadName(const char* name, const char* filename, const char* _funcname, int line);
 
 private:
 

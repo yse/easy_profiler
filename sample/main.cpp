@@ -26,13 +26,13 @@ void localSleep(int magic=200000)
 }
 
 void loadingResources(){
-	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Darkcyan);
+	EASY_FUNCTION(profiler::colors::Darkcyan);
     localSleep();
 //	std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }
 
 void prepareMath(){
-	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
+    EASY_FUNCTION(profiler::colors::Blue);
     int* intarray = new int[OBJECTS];
     for (int i = 0; i < OBJECTS; ++i)
         intarray[i] = i * i;
@@ -41,7 +41,7 @@ void prepareMath(){
 }
 
 void calcIntersect(){
-    PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
+    EASY_FUNCTION(profiler::colors::Blue);
     //int* intarray = new int[OBJECTS * OBJECTS];
     int* intarray = new int[OBJECTS];
     for (int i = 0; i < OBJECTS; ++i)
@@ -56,12 +56,12 @@ void calcIntersect(){
 
 double multModel(double i)
 {
-    PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
+    EASY_FUNCTION(profiler::colors::Blue);
     return i * sin(i) * cos(i);
 }
 
 void calcPhys(){
-    PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
+    EASY_FUNCTION(profiler::colors::Blue);
     double* intarray = new double[OBJECTS];
     for (int i = 0; i < OBJECTS; ++i)
         intarray[i] = multModel(double(i)) + double(i / 3) - double((OBJECTS - i) / 2);
@@ -71,12 +71,12 @@ void calcPhys(){
 
 double calcSubbrain(int i)
 {
-    PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
+    EASY_FUNCTION(profiler::colors::Blue);
     return i * i * i - i / 10 + (OBJECTS - i) * 7 ;
 }
 
 void calcBrain(){
-    PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
+    EASY_FUNCTION(profiler::colors::Blue);
     double* intarray = new double[OBJECTS];
     for (int i = 0; i < OBJECTS; ++i)
         intarray[i] = calcSubbrain(i) + double(i * 180 / 3);
@@ -85,19 +85,19 @@ void calcBrain(){
 }
 
 void calculateBehavior(){
-	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Darkblue);
+    EASY_FUNCTION(profiler::colors::Darkblue);
     calcPhys();
     calcBrain();
 }
 
 void modellingStep(){
-	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Navy);
+    EASY_FUNCTION(profiler::colors::Navy);
 	prepareMath();
 	calculateBehavior();
 }
 
 void prepareRender(){
-	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Darkred);
+    EASY_FUNCTION(profiler::colors::Darkred);
     localSleep();
 	//std::this_thread::sleep_for(std::chrono::milliseconds(8));
 
@@ -105,18 +105,18 @@ void prepareRender(){
 
 int multPhys(int i)
 {
-    PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
+    EASY_FUNCTION(profiler::colors::Red);
     return i * i * i * i / 100;
 }
 
 int calcPhysicForObject(int i)
 {
-    PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
+    EASY_FUNCTION(profiler::colors::Red);
     return  multPhys(i) + i / 3 - (OBJECTS - i) * 15;
 }
 
 void calculatePhysics(){
-	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
+    EASY_FUNCTION(profiler::colors::Red);
     unsigned int* intarray = new unsigned int[OBJECTS];
     for (int i = 0; i < OBJECTS; ++i)
         intarray[i] = calcPhysicForObject(i);
@@ -125,7 +125,7 @@ void calculatePhysics(){
 }
 
 void frame(){
-	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Magenta);
+    EASY_FUNCTION(profiler::colors::Magenta);
 	prepareRender();
 	calculatePhysics();
 }
@@ -133,10 +133,10 @@ void frame(){
 void loadingResourcesThread(){
 	//std::unique_lock<std::mutex> lk(cv_m);
 	//cv.wait(lk, []{return g_i == 1; });
-	PROFILER_SET_THREAD_NAME("Resource loading")
+    EASY_THREAD("Resource loading");
 	for(int i = 0; i < RESOURCE_LOADING_COUNT; i++){
 		loadingResources();
-		PROFILER_ADD_EVENT_GROUPED("Resources Loading!",profiler::colors::Cyan);
+		EASY_EVENT("Resources Loading!", profiler::colors::Cyan);
         localSleep(1200000);
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));
 	}
@@ -145,8 +145,8 @@ void loadingResourcesThread(){
 void modellingThread(){
 	//std::unique_lock<std::mutex> lk(cv_m);
 	//cv.wait(lk, []{return g_i == 1; });
-	PROFILER_SET_THREAD_NAME("Modelling")
-		for (int i = 0; i < RENDER_SPEPS; i++){
+    EASY_THREAD("Modelling");
+	for (int i = 0; i < RENDER_SPEPS; i++){
 		modellingStep();
         localSleep(1200000);
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));
@@ -156,7 +156,7 @@ void modellingThread(){
 void renderThread(){
 	//std::unique_lock<std::mutex> lk(cv_m);
 	//cv.wait(lk, []{return g_i == 1; });
-	PROFILER_SET_THREAD_NAME("Render")
+    EASY_THREAD("Render");
 	for (int i = 0; i < MODELLING_STEPS; i++){
 		frame();
         localSleep(1200000);
@@ -166,24 +166,24 @@ void renderThread(){
 
 void four()
 {
-	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
+    EASY_FUNCTION(profiler::colors::Red);
 	std::this_thread::sleep_for(std::chrono::milliseconds(37));
 }
 
 void five()
 {
-	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
+    EASY_FUNCTION(profiler::colors::Red);
 	std::this_thread::sleep_for(std::chrono::milliseconds(20));
 }
 void six()
 {
-	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
+    EASY_FUNCTION(profiler::colors::Red);
 	std::this_thread::sleep_for(std::chrono::milliseconds(42));
 }
 
 void three()
 {
-	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
+    EASY_FUNCTION(profiler::colors::Red);
 	four();
 	five();
 	six();
@@ -191,19 +191,19 @@ void three()
 
 void seven()
 {
-	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
+    EASY_FUNCTION(profiler::colors::Red);
 	std::this_thread::sleep_for(std::chrono::milliseconds(147));
 }
 
 void two()
 {
-	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
+    EASY_FUNCTION(profiler::colors::Red);
 	std::this_thread::sleep_for(std::chrono::milliseconds(26));
 }
 
 void one()
 {
-	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
+    EASY_FUNCTION(profiler::colors::Red);
 	two();
 	three();
 	seven();
@@ -240,8 +240,8 @@ int main(int argc, char* argv[])
 	std::cout << "Resource loading count: " << RESOURCE_LOADING_COUNT << std::endl;
 
 	auto start = std::chrono::system_clock::now();
-	PROFILER_ENABLE;
-	PROFILER_SET_MAIN_THREAD;
+	EASY_PROFILER_ENABLE;
+	EASY_MAIN_THREAD;
 	//one();
 	//one();
 	/**/

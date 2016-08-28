@@ -38,7 +38,7 @@ BaseBlockData::BaseBlockData(timestamp_t _begin_time, block_id_t _descriptor_id)
 
 }
 
-Block::Block(const char*, block_type_t _block_type, block_id_t _descriptor_id, const char* _name)
+Block::Block(block_type_t _block_type, block_id_t _descriptor_id, const char* _name)
     : BaseBlockData(getCurrentTime(), _descriptor_id)
     , m_name(_name)
 {

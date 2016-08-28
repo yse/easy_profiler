@@ -260,7 +260,7 @@ extern "C" {
 
     unsigned int fillTreesFromFile(::std::atomic<int>& progress, const char* filename, ::profiler::SerializedData& serialized_blocks, ::profiler::SerializedData& serialized_descriptors, ::profiler::descriptors_list_t& descriptors, ::profiler::thread_blocks_tree_t& threaded_trees, bool gather_statistics)
 	{
-        PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(::profiler::colors::Cyan)
+        EASY_FUNCTION(::profiler::colors::Cyan);
 
 		::std::ifstream inFile(filename, ::std::fstream::binary);
         progress.store(0);
@@ -299,15 +299,18 @@ extern "C" {
         serialized_descriptors.set(new char[descriptors_memory_size]);
 
         uint64_t i = 0;
-        uint32_t read_number = 0;
-        while (!inFile.eof() && read_number < total_descriptors_number)
+        while (!inFile.eof() && descriptors.size() < total_descriptors_number)
         {
-            ++read_number;
-
             uint16_t sz = 0;
             inFile.read((char*)&sz, sizeof(sz));
             if (sz == 0)
                 return 0;
+
+            //if (i + sz > descriptors_memory_size)
+            //{
+            //    printf("FILE CORRUPTED\n");
+            //    return 0;
+            //}
 
             char* data = serialized_descriptors[i];
             inFile.read(data, sz);
@@ -321,10 +324,10 @@ extern "C" {
         IdMap identification_table;
 
         i = 0;
-        read_number = 0;
+        uint32_t read_number = 0;
         while (!inFile.eof() && read_number < total_blocks_number)
         {
-            PROFILER_BEGIN_BLOCK_GROUPED("Read thread from file", ::profiler::colors::Darkgreen)
+            EASY_BLOCK("Read thread data", ::profiler::colors::Darkgreen);
 
             ::profiler::thread_id_t thread_id = 0;
             inFile.read((char*)&thread_id, sizeof(decltype(thread_id)));
@@ -336,7 +339,7 @@ extern "C" {
             const auto threshold = read_number + blocks_number_in_thread;
             while (!inFile.eof() && read_number < threshold)
             {
-                PROFILER_BEGIN_BLOCK_GROUPED("Read block from file", ::profiler::colors::Green)
+                EASY_BLOCK("Read block", ::profiler::colors::Green);
 
                 ++read_number;
 
@@ -389,7 +392,7 @@ extern "C" {
                     {
                         //auto lower = ::std::lower_bound(root.children.begin(), root.children.end(), tree);
                         /**/
-                        PROFILER_BEGIN_BLOCK_GROUPED("Find children", ::profiler::colors::Blue)
+                        EASY_BLOCK("Find children", ::profiler::colors::Blue);
                         auto rlower1 = ++root.tree.children.rbegin();
                         for (; rlower1 != root.tree.children.rend(); ++rlower1)
                         {
@@ -402,12 +405,12 @@ extern "C" {
                         ::std::move(lower, root.tree.children.end(), ::std::back_inserter(tree.children));
 
                         root.tree.children.erase(lower, root.tree.children.end());
-                        PROFILER_END_BLOCK
+                        EASY_END_BLOCK;
 
                         ::profiler::timestamp_t children_duration = 0;
                         if (gather_statistics)
                         {
-                            PROFILER_BEGIN_BLOCK_GROUPED("Gather statistic within parent", ::profiler::colors::Magenta)
+                            EASY_BLOCK("Gather statistic within parent", ::profiler::colors::Magenta);
                             per_parent_statistics.clear();
 
                             //per_parent_statistics.reserve(tree.children.size());     // this gives slow-down on Windows
@@ -443,7 +446,7 @@ extern "C" {
 
                 if (gather_statistics)
                 {
-                    PROFILER_BEGIN_BLOCK_GROUPED("Gather per thread statistics", ::profiler::colors::Coral)
+                    EASY_BLOCK("Gather per thread statistics", ::profiler::colors::Coral);
                     auto& current = root.tree.children.back();
                     current.per_thread_stats = update_statistics(per_thread_statistics, current);
                 }
@@ -461,7 +464,7 @@ extern "C" {
             return 0;
         }
 
-        PROFILER_BEGIN_BLOCK_GROUPED("Gather statistics for roots", ::profiler::colors::Purple)
+        EASY_BLOCK("Gather statistics for roots", ::profiler::colors::Purple);
         if (gather_statistics)
 		{
             ::std::vector<::std::thread> statistics_threads;
@@ -521,7 +524,6 @@ extern "C" {
                 progress.store(90 + (10 * ++j) / n);
             }
         }
-        PROFILER_END_BLOCK
         // No need to delete BlockStatistics instances - they will be deleted inside BlocksTree destructors
 
         return blocks_counter;

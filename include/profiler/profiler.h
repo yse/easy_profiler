@@ -16,8 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program.If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#ifndef ____PROFILER____H_______
-#define ____PROFILER____H_______
+#ifndef EASY_PROFILER____H_______
+#define EASY_PROFILER____H_______
 
 #if defined ( WIN32 )
 #define __func__ __FUNCTION__
@@ -25,66 +25,34 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 #ifndef FULL_DISABLE_PROFILER
 
-#define TOKEN_JOIN(x, y) x ## y
-#define TOKEN_CONCATENATE(x, y) TOKEN_JOIN(x, y)
-#define PROFILER_UNIQUE_BLOCK(x) TOKEN_CONCATENATE(unique_profiler_mark_name_, x)
-#define PROFILER_UNIQUE_DESC(x) TOKEN_CONCATENATE(unique_profiler_descriptor_, x)
+#include <type_traits>
+
+#define EASY_TOKEN_JOIN(x, y) x ## y
+#define EASY_TOKEN_CONCATENATE(x, y) EASY_TOKEN_JOIN(x, y)
+#define EASY_UNIQUE_BLOCK(x) EASY_TOKEN_CONCATENATE(unique_profiler_mark_name_, x)
+#define EASY_UNIQUE_DESC(x) EASY_TOKEN_CONCATENATE(unique_profiler_descriptor_, x)
 
 /**
 \defgroup profiler Profiler
 */
 
-/** Macro used to check compile-time strings.
+namespace profiler {
+    template <bool IS_REF> struct NameSwitch final {
+        static const char* runtime_name(const char*) { return ""; }
+        static const char* compiletime_name(const char* name) { return name; }
+    };
 
-Compiler automatically concatenates "A" "B" into "AB" if both A and B strings
-can be identified at compile-time.
+    template <> struct NameSwitch<true> final {
+        static const char* runtime_name(const char* name) { return name; }
+        static const char* compiletime_name(const char*) { return ""; }
+    };
+} // END of namespace profiler.
 
-\ingroup profiler
-*/
-#define COMPILETIME_TEST "_compiletime_test"
+#define EASY_COMPILETIME_NAME(name) ::profiler::NameSwitch<::std::is_reference<decltype(name)>::value>::compiletime_name(name)
+#define EASY_RUNTIME_NAME(name) ::profiler::NameSwitch<::std::is_reference<decltype(name)>::value>::runtime_name(name)
 
 
-/** Macro of beginning of block with custom name and default identification
-
-\code
-	#include "profiler/profiler.h"
-	void foo()
-	{
-		// some code ...
-		if(something){
-			PROFILER_BEGIN_BLOCK("Calling someThirdPartyLongFunction()");
-			someThirdPartyLongFunction();
-			return;
-		}
-	}
-\endcode
-
-Block will be automatically completed by destructor
-
-\ingroup profiler
-*/
-#define PROFILER_BEGIN_BLOCK(compiletime_name)\
-    static const ::profiler::StaticBlockDescriptor PROFILER_UNIQUE_DESC(__LINE__)(compiletime_name, __FILE__, __LINE__,\
-        ::profiler::BLOCK_TYPE_BLOCK, ::profiler::DefaultBlockColor);\
-    ::profiler::Block PROFILER_UNIQUE_BLOCK(__LINE__)(compiletime_name COMPILETIME_TEST, ::profiler::BLOCK_TYPE_BLOCK,\
-        PROFILER_UNIQUE_DESC(__LINE__).id());\
-    ::profiler::beginBlock(PROFILER_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
-
-#define EASY_BLOCK(compiletime_name)\
-    static const ::profiler::StaticBlockDescriptor PROFILER_UNIQUE_DESC(__LINE__)(compiletime_name, __FILE__, __LINE__,\
-        ::profiler::BLOCK_TYPE_BLOCK, ::profiler::DefaultBlockColor);\
-    ::profiler::Block PROFILER_UNIQUE_BLOCK(__LINE__)(compiletime_name COMPILETIME_TEST, ::profiler::BLOCK_TYPE_BLOCK,\
-        PROFILER_UNIQUE_DESC(__LINE__).id());\
-    ::profiler::beginBlock(PROFILER_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
-
-#define EASY_BLOCK_RUNTIME(runtime_name)\
-    static const ::profiler::StaticBlockDescriptor PROFILER_UNIQUE_DESC(__LINE__)("", __FILE__, __LINE__,\
-        ::profiler::BLOCK_TYPE_BLOCK, ::profiler::DefaultBlockColor);\
-    ::profiler::Block PROFILER_UNIQUE_BLOCK(__LINE__)(nullptr, ::profiler::BLOCK_TYPE_BLOCK,\
-        PROFILER_UNIQUE_DESC(__LINE__).id(), runtime_name);\
-    ::profiler::beginBlock(PROFILER_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
-
-/** Macro of beginning of block with custom name and custom identification
+/** Macro of beginning of block with custom name and color.
 
 \code
 	#include "profiler/profiler.h"
@@ -92,121 +60,126 @@ Block will be automatically completed by destructor
 	{
 		// some code ...
 		if(something){
-			PROFILER_BEGIN_BLOCK("Calling someThirdPartyLongFunction()", ::profiler::colors::Red);
-			someThirdPartyLongFunction();
-			return;
+			EASY_BLOCK("Calling bar()"); // Block with default color
+			bar();
 		}
+        else{
+            EASY_BLOCK("Calling baz()", profiler::colors::Red); // Red block
+            baz();
+        }
 	}
 \endcode
 
-Block will be automatically completed by destructor
+Block will be automatically completed by destructor.
 
 \ingroup profiler
 */
-#define PROFILER_BEGIN_BLOCK_GROUPED(compiletime_name, block_group)\
-    static const ::profiler::StaticBlockDescriptor PROFILER_UNIQUE_DESC(__LINE__)(compiletime_name, __FILE__, __LINE__,\
-        ::profiler::BLOCK_TYPE_BLOCK, block_group);\
-    ::profiler::Block PROFILER_UNIQUE_BLOCK(__LINE__)(compiletime_name COMPILETIME_TEST, ::profiler::BLOCK_TYPE_BLOCK,\
-        PROFILER_UNIQUE_DESC(__LINE__).id());\
-    ::profiler::beginBlock(PROFILER_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
+#define EASY_BLOCK(name, ...)\
+    static const ::profiler::StaticBlockDescriptor EASY_UNIQUE_DESC(__LINE__)(EASY_COMPILETIME_NAME(name), __FILE__, __LINE__,\
+        ::profiler::BLOCK_TYPE_BLOCK , ## __VA_ARGS__);\
+    ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(::profiler::BLOCK_TYPE_BLOCK, EASY_UNIQUE_DESC(__LINE__).id(), EASY_RUNTIME_NAME(name));\
+    ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
-/** Macro of beginning of function block with default identification
+/** Macro of beginning of block with function name and custom color.
 
 \code
 	#include "profiler/profiler.h"
-	void foo()
-	{
-		PROFILER_BEGIN_FUNCTION_BLOCK;
+	void foo(){
+		EASY_FUNCTION(); // Block with name="foo" and default color
 		//some code...
 	}
+
+    void bar(){
+        EASY_FUNCTION(profiler::colors::Green); // Green block with name="bar"
+        //some code...
+    }
 \endcode
 
-Name of block automatically created with function name
+Name of the block automatically created with function name.
 
 \ingroup profiler
 */
-#define PROFILER_BEGIN_FUNCTION_BLOCK PROFILER_BEGIN_BLOCK(__func__)
+#define EASY_FUNCTION(...) EASY_BLOCK(__func__ , ## __VA_ARGS__)
 
-/** Macro of beginning of function block with custom identification
-
-\code
-	#include "profiler/profiler.h"
-	void foo()
-	{
-		PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Red);
-		//some code...
-	}
-\endcode
-
-Name of block automatically created with function name
-
-\ingroup profiler
-*/
-#define PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(block_color) PROFILER_BEGIN_BLOCK_GROUPED(__func__, block_color)
-
-/** Macro of completion of last nearest open block
+/** Macro of completion of last nearest open block.
 
 \code
 #include "profiler/profiler.h"
-void foo()
+int foo()
 {
-// some code ...
+    // some code ...
+
 	int sum = 0;
-	PROFILER_BEGIN_BLOCK("Calculating summ");
-	for(int i = 0; i < 10; i++){
+	EASY_BLOCK("Calculating sum");
+	for (int i = 0; i < 10; ++i){
 		sum += i;
 	}
-	PROFILER_END_BLOCK;
+	EASY_END_BLOCK;
+
+    // some antoher code here ...
+
+    return sum;
 }
 \endcode
 
 \ingroup profiler
 */
-#define PROFILER_END_BLOCK ::profiler::endBlock();
+#define EASY_END_BLOCK ::profiler::endBlock();
 
-#define PROFILER_ADD_EVENT(compiletime_name)	\
-    static const ::profiler::StaticBlockDescriptor PROFILER_UNIQUE_DESC(__LINE__)(compiletime_name, __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT);\
-    ::profiler::Block PROFILER_UNIQUE_BLOCK(__LINE__)(compiletime_name COMPILETIME_TEST, ::profiler::BLOCK_TYPE_EVENT,\
-        PROFILER_UNIQUE_DESC(__LINE__).id());\
-    ::profiler::beginBlock(PROFILER_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
+/** Macro of creating event with custom name and color.
 
-#define PROFILER_ADD_EVENT_GROUPED(compiletime_name, block_group)\
-    static const ::profiler::StaticBlockDescriptor PROFILER_UNIQUE_DESC(__LINE__)(compiletime_name, __FILE__, __LINE__,\
-        ::profiler::BLOCK_TYPE_EVENT, block_group);\
-    ::profiler::Block PROFILER_UNIQUE_BLOCK(__LINE__)(compiletime_name COMPILETIME_TEST, ::profiler::BLOCK_TYPE_EVENT,\
-        PROFILER_UNIQUE_DESC(__LINE__).id());\
-    ::profiler::beginBlock(PROFILER_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
+Event is a block with zero duration and special type.
+
+\warning Event ends immidiately and calling EASY_END_BLOCK after EASY_EVENT
+will end previously opened EASY_BLOCK or EASY_FUNCTION.
+
+\ingroup profiler
+*/
+#define EASY_EVENT(name, ...)\
+    static const ::profiler::StaticBlockDescriptor EASY_UNIQUE_DESC(__LINE__)(EASY_COMPILETIME_NAME(name), __FILE__, __LINE__,\
+        ::profiler::BLOCK_TYPE_EVENT , ## __VA_ARGS__);\
+    ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(::profiler::BLOCK_TYPE_EVENT, EASY_UNIQUE_DESC(__LINE__).id(), EASY_RUNTIME_NAME(name));\
+    ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
 /** Macro enabling profiler
 \ingroup profiler
 */
-#define PROFILER_ENABLE ::profiler::setEnabled(true);
+#define EASY_PROFILER_ENABLE ::profiler::setEnabled(true);
 
 /** Macro disabling profiler
 \ingroup profiler
 */
-#define PROFILER_DISABLE ::profiler::setEnabled(false);
+#define EASY_PROFILER_DISABLE ::profiler::setEnabled(false);
 
+/** Macro of naming current thread.
+
+If this thread has been already named then nothing changes.
+
+\ingroup profiler
+*/
 #ifdef WIN32
-#define PROFILER_SET_THREAD_NAME(name) ::profiler::setThreadName(name);
+#define EASY_THREAD(name) ::profiler::setThreadName(name, __FILE__, __func__, __LINE__);
 #else
-#define PROFILER_SET_THREAD_NAME(name) thread_local static const ::profiler::ThreadNameSetter TOKEN_CONCATENATE(unique_profiler_thread_name_setter_, __LINE__)(name);
+#define EASY_THREAD(name) thread_local static const ::profiler::ThreadNameSetter EASY_TOKEN_CONCATENATE(unique_profiler_thread_name_setter_, __LINE__)(name, __FILE__, __func__, __LINE__);
 #endif
 
-#define PROFILER_SET_MAIN_THREAD PROFILER_SET_THREAD_NAME("Main")
+/** Macro of naming main thread.
+
+This is only for user comfort. There is no difference for EasyProfiler GUI between different threads.
+
+\ingroup profiler
+*/
+#define EASY_MAIN_THREAD EASY_THREAD("Main")
 
 #else
-#define PROFILER_BEGIN_BLOCK(name)
-#define PROFILER_BEGIN_BLOCK_GROUPED(name, block_group)
-#define PROFILER_BEGIN_FUNCTION_BLOCK 
-#define PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(block_group) 
-#define PROFILER_END_BLOCK 
-#define PROFILER_ENABLE 
-#define PROFILER_DISABLE 
-#define PROFILER_ADD_EVENT(name)
-#define PROFILER_ADD_EVENT_GROUPED(name, block_group)
-#define PROFILER_SET_THREAD_NAME(name)
-#define PROFILER_SET_MAIN_THREAD 
+#define EASY_BLOCK(...)
+#define EASY_FUNCTION(...)
+#define EASY_END_BLOCK 
+#define EASY_PROFILER_ENABLE 
+#define EASY_PROFILER_DISABLE 
+#define EASY_EVENT(...)
+#define EASY_THREAD(...)
+#define EASY_MAIN_THREAD 
 #endif
 
 #include <stdint.h>
@@ -236,7 +209,7 @@ namespace profiler {
 		void PROFILER_API endBlock();
 		void PROFILER_API setEnabled(bool isEnable);
 		unsigned int PROFILER_API dumpBlocksToFile(const char* filename);
-		void PROFILER_API setThreadName(const char* name);
+        void PROFILER_API setThreadName(const char* name, const char* filename, const char* _funcname, int line);
 	}
 
 	typedef uint64_t timestamp_t;
@@ -320,7 +293,7 @@ namespace profiler {
 
     public:
 
-        Block(const char*, block_type_t _block_type, block_id_t _id, const char* _name = "");
+        Block(block_type_t _block_type, block_id_t _id, const char* _name = "");
         ~Block();
 
         inline const char* name() const { return m_name; }
@@ -334,16 +307,16 @@ namespace profiler {
 
     public:
 
-        StaticBlockDescriptor(const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color = colors::Random);
+        StaticBlockDescriptor(const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color = DefaultBlockColor);
         block_id_t id() const { return m_id; }
     };
 
 #ifndef WIN32
     struct PROFILER_API ThreadNameSetter final
     {
-        ThreadNameSetter(const char* _name)
+        ThreadNameSetter(const char* _name, const char* _filename, const char* _funcname, int _line)
         {
-            setThreadName(_name);
+            setThreadName(_name, _filename, _funcname, _line);
         }
     };
 #endif
@@ -352,4 +325,4 @@ namespace profiler {
 	
 } // END of namespace profiler.
 
-#endif
+#endif // EASY_PROFILER____H_______
