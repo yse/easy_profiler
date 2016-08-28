@@ -31,6 +31,7 @@
 #include <QProgressDialog>
 #include <QResizeEvent>
 #include <QMoveEvent>
+#include <QDebug>
 #include "blocks_tree_widget.h"
 #include "tree_widget_item.h"
 #include "globals.h"
@@ -115,7 +116,7 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
     m_progress->setValue(100);
     //m_progress->hide();
 
-    QTimer::singleShot(40, this, &This::alignProgressBar);
+    QTimer::singleShot(1500, this, &This::alignProgressBar);
 }
 
 EasyTreeWidget::~EasyTreeWidget()
@@ -244,6 +245,8 @@ void EasyTreeWidget::setTreeBlocks(const ::profiler_gui::TreeBlocks& _blocks, ::
 
 void EasyTreeWidget::clearSilent(bool _global)
 {
+    const QSignalBlocker b(this);
+
     m_hierarchyBuilder.interrupt();
 
     if (m_progress)
@@ -277,10 +280,21 @@ void EasyTreeWidget::clearSilent(bool _global)
     m_items.clear();
     m_roots.clear();
 
-    { const QSignalBlocker b(this); clear(); } // clear without emitting any signals
+    ::std::vector<QTreeWidgetItem*> topLevelItems;
+    topLevelItems.reserve(topLevelItemCount());
+    for (int i = topLevelItemCount() - 1; i >= 0; --i)
+        topLevelItems.push_back(takeTopLevelItem(i));
+
+    auto deleter_thread = ::std::thread([](decltype(topLevelItems) _items) {
+        for (auto item : _items)
+            delete item;
+    }, ::std::move(topLevelItems));
+    deleter_thread.detach();
+
+    //clear();
 
     if (!_global)
-        emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
+        emit::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -94,11 +94,11 @@ void EasyTreeWidgetLoader::interrupt()
     m_bDone.store(false);
     m_progress.store(0);
 
-    for (auto item : m_topLevelItems)
-    {
-        //qDeleteAll(item.second->takeChildren());
-        delete item.second;
-    }
+    auto deleter_thread = ::std::thread([](decltype(m_topLevelItems) _items) {
+        for (auto item : _items)
+            delete item.second;
+    }, ::std::move(m_topLevelItems));
+    deleter_thread.detach();
 
     m_items.clear();
     m_topLevelItems.clear();
