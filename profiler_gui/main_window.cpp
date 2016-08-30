@@ -421,6 +421,9 @@ void EasyMainWindow::onFileReaderTimeout()
             EASY_GLOBALS.profiler_blocks.swap(threads_map);
             EASY_GLOBALS.descriptors.swap(descriptors);
 
+            typedef decltype(EASY_GLOBALS.gui_blocks) gui_blocks_t;
+            gui_blocks_t().swap(EASY_GLOBALS.gui_blocks);
+
             EASY_GLOBALS.gui_blocks.resize(nblocks);
             memset(EASY_GLOBALS.gui_blocks.data(), 0, sizeof(::profiler_gui::EasyBlock) * nblocks);
             for (decltype(nblocks) i = 0; i < nblocks; ++i) {
