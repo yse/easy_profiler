@@ -153,7 +153,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
     // Search for first visible top-level item
     auto& level0 = m_levels.front();
-    auto first = ::std::lower_bound(level0.begin(), level0.end(), sceneLeft, [](const ::profiler_gui::ProfBlockItem& _item, qreal _value)
+    auto first = ::std::lower_bound(level0.begin(), level0.end(), sceneLeft, [](const ::profiler_gui::EasyBlockItem& _item, qreal _value)
     {
         return _item.left() < _value;
     });
@@ -183,7 +183,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     _painter->setTransform(QTransform::fromTranslate(dx - offset * currentScale, -y()), true);
 
 
-    if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders)
+    if (EASY_GLOBALS.draw_graphics_items_borders)
     {
         previousPenStyle = Qt::SolidLine;
         _painter->setPen(BORDERS_COLOR);
@@ -194,8 +194,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     }
 
 
-    static const auto MAX_CHILD_INDEX = ::profiler_gui::numeric_max<decltype(::profiler_gui::ProfBlockItem::children_begin)>();
-    auto const skip_children = [this, &levelsNumber](short next_level, decltype(::profiler_gui::ProfBlockItem::children_begin) children_begin)
+    static const auto MAX_CHILD_INDEX = ::profiler_gui::numeric_max<decltype(::profiler_gui::EasyBlockItem::children_begin)>();
+    auto const skip_children = [this, &levelsNumber](short next_level, decltype(::profiler_gui::EasyBlockItem::children_begin) children_begin)
     {
         // Mark that we would not paint children of current item
         if (next_level < levelsNumber && children_begin != MAX_CHILD_INDEX)
@@ -243,8 +243,9 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 continue;
             }
 
+            const auto& itemBlock = easyBlock(item.block);
             int h = 0, flags = 0;
-            if (w < 20 || !::profiler_gui::EASY_GLOBALS.gui_blocks[item.block->block_index].expanded)
+            if (w < 20 || !itemBlock.expanded)
             {
                 // Items which width is less than 20 will be painted as big rectangles which are hiding it's children
 
@@ -255,7 +256,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     h -= dh;
 
                 bool changepen = false;
-                if (item.block->block_index == ::profiler_gui::EASY_GLOBALS.selected_block)
+                if (item.block == EASY_GLOBALS.selected_block)
                 {
                     selectedItemsWasPainted = true;
                     changepen = true;
@@ -281,7 +282,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         _painter->setBrush(brush);
                     }
 
-                    if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders)
+                    if (EASY_GLOBALS.draw_graphics_items_borders)
                     {
                         //if (w < 2)
                         //{
@@ -349,7 +350,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     m_levels[next_level][item.children_begin].state = BLOCK_ITEM_DO_PAINT;
                 }
 
-                if (item.block->block_index == ::profiler_gui::EASY_GLOBALS.selected_block)
+                if (item.block == EASY_GLOBALS.selected_block)
                 {
                     selectedItemsWasPainted = true;
                     QPen pen(Qt::SolidLine);
@@ -374,7 +375,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         _painter->setBrush(brush);
                     }
 
-                    if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders && (previousPenStyle != Qt::SolidLine || colorChange))
+                    if (EASY_GLOBALS.draw_graphics_items_borders && (previousPenStyle != Qt::SolidLine || colorChange))
                     {
                         // Restore pen for item which is wide enough to paint borders
                         previousPenStyle = Qt::SolidLine;
@@ -422,7 +423,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
             _painter->setPen(textColor);
 
             // drawing text
-            auto name = *item.block->node->name() != 0 ? item.block->node->name() : ::profiler_gui::EASY_GLOBALS.descriptors[item.block->node->id()]->name();
+            auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : easyDescriptor(itemBlock.tree.node->id()).name();
             _painter->drawText(rect, flags, ::profiler_gui::toUnicode(name));
 
             // restore previous pen color
@@ -434,9 +435,9 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         }
     }
 
-    if (!selectedItemsWasPainted && ::profiler_gui::EASY_GLOBALS.selected_block < ::profiler_gui::EASY_GLOBALS.gui_blocks.size())
+    if (!selectedItemsWasPainted && EASY_GLOBALS.selected_block < EASY_GLOBALS.gui_blocks.size())
     {
-        const auto& guiblock = ::profiler_gui::EASY_GLOBALS.gui_blocks[::profiler_gui::EASY_GLOBALS.selected_block];
+        const auto& guiblock = EASY_GLOBALS.gui_blocks[EASY_GLOBALS.selected_block];
         if (guiblock.graphics_item == m_index)
         {
             const auto& item = m_levels[guiblock.graphics_item_level][guiblock.graphics_item_index];
@@ -482,7 +483,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     _painter->setPen(textColor);
 
                     // drawing text
-                    auto name = *item.block->node->name() != 0 ? item.block->node->name() : ::profiler_gui::EASY_GLOBALS.descriptors[item.block->node->id()]->name();
+                    const auto& itemBlock = easyBlock(item.block);
+                    auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : easyDescriptor(itemBlock.tree.node->id()).name();
                     _painter->drawText(rect, Qt::AlignCenter, ::profiler_gui::toUnicode(name));
                     // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                 }
@@ -511,7 +513,7 @@ void EasyGraphicsItem::getBlocks(qreal _left, qreal _right, ::profiler_gui::Tree
 
     // Search for first visible top-level item
     auto& level0 = m_levels.front();
-    auto first = ::std::lower_bound(level0.begin(), level0.end(), _left, [](const ::profiler_gui::ProfBlockItem& _item, qreal _value)
+    auto first = ::std::lower_bound(level0.begin(), level0.end(), _left, [](const ::profiler_gui::EasyBlockItem& _item, qreal _value)
     {
         return _item.left() < _value;
     });
@@ -552,7 +554,7 @@ void EasyGraphicsItem::getBlocks(qreal _left, qreal _right, ::profiler_gui::Tree
 
 //////////////////////////////////////////////////////////////////////////
 
-const ::profiler_gui::ProfBlockItem* EasyGraphicsItem::intersect(const QPointF& _pos) const
+const ::profiler_gui::EasyBlockItem* EasyGraphicsItem::intersect(const QPointF& _pos) const
 {
     if (m_levels.empty() || m_levels.front().empty())
     {
@@ -588,7 +590,7 @@ const ::profiler_gui::ProfBlockItem* EasyGraphicsItem::intersect(const QPointF& 
         const auto& level = m_levels[i];
 
         // Search for first visible item
-        auto first = ::std::lower_bound(level.begin() + firstItem, level.begin() + lastItem, _pos.x(), [](const ::profiler_gui::ProfBlockItem& _item, qreal _value)
+        auto first = ::std::lower_bound(level.begin() + firstItem, level.begin() + lastItem, _pos.x(), [](const ::profiler_gui::EasyBlockItem& _item, qreal _value)
         {
             return _item.left() < _value;
         });
@@ -620,7 +622,7 @@ const ::profiler_gui::ProfBlockItem* EasyGraphicsItem::intersect(const QPointF& 
             }
 
             const auto w = item.width() * currentScale;
-            if (i == levelIndex || w < 20 || !::profiler_gui::EASY_GLOBALS.gui_blocks[item.block->block_index].expanded)
+            if (i == levelIndex || w < 20 || !easyBlock(item.block).expanded)
             {
                 return &item;
             }
@@ -725,12 +727,12 @@ const EasyGraphicsItem::Children& EasyGraphicsItem::items(unsigned char _level) 
     return m_levels[_level];
 }
 
-const ::profiler_gui::ProfBlockItem& EasyGraphicsItem::getItem(unsigned char _level, unsigned int _index) const
+const ::profiler_gui::EasyBlockItem& EasyGraphicsItem::getItem(unsigned char _level, unsigned int _index) const
 {
     return m_levels[_level][_index];
 }
 
-::profiler_gui::ProfBlockItem& EasyGraphicsItem::getItem(unsigned char _level, unsigned int _index)
+::profiler_gui::EasyBlockItem& EasyGraphicsItem::getItem(unsigned char _level, unsigned int _index)
 {
     return m_levels[_level][_index];
 }
@@ -862,7 +864,7 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     _painter->setFont(CHRONOMETER_FONT);
 
     int textFlags = 0;
-    switch (::profiler_gui::EASY_GLOBALS.chrono_text_position)
+    switch (EASY_GLOBALS.chrono_text_position)
     {
         case ::profiler_gui::ChronoTextPosition_Top:
             textFlags = Qt::AlignTop | Qt::AlignHCenter;
@@ -1001,7 +1003,7 @@ void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
             if (top > h || bottom < 0)
                 continue;
 
-            if (item->threadId() == ::profiler_gui::EASY_GLOBALS.selected_thread)
+            if (item->threadId() == EASY_GLOBALS.selected_thread)
                 _painter->setBrush(QBrush(QColor::fromRgb(::profiler_gui::SELECTED_THREAD_BACKGROUND)));
             else
                 _painter->setBrush(brushes[i & 1]);
@@ -1291,8 +1293,8 @@ void EasyGraphicsView::test(unsigned int _frames_number, unsigned int _total_ite
     if (longestItem != nullptr)
     {
         m_pScrollbar->setMinimapFrom(0, longestItem->items(0));
-        ::profiler_gui::EASY_GLOBALS.selected_thread = 0;
-        emit::profiler_gui::EASY_GLOBALS.events.selectedThreadChanged(0);
+        EASY_GLOBALS.selected_thread = 0;
+        emitEASY_GLOBALS.events.selectedThreadChanged(0);
     }
 
     // Create new chronometer item (previous item was destroyed by scene on scene()->clear()).
@@ -1359,13 +1361,13 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
 
     // Calculating start and end time
     ::profiler::timestamp_t finish = 0;
-    const ::profiler::BlocksTree* longestTree = nullptr;
+    ::profiler::thread_id_t longestTree = 0;
     const EasyGraphicsItem* longestItem = nullptr;
     for (const auto& threadTree : _blocksTree)
     {
-        const auto& tree = threadTree.second.tree;
-        const auto timestart = tree.children.front().node->begin();
-        const auto timefinish = tree.children.back().node->end();
+        const auto& tree = threadTree.second.children;
+        const auto timestart = blocksTree(tree.front()).node->begin();
+        const auto timefinish = blocksTree(tree.back()).node->end();
 
         if (m_beginTime > timestart)
         {
@@ -1375,7 +1377,7 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         if (finish < timefinish)
         {
             finish = timefinish;
-            longestTree = &tree;
+            longestTree = threadTree.first;
         }
     }
 
@@ -1391,13 +1393,13 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         }
 
         // fill scene with new items
-        const auto& tree = threadTree.second.tree;
-        qreal h = 0, x = time2position(tree.children.front().node->begin());
+        const auto& tree = threadTree.second.children;
+        qreal h = 0, x = time2position(blocksTree(tree.front()).node->begin());
         auto item = new EasyGraphicsItem(static_cast<unsigned char>(m_items.size()), &threadTree.second);
-        item->setLevels(tree.depth);
+        item->setLevels(threadTree.second.depth);
         item->setPos(0, y);
 
-        const auto children_duration = setTree(item, tree.children, h, y, 0);
+        const auto children_duration = setTree(item, tree, h, y, 0);
 
         item->setBoundingRect(0, 0, children_duration + x, h);
         m_items.push_back(item);
@@ -1405,7 +1407,7 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
 
         y += h + THREADS_ROW_SPACING;
 
-        if (longestTree == &tree)
+        if (longestTree == threadTree.first)
         {
             longestItem = item;
         }
@@ -1424,8 +1426,8 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     if (longestItem != nullptr)
     {
         m_pScrollbar->setMinimapFrom(longestItem->threadId(), longestItem->items(0));
-        ::profiler_gui::EASY_GLOBALS.selected_thread = longestItem->threadId();
-        emit::profiler_gui::EASY_GLOBALS.events.selectedThreadChanged(longestItem->threadId());
+        EASY_GLOBALS.selected_thread = longestItem->threadId();
+        emit EASY_GLOBALS.events.selectedThreadChanged(longestItem->threadId());
     }
 
     // Create new chronometer item (previous item was destroyed by scene on scene()->clear()).
@@ -1466,8 +1468,11 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
     bool warned = false;
     qreal total_duration = 0, prev_end = 0, maxh = 0;
     qreal start_time = -1;
-    for (const auto& child : _children)
+    for (auto child_index : _children)
     {
+        auto& gui_block = easyBlock(child_index);
+        const auto& child = gui_block.tree;
+
         auto xbegin = time2position(child.node->begin());
         if (start_time < 0)
         {
@@ -1491,7 +1496,6 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
         auto i = _item->addItem(level);
         auto& b = _item->getItem(level, i);
 
-        auto& gui_block = ::profiler_gui::EASY_GLOBALS.gui_blocks[child.block_index];
         gui_block.graphics_item = _item->index();
         gui_block.graphics_item_level = level;
         gui_block.graphics_item_index = i;
@@ -1528,8 +1532,8 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
             maxh = h;
         }
 
-        const auto color = ::profiler_gui::EASY_GLOBALS.descriptors[child.node->id()]->color();
-        b.block = &child;
+        const auto color = EASY_GLOBALS.descriptors[child.node->id()]->color();
+        b.block = child_index;// &child;
         b.color = ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
         b.setPos(xbegin, duration);
         b.totalHeight = GRAPHICS_ROW_SIZE + h;
@@ -1570,8 +1574,8 @@ void EasyGraphicsView::setScrollbar(EasyGraphicsScrollbar* _scrollbar)
         connect(m_pScrollbar, &EasyGraphicsScrollbar::wheeled, this, &This::onGraphicsScrollbarWheel);
     }
 
-    ::profiler_gui::EASY_GLOBALS.selected_thread = 0;
-    emit ::profiler_gui::EASY_GLOBALS.events.selectedThreadChanged(0);
+    EASY_GLOBALS.selected_thread = 0;
+    emit EASY_GLOBALS.events.selectedThreadChanged(0);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1646,7 +1650,7 @@ void EasyGraphicsView::onGraphicsScrollbarWheel(qreal _mouseX, int _wheelDelta)
 {
     for (auto item : m_items)
     {
-        if (item->threadId() == ::profiler_gui::EASY_GLOBALS.selected_thread)
+        if (item->threadId() == EASY_GLOBALS.selected_thread)
         {
             m_bUpdatingRect = true;
             auto vbar = verticalScrollBar();
@@ -1779,8 +1783,8 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
         }
     }
 
-    const ::profiler_gui::ProfBlockItem* selectedBlock = nullptr;
-    const auto previouslySelectedBlock = ::profiler_gui::EASY_GLOBALS.selected_block;
+    const ::profiler_gui::EasyBlockItem* selectedBlock = nullptr;
+    const auto previouslySelectedBlock = EASY_GLOBALS.selected_block;
     if (m_mouseButtons & Qt::LeftButton)
     {
         bool clicked = false;
@@ -1813,15 +1817,15 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
                 {
                     changedSelectedItem = true;
                     selectedBlock = block;
-                    ::profiler_gui::EASY_GLOBALS.selected_block = block->block->block_index;
+                    EASY_GLOBALS.selected_block = block->block;
                     break;
                 }
             }
 
-            if (!changedSelectedItem && ::profiler_gui::EASY_GLOBALS.selected_block != ::profiler_gui::numeric_max(::profiler_gui::EASY_GLOBALS.selected_block))
+            if (!changedSelectedItem && EASY_GLOBALS.selected_block != ::profiler_gui::numeric_max(EASY_GLOBALS.selected_block))
             {
                 changedSelectedItem = true;
-                ::profiler_gui::set_max(::profiler_gui::EASY_GLOBALS.selected_block);
+                ::profiler_gui::set_max(EASY_GLOBALS.selected_block);
             }
         }
     }
@@ -1841,12 +1845,12 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
     if (changedSelectedItem)
     {
         m_bUpdatingRect = true;
-        if (selectedBlock != nullptr && previouslySelectedBlock == ::profiler_gui::EASY_GLOBALS.selected_block && !selectedBlock->block->children.empty())
+        if (selectedBlock != nullptr && previouslySelectedBlock == EASY_GLOBALS.selected_block && !blocksTree(selectedBlock->block).children.empty())
         {
-            ::profiler_gui::EASY_GLOBALS.gui_blocks[previouslySelectedBlock].expanded = !::profiler_gui::EASY_GLOBALS.gui_blocks[previouslySelectedBlock].expanded;
-            emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
+            EASY_GLOBALS.gui_blocks[previouslySelectedBlock].expanded = !EASY_GLOBALS.gui_blocks[previouslySelectedBlock].expanded;
+            emit EASY_GLOBALS.events.itemsExpandStateChanged();
         }
-        emit ::profiler_gui::EASY_GLOBALS.events.selectedBlockChanged(::profiler_gui::EASY_GLOBALS.selected_block);
+        emit EASY_GLOBALS.events.selectedBlockChanged(EASY_GLOBALS.selected_block);
         m_bUpdatingRect = false;
 
         updateScene();
@@ -1998,7 +2002,7 @@ void EasyGraphicsView::initMode()
     connect(verticalScrollBar(), &QScrollBar::valueChanged, this, &This::onScrollbarValueChange);
     connect(&m_flickerTimer, &QTimer::timeout, this, &This::onFlickerTimeout);
 
-    auto globalSignals = &::profiler_gui::EASY_GLOBALS.events;
+    auto globalSignals = &EASY_GLOBALS.events;
     connect(globalSignals, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
     connect(globalSignals, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
     connect(globalSignals, &::profiler_gui::EasyGlobalSignals::itemsExpandStateChanged, this, &This::onItemsEspandStateChange);
@@ -2101,11 +2105,11 @@ void EasyGraphicsView::onSelectedBlockChange(unsigned int _block_index)
 {
     if (!m_bUpdatingRect)
     {
-        if (_block_index < ::profiler_gui::EASY_GLOBALS.gui_blocks.size())
+        if (_block_index < EASY_GLOBALS.gui_blocks.size())
         {
             // Scroll to item
 
-            const auto& guiblock = ::profiler_gui::EASY_GLOBALS.gui_blocks[_block_index];
+            const auto& guiblock = EASY_GLOBALS.gui_blocks[_block_index];
             const auto thread_item = m_items[guiblock.graphics_item];
             const auto& item = thread_item->items(guiblock.graphics_item_level)[guiblock.graphics_item_index];
 
@@ -2180,7 +2184,7 @@ EasyThreadViewWidget::EasyThreadViewWidget(QWidget *parent, EasyGraphicsView* vi
     //m_layout->addWidget(m_label);
     //setLayout(m_layout);
     //show();
-    connect(&::profiler_gui::EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
 }
 
 EasyThreadViewWidget::~EasyThreadViewWidget()
@@ -2191,14 +2195,14 @@ EasyThreadViewWidget::~EasyThreadViewWidget()
 void EasyThreadViewWidget::onSelectedThreadChange(::profiler::thread_id_t _id)
 {
 /*
-    auto threadName = ::profiler_gui::EASY_GLOBALS.profiler_blocks[::profiler_gui::EASY_GLOBALS.selected_thread].thread_name;
+    auto threadName = EASY_GLOBALS.profiler_blocks[EASY_GLOBALS.selected_thread].thread_name;
     if(threadName[0]!=0)
     {
         m_label->setText(threadName);
     }
     else
     {
-        m_label->setText(QString("Thread %1").arg(::profiler_gui::EASY_GLOBALS.selected_thread));
+        m_label->setText(QString("Thread %1").arg(EASY_GLOBALS.selected_thread));
     }
 */
     QLayoutItem *ditem;

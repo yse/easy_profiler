@@ -58,7 +58,7 @@ inline qreal microseconds2units(qreal _value)
 
 class EasyGraphicsItem : public QGraphicsItem
 {
-    typedef ::profiler_gui::ProfItems       Children;
+    typedef ::profiler_gui::EasyItems       Children;
     typedef ::std::vector<unsigned int>  DrawIndexes;
     typedef ::std::vector<Children>        Sublevels;
 
@@ -118,13 +118,13 @@ public:
     
     \param _level Index of the level
     \param _index Index of required item */
-    const ::profiler_gui::ProfBlockItem& getItem(unsigned char _level, unsigned int _index) const;
+    const ::profiler_gui::EasyBlockItem& getItem(unsigned char _level, unsigned int _index) const;
 
     /**\brief Returns reference to the item with required index on specified level.
 
     \param _level Index of the level
     \param _index Index of required item */
-    ::profiler_gui::ProfBlockItem& getItem(unsigned char _level, unsigned int _index);
+    ::profiler_gui::EasyBlockItem& getItem(unsigned char _level, unsigned int _index);
 
     /** \brief Adds new item to required level.
     
@@ -142,7 +142,7 @@ public:
     \param _blocks Reference to the array of selected blocks */
     void getBlocks(qreal _left, qreal _right, ::profiler_gui::TreeBlocks& _blocks) const;
 
-    const ::profiler_gui::ProfBlockItem* intersect(const QPointF& _pos) const;
+    const ::profiler_gui::EasyBlockItem* intersect(const QPointF& _pos) const;
 
 private:
 

@@ -21,7 +21,7 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyTreeWidgetItem::EasyTreeWidgetItem(const ::profiler::BlocksTree* _treeBlock, Parent* _parent)
+EasyTreeWidgetItem::EasyTreeWidgetItem(const ::profiler::block_index_t _treeBlock, Parent* _parent)
     : Parent(_parent)
     , m_block(_treeBlock)
     , m_customBGColor(0)
@@ -75,15 +75,25 @@ bool EasyTreeWidgetItem::operator < (const Parent& _other) const
     return false;
 }
 
-const ::profiler::BlocksTree* EasyTreeWidgetItem::block() const
+::profiler::block_index_t EasyTreeWidgetItem::block_index() const
 {
     return m_block;
 }
 
+::profiler_gui::EasyBlock& EasyTreeWidgetItem::guiBlock()
+{
+    return easyBlock(m_block);
+}
+
+const ::profiler::BlocksTree& EasyTreeWidgetItem::block() const
+{
+    return blocksTree(m_block);
+}
+
 ::profiler::timestamp_t EasyTreeWidgetItem::duration() const
 {
-    if (m_block->node)
-        return m_block->node->duration();
+    if (parent() != nullptr)
+        return block().node->duration();
     return data(COL_DURATION, Qt::UserRole).toULongLong();
 }
 
@@ -173,7 +183,8 @@ void EasyTreeWidgetItem::collapseAll()
     }
 
     setExpanded(false);
-    ::profiler_gui::EASY_GLOBALS.gui_blocks[m_block->block_index].expanded = false;
+    if (parent() != nullptr)
+        guiBlock().expanded = false;
 }
 
 void EasyTreeWidgetItem::expandAll()
@@ -184,7 +195,8 @@ void EasyTreeWidgetItem::expandAll()
     }
 
     setExpanded(true);
-    ::profiler_gui::EASY_GLOBALS.gui_blocks[m_block->block_index].expanded = true;
+    if (parent() != nullptr)
+        guiBlock().expanded = true;
 }
 
 //////////////////////////////////////////////////////////////////////////

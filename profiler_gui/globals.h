@@ -42,19 +42,6 @@ namespace profiler_gui {
 
     //////////////////////////////////////////////////////////////////////////
 
-#pragma pack(push, 1)
-    struct EasyBlock final
-    {
-        unsigned int            tree_item;
-        unsigned int  graphics_item_index;
-        unsigned char graphics_item_level;
-        unsigned char       graphics_item;
-        bool                     expanded;
-    };
-#pragma pack(pop)
-
-    typedef ::std::vector<EasyBlock> EasyBlocks;
-
     template <class T>
     inline auto toUnicode(const T& _inputString) -> decltype(QTextCodec::codecForLocale()->toUnicode(_inputString))
     {
@@ -97,12 +84,25 @@ namespace profiler_gui {
 
     }; // END of struct EasyGlobals.
 
-#ifndef IGNORE_GLOBALS_DECLARATION
-    static EasyGlobals& EASY_GLOBALS = EasyGlobals::instance();
-#endif
     //////////////////////////////////////////////////////////////////////////
 
 } // END of namespace profiler_gui.
+
+#ifndef IGNORE_GLOBALS_DECLARATION
+static ::profiler_gui::EasyGlobals& EASY_GLOBALS = ::profiler_gui::EasyGlobals::instance();
+
+inline ::profiler_gui::EasyBlock& easyBlock(::profiler::block_index_t i) {
+    return EASY_GLOBALS.gui_blocks[i];
+}
+
+inline ::profiler::SerializedBlockDescriptor& easyDescriptor(::profiler::block_id_t i) {
+    return *EASY_GLOBALS.descriptors[i];
+}
+
+inline ::profiler::BlocksTree& blocksTree(::profiler::block_index_t i) {
+    return easyBlock(i).tree;
+}
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////

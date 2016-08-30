@@ -112,7 +112,8 @@ int main(int argc, char* argv[])
 
     ::profiler::SerializedData serialized_blocks, serialized_descriptors;
     ::profiler::descriptors_list_t descriptors;
-    auto blocks_counter = fillTreesFromFile(filename.c_str(), serialized_blocks, serialized_descriptors, descriptors, threaded_trees, true);
+    ::profiler::blocks_t blocks;
+    auto blocks_counter = fillTreesFromFile(filename.c_str(), serialized_blocks, serialized_descriptors, descriptors, blocks, threaded_trees, true);
 
     auto end = std::chrono::system_clock::now();
 

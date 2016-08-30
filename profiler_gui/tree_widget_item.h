@@ -75,7 +75,7 @@ class EasyTreeWidgetItem : public QTreeWidgetItem
     typedef QTreeWidgetItem    Parent;
     typedef EasyTreeWidgetItem   This;
 
-    const ::profiler::BlocksTree*           m_block;
+    const ::profiler::block_index_t         m_block;
     QRgb                            m_customBGColor;
     QRgb                          m_customTextColor;
 
@@ -84,14 +84,16 @@ public:
     using Parent::setBackgroundColor;
     using Parent::setTextColor;
 
-    EasyTreeWidgetItem(const ::profiler::BlocksTree* _treeBlock, Parent* _parent = nullptr);
+    EasyTreeWidgetItem(const ::profiler::block_index_t _treeBlock = ::profiler_gui::numeric_max<decltype(m_block)>(), Parent* _parent = nullptr);
     virtual ~EasyTreeWidgetItem();
 
     bool operator < (const Parent& _other) const override;
 
 public:
 
-    const ::profiler::BlocksTree* block() const;
+    ::profiler::block_index_t block_index() const;
+    ::profiler_gui::EasyBlock& guiBlock();
+    const ::profiler::BlocksTree& block() const;
 
     ::profiler::timestamp_t duration() const;
     ::profiler::timestamp_t selfDuration() const;

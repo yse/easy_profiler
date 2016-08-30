@@ -105,14 +105,15 @@ inline QRgb fromProfilerRgb(unsigned int _red, unsigned int _green, unsigned int
 //////////////////////////////////////////////////////////////////////////
 
 #pragma pack(push, 1)
-struct ProfBlockItem final
+struct EasyBlockItem final
 {
-    const ::profiler::BlocksTree* block; ///< Pointer to profiler block
+    //const ::profiler::BlocksTree* block; ///< Pointer to profiler block
     qreal                             x; ///< x coordinate of the item (this is made qreal=double to avoid mistakes on very wide scene)
     float                             w; ///< Width of the item
     QRgb                          color; ///< Background color of the item
-    unsigned int         children_begin; ///< Index of first child item on the next sublevel
-    unsigned short          totalHeight; ///< Total height of the item including heights of all it's children
+    ::profiler::block_index_t     block; ///< Index of profiler block
+    uint32_t             children_begin; ///< Index of first child item on the next sublevel
+    uint16_t                totalHeight; ///< Total height of the item including heights of all it's children
     char                          state; ///< 0 = no change, 1 = paint, -1 = do not paint
 
     // Possible optimizations:
@@ -125,31 +126,58 @@ struct ProfBlockItem final
     inline qreal right() const { return x + w; }
     inline float width() const { return w; }
 
-}; // END of struct ProfBlockItem.
-#pragma pack(pop)
+}; // END of struct EasyBlockItem.
 
-typedef ::std::vector<ProfBlockItem> ProfItems;
-
-//////////////////////////////////////////////////////////////////////////
-
-struct ProfSelectedBlock final
+struct EasyBlock final
 {
-    const ::profiler::BlocksTreeRoot* root;
-    const ::profiler::BlocksTree*     tree;
+    ::profiler::BlocksTree       tree;
+    uint32_t                tree_item;
+    uint32_t      graphics_item_index;
+    uint8_t       graphics_item_level;
+    uint8_t             graphics_item;
+    bool                     expanded;
 
-    ProfSelectedBlock() : root(nullptr), tree(nullptr)
+    EasyBlock() = default;
+
+    EasyBlock(EasyBlock&& that)
+        : tree(::std::move(tree))
+        , tree_item(that.tree_item)
+        , graphics_item_index(that.graphics_item_index)
+        , graphics_item_level(that.graphics_item_level)
+        , graphics_item(that.graphics_item)
+        , expanded(that.expanded)
     {
     }
 
-    ProfSelectedBlock(const ::profiler::BlocksTreeRoot* _root, const ::profiler::BlocksTree* _tree)
+private:
+
+    EasyBlock(const EasyBlock&) = delete;
+};
+#pragma pack(pop)
+
+typedef ::std::vector<EasyBlockItem> EasyItems;
+typedef ::std::vector<EasyBlock> EasyBlocks;
+
+//////////////////////////////////////////////////////////////////////////
+
+struct EasySelectedBlock final
+{
+    const ::profiler::BlocksTreeRoot* root;
+    ::profiler::block_index_t         tree;
+
+    EasySelectedBlock() : root(nullptr), tree(0xffffffff)
+    {
+    }
+
+    EasySelectedBlock(const ::profiler::BlocksTreeRoot* _root, const ::profiler::block_index_t _tree)
         : root(_root)
         , tree(_tree)
     {
     }
 
-}; // END of struct ProfSelectedBlock.
+}; // END of struct EasySelectedBlock.
 
-typedef ::std::vector<ProfSelectedBlock> TreeBlocks;
+typedef ::std::vector<EasySelectedBlock> TreeBlocks;
 
 //////////////////////////////////////////////////////////////////////////
 

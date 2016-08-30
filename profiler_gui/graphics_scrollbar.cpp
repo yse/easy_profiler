@@ -238,7 +238,7 @@ void EasyMinimapItem::setBoundingRect(qreal x, qreal y, qreal w, qreal h)
     m_boundingRect.setRect(x, y, w, h);
 }
 
-void EasyMinimapItem::setSource(::profiler::thread_id_t _thread_id, const ::profiler_gui::ProfItems* _items)
+void EasyMinimapItem::setSource(::profiler::thread_id_t _thread_id, const ::profiler_gui::EasyItems* _items)
 {
     m_pSource = _items;
     m_threadId = _thread_id;
@@ -428,7 +428,7 @@ void EasyGraphicsScrollbar::hideChrono()
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsScrollbar::setMinimapFrom(::profiler::thread_id_t _thread_id, const ::profiler_gui::ProfItems* _items)
+void EasyGraphicsScrollbar::setMinimapFrom(::profiler::thread_id_t _thread_id, const ::profiler_gui::EasyItems* _items)
 {
     m_minimap->setSource(_thread_id, _items);
     m_slider->setVisible(m_minimap->isVisible());
@@ -493,14 +493,14 @@ void EasyGraphicsScrollbar::resizeEvent(QResizeEvent* _event)
 
 void EasyGraphicsScrollbar::contextMenuEvent(QContextMenuEvent* _event)
 {
-    if (::profiler_gui::EASY_GLOBALS.profiler_blocks.empty())
+    if (EASY_GLOBALS.profiler_blocks.empty())
     {
         return;
     }
 
     QMenu menu;
 
-    for (const auto& it : ::profiler_gui::EASY_GLOBALS.profiler_blocks)
+    for (const auto& it : EASY_GLOBALS.profiler_blocks)
     {
         QString label;
         if (it.second.thread_name && it.second.thread_name[0] != 0)
@@ -514,7 +514,7 @@ void EasyGraphicsScrollbar::contextMenuEvent(QContextMenuEvent* _event)
 
         auto action = new EasyIdAction(label, it.first);
         action->setCheckable(true);
-        action->setChecked(it.first == ::profiler_gui::EASY_GLOBALS.selected_thread);
+        action->setChecked(it.first == EASY_GLOBALS.selected_thread);
         connect(action, &EasyIdAction::clicked, this, &This::onThreadActionClicked);
 
         menu.addAction(action);
@@ -530,8 +530,8 @@ void EasyGraphicsScrollbar::onThreadActionClicked(::profiler::thread_id_t _id)
 {
     if (_id != m_minimap->threadId())
     {
-        ::profiler_gui::EASY_GLOBALS.selected_thread = _id;
-        emit ::profiler_gui::EASY_GLOBALS.events.selectedThreadChanged(_id);
+        EASY_GLOBALS.selected_thread = _id;
+        emit EASY_GLOBALS.events.selectedThreadChanged(_id);
     }
 }
 

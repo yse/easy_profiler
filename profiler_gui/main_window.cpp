@@ -100,22 +100,22 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     menu->addSeparator();
     action = menu->addAction("Draw items' borders");
     action->setCheckable(true);
-    action->setChecked(::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders);
+    action->setChecked(EASY_GLOBALS.draw_graphics_items_borders);
     connect(action, &QAction::triggered, this, &This::onDrawBordersChanged);
 
     action = menu->addAction("Collapse items on tree reset");
     action->setCheckable(true);
-    action->setChecked(::profiler_gui::EASY_GLOBALS.collapse_items_on_tree_close);
+    action->setChecked(EASY_GLOBALS.collapse_items_on_tree_close);
     connect(action, &QAction::triggered, this, &This::onCollapseItemsAfterCloseChanged);
 
     action = menu->addAction("Expand all on file open");
     action->setCheckable(true);
-    action->setChecked(::profiler_gui::EASY_GLOBALS.all_items_expanded_by_default);
+    action->setChecked(EASY_GLOBALS.all_items_expanded_by_default);
     connect(action, &QAction::triggered, this, &This::onAllItemsExpandedByDefaultChange);
 
     action = menu->addAction("Bind scene and tree expand");
     action->setCheckable(true);
-    action->setChecked(::profiler_gui::EASY_GLOBALS.bind_scene_and_tree_expand_status);
+    action->setChecked(EASY_GLOBALS.bind_scene_and_tree_expand_status);
     connect(action, &QAction::triggered, this, &This::onBindExpandStatusChange);
 
     menu->addSeparator();
@@ -126,7 +126,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     action = new QAction("At top", actionGroup);
     action->setCheckable(true);
     action->setData(static_cast<int>(::profiler_gui::ChronoTextPosition_Top));
-    if (::profiler_gui::EASY_GLOBALS.chrono_text_position == ::profiler_gui::ChronoTextPosition_Top)
+    if (EASY_GLOBALS.chrono_text_position == ::profiler_gui::ChronoTextPosition_Top)
         action->setChecked(true);
     submenu->addAction(action);
     connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
@@ -134,7 +134,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     action = new QAction("At center", actionGroup);
     action->setCheckable(true);
     action->setData(static_cast<int>(::profiler_gui::ChronoTextPosition_Center));
-    if (::profiler_gui::EASY_GLOBALS.chrono_text_position == ::profiler_gui::ChronoTextPosition_Center)
+    if (EASY_GLOBALS.chrono_text_position == ::profiler_gui::ChronoTextPosition_Center)
         action->setChecked(true);
     submenu->addAction(action);
     connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
@@ -142,7 +142,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     action = new QAction("At bottom", actionGroup);
     action->setCheckable(true);
     action->setData(static_cast<int>(::profiler_gui::ChronoTextPosition_Bottom));
-    if (::profiler_gui::EASY_GLOBALS.chrono_text_position == ::profiler_gui::ChronoTextPosition_Bottom)
+    if (EASY_GLOBALS.chrono_text_position == ::profiler_gui::ChronoTextPosition_Bottom)
         action->setChecked(true);
     submenu->addAction(action);
     connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
@@ -250,39 +250,39 @@ void EasyMainWindow::onEncodingChanged(bool)
 void EasyMainWindow::onChronoTextPosChanged(bool)
 {
     auto _sender = qobject_cast<QAction*>(sender());
-    ::profiler_gui::EASY_GLOBALS.chrono_text_position = static_cast<::profiler_gui::ChronometerTextPosition>(_sender->data().toInt());
-    emit ::profiler_gui::EASY_GLOBALS.events.chronoPositionChanged();
+    EASY_GLOBALS.chrono_text_position = static_cast<::profiler_gui::ChronometerTextPosition>(_sender->data().toInt());
+    emit EASY_GLOBALS.events.chronoPositionChanged();
 }
 
 void EasyMainWindow::onDrawBordersChanged(bool _checked)
 {
-    ::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders = _checked;
-    emit ::profiler_gui::EASY_GLOBALS.events.drawBordersChanged();
+    EASY_GLOBALS.draw_graphics_items_borders = _checked;
+    emit EASY_GLOBALS.events.drawBordersChanged();
 }
 
 void EasyMainWindow::onCollapseItemsAfterCloseChanged(bool _checked)
 {
-    ::profiler_gui::EASY_GLOBALS.collapse_items_on_tree_close = _checked;
+    EASY_GLOBALS.collapse_items_on_tree_close = _checked;
 }
 
 void EasyMainWindow::onAllItemsExpandedByDefaultChange(bool _checked)
 {
-    ::profiler_gui::EASY_GLOBALS.all_items_expanded_by_default = _checked;
+    EASY_GLOBALS.all_items_expanded_by_default = _checked;
 }
 
 void EasyMainWindow::onBindExpandStatusChange(bool _checked)
 {
-    ::profiler_gui::EASY_GLOBALS.bind_scene_and_tree_expand_status = _checked;
+    EASY_GLOBALS.bind_scene_and_tree_expand_status = _checked;
 }
 
 //////////////////////////////////////////////////////////////////////////
 
 void EasyMainWindow::onExpandAllClicked(bool)
 {
-    for (auto& block : ::profiler_gui::EASY_GLOBALS.gui_blocks)
+    for (auto& block : EASY_GLOBALS.gui_blocks)
         block.expanded = true;
 
-    emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
+    emit EASY_GLOBALS.events.itemsExpandStateChanged();
 
     auto tree = static_cast<EasyTreeWidget*>(m_treeWidget->widget());
     const QSignalBlocker b(tree);
@@ -291,10 +291,10 @@ void EasyMainWindow::onExpandAllClicked(bool)
 
 void EasyMainWindow::onCollapseAllClicked(bool)
 {
-    for (auto& block : ::profiler_gui::EASY_GLOBALS.gui_blocks)
+    for (auto& block : EASY_GLOBALS.gui_blocks)
         block.expanded = false;
 
-    emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
+    emit EASY_GLOBALS.events.itemsExpandStateChanged();
 
     auto tree = static_cast<EasyTreeWidget*>(m_treeWidget->widget());
     const QSignalBlocker b(tree);
@@ -326,32 +326,32 @@ void EasyMainWindow::loadSettings()
     auto val = settings.value("chrono_text_position");
     if (!val.isNull())
     {
-        ::profiler_gui::EASY_GLOBALS.chrono_text_position = static_cast<::profiler_gui::ChronometerTextPosition>(val.toInt());
+        EASY_GLOBALS.chrono_text_position = static_cast<::profiler_gui::ChronometerTextPosition>(val.toInt());
     }
 
 
     auto flag = settings.value("draw_graphics_items_borders");
     if (!flag.isNull())
     {
-        ::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders = flag.toBool();
+        EASY_GLOBALS.draw_graphics_items_borders = flag.toBool();
     }
 
     flag = settings.value("collapse_items_on_tree_close");
     if (!flag.isNull())
     {
-        ::profiler_gui::EASY_GLOBALS.collapse_items_on_tree_close = flag.toBool();
+        EASY_GLOBALS.collapse_items_on_tree_close = flag.toBool();
     }
 
     flag = settings.value("all_items_expanded_by_default");
     if (!flag.isNull())
     {
-        ::profiler_gui::EASY_GLOBALS.all_items_expanded_by_default = flag.toBool();
+        EASY_GLOBALS.all_items_expanded_by_default = flag.toBool();
     }
 
     flag = settings.value("bind_scene_and_tree_expand_status");
     if (!flag.isNull())
     {
-        ::profiler_gui::EASY_GLOBALS.bind_scene_and_tree_expand_status = flag.toBool();
+        EASY_GLOBALS.bind_scene_and_tree_expand_status = flag.toBool();
     }
 
     QString encoding = settings.value("encoding", "UTF-8").toString();
@@ -379,11 +379,11 @@ void EasyMainWindow::saveSettingsAndGeometry()
 
 	settings.setValue("geometry", this->saveGeometry());
     settings.setValue("last_file", m_lastFile);
-    settings.setValue("chrono_text_position", static_cast<int>(::profiler_gui::EASY_GLOBALS.chrono_text_position));
-    settings.setValue("draw_graphics_items_borders", ::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders);
-    settings.setValue("collapse_items_on_tree_close", ::profiler_gui::EASY_GLOBALS.collapse_items_on_tree_close);
-    settings.setValue("all_items_expanded_by_default", ::profiler_gui::EASY_GLOBALS.all_items_expanded_by_default);
-    settings.setValue("bind_scene_and_tree_expand_status", ::profiler_gui::EASY_GLOBALS.bind_scene_and_tree_expand_status);
+    settings.setValue("chrono_text_position", static_cast<int>(EASY_GLOBALS.chrono_text_position));
+    settings.setValue("draw_graphics_items_borders", EASY_GLOBALS.draw_graphics_items_borders);
+    settings.setValue("collapse_items_on_tree_close", EASY_GLOBALS.collapse_items_on_tree_close);
+    settings.setValue("all_items_expanded_by_default", EASY_GLOBALS.all_items_expanded_by_default);
+    settings.setValue("bind_scene_and_tree_expand_status", EASY_GLOBALS.bind_scene_and_tree_expand_status);
     settings.setValue("encoding", QTextCodec::codecForLocale()->name());
 
 	settings.endGroup();
@@ -402,28 +402,34 @@ void EasyMainWindow::onFileReaderTimeout()
 
             ::profiler::SerializedData serialized_blocks, serialized_descriptors;
             ::profiler::descriptors_list_t descriptors;
-            ::profiler::thread_blocks_tree_t prof_blocks;
+            ::profiler::blocks_t blocks;
+            ::profiler::thread_blocks_tree_t threads_map;
             QString filename;
-            m_reader.get(serialized_blocks, serialized_descriptors, descriptors, prof_blocks, filename);
+            m_reader.get(serialized_blocks, serialized_descriptors, descriptors, blocks, threads_map, filename);
 
-            if (prof_blocks.size() > 0xff)
+            if (threads_map.size() > 0xff)
             {
-                qWarning() << "Warning: file " << filename << " contains " << prof_blocks.size() << " threads!";
+                qWarning() << "Warning: file " << filename << " contains " << threads_map.size() << " threads!";
                 qWarning() << "Warning:    Currently, maximum number of displayed threads is 255! Some threads will not be displayed.";
             }
 
             m_lastFile = ::std::move(filename);
             m_serializedBlocks = ::std::move(serialized_blocks);
             m_serializedDescriptors = ::std::move(serialized_descriptors);
-            ::profiler_gui::EASY_GLOBALS.selected_thread = 0;
-            ::profiler_gui::set_max(::profiler_gui::EASY_GLOBALS.selected_block);
-            ::profiler_gui::EASY_GLOBALS.profiler_blocks.swap(prof_blocks);
-            ::profiler_gui::EASY_GLOBALS.descriptors.swap(descriptors);
-            ::profiler_gui::EASY_GLOBALS.gui_blocks.resize(nblocks);
-            memset(::profiler_gui::EASY_GLOBALS.gui_blocks.data(), 0, sizeof(::profiler_gui::EasyBlock) * nblocks);
-            for (auto& guiblock : ::profiler_gui::EASY_GLOBALS.gui_blocks) ::profiler_gui::set_max(guiblock.tree_item);
+            EASY_GLOBALS.selected_thread = 0;
+            ::profiler_gui::set_max(EASY_GLOBALS.selected_block);
+            EASY_GLOBALS.profiler_blocks.swap(threads_map);
+            EASY_GLOBALS.descriptors.swap(descriptors);
 
-            static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->setTree(::profiler_gui::EASY_GLOBALS.profiler_blocks);
+            EASY_GLOBALS.gui_blocks.resize(nblocks);
+            memset(EASY_GLOBALS.gui_blocks.data(), 0, sizeof(::profiler_gui::EasyBlock) * nblocks);
+            for (decltype(nblocks) i = 0; i < nblocks; ++i) {
+                auto& guiblock = EASY_GLOBALS.gui_blocks[i];
+                guiblock.tree = ::std::move(blocks[i]);
+                ::profiler_gui::set_max(guiblock.tree_item);
+            }
+
+            static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->setTree(EASY_GLOBALS.profiler_blocks);
         }
         else
         {
@@ -436,7 +442,7 @@ void EasyMainWindow::onFileReaderTimeout()
         m_progress->setValue(100);
         //m_progress->hide();
 
-        if (::profiler_gui::EASY_GLOBALS.all_items_expanded_by_default)
+        if (EASY_GLOBALS.all_items_expanded_by_default)
         {
             onExpandAllClicked(true);
         }
@@ -493,7 +499,7 @@ void EasyFileReader::load(const QString& _filename)
 
     m_filename = _filename;
     m_thread = ::std::move(::std::thread([this]() {
-        m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_serializedBlocks, m_serializedDescriptors, m_descriptors, m_blocksTree, true));
+        m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_serializedBlocks, m_serializedDescriptors, m_descriptors, m_blocks, m_blocksTree, true));
         m_progress.store(100);
         m_bDone.store(true);
     }));
@@ -511,17 +517,20 @@ void EasyFileReader::interrupt()
     m_serializedBlocks.clear();
     m_serializedDescriptors.clear();
     m_descriptors.clear();
+    m_blocks.clear();
     m_blocksTree.clear();
 }
 
 void EasyFileReader::get(::profiler::SerializedData& _serializedBlocks, ::profiler::SerializedData& _serializedDescriptors,
-                         ::profiler::descriptors_list_t& _descriptors, ::profiler::thread_blocks_tree_t& _tree, QString& _filename)
+                         ::profiler::descriptors_list_t& _descriptors, ::profiler::blocks_t& _blocks, ::profiler::thread_blocks_tree_t& _tree,
+                         QString& _filename)
 {
     if (done())
     {
         m_serializedBlocks.swap(_serializedBlocks);
         m_serializedDescriptors.swap(_serializedDescriptors);
-        ::profiler::descriptors_list_t(m_descriptors).swap(_descriptors);
+        ::profiler::descriptors_list_t(::std::move(m_descriptors)).swap(_descriptors);
+        m_blocks.swap(_blocks);
         m_blocksTree.swap(_tree);
         m_filename.swap(_filename);
     }

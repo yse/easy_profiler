@@ -66,7 +66,7 @@ class EasyMinimapItem : public QGraphicsItem
     QRectF                           m_boundingRect;
     qreal                             m_maxDuration;
     qreal                             m_minDuration;
-    const ::profiler_gui::ProfItems*      m_pSource;
+    const ::profiler_gui::EasyItems*      m_pSource;
     ::profiler::thread_id_t              m_threadId;
 
 public:
@@ -88,7 +88,7 @@ public:
     void setBoundingRect(const QRectF& _rect);
     void setBoundingRect(qreal x, qreal y, qreal w, qreal h);
 
-    void setSource(::profiler::thread_id_t _thread_id, const ::profiler_gui::ProfItems* _items);
+    void setSource(::profiler::thread_id_t _thread_id, const ::profiler_gui::EasyItems* _items);
 
 }; // END of class EasyMinimapItem.
 
@@ -190,9 +190,9 @@ public:
     void showChrono();
     void hideChrono();
 
-    void setMinimapFrom(::profiler::thread_id_t _thread_id, const::profiler_gui::ProfItems* _items);
+    void setMinimapFrom(::profiler::thread_id_t _thread_id, const::profiler_gui::EasyItems* _items);
 
-    inline void setMinimapFrom(::profiler::thread_id_t _thread_id, const ::profiler_gui::ProfItems& _items)
+    inline void setMinimapFrom(::profiler::thread_id_t _thread_id, const ::profiler_gui::EasyItems& _items)
     {
         setMinimapFrom(_thread_id, &_items);
     }

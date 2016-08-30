@@ -35,6 +35,7 @@ class EasyFileReader final
     ::profiler::SerializedData      m_serializedBlocks; ///< 
     ::profiler::SerializedData m_serializedDescriptors; ///< 
     ::profiler::descriptors_list_t       m_descriptors; ///< 
+    ::profiler::blocks_t                      m_blocks; ///< 
     ::profiler::thread_blocks_tree_t      m_blocksTree; ///< 
     QString                                 m_filename; ///< 
     ::std::thread                             m_thread; ///< 
@@ -55,7 +56,8 @@ public:
     void load(const QString& _filename);
     void interrupt();
     void get(::profiler::SerializedData& _serializedBlocks, ::profiler::SerializedData& _serializedDescriptors,
-             ::profiler::descriptors_list_t& _descriptors, ::profiler::thread_blocks_tree_t& _tree, QString& _filename);
+             ::profiler::descriptors_list_t& _descriptors, ::profiler::blocks_t& _blocks, ::profiler::thread_blocks_tree_t& _tree,
+             QString& _filename);
 
 }; // END of class EasyFileReader.
 
