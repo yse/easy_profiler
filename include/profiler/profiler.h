@@ -38,13 +38,13 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 namespace profiler {
     template <bool IS_REF> struct NameSwitch final {
-        static const char* runtime_name(const char*) { return ""; }
-        static const char* compiletime_name(const char* name) { return name; }
+        static const char* runtime_name(const char* name) { return name; }
+        static const char* compiletime_name(const char*) { return ""; }
     };
 
     template <> struct NameSwitch<true> final {
-        static const char* runtime_name(const char* name) { return name; }
-        static const char* compiletime_name(const char*) { return ""; }
+        static const char* runtime_name(const char*) { return ""; }
+        static const char* compiletime_name(const char* name) { return name; }
     };
 } // END of namespace profiler.
 
