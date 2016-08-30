@@ -888,14 +888,15 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
         return;
     }
 
-    if (m_right + textRect.width() < sceneRight)
+    const auto w = textRect.width() / currentScale;
+    if (m_right + w < sceneRight)
     {
         // Text will be drawed to the right of rectangle
         rect.translate(rect.width(), 0);
         textFlags &= ~Qt::AlignHCenter;
         textFlags |= Qt::AlignLeft;
     }
-    else if (m_left - textRect.width() > sceneLeft)
+    else if (m_left - w > sceneLeft)
     {
         // Text will be drawed to the left of rectangle
         rect.translate(-rect.width(), 0);
