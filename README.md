@@ -40,7 +40,7 @@ If you use Visual Studio you can generate solution by cmake command. In this cas
 ```batch
 $ mkdir build
 $ cd build
-$ cmake -DCMAKE_PREFIX_PATH="C:\\\\Qt\\\\5.3\\\\msvc2013_64\\\\lib\\\\cmake" ..
+$ cmake -DCMAKE_PREFIX_PATH="C:\\Qt\\5.3\\msvc2013_64\\lib\\cmake" ..
 ```
 
 # Usage
