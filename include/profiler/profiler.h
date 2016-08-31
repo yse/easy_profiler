@@ -23,6 +23,11 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #define __func__ __FUNCTION__
 #endif
 
+#if defined ( __clang__ )
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+#endif
+
 #ifndef FULL_DISABLE_PROFILER
 
 #include <type_traits>
@@ -328,5 +333,9 @@ namespace profiler {
     //////////////////////////////////////////////////////////////////////
 	
 } // END of namespace profiler.
+
+#if defined ( __clang__ )
+#pragma clang diagnostic pop
+#endif
 
 #endif // EASY_PROFILER____H_______
