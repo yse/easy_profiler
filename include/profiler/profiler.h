@@ -99,7 +99,11 @@ Name of the block automatically created with function name.
 
 \ingroup profiler
 */
-#define EASY_FUNCTION(...) EASY_BLOCK(__func__ , ## __VA_ARGS__)
+#define EASY_FUNCTION(...)\
+    static const ::profiler::StaticBlockDescriptor EASY_UNIQUE_DESC(__LINE__)(__func__, __FILE__, __LINE__,\
+        ::profiler::BLOCK_TYPE_BLOCK , ## __VA_ARGS__);\
+    ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(::profiler::BLOCK_TYPE_BLOCK, EASY_UNIQUE_DESC(__LINE__).id(), "");\
+    ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
 /** Macro of completion of last nearest open block.
 
