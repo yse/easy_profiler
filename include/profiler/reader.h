@@ -66,7 +66,7 @@ namespace profiler {
 
     //////////////////////////////////////////////////////////////////////////
 
-    class BlocksTree
+    class BlocksTree final
     {
         typedef BlocksTree This;
 
