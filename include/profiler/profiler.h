@@ -19,7 +19,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #ifndef EASY_PROFILER____H_______
 #define EASY_PROFILER____H_______
 
-#if defined ( WIN32 )
+#ifdef _WIN32
 #define __func__ __FUNCTION__
 #endif
 
@@ -157,7 +157,7 @@ If this thread has been already named then nothing changes.
 
 \ingroup profiler
 */
-#ifdef WIN32
+#ifdef _WIN32
 #define EASY_THREAD(name) ::profiler::setThreadName(name, __FILE__, __func__, __LINE__);
 #else
 #define EASY_THREAD(name) thread_local static const ::profiler::ThreadNameSetter EASY_TOKEN_CONCATENATE(unique_profiler_thread_name_setter_, __LINE__)(name, __FILE__, __func__, __LINE__);
@@ -311,7 +311,7 @@ namespace profiler {
         block_id_t id() const { return m_id; }
     };
 
-#ifndef WIN32
+#ifndef _WIN32
     struct PROFILER_API ThreadNameSetter final
     {
         ThreadNameSetter(const char* _name, const char* _filename, const char* _funcname, int _line)

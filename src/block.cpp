@@ -6,7 +6,7 @@
 
 using namespace profiler;
 
-#ifdef WIN32
+#ifdef _WIN32
 struct ProfPerformanceFrequency {
     LARGE_INTEGER frequency;
     ProfPerformanceFrequency() { QueryPerformanceFrequency(&frequency); }
@@ -15,7 +15,7 @@ struct ProfPerformanceFrequency {
 
 inline timestamp_t getCurrentTime()
 {
-#ifdef WIN32
+#ifdef _WIN32
 	//see https://msdn.microsoft.com/library/windows/desktop/dn553408(v=vs.85).aspx
 	LARGE_INTEGER elapsedMicroseconds;
 	if (!QueryPerformanceCounter(&elapsedMicroseconds))

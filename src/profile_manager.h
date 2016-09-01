@@ -32,7 +32,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 //////////////////////////////////////////////////////////////////////////
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <Windows.h>
 #else
 #include <thread>
@@ -40,7 +40,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 inline uint32_t getCurrentThreadId()
 {
-#ifdef WIN32
+#ifdef _WIN32
 	return (uint32_t)::GetCurrentThreadId();
 #else
 	thread_local static uint32_t _id = (uint32_t)std::hash<std::thread::id>()(std::this_thread::get_id());

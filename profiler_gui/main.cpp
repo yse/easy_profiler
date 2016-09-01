@@ -6,7 +6,7 @@
 #include "main_window.h"
 #include "profiler/reader.h"
 
-//#ifdef WIN32
+//#ifdef _WIN32
 //#pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
 //#endif
 
