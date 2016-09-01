@@ -140,7 +140,7 @@ struct EasyBlock final
     EasyBlock() = default;
 
     EasyBlock(EasyBlock&& that)
-        : tree(::std::move(tree))
+        : tree(::std::move(that.tree))
         , tree_item(that.tree_item)
         , graphics_item_index(that.graphics_item_index)
         , graphics_item_level(that.graphics_item_level)
