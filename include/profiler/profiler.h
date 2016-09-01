@@ -23,6 +23,11 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #define __func__ __FUNCTION__
 #endif
 
+#if defined ( __clang__ )
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+#endif
+
 #ifndef FULL_DISABLE_PROFILER
 
 #include <type_traits>
@@ -99,7 +104,11 @@ Name of the block automatically created with function name.
 
 \ingroup profiler
 */
-#define EASY_FUNCTION(...) EASY_BLOCK(__func__ , ## __VA_ARGS__)
+#define EASY_FUNCTION(...)\
+    static const ::profiler::StaticBlockDescriptor EASY_UNIQUE_DESC(__LINE__)(__func__, __FILE__, __LINE__,\
+        ::profiler::BLOCK_TYPE_BLOCK , ## __VA_ARGS__);\
+    ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(::profiler::BLOCK_TYPE_BLOCK, EASY_UNIQUE_DESC(__LINE__).id(), "");\
+    ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
 /** Macro of completion of last nearest open block.
 
@@ -324,5 +333,9 @@ namespace profiler {
     //////////////////////////////////////////////////////////////////////
 	
 } // END of namespace profiler.
+
+#if defined ( __clang__ )
+#pragma clang diagnostic pop
+#endif
 
 #endif // EASY_PROFILER____H_______
