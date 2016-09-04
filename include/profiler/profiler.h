@@ -280,6 +280,7 @@ namespace profiler {
 
     public:
 
+        BaseBlockData(const BaseBlockData&) = default;
         BaseBlockData(timestamp_t _begin_time, block_id_t _id);
 
         inline timestamp_t begin() const { return m_begin; }
@@ -288,6 +289,10 @@ namespace profiler {
         inline timestamp_t duration() const { return m_end - m_begin; }
 
         inline void setId(block_id_t _id) { m_id = _id; }
+
+    private:
+
+        BaseBlockData() = delete;
     };
 #pragma pack(pop)
 

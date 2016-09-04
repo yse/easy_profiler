@@ -515,7 +515,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     if (!m_pRoot->sync.empty())
     {
         _painter->setBrush(Qt::NoBrush);
-        QPen pen(QColor::fromRgba(0x40f08040));
+        QPen pen(QColor::fromRgba(0xe0f08040));
         pen.setWidth(3);
         _painter->setPen(pen);
 
@@ -528,10 +528,10 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
             if (begin > sceneRight)
                 break; // This is first totally invisible item. No need to check other items.
 
-            decltype(begin) width = item.node->duration();
+            decltype(begin) width = sceneView->time2position(item.node->end()) - begin;
             auto r = begin + width;
-//             if (r < sceneLeft) // This item is not visible
-//                 continue;
+            if (r < sceneLeft) // This item is not visible
+                continue;
 
             begin *= currentScale;
             begin -= dx;
@@ -1424,7 +1424,13 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     for (const auto& threadTree : _blocksTree)
     {
         const auto& tree = threadTree.second.children;
-        const auto timestart = blocksTree(tree.front()).node->begin();
+        auto timestart = blocksTree(tree.front()).node->begin();
+
+#ifdef EASY_STORE_CSWITCH_SEPARATELY
+        if (!threadTree.second.sync.empty())
+            timestart = ::std::min(timestart, blocksTree(threadTree.second.sync.front()).node->begin());
+#endif
+
         const auto timefinish = blocksTree(tree.back()).node->end();
 
         if (m_beginTime > timestart)

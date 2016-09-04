@@ -76,7 +76,7 @@ public:
             return data;
         }
 
-        m_size = 0;
+        m_size = n;
         m_chunks.emplace_back();
         return m_chunks.back().data;
     }
@@ -90,6 +90,8 @@ public:
 };
 
 //////////////////////////////////////////////////////////////////////////
+
+const uint16_t SIZEOF_CSWITCH = sizeof(profiler::BaseBlockData) + 1;
 
 class ThreadStorage final
 {
@@ -114,8 +116,8 @@ class ThreadStorage final
 
 public:
 
-    BlocksList<std::reference_wrapper<profiler::Block>, 1024> blocks;
-    BlocksList<profiler::Block, 1024>                           sync;
+    BlocksList<std::reference_wrapper<profiler::Block>, SIZEOF_CSWITCH * (uint16_t)1024U> blocks;
+    BlocksList<profiler::Block, SIZEOF_CSWITCH * (uint16_t)128U>                            sync;
     bool named = false;
 
     void storeBlock(const profiler::Block& _block);

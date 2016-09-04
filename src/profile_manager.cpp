@@ -271,13 +271,9 @@ uint32_t ProfileManager::dumpBlocksToFile(const char* filename)
         of.write(descriptor.file(), filename_size);
     }
 
-    //::std::ofstream outputFile("csw2.csv", ::std::fstream::app);
-
     for (auto& thread_storage : m_threads)
     {
         auto& t = thread_storage.second;
-
-        //outputFile << thread_storage.first << std::endl;
 
         of.write(thread_storage.first);
 #ifdef STORE_CSWITCHES_SEPARATELY
@@ -318,7 +314,6 @@ uint32_t ProfileManager::dumpBlocksToFile(const char* filename)
         {
             auto b = t.sync.closedList[i];
 #endif
-            //outputFile << b->begin() << "\t" << b->end() << std::endl;
 
             of.writeBlock(b);
         }

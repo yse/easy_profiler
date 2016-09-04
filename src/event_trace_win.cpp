@@ -3,7 +3,6 @@
 #ifdef _WIN32
 #include <memory.h>
 #include <chrono>
-#include <fstream>
 #include "event_trace_win.h"
 #include "profiler/profiler.h"
 #include "profile_manager.h"
@@ -35,8 +34,6 @@ namespace profiler {
 
     void WINAPI processTraceEvent(PEVENT_RECORD _traceEvent)
     {
-        //static ::std::ofstream outputFile("csw.csv", ::std::fstream::app);
-
         static const decltype(_traceEvent->EventHeader.EventDescriptor.Opcode) SWITCH_CONTEXT_OPCODE = 36;
         if (_traceEvent->EventHeader.EventDescriptor.Opcode != SWITCH_CONTEXT_OPCODE)
             return;
@@ -47,11 +44,6 @@ namespace profiler {
         auto _contextSwitchEvent = reinterpret_cast<CSwitch*>(_traceEvent->UserData);
 
         auto timestampValue = _traceEvent->EventHeader.TimeStamp.QuadPart;
-
-        //LARGE_INTEGER currtime;
-        //if (QueryPerformanceCounter(&currtime))
-        //    timestampValue = currtime.QuadPart;
-
         //timestampValue *= 1000000000LL;
         //timestampValue /= CPU_FREQUENCY;
         const auto time = (::profiler::timestamp_t)timestampValue;
@@ -59,14 +51,10 @@ namespace profiler {
         static const ::profiler::StaticBlockDescriptor desc("OS.ContextSwitch", __FILE__, __LINE__, ::profiler::BLOCK_TYPE_CONTEXT_SWITCH, ::profiler::colors::White);
 
         //if (_contextSwitchEvent->OldThreadId != 0)
-        MANAGER._cswitchBeginBlock(time, desc.id(), _contextSwitchEvent->OldThreadId);
+            MANAGER._cswitchBeginBlock(time, desc.id(), _contextSwitchEvent->OldThreadId);
 
         //if (_contextSwitchEvent->NewThreadId != 0)
-        MANAGER._cswitchEndBlock(_contextSwitchEvent->NewThreadId, time);
-
-        //static const auto firstTime = time;
-        //outputFile << _contextSwitchEvent->OldThreadId << "\t" << _contextSwitchEvent->NewThreadId << "\t" << (((time - firstTime) * 1000000000LL) / CPU_FREQUENCY) << ::std::endl;
-        //outputFile << _contextSwitchEvent->OldThreadId << "\t" << _contextSwitchEvent->NewThreadId << "\t" << time << ::std::endl;
+            MANAGER._cswitchEndBlock(_contextSwitchEvent->NewThreadId, time);
     }
 
     //////////////////////////////////////////////////////////////////////////

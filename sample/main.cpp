@@ -262,6 +262,11 @@ int main(int argc, char* argv[])
 	}
 	cv.notify_all();
 
+    for (int i = 0; i < RENDER_SPEPS; ++i) {
+        modellingStep();
+        localSleep(1200000);
+    }
+
 	render.join();
 	modelling.join();
 	for(auto& t : threads){
