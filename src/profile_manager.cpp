@@ -1,5 +1,6 @@
 #include "profile_manager.h"
 #include "profiler/serialized_block.h"
+#include "event_trace_win.h"
 
 #include <thread>
 #include <string.h>
@@ -8,7 +9,12 @@
 
 using namespace profiler;
 
-auto& MANAGER = ProfileManager::instance();
+#ifdef _WIN32
+extern decltype(LARGE_INTEGER::QuadPart) CPU_FREQUENCY;
+#endif
+
+//auto& MANAGER = ProfileManager::instance();
+#define MANAGER ProfileManager::instance()
 
 extern "C"{
 
@@ -20,13 +26,18 @@ extern "C"{
     void PROFILER_API setEnabled(bool isEnable)
     {
         MANAGER.setEnabled(isEnable);
+        if (isEnable)
+            EasyEventTracer::instance().enable(true);
+        else
+            EasyEventTracer::instance().disable();
     }
+
     void PROFILER_API beginBlock(Block& _block)
 	{
         MANAGER.beginBlock(_block);
 	}
 
-	unsigned int PROFILER_API dumpBlocksToFile(const char* filename)
+	uint32_t PROFILER_API dumpBlocksToFile(const char* filename)
 	{
         return MANAGER.dumpBlocksToFile(filename);
 	}
@@ -35,6 +46,7 @@ extern "C"{
 	{
         return MANAGER.setThreadName(name, filename, _funcname, line);
 	}
+
 }
 
 SerializedBlock::SerializedBlock(const Block& block, uint16_t name_length)
@@ -71,28 +83,53 @@ BlockDescriptor::BlockDescriptor(uint64_t& _used_mem, const char* _name, const c
 
 //////////////////////////////////////////////////////////////////////////
 
-void ThreadStorage::store(const profiler::Block& block)
+void ThreadStorage::storeBlock(const profiler::Block& block)
 {
     auto name_length = static_cast<uint16_t>(strlen(block.name()));
     auto size = static_cast<uint16_t>(sizeof(BaseBlockData) + name_length + 1);
-    auto data = m_allocator.allocate(size);
+    auto data = blocks.alloc.allocate(size);
     ::new (static_cast<void*>(data)) SerializedBlock(block, name_length);
-    usedMemorySize += size;
-    closedList.emplace_back(reinterpret_cast<SerializedBlock*>(data));
+    blocks.usedMemorySize += size;
+    blocks.closedList.emplace_back(reinterpret_cast<SerializedBlock*>(data));
+}
+
+void ThreadStorage::storeCSwitch(const profiler::Block& block)
+{
+    auto name_length = static_cast<uint16_t>(strlen(block.name()));
+    auto size = static_cast<uint16_t>(sizeof(BaseBlockData) + name_length + 1);
+    auto data = sync.alloc.allocate(size);
+    ::new (static_cast<void*>(data)) SerializedBlock(block, name_length);
+    sync.usedMemorySize += size;
+    sync.closedList.emplace_back(reinterpret_cast<SerializedBlock*>(data));
 }
 
 void ThreadStorage::clearClosed()
 {
-    serialized_list_t().swap(closedList);
-    m_allocator.clear();
-    usedMemorySize = 0;
+    blocks.clearClosed();
+    sync.clearClosed();
 }
 
 //////////////////////////////////////////////////////////////////////////
 
+// #ifdef _WIN32
+// LPTOP_LEVEL_EXCEPTION_FILTER PREVIOUS_FILTER = NULL;
+// LONG WINAPI easyTopLevelExceptionFilter(struct _EXCEPTION_POINTERS* ExceptionInfo)
+// {
+//     std::ofstream testexp("TEST_EXP.txt", std::fstream::binary);
+//     testexp.write("APPLICATION CRASHED!", strlen("APPLICATION CRASHED!"));
+// 
+//     EasyEventTracer::instance().disable();
+//     if (PREVIOUS_FILTER)
+//         return PREVIOUS_FILTER(ExceptionInfo);
+//     return EXCEPTION_CONTINUE_SEARCH;
+// }
+// #endif
+
 ProfileManager::ProfileManager()
 {
-
+// #ifdef _WIN32
+//     PREVIOUS_FILTER = SetUnhandledExceptionFilter(easyTopLevelExceptionFilter);
+// #endif
 }
 
 ProfileManager::~ProfileManager()
@@ -116,9 +153,16 @@ void ProfileManager::beginBlock(Block& _block)
     auto& thread_storage = threadStorage(getCurrentThreadId());
 
     if (!_block.isFinished())
-        thread_storage.openedList.emplace(_block);
+        thread_storage.blocks.openedList.emplace(_block);
     else
-        thread_storage.store(_block);
+        thread_storage.storeBlock(_block);
+}
+
+void ProfileManager::_cswitchBeginBlock(profiler::timestamp_t _time, profiler::block_id_t _id, profiler::thread_id_t _thread_id)
+{
+    auto thread_storage = _threadStorage(_thread_id);
+    if (thread_storage != nullptr)
+        thread_storage->sync.openedList.emplace(_time, profiler::BLOCK_TYPE_CONTEXT_SWITCH, _id, "");
 }
 
 void ProfileManager::endBlock()
@@ -127,15 +171,28 @@ void ProfileManager::endBlock()
         return;
 
     auto& thread_storage = threadStorage(getCurrentThreadId());
-    if (thread_storage.openedList.empty())
+    if (thread_storage.blocks.openedList.empty())
         return;
 
-    Block& lastBlock = thread_storage.openedList.top();
+    Block& lastBlock = thread_storage.blocks.openedList.top();
     if (!lastBlock.isFinished())
         lastBlock.finish();
 
-    thread_storage.store(lastBlock);
-    thread_storage.openedList.pop();
+    thread_storage.storeBlock(lastBlock);
+    thread_storage.blocks.openedList.pop();
+}
+
+void ProfileManager::_cswitchEndBlock(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime)
+{
+    auto thread_storage = _threadStorage(_thread_id);
+    if (thread_storage == nullptr || thread_storage->sync.openedList.empty())
+        return;
+
+    Block& lastBlock = thread_storage->sync.openedList.top();
+    lastBlock.finish(_endtime);
+
+    thread_storage->storeCSwitch(lastBlock);
+    thread_storage->sync.openedList.pop();
 }
 
 void ProfileManager::setEnabled(bool isEnable)
@@ -160,21 +217,41 @@ public:
     template <class T> void write(const T& _data) {
         m_file.write((const char*)&_data, sizeof(T));
     }
+
+    void writeBlock(const profiler::SerializedBlock* _block)
+    {
+        auto sz = static_cast<uint16_t>(sizeof(BaseBlockData) + strlen(_block->name()) + 1);
+        write(sz);
+        write(_block->data(), sz);
+    }
 };
 
 //////////////////////////////////////////////////////////////////////////
 
+#define STORE_CSWITCHES_SEPARATELY
+
 uint32_t ProfileManager::dumpBlocksToFile(const char* filename)
 {
+    const bool wasEnabled = m_isEnabled;
+    if (wasEnabled)
+        ::profiler::setEnabled(false);
+
     FileWriter of(filename);
 
     uint64_t usedMemorySize = 0;
     uint32_t blocks_number = 0;
     for (const auto& thread_storage : m_threads)
     {
-        usedMemorySize += thread_storage.second.usedMemorySize;
-        blocks_number += static_cast<uint32_t>(thread_storage.second.closedList.size());
+        const auto& t = thread_storage.second;
+        usedMemorySize += t.blocks.usedMemorySize + t.sync.usedMemorySize;
+        blocks_number += static_cast<uint32_t>(t.blocks.closedList.size()) + static_cast<uint32_t>(t.sync.closedList.size());
     }
+
+#ifdef _WIN32
+    of.write(CPU_FREQUENCY);
+#else
+    of.write(0LL);
+#endif
 
     of.write(blocks_number);
     of.write(usedMemorySize);
@@ -194,20 +271,63 @@ uint32_t ProfileManager::dumpBlocksToFile(const char* filename)
         of.write(descriptor.file(), filename_size);
     }
 
+    //::std::ofstream outputFile("csw2.csv", ::std::fstream::app);
+
     for (auto& thread_storage : m_threads)
     {
-        of.write(thread_storage.first);
-        of.write(static_cast<uint32_t>(thread_storage.second.closedList.size()));
+        auto& t = thread_storage.second;
 
-        for (auto b : thread_storage.second.closedList)
+        //outputFile << thread_storage.first << std::endl;
+
+        of.write(thread_storage.first);
+#ifdef STORE_CSWITCHES_SEPARATELY
+        of.write(static_cast<uint32_t>(t.blocks.closedList.size()));
+#else
+        of.write(static_cast<uint32_t>(t.blocks.closedList.size()) + static_cast<uint32_t>(t.sync.closedList.size()));
+        uint32_t i = 0;
+#endif
+
+        for (auto b : t.blocks.closedList)
         {
-            auto sz = static_cast<uint16_t>(sizeof(BaseBlockData) + strlen(b->name()) + 1);
-            of.write(sz);
-            of.write(b->data(), sz);
+#ifndef STORE_CSWITCHES_SEPARATELY
+            if (i < t.sync.closedList.size())
+            {
+                auto s = t.sync.closedList[i];
+                if (s->end() <= b->end())// || s->begin() >= b->begin())
+                //if (((s->end() <= b->end() && s->end() >= b->begin()) || (s->begin() >= b->begin() && s->begin() <= b->end())))
+                {
+                    if (s->m_begin < b->m_begin)
+                        s->m_begin = b->m_begin;
+                    if (s->m_end > b->m_end)
+                        s->m_end = b->m_end;
+                    of.writeBlock(s);
+                    ++i;
+                }
+            }
+#endif
+
+            of.writeBlock(b);
         }
 
-        thread_storage.second.clearClosed();
+#ifdef STORE_CSWITCHES_SEPARATELY
+        of.write(static_cast<uint32_t>(t.sync.closedList.size()));
+        for (auto b : t.sync.closedList)
+        {
+#else
+        for (; i < t.sync.closedList.size(); ++i)
+        {
+            auto b = t.sync.closedList[i];
+#endif
+            //outputFile << b->begin() << "\t" << b->end() << std::endl;
+
+            of.writeBlock(b);
+        }
+
+        t.clearClosed();
     }
+
+//     if (wasEnabled)
+//         ::profiler::setEnabled(true);
 
     return blocks_number;
 }
@@ -219,7 +339,7 @@ void ProfileManager::setThreadName(const char* name, const char* filename, const
         return;
 
     const auto id = addBlockDescriptor(_funcname, filename, line, profiler::BLOCK_TYPE_THREAD_SIGN, profiler::colors::Random);
-    thread_storage.store(profiler::Block(profiler::BLOCK_TYPE_THREAD_SIGN, id, name));
+    thread_storage.storeBlock(profiler::Block(profiler::BLOCK_TYPE_THREAD_SIGN, id, name));
     thread_storage.named = true;
 }
 

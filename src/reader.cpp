@@ -1,6 +1,6 @@
 /************************************************************************
 * file name         : reader.cpp
-* ----------------- :
+* ----------------- : 
 * creation time     : 2016/06/19
 * copyright         : (c) 2016 Sergey Yagovtsev, Victor Zarubkin
 * authors           : Sergey Yagovtsev, Victor Zarubkin
@@ -254,7 +254,7 @@ void update_statistics_recursive(StatsMap& _stats_map, ::profiler::BlocksTree& _
 
 //////////////////////////////////////////////////////////////////////////
 
-extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progress, const char* filename, ::profiler::SerializedData& serialized_blocks, ::profiler::SerializedData& serialized_descriptors, ::profiler::descriptors_list_t& descriptors, ::profiler::blocks_t& _blocks, ::profiler::thread_blocks_tree_t& threaded_trees, bool gather_statistics)
+extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progress, const char* filename, ::profiler::SerializedData& serialized_blocks, ::profiler::SerializedData& serialized_descriptors, ::profiler::descriptors_list_t& descriptors, ::profiler::blocks_t& blocks, ::profiler::thread_blocks_tree_t& threaded_trees, bool gather_statistics)
 {
     EASY_FUNCTION(::profiler::colors::Cyan);
 
@@ -263,6 +263,9 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
 
     if (!inFile.is_open())
         return 0;
+
+    int64_t cpu_frequency = 0LL;
+    inFile.read((char*)&cpu_frequency, sizeof(int64_t));
 
     uint32_t total_blocks_number = 0;
     inFile.read((char*)&total_blocks_number, sizeof(decltype(total_blocks_number)));
@@ -321,7 +324,7 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
     i = 0;
     uint32_t read_number = 0;
     ::profiler::block_index_t blocks_counter = 0;
-    _blocks.reserve(total_blocks_number);
+    blocks.reserve(total_blocks_number);
     while (!inFile.eof() && read_number < total_blocks_number)
     {
         EASY_BLOCK("Read thread data", ::profiler::colors::Darkgreen);
@@ -333,7 +336,7 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
         inFile.read((char*)&blocks_number_in_thread, sizeof(decltype(blocks_number_in_thread)));
 
         auto& root = threaded_trees[thread_id];
-        const auto threshold = read_number + blocks_number_in_thread;
+        auto threshold = read_number + blocks_number_in_thread;
         while (!inFile.eof() && read_number < threshold)
         {
             EASY_BLOCK("Read block", ::profiler::colors::Green);
@@ -350,8 +353,20 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
             i += sz;
             auto baseData = reinterpret_cast<::profiler::SerializedBlock*>(data);
 
-            _blocks.emplace_back();
-            ::profiler::BlocksTree& tree = _blocks.back();
+            if (cpu_frequency != 0)
+            {
+                auto t_begin = reinterpret_cast<::profiler::timestamp_t*>(data);
+                auto t_end = t_begin + 1;
+
+                *t_begin *= 1000000000LL;
+                *t_begin /= cpu_frequency;
+
+                *t_end *= 1000000000LL;
+                *t_end /= cpu_frequency;
+            }
+
+            blocks.emplace_back();
+            ::profiler::BlocksTree& tree = blocks.back();
             tree.node = baseData;// new ::profiler::SerializedBlock(sz, data);
             const auto block_index = blocks_counter++;
 
@@ -388,7 +403,7 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
 
             if (!root.children.empty())
             {
-                auto& back = _blocks[root.children.back()];
+                auto& back = blocks[root.children.back()];
                 auto t1 = back.node->end();
                 auto mt0 = tree.node->begin();
                 if (mt0 < t1)//parent - starts earlier than last ends
@@ -397,7 +412,7 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
                     /**/
                     EASY_BLOCK("Find children", ::profiler::colors::Blue);
                     auto rlower1 = ++root.children.rbegin();
-                    for (; rlower1 != root.children.rend() && !(mt0 > _blocks[*rlower1].node->begin()); ++rlower1);
+                    for (; rlower1 != root.children.rend() && !(mt0 > blocks[*rlower1].node->begin()); ++rlower1);
                     auto lower = rlower1.base();
                     ::std::move(lower, root.children.end(), ::std::back_inserter(tree.children));
 
@@ -416,7 +431,7 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
 
                         for (auto i : tree.children)
                         {
-                            auto& child = _blocks[i];
+                            auto& child = blocks[i];
                             child.per_parent_stats = update_statistics(per_parent_statistics, child, i);
 
                             children_duration += child.node->duration();
@@ -428,7 +443,7 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
                     {
                         for (auto i : tree.children)
                         {
-                            const auto& child = _blocks[i];
+                            const auto& child = blocks[i];
                             children_duration += child.node->duration();
                             if (tree.depth < child.depth)
                                 tree.depth = child.depth;
@@ -453,12 +468,67 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
                 break;
             progress.store(10 + static_cast<int>(80 * i / memory_size));
         }
+
+        if (progress.load() < 0 || inFile.eof())
+            break;
+
+#ifdef EASY_STORE_CSWITCH_SEPARATELY
+        blocks_number_in_thread = 0;
+        inFile.read((char*)&blocks_number_in_thread, sizeof(decltype(blocks_number_in_thread)));
+
+        threshold = read_number + blocks_number_in_thread;
+        while (!inFile.eof() && read_number < threshold)
+        {
+            EASY_BLOCK("Read context switch", ::profiler::colors::Green);
+
+            ++read_number;
+
+            uint16_t sz = 0;
+            inFile.read((char*)&sz, sizeof(sz));
+            if (sz == 0)
+                return 0;
+
+            char* data = serialized_blocks[i];
+            inFile.read(data, sz);
+            i += sz;
+            auto baseData = reinterpret_cast<::profiler::SerializedBlock*>(data);
+
+            if (cpu_frequency != 0)
+            {
+                auto t_begin = reinterpret_cast<::profiler::timestamp_t*>(data);
+                auto t_end = t_begin + 1;
+
+                *t_begin *= 1000000000LL;
+                *t_begin /= cpu_frequency;
+
+                *t_end *= 1000000000LL;
+                *t_end /= cpu_frequency;
+            }
+
+            blocks.emplace_back();
+            ::profiler::BlocksTree& tree = blocks.back();
+            tree.node = baseData;
+            const auto block_index = blocks_counter++;
+
+            auto descriptor = descriptors[baseData->id()];
+            if (descriptor->type() != ::profiler::BLOCK_TYPE_CONTEXT_SWITCH)
+                continue;
+
+            root.sync.emplace_back(block_index);
+
+            if (progress.load() < 0)
+                break;
+
+            progress.store(10 + static_cast<int>(80 * i / memory_size));
+        }
+#endif
     }
 
     if (progress.load() < 0)
     {
         serialized_blocks.clear();
         threaded_trees.clear();
+        blocks.clear();
         return 0;
     }
 
@@ -478,15 +548,22 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
             auto& per_parent_statistics = parent_statistics[it.first];
             per_parent_statistics.clear();
 
-            statistics_threads.emplace_back(::std::thread([&per_parent_statistics, &per_frame_statistics, &_blocks](::profiler::BlocksTreeRoot& root)
+            statistics_threads.emplace_back(::std::thread([&per_parent_statistics, &per_frame_statistics, &blocks](::profiler::BlocksTreeRoot& root)
             {
+#ifdef EASY_STORE_CSWITCH_SEPARATELY
+                ::std::sort(root.sync.begin(), root.sync.end(), [&blocks](::profiler::block_index_t left, ::profiler::block_index_t right)
+                {
+                    return blocks[left].node->begin() < blocks[right].node->begin();
+                });
+#endif
+
                 for (auto i : root.children)
                 {
-                    auto& frame = _blocks[i];
+                    auto& frame = blocks[i];
                     frame.per_parent_stats = update_statistics(per_parent_statistics, frame, i);
 
                     per_frame_statistics.clear();
-                    update_statistics_recursive(per_frame_statistics, frame, i, _blocks);
+                    update_statistics_recursive(per_frame_statistics, frame, i, blocks);
 
                     if (root.depth < frame.depth)
                         root.depth = frame.depth;
@@ -511,10 +588,17 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
             auto& root = it.second;
             root.thread_id = it.first;
 
+#ifdef EASY_STORE_CSWITCH_SEPARATELY
+            ::std::sort(root.sync.begin(), root.sync.end(), [&blocks](::profiler::block_index_t left, ::profiler::block_index_t right)
+            {
+                return blocks[left].node->begin() < blocks[right].node->begin();
+            });
+#endif
+
             //root.tree.shrink_to_fit();
             for (auto i : root.children)
             {
-                auto& frame = _blocks[i];
+                auto& frame = blocks[i];
                 if (root.depth < frame.depth)
                     root.depth = frame.depth;
             }

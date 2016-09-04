@@ -167,6 +167,9 @@ namespace profiler {
 
     //////////////////////////////////////////////////////////////////////////
 
+#define EASY_STORE_CSWITCH_SEPARATELY
+//#undef  EASY_STORE_CSWITCH_SEPARATELY
+
     class BlocksTreeRoot final
     {
         typedef BlocksTreeRoot This;
@@ -174,6 +177,9 @@ namespace profiler {
     public:
 
         BlocksTree::children_t     children;
+#ifdef EASY_STORE_CSWITCH_SEPARATELY
+        BlocksTree::children_t         sync;
+#endif
         const char*             thread_name;
         ::profiler::thread_id_t   thread_id;
         uint16_t                      depth;
@@ -182,13 +188,23 @@ namespace profiler {
         {
         }
 
-        BlocksTreeRoot(This&& that) : children(::std::move(that.children)), thread_name(that.thread_name), thread_id(that.thread_id), depth(that.depth)
+        BlocksTreeRoot(This&& that)
+            : children(::std::move(that.children))
+#ifdef EASY_STORE_CSWITCH_SEPARATELY
+            , sync(::std::move(that.sync))
+#endif
+            , thread_name(that.thread_name)
+            , thread_id(that.thread_id)
+            , depth(that.depth)
         {
         }
 
         This& operator = (This&& that)
         {
             children = ::std::move(that.children);
+#ifdef EASY_STORE_CSWITCH_SEPARATELY
+            sync = ::std::move(that.sync);
+#endif
             thread_name = that.thread_name;
             thread_id = that.thread_id;
             depth = that.depth;

@@ -7,10 +7,7 @@
 using namespace profiler;
 
 #ifdef _WIN32
-struct ProfPerformanceFrequency {
-    LARGE_INTEGER frequency;
-    ProfPerformanceFrequency() { QueryPerformanceFrequency(&frequency); }
-} const WINDOWS_CPU_INFO;
+decltype(LARGE_INTEGER::QuadPart) CPU_FREQUENCY = ([](){ LARGE_INTEGER freq; QueryPerformanceFrequency(&freq); return freq.QuadPart; })();
 #endif
 
 inline timestamp_t getCurrentTime()
@@ -20,8 +17,8 @@ inline timestamp_t getCurrentTime()
 	LARGE_INTEGER elapsedMicroseconds;
 	if (!QueryPerformanceCounter(&elapsedMicroseconds))
 		return 0;
-	elapsedMicroseconds.QuadPart *= 1000000000LL;
-    elapsedMicroseconds.QuadPart /= WINDOWS_CPU_INFO.frequency.QuadPart;
+    //elapsedMicroseconds.QuadPart *= 1000000000LL;
+    //elapsedMicroseconds.QuadPart /= CPU_FREQUENCY;
 	return (timestamp_t)elapsedMicroseconds.QuadPart;
 #else
 	std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds> time_point;
@@ -38,11 +35,23 @@ BaseBlockData::BaseBlockData(timestamp_t _begin_time, block_id_t _descriptor_id)
 
 }
 
+Block::Block(Block&& that)
+    : BaseBlockData(that.m_begin, that.m_id)
+    , m_name(that.m_name)
+{
+    m_end = that.m_end;
+}
+
 Block::Block(block_type_t _block_type, block_id_t _descriptor_id, const char* _name)
-    : BaseBlockData(getCurrentTime(), _descriptor_id)
+    : Block(getCurrentTime(), _block_type, _descriptor_id, _name)
+{
+}
+
+Block::Block(timestamp_t _begin_time, block_type_t _block_type, block_id_t _descriptor_id, const char* _name)
+    : BaseBlockData(_begin_time, _descriptor_id)
     , m_name(_name)
 {
-    if (_block_type != BLOCK_TYPE_BLOCK)
+    if (static_cast<uint8_t>(_block_type) < BLOCK_TYPE_BLOCK)
     {
         m_end = m_begin;
     }
@@ -51,6 +60,11 @@ Block::Block(block_type_t _block_type, block_id_t _descriptor_id, const char* _n
 void Block::finish()
 {
     m_end = getCurrentTime();
+}
+
+void Block::finish(timestamp_t _end_time)
+{
+    m_end = _end_time;
 }
 
 Block::~Block()

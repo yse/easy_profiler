@@ -52,7 +52,7 @@ namespace profiler { class SerializedBlock; }
 
 //////////////////////////////////////////////////////////////////////////
 
-template <class T, uint16_t N>
+template <class T, const uint16_t N>
 class chunk_allocator final
 {
     struct chunk { T data[N]; };
@@ -91,27 +91,41 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
-class ThreadStorage
+class ThreadStorage final
 {
-    typedef std::stack<std::reference_wrapper<profiler::Block> > stack_of_blocks_t;
     typedef std::vector<profiler::SerializedBlock*> serialized_list_t;
 
-    chunk_allocator<char, 1024> m_allocator;
+    template <class T, const uint16_t N>
+    struct BlocksList final
+    {
+        typedef std::stack<T> stack_of_blocks_t;
+
+        chunk_allocator<char, N>       alloc;
+        stack_of_blocks_t         openedList;
+        serialized_list_t         closedList;
+        uint64_t          usedMemorySize = 0;
+
+        void clearClosed() {
+            serialized_list_t().swap(closedList);
+            alloc.clear();
+            usedMemorySize = 0;
+        }
+    };
 
 public:
 
-    stack_of_blocks_t         openedList;
-    serialized_list_t         closedList;
-    uint64_t          usedMemorySize = 0;
-    bool                   named = false;
+    BlocksList<std::reference_wrapper<profiler::Block>, 1024> blocks;
+    BlocksList<profiler::Block, 1024>                           sync;
+    bool named = false;
 
-    void store(const profiler::Block& _block);
+    void storeBlock(const profiler::Block& _block);
+    void storeCSwitch(const profiler::Block& _block);
     void clearClosed();
 };
 
 //////////////////////////////////////////////////////////////////////////
 
-class ProfileManager
+class ProfileManager final
 {
     friend profiler::StaticBlockDescriptor;
 
@@ -141,6 +155,9 @@ public:
     uint32_t dumpBlocksToFile(const char* filename);
     void setThreadName(const char* name, const char* filename, const char* _funcname, int line);
 
+    void _cswitchBeginBlock(profiler::timestamp_t _time, profiler::block_id_t _id, profiler::thread_id_t _thread_id);
+    void _cswitchEndBlock(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime);
+
 private:
 
     template <class ... TArgs>
@@ -156,6 +173,13 @@ private:
     {
         guard_lock_t lock(m_spin);
         return m_threads[_thread_id];
+    }
+
+    ThreadStorage* _threadStorage(profiler::thread_id_t _thread_id)
+    {
+        guard_lock_t lock(m_spin);
+        auto it = m_threads.find(_thread_id);
+        return it != m_threads.end() ? &it->second : nullptr;
     }
 };
 

@@ -76,7 +76,7 @@ const unsigned int TEST_PROGRESSION_BASE = 4;
 const int FLICKER_INTERVAL = 16; // 60Hz
 
 const auto CHRONOMETER_FONT = QFont("CourierNew", 16, 2);
-const auto ITEMS_FONT = QFont("CourierNew", 10);// , 2);
+const auto ITEMS_FONT = QFont("CourierNew", 9);// , 2);
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -95,7 +95,7 @@ inline T logn(T _value)
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyGraphicsItem::EasyGraphicsItem(unsigned char _index, const::profiler::BlocksTreeRoot* _root)
+EasyGraphicsItem::EasyGraphicsItem(uint8_t _index, const::profiler::BlocksTreeRoot* _root)
     : QGraphicsItem(nullptr)
     , m_pRoot(_root)
     , m_index(_index)
@@ -148,7 +148,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     
     // Reset indices of first visible item for each layer
     const auto levelsNumber = levels();
-    for (unsigned char i = 1; i < levelsNumber; ++i) ::profiler_gui::set_max(m_levelsIndexes[i]);
+    for (uint8_t i = 1; i < levelsNumber; ++i) ::profiler_gui::set_max(m_levelsIndexes[i]);
 
 
     // Search for first visible top-level item
@@ -169,6 +169,24 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         m_levelsIndexes[0] = static_cast<unsigned int>(level0.size() - 1);
     }
 
+
+#ifdef EASY_STORE_CSWITCH_SEPARATELY
+    auto firstSync = ::std::lower_bound(m_pRoot->sync.begin(), m_pRoot->sync.end(), sceneLeft, [&sceneView](::profiler::block_index_t _index, qreal _value)
+    {
+        return sceneView->time2position(easyBlock(_index).tree.node->begin()) < _value;
+    });
+
+    if (firstSync != m_pRoot->sync.end())
+    {
+        if (firstSync != m_pRoot->sync.begin())
+            --firstSync;
+    }
+    else if (!m_pRoot->sync.empty())
+    {
+        firstSync = m_pRoot->sync.begin() + m_pRoot->sync.size() - 1;
+    }
+    firstSync = m_pRoot->sync.begin();
+#endif
 
 
     // This is to make _painter->drawText() work properly
@@ -206,7 +224,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     // Iterate through layers and draw visible items
     bool selectedItemsWasPainted = false;
     const auto visibleBottom = visibleSceneRect.bottom() - 1;
-    for (unsigned char l = 0; l < levelsNumber; ++l)
+    for (uint8_t l = 0; l < levelsNumber; ++l)
     {
         auto& level = m_levels[l];
         const short next_level = l + 1;
@@ -492,6 +510,46 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         }
     }
 
+
+#ifdef EASY_STORE_CSWITCH_SEPARATELY
+    if (!m_pRoot->sync.empty())
+    {
+        _painter->setBrush(Qt::NoBrush);
+        QPen pen(QColor::fromRgba(0x40f08040));
+        pen.setWidth(3);
+        _painter->setPen(pen);
+
+        qreal prevRight = -1e100, top = y() - 1;
+        for (auto it = firstSync, end = m_pRoot->sync.end(); it != end; ++it)
+        {
+            const auto& item = easyBlock(*it).tree;
+            auto begin = sceneView->time2position(item.node->begin());
+
+            if (begin > sceneRight)
+                break; // This is first totally invisible item. No need to check other items.
+
+            decltype(begin) width = item.node->duration();
+            auto r = begin + width;
+//             if (r < sceneLeft) // This item is not visible
+//                 continue;
+
+            begin *= currentScale;
+            begin -= dx;
+            width *= currentScale;
+//             r = begin + width;
+//             if (r <= prevRight) // This item is not visible
+//                 continue;
+
+            if (width < 1)
+                width = 1;
+
+            _painter->drawLine(QLineF(begin, top, begin + width, top));
+            prevRight = begin + width;
+        }
+    }
+#endif
+
+
     _painter->restore();
 }
 
@@ -696,17 +754,17 @@ void EasyGraphicsItem::setBoundingRect(const QRectF& _rect)
 
 //////////////////////////////////////////////////////////////////////////
 
-unsigned char EasyGraphicsItem::levels() const
+uint8_t EasyGraphicsItem::levels() const
 {
-    return static_cast<unsigned char>(m_levels.size());
+    return static_cast<uint8_t>(m_levels.size());
 }
 
-float EasyGraphicsItem::levelY(unsigned char _level) const
+float EasyGraphicsItem::levelY(uint8_t _level) const
 {
     return y() + static_cast<int>(_level) * static_cast<int>(GRAPHICS_ROW_SIZE_FULL);
 }
 
-void EasyGraphicsItem::setLevels(unsigned char _levels)
+void EasyGraphicsItem::setLevels(uint8_t _levels)
 {
     typedef decltype(m_levelsIndexes) IndexesT;
     static const auto MAX_CHILD_INDEX = ::profiler_gui::numeric_max<IndexesT::value_type>();
@@ -715,29 +773,29 @@ void EasyGraphicsItem::setLevels(unsigned char _levels)
     m_levelsIndexes.resize(_levels, MAX_CHILD_INDEX);
 }
 
-void EasyGraphicsItem::reserve(unsigned char _level, unsigned int _items)
+void EasyGraphicsItem::reserve(uint8_t _level, unsigned int _items)
 {
     m_levels[_level].reserve(_items);
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-const EasyGraphicsItem::Children& EasyGraphicsItem::items(unsigned char _level) const
+const EasyGraphicsItem::Children& EasyGraphicsItem::items(uint8_t _level) const
 {
     return m_levels[_level];
 }
 
-const ::profiler_gui::EasyBlockItem& EasyGraphicsItem::getItem(unsigned char _level, unsigned int _index) const
+const ::profiler_gui::EasyBlockItem& EasyGraphicsItem::getItem(uint8_t _level, unsigned int _index) const
 {
     return m_levels[_level][_index];
 }
 
-::profiler_gui::EasyBlockItem& EasyGraphicsItem::getItem(unsigned char _level, unsigned int _index)
+::profiler_gui::EasyBlockItem& EasyGraphicsItem::getItem(uint8_t _level, unsigned int _index)
 {
     return m_levels[_level][_index];
 }
 
-unsigned int EasyGraphicsItem::addItem(unsigned char _level)
+unsigned int EasyGraphicsItem::addItem(uint8_t _level)
 {
     m_levels[_level].emplace_back();
     return static_cast<unsigned int>(m_levels[_level].size() - 1);
@@ -1194,7 +1252,7 @@ EasyChronometerItem* EasyGraphicsView::createChronometer(bool _main)
     }
 }
 
-void EasyGraphicsView::test(unsigned int _frames_number, unsigned int _total_items_number_estimate, unsigned char _rows)
+void EasyGraphicsView::test(unsigned int _frames_number, unsigned int _total_items_number_estimate, uint8_t _rows)
 {
     static const qreal X_BEGIN = 50;
     static const qreal Y_BEGIN = 0;
@@ -1202,9 +1260,9 @@ void EasyGraphicsView::test(unsigned int _frames_number, unsigned int _total_ite
     clearSilent(); // Clear scene
 
     // Calculate items number for first level
-    _rows = ::std::max((unsigned char)1, _rows);
+    _rows = ::std::max((uint8_t)1, _rows);
     const auto children_per_frame = static_cast<unsigned int>(0.5 + static_cast<double>(_total_items_number_estimate) / static_cast<double>(_rows * _frames_number));
-    const unsigned char max_depth = ::std::min(254, static_cast<int>(logn<TEST_PROGRESSION_BASE>(children_per_frame * (TEST_PROGRESSION_BASE - 1) * 0.5 + 1)));
+    const uint8_t max_depth = ::std::min(254, static_cast<int>(logn<TEST_PROGRESSION_BASE>(children_per_frame * (TEST_PROGRESSION_BASE - 1) * 0.5 + 1)));
     const auto first_level_children_count = static_cast<unsigned int>(static_cast<double>(children_per_frame) * (1.0 - TEST_PROGRESSION_BASE) / (1.0 - pow(TEST_PROGRESSION_BASE, max_depth)) + 0.5);
 
 
@@ -1213,7 +1271,7 @@ void EasyGraphicsView::test(unsigned int _frames_number, unsigned int _total_ite
 
 
     ::std::vector<EasyGraphicsItem*> thread_items(_rows);
-    for (unsigned char i = 0; i < _rows; ++i)
+    for (uint8_t i = 0; i < _rows; ++i)
     {
         auto item = new EasyGraphicsItem(i, true);
         thread_items[i] = item;
@@ -1226,9 +1284,9 @@ void EasyGraphicsView::test(unsigned int _frames_number, unsigned int _total_ite
 
     // Calculate items number for each sublevel
     auto chldrn = first_level_children_count;
-    for (unsigned char i = 1; i <= max_depth; ++i)
+    for (uint8_t i = 1; i <= max_depth; ++i)
     {
-        for (unsigned char j = 0; j < _rows; ++j)
+        for (uint8_t j = 0; j < _rows; ++j)
         {
             auto item = thread_items[j];
             item->reserve(i, chldrn * _frames_number);
@@ -1241,7 +1299,7 @@ void EasyGraphicsView::test(unsigned int _frames_number, unsigned int _total_ite
     unsigned int total_items = 0;
     qreal maxX = 0;
     const EasyGraphicsItem* longestItem = nullptr;
-    for (unsigned char i = 0; i < _rows; ++i)
+    for (uint8_t i = 0; i < _rows; ++i)
     {
         auto item = thread_items[i];
         qreal x = X_BEGIN, y = item->y();
@@ -1395,7 +1453,7 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         // fill scene with new items
         const auto& tree = threadTree.second.children;
         qreal h = 0, x = time2position(blocksTree(tree.front()).node->begin());
-        auto item = new EasyGraphicsItem(static_cast<unsigned char>(m_items.size()), &threadTree.second);
+        auto item = new EasyGraphicsItem(static_cast<uint8_t>(m_items.size()), &threadTree.second);
         item->setLevels(threadTree.second.depth);
         item->setPos(0, y);
 
@@ -1461,7 +1519,7 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
         return 0;
     }
 
-    const auto level = static_cast<unsigned char>(_level);
+    const auto level = static_cast<uint8_t>(_level);
     _item->reserve(level, static_cast<unsigned int>(_children.size()));
 
     const short next_level = _level + 1;
@@ -1502,7 +1560,7 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
 
         if (next_level < 256 && next_level < _item->levels() && !child.children.empty())
         {
-            b.children_begin = static_cast<unsigned int>(_item->items(static_cast<unsigned char>(next_level)).size());
+            b.children_begin = static_cast<unsigned int>(_item->items(static_cast<uint8_t>(next_level)).size());
         }
         else
         {

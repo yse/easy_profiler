@@ -42,7 +42,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 */
 
 namespace profiler {
-    template <bool IS_REF> struct NameSwitch final {
+    template <const bool IS_REF> struct NameSwitch final {
         static const char* runtime_name(const char* name) { return name; }
         static const char* compiletime_name(const char*) { return ""; }
     };
@@ -217,7 +217,7 @@ namespace profiler {
 		void PROFILER_API beginBlock(Block& _block);
 		void PROFILER_API endBlock();
 		void PROFILER_API setEnabled(bool isEnable);
-		unsigned int PROFILER_API dumpBlocksToFile(const char* filename);
+		uint32_t PROFILER_API dumpBlocksToFile(const char* filename);
         void PROFILER_API setThreadName(const char* name, const char* filename, const char* _funcname, int line);
 	}
 
@@ -228,8 +228,8 @@ namespace profiler {
     enum BlockType : uint8_t
     {
         BLOCK_TYPE_EVENT = 0,
-        BLOCK_TYPE_BLOCK,
         BLOCK_TYPE_THREAD_SIGN,
+        BLOCK_TYPE_BLOCK,
         BLOCK_TYPE_CONTEXT_SWITCH,
 
         BLOCK_TYPES_NUMBER
@@ -264,12 +264,14 @@ namespace profiler {
 
         BlockDescriptor(uint64_t& _used_mem, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color);
 
-        const char* name() const { return m_name; }
-        const char* file() const { return m_filename; }
+        inline const char* name() const { return m_name; }
+        inline const char* file() const { return m_filename; }
     };
 
     class PROFILER_API BaseBlockData
     {
+        friend ::ProfileManager;
+
     protected:
 
         timestamp_t m_begin;
@@ -283,9 +285,9 @@ namespace profiler {
         inline timestamp_t begin() const { return m_begin; }
         inline timestamp_t end() const { return m_end; }
         inline block_id_t id() const { return m_id; }
-        timestamp_t duration() const { return m_end - m_begin; }
+        inline timestamp_t duration() const { return m_end - m_begin; }
 
-        void setId(block_id_t _id) { m_id = _id; }
+        inline void setId(block_id_t _id) { m_id = _id; }
     };
 #pragma pack(pop)
 
@@ -298,11 +300,14 @@ namespace profiler {
     private:
 
         void finish();
+        void finish(timestamp_t _end_time);
         inline bool isFinished() const { return m_end >= m_begin; }
 
     public:
 
-        Block(block_type_t _block_type, block_id_t _id, const char* _name = "");
+        Block(Block&& that);
+        Block(block_type_t _block_type, block_id_t _id, const char* _name);
+        Block(timestamp_t _begin_time, block_type_t _block_type, block_id_t _id, const char* _name);
         ~Block();
 
         inline const char* name() const { return m_name; }
@@ -317,7 +322,7 @@ namespace profiler {
     public:
 
         StaticBlockDescriptor(const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color = DefaultBlockColor);
-        block_id_t id() const { return m_id; }
+        inline block_id_t id() const { return m_id; }
     };
 
 #ifndef _WIN32

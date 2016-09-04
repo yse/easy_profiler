@@ -67,11 +67,11 @@ class EasyGraphicsItem : public QGraphicsItem
 
     QRectF                     m_boundingRect; ///< boundingRect (see QGraphicsItem)
     const ::profiler::BlocksTreeRoot* m_pRoot; ///< Pointer to the root profiler block (thread block). Used by ProfTreeWidget to restore hierarchy.
-    unsigned char                     m_index; ///< This item's index in the list of items of EasyGraphicsView
+    uint8_t                           m_index; ///< This item's index in the list of items of EasyGraphicsView
 
 public:
 
-    EasyGraphicsItem(unsigned char _index, const::profiler::BlocksTreeRoot* _root);
+    EasyGraphicsItem(uint8_t _index, const::profiler::BlocksTreeRoot* _root);
     virtual ~EasyGraphicsItem();
 
     // Public virtual methods
@@ -92,46 +92,46 @@ public:
     ::profiler::thread_id_t threadId() const;
 
     ///< Returns number of levels
-    unsigned char levels() const;
+    uint8_t levels() const;
 
-    float levelY(unsigned char _level) const;
+    float levelY(uint8_t _level) const;
 
     /** \brief Sets number of levels.
     
     \note Must be set before doing anything else.
     
     \param _levels Desired number of levels */
-    void setLevels(unsigned char _levels);
+    void setLevels(uint8_t _levels);
 
     /** \brief Reserves memory for desired number of items on specified level.
     
     \param _level Index of the level
     \param _items Desired number of items on this level */
-    void reserve(unsigned char _level, unsigned int _items);
+    void reserve(uint8_t _level, unsigned int _items);
 
     /**\brief Returns reference to the array of items of specified level.
     
     \param _level Index of the level */
-    const Children& items(unsigned char _level) const;
+    const Children& items(uint8_t _level) const;
 
     /**\brief Returns reference to the item with required index on specified level.
     
     \param _level Index of the level
     \param _index Index of required item */
-    const ::profiler_gui::EasyBlockItem& getItem(unsigned char _level, unsigned int _index) const;
+    const ::profiler_gui::EasyBlockItem& getItem(uint8_t _level, unsigned int _index) const;
 
     /**\brief Returns reference to the item with required index on specified level.
 
     \param _level Index of the level
     \param _index Index of required item */
-    ::profiler_gui::EasyBlockItem& getItem(unsigned char _level, unsigned int _index);
+    ::profiler_gui::EasyBlockItem& getItem(uint8_t _level, unsigned int _index);
 
     /** \brief Adds new item to required level.
     
     \param _level Index of the level
     
     \retval Index of the new created item */
-    unsigned int addItem(unsigned char _level);
+    unsigned int addItem(uint8_t _level);
 
     /** \brief Finds top-level blocks which are intersects with required selection zone.
 
@@ -154,7 +154,7 @@ public:
     // Public inline methods
 
     ///< Returns this item's index in the list of graphics items of EasyGraphicsView
-    inline unsigned char index() const
+    inline uint8_t index() const
     {
         return m_index;
     }
@@ -363,7 +363,7 @@ public:
         return m_timelineStep;
     }
 
-private:
+//private:
 
     // Private inline methods
 
