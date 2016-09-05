@@ -214,11 +214,13 @@ namespace profiler {
     class StaticBlockDescriptor;
 	
 	extern "C"{
-		void PROFILER_API beginBlock(Block& _block);
-		void PROFILER_API endBlock();
-		void PROFILER_API setEnabled(bool isEnable);
-		uint32_t PROFILER_API dumpBlocksToFile(const char* filename);
-        void PROFILER_API setThreadName(const char* name, const char* filename, const char* _funcname, int line);
+        void        PROFILER_API beginBlock(Block& _block);
+        void        PROFILER_API endBlock();
+        void        PROFILER_API setEnabled(bool isEnable);
+        uint32_t    PROFILER_API dumpBlocksToFile(const char* filename);
+        void        PROFILER_API setThreadName(const char* name, const char* filename, const char* _funcname, int line);
+        void        PROFILER_API setContextSwitchLogFilename(const char* name);
+        const char* PROFILER_API getContextSwitchLogFilename();
 	}
 
 	typedef uint64_t timestamp_t;

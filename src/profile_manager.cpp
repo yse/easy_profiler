@@ -26,10 +26,12 @@ extern "C"{
     void PROFILER_API setEnabled(bool isEnable)
     {
         MANAGER.setEnabled(isEnable);
+#ifdef _WIN32
         if (isEnable)
             EasyEventTracer::instance().enable(true);
         else
             EasyEventTracer::instance().disable();
+#endif
     }
 
     void PROFILER_API beginBlock(Block& _block)
@@ -46,6 +48,16 @@ extern "C"{
 	{
         return MANAGER.setThreadName(name, filename, _funcname, line);
 	}
+
+    void PROFILER_API setContextSwitchLogFilename(const char* name)
+    {
+        return MANAGER.setContextSwitchLogFilename(name);
+    }
+
+    const char* PROFILER_API getContextSwitchLogFilename()
+    {
+        return MANAGER.getContextSwitchLogFilename();
+    }
 
 }
 
@@ -165,6 +177,16 @@ void ProfileManager::_cswitchBeginBlock(profiler::timestamp_t _time, profiler::b
         thread_storage->sync.openedList.emplace(_time, profiler::BLOCK_TYPE_CONTEXT_SWITCH, _id, "");
 }
 
+void ProfileManager::_cswitchStoreBlock(profiler::timestamp_t _time, profiler::block_id_t _id, profiler::thread_id_t _thread_id)
+{
+    auto thread_storage = _threadStorage(_thread_id);
+    if (thread_storage != nullptr){
+        profiler::Block lastBlock(_time, profiler::BLOCK_TYPE_CONTEXT_SWITCH, _id, "");
+        lastBlock.finish(_time);
+        thread_storage->storeCSwitch(lastBlock);
+    }
+}
+
 void ProfileManager::endBlock()
 {
     if (!m_isEnabled)
@@ -235,6 +257,25 @@ uint32_t ProfileManager::dumpBlocksToFile(const char* filename)
     const bool wasEnabled = m_isEnabled;
     if (wasEnabled)
         ::profiler::setEnabled(false);
+
+#ifndef _WIN32
+    uint64_t timestamp;
+    uint32_t thread_from, thread_to;
+
+    std::ifstream infile(m_csInfoFilename.c_str());
+
+    if(infile.is_open())
+    {
+        while (infile >> timestamp >> thread_from >> thread_to )
+        {
+            static const ::profiler::StaticBlockDescriptor desc("OS.ContextSwitch", __FILE__, __LINE__, ::profiler::BLOCK_TYPE_CONTEXT_SWITCH, ::profiler::colors::White);
+            _cswitchBeginBlock(timestamp, desc.id(), thread_from);
+            _cswitchEndBlock(thread_to, timestamp);
+        }
+    }
+
+#endif
+
 
     FileWriter of(filename);
 

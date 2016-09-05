@@ -150,6 +150,8 @@ class ProfileManager final
     profiler::spin_lock    m_storedSpin;
     bool            m_isEnabled = false;
 
+    std::string m_csInfoFilename = "/tmp/cs_profiling_info.log";
+
 public:
 
     static ProfileManager& instance();
@@ -161,7 +163,18 @@ public:
     uint32_t dumpBlocksToFile(const char* filename);
     void setThreadName(const char* name, const char* filename, const char* _funcname, int line);
 
+    void setContextSwitchLogFilename(const char* name)
+    {
+        m_csInfoFilename = name;
+    }
+
+    const char* getContextSwitchLogFilename() const
+    {
+        return m_csInfoFilename.c_str();
+    }
+
     void _cswitchBeginBlock(profiler::timestamp_t _time, profiler::block_id_t _id, profiler::thread_id_t _thread_id);
+    void _cswitchStoreBlock(profiler::timestamp_t _time, profiler::block_id_t _id, profiler::thread_id_t _thread_id);
     void _cswitchEndBlock(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime);
 
 private:
