@@ -16,6 +16,9 @@ extern decltype(LARGE_INTEGER::QuadPart) CPU_FREQUENCY;
 
 namespace profiler {
 
+    // CSwitch class
+    // See https://msdn.microsoft.com/en-us/library/windows/desktop/aa964744(v=vs.85).aspx
+    // EventType = 36
     struct CSwitch final
     {
         uint32_t                 NewThreadId;
@@ -41,20 +44,14 @@ namespace profiler {
         if (sizeof(CSwitch) != _traceEvent->UserDataLength)
             return;
 
-        auto _contextSwitchEvent = reinterpret_cast<CSwitch*>(_traceEvent->UserData);
+        //EASY_FUNCTION(::profiler::colors::Red);
 
-        auto timestampValue = _traceEvent->EventHeader.TimeStamp.QuadPart;
-        //timestampValue *= 1000000000LL;
-        //timestampValue /= CPU_FREQUENCY;
-        const auto time = (::profiler::timestamp_t)timestampValue;
+        auto _contextSwitchEvent = reinterpret_cast<CSwitch*>(_traceEvent->UserData);
+        const auto time = static_cast<::profiler::timestamp_t>(_traceEvent->EventHeader.TimeStamp.QuadPart);
 
         static const ::profiler::StaticBlockDescriptor desc("OS.ContextSwitch", __FILE__, __LINE__, ::profiler::BLOCK_TYPE_CONTEXT_SWITCH, ::profiler::colors::White);
-
-        //if (_contextSwitchEvent->OldThreadId != 0)
-            MANAGER._cswitchBeginBlock(time, desc.id(), _contextSwitchEvent->OldThreadId);
-
-        //if (_contextSwitchEvent->NewThreadId != 0)
-            MANAGER._cswitchEndBlock(_contextSwitchEvent->NewThreadId, time);
+        MANAGER._cswitchBeginBlock(time, desc.id(), _contextSwitchEvent->OldThreadId);
+        MANAGER._cswitchEndBlock(_contextSwitchEvent->NewThreadId, time);
     }
 
     //////////////////////////////////////////////////////////////////////////
@@ -148,8 +145,8 @@ namespace profiler {
         // https://msdn.microsoft.com/en-us/library/windows/desktop/aa364093(v=vs.85).aspx
         m_stubThread = ::std::move(::std::thread([this]()
         {
-//             EASY_THREAD("ProcessTrace");
-//             EASY_BLOCK("ProcessTrace", ::profiler::colors::Red);
+            EASY_THREAD("EasyProfiler.EventTracing");
+            //EASY_BLOCK("ProcessTrace()", ::profiler::colors::Red);
             ProcessTrace(&m_openedHandle, 1, 0, 0);
         }));
 
