@@ -514,37 +514,46 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 #ifdef EASY_STORE_CSWITCH_SEPARATELY
     if (!m_pRoot->sync.empty())
     {
-        _painter->setBrush(Qt::NoBrush);
-        QPen pen(QColor::fromRgba(0xe0f08040));
-        pen.setWidth(3);
-        _painter->setPen(pen);
+        _painter->setBrush(QColor::fromRgba(0xfff08040));
+        _painter->setPen(QColor::fromRgb(0x00505050));
 
-        qreal prevRight = -1e100, top = y() - 1;
-        for (auto it = firstSync, end = m_pRoot->sync.end(); it != end; ++it)
+        qreal prevRight = -1e100, top = y() - 4, h = 3;
+        if (top + h < visibleBottom)
         {
-            const auto& item = easyBlock(*it).tree;
-            auto begin = sceneView->time2position(item.node->begin());
+            for (auto it = firstSync, end = m_pRoot->sync.end(); it != end; ++it)
+            {
+                const auto& item = easyBlock(*it).tree;
+                auto begin = sceneView->time2position(item.node->begin());
 
-            if (begin > sceneRight)
-                break; // This is first totally invisible item. No need to check other items.
+                if (begin > sceneRight)
+                    break; // This is first totally invisible item. No need to check other items.
 
-            decltype(begin) width = sceneView->time2position(item.node->end()) - begin;
-            auto r = begin + width;
-            if (r < sceneLeft) // This item is not visible
-                continue;
+                decltype(begin) width = sceneView->time2position(item.node->end()) - begin;
+                auto r = begin + width;
+                if (r < sceneLeft) // This item is not visible
+                    continue;
 
-            begin *= currentScale;
-            begin -= dx;
-            width *= currentScale;
-//             r = begin + width;
-//             if (r <= prevRight) // This item is not visible
-//                 continue;
+                begin *= currentScale;
+                begin -= dx;
+                width *= currentScale;
+                r = begin + width;
+                if (r <= prevRight) // This item is not visible
+                    continue;
 
-            if (width < 1)
-                width = 1;
+                if (begin < prevRight)
+                {
+                    width -= prevRight - begin;
+                    begin = prevRight;
+                }
 
-            _painter->drawLine(QLineF(begin, top, begin + width, top));
-            prevRight = begin + width;
+                if (width < 2)
+                    width = 2;
+
+                //_painter->drawLine(QLineF(::std::max(begin, prevRight), top, begin + width, top));
+                rect.setRect(begin, top, width, h);
+                _painter->drawRect(rect);
+                prevRight = begin + width;
+            }
         }
     }
 #endif
