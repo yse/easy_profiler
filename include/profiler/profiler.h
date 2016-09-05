@@ -220,7 +220,7 @@ namespace profiler {
         uint32_t    PROFILER_API dumpBlocksToFile(const char* filename);
         void        PROFILER_API setThreadName(const char* name, const char* filename, const char* _funcname, int line);
         void        PROFILER_API setContextSwitchLogFilename(const char* name);
-        const char* PROFILER_API getContextSwitchLogFilename();
+        PROFILER_API const char* getContextSwitchLogFilename();
 	}
 
 	typedef uint64_t timestamp_t;

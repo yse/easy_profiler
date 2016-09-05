@@ -54,7 +54,7 @@ extern "C"{
         return MANAGER.setContextSwitchLogFilename(name);
     }
 
-    const char* PROFILER_API getContextSwitchLogFilename()
+    PROFILER_API const char* getContextSwitchLogFilename()
     {
         return MANAGER.getContextSwitchLogFilename();
     }
