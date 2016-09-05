@@ -36,6 +36,9 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #include <Windows.h>
 #else
 #include <thread>
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/syscall.h>
 #endif
 
 inline uint32_t getCurrentThreadId()
@@ -43,8 +46,9 @@ inline uint32_t getCurrentThreadId()
 #ifdef _WIN32
 	return (uint32_t)::GetCurrentThreadId();
 #else
-	thread_local static uint32_t _id = (uint32_t)std::hash<std::thread::id>()(std::this_thread::get_id());
-	return _id;
+    thread_local static pid_t x = syscall(__NR_gettid);
+    thread_local static uint32_t _id = (uint32_t)x;//std::hash<std::thread::id>()(std::this_thread::get_id());
+    return _id;
 #endif
 }
 
