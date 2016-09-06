@@ -181,7 +181,7 @@ void ProfileManager::beginBlock(Block& _block)
 
     EASY_INTERNAL_BLOCK("Easy.Insert", profiler::BLOCK_TYPE_BLOCK,\
         if (!_block.isFinished())
-            thread_storage.blocks.emplace(_block);
+            thread_storage.blocks.openedList.emplace(_block);
         else
             thread_storage.storeBlock(_block);\
     );
@@ -191,7 +191,7 @@ void ProfileManager::_cswitchBeginBlock(profiler::timestamp_t _time, profiler::b
 {
     auto thread_storage = _threadStorage(_thread_id);
     if (thread_storage != nullptr)
-        thread_storage->sync.emplace(_time, profiler::BLOCK_TYPE_CONTEXT_SWITCH, _id, "");
+        thread_storage->sync.openedList.emplace(_time, profiler::BLOCK_TYPE_CONTEXT_SWITCH, _id, "");
 }
 
 void ProfileManager::_cswitchStoreBlock(profiler::timestamp_t _time, profiler::block_id_t _id, profiler::thread_id_t _thread_id)
@@ -213,12 +213,12 @@ void ProfileManager::endBlock()
     if (thread_storage.blocks.openedList.empty())
         return;
 
-    Block& lastBlock = thread_storage.blocks.top();
+    Block& lastBlock = thread_storage.blocks.openedList.top();
     if (!lastBlock.isFinished())
         lastBlock.finish();
 
     thread_storage.storeBlock(lastBlock);
-    thread_storage.blocks.pop();
+    thread_storage.blocks.openedList.pop();
 }
 
 void ProfileManager::_cswitchEndBlock(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime)
@@ -227,11 +227,11 @@ void ProfileManager::_cswitchEndBlock(profiler::thread_id_t _thread_id, profiler
     if (thread_storage == nullptr || thread_storage->sync.openedList.empty())
         return;
 
-    Block& lastBlock = thread_storage->sync.top();
+    Block& lastBlock = thread_storage->sync.openedList.top();
     lastBlock.finish(_endtime);
 
     thread_storage->storeCSwitch(lastBlock);
-    thread_storage->sync.pop();
+    thread_storage->sync.openedList.pop();
 }
 
 void ProfileManager::setEnabled(bool isEnable)

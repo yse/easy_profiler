@@ -104,11 +104,38 @@ class ThreadStorage final
     template <class T, const uint16_t N>
     struct BlocksList final
     {
-        //typedef std::stack<T> stack_of_blocks_t;
-        typedef std::vector<T> stack_of_blocks_t;
+        class Stack final {
+            //std::stack<T> m_stack;
+            std::vector<T> m_stack;
+
+        public:
+
+            inline void clear() { m_stack.clear(); }
+            inline bool empty() const { return m_stack.empty(); }
+
+            inline void emplace(profiler::Block& _block) {
+                //m_stack.emplace(_block);
+                m_stack.emplace_back(_block);
+            }
+
+            template <class ... TArgs> inline void emplace(TArgs ... _args) {
+                //m_stack.emplace(_args);
+                m_stack.emplace_back(_args...);
+            }
+
+            inline T& top() {
+                //return m_stack.top();
+                return m_stack.back();
+            }
+
+            inline void pop() {
+                //m_stack.pop();
+                m_stack.pop_back();
+            }
+        };
 
         chunk_allocator<char, N>       alloc;
-        stack_of_blocks_t         openedList;
+        Stack                     openedList;
         serialized_list_t         closedList;
         uint64_t          usedMemorySize = 0;
 
@@ -116,31 +143,6 @@ class ThreadStorage final
             serialized_list_t().swap(closedList);
             alloc.clear();
             usedMemorySize = 0;
-        }
-
-        void emplace(profiler::Block& _block)
-        {
-            //openedList.emplace(_block);
-            openedList.emplace_back(_block);
-        }
-
-        template <class ... TArgs>
-        void emplace(TArgs&& ... _args)
-        {
-            //openedList.emplace(std::forward<TArgs&&>(_args));
-            openedList.emplace_back(std::forward<TArgs&&>(_args)...);
-        }
-
-        T& top()
-        {
-            //return openedList.top();
-            return openedList.back();
-        }
-
-        void pop()
-        {
-            //openedList.pop();
-            openedList.pop_back();
         }
     };
 
