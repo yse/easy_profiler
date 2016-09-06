@@ -182,16 +182,10 @@ If this thread has been already named then nothing changes.
 
 \ingroup profiler
 */
-#ifdef EASY_THREAD_LOCAL_CPP11
-#define EASY_THREAD(name)\
-    EASY_THREAD_LOCAL static const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = \
-        ::profiler::setThreadName(name, __FILE__, __func__, __LINE__);
-#else
 #define EASY_THREAD(name)\
     EASY_THREAD_LOCAL static const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = nullptr;\
     if (EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) == nullptr)\
         EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = ::profiler::setThreadName(name, __FILE__, __func__, __LINE__);
-#endif
 
 /** Macro of naming main thread.
 
