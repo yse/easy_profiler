@@ -387,10 +387,10 @@ void EasyMainWindow::loadGeometry()
 
 void EasyMainWindow::saveSettingsAndGeometry()
 {
-	QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
-	settings.beginGroup("main");
+    QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
+    settings.beginGroup("main");
 
-	settings.setValue("geometry", this->saveGeometry());
+    settings.setValue("geometry", this->saveGeometry());
     settings.setValue("last_file", m_lastFile);
     settings.setValue("chrono_text_position", static_cast<int>(EASY_GLOBALS.chrono_text_position));
     settings.setValue("draw_graphics_items_borders", EASY_GLOBALS.draw_graphics_items_borders);
@@ -399,7 +399,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("bind_scene_and_tree_expand_status", EASY_GLOBALS.bind_scene_and_tree_expand_status);
     settings.setValue("encoding", QTextCodec::codecForLocale()->name());
 
-	settings.endGroup();
+    settings.endGroup();
 }
 
 //////////////////////////////////////////////////////////////////////////

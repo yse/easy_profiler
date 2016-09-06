@@ -134,7 +134,7 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
 
 EasyTreeWidget::~EasyTreeWidget()
 {
-	saveSettings();
+    saveSettings();
     delete m_progress;
 }
 
@@ -403,12 +403,12 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     auto hidemenu = menu.addMenu("Select columns");
     auto hdr = headerItem();
 
-	for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+    for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
     {
         auto columnAction = new QAction(hdr->text(i), nullptr);
         columnAction->setData(i);
         columnAction->setCheckable(true);
-		columnAction->setChecked(!isColumnHidden(i));
+        columnAction->setChecked(!isColumnHidden(i));
         connect(columnAction, &QAction::triggered, this, &This::onHideShowColumn);
         hidemenu->addAction(columnAction);
     }
@@ -694,17 +694,17 @@ void EasyTreeWidget::loadSettings()
 
 void EasyTreeWidget::saveSettings()
 {
-	QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
-	settings.beginGroup("tree_widget");
+    QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
+    settings.beginGroup("tree_widget");
 
-	settings.setValue("color_rows", m_bColorRows);
+    settings.setValue("color_rows", m_bColorRows);
 
-	for (int i = 0; i < columnCount(); i++)
-	{
-		settings.setValue(QString("Column") + QString::number(i) , isColumnHidden(i));
-	}
+    for (int i = 0; i < columnCount(); i++)
+    {
+        settings.setValue(QString("Column") + QString::number(i) , isColumnHidden(i));
+    }
 
-	settings.endGroup();
+    settings.endGroup();
 }
 
 //////////////////////////////////////////////////////////////////////////

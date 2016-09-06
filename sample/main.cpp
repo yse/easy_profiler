@@ -26,9 +26,9 @@ void localSleep(int magic=200000)
 }
 
 void loadingResources(){
-	EASY_FUNCTION(profiler::colors::Darkcyan);
+    EASY_FUNCTION(profiler::colors::Darkcyan);
     localSleep();
-//	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+//    std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }
 
 void prepareMath(){
@@ -37,7 +37,7 @@ void prepareMath(){
     for (int i = 0; i < OBJECTS; ++i)
         intarray[i] = i * i;
     delete[] intarray;
-	//std::this_thread::sleep_for(std::chrono::milliseconds(3));
+    //std::this_thread::sleep_for(std::chrono::milliseconds(3));
 }
 
 void calcIntersect(){
@@ -51,7 +51,7 @@ void calcIntersect(){
             intarray[j] = i * j - i / 2 + (OBJECTS - j) * 5;
     }
     delete[] intarray;
-	//std::this_thread::sleep_for(std::chrono::milliseconds(4));
+    //std::this_thread::sleep_for(std::chrono::milliseconds(4));
 }
 
 double multModel(double i)
@@ -81,7 +81,7 @@ void calcBrain(){
     for (int i = 0; i < OBJECTS; ++i)
         intarray[i] = calcSubbrain(i) + double(i * 180 / 3);
     delete[] intarray;
-	//std::this_thread::sleep_for(std::chrono::milliseconds(3));
+    //std::this_thread::sleep_for(std::chrono::milliseconds(3));
 }
 
 void calculateBehavior(){
@@ -92,14 +92,14 @@ void calculateBehavior(){
 
 void modellingStep(){
     EASY_FUNCTION(profiler::colors::Navy);
-	prepareMath();
-	calculateBehavior();
+    prepareMath();
+    calculateBehavior();
 }
 
 void prepareRender(){
     EASY_FUNCTION(profiler::colors::Darkred);
     localSleep();
-	//std::this_thread::sleep_for(std::chrono::milliseconds(8));
+    //std::this_thread::sleep_for(std::chrono::milliseconds(8));
 
 }
 
@@ -121,168 +121,168 @@ void calculatePhysics(){
     for (int i = 0; i < OBJECTS; ++i)
         intarray[i] = calcPhysicForObject(i);
     delete[] intarray;
-	//std::this_thread::sleep_for(std::chrono::milliseconds(8));
+    //std::this_thread::sleep_for(std::chrono::milliseconds(8));
 }
 
 void frame(){
     EASY_FUNCTION(profiler::colors::Magenta);
-	prepareRender();
-	calculatePhysics();
+    prepareRender();
+    calculatePhysics();
 }
 
 void loadingResourcesThread(){
-	//std::unique_lock<std::mutex> lk(cv_m);
-	//cv.wait(lk, []{return g_i == 1; });
+    //std::unique_lock<std::mutex> lk(cv_m);
+    //cv.wait(lk, []{return g_i == 1; });
     EASY_THREAD("Resource loading");
-	for(int i = 0; i < RESOURCE_LOADING_COUNT; i++){
-		loadingResources();
-		EASY_EVENT("Resources Loading!", profiler::colors::Cyan);
+    for(int i = 0; i < RESOURCE_LOADING_COUNT; i++){
+        loadingResources();
+        EASY_EVENT("Resources Loading!", profiler::colors::Cyan);
         localSleep(1200000);
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));
-	}
+    }
 }
 
 void modellingThread(){
-	//std::unique_lock<std::mutex> lk(cv_m);
-	//cv.wait(lk, []{return g_i == 1; });
+    //std::unique_lock<std::mutex> lk(cv_m);
+    //cv.wait(lk, []{return g_i == 1; });
     EASY_THREAD("Modelling");
-	for (int i = 0; i < RENDER_SPEPS; i++){
-		modellingStep();
+    for (int i = 0; i < RENDER_SPEPS; i++){
+        modellingStep();
         localSleep(1200000);
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));
-	}
+    }
 }
 
 void renderThread(){
-	//std::unique_lock<std::mutex> lk(cv_m);
-	//cv.wait(lk, []{return g_i == 1; });
+    //std::unique_lock<std::mutex> lk(cv_m);
+    //cv.wait(lk, []{return g_i == 1; });
     EASY_THREAD("Render");
-	for (int i = 0; i < MODELLING_STEPS; i++){
-		frame();
+    for (int i = 0; i < MODELLING_STEPS; i++){
+        frame();
         localSleep(1200000);
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));
-	}
+    }
 }
 
 void four()
 {
     EASY_FUNCTION(profiler::colors::Red);
-	std::this_thread::sleep_for(std::chrono::milliseconds(37));
+    std::this_thread::sleep_for(std::chrono::milliseconds(37));
 }
 
 void five()
 {
     EASY_FUNCTION(profiler::colors::Red);
-	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
 }
 void six()
 {
     EASY_FUNCTION(profiler::colors::Red);
-	std::this_thread::sleep_for(std::chrono::milliseconds(42));
+    std::this_thread::sleep_for(std::chrono::milliseconds(42));
 }
 
 void three()
 {
     EASY_FUNCTION(profiler::colors::Red);
-	four();
-	five();
-	six();
+    four();
+    five();
+    six();
 }
 
 void seven()
 {
     EASY_FUNCTION(profiler::colors::Red);
-	std::this_thread::sleep_for(std::chrono::milliseconds(147));
+    std::this_thread::sleep_for(std::chrono::milliseconds(147));
 }
 
 void two()
 {
     EASY_FUNCTION(profiler::colors::Red);
-	std::this_thread::sleep_for(std::chrono::milliseconds(26));
+    std::this_thread::sleep_for(std::chrono::milliseconds(26));
 }
 
 void one()
 {
     EASY_FUNCTION(profiler::colors::Red);
-	two();
-	three();
-	seven();
+    two();
+    three();
+    seven();
 }
 
 /*
 one
-	two
-	three
-		four
-		five
-		six
-	seven
+    two
+    three
+        four
+        five
+        six
+    seven
 */
 
 int main(int argc, char* argv[])
 {
-	if (argc > 1 && argv[1]){
-		OBJECTS = std::atoi(argv[1]);
-	}
-	if (argc > 2 && argv[2]){
-		RENDER_SPEPS = std::atoi(argv[2]);
-	}
-	if (argc > 3 && argv[3]){
-		MODELLING_STEPS = std::atoi(argv[3]);
-	}
-	if (argc > 4 && argv[4]){
-		RESOURCE_LOADING_COUNT = std::atoi(argv[4]);
-	}
+    if (argc > 1 && argv[1]){
+        OBJECTS = std::atoi(argv[1]);
+    }
+    if (argc > 2 && argv[2]){
+        RENDER_SPEPS = std::atoi(argv[2]);
+    }
+    if (argc > 3 && argv[3]){
+        MODELLING_STEPS = std::atoi(argv[3]);
+    }
+    if (argc > 4 && argv[4]){
+        RESOURCE_LOADING_COUNT = std::atoi(argv[4]);
+    }
 
-	std::cout << "Objects count: " << OBJECTS << std::endl;
-	std::cout << "Render steps: " << RENDER_SPEPS << std::endl;
-	std::cout << "Modelling steps: " << MODELLING_STEPS << std::endl;
-	std::cout << "Resource loading count: " << RESOURCE_LOADING_COUNT << std::endl;
+    std::cout << "Objects count: " << OBJECTS << std::endl;
+    std::cout << "Render steps: " << RENDER_SPEPS << std::endl;
+    std::cout << "Modelling steps: " << MODELLING_STEPS << std::endl;
+    std::cout << "Resource loading count: " << RESOURCE_LOADING_COUNT << std::endl;
 
-	auto start = std::chrono::system_clock::now();
-	EASY_PROFILER_ENABLE;
-	EASY_MAIN_THREAD;
-	//one();
-	//one();
-	/**/
-	std::vector<std::thread> threads;
+    auto start = std::chrono::system_clock::now();
+    EASY_PROFILER_ENABLE;
+    EASY_MAIN_THREAD;
+    //one();
+    //one();
+    /**/
+    std::vector<std::thread> threads;
 
-	std::thread render = std::thread(renderThread);
-	std::thread modelling = std::thread(modellingThread);
+    std::thread render = std::thread(renderThread);
+    std::thread modelling = std::thread(modellingThread);
 
-	
-	for(int i=0; i < 3; i++){
-		threads.emplace_back(std::thread(loadingResourcesThread));
-		threads.emplace_back(std::thread(renderThread));
-		threads.emplace_back(std::thread(modellingThread));
-	}
-	{
-		std::lock_guard<std::mutex> lk(cv_m);
-		g_i = 1;
-	}
-	cv.notify_all();
+    
+    for(int i=0; i < 3; i++){
+        threads.emplace_back(std::thread(loadingResourcesThread));
+        threads.emplace_back(std::thread(renderThread));
+        threads.emplace_back(std::thread(modellingThread));
+    }
+    {
+        std::lock_guard<std::mutex> lk(cv_m);
+        g_i = 1;
+    }
+    cv.notify_all();
 
     for (int i = 0; i < RENDER_SPEPS; ++i) {
         modellingStep();
         localSleep(1200000);
     }
 
-	render.join();
-	modelling.join();
-	for(auto& t : threads){
-		t.join();
-	}
-	/**/
+    render.join();
+    modelling.join();
+    for(auto& t : threads){
+        t.join();
+    }
+    /**/
 
-	auto end = std::chrono::system_clock::now();
-	auto elapsed =
-			std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    auto end = std::chrono::system_clock::now();
+    auto elapsed =
+            std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
-	std::cout << "Elapsed time: " << elapsed.count() << " usec" << std::endl;
+    std::cout << "Elapsed time: " << elapsed.count() << " usec" << std::endl;
 
-	auto blocks_count = profiler::dumpBlocksToFile("test.prof");
+    auto blocks_count = profiler::dumpBlocksToFile("test.prof");
 
-	std::cout << "Blocks count: " << blocks_count << std::endl;
+    std::cout << "Blocks count: " << blocks_count << std::endl;
 
-	return 0;
+    return 0;
 }
