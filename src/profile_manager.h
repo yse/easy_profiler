@@ -104,7 +104,8 @@ class ThreadStorage final
     template <class T, const uint16_t N>
     struct BlocksList final
     {
-        typedef std::stack<T> stack_of_blocks_t;
+        //typedef std::stack<T> stack_of_blocks_t;
+        typedef std::vector<T> stack_of_blocks_t;
 
         chunk_allocator<char, N>       alloc;
         stack_of_blocks_t         openedList;
@@ -115,6 +116,31 @@ class ThreadStorage final
             serialized_list_t().swap(closedList);
             alloc.clear();
             usedMemorySize = 0;
+        }
+
+        void emplace(profiler::Block& _block)
+        {
+            //openedList.emplace(_block);
+            openedList.emplace_back(_block);
+        }
+
+        template <class ... TArgs>
+        void emplace(TArgs&& ... _args)
+        {
+            //openedList.emplace(std::forward<TArgs&&>(_args));
+            openedList.emplace_back(std::forward<TArgs&&>(_args)...);
+        }
+
+        T& top()
+        {
+            //return openedList.top();
+            return openedList.back();
+        }
+
+        void pop()
+        {
+            //openedList.pop();
+            openedList.pop_back();
         }
     };
 
