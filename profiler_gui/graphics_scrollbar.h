@@ -2,17 +2,30 @@
 * file name         : graphics_scrollbar.h
 * ----------------- : 
 * creation time     : 2016/07/04
-* copyright         : (c) 2016 Victor Zarubkin
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- : 
-* description       : .
+* description       : This file contains declaration of 
 * ----------------- : 
 * change log        : * 2016/07/04 Victor Zarubkin: Initial commit.
 *                   :
 *                   : * 
 * ----------------- : 
-* license           : TODO: add license text
+* license           : Lightweight profiler library for c++
+*                   : Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
+*                   :
+*                   : This program is free software : you can redistribute it and / or modify
+*                   : it under the terms of the GNU General Public License as published by
+*                   : the Free Software Foundation, either version 3 of the License, or
+*                   : (at your option) any later version.
+*                   :
+*                   : This program is distributed in the hope that it will be useful,
+*                   : but WITHOUT ANY WARRANTY; without even the implied warranty of
+*                   : MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+*                   : GNU General Public License for more details.
+*                   :
+*                   : You should have received a copy of the GNU General Public License
+*                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
 #ifndef EASY__GRAPHICS_SCROLLBAR__H
@@ -94,47 +107,6 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyIdAction : public QAction
-{
-    Q_OBJECT
-
-private:
-
-    typedef QAction      Parent;
-    typedef EasyIdAction   This;
-
-    ::profiler::thread_id_t m_id;
-
-public:
-
-    EasyIdAction(const QString& _label, ::profiler::thread_id_t _id) : Parent(_label, nullptr), m_id(_id)
-    {
-        connect(this, &Parent::triggered, this, &This::onToggle);
-    }
-
-    EasyIdAction(const char* _label, ::profiler::thread_id_t _id) : Parent(_label, nullptr), m_id(_id)
-    {
-        connect(this, &Parent::triggered, this, &This::onToggle);
-    }
-
-    virtual ~EasyIdAction()
-    {
-    }
-
-private:
-
-    void onToggle(bool)
-    {
-        emit clicked(m_id);
-    }
-
-signals:
-
-    void clicked(::profiler::thread_id_t _id);
-};
-
-//////////////////////////////////////////////////////////////////////////
-
 class EasyGraphicsScrollbar : public QGraphicsView
 {
     Q_OBJECT
@@ -205,7 +177,7 @@ signals:
 
 private slots:
 
-    void onThreadActionClicked(::profiler::thread_id_t _id);
+    void onThreadActionClicked(bool);
     void onWindowWidthChange(qreal _width);
 
 }; // END of class EasyGraphicsScrollbar.

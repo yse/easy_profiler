@@ -2,7 +2,6 @@
 * file name         : blocks_tree_widget.cpp
 * ----------------- :
 * creation time     : 2016/06/26
-* copyright         : (c) 2016 Victor Zarubkin
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
@@ -21,7 +20,21 @@
 *                   :
 *                   : * 2016/08/18 Victor Zarubkin: Moved sources of TreeWidgetItem into tree_widget_item.h/.cpp
 * ----------------- :
-* license           : TODO: add license text
+* license           : Lightweight profiler library for c++
+*                   : Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
+*                   :
+*                   : This program is free software : you can redistribute it and / or modify
+*                   : it under the terms of the GNU General Public License as published by
+*                   : the Free Software Foundation, either version 3 of the License, or
+*                   : (at your option) any later version.
+*                   :
+*                   : This program is distributed in the hope that it will be useful,
+*                   : but WITHOUT ANY WARRANTY; without even the implied warranty of
+*                   : MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+*                   : GNU General Public License for more details.
+*                   :
+*                   : You should have received a copy of the GNU General Public License
+*                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
 #include <QMenu>
@@ -358,7 +371,7 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
                 case COL_MAX_PER_FRAME:
                 {
                     auto& block = item->block();
-                    auto i = ::profiler_gui::numeric_max<unsigned int>();
+                    auto i = ::profiler_gui::numeric_max<uint32_t>();
                     switch (col)
                     {
                         case COL_MIN_PER_THREAD: i = block.per_thread_stats->min_duration_block; break;
@@ -372,9 +385,10 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
                     if (i != ::profiler_gui::numeric_max(i))
                     {
                         menu.addSeparator();
-                        auto itemAction = new EasyItemAction("Jump to such item", i);
+                        auto itemAction = new QAction("Jump to such item", nullptr);
+                        itemAction->setData(i);
                         itemAction->setToolTip("Jump to item with min/max duration (depending on clicked column)");
-                        connect(itemAction, &EasyItemAction::clicked, this, &This::onJumpToItemClicked);
+                        connect(itemAction, &QAction::triggered, this, &This::onJumpToItemClicked);
                         menu.addAction(itemAction);
                     }
 
@@ -391,10 +405,11 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 
 	for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
     {
-        auto columnAction = new EasyHideShowColumnAction(hdr->text(i), i);
+        auto columnAction = new QAction(hdr->text(i), nullptr);
+        columnAction->setData(i);
         columnAction->setCheckable(true);
 		columnAction->setChecked(!isColumnHidden(i));
-        connect(columnAction, &EasyHideShowColumnAction::clicked, this, &This::onHideShowColumn);
+        connect(columnAction, &QAction::triggered, this, &This::onHideShowColumn);
         hidemenu->addAction(columnAction);
     }
 
@@ -425,10 +440,15 @@ void EasyTreeWidget::alignProgressBar()
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyTreeWidget::onJumpToItemClicked(unsigned int _block_index)
+void EasyTreeWidget::onJumpToItemClicked(bool)
 {
-    EASY_GLOBALS.selected_block = _block_index;
-    emit EASY_GLOBALS.events.selectedBlockChanged(_block_index);
+    auto action = qobject_cast<QAction*>(sender());
+    if (action == nullptr)
+        return;
+
+    auto block_index = action->data().toUInt();
+    EASY_GLOBALS.selected_block = block_index;
+    emit EASY_GLOBALS.events.selectedBlockChanged(block_index);
 }
 
 void EasyTreeWidget::onCollapseAllClicked(bool)
@@ -639,16 +659,17 @@ void EasyTreeWidget::resizeColumnsToContents()
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyTreeWidget::onHideShowColumn(int _column)
+void EasyTreeWidget::onHideShowColumn(bool)
 {
-    if (isColumnHidden(_column))
-    {
-        showColumn(_column);
-    }
+    auto action = qobject_cast<QAction*>(sender());
+    if (action == nullptr)
+        return;
+
+    auto col = action->data().toInt();
+    if (isColumnHidden(col))
+        showColumn(col);
     else
-    {
-        hideColumn(_column);
-    }
+        hideColumn(col);
 }
 
 //////////////////////////////////////////////////////////////////////////
