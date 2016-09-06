@@ -48,9 +48,9 @@ namespace profiler {
         auto _contextSwitchEvent = reinterpret_cast<CSwitch*>(_traceEvent->UserData);
         const auto time = static_cast<::profiler::timestamp_t>(_traceEvent->EventHeader.TimeStamp.QuadPart);
 
-        static const ::profiler::StaticBlockDescriptor desc("OS.ContextSwitch", __FILE__, __LINE__, ::profiler::BLOCK_TYPE_CONTEXT_SWITCH, ::profiler::colors::White);
-        MANAGER._cswitchBeginBlock(time, desc.id(), _contextSwitchEvent->OldThreadId);
-        MANAGER._cswitchEndBlock(_contextSwitchEvent->NewThreadId, time);
+        static const auto desc = MANAGER.addBlockDescriptor("OS.ContextSwitch", __FILE__, __LINE__, ::profiler::BLOCK_TYPE_CONTEXT_SWITCH, ::profiler::colors::White);
+        MANAGER.beginContextSwitch(_contextSwitchEvent->OldThreadId, time, desc);
+        MANAGER.endContextSwitch(_contextSwitchEvent->NewThreadId, time);
     }
 
     //////////////////////////////////////////////////////////////////////////

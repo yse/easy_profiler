@@ -10,16 +10,6 @@
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-#define EASY_INTERNAL_BLOCK(name, easyType, CODE) CODE
-//#define EASY_INTERNAL_BLOCK(name, easyType, CODE)\
-//    static const profiler::StaticBlockDescriptor EASY_UNIQUE_DESC(__LINE__)(name, __FILE__, __LINE__, easyType, profiler::colors::White);\
-//    ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(easyType, EASY_UNIQUE_DESC(__LINE__).id(), "");\
-//    CODE\
-//    EASY_UNIQUE_BLOCK(__LINE__).finish();\
-//    thread_storage.storeBlock(EASY_UNIQUE_BLOCK(__LINE__))
-
-//////////////////////////////////////////////////////////////////////////
-
 using namespace profiler;
 
 #ifdef _WIN32
@@ -29,14 +19,19 @@ extern decltype(LARGE_INTEGER::QuadPart) CPU_FREQUENCY;
 //auto& MANAGER = ProfileManager::instance();
 #define MANAGER ProfileManager::instance()
 
-extern "C"{
+extern "C" {
 
-    void PROFILER_API endBlock()
+    PROFILER_API block_id_t registerDescription(const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
+    {
+        return MANAGER.addBlockDescriptor(_name, _filename, _line, _block_type, _color);
+    }
+
+    PROFILER_API void endBlock()
     {
         MANAGER.endBlock();
     }
 
-    void PROFILER_API setEnabled(bool isEnable)
+    PROFILER_API void setEnabled(bool isEnable)
     {
         MANAGER.setEnabled(isEnable);
 #ifdef _WIN32
@@ -47,22 +42,22 @@ extern "C"{
 #endif
     }
 
-    void PROFILER_API beginBlock(Block& _block)
+    PROFILER_API void beginBlock(Block& _block)
 	{
         MANAGER.beginBlock(_block);
 	}
 
-	uint32_t PROFILER_API dumpBlocksToFile(const char* filename)
+	PROFILER_API uint32_t dumpBlocksToFile(const char* filename)
 	{
         return MANAGER.dumpBlocksToFile(filename);
 	}
 
-    void PROFILER_API setThreadName(const char* name, const char* filename, const char* _funcname, int line)
+    PROFILER_API const char* setThreadName(const char* name, const char* filename, const char* _funcname, int line)
 	{
         return MANAGER.setThreadName(name, filename, _funcname, line);
 	}
 
-    void PROFILER_API setContextSwitchLogFilename(const char* name)
+    PROFILER_API void setContextSwitchLogFilename(const char* name)
     {
         return MANAGER.setContextSwitchLogFilename(name);
     }
@@ -83,12 +78,6 @@ SerializedBlock::SerializedBlock(const Block& block, uint16_t name_length)
 }
 
 //////////////////////////////////////////////////////////////////////////
-
-StaticBlockDescriptor::StaticBlockDescriptor(const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
-    : m_id(MANAGER.addBlockDescriptor(_name, _filename, _line, _block_type, _color))
-{
-
-}
 
 BaseBlockDescriptor::BaseBlockDescriptor(int _line, block_type_t _block_type, color_t _color)
     : m_line(_line)
@@ -136,6 +125,8 @@ void ThreadStorage::clearClosed()
 
 //////////////////////////////////////////////////////////////////////////
 
+EASY_THREAD_LOCAL static ::ThreadStorage* THREAD_STORAGE = nullptr;
+
 // #ifdef _WIN32
 // LPTOP_LEVEL_EXCEPTION_FILTER PREVIOUS_FILTER = NULL;
 // LONG WINAPI easyTopLevelExceptionFilter(struct _EXCEPTION_POINTERS* ExceptionInfo)
@@ -175,32 +166,30 @@ void ProfileManager::beginBlock(Block& _block)
     if (!m_isEnabled)
         return;
 
-    EASY_INTERNAL_BLOCK("Easy.Spin", profiler::BLOCK_TYPE_BLOCK,\
-        auto& thread_storage = threadStorage(getCurrentThreadId());\
-    );
+    if (THREAD_STORAGE == nullptr)
+        THREAD_STORAGE = &threadStorage(getCurrentThreadId());
 
-    EASY_INTERNAL_BLOCK("Easy.Insert", profiler::BLOCK_TYPE_BLOCK,\
-        if (!_block.isFinished())
-            thread_storage.blocks.openedList.emplace(_block);
-        else
-            thread_storage.storeBlock(_block);\
-    );
+    if (!_block.isFinished())
+        THREAD_STORAGE->blocks.openedList.emplace(_block);
+    else
+        THREAD_STORAGE->storeBlock(_block);
 }
 
-void ProfileManager::_cswitchBeginBlock(profiler::timestamp_t _time, profiler::block_id_t _id, profiler::thread_id_t _thread_id)
+void ProfileManager::beginContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::block_id_t _id)
 {
-    auto thread_storage = _threadStorage(_thread_id);
-    if (thread_storage != nullptr)
-        thread_storage->sync.openedList.emplace(_time, profiler::BLOCK_TYPE_CONTEXT_SWITCH, _id, "");
+    auto ts = findThreadStorage(_thread_id);
+    if (ts != nullptr)
+        ts->sync.openedList.emplace(_time, profiler::BLOCK_TYPE_CONTEXT_SWITCH, _id, "");
 }
 
-void ProfileManager::_cswitchStoreBlock(profiler::timestamp_t _time, profiler::block_id_t _id, profiler::thread_id_t _thread_id)
+void ProfileManager::storeContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::block_id_t _id)
 {
-    auto thread_storage = _threadStorage(_thread_id);
-    if (thread_storage != nullptr){
+    auto ts = findThreadStorage(_thread_id);
+    if (ts != nullptr)
+    {
         profiler::Block lastBlock(_time, profiler::BLOCK_TYPE_CONTEXT_SWITCH, _id, "");
         lastBlock.finish(_time);
-        thread_storage->storeCSwitch(lastBlock);
+        ts->storeCSwitch(lastBlock);
     }
 }
 
@@ -209,29 +198,28 @@ void ProfileManager::endBlock()
     if (!m_isEnabled)
         return;
 
-    auto& thread_storage = threadStorage(getCurrentThreadId());
-    if (thread_storage.blocks.openedList.empty())
+    if (THREAD_STORAGE->blocks.openedList.empty())
         return;
 
-    Block& lastBlock = thread_storage.blocks.openedList.top();
+    Block& lastBlock = THREAD_STORAGE->blocks.openedList.top();
     if (!lastBlock.isFinished())
         lastBlock.finish();
 
-    thread_storage.storeBlock(lastBlock);
-    thread_storage.blocks.openedList.pop();
+    THREAD_STORAGE->storeBlock(lastBlock);
+    THREAD_STORAGE->blocks.openedList.pop();
 }
 
-void ProfileManager::_cswitchEndBlock(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime)
+void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime)
 {
-    auto thread_storage = _threadStorage(_thread_id);
-    if (thread_storage == nullptr || thread_storage->sync.openedList.empty())
+    auto ts = findThreadStorage(_thread_id);
+    if (ts == nullptr || ts->sync.openedList.empty())
         return;
 
-    Block& lastBlock = thread_storage->sync.openedList.top();
+    Block& lastBlock = ts->sync.openedList.top();
     lastBlock.finish(_endtime);
 
-    thread_storage->storeCSwitch(lastBlock);
-    thread_storage->sync.openedList.pop();
+    ts->storeCSwitch(lastBlock);
+    ts->sync.openedList.pop();
 }
 
 void ProfileManager::setEnabled(bool isEnable)
@@ -283,11 +271,11 @@ uint32_t ProfileManager::dumpBlocksToFile(const char* filename)
 
     if(infile.is_open())
     {
-        while (infile >> timestamp >> thread_from >> thread_to )
+        static const auto desc = addBlockDescriptor("OS.ContextSwitch", __FILE__, __LINE__, ::profiler::BLOCK_TYPE_CONTEXT_SWITCH, ::profiler::colors::White);
+        while (infile >> timestamp >> thread_from >> thread_to)
         {
-            static const ::profiler::StaticBlockDescriptor desc("OS.ContextSwitch", __FILE__, __LINE__, ::profiler::BLOCK_TYPE_CONTEXT_SWITCH, ::profiler::colors::White);
-            _cswitchBeginBlock(timestamp, desc.id(), thread_from);
-            _cswitchEndBlock(thread_to, timestamp);
+            beginContextSwitch(thread_from, timestamp, desc);
+            endContextSwitch(thread_to, timestamp);
         }
     }
 
@@ -385,15 +373,22 @@ uint32_t ProfileManager::dumpBlocksToFile(const char* filename)
     return blocks_number;
 }
 
-void ProfileManager::setThreadName(const char* name, const char* filename, const char* _funcname, int line)
+const char* ProfileManager::setThreadName(const char* name, const char* filename, const char* _funcname, int line)
 {
-    auto& thread_storage = threadStorage(getCurrentThreadId());
-    if (thread_storage.named)
-        return;
+    if (THREAD_STORAGE == nullptr)
+    {
+        THREAD_STORAGE = &threadStorage(getCurrentThreadId());
+    }
 
-    const auto id = addBlockDescriptor(_funcname, filename, line, profiler::BLOCK_TYPE_THREAD_SIGN, profiler::colors::Random);
-    thread_storage.storeBlock(profiler::Block(profiler::BLOCK_TYPE_THREAD_SIGN, id, name));
-    thread_storage.named = true;
+    if (!THREAD_STORAGE->named)
+    {
+        const auto id = addBlockDescriptor(_funcname, filename, line, profiler::BLOCK_TYPE_THREAD_SIGN, profiler::colors::Random);
+        THREAD_STORAGE->storeBlock(profiler::Block(profiler::BLOCK_TYPE_THREAD_SIGN, id, name));
+        THREAD_STORAGE->name = name;
+        THREAD_STORAGE->named = true;
+    }
+
+    return THREAD_STORAGE->name.c_str();
 }
 
 //////////////////////////////////////////////////////////////////////////

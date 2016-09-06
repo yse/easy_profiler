@@ -26,8 +26,8 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #include <stack>
 #include <map>
 #include <list>
-#include <set>
 #include <vector>
+#include <string>
 #include <functional>
 
 //////////////////////////////////////////////////////////////////////////
@@ -44,10 +44,10 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 inline uint32_t getCurrentThreadId()
 {
 #ifdef _WIN32
-	return (uint32_t)::GetCurrentThreadId();
+    return (uint32_t)::GetCurrentThreadId();
 #else
-    thread_local static pid_t x = syscall(__NR_gettid);
-    thread_local static uint32_t _id = (uint32_t)x;//std::hash<std::thread::id>()(std::this_thread::get_id());
+    EASY_THREAD_LOCAL static const pid_t x = syscall(__NR_gettid);
+    EASY_THREAD_LOCAL static const uint32_t _id = (uint32_t)x;//std::hash<std::thread::id>()(std::this_thread::get_id());
     return _id;
 #endif
 }
@@ -150,6 +150,7 @@ public:
 
     BlocksList<std::reference_wrapper<profiler::Block>, SIZEOF_CSWITCH * (uint16_t)1024U> blocks;
     BlocksList<profiler::Block, SIZEOF_CSWITCH * (uint16_t)128U>                            sync;
+    std::string name;
     bool named = false;
 
     void storeBlock(const profiler::Block& _block);
@@ -161,8 +162,6 @@ public:
 
 class ProfileManager final
 {
-    friend profiler::StaticBlockDescriptor;
-
     ProfileManager();
     ProfileManager(const ProfileManager& p) = delete;
     ProfileManager& operator=(const ProfileManager&) = delete;
@@ -185,11 +184,20 @@ public:
     static ProfileManager& instance();
 	~ProfileManager();
 
+    template <class ... TArgs>
+    uint32_t addBlockDescriptor(TArgs ... _args)
+    {
+        guard_lock_t lock(m_storedSpin);
+        const auto id = static_cast<uint32_t>(m_descriptors.size());
+        m_descriptors.emplace_back(m_usedMemorySize, _args...);
+        return id;
+    }
+
     void beginBlock(profiler::Block& _block);
 	void endBlock();
 	void setEnabled(bool isEnable);
     uint32_t dumpBlocksToFile(const char* filename);
-    void setThreadName(const char* name, const char* filename, const char* _funcname, int line);
+    const char* setThreadName(const char* name, const char* filename, const char* _funcname, int line);
 
     void setContextSwitchLogFilename(const char* name)
     {
@@ -201,20 +209,11 @@ public:
         return m_csInfoFilename.c_str();
     }
 
-    void _cswitchBeginBlock(profiler::timestamp_t _time, profiler::block_id_t _id, profiler::thread_id_t _thread_id);
-    void _cswitchStoreBlock(profiler::timestamp_t _time, profiler::block_id_t _id, profiler::thread_id_t _thread_id);
-    void _cswitchEndBlock(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime);
+    void beginContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::block_id_t _id);
+    void storeContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::block_id_t _id);
+    void endContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime);
 
 private:
-
-    template <class ... TArgs>
-    uint32_t addBlockDescriptor(TArgs ... _args)
-    {
-        guard_lock_t lock(m_storedSpin);
-        const auto id = static_cast<uint32_t>(m_descriptors.size());
-        m_descriptors.emplace_back(m_usedMemorySize, _args...);
-        return id;
-    }
 
     ThreadStorage& threadStorage(profiler::thread_id_t _thread_id)
     {
@@ -222,7 +221,7 @@ private:
         return m_threads[_thread_id];
     }
 
-    ThreadStorage* _threadStorage(profiler::thread_id_t _thread_id)
+    ThreadStorage* findThreadStorage(profiler::thread_id_t _thread_id)
     {
         guard_lock_t lock(m_spin);
         auto it = m_threads.find(_thread_id);

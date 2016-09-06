@@ -16,53 +16,87 @@ You should have received a copy of the GNU General Public License
 along with this program.If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#ifndef ________SPIN_LOCK__________H______
-#define ________SPIN_LOCK__________H______
+#ifndef EASY_PROFILER__SPIN_LOCK__________H______
+#define EASY_PROFILER__SPIN_LOCK__________H______
 
+#define EASY_USE_CRITICAL_SECTION // Use CRITICAL_SECTION instead of std::atomic_flag
+
+#if defined(_WIN32) && defined(EASY_USE_CRITICAL_SECTION)
+#include <Windows.h>
+#else
 #include <atomic>
-
-namespace profiler{
-
-	class spin_lock
-	{
-		std::atomic_flag m_lock;
-	public:
-		void lock()
-		{
-			while (m_lock.test_and_set(std::memory_order_acquire)){}
-		}
-
-		void unlock()
-		{
-			m_lock.clear(std::memory_order_release);
-		}
-
-		spin_lock(){
-			m_lock.clear();
-		}
-	};
-
-	template<class T>
-	class guard_lock
-	{
-		T&  m_mutex;
-		bool m_isLocked = false;
-	public:
-        explicit guard_lock(T& m) :m_mutex(m){
-			m_mutex.lock();
-			m_isLocked = true;
-		}
-		~guard_lock(){
-			this->release();
-		}
-		inline void release(){
-			if (m_isLocked){
-				m_mutex.unlock();
-				m_isLocked = false;
-			}
-
-		}
-	};
-}
-
 #endif
+
+namespace profiler {
+
+#if defined(_WIN32) && defined(EASY_USE_CRITICAL_SECTION)
+    // std::atomic_flag on Windows works slower than critical section, so we will use it instead of std::atomic_flag...
+    // By the way, Windows critical sections are slower than std::atomic_flag on Unix.
+    class spin_lock final { CRITICAL_SECTION m_lock; public:
+
+        void lock() {
+            EnterCriticalSection(&m_lock);
+        }
+
+        void unlock() {
+            LeaveCriticalSection(&m_lock);
+        }
+
+        spin_lock() {
+            InitializeCriticalSection(&m_lock);
+        }
+
+        ~spin_lock() {
+            DeleteCriticalSection(&m_lock);
+        }
+    };
+#else
+    // std::atomic_flag on Unix works fine and very fast (almost instant!)
+    class spin_lock final { ::std::atomic_flag m_lock; public:
+
+        void lock() {
+            while (m_lock.test_and_set(::std::memory_order_acquire));
+        }
+
+        void unlock() {
+            m_lock.clear(::std::memory_order_release);
+        }
+
+        spin_lock() {
+            m_lock.clear();
+        }
+    };
+#endif
+
+    template <class T>
+    class guard_lock final
+    {
+        T& m_lock;
+        bool m_isLocked = false;
+
+    public:
+
+        explicit guard_lock(T& m) : m_lock(m) {
+            m_lock.lock();
+            m_isLocked = true;
+        }
+
+        ~guard_lock() {
+            unlock();
+        }
+
+        inline void unlock() {
+            if (m_isLocked) {
+                m_lock.unlock();
+                m_isLocked = false;
+            }
+        }
+    };
+
+} // END of namespace profiler.
+
+#ifdef EASY_USE_CRITICAL_SECTION
+# undef EASY_USE_CRITICAL_SECTION
+#endif
+
+#endif // EASY_PROFILER__SPIN_LOCK__________H______

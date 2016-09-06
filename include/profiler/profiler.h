@@ -20,7 +20,23 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #define EASY_PROFILER____H_______
 
 #ifdef _WIN32
-#define __func__ __FUNCTION__
+# define __func__ __FUNCTION__
+# if defined(_MSC_VER) && _MSC_VER <= 1800
+// There is no support for C++11 thread_local keyword prior to Visual Studio 2015. Use __declspec(thread) instead.
+#  define EASY_THREAD_LOCAL __declspec(thread)
+# endif
+#elif defined(__GNUC__)
+# if (__GNUC__ == 4 && __GNUC_MINOR__ < 8) || (__GNUC__ < 4)
+// There is no support for C++11 thread_local keyword prior to gcc 4.8. Use __thread instead.
+#  define EASY_THREAD_LOCAL __thread
+# endif
+#endif
+
+// TODO: Check thread_local support for Clang!
+
+#ifndef EASY_THREAD_LOCAL
+# define EASY_THREAD_LOCAL thread_local
+# define EASY_THREAD_LOCAL_CPP11
 #endif
 
 #if defined ( __clang__ )
@@ -80,9 +96,9 @@ Block will be automatically completed by destructor.
 \ingroup profiler
 */
 #define EASY_BLOCK(name, ...)\
-    static const ::profiler::StaticBlockDescriptor EASY_UNIQUE_DESC(__LINE__)(EASY_COMPILETIME_NAME(name), __FILE__, __LINE__,\
+    static const ::profiler::block_id_t EASY_UNIQUE_DESC(__LINE__) = ::profiler::registerDescription(EASY_COMPILETIME_NAME(name), __FILE__, __LINE__,\
         ::profiler::BLOCK_TYPE_BLOCK , ## __VA_ARGS__);\
-    ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(::profiler::BLOCK_TYPE_BLOCK, EASY_UNIQUE_DESC(__LINE__).id(), EASY_RUNTIME_NAME(name));\
+    ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(::profiler::BLOCK_TYPE_BLOCK, EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name));\
     ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
 /** Macro of beginning of block with function name and custom color.
@@ -105,9 +121,9 @@ Name of the block automatically created with function name.
 \ingroup profiler
 */
 #define EASY_FUNCTION(...)\
-    static const ::profiler::StaticBlockDescriptor EASY_UNIQUE_DESC(__LINE__)(__func__, __FILE__, __LINE__,\
+    static const ::profiler::block_id_t EASY_UNIQUE_DESC(__LINE__) = ::profiler::registerDescription(__func__, __FILE__, __LINE__,\
         ::profiler::BLOCK_TYPE_BLOCK , ## __VA_ARGS__);\
-    ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(::profiler::BLOCK_TYPE_BLOCK, EASY_UNIQUE_DESC(__LINE__).id(), "");\
+    ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(::profiler::BLOCK_TYPE_BLOCK, EASY_UNIQUE_DESC(__LINE__), "");\
     ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
 /** Macro of completion of last nearest open block.
@@ -145,9 +161,9 @@ will end previously opened EASY_BLOCK or EASY_FUNCTION.
 \ingroup profiler
 */
 #define EASY_EVENT(name, ...)\
-    static const ::profiler::StaticBlockDescriptor EASY_UNIQUE_DESC(__LINE__)(EASY_COMPILETIME_NAME(name), __FILE__, __LINE__,\
+    static const ::profiler::block_id_t EASY_UNIQUE_DESC(__LINE__) = ::profiler::registerDescription(EASY_COMPILETIME_NAME(name), __FILE__, __LINE__,\
         ::profiler::BLOCK_TYPE_EVENT , ## __VA_ARGS__);\
-    ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(::profiler::BLOCK_TYPE_EVENT, EASY_UNIQUE_DESC(__LINE__).id(), EASY_RUNTIME_NAME(name));\
+    ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(::profiler::BLOCK_TYPE_EVENT, EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name));\
     ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
 /** Macro enabling profiler
@@ -166,10 +182,15 @@ If this thread has been already named then nothing changes.
 
 \ingroup profiler
 */
-#ifdef _WIN32
-#define EASY_THREAD(name) ::profiler::setThreadName(name, __FILE__, __func__, __LINE__);
+#ifdef EASY_THREAD_LOCAL_CPP11
+#define EASY_THREAD(name)\
+    EASY_THREAD_LOCAL static const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = \
+        ::profiler::setThreadName(name, __FILE__, __func__, __LINE__);
 #else
-#define EASY_THREAD(name) thread_local static const ::profiler::ThreadNameSetter EASY_TOKEN_CONCATENATE(unique_profiler_thread_name_setter_, __LINE__)(name, __FILE__, __func__, __LINE__);
+#define EASY_THREAD(name)\
+    EASY_THREAD_LOCAL static const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = nullptr;\
+    if (EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) == nullptr)\
+        EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = ::profiler::setThreadName(name, __FILE__, __func__, __LINE__);
 #endif
 
 /** Macro of naming main thread.
@@ -211,20 +232,9 @@ class ThreadStorage;
 namespace profiler {
 
 	class Block;
-    class StaticBlockDescriptor;
-	
-	extern "C"{
-        void        PROFILER_API beginBlock(Block& _block);
-        void        PROFILER_API endBlock();
-        void        PROFILER_API setEnabled(bool isEnable);
-        uint32_t    PROFILER_API dumpBlocksToFile(const char* filename);
-        void        PROFILER_API setThreadName(const char* name, const char* filename, const char* _funcname, int line);
-        void        PROFILER_API setContextSwitchLogFilename(const char* name);
-        PROFILER_API const char* getContextSwitchLogFilename();
-	}
 
-	typedef uint64_t timestamp_t;
-	typedef uint32_t thread_id_t;
+    typedef uint64_t timestamp_t;
+    typedef uint32_t thread_id_t;
     typedef uint32_t  block_id_t;
 
     enum BlockType : uint8_t
@@ -237,6 +247,17 @@ namespace profiler {
         BLOCK_TYPES_NUMBER
     };
     typedef BlockType block_type_t;
+	
+	extern "C" {
+        PROFILER_API block_id_t  registerDescription(const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color = DefaultBlockColor);
+        PROFILER_API void        beginBlock(Block& _block);
+        PROFILER_API void        endBlock();
+        PROFILER_API void        setEnabled(bool isEnable);
+        PROFILER_API uint32_t    dumpBlocksToFile(const char* filename);
+        PROFILER_API const char* setThreadName(const char* name, const char* filename, const char* _funcname, int line);
+        PROFILER_API void        setContextSwitchLogFilename(const char* name);
+        PROFILER_API const char* getContextSwitchLogFilename();
+	}
 		
 #pragma pack(push,1)
     class PROFILER_API BaseBlockDescriptor
@@ -322,28 +343,6 @@ namespace profiler {
 
     //////////////////////////////////////////////////////////////////////
 
-    class PROFILER_API StaticBlockDescriptor final
-    {
-        block_id_t m_id;
-
-    public:
-
-        StaticBlockDescriptor(const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color = DefaultBlockColor);
-        inline block_id_t id() const { return m_id; }
-    };
-
-#ifndef _WIN32
-    struct PROFILER_API ThreadNameSetter final
-    {
-        ThreadNameSetter(const char* _name, const char* _filename, const char* _funcname, int _line)
-        {
-            setThreadName(_name, _filename, _funcname, _line);
-        }
-    };
-#endif
-
-    //////////////////////////////////////////////////////////////////////
-	
 } // END of namespace profiler.
 
 #if defined ( __clang__ )
