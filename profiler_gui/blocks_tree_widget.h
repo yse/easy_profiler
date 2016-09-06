@@ -117,7 +117,7 @@ private slots:
 protected:
 
     void loadSettings();
-	void saveSettings();
+    void saveSettings();
     void alignProgressBar();
 
 }; // END of class EasyTreeWidget.

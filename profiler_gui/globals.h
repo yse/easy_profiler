@@ -43,8 +43,8 @@
 
 namespace profiler_gui {
 
-	const QString ORGANAZATION_NAME = "EasyProfiler";
-	const QString APPLICATION_NAME = "Easy profiler gui application";
+    const QString ORGANAZATION_NAME = "EasyProfiler";
+    const QString APPLICATION_NAME = "Easy profiler gui application";
 
     const QColor CHRONOMETER_COLOR = QColor::fromRgba(0x402020c0);
     const QRgb SELECTED_THREAD_BACKGROUND = 0x00e0e060;

@@ -127,7 +127,7 @@ private:
 
     void loadSettings();
     void loadGeometry();
-	void saveSettingsAndGeometry();
+    void saveSettingsAndGeometry();
 
 }; // END of class EasyMainWindow.
 
