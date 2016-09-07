@@ -251,7 +251,7 @@ namespace profiler {
     typedef BlockType block_type_t;
 
     extern "C" {
-        PROFILER_API block_id_t  registerDescription(const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color = DefaultBlockColor);
+        PROFILER_API block_id_t  registerDescription(const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color = ::profiler::colors::Default);
         PROFILER_API void        beginBlock(Block& _block);
         PROFILER_API void        endBlock();
         PROFILER_API void        setEnabled(bool isEnable);
