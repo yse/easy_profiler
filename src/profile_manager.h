@@ -156,6 +156,8 @@ public:
     void storeBlock(const profiler::Block& _block);
     void storeCSwitch(const profiler::Block& _block);
     void clearClosed();
+
+    ThreadStorage() = default;
 };
 
 //////////////////////////////////////////////////////////////////////////
