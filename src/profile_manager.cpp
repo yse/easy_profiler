@@ -260,7 +260,7 @@ class FileWriter final
 
 public:
 
-    FileWriter(const char* _filename) : m_file(_filename, std::fstream::binary) { }
+    explicit FileWriter(const char* _filename) : m_file(_filename, std::fstream::binary) { }
 
     template <typename T> void write(const char* _data, T _size) {
         m_file.write(_data, _size);
