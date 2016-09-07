@@ -97,57 +97,58 @@ public:
 
 const uint16_t SIZEOF_CSWITCH = sizeof(profiler::BaseBlockData) + 1;
 
-class ThreadStorage final
+typedef std::vector<profiler::SerializedBlock*> serialized_list_t;
+
+template <class T, const uint16_t N>
+struct BlocksList final
 {
-    typedef std::vector<profiler::SerializedBlock*> serialized_list_t;
+    BlocksList() = default;
 
-    template <class T, const uint16_t N>
-    struct BlocksList final
-    {
-        BlocksList() = default;
+    class Stack final {
+        //std::stack<T> m_stack;
+        std::vector<T> m_stack;
 
-        class Stack final {
-            //std::stack<T> m_stack;
-            std::vector<T> m_stack;
+    public:
 
-        public:
+        inline void clear() { m_stack.clear(); }
+        inline bool empty() const { return m_stack.empty(); }
 
-            inline void clear() { m_stack.clear(); }
-            inline bool empty() const { return m_stack.empty(); }
+        inline void emplace(profiler::Block& _block) {
+            //m_stack.emplace(_block);
+            m_stack.emplace_back(_block);
+        }
 
-            inline void emplace(profiler::Block& _block) {
-                //m_stack.emplace(_block);
-                m_stack.emplace_back(_block);
-            }
+        template <class ... TArgs> inline void emplace(TArgs ... _args) {
+            //m_stack.emplace(_args);
+            m_stack.emplace_back(_args...);
+        }
 
-            template <class ... TArgs> inline void emplace(TArgs ... _args) {
-                //m_stack.emplace(_args);
-                m_stack.emplace_back(_args...);
-            }
+        inline T& top() {
+            //return m_stack.top();
+            return m_stack.back();
+        }
 
-            inline T& top() {
-                //return m_stack.top();
-                return m_stack.back();
-            }
-
-            inline void pop() {
-                //m_stack.pop();
-                m_stack.pop_back();
-            }
-        };
-
-        chunk_allocator<char, N>       alloc;
-        Stack                     openedList;
-        serialized_list_t         closedList;
-        uint64_t          usedMemorySize = 0;
-
-        void clearClosed() {
-            serialized_list_t().swap(closedList);
-            alloc.clear();
-            usedMemorySize = 0;
+        inline void pop() {
+            //m_stack.pop();
+            m_stack.pop_back();
         }
     };
 
+    chunk_allocator<char, N>       alloc;
+    Stack                     openedList;
+    serialized_list_t         closedList;
+    uint64_t          usedMemorySize = 0;
+
+    void clearClosed() {
+        serialized_list_t().swap(closedList);
+        alloc.clear();
+        usedMemorySize = 0;
+    }
+};
+
+
+class ThreadStorage final
+{
 public:
 
     BlocksList<std::reference_wrapper<profiler::Block>, SIZEOF_CSWITCH * (uint16_t)1024U> blocks;
