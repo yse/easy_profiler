@@ -54,22 +54,28 @@ This code snippet will generate block with function name and grouped it in Magen
 #include <profiler/profiler.h>
 
 void frame(){
-	PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Magenta);
-	prepareRender();
-	calculatePhysics();
+    EASY_FUNCTION(profiler::colors::Magenta);
+    prepareRender();
+    calculatePhysics();
 }
 ```
-To profile any block you may do this as following:
+To profile any block you may do this as following. You can specify these blocks also with Google material design color or just set name of block (in this case color will be OrangeA100):
 ```cpp
 #include <profiler/profiler.h>
 
 void frame(){
-	//some code
-	PROFILER_BEGIN_BLOCK("Calculating summ");
-	for(int i = 0; i < 10; i++){
-		sum += i;
-	}
-	PROFILER_END_BLOCK;
+    //some code
+    EASY_BLOCK("Calculating summ");
+    for(int i = 0; i < 10; i++){
+        sum += i;
+    }
+    EASY_END_BLOCK;
+
+    EASY_BLOCK("Calculating multiplication", profiler::colors::Blue50);
+    for(int i = 0; i < 10; i++){
+        mul *= i;
+    }
+    EASY_END_BLOCK;
 }
 ```
 [![Analytics](https://ga-beacon.appspot.com/UA-82899176-1/easy_profiler/readme)](https://github.com/yse/easy_profiler)
