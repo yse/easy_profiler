@@ -26,7 +26,7 @@ void localSleep(int magic=200000)
 }
 
 void loadingResources(){
-    EASY_FUNCTION(profiler::colors::Darkcyan);
+    EASY_FUNCTION(profiler::colors::DarkCyan);
     localSleep();
 //    std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }
@@ -85,7 +85,7 @@ void calcBrain(){
 }
 
 void calculateBehavior(){
-    EASY_FUNCTION(profiler::colors::Darkblue);
+    EASY_FUNCTION(profiler::colors::DarkBlue);
     calcPhys();
     calcBrain();
 }
@@ -97,7 +97,7 @@ void modellingStep(){
 }
 
 void prepareRender(){
-    EASY_FUNCTION(profiler::colors::Darkred);
+    EASY_FUNCTION(profiler::colors::DarkRed);
     localSleep();
     //std::this_thread::sleep_for(std::chrono::milliseconds(8));
 

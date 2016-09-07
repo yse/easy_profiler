@@ -67,8 +67,8 @@ enum BlockItemState
 
 //////////////////////////////////////////////////////////////////////////
 
-const qreal MIN_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT_INV, 70);
-const qreal MAX_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT, 30); // ~800
+const qreal MIN_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT_INV, 70); // Up to 1000 sec scale
+const qreal MAX_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT, 45); // ~23000 --- Up to 10 ns scale
 const qreal BASE_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT_INV, 25); // ~0.003
 
 const unsigned short GRAPHICS_ROW_SIZE = 18;
@@ -88,8 +88,8 @@ const unsigned int TEST_PROGRESSION_BASE = 4;
 
 const int FLICKER_INTERVAL = 16; // 60Hz
 
-const auto CHRONOMETER_FONT = QFont("CourierNew", 16, 2);
-const auto ITEMS_FONT = QFont("CourierNew", 9);// , 2);
+const auto CHRONOMETER_FONT = QFont("CourierNew", 18, 2);
+const auto ITEMS_FONT = QFont("CourierNew", 10);// , 2);
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -152,7 +152,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
     QRectF rect;
     QBrush brush;
-    QRgb previousColor = 0, inverseColor = 0x00ffffff;
+    QRgb previousColor = 0, inverseColor = 0xffffffff, textColor = 0;
     Qt::PenStyle previousPenStyle = Qt::NoPen;
     brush.setStyle(Qt::SolidPattern);
 
@@ -206,12 +206,14 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     // (it seems there is a bug in Qt5.6 when drawText called for big coordinates,
     // drawRect at the same time called for actually same coordinates
     // works fine without using this additional shifting)
-    auto dx = level0[m_levelsIndexes[0]].left() * currentScale;
+    //const auto dx = level0[m_levelsIndexes[0]].left() * currentScale;
+    const auto dx = offset * currentScale;
 
 
 
     // Shifting coordinates to current screen offset
-    _painter->setTransform(QTransform::fromTranslate(dx - offset * currentScale, -y()), true);
+    //_painter->setTransform(QTransform::fromTranslate(dx - offset * currentScale, -y()), true);
+    _painter->setTransform(QTransform::fromTranslate(0, -y()), true);
 
 
     if (EASY_GLOBALS.draw_graphics_items_borders)
@@ -297,7 +299,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     _painter->setPen(pen);
 
                     previousColor = SELECTED_ITEM_COLOR;
-                    inverseColor = 0x00ffffff - previousColor;
+                    inverseColor = 0xffffffff - previousColor;
+                    textColor = ::profiler_gui::textColorForRgb(previousColor);
                     brush.setColor(previousColor);
                     _painter->setBrush(brush);
                 }
@@ -308,7 +311,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     {
                         // Set background color brush for rectangle
                         previousColor = item.color;
-                        inverseColor = 0x00ffffff - previousColor;
+                        inverseColor = 0xffffffff - previousColor;
+                        textColor = ::profiler_gui::textColorForRgb(previousColor);
                         brush.setColor(previousColor);
                         _painter->setBrush(brush);
                     }
@@ -390,7 +394,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     _painter->setPen(pen);
 
                     previousColor = SELECTED_ITEM_COLOR;
-                    inverseColor = 0x00ffffff - previousColor;
+                    inverseColor = 0xffffffff - previousColor;
+                    textColor = ::profiler_gui::textColorForRgb(previousColor);
                     brush.setColor(previousColor);
                     _painter->setBrush(brush);
                 }
@@ -401,7 +406,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     {
                         // Set background color brush for rectangle
                         previousColor = item.color;
-                        inverseColor = 0x00ffffff - previousColor;
+                        inverseColor = 0xffffffff - previousColor;
+                        textColor = ::profiler_gui::textColorForRgb(previousColor);
                         brush.setColor(previousColor);
                         _painter->setBrush(brush);
                     }
@@ -449,9 +455,9 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
             rect.setRect(xtext + 1, top, w - 1, h);
 
             // text will be painted with inverse color
-            auto textColor = inverseColor;
-            if (textColor == previousColor) textColor = 0;
-            _painter->setPen(textColor);
+            //auto textColor = inverseColor < 0x00808080 ? profiler::colors::Black : profiler::colors::White;
+            //if (textColor == previousColor) textColor = 0;
+            _painter->setPen(QColor::fromRgb(textColor));
 
             // drawing text
             auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : easyDescriptor(itemBlock.tree.node->id()).name();
@@ -474,50 +480,60 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
             const auto& item = m_levels[guiblock.graphics_item_level][guiblock.graphics_item_index];
             if (item.left() < sceneRight && item.right() > sceneLeft)
             {
-                QPen pen(Qt::SolidLine);
-                pen.setColor(Qt::red);
-                pen.setWidth(2);
-                _painter->setPen(pen);
-
-                brush.setColor(SELECTED_ITEM_COLOR);
-                _painter->setBrush(brush);
-
                 auto top = levelY(guiblock.graphics_item_level);
-                auto x = item.left() * currentScale - dx;
-                auto w = ::std::max(item.width() * currentScale, 1.0);
-                rect.setRect(x, top, w, item.totalHeight);
-                _painter->drawRect(rect);
+                decltype(top) h = item.totalHeight;
 
-                if (w > 20)
+                auto dh = top + h - visibleBottom;
+                if (dh < h)
                 {
-                    // Draw text-----------------------------------
-                    // calculating text coordinates
-                    auto xtext = x;
-                    if (item.left() < sceneLeft)
+                    if (dh > 0)
+                        h -= dh;
+
+                    QPen pen(Qt::SolidLine);
+                    pen.setColor(Qt::red);
+                    pen.setWidth(2);
+                    _painter->setPen(pen);
+
+                    brush.setColor(SELECTED_ITEM_COLOR);
+                    _painter->setBrush(brush);
+
+                    auto x = item.left() * currentScale - dx;
+                    auto w = ::std::max(item.width() * currentScale, 1.0);
+                    rect.setRect(x, top, w, h);
+                    _painter->drawRect(rect);
+
+                    if (w > 20)
                     {
-                        // if item left border is out of screen then attach text to the left border of the screen
-                        // to ensure text is always visible for items presenting on the screen.
-                        w += (item.left() - sceneLeft) * currentScale;
-                        xtext = sceneLeft * currentScale - dx;
+                        // Draw text-----------------------------------
+                        // calculating text coordinates
+                        auto xtext = x;
+                        if (item.left() < sceneLeft)
+                        {
+                            // if item left border is out of screen then attach text to the left border of the screen
+                            // to ensure text is always visible for items presenting on the screen.
+                            w += (item.left() - sceneLeft) * currentScale;
+                            xtext = sceneLeft * currentScale - dx;
+                        }
+
+                        if (item.right() > sceneRight)
+                        {
+                            w -= (item.right() - sceneRight) * currentScale;
+                        }
+
+                        rect.setRect(xtext + 1, top, w - 1, h);
+
+                        // text will be painted with inverse color
+                        //auto textColor = 0x00ffffff - previousColor;
+                        //if (textColor == previousColor) textColor = 0;
+                        textColor = ::profiler_gui::textColorForRgb(SELECTED_ITEM_COLOR);
+                        _painter->setPen(textColor);
+
+                        // drawing text
+                        const auto& itemBlock = easyBlock(item.block);
+                        auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : easyDescriptor(itemBlock.tree.node->id()).name();
+                        _painter->drawText(rect, Qt::AlignCenter, ::profiler_gui::toUnicode(name));
+                        // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                     }
-
-                    if (item.right() > sceneRight)
-                    {
-                        w -= (item.right() - sceneRight) * currentScale;
-                    }
-
-                    rect.setRect(xtext + 1, top, w - 1, item.totalHeight);
-
-                    // text will be painted with inverse color
-                    auto textColor = 0x00ffffff - previousColor;
-                    if (textColor == previousColor) textColor = 0;
-                    _painter->setPen(textColor);
-
-                    // drawing text
-                    const auto& itemBlock = easyBlock(item.block);
-                    auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : easyDescriptor(itemBlock.tree.node->id()).name();
-                    _painter->drawText(rect, Qt::AlignCenter, ::profiler_gui::toUnicode(name));
-                    // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                 }
             }
         }
@@ -527,7 +543,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 #ifdef EASY_STORE_CSWITCH_SEPARATELY
     if (!m_pRoot->sync.empty())
     {
-        _painter->setBrush(QColor::fromRgba(0xfff08040));
+        _painter->setBrush(QColor::fromRgba(0xfffe6030));
         _painter->setPen(QColor::fromRgb(0x00505050));
 
         qreal prevRight = -1e100, top = y() - 4, h = 3;
@@ -923,8 +939,8 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     auto vcenter = rect.top() + rect.height() * 0.5;
     QLinearGradient g(rect.left(), vcenter, rect.right(), vcenter);
     g.setColorAt(0, m_color);
-    g.setColorAt(0.15, QColor::fromRgba(0x10000000 | rgb));
-    g.setColorAt(0.85, QColor::fromRgba(0x10000000 | rgb));
+    g.setColorAt(0.25, QColor::fromRgba(0x20000000 | rgb));
+    g.setColorAt(0.75, QColor::fromRgba(0x20000000 | rgb));
     g.setColorAt(1, m_color);
     _painter->setBrush(g);
     _painter->setPen(Qt::NoPen);
@@ -940,7 +956,8 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
 
     // draw text
     _painter->setCompositionMode(QPainter::CompositionMode_Difference); // This lets the text to be visible on every background
-    _painter->setPen(0xffffffff - rgb);
+    _painter->setRenderHint(QPainter::TextAntialiasing);
+    _painter->setPen(0x00ffffff - rgb);
     _painter->setFont(CHRONOMETER_FONT);
 
     int textFlags = 0;
@@ -1173,13 +1190,10 @@ void EasyTimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGrap
     // Draw scale indicator
     _painter->save();
     _painter->setTransform(QTransform::fromTranslate(-x(), -y()));
-    _painter->setCompositionMode(QPainter::CompositionMode_Difference);
+    //_painter->setCompositionMode(QPainter::CompositionMode_Difference);
     _painter->setBrush(Qt::NoBrush);
 
-    //_painter->setBrush(Qt::white);
-    //_painter->setPen(Qt::NoPen);
-
-    QPen pen(Qt::white);
+    QPen pen(Qt::black);
     pen.setWidth(2);
     pen.setJoinStyle(Qt::MiterJoin);
     _painter->setPen(pen);
@@ -1188,7 +1202,6 @@ void EasyTimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGrap
     const auto rect_right = rect.right();
     const QPointF points[] = {{rect.left(), rect.bottom()}, {rect.left(), rect.top()}, {rect_right, rect.top()}, {rect_right, rect.top() + 5}};
     _painter->drawPolyline(points, sizeof(points) / sizeof(QPointF));
-    //_painter->drawRect(rect);
 
     rect.translate(0, 3);
     _painter->drawText(rect, Qt::AlignRight | Qt::TextDontClip, text);
@@ -1443,6 +1456,7 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     ::profiler::timestamp_t finish = 0;
     ::profiler::thread_id_t longestTree = 0;
     const EasyGraphicsItem* longestItem = nullptr;
+    const EasyGraphicsItem* mainThreadItem = nullptr;
     for (const auto& threadTree : _blocksTree)
     {
         const auto& tree = threadTree.second.children;
@@ -1494,9 +1508,10 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         y += h + THREADS_ROW_SPACING;
 
         if (longestTree == threadTree.first)
-        {
             longestItem = item;
-        }
+
+        if (mainThreadItem == nullptr && !strcmp(threadTree.second.thread_name, "Main"))
+            mainThreadItem = item;
     }
 
     // Calculating scene rect
@@ -1508,6 +1523,9 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     // Center view on the beginning of the scene
     updateVisibleSceneRect();
     setScrollbar(m_pScrollbar);
+
+    if (mainThreadItem != nullptr)
+        longestItem = mainThreadItem;
 
     if (longestItem != nullptr)
     {
@@ -1618,9 +1636,8 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
             maxh = h;
         }
 
-        const auto color = EASY_GLOBALS.descriptors[child.node->id()]->color();
         b.block = child_index;// &child;
-        b.color = ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
+        b.color = EASY_GLOBALS.descriptors[child.node->id()]->color();// ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
         b.setPos(xbegin, duration);
         b.totalHeight = GRAPHICS_ROW_SIZE + h;
         b.state = BLOCK_ITEM_UNCHANGED;

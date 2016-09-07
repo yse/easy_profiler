@@ -407,7 +407,7 @@ const char* ProfileManager::setThreadName(const char* name, const char* filename
 
     if (!THREAD_STORAGE->named)
     {
-        const auto id = addBlockDescriptor(_funcname, filename, line, profiler::BLOCK_TYPE_THREAD_SIGN, profiler::colors::Random);
+        const auto id = addBlockDescriptor(_funcname, filename, line, profiler::BLOCK_TYPE_THREAD_SIGN, profiler::colors::Black);
         THREAD_STORAGE->storeBlock(profiler::Block(profiler::BLOCK_TYPE_THREAD_SIGN, id, name));
         THREAD_STORAGE->name = name;
         THREAD_STORAGE->named = true;

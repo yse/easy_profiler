@@ -354,9 +354,9 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
         }
 
         const auto color = easyDescriptor(gui_block.tree.node->id()).color();
-        const auto bgColor = ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
-        const auto fgColor = 0x00ffffff - bgColor;
-        item->setBackgroundColor(bgColor);
+        //const auto bgColor = ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
+        const auto fgColor = ::profiler_gui::textColorForRgb(color);//0x00ffffff - bgColor;
+        item->setBackgroundColor(color);
         item->setTextColor(fgColor);
 
         auto item_index = static_cast<unsigned int>(_items.size());
@@ -549,9 +549,9 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
         }
 
         const auto color = easyDescriptor(child.node->id()).color();
-        const auto bgColor = ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
-        const auto fgColor = 0x00ffffff - bgColor;
-        item->setBackgroundColor(bgColor);
+        //const auto bgColor = ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
+        const auto fgColor = ::profiler_gui::textColorForRgb(color);// 0x00ffffff - bgColor;
+        item->setBackgroundColor(color);
         item->setTextColor(fgColor);
 
         auto item_index = static_cast<uint32_t>(_items.size());

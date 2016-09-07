@@ -101,7 +101,7 @@ struct do_no_hash {
 
 //////////////////////////////////////////////////////////////////////////
 
-const QRgb DEFAULT_COLOR = 0x00d4b494;//0x00f0e094;
+const QRgb DEFAULT_COLOR = profiler::DefaultBlockColor;// 0x00d4b494;
 
 inline QRgb toRgb(unsigned int _red, unsigned int _green, unsigned int _blue)
 {
@@ -113,6 +113,12 @@ inline QRgb fromProfilerRgb(unsigned int _red, unsigned int _green, unsigned int
     if (_red == 0 && _green == 0 && _blue == 0)
         return DEFAULT_COLOR;
     return toRgb(_red, _green, _blue) | 0x00141414;
+}
+
+inline QRgb textColorForRgb(QRgb _color)
+{
+    const QRgb sum = 0xff - ((_color & 0xff000000) >> 24) + ((_color & 0x00ff0000) >> 16) + ((_color & 0x0000ff00) >> 8) + (_color & 0x000000ff);
+    return sum > 0x215 ? ::profiler::colors::Black : ::profiler::colors::White;
 }
 
 //////////////////////////////////////////////////////////////////////////

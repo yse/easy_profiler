@@ -259,8 +259,8 @@ namespace profiler {
     protected:
 
         int           m_line; ///< Line number in the source file
-        block_type_t  m_type; ///< Type of the block (See BlockType)
         color_t      m_color; ///< Color of the block packed into 1-byte structure
+        block_type_t  m_type; ///< Type of the block (See BlockType)
 
         BaseBlockDescriptor(int _line, block_type_t _block_type, color_t _color);
 
@@ -269,7 +269,6 @@ namespace profiler {
         inline int line() const { return m_line; }
         inline block_type_t type() const { return m_type; }
         inline color_t color() const { return m_color; }
-        inline rgb32_t rgb() const { return ::profiler::colors::convert_to_rgb(m_color); }
     };
 
     class PROFILER_API BlockDescriptor final : public BaseBlockDescriptor

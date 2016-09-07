@@ -340,7 +340,7 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
     blocks.reserve(total_blocks_number);
     while (!inFile.eof() && read_number < total_blocks_number)
     {
-        EASY_BLOCK("Read thread data", ::profiler::colors::Darkgreen);
+        EASY_BLOCK("Read thread data", ::profiler::colors::DarkGreen);
 
         ::profiler::thread_id_t thread_id = 0;
         inFile.read((char*)&thread_id, sizeof(decltype(thread_id)));
