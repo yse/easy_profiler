@@ -10,7 +10,8 @@
 # About
 Lightweight profiler library for c++ 
 
-You can profile any function in you code. Furthermore this library provide profiling of any block of code.
+You can profile any function in you code. Furthermore this library provide measuring time of any block of code. Also the library can capture system's context switch. 
+You can see the results of measuring in simple gui application which provide full statistic and render beautiful timeline.
 
 # Build
 
