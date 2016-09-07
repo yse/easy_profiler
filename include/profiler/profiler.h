@@ -84,19 +84,19 @@ namespace profiler {
 /** Macro of beginning of block with custom name and color.
 
 \code
-	#include "profiler/profiler.h"
-	void foo()
-	{
-		// some code ...
-		if(something){
-			EASY_BLOCK("Calling bar()"); // Block with default color
-			bar();
-		}
+    #include "profiler/profiler.h"
+    void foo()
+    {
+        // some code ...
+        if(something){
+            EASY_BLOCK("Calling bar()"); // Block with default color
+            bar();
+        }
         else{
             EASY_BLOCK("Calling baz()", profiler::colors::Red); // Red block
             baz();
         }
-	}
+    }
 \endcode
 
 Block will be automatically completed by destructor.
@@ -112,11 +112,11 @@ Block will be automatically completed by destructor.
 /** Macro of beginning of block with function name and custom color.
 
 \code
-	#include "profiler/profiler.h"
-	void foo(){
-		EASY_FUNCTION(); // Block with name="foo" and default color
-		//some code...
-	}
+    #include "profiler/profiler.h"
+    void foo(){
+        EASY_FUNCTION(); // Block with name="foo" and default color
+        //some code...
+    }
 
     void bar(){
         EASY_FUNCTION(profiler::colors::Green); // Green block with name="bar"
@@ -142,12 +142,12 @@ int foo()
 {
     // some code ...
 
-	int sum = 0;
-	EASY_BLOCK("Calculating sum");
-	for (int i = 0; i < 10; ++i){
-		sum += i;
-	}
-	EASY_END_BLOCK;
+    int sum = 0;
+    EASY_BLOCK("Calculating sum");
+    for (int i = 0; i < 10; ++i){
+        sum += i;
+    }
+    EASY_END_BLOCK;
 
     // some antoher code here ...
 
@@ -219,10 +219,10 @@ This is only for user comfort. There is no difference for EasyProfiler GUI betwe
 #include "profiler/profiler_colors.h"
 
 #ifdef _WIN32
-#ifdef	_BUILD_PROFILER
-#define  PROFILER_API		__declspec(dllexport)
+#ifdef    _BUILD_PROFILER
+#define  PROFILER_API        __declspec(dllexport)
 #else
-#define  PROFILER_API		__declspec(dllimport)
+#define  PROFILER_API        __declspec(dllimport)
 #endif
 #else
 #define  PROFILER_API
@@ -233,7 +233,7 @@ class ThreadStorage;
 
 namespace profiler {
 
-	class Block;
+    class Block;
 
     typedef uint64_t timestamp_t;
     typedef uint32_t thread_id_t;
@@ -249,8 +249,8 @@ namespace profiler {
         BLOCK_TYPES_NUMBER
     };
     typedef BlockType block_type_t;
-	
-	extern "C" {
+
+    extern "C" {
         PROFILER_API block_id_t  registerDescription(const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color = DefaultBlockColor);
         PROFILER_API void        beginBlock(Block& _block);
         PROFILER_API void        endBlock();
@@ -259,8 +259,8 @@ namespace profiler {
         PROFILER_API const char* setThreadName(const char* name, const char* filename, const char* _funcname, int line);
         PROFILER_API void        setContextSwitchLogFilename(const char* name);
         PROFILER_API const char* getContextSwitchLogFilename();
-	}
-		
+    }
+
 #pragma pack(push,1)
     class PROFILER_API BaseBlockDescriptor
     {

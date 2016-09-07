@@ -68,19 +68,19 @@ extern "C" {
     }
 
     PROFILER_API void beginBlock(Block& _block)
-	{
+    {
         MANAGER.beginBlock(_block);
-	}
+    }
 
-	PROFILER_API uint32_t dumpBlocksToFile(const char* filename)
-	{
+    PROFILER_API uint32_t dumpBlocksToFile(const char* filename)
+    {
         return MANAGER.dumpBlocksToFile(filename);
-	}
+    }
 
     PROFILER_API const char* setThreadName(const char* name, const char* filename, const char* _funcname, int line)
-	{
+    {
         return MANAGER.setThreadName(name, filename, _funcname, line);
-	}
+    }
 
     PROFILER_API void setContextSwitchLogFilename(const char* name)
     {
@@ -175,7 +175,7 @@ ProfileManager::ProfileManager()
 
 ProfileManager::~ProfileManager()
 {
-	//dumpBlocksToFile("test.prof");
+    //dumpBlocksToFile("test.prof");
 }
 
 ProfileManager& ProfileManager::instance()
@@ -249,7 +249,7 @@ void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, profiler
 
 void ProfileManager::setEnabled(bool isEnable)
 {
-	m_isEnabled = isEnable;
+    m_isEnabled = isEnable;
 }
 
 //////////////////////////////////////////////////////////////////////////

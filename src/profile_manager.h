@@ -182,7 +182,7 @@ class ProfileManager final
 public:
 
     static ProfileManager& instance();
-	~ProfileManager();
+    ~ProfileManager();
 
     template <class ... TArgs>
     uint32_t addBlockDescriptor(TArgs ... _args)
@@ -194,8 +194,8 @@ public:
     }
 
     void beginBlock(profiler::Block& _block);
-	void endBlock();
-	void setEnabled(bool isEnable);
+    void endBlock();
+    void setEnabled(bool isEnable);
     uint32_t dumpBlocksToFile(const char* filename);
     const char* setThreadName(const char* name, const char* filename, const char* _funcname, int line);
 
