@@ -2,7 +2,6 @@
 * file name         : graphics_scrollbar.cpp
 * ----------------- :
 * creation time     : 2016/07/04
-* copyright         : (c) 2016 Victor Zarubkin
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
@@ -12,7 +11,21 @@
 *                   :
 *                   : *
 * ----------------- :
-* license           : TODO: add license text
+* license           : Lightweight profiler library for c++
+*                   : Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
+*                   :
+*                   : This program is free software : you can redistribute it and / or modify
+*                   : it under the terms of the GNU General Public License as published by
+*                   : the Free Software Foundation, either version 3 of the License, or
+*                   : (at your option) any later version.
+*                   :
+*                   : This program is distributed in the hope that it will be useful,
+*                   : but WITHOUT ANY WARRANTY; without even the implied warranty of
+*                   : MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+*                   : GNU General Public License for more details.
+*                   :
+*                   : You should have received a copy of the GNU General Public License
+*                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
 #include <algorithm>
@@ -28,7 +41,7 @@
 //////////////////////////////////////////////////////////////////////////
 
 const qreal SCALING_COEFFICIENT = 1.25;
-const qreal SCALING_COEFFICIENT_INV = 1.0 / SCALING_COEFFICIENT;
+//const qreal SCALING_COEFFICIENT_INV = 1.0 / SCALING_COEFFICIENT;
 const int DEFAULT_TOP = -40;
 const int DEFAULT_HEIGHT = 80;
 const int INDICATOR_SIZE = 8;
@@ -238,7 +251,7 @@ void EasyMinimapItem::setBoundingRect(qreal x, qreal y, qreal w, qreal h)
     m_boundingRect.setRect(x, y, w, h);
 }
 
-void EasyMinimapItem::setSource(::profiler::thread_id_t _thread_id, const ::profiler_gui::ProfItems* _items)
+void EasyMinimapItem::setSource(::profiler::thread_id_t _thread_id, const ::profiler_gui::EasyItems* _items)
 {
     m_pSource = _items;
     m_threadId = _thread_id;
@@ -428,7 +441,7 @@ void EasyGraphicsScrollbar::hideChrono()
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsScrollbar::setMinimapFrom(::profiler::thread_id_t _thread_id, const ::profiler_gui::ProfItems* _items)
+void EasyGraphicsScrollbar::setMinimapFrom(::profiler::thread_id_t _thread_id, const ::profiler_gui::EasyItems* _items)
 {
     m_minimap->setSource(_thread_id, _items);
     m_slider->setVisible(m_minimap->isVisible());
@@ -477,7 +490,6 @@ void EasyGraphicsScrollbar::mouseMoveEvent(QMouseEvent* _event)
 
 void EasyGraphicsScrollbar::wheelEvent(QWheelEvent* _event)
 {
-    qreal deltaSign = _event->delta() < 0 ? -1 : 1;
     auto w = m_slider->halfwidth() * (_event->delta() < 0 ? ::profiler_gui::SCALING_COEFFICIENT : ::profiler_gui::SCALING_COEFFICIENT_INV);
     setValue(mapToScene(_event->pos()).x() - m_minimumValue - w);
     emit wheeled(w * m_windowScale, _event->delta());
@@ -493,14 +505,14 @@ void EasyGraphicsScrollbar::resizeEvent(QResizeEvent* _event)
 
 void EasyGraphicsScrollbar::contextMenuEvent(QContextMenuEvent* _event)
 {
-    if (::profiler_gui::EASY_GLOBALS.profiler_blocks.empty())
+    if (EASY_GLOBALS.profiler_blocks.empty())
     {
         return;
     }
 
     QMenu menu;
 
-    for (const auto& it : ::profiler_gui::EASY_GLOBALS.profiler_blocks)
+    for (const auto& it : EASY_GLOBALS.profiler_blocks)
     {
         QString label;
         if (it.second.thread_name && it.second.thread_name[0] != 0)
@@ -512,10 +524,11 @@ void EasyGraphicsScrollbar::contextMenuEvent(QContextMenuEvent* _event)
             label = ::std::move(QString("Thread %1").arg(it.first));
         }
 
-        auto action = new EasyIdAction(label, it.first);
+        auto action = new QAction(label, nullptr);
+        action->setData(it.first);
         action->setCheckable(true);
-        action->setChecked(it.first == ::profiler_gui::EASY_GLOBALS.selected_thread);
-        connect(action, &EasyIdAction::clicked, this, &This::onThreadActionClicked);
+        action->setChecked(it.first == EASY_GLOBALS.selected_thread);
+        connect(action, &QAction::triggered, this, &This::onThreadActionClicked);
 
         menu.addAction(action);
     }
@@ -526,12 +539,17 @@ void EasyGraphicsScrollbar::contextMenuEvent(QContextMenuEvent* _event)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsScrollbar::onThreadActionClicked(::profiler::thread_id_t _id)
+void EasyGraphicsScrollbar::onThreadActionClicked(bool)
 {
-    if (_id != m_minimap->threadId())
+    auto action = qobject_cast<QAction*>(sender());
+    if (action == nullptr)
+        return;
+
+    const auto thread_id = action->data().toUInt();
+    if (thread_id != m_minimap->threadId())
     {
-        ::profiler_gui::EASY_GLOBALS.selected_thread = _id;
-        emit ::profiler_gui::EASY_GLOBALS.events.selectedThreadChanged(_id);
+        EASY_GLOBALS.selected_thread = thread_id;
+        emit EASY_GLOBALS.events.selectedThreadChanged(thread_id);
     }
 }
 

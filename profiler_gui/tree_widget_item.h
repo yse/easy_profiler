@@ -2,7 +2,6 @@
 * file name         : tree_widget_item.h
 * ----------------- : 
 * creation time     : 2016/08/18
-* copyright         : (c) 2016 Victor Zarubkin
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- : 
@@ -14,7 +13,21 @@
 *                   :
 *                   : * 
 * ----------------- : 
-* license           : TODO: add license text
+* license           : Lightweight profiler library for c++
+*                   : Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
+*                   :
+*                   : This program is free software : you can redistribute it and / or modify
+*                   : it under the terms of the GNU General Public License as published by
+*                   : the Free Software Foundation, either version 3 of the License, or
+*                   : (at your option) any later version.
+*                   :
+*                   : This program is distributed in the hope that it will be useful,
+*                   : but WITHOUT ANY WARRANTY; without even the implied warranty of
+*                   : MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+*                   : GNU General Public License for more details.
+*                   :
+*                   : You should have received a copy of the GNU General Public License
+*                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
 #ifndef EASY__TREE_WIDGET_ITEM__H_
@@ -75,7 +88,7 @@ class EasyTreeWidgetItem : public QTreeWidgetItem
     typedef QTreeWidgetItem    Parent;
     typedef EasyTreeWidgetItem   This;
 
-    const ::profiler::BlocksTree*           m_block;
+    const ::profiler::block_index_t         m_block;
     QRgb                            m_customBGColor;
     QRgb                          m_customTextColor;
 
@@ -84,14 +97,16 @@ public:
     using Parent::setBackgroundColor;
     using Parent::setTextColor;
 
-    EasyTreeWidgetItem(const ::profiler::BlocksTree* _treeBlock, Parent* _parent = nullptr);
+    EasyTreeWidgetItem(const ::profiler::block_index_t _treeBlock = ::profiler_gui::numeric_max<decltype(m_block)>(), Parent* _parent = nullptr);
     virtual ~EasyTreeWidgetItem();
 
     bool operator < (const Parent& _other) const override;
 
 public:
 
-    const ::profiler::BlocksTree* block() const;
+    ::profiler::block_index_t block_index() const;
+    ::profiler_gui::EasyBlock& guiBlock();
+    const ::profiler::BlocksTree& block() const;
 
     ::profiler::timestamp_t duration() const;
     ::profiler::timestamp_t selfDuration() const;

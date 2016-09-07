@@ -2,7 +2,6 @@
 * file name         : blocks_tree_widget.h
 * ----------------- : 
 * creation time     : 2016/06/26
-* copyright         : (c) 2016 Victor Zarubkin
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- : 
@@ -20,7 +19,21 @@
 *                   : * 2016/08/18 Victor Zarubkin: Added loading blocks hierarchy in separate thread;
 *                   :       Moved sources of TreeWidgetItem into tree_widget_item.h/.cpp
 * ----------------- : 
-* license           : TODO: add license text
+* license           : Lightweight profiler library for c++
+*                   : Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
+*                   :
+*                   : This program is free software : you can redistribute it and / or modify
+*                   : it under the terms of the GNU General Public License as published by
+*                   : the Free Software Foundation, either version 3 of the License, or
+*                   : (at your option) any later version.
+*                   :
+*                   : This program is distributed in the hope that it will be useful,
+*                   : but WITHOUT ANY WARRANTY; without even the implied warranty of
+*                   : MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+*                   : GNU General Public License for more details.
+*                   :
+*                   : You should have received a copy of the GNU General Public License
+*                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
 #ifndef EASY__TREE_WIDGET__H_
@@ -31,27 +44,6 @@
 #include <QTimer>
 #include "tree_widget_loader.h"
 #include "profiler/reader.h"
-
-//////////////////////////////////////////////////////////////////////////
-
-#define DECLARE_QACTION(ClassName, DataType) \
-class ClassName : public QAction { \
-    Q_OBJECT \
-private: \
-    DataType m_item; \
-public: \
-    ClassName(const char* _label, DataType _item) : QAction(_label, nullptr), m_item(_item) { \
-        connect(this, &QAction::triggered, this, &ClassName::onToggle); } \
-    ClassName(const QString& _label, DataType _item) : QAction(_label, nullptr), m_item(_item) { \
-        connect(this, &QAction::triggered, this, &ClassName::onToggle); } \
-    virtual ~ClassName() {} \
-private: \
-    void onToggle(bool) { emit clicked(m_item); }
-
-DECLARE_QACTION(EasyItemAction, unsigned int) signals: void clicked(unsigned int _item); };
-DECLARE_QACTION(EasyHideShowColumnAction, int) signals: void clicked(int _item); };
-
-#undef DECLARE_QACTION
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -96,7 +88,7 @@ protected:
 
 private slots:
 
-    void onJumpToItemClicked(unsigned int _block_index);
+    void onJumpToItemClicked(bool);
 
     void onCollapseAllClicked(bool);
 
@@ -118,14 +110,14 @@ private slots:
 
     void resizeColumnsToContents();
 
-    void onHideShowColumn(int _column);
+    void onHideShowColumn(bool);
 
     void onFillTimerTimeout();
 
 protected:
 
     void loadSettings();
-	void saveSettings();
+    void saveSettings();
     void alignProgressBar();
 
 }; // END of class EasyTreeWidget.

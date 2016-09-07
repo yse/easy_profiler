@@ -2,7 +2,6 @@
 * file name         : tree_widget_item.cpp
 * ----------------- :
 * creation time     : 2016/08/18
-* copyright         : (c) 2016 Victor Zarubkin
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
@@ -13,7 +12,21 @@
 *                   :
 *                   : * 
 * ----------------- :
-* license           : TODO: add license text
+* license           : Lightweight profiler library for c++
+*                   : Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
+*                   :
+*                   : This program is free software : you can redistribute it and / or modify
+*                   : it under the terms of the GNU General Public License as published by
+*                   : the Free Software Foundation, either version 3 of the License, or
+*                   : (at your option) any later version.
+*                   :
+*                   : This program is distributed in the hope that it will be useful,
+*                   : but WITHOUT ANY WARRANTY; without even the implied warranty of
+*                   : MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+*                   : GNU General Public License for more details.
+*                   :
+*                   : You should have received a copy of the GNU General Public License
+*                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
 #include "tree_widget_item.h"
@@ -21,7 +34,7 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyTreeWidgetItem::EasyTreeWidgetItem(const ::profiler::BlocksTree* _treeBlock, Parent* _parent)
+EasyTreeWidgetItem::EasyTreeWidgetItem(const ::profiler::block_index_t _treeBlock, Parent* _parent)
     : Parent(_parent)
     , m_block(_treeBlock)
     , m_customBGColor(0)
@@ -75,15 +88,25 @@ bool EasyTreeWidgetItem::operator < (const Parent& _other) const
     return false;
 }
 
-const ::profiler::BlocksTree* EasyTreeWidgetItem::block() const
+::profiler::block_index_t EasyTreeWidgetItem::block_index() const
 {
     return m_block;
 }
 
+::profiler_gui::EasyBlock& EasyTreeWidgetItem::guiBlock()
+{
+    return easyBlock(m_block);
+}
+
+const ::profiler::BlocksTree& EasyTreeWidgetItem::block() const
+{
+    return blocksTree(m_block);
+}
+
 ::profiler::timestamp_t EasyTreeWidgetItem::duration() const
 {
-    if (m_block->node)
-        return m_block->node->block()->duration();
+    if (parent() != nullptr)
+        return block().node->duration();
     return data(COL_DURATION, Qt::UserRole).toULongLong();
 }
 
@@ -173,7 +196,8 @@ void EasyTreeWidgetItem::collapseAll()
     }
 
     setExpanded(false);
-    ::profiler_gui::EASY_GLOBALS.gui_blocks[m_block->block_index].expanded = false;
+    if (parent() != nullptr)
+        guiBlock().expanded = false;
 }
 
 void EasyTreeWidgetItem::expandAll()
@@ -184,7 +208,8 @@ void EasyTreeWidgetItem::expandAll()
     }
 
     setExpanded(true);
-    ::profiler_gui::EASY_GLOBALS.gui_blocks[m_block->block_index].expanded = true;
+    if (parent() != nullptr)
+        guiBlock().expanded = true;
 }
 
 //////////////////////////////////////////////////////////////////////////

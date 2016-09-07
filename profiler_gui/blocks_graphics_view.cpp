@@ -2,7 +2,6 @@
 * file name         : blocks_graphics_view.cpp
 * ----------------- :
 * creation time     : 2016/06/26
-* copyright         : (c) 2016 Victor Zarubkin
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
@@ -22,7 +21,21 @@
 *                   :
 *                   : * 
 * ----------------- :
-* license           : TODO: add license text
+* license           : Lightweight profiler library for c++
+*                   : Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
+*                   : 
+*                   : This program is free software : you can redistribute it and / or modify
+*                   : it under the terms of the GNU General Public License as published by
+*                   : the Free Software Foundation, either version 3 of the License, or
+*                   : (at your option) any later version.
+*                   : 
+*                   : This program is distributed in the hope that it will be useful,
+*                   : but WITHOUT ANY WARRANTY; without even the implied warranty of
+*                   : MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+*                   : GNU General Public License for more details.
+*                   : 
+*                   : You should have received a copy of the GNU General Public License
+*                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
 #include <QGraphicsScene>
@@ -54,8 +67,8 @@ enum BlockItemState
 
 //////////////////////////////////////////////////////////////////////////
 
-const qreal MIN_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT_INV, 70);
-const qreal MAX_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT, 30); // ~800
+const qreal MIN_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT_INV, 70); // Up to 1000 sec scale
+const qreal MAX_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT, 45); // ~23000 --- Up to 10 ns scale
 const qreal BASE_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT_INV, 25); // ~0.003
 
 const unsigned short GRAPHICS_ROW_SIZE = 18;
@@ -71,11 +84,11 @@ const QRgb TIMELINE_BACKGROUND = 0x20303030;
 const QRgb SELECTED_ITEM_COLOR = 0x000050a0;
 const QColor CHRONOMETER_COLOR2 = QColor::fromRgba(0x40408040);
 
-const unsigned int TEST_PROGRESSION_BASE = 4;
+//const unsigned int TEST_PROGRESSION_BASE = 4;
 
 const int FLICKER_INTERVAL = 16; // 60Hz
 
-const auto CHRONOMETER_FONT = QFont("CourierNew", 16, 2);
+const auto CHRONOMETER_FONT = QFont("CourierNew", 18, 2);
 const auto ITEMS_FONT = QFont("CourierNew", 10);// , 2);
 
 //////////////////////////////////////////////////////////////////////////
@@ -95,7 +108,7 @@ inline T logn(T _value)
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyGraphicsItem::EasyGraphicsItem(unsigned char _index, const::profiler::BlocksTreeRoot* _root)
+EasyGraphicsItem::EasyGraphicsItem(uint8_t _index, const::profiler::BlocksTreeRoot* _root)
     : QGraphicsItem(nullptr)
     , m_pRoot(_root)
     , m_index(_index)
@@ -139,7 +152,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
     QRectF rect;
     QBrush brush;
-    QRgb previousColor = 0, inverseColor = 0x00ffffff;
+    QRgb previousColor = 0, inverseColor = 0xffffffff, textColor = 0;
     Qt::PenStyle previousPenStyle = Qt::NoPen;
     brush.setStyle(Qt::SolidPattern);
 
@@ -148,12 +161,12 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     
     // Reset indices of first visible item for each layer
     const auto levelsNumber = levels();
-    for (unsigned char i = 1; i < levelsNumber; ++i) ::profiler_gui::set_max(m_levelsIndexes[i]);
+    for (uint8_t i = 1; i < levelsNumber; ++i) ::profiler_gui::set_max(m_levelsIndexes[i]);
 
 
     // Search for first visible top-level item
     auto& level0 = m_levels.front();
-    auto first = ::std::lower_bound(level0.begin(), level0.end(), sceneLeft, [](const ::profiler_gui::ProfBlockItem& _item, qreal _value)
+    auto first = ::std::lower_bound(level0.begin(), level0.end(), sceneLeft, [](const ::profiler_gui::EasyBlockItem& _item, qreal _value)
     {
         return _item.left() < _value;
     });
@@ -170,20 +183,40 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     }
 
 
+#ifdef EASY_STORE_CSWITCH_SEPARATELY
+    auto firstSync = ::std::lower_bound(m_pRoot->sync.begin(), m_pRoot->sync.end(), sceneLeft, [&sceneView](::profiler::block_index_t _index, qreal _value)
+    {
+        return sceneView->time2position(easyBlock(_index).tree.node->begin()) < _value;
+    });
+
+    if (firstSync != m_pRoot->sync.end())
+    {
+        if (firstSync != m_pRoot->sync.begin())
+            --firstSync;
+    }
+    else if (!m_pRoot->sync.empty())
+    {
+        firstSync = m_pRoot->sync.begin() + m_pRoot->sync.size() - 1;
+    }
+    firstSync = m_pRoot->sync.begin();
+#endif
+
 
     // This is to make _painter->drawText() work properly
     // (it seems there is a bug in Qt5.6 when drawText called for big coordinates,
     // drawRect at the same time called for actually same coordinates
     // works fine without using this additional shifting)
-    auto dx = level0[m_levelsIndexes[0]].left() * currentScale;
+    //const auto dx = level0[m_levelsIndexes[0]].left() * currentScale;
+    const auto dx = offset * currentScale;
 
 
 
     // Shifting coordinates to current screen offset
-    _painter->setTransform(QTransform::fromTranslate(dx - offset * currentScale, -y()), true);
+    //_painter->setTransform(QTransform::fromTranslate(dx - offset * currentScale, -y()), true);
+    _painter->setTransform(QTransform::fromTranslate(0, -y()), true);
 
 
-    if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders)
+    if (EASY_GLOBALS.draw_graphics_items_borders)
     {
         previousPenStyle = Qt::SolidLine;
         _painter->setPen(BORDERS_COLOR);
@@ -194,8 +227,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     }
 
 
-    static const auto MAX_CHILD_INDEX = ::profiler_gui::numeric_max<decltype(::profiler_gui::ProfBlockItem::children_begin)>();
-    auto const skip_children = [this, &levelsNumber](short next_level, decltype(::profiler_gui::ProfBlockItem::children_begin) children_begin)
+    static const auto MAX_CHILD_INDEX = ::profiler_gui::numeric_max<decltype(::profiler_gui::EasyBlockItem::children_begin)>();
+    auto const skip_children = [this, &levelsNumber](short next_level, decltype(::profiler_gui::EasyBlockItem::children_begin) children_begin)
     {
         // Mark that we would not paint children of current item
         if (next_level < levelsNumber && children_begin != MAX_CHILD_INDEX)
@@ -206,7 +239,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     // Iterate through layers and draw visible items
     bool selectedItemsWasPainted = false;
     const auto visibleBottom = visibleSceneRect.bottom() - 1;
-    for (unsigned char l = 0; l < levelsNumber; ++l)
+    for (uint8_t l = 0; l < levelsNumber; ++l)
     {
         auto& level = m_levels[l];
         const short next_level = l + 1;
@@ -243,8 +276,9 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 continue;
             }
 
+            const auto& itemBlock = easyBlock(item.block);
             int h = 0, flags = 0;
-            if (w < 20 || !::profiler_gui::EASY_GLOBALS.gui_blocks[item.block->block_index].expanded)
+            if (w < 20 || !itemBlock.expanded)
             {
                 // Items which width is less than 20 will be painted as big rectangles which are hiding it's children
 
@@ -255,7 +289,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     h -= dh;
 
                 bool changepen = false;
-                if (item.block->block_index == ::profiler_gui::EASY_GLOBALS.selected_block)
+                if (item.block == EASY_GLOBALS.selected_block)
                 {
                     selectedItemsWasPainted = true;
                     changepen = true;
@@ -265,7 +299,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     _painter->setPen(pen);
 
                     previousColor = SELECTED_ITEM_COLOR;
-                    inverseColor = 0x00ffffff - previousColor;
+                    inverseColor = 0xffffffff - previousColor;
+                    textColor = ::profiler_gui::textColorForRgb(previousColor);
                     brush.setColor(previousColor);
                     _painter->setBrush(brush);
                 }
@@ -276,12 +311,13 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     {
                         // Set background color brush for rectangle
                         previousColor = item.color;
-                        inverseColor = 0x00ffffff - previousColor;
+                        inverseColor = 0xffffffff - previousColor;
+                        textColor = ::profiler_gui::textColorForRgb(previousColor);
                         brush.setColor(previousColor);
                         _painter->setBrush(brush);
                     }
 
-                    if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders)
+                    if (EASY_GLOBALS.draw_graphics_items_borders)
                     {
                         //if (w < 2)
                         //{
@@ -349,7 +385,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     m_levels[next_level][item.children_begin].state = BLOCK_ITEM_DO_PAINT;
                 }
 
-                if (item.block->block_index == ::profiler_gui::EASY_GLOBALS.selected_block)
+                if (item.block == EASY_GLOBALS.selected_block)
                 {
                     selectedItemsWasPainted = true;
                     QPen pen(Qt::SolidLine);
@@ -358,7 +394,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     _painter->setPen(pen);
 
                     previousColor = SELECTED_ITEM_COLOR;
-                    inverseColor = 0x00ffffff - previousColor;
+                    inverseColor = 0xffffffff - previousColor;
+                    textColor = ::profiler_gui::textColorForRgb(previousColor);
                     brush.setColor(previousColor);
                     _painter->setBrush(brush);
                 }
@@ -369,12 +406,13 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     {
                         // Set background color brush for rectangle
                         previousColor = item.color;
-                        inverseColor = 0x00ffffff - previousColor;
+                        inverseColor = 0xffffffff - previousColor;
+                        textColor = ::profiler_gui::textColorForRgb(previousColor);
                         brush.setColor(previousColor);
                         _painter->setBrush(brush);
                     }
 
-                    if (::profiler_gui::EASY_GLOBALS.draw_graphics_items_borders && (previousPenStyle != Qt::SolidLine || colorChange))
+                    if (EASY_GLOBALS.draw_graphics_items_borders && (previousPenStyle != Qt::SolidLine || colorChange))
                     {
                         // Restore pen for item which is wide enough to paint borders
                         previousPenStyle = Qt::SolidLine;
@@ -417,12 +455,13 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
             rect.setRect(xtext + 1, top, w - 1, h);
 
             // text will be painted with inverse color
-            auto textColor = inverseColor;
-            if (textColor == previousColor) textColor = 0;
-            _painter->setPen(textColor);
+            //auto textColor = inverseColor < 0x00808080 ? profiler::colors::Black : profiler::colors::White;
+            //if (textColor == previousColor) textColor = 0;
+            _painter->setPen(QColor::fromRgb(textColor));
 
             // drawing text
-            _painter->drawText(rect, flags, ::profiler_gui::toUnicode(item.block->node->getName()));
+            auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : easyDescriptor(itemBlock.tree.node->id()).name();
+            _painter->drawText(rect, flags, ::profiler_gui::toUnicode(name));
 
             // restore previous pen color
             if (previousPenStyle == Qt::NoPen)
@@ -433,60 +472,121 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         }
     }
 
-    if (!selectedItemsWasPainted && ::profiler_gui::EASY_GLOBALS.selected_block < ::profiler_gui::EASY_GLOBALS.gui_blocks.size())
+    if (!selectedItemsWasPainted && EASY_GLOBALS.selected_block < EASY_GLOBALS.gui_blocks.size())
     {
-        const auto& guiblock = ::profiler_gui::EASY_GLOBALS.gui_blocks[::profiler_gui::EASY_GLOBALS.selected_block];
+        const auto& guiblock = EASY_GLOBALS.gui_blocks[EASY_GLOBALS.selected_block];
         if (guiblock.graphics_item == m_index)
         {
             const auto& item = m_levels[guiblock.graphics_item_level][guiblock.graphics_item_index];
             if (item.left() < sceneRight && item.right() > sceneLeft)
             {
-                QPen pen(Qt::SolidLine);
-                pen.setColor(Qt::red);
-                pen.setWidth(2);
-                _painter->setPen(pen);
-
-                brush.setColor(SELECTED_ITEM_COLOR);
-                _painter->setBrush(brush);
-
                 auto top = levelY(guiblock.graphics_item_level);
-                auto x = item.left() * currentScale - dx;
-                auto w = ::std::max(item.width() * currentScale, 1.0);
-                rect.setRect(x, top, w, item.totalHeight);
-                _painter->drawRect(rect);
+                decltype(top) h = item.totalHeight;
 
-                if (w > 20)
+                auto dh = top + h - visibleBottom;
+                if (dh < h)
                 {
-                    // Draw text-----------------------------------
-                    // calculating text coordinates
-                    auto xtext = x;
-                    if (item.left() < sceneLeft)
+                    if (dh > 0)
+                        h -= dh;
+
+                    QPen pen(Qt::SolidLine);
+                    pen.setColor(Qt::red);
+                    pen.setWidth(2);
+                    _painter->setPen(pen);
+
+                    brush.setColor(SELECTED_ITEM_COLOR);
+                    _painter->setBrush(brush);
+
+                    auto x = item.left() * currentScale - dx;
+                    auto w = ::std::max(item.width() * currentScale, 1.0);
+                    rect.setRect(x, top, w, h);
+                    _painter->drawRect(rect);
+
+                    if (w > 20)
                     {
-                        // if item left border is out of screen then attach text to the left border of the screen
-                        // to ensure text is always visible for items presenting on the screen.
-                        w += (item.left() - sceneLeft) * currentScale;
-                        xtext = sceneLeft * currentScale - dx;
+                        // Draw text-----------------------------------
+                        // calculating text coordinates
+                        auto xtext = x;
+                        if (item.left() < sceneLeft)
+                        {
+                            // if item left border is out of screen then attach text to the left border of the screen
+                            // to ensure text is always visible for items presenting on the screen.
+                            w += (item.left() - sceneLeft) * currentScale;
+                            xtext = sceneLeft * currentScale - dx;
+                        }
+
+                        if (item.right() > sceneRight)
+                        {
+                            w -= (item.right() - sceneRight) * currentScale;
+                        }
+
+                        rect.setRect(xtext + 1, top, w - 1, h);
+
+                        // text will be painted with inverse color
+                        //auto textColor = 0x00ffffff - previousColor;
+                        //if (textColor == previousColor) textColor = 0;
+                        textColor = ::profiler_gui::textColorForRgb(SELECTED_ITEM_COLOR);
+                        _painter->setPen(textColor);
+
+                        // drawing text
+                        const auto& itemBlock = easyBlock(item.block);
+                        auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : easyDescriptor(itemBlock.tree.node->id()).name();
+                        _painter->drawText(rect, Qt::AlignCenter, ::profiler_gui::toUnicode(name));
+                        // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                     }
-
-                    if (item.right() > sceneRight)
-                    {
-                        w -= (item.right() - sceneRight) * currentScale;
-                    }
-
-                    rect.setRect(xtext + 1, top, w - 1, item.totalHeight);
-
-                    // text will be painted with inverse color
-                    auto textColor = 0x00ffffff - previousColor;
-                    if (textColor == previousColor) textColor = 0;
-                    _painter->setPen(textColor);
-
-                    // drawing text
-                    _painter->drawText(rect, Qt::AlignCenter, ::profiler_gui::toUnicode(item.block->node->getName()));
-                    // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                 }
             }
         }
     }
+
+
+#ifdef EASY_STORE_CSWITCH_SEPARATELY
+    if (!m_pRoot->sync.empty())
+    {
+        _painter->setBrush(QColor::fromRgba(0xfffe6030));
+        _painter->setPen(QColor::fromRgb(0x00505050));
+
+        qreal prevRight = -1e100, top = y() - 4, h = 3;
+        if (top + h < visibleBottom)
+        {
+            for (auto it = firstSync, end = m_pRoot->sync.end(); it != end; ++it)
+            {
+                const auto& item = easyBlock(*it).tree;
+                auto begin = sceneView->time2position(item.node->begin());
+
+                if (begin > sceneRight)
+                    break; // This is first totally invisible item. No need to check other items.
+
+                decltype(begin) width = sceneView->time2position(item.node->end()) - begin;
+                auto r = begin + width;
+                if (r < sceneLeft) // This item is not visible
+                    continue;
+
+                begin *= currentScale;
+                begin -= dx;
+                width *= currentScale;
+                r = begin + width;
+                if (r <= prevRight) // This item is not visible
+                    continue;
+
+                if (begin < prevRight)
+                {
+                    width -= prevRight - begin;
+                    begin = prevRight;
+                }
+
+                if (width < 2)
+                    width = 2;
+
+                //_painter->drawLine(QLineF(::std::max(begin, prevRight), top, begin + width, top));
+                rect.setRect(begin, top, width, h);
+                _painter->drawRect(rect);
+                prevRight = begin + width;
+            }
+        }
+    }
+#endif
+
 
     _painter->restore();
 }
@@ -509,7 +609,7 @@ void EasyGraphicsItem::getBlocks(qreal _left, qreal _right, ::profiler_gui::Tree
 
     // Search for first visible top-level item
     auto& level0 = m_levels.front();
-    auto first = ::std::lower_bound(level0.begin(), level0.end(), _left, [](const ::profiler_gui::ProfBlockItem& _item, qreal _value)
+    auto first = ::std::lower_bound(level0.begin(), level0.end(), _left, [](const ::profiler_gui::EasyBlockItem& _item, qreal _value)
     {
         return _item.left() < _value;
     });
@@ -550,7 +650,7 @@ void EasyGraphicsItem::getBlocks(qreal _left, qreal _right, ::profiler_gui::Tree
 
 //////////////////////////////////////////////////////////////////////////
 
-const ::profiler_gui::ProfBlockItem* EasyGraphicsItem::intersect(const QPointF& _pos) const
+const ::profiler_gui::EasyBlockItem* EasyGraphicsItem::intersect(const QPointF& _pos) const
 {
     if (m_levels.empty() || m_levels.front().empty())
     {
@@ -586,7 +686,7 @@ const ::profiler_gui::ProfBlockItem* EasyGraphicsItem::intersect(const QPointF& 
         const auto& level = m_levels[i];
 
         // Search for first visible item
-        auto first = ::std::lower_bound(level.begin() + firstItem, level.begin() + lastItem, _pos.x(), [](const ::profiler_gui::ProfBlockItem& _item, qreal _value)
+        auto first = ::std::lower_bound(level.begin() + firstItem, level.begin() + lastItem, _pos.x(), [](const ::profiler_gui::EasyBlockItem& _item, qreal _value)
         {
             return _item.left() < _value;
         });
@@ -618,7 +718,7 @@ const ::profiler_gui::ProfBlockItem* EasyGraphicsItem::intersect(const QPointF& 
             }
 
             const auto w = item.width() * currentScale;
-            if (i == levelIndex || w < 20 || !::profiler_gui::EASY_GLOBALS.gui_blocks[item.block->block_index].expanded)
+            if (i == levelIndex || w < 20 || !easyBlock(item.block).expanded)
             {
                 return &item;
             }
@@ -692,17 +792,17 @@ void EasyGraphicsItem::setBoundingRect(const QRectF& _rect)
 
 //////////////////////////////////////////////////////////////////////////
 
-unsigned char EasyGraphicsItem::levels() const
+uint8_t EasyGraphicsItem::levels() const
 {
-    return static_cast<unsigned char>(m_levels.size());
+    return static_cast<uint8_t>(m_levels.size());
 }
 
-float EasyGraphicsItem::levelY(unsigned char _level) const
+float EasyGraphicsItem::levelY(uint8_t _level) const
 {
     return y() + static_cast<int>(_level) * static_cast<int>(GRAPHICS_ROW_SIZE_FULL);
 }
 
-void EasyGraphicsItem::setLevels(unsigned char _levels)
+void EasyGraphicsItem::setLevels(uint8_t _levels)
 {
     typedef decltype(m_levelsIndexes) IndexesT;
     static const auto MAX_CHILD_INDEX = ::profiler_gui::numeric_max<IndexesT::value_type>();
@@ -711,29 +811,29 @@ void EasyGraphicsItem::setLevels(unsigned char _levels)
     m_levelsIndexes.resize(_levels, MAX_CHILD_INDEX);
 }
 
-void EasyGraphicsItem::reserve(unsigned char _level, unsigned int _items)
+void EasyGraphicsItem::reserve(uint8_t _level, unsigned int _items)
 {
     m_levels[_level].reserve(_items);
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-const EasyGraphicsItem::Children& EasyGraphicsItem::items(unsigned char _level) const
+const EasyGraphicsItem::Children& EasyGraphicsItem::items(uint8_t _level) const
 {
     return m_levels[_level];
 }
 
-const ::profiler_gui::ProfBlockItem& EasyGraphicsItem::getItem(unsigned char _level, unsigned int _index) const
+const ::profiler_gui::EasyBlockItem& EasyGraphicsItem::getItem(uint8_t _level, unsigned int _index) const
 {
     return m_levels[_level][_index];
 }
 
-::profiler_gui::ProfBlockItem& EasyGraphicsItem::getItem(unsigned char _level, unsigned int _index)
+::profiler_gui::EasyBlockItem& EasyGraphicsItem::getItem(uint8_t _level, unsigned int _index)
 {
     return m_levels[_level][_index];
 }
 
-unsigned int EasyGraphicsItem::addItem(unsigned char _level)
+unsigned int EasyGraphicsItem::addItem(uint8_t _level)
 {
     m_levels[_level].emplace_back();
     return static_cast<unsigned int>(m_levels[_level].size() - 1);
@@ -829,12 +929,18 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     // instead of scrollbar we're using manual offset
     _painter->setTransform(QTransform::fromTranslate(-x(), -y()), true);
 
+    if (m_left < sceneLeft)
+        rect.setLeft(0);
+
+    if (m_right > sceneRight)
+        rect.setWidth((sceneRight - offset) * currentScale - rect.left());
+
     // draw transparent rectangle
     auto vcenter = rect.top() + rect.height() * 0.5;
     QLinearGradient g(rect.left(), vcenter, rect.right(), vcenter);
     g.setColorAt(0, m_color);
-    g.setColorAt(0.15, QColor::fromRgba(0x14000000 | rgb));
-    g.setColorAt(0.85, QColor::fromRgba(0x14000000 | rgb));
+    g.setColorAt(0.25, QColor::fromRgba(0x20000000 | rgb));
+    g.setColorAt(0.75, QColor::fromRgba(0x20000000 | rgb));
     g.setColorAt(1, m_color);
     _painter->setBrush(g);
     _painter->setPen(Qt::NoPen);
@@ -850,21 +956,12 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
 
     // draw text
     _painter->setCompositionMode(QPainter::CompositionMode_Difference); // This lets the text to be visible on every background
-    _painter->setPen(0xffffffff - rgb);
+    _painter->setRenderHint(QPainter::TextAntialiasing);
+    _painter->setPen(0x00ffffff - rgb);
     _painter->setFont(CHRONOMETER_FONT);
 
-    if (m_left < sceneLeft)
-    {
-        rect.setLeft(0);
-    }
-
-    if (m_right > sceneRight)
-    {
-        rect.setWidth((sceneRight - offset) * currentScale - rect.left());
-    }
-
     int textFlags = 0;
-    switch (::profiler_gui::EASY_GLOBALS.chrono_text_position)
+    switch (EASY_GLOBALS.chrono_text_position)
     {
         case ::profiler_gui::ChronoTextPosition_Top:
             textFlags = Qt::AlignTop | Qt::AlignHCenter;
@@ -890,14 +987,15 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
         return;
     }
 
-    if (m_right + textRect.width() < sceneRight)
+    const auto w = textRect.width() / currentScale;
+    if (m_right + w < sceneRight)
     {
         // Text will be drawed to the right of rectangle
         rect.translate(rect.width(), 0);
         textFlags &= ~Qt::AlignHCenter;
         textFlags |= Qt::AlignLeft;
     }
-    else if (m_left - textRect.width() > sceneLeft)
+    else if (m_left - w > sceneLeft)
     {
         // Text will be drawed to the left of rectangle
         rect.translate(-rect.width(), 0);
@@ -1002,7 +1100,7 @@ void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
             if (top > h || bottom < 0)
                 continue;
 
-            if (item->threadId() == ::profiler_gui::EASY_GLOBALS.selected_thread)
+            if (item->threadId() == EASY_GLOBALS.selected_thread)
                 _painter->setBrush(QBrush(QColor::fromRgb(::profiler_gui::SELECTED_THREAD_BACKGROUND)));
             else
                 _painter->setBrush(brushes[i & 1]);
@@ -1092,13 +1190,10 @@ void EasyTimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGrap
     // Draw scale indicator
     _painter->save();
     _painter->setTransform(QTransform::fromTranslate(-x(), -y()));
-    _painter->setCompositionMode(QPainter::CompositionMode_Difference);
+    //_painter->setCompositionMode(QPainter::CompositionMode_Difference);
     _painter->setBrush(Qt::NoBrush);
 
-    //_painter->setBrush(Qt::white);
-    //_painter->setPen(Qt::NoPen);
-
-    QPen pen(Qt::white);
+    QPen pen(Qt::black);
     pen.setWidth(2);
     pen.setJoinStyle(Qt::MiterJoin);
     _painter->setPen(pen);
@@ -1107,7 +1202,6 @@ void EasyTimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGrap
     const auto rect_right = rect.right();
     const QPointF points[] = {{rect.left(), rect.bottom()}, {rect.left(), rect.top()}, {rect_right, rect.top()}, {rect_right, rect.top() + 5}};
     _painter->drawPolyline(points, sizeof(points) / sizeof(QPointF));
-    //_painter->drawRect(rect);
 
     rect.translate(0, 3);
     _painter->drawText(rect, Qt::AlignRight | Qt::TextDontClip, text);
@@ -1193,7 +1287,7 @@ EasyChronometerItem* EasyGraphicsView::createChronometer(bool _main)
     }
 }
 
-void EasyGraphicsView::test(unsigned int _frames_number, unsigned int _total_items_number_estimate, unsigned char _rows)
+void EasyGraphicsView::test(unsigned int _frames_number, unsigned int _total_items_number_estimate, uint8_t _rows)
 {
     static const qreal X_BEGIN = 50;
     static const qreal Y_BEGIN = 0;
@@ -1201,9 +1295,9 @@ void EasyGraphicsView::test(unsigned int _frames_number, unsigned int _total_ite
     clearSilent(); // Clear scene
 
     // Calculate items number for first level
-    _rows = ::std::max((unsigned char)1, _rows);
+    _rows = ::std::max((uint8_t)1, _rows);
     const auto children_per_frame = static_cast<unsigned int>(0.5 + static_cast<double>(_total_items_number_estimate) / static_cast<double>(_rows * _frames_number));
-    const unsigned char max_depth = ::std::min(254, static_cast<int>(logn<TEST_PROGRESSION_BASE>(children_per_frame * (TEST_PROGRESSION_BASE - 1) * 0.5 + 1)));
+    const uint8_t max_depth = ::std::min(254, static_cast<int>(logn<TEST_PROGRESSION_BASE>(children_per_frame * (TEST_PROGRESSION_BASE - 1) * 0.5 + 1)));
     const auto first_level_children_count = static_cast<unsigned int>(static_cast<double>(children_per_frame) * (1.0 - TEST_PROGRESSION_BASE) / (1.0 - pow(TEST_PROGRESSION_BASE, max_depth)) + 0.5);
 
 
@@ -1212,7 +1306,7 @@ void EasyGraphicsView::test(unsigned int _frames_number, unsigned int _total_ite
 
 
     ::std::vector<EasyGraphicsItem*> thread_items(_rows);
-    for (unsigned char i = 0; i < _rows; ++i)
+    for (uint8_t i = 0; i < _rows; ++i)
     {
         auto item = new EasyGraphicsItem(i, true);
         thread_items[i] = item;
@@ -1225,9 +1319,9 @@ void EasyGraphicsView::test(unsigned int _frames_number, unsigned int _total_ite
 
     // Calculate items number for each sublevel
     auto chldrn = first_level_children_count;
-    for (unsigned char i = 1; i <= max_depth; ++i)
+    for (uint8_t i = 1; i <= max_depth; ++i)
     {
-        for (unsigned char j = 0; j < _rows; ++j)
+        for (uint8_t j = 0; j < _rows; ++j)
         {
             auto item = thread_items[j];
             item->reserve(i, chldrn * _frames_number);
@@ -1240,7 +1334,7 @@ void EasyGraphicsView::test(unsigned int _frames_number, unsigned int _total_ite
     unsigned int total_items = 0;
     qreal maxX = 0;
     const EasyGraphicsItem* longestItem = nullptr;
-    for (unsigned char i = 0; i < _rows; ++i)
+    for (uint8_t i = 0; i < _rows; ++i)
     {
         auto item = thread_items[i];
         qreal x = X_BEGIN, y = item->y();
@@ -1292,8 +1386,8 @@ void EasyGraphicsView::test(unsigned int _frames_number, unsigned int _total_ite
     if (longestItem != nullptr)
     {
         m_pScrollbar->setMinimapFrom(0, longestItem->items(0));
-        ::profiler_gui::EASY_GLOBALS.selected_thread = 0;
-        emit::profiler_gui::EASY_GLOBALS.events.selectedThreadChanged(0);
+        EASY_GLOBALS.selected_thread = 0;
+        emitEASY_GLOBALS.events.selectedThreadChanged(0);
     }
 
     // Create new chronometer item (previous item was destroyed by scene on scene()->clear()).
@@ -1360,13 +1454,20 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
 
     // Calculating start and end time
     ::profiler::timestamp_t finish = 0;
-    const ::profiler::BlocksTree* longestTree = nullptr;
+    ::profiler::thread_id_t longestTree = 0;
     const EasyGraphicsItem* longestItem = nullptr;
+    const EasyGraphicsItem* mainThreadItem = nullptr;
     for (const auto& threadTree : _blocksTree)
     {
-        const auto& tree = threadTree.second.tree;
-        const auto timestart = tree.children.front().node->block()->getBegin();
-        const auto timefinish = tree.children.back().node->block()->getEnd();
+        const auto& tree = threadTree.second.children;
+        auto timestart = blocksTree(tree.front()).node->begin();
+
+#ifdef EASY_STORE_CSWITCH_SEPARATELY
+        if (!threadTree.second.sync.empty())
+            timestart = ::std::min(timestart, blocksTree(threadTree.second.sync.front()).node->begin());
+#endif
+
+        const auto timefinish = blocksTree(tree.back()).node->end();
 
         if (m_beginTime > timestart)
         {
@@ -1376,7 +1477,7 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         if (finish < timefinish)
         {
             finish = timefinish;
-            longestTree = &tree;
+            longestTree = threadTree.first;
         }
     }
 
@@ -1392,13 +1493,13 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         }
 
         // fill scene with new items
-        const auto& tree = threadTree.second.tree;
-        qreal h = 0, x = time2position(tree.children.front().node->block()->getBegin());
-        auto item = new EasyGraphicsItem(static_cast<unsigned char>(m_items.size()), &threadTree.second);
-        item->setLevels(tree.depth);
+        const auto& tree = threadTree.second.children;
+        qreal h = 0, x = time2position(blocksTree(tree.front()).node->begin());
+        auto item = new EasyGraphicsItem(static_cast<uint8_t>(m_items.size()), &threadTree.second);
+        item->setLevels(threadTree.second.depth);
         item->setPos(0, y);
 
-        const auto children_duration = setTree(item, tree.children, h, y, 0);
+        const auto children_duration = setTree(item, tree, h, y, 0);
 
         item->setBoundingRect(0, 0, children_duration + x, h);
         m_items.push_back(item);
@@ -1406,10 +1507,11 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
 
         y += h + THREADS_ROW_SPACING;
 
-        if (longestTree == &tree)
-        {
+        if (longestTree == threadTree.first)
             longestItem = item;
-        }
+
+        if (mainThreadItem == nullptr && !strcmp(threadTree.second.thread_name, "Main"))
+            mainThreadItem = item;
     }
 
     // Calculating scene rect
@@ -1422,11 +1524,14 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     updateVisibleSceneRect();
     setScrollbar(m_pScrollbar);
 
+    if (mainThreadItem != nullptr)
+        longestItem = mainThreadItem;
+
     if (longestItem != nullptr)
     {
         m_pScrollbar->setMinimapFrom(longestItem->threadId(), longestItem->items(0));
-        ::profiler_gui::EASY_GLOBALS.selected_thread = longestItem->threadId();
-        emit::profiler_gui::EASY_GLOBALS.events.selectedThreadChanged(longestItem->threadId());
+        EASY_GLOBALS.selected_thread = longestItem->threadId();
+        emit EASY_GLOBALS.events.selectedThreadChanged(longestItem->threadId());
     }
 
     // Create new chronometer item (previous item was destroyed by scene on scene()->clear()).
@@ -1460,22 +1565,25 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
         return 0;
     }
 
-    const auto level = static_cast<unsigned char>(_level);
+    const auto level = static_cast<uint8_t>(_level);
     _item->reserve(level, static_cast<unsigned int>(_children.size()));
 
     const short next_level = _level + 1;
     bool warned = false;
     qreal total_duration = 0, prev_end = 0, maxh = 0;
     qreal start_time = -1;
-    for (const auto& child : _children)
+    for (auto child_index : _children)
     {
-        auto xbegin = time2position(child.node->block()->getBegin());
+        auto& gui_block = easyBlock(child_index);
+        const auto& child = gui_block.tree;
+
+        auto xbegin = time2position(child.node->begin());
         if (start_time < 0)
         {
             start_time = xbegin;
         }
 
-        auto duration = time2position(child.node->block()->getEnd()) - xbegin;
+        auto duration = time2position(child.node->end()) - xbegin;
 
         //const auto dt = xbegin - prev_end;
         //if (dt < 0)
@@ -1492,14 +1600,13 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
         auto i = _item->addItem(level);
         auto& b = _item->getItem(level, i);
 
-        auto& gui_block = ::profiler_gui::EASY_GLOBALS.gui_blocks[child.block_index];
         gui_block.graphics_item = _item->index();
         gui_block.graphics_item_level = level;
         gui_block.graphics_item_index = i;
 
         if (next_level < 256 && next_level < _item->levels() && !child.children.empty())
         {
-            b.children_begin = static_cast<unsigned int>(_item->items(static_cast<unsigned char>(next_level)).size());
+            b.children_begin = static_cast<unsigned int>(_item->items(static_cast<uint8_t>(next_level)).size());
         }
         else
         {
@@ -1529,9 +1636,8 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
             maxh = h;
         }
 
-        const auto color = child.node->block()->getColor();
-        b.block = &child;
-        b.color = ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
+        b.block = child_index;// &child;
+        b.color = EASY_GLOBALS.descriptors[child.node->id()]->color();// ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
         b.setPos(xbegin, duration);
         b.totalHeight = GRAPHICS_ROW_SIZE + h;
         b.state = BLOCK_ITEM_UNCHANGED;
@@ -1571,8 +1677,8 @@ void EasyGraphicsView::setScrollbar(EasyGraphicsScrollbar* _scrollbar)
         connect(m_pScrollbar, &EasyGraphicsScrollbar::wheeled, this, &This::onGraphicsScrollbarWheel);
     }
 
-    ::profiler_gui::EASY_GLOBALS.selected_thread = 0;
-    emit ::profiler_gui::EASY_GLOBALS.events.selectedThreadChanged(0);
+    EASY_GLOBALS.selected_thread = 0;
+    emit EASY_GLOBALS.events.selectedThreadChanged(0);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1647,7 +1753,7 @@ void EasyGraphicsView::onGraphicsScrollbarWheel(qreal _mouseX, int _wheelDelta)
 {
     for (auto item : m_items)
     {
-        if (item->threadId() == ::profiler_gui::EASY_GLOBALS.selected_thread)
+        if (item->threadId() == EASY_GLOBALS.selected_thread)
         {
             m_bUpdatingRect = true;
             auto vbar = verticalScrollBar();
@@ -1780,8 +1886,8 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
         }
     }
 
-    const ::profiler_gui::ProfBlockItem* selectedBlock = nullptr;
-    const auto previouslySelectedBlock = ::profiler_gui::EASY_GLOBALS.selected_block;
+    const ::profiler_gui::EasyBlockItem* selectedBlock = nullptr;
+    const auto previouslySelectedBlock = EASY_GLOBALS.selected_block;
     if (m_mouseButtons & Qt::LeftButton)
     {
         bool clicked = false;
@@ -1814,15 +1920,15 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
                 {
                     changedSelectedItem = true;
                     selectedBlock = block;
-                    ::profiler_gui::EASY_GLOBALS.selected_block = block->block->block_index;
+                    EASY_GLOBALS.selected_block = block->block;
                     break;
                 }
             }
 
-            if (!changedSelectedItem && ::profiler_gui::EASY_GLOBALS.selected_block != ::profiler_gui::numeric_max(::profiler_gui::EASY_GLOBALS.selected_block))
+            if (!changedSelectedItem && EASY_GLOBALS.selected_block != ::profiler_gui::numeric_max(EASY_GLOBALS.selected_block))
             {
                 changedSelectedItem = true;
-                ::profiler_gui::set_max(::profiler_gui::EASY_GLOBALS.selected_block);
+                ::profiler_gui::set_max(EASY_GLOBALS.selected_block);
             }
         }
     }
@@ -1842,12 +1948,12 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
     if (changedSelectedItem)
     {
         m_bUpdatingRect = true;
-        if (selectedBlock != nullptr && previouslySelectedBlock == ::profiler_gui::EASY_GLOBALS.selected_block && !selectedBlock->block->children.empty())
+        if (selectedBlock != nullptr && previouslySelectedBlock == EASY_GLOBALS.selected_block && !blocksTree(selectedBlock->block).children.empty())
         {
-            ::profiler_gui::EASY_GLOBALS.gui_blocks[previouslySelectedBlock].expanded = !::profiler_gui::EASY_GLOBALS.gui_blocks[previouslySelectedBlock].expanded;
-            emit ::profiler_gui::EASY_GLOBALS.events.itemsExpandStateChanged();
+            EASY_GLOBALS.gui_blocks[previouslySelectedBlock].expanded = !EASY_GLOBALS.gui_blocks[previouslySelectedBlock].expanded;
+            emit EASY_GLOBALS.events.itemsExpandStateChanged();
         }
-        emit ::profiler_gui::EASY_GLOBALS.events.selectedBlockChanged(::profiler_gui::EASY_GLOBALS.selected_block);
+        emit EASY_GLOBALS.events.selectedBlockChanged(EASY_GLOBALS.selected_block);
         m_bUpdatingRect = false;
 
         updateScene();
@@ -1999,7 +2105,7 @@ void EasyGraphicsView::initMode()
     connect(verticalScrollBar(), &QScrollBar::valueChanged, this, &This::onScrollbarValueChange);
     connect(&m_flickerTimer, &QTimer::timeout, this, &This::onFlickerTimeout);
 
-    auto globalSignals = &::profiler_gui::EASY_GLOBALS.events;
+    auto globalSignals = &EASY_GLOBALS.events;
     connect(globalSignals, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
     connect(globalSignals, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
     connect(globalSignals, &::profiler_gui::EasyGlobalSignals::itemsExpandStateChanged, this, &This::onItemsEspandStateChange);
@@ -2102,11 +2208,11 @@ void EasyGraphicsView::onSelectedBlockChange(unsigned int _block_index)
 {
     if (!m_bUpdatingRect)
     {
-        if (_block_index < ::profiler_gui::EASY_GLOBALS.gui_blocks.size())
+        if (_block_index < EASY_GLOBALS.gui_blocks.size())
         {
             // Scroll to item
 
-            const auto& guiblock = ::profiler_gui::EASY_GLOBALS.gui_blocks[_block_index];
+            const auto& guiblock = EASY_GLOBALS.gui_blocks[_block_index];
             const auto thread_item = m_items[guiblock.graphics_item];
             const auto& item = thread_item->items(guiblock.graphics_item_level)[guiblock.graphics_item_index];
 
@@ -2181,7 +2287,7 @@ EasyThreadViewWidget::EasyThreadViewWidget(QWidget *parent, EasyGraphicsView* vi
     //m_layout->addWidget(m_label);
     //setLayout(m_layout);
     //show();
-    connect(&::profiler_gui::EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
 }
 
 EasyThreadViewWidget::~EasyThreadViewWidget()
@@ -2192,14 +2298,14 @@ EasyThreadViewWidget::~EasyThreadViewWidget()
 void EasyThreadViewWidget::onSelectedThreadChange(::profiler::thread_id_t _id)
 {
 /*
-    auto threadName = ::profiler_gui::EASY_GLOBALS.profiler_blocks[::profiler_gui::EASY_GLOBALS.selected_thread].thread_name;
+    auto threadName = EASY_GLOBALS.profiler_blocks[EASY_GLOBALS.selected_thread].thread_name;
     if(threadName[0]!=0)
     {
         m_label->setText(threadName);
     }
     else
     {
-        m_label->setText(QString("Thread %1").arg(::profiler_gui::EASY_GLOBALS.selected_thread));
+        m_label->setText(QString("Thread %1").arg(EASY_GLOBALS.selected_thread));
     }
 */
     QLayoutItem *ditem;

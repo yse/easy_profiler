@@ -2,7 +2,6 @@
 * file name         : globals.h
 * ----------------- :
 * creation time     : 2016/08/03
-* copyright         : (c) 2016 Victor Zarubkin
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
@@ -12,7 +11,21 @@
 *                   :
 *                   : *
 * ----------------- :
-* license           : TODO: add license text
+* license           : Lightweight profiler library for c++
+*                   : Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
+*                   :
+*                   : This program is free software : you can redistribute it and / or modify
+*                   : it under the terms of the GNU General Public License as published by
+*                   : the Free Software Foundation, either version 3 of the License, or
+*                   : (at your option) any later version.
+*                   :
+*                   : This program is distributed in the hope that it will be useful,
+*                   : but WITHOUT ANY WARRANTY; without even the implied warranty of
+*                   : MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+*                   : GNU General Public License for more details.
+*                   :
+*                   : You should have received a copy of the GNU General Public License
+*                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
 #ifndef EASY_PROFILER__GUI_GLOBALS_H
@@ -30,8 +43,8 @@
 
 namespace profiler_gui {
 
-	const QString ORGANAZATION_NAME = "EasyProfiler";
-	const QString APPLICATION_NAME = "Easy profiler gui application";
+    const QString ORGANAZATION_NAME = "EasyProfiler";
+    const QString APPLICATION_NAME = "Easy profiler gui application";
 
     const QColor CHRONOMETER_COLOR = QColor::fromRgba(0x402020c0);
     const QRgb SELECTED_THREAD_BACKGROUND = 0x00e0e060;
@@ -41,19 +54,6 @@ namespace profiler_gui {
     const qreal SCALING_COEFFICIENT_INV = 1.0 / SCALING_COEFFICIENT;
 
     //////////////////////////////////////////////////////////////////////////
-
-#pragma pack(push, 1)
-    struct EasyBlock final
-    {
-        unsigned int            tree_item;
-        unsigned int  graphics_item_index;
-        unsigned char graphics_item_level;
-        unsigned char       graphics_item;
-        bool                     expanded;
-    };
-#pragma pack(pop)
-
-    typedef ::std::vector<EasyBlock> EasyBlocks;
 
     template <class T>
     inline auto toUnicode(const T& _inputString) -> decltype(QTextCodec::codecForLocale()->toUnicode(_inputString))
@@ -79,6 +79,7 @@ namespace profiler_gui {
 
         EasyGlobalSignals                         events; ///< Global signals
         ::profiler::thread_blocks_tree_t profiler_blocks; ///< Profiler blocks tree loaded from file
+        ::profiler::descriptors_list_t       descriptors; ///< Profiler block descriptors list
         EasyBlocks                            gui_blocks; ///< Profiler graphics blocks builded by GUI
         ::profiler::thread_id_t          selected_thread; ///< Current selected thread id
         unsigned int                      selected_block; ///< Current selected profiler block index
@@ -96,12 +97,25 @@ namespace profiler_gui {
 
     }; // END of struct EasyGlobals.
 
-#ifndef IGNORE_GLOBALS_DECLARATION
-    static EasyGlobals& EASY_GLOBALS = EasyGlobals::instance();
-#endif
     //////////////////////////////////////////////////////////////////////////
 
 } // END of namespace profiler_gui.
+
+#ifndef IGNORE_GLOBALS_DECLARATION
+static ::profiler_gui::EasyGlobals& EASY_GLOBALS = ::profiler_gui::EasyGlobals::instance();
+
+inline ::profiler_gui::EasyBlock& easyBlock(::profiler::block_index_t i) {
+    return EASY_GLOBALS.gui_blocks[i];
+}
+
+inline ::profiler::SerializedBlockDescriptor& easyDescriptor(::profiler::block_id_t i) {
+    return *EASY_GLOBALS.descriptors[i];
+}
+
+inline ::profiler::BlocksTree& blocksTree(::profiler::block_index_t i) {
+    return easyBlock(i).tree;
+}
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////

@@ -2,7 +2,6 @@
 * file name         : blocks_graphics_view.h
 * ----------------- :
 * creation time     : 2016/06/26
-* copyright         : (c) 2016 Victor Zarubkin
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
@@ -18,7 +17,21 @@
 *                   :
 *                   : *
 * ----------------- :
-* license           : TODO: add license text
+* license           : Lightweight profiler library for c++
+*                   : Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
+*                   :
+*                   : This program is free software : you can redistribute it and / or modify
+*                   : it under the terms of the GNU General Public License as published by
+*                   : the Free Software Foundation, either version 3 of the License, or
+*                   : (at your option) any later version.
+*                   :
+*                   : This program is distributed in the hope that it will be useful,
+*                   : but WITHOUT ANY WARRANTY; without even the implied warranty of
+*                   : MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+*                   : GNU General Public License for more details.
+*                   :
+*                   : You should have received a copy of the GNU General Public License
+*                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
 #ifndef EASY__GRAPHICS_VIEW__H_
@@ -58,7 +71,7 @@ inline qreal microseconds2units(qreal _value)
 
 class EasyGraphicsItem : public QGraphicsItem
 {
-    typedef ::profiler_gui::ProfItems       Children;
+    typedef ::profiler_gui::EasyItems       Children;
     typedef ::std::vector<unsigned int>  DrawIndexes;
     typedef ::std::vector<Children>        Sublevels;
 
@@ -67,11 +80,11 @@ class EasyGraphicsItem : public QGraphicsItem
 
     QRectF                     m_boundingRect; ///< boundingRect (see QGraphicsItem)
     const ::profiler::BlocksTreeRoot* m_pRoot; ///< Pointer to the root profiler block (thread block). Used by ProfTreeWidget to restore hierarchy.
-    unsigned char                     m_index; ///< This item's index in the list of items of EasyGraphicsView
+    uint8_t                           m_index; ///< This item's index in the list of items of EasyGraphicsView
 
 public:
 
-    EasyGraphicsItem(unsigned char _index, const::profiler::BlocksTreeRoot* _root);
+    EasyGraphicsItem(uint8_t _index, const::profiler::BlocksTreeRoot* _root);
     virtual ~EasyGraphicsItem();
 
     // Public virtual methods
@@ -92,46 +105,46 @@ public:
     ::profiler::thread_id_t threadId() const;
 
     ///< Returns number of levels
-    unsigned char levels() const;
+    uint8_t levels() const;
 
-    float levelY(unsigned char _level) const;
+    float levelY(uint8_t _level) const;
 
     /** \brief Sets number of levels.
     
     \note Must be set before doing anything else.
     
     \param _levels Desired number of levels */
-    void setLevels(unsigned char _levels);
+    void setLevels(uint8_t _levels);
 
     /** \brief Reserves memory for desired number of items on specified level.
     
     \param _level Index of the level
     \param _items Desired number of items on this level */
-    void reserve(unsigned char _level, unsigned int _items);
+    void reserve(uint8_t _level, unsigned int _items);
 
     /**\brief Returns reference to the array of items of specified level.
     
     \param _level Index of the level */
-    const Children& items(unsigned char _level) const;
+    const Children& items(uint8_t _level) const;
 
     /**\brief Returns reference to the item with required index on specified level.
     
     \param _level Index of the level
     \param _index Index of required item */
-    const ::profiler_gui::ProfBlockItem& getItem(unsigned char _level, unsigned int _index) const;
+    const ::profiler_gui::EasyBlockItem& getItem(uint8_t _level, unsigned int _index) const;
 
     /**\brief Returns reference to the item with required index on specified level.
 
     \param _level Index of the level
     \param _index Index of required item */
-    ::profiler_gui::ProfBlockItem& getItem(unsigned char _level, unsigned int _index);
+    ::profiler_gui::EasyBlockItem& getItem(uint8_t _level, unsigned int _index);
 
     /** \brief Adds new item to required level.
     
     \param _level Index of the level
     
     \retval Index of the new created item */
-    unsigned int addItem(unsigned char _level);
+    unsigned int addItem(uint8_t _level);
 
     /** \brief Finds top-level blocks which are intersects with required selection zone.
 
@@ -142,7 +155,7 @@ public:
     \param _blocks Reference to the array of selected blocks */
     void getBlocks(qreal _left, qreal _right, ::profiler_gui::TreeBlocks& _blocks) const;
 
-    const ::profiler_gui::ProfBlockItem* intersect(const QPointF& _pos) const;
+    const ::profiler_gui::EasyBlockItem* intersect(const QPointF& _pos) const;
 
 private:
 
@@ -154,7 +167,7 @@ public:
     // Public inline methods
 
     ///< Returns this item's index in the list of graphics items of EasyGraphicsView
-    inline unsigned char index() const
+    inline uint8_t index() const
     {
         return m_index;
     }
@@ -198,7 +211,7 @@ public:
 
     void setHover(bool _hover);
 
-    bool contains(const QPointF& _pos) const;
+    bool contains(const QPointF& _pos) const override;
 
     inline bool hoverIndicator() const
     {
@@ -363,7 +376,7 @@ public:
         return m_timelineStep;
     }
 
-private:
+//private:
 
     // Private inline methods
 

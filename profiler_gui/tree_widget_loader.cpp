@@ -2,7 +2,6 @@
 * file name         : tree_widget_loader.h
 * ----------------- :
 * creation time     : 2016/08/18
-* copyright         : (c) 2016 Victor Zarubkin
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
@@ -14,7 +13,21 @@
 *                   :
 *                   : *
 * ----------------- :
-* license           : TODO: add license text
+* license           : Lightweight profiler library for c++
+*                   : Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
+*                   :
+*                   : This program is free software : you can redistribute it and / or modify
+*                   : it under the terms of the GNU General Public License as published by
+*                   : the Free Software Foundation, either version 3 of the License, or
+*                   : (at your option) any later version.
+*                   :
+*                   : This program is distributed in the hope that it will be useful,
+*                   : but WITHOUT ANY WARRANTY; without even the implied warranty of
+*                   : MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+*                   : GNU General Public License for more details.
+*                   :
+*                   : You should have received a copy of the GNU General Public License
+*                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
 #include "tree_widget_loader.h"
@@ -94,11 +107,11 @@ void EasyTreeWidgetLoader::interrupt()
     m_bDone.store(false);
     m_progress.store(0);
 
-    for (auto item : m_topLevelItems)
-    {
-        //qDeleteAll(item.second->takeChildren());
-        delete item.second;
-    }
+    auto deleter_thread = ::std::thread([](decltype(m_topLevelItems) _items) {
+        for (auto item : _items)
+            delete item.second;
+    }, ::std::move(m_topLevelItems));
+    deleter_thread.detach();
 
     m_items.clear();
     m_topLevelItems.clear();
@@ -126,9 +139,9 @@ void FillTreeClass<T>::setTreeInternal1(T& _safelocker, Items& _items, ThreadedI
     ::profiler::timestamp_t finishtime = 0;
     for (const auto& threadTree : _blocksTree)
     {
-        const auto node_block = threadTree.second.tree.children.front().node->block();
-        const auto startTime = node_block->getBegin();
-        const auto endTime = node_block->getEnd();
+        const auto node_block = blocksTree(threadTree.second.children.front()).node;
+        const auto startTime = node_block->begin();
+        const auto endTime = node_block->end();
 
         if (_beginTime > startTime)
             _beginTime = startTime;
@@ -145,49 +158,49 @@ void FillTreeClass<T>::setTreeInternal1(T& _safelocker, Items& _items, ThreadedI
         if (_safelocker.interrupted())
             break;
 
-        auto& block = threadTree.second.tree;
-        auto item = new EasyTreeWidgetItem(&block);
+        const auto& root = threadTree.second;
+        auto item = new EasyTreeWidgetItem();
 
-        if (threadTree.second.thread_name && threadTree.second.thread_name[0] != 0)
+        if (root.thread_name && root.thread_name[0] != 0)
         {
-            item->setText(COL_NAME, QString("%1 Thread %2").arg(threadTree.second.thread_name).arg(threadTree.first));
+            item->setText(COL_NAME, QString("%1 Thread %2").arg(root.thread_name).arg(root.thread_id));
         }
         else
         {
-            item->setText(COL_NAME, QString("Thread %1").arg(threadTree.first));
+            item->setText(COL_NAME, QString("Thread %1").arg(root.thread_id));
         }
 
         ::profiler::timestamp_t duration = 0;
-        if (!block.children.empty())
+        if (!root.children.empty())
         {
-            duration = block.children.back().node->block()->getEnd() - block.children.front().node->block()->getBegin();
+            duration = blocksTree(root.children.back()).node->end() - blocksTree(root.children.front()).node->begin();
         }
 
         item->setTimeSmart(COL_DURATION, duration);
         item->setBackgroundColor(::profiler_gui::SELECTED_THREAD_BACKGROUND);
         item->setTextColor(::profiler_gui::SELECTED_THREAD_FOREGROUND);
 
-        _items.push_back(item);
+        //_items.push_back(item);
 
         // TODO: Optimize children duration calculation (it must be calculated before setTreeInternal now)
         ::profiler::timestamp_t children_duration = 0;
-        for (const auto& child : block.children)
-            children_duration += child.node->block()->duration();
+        for (auto i : root.children)
+            children_duration += blocksTree(i).node->duration();
         item->setTimeSmart(COL_SELF_DURATION, children_duration);
 
         children_duration = 0;
-        const auto children_items_number = FillTreeClass<T>::setTreeInternal(_safelocker, _items, _beginTime, block.children, item, nullptr, item, _beginTime, finishtime + 1000000000ULL, false, children_duration, _colorizeRows);
+        const auto children_items_number = FillTreeClass<T>::setTreeInternal(_safelocker, _items, _beginTime, root.children, item, nullptr, item, _beginTime, finishtime + 1000000000ULL, false, children_duration, _colorizeRows);
 
         if (children_items_number > 0)
         {
             //total_items += children_items_number + 1;
             //addTopLevelItem(item);
             //m_roots[threadTree.first] = item;
-            _topLevelItems.emplace_back(threadTree.first, item);
+            _topLevelItems.emplace_back(root.thread_id, item);
         }
         else
         {
-            _items.pop_back();
+            //_items.pop_back();
             delete item;
         }
 
@@ -200,11 +213,11 @@ void FillTreeClass<T>::setTreeInternal1(T& _safelocker, Items& _items, ThreadedI
 
 //////////////////////////////////////////////////////////////////////////
 
-auto calculateTotalChildrenNumber(const ::profiler::BlocksTree* _tree) -> decltype(_tree->children.size())
+auto calculateTotalChildrenNumber(const ::profiler::BlocksTree& _tree) -> decltype(_tree.children.size())
 {
-    auto children_number = _tree->children.size();
-    for (const auto& child : _tree->children)
-        children_number += calculateTotalChildrenNumber(&child);
+    auto children_number = _tree.children.size();
+    for (auto i : _tree.children)
+        children_number += calculateTotalChildrenNumber(blocksTree(i));
     return children_number;
 }
 
@@ -213,7 +226,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
 {
     //size_t blocksNumber = 0;
     //for (const auto& block : _blocks)
-    //    blocksNumber += calculateTotalChildrenNumber(block.tree);
+    //    blocksNumber += calculateTotalChildrenNumber(*block.tree);
     //    //blocksNumber += block.tree->total_children_number;
     //m_items.reserve(blocksNumber + _blocks.size()); // blocksNumber does not include root blocks
 
@@ -226,8 +239,9 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
         if (_safelocker.interrupted())
             break;
 
-        const auto startTime = block.tree->node->block()->getBegin();
-        const auto endTime = block.tree->node->block()->getEnd();
+        auto& gui_block = easyBlock(block.tree);
+        const auto startTime = gui_block.tree.node->begin();
+        const auto endTime = gui_block.tree.node->end();
         if (startTime > _right || endTime < _left)
         {
             _safelocker.setProgress((90 * ++i) / total);
@@ -243,7 +257,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
         }
         else
         {
-            thread_item = new EasyTreeWidgetItem(&block.root->tree);
+            thread_item = new EasyTreeWidgetItem();
 
             if (block.root->thread_name && block.root->thread_name[0] != 0)
             {
@@ -254,9 +268,9 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
                 thread_item->setText(COL_NAME, QString("Thread %1").arg(block.root->thread_id));
             }
 
-            if (!block.root->tree.children.empty())
+            if (!block.root->children.empty())
             {
-                duration = block.root->tree.children.back().node->block()->getEnd() - block.root->tree.children.front().node->block()->getBegin();
+                duration = blocksTree(block.root->children.back()).node->end() - blocksTree(block.root->children.front()).node->begin();
             }
 
             thread_item->setTimeSmart(COL_DURATION, duration);
@@ -265,8 +279,8 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
 
             // Calculate clean duration (sum of all children durations)
             ::profiler::timestamp_t children_duration = 0;
-            for (const auto& child : block.root->tree.children)
-                children_duration += child.node->block()->duration();
+            for (auto i : block.root->children)
+                children_duration += blocksTree(i).node->duration();
             thread_item->setTimeSmart(COL_SELF_DURATION, children_duration);
 
             threadsMap.insert(::std::make_pair(block.root->thread_id, thread_item));
@@ -275,7 +289,8 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
         auto item = new EasyTreeWidgetItem(block.tree, thread_item);
         duration = endTime - startTime;
 
-        item->setText(COL_NAME, ::profiler_gui::toUnicode(block.tree->node->getName()));
+        auto name = *gui_block.tree.node->name() != 0 ? gui_block.tree.node->name() : easyDescriptor(gui_block.tree.node->id()).name();
+        item->setText(COL_NAME, ::profiler_gui::toUnicode(name));
         item->setTimeSmart(COL_DURATION, duration);
         item->setTimeMs(COL_BEGIN, startTime - _beginTime);
         item->setTimeMs(COL_END, endTime - _beginTime);
@@ -286,14 +301,14 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
         item->setData(COL_PERCENT_PER_FRAME, Qt::UserRole, 0);
         item->setText(COL_PERCENT_PER_FRAME, "");
 
-        if (block.tree->per_thread_stats != nullptr) // if there is per_thread_stats then there are other stats also
+        if (gui_block.tree.per_thread_stats != nullptr) // if there is per_thread_stats then there are other stats also
         {
-            const auto& per_thread_stats = block.tree->per_thread_stats;
-            const auto& per_parent_stats = block.tree->per_parent_stats;
-            const auto& per_frame_stats = block.tree->per_frame_stats;
+            const auto& per_thread_stats = gui_block.tree.per_thread_stats;
+            const auto& per_parent_stats = gui_block.tree.per_parent_stats;
+            const auto& per_frame_stats = gui_block.tree.per_frame_stats;
 
 
-            if (per_thread_stats->calls_number > 1 || !::profiler_gui::EASY_GLOBALS.display_only_relevant_stats)
+            if (per_thread_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
                 item->setTimeSmart(COL_MIN_PER_THREAD, per_thread_stats->min_duration, "min ");
                 item->setTimeSmart(COL_MAX_PER_THREAD, per_thread_stats->max_duration, "max ");
@@ -309,7 +324,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
             item->setText(COL_PERCENT_SUM_PER_THREAD, QString::number(percentage_per_thread));
 
 
-            if (per_parent_stats->calls_number > 1 || !::profiler_gui::EASY_GLOBALS.display_only_relevant_stats)
+            if (per_parent_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
                 item->setTimeSmart(COL_MIN_PER_PARENT, per_parent_stats->min_duration, "min ");
                 item->setTimeSmart(COL_MAX_PER_PARENT, per_parent_stats->max_duration, "max ");
@@ -321,7 +336,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
             item->setText(COL_NCALLS_PER_PARENT, QString::number(per_parent_stats->calls_number));
 
 
-            if (per_frame_stats->calls_number > 1 || !::profiler_gui::EASY_GLOBALS.display_only_relevant_stats)
+            if (per_frame_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
                 item->setTimeSmart(COL_MIN_PER_FRAME, per_frame_stats->min_duration, "min ");
                 item->setTimeSmart(COL_MAX_PER_FRAME, per_frame_stats->max_duration, "max ");
@@ -338,10 +353,10 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
             item->setText(COL_PERCENT_SUM_PER_THREAD, "");
         }
 
-        const auto color = block.tree->node->block()->getColor();
-        const auto bgColor = ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
-        const auto fgColor = 0x00ffffff - bgColor;
-        item->setBackgroundColor(bgColor);
+        const auto color = easyDescriptor(gui_block.tree.node->id()).color();
+        //const auto bgColor = ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
+        const auto fgColor = ::profiler_gui::textColorForRgb(color);//0x00ffffff - bgColor;
+        item->setBackgroundColor(color);
         item->setTextColor(fgColor);
 
         auto item_index = static_cast<unsigned int>(_items.size());
@@ -349,9 +364,9 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
 
         size_t children_items_number = 0;
         ::profiler::timestamp_t children_duration = 0;
-        if (!block.tree->children.empty())
+        if (!gui_block.tree.children.empty())
         {
-            children_items_number = FillTreeClass<T>::setTreeInternal(_safelocker, _items, _beginTime, block.tree->children, item, item, thread_item, _left, _right, _strict, children_duration, _colorizeRows);
+            children_items_number = FillTreeClass<T>::setTreeInternal(_safelocker, _items, _beginTime, gui_block.tree.children, item, item, thread_item, _left, _right, _strict, children_duration, _colorizeRows);
             if (_safelocker.interrupted())
                 break;
         }
@@ -370,12 +385,12 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
         if (children_items_number > 0 || !_strict || (startTime >= _left && endTime <= _right))
         {
             //total_items += children_items_number + 1;
-            ::profiler_gui::EASY_GLOBALS.gui_blocks[block.tree->block_index].tree_item = item_index;
+            gui_block.tree_item = item_index;
 
             if (_colorizeRows)
                 item->colorize(_colorizeRows);
 
-            if (::profiler_gui::EASY_GLOBALS.gui_blocks[block.tree->block_index].expanded)
+            if (gui_block.expanded)
                 item->setExpanded(true);
 
         }
@@ -399,7 +414,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
             //addTopLevelItem(item);
             //m_roots[it.first] = item;
 
-            _items.push_back(item);
+            //_items.push_back(item);
             _topLevelItems.emplace_back(it.first, item);
 
             //++total_items;
@@ -420,13 +435,15 @@ template <class T>
 size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::profiler::timestamp_t& _beginTime, const ::profiler::BlocksTree::children_t& _children, EasyTreeWidgetItem* _parent, EasyTreeWidgetItem* _frame, EasyTreeWidgetItem* _thread, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration, bool _colorizeRows)
 {
     size_t total_items = 0;
-    for (const auto& child : _children)
+    for (auto child_index : _children)
     {
         if (_safelocker.interrupted())
             break;
 
-        const auto startTime = child.node->block()->getBegin();
-        const auto endTime = child.node->block()->getEnd();
+        auto& gui_block = easyBlock(child_index);
+        const auto& child = gui_block.tree;
+        const auto startTime = child.node->begin();
+        const auto endTime = child.node->end();
         const auto duration = endTime - startTime;
         _duration += duration;
 
@@ -435,8 +452,10 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
             continue;
         }
 
-        auto item = new EasyTreeWidgetItem(&child, _parent);
-        item->setText(COL_NAME, ::profiler_gui::toUnicode(child.node->getName()));
+        auto item = new EasyTreeWidgetItem(child_index, _parent);
+
+        auto name = *child.node->name() != 0 ? child.node->name() : easyDescriptor(child.node->id()).name();
+        item->setText(COL_NAME, ::profiler_gui::toUnicode(name));
         item->setTimeSmart(COL_DURATION, duration);
         item->setTimeMs(COL_BEGIN, startTime - _beginTime);
         item->setTimeMs(COL_END, endTime - _beginTime);
@@ -477,7 +496,7 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
             }
 
 
-            if (per_thread_stats->calls_number > 1 || !::profiler_gui::EASY_GLOBALS.display_only_relevant_stats)
+            if (per_thread_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
                 item->setTimeSmart(COL_MIN_PER_THREAD, per_thread_stats->min_duration, "min ");
                 item->setTimeSmart(COL_MAX_PER_THREAD, per_thread_stats->max_duration, "max ");
@@ -496,7 +515,7 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
             }
 
 
-            if (per_parent_stats->calls_number > 1 || !::profiler_gui::EASY_GLOBALS.display_only_relevant_stats)
+            if (per_parent_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
                 item->setTimeSmart(COL_MIN_PER_PARENT, per_parent_stats->min_duration, "min ");
                 item->setTimeSmart(COL_MAX_PER_PARENT, per_parent_stats->max_duration, "max ");
@@ -508,7 +527,7 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
             item->setText(COL_NCALLS_PER_PARENT, QString::number(per_parent_stats->calls_number));
 
 
-            if (per_frame_stats->calls_number > 1 || !::profiler_gui::EASY_GLOBALS.display_only_relevant_stats)
+            if (per_frame_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
                 item->setTimeSmart(COL_MIN_PER_FRAME, per_frame_stats->min_duration, "min ");
                 item->setTimeSmart(COL_MAX_PER_FRAME, per_frame_stats->max_duration, "max ");
@@ -529,13 +548,13 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
             item->setText(COL_PERCENT_SUM_PER_THREAD, "");
         }
 
-        const auto color = child.node->block()->getColor();
-        const auto bgColor = ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
-        const auto fgColor = 0x00ffffff - bgColor;
-        item->setBackgroundColor(bgColor);
+        const auto color = easyDescriptor(child.node->id()).color();
+        //const auto bgColor = ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
+        const auto fgColor = ::profiler_gui::textColorForRgb(color);// 0x00ffffff - bgColor;
+        item->setBackgroundColor(color);
         item->setTextColor(fgColor);
 
-        auto item_index = static_cast<unsigned int>(_items.size());
+        auto item_index = static_cast<uint32_t>(_items.size());
         _items.push_back(item);
 
         size_t children_items_number = 0;
@@ -561,12 +580,12 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
         if (children_items_number > 0 || !_strict || (startTime >= _left && endTime <= _right))
         {
             total_items += children_items_number + 1;
-            ::profiler_gui::EASY_GLOBALS.gui_blocks[child.block_index].tree_item = item_index;
+            gui_block.tree_item = item_index;
 
             if (_colorizeRows)
                 item->colorize(_colorizeRows);
 
-            if (::profiler_gui::EASY_GLOBALS.gui_blocks[child.block_index].expanded)
+            if (gui_block.expanded)
                 item->setExpanded(true);
         }
         else

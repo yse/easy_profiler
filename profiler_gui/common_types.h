@@ -2,7 +2,6 @@
 * file name         : common_types.h
 * ----------------- :
 * creation time     : 2016/07/31
-* copyright         : (c) 2016 Victor Zarubkin
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
@@ -13,7 +12,21 @@
 *                   :
 *                   : *
 * ----------------- :
-* license           : TODO: add license text
+* license           : Lightweight profiler library for c++
+*                   : Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
+*                   :
+*                   : This program is free software : you can redistribute it and / or modify
+*                   : it under the terms of the GNU General Public License as published by
+*                   : the Free Software Foundation, either version 3 of the License, or
+*                   : (at your option) any later version.
+*                   :
+*                   : This program is distributed in the hope that it will be useful,
+*                   : but WITHOUT ANY WARRANTY; without even the implied warranty of
+*                   : MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+*                   : GNU General Public License for more details.
+*                   :
+*                   : You should have received a copy of the GNU General Public License
+*                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
 #ifndef EASY_PROFILER__GUI_COMMON_TYPES_H
@@ -88,7 +101,7 @@ struct do_no_hash {
 
 //////////////////////////////////////////////////////////////////////////
 
-const QRgb DEFAULT_COLOR = 0x00d4b494;//0x00f0e094;
+const QRgb DEFAULT_COLOR = profiler::DefaultBlockColor;// 0x00d4b494;
 
 inline QRgb toRgb(unsigned int _red, unsigned int _green, unsigned int _blue)
 {
@@ -102,17 +115,24 @@ inline QRgb fromProfilerRgb(unsigned int _red, unsigned int _green, unsigned int
     return toRgb(_red, _green, _blue) | 0x00141414;
 }
 
+inline QRgb textColorForRgb(QRgb _color)
+{
+    const QRgb sum = 0xff - ((_color & 0xff000000) >> 24) + ((_color & 0x00ff0000) >> 16) + ((_color & 0x0000ff00) >> 8) + (_color & 0x000000ff);
+    return sum > 0x215 ? ::profiler::colors::Black : ::profiler::colors::White;
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 #pragma pack(push, 1)
-struct ProfBlockItem final
+struct EasyBlockItem final
 {
-    const ::profiler::BlocksTree* block; ///< Pointer to profiler block
+    //const ::profiler::BlocksTree* block; ///< Pointer to profiler block
     qreal                             x; ///< x coordinate of the item (this is made qreal=double to avoid mistakes on very wide scene)
     float                             w; ///< Width of the item
     QRgb                          color; ///< Background color of the item
-    unsigned int         children_begin; ///< Index of first child item on the next sublevel
-    unsigned short          totalHeight; ///< Total height of the item including heights of all it's children
+    ::profiler::block_index_t     block; ///< Index of profiler block
+    uint32_t             children_begin; ///< Index of first child item on the next sublevel
+    uint16_t                totalHeight; ///< Total height of the item including heights of all it's children
     char                          state; ///< 0 = no change, 1 = paint, -1 = do not paint
 
     // Possible optimizations:
@@ -125,31 +145,58 @@ struct ProfBlockItem final
     inline qreal right() const { return x + w; }
     inline float width() const { return w; }
 
-}; // END of struct ProfBlockItem.
-#pragma pack(pop)
+}; // END of struct EasyBlockItem.
 
-typedef ::std::vector<ProfBlockItem> ProfItems;
-
-//////////////////////////////////////////////////////////////////////////
-
-struct ProfSelectedBlock final
+struct EasyBlock final
 {
-    const ::profiler::BlocksTreeRoot* root;
-    const ::profiler::BlocksTree*     tree;
+    ::profiler::BlocksTree       tree;
+    uint32_t                tree_item;
+    uint32_t      graphics_item_index;
+    uint8_t       graphics_item_level;
+    uint8_t             graphics_item;
+    bool                     expanded;
 
-    ProfSelectedBlock() : root(nullptr), tree(nullptr)
+    EasyBlock() = default;
+
+    EasyBlock(EasyBlock&& that)
+        : tree(::std::move(that.tree))
+        , tree_item(that.tree_item)
+        , graphics_item_index(that.graphics_item_index)
+        , graphics_item_level(that.graphics_item_level)
+        , graphics_item(that.graphics_item)
+        , expanded(that.expanded)
     {
     }
 
-    ProfSelectedBlock(const ::profiler::BlocksTreeRoot* _root, const ::profiler::BlocksTree* _tree)
+private:
+
+    EasyBlock(const EasyBlock&) = delete;
+};
+#pragma pack(pop)
+
+typedef ::std::vector<EasyBlockItem> EasyItems;
+typedef ::std::vector<EasyBlock> EasyBlocks;
+
+//////////////////////////////////////////////////////////////////////////
+
+struct EasySelectedBlock final
+{
+    const ::profiler::BlocksTreeRoot* root;
+    ::profiler::block_index_t         tree;
+
+    EasySelectedBlock() : root(nullptr), tree(0xffffffff)
+    {
+    }
+
+    EasySelectedBlock(const ::profiler::BlocksTreeRoot* _root, const ::profiler::block_index_t _tree)
         : root(_root)
         , tree(_tree)
     {
     }
 
-}; // END of struct ProfSelectedBlock.
+}; // END of struct EasySelectedBlock.
 
-typedef ::std::vector<ProfSelectedBlock> TreeBlocks;
+typedef ::std::vector<EasySelectedBlock> TreeBlocks;
 
 //////////////////////////////////////////////////////////////////////////
 
