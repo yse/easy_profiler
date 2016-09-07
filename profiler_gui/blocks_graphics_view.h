@@ -211,7 +211,7 @@ public:
 
     void setHover(bool _hover);
 
-    bool contains(const QPointF& _pos) const;
+    bool contains(const QPointF& _pos) const override;
 
     inline bool hoverIndicator() const
     {

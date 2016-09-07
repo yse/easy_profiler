@@ -84,7 +84,7 @@ const QRgb TIMELINE_BACKGROUND = 0x20303030;
 const QRgb SELECTED_ITEM_COLOR = 0x000050a0;
 const QColor CHRONOMETER_COLOR2 = QColor::fromRgba(0x40408040);
 
-const unsigned int TEST_PROGRESSION_BASE = 4;
+//const unsigned int TEST_PROGRESSION_BASE = 4;
 
 const int FLICKER_INTERVAL = 16; // 60Hz
 
