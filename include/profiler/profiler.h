@@ -26,13 +26,21 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #  define EASY_THREAD_LOCAL __declspec(thread)
 # endif
 #elif defined(__GNUC__)
+#ifndef __clang__
 # if (__GNUC__ == 4 && __GNUC_MINOR__ < 8) || (__GNUC__ < 4)
 // There is no support for C++11 thread_local keyword prior to gcc 4.8. Use __thread instead.
 #  define EASY_THREAD_LOCAL __thread
+#endif
 # endif
+#if defined ( __clang__ )
+# if (__clang_major__ == 3 && __clang_minor__ < 3) || (__clang_major__ < 3)
+# define EASY_THREAD_LOCAL __thread
+#endif
 #endif
 
-// TODO: Check thread_local support for Clang!
+#endif
+
+// TODO: Check thread local support for clanv earlier than 3.3
 
 #ifndef EASY_THREAD_LOCAL
 # define EASY_THREAD_LOCAL thread_local
