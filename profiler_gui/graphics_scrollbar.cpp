@@ -490,7 +490,6 @@ void EasyGraphicsScrollbar::mouseMoveEvent(QMouseEvent* _event)
 
 void EasyGraphicsScrollbar::wheelEvent(QWheelEvent* _event)
 {
-    qreal deltaSign = _event->delta() < 0 ? -1 : 1;
     auto w = m_slider->halfwidth() * (_event->delta() < 0 ? ::profiler_gui::SCALING_COEFFICIENT : ::profiler_gui::SCALING_COEFFICIENT_INV);
     setValue(mapToScene(_event->pos()).x() - m_minimumValue - w);
     emit wheeled(w * m_windowScale, _event->delta());
