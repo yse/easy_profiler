@@ -104,6 +104,8 @@ class ThreadStorage final
     template <class T, const uint16_t N>
     struct BlocksList final
     {
+        BlocksList() = default;
+
         class Stack final {
             //std::stack<T> m_stack;
             std::vector<T> m_stack;
