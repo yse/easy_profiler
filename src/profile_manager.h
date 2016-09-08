@@ -32,6 +32,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #include <functional>
 #include <sstream>
 #include <string.h>
+#include <atomic>
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -220,7 +221,7 @@ class ProfileManager final
     int m_socket = 0;//TODO crossplatform
 
     uint32_t dumpBlocksToStream(StreamWriter& _stream);
-
+    std::atomic_bool m_stopListen;
 public:
 
     static ProfileManager& instance();

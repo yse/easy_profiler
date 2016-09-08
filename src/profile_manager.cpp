@@ -183,6 +183,8 @@ ProfileManager::ProfileManager()
 // #ifdef _WIN32
 //     PREVIOUS_FILTER = SetUnhandledExceptionFilter(easyTopLevelExceptionFilter);
     // #endif
+
+    m_stopListen = ATOMIC_VAR_INIT(false);
 }
 
 ProfileManager::~ProfileManager()
@@ -266,14 +268,17 @@ void ProfileManager::startListenSignalToCapture()
 {
     if(!m_isAlreadyListened)
     {
+        m_stopListen.store(false);
         m_listenThread  = std::thread(&ProfileManager::startListen, this);
         m_isAlreadyListened = true;
+
     }
 }
 
 void ProfileManager::stopListenSignalToCapture()
 {
-
+    m_stopListen.store(true);
+    m_isAlreadyListened = false;
 }
 
 void ProfileManager::setEnabled(bool isEnable)
@@ -436,6 +441,8 @@ const char* ProfileManager::setThreadName(const char* name, const char* filename
 #include <sys/socket.h>
 #include <netdb.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 
 void error(const char *msg)
@@ -466,14 +473,25 @@ void ProfileManager::startListen()
          (char *)&serv_addr.sin_addr.s_addr,
          server->h_length);
     serv_addr.sin_port = htons(portno);
-    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
-        error("ERROR connecting");
+
+    struct timeval tv;
+
+    tv.tv_sec = 1;  /* 30 Secs Timeout */
+    tv.tv_usec = 0;  // Not init'ing this can cause strange errors
+
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
+
+    while(!m_stopListen.load() && (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0 ) ) {}
+    //if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
+    //    error("ERROR connecting");
+
+
 
     profiler::net::Message replyMessage(profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING);
 
     char buffer[256];
     bzero(buffer,256);
-    while(1)
+    while(!m_stopListen.load())
     {
         n = read(sockfd,buffer,255);
 

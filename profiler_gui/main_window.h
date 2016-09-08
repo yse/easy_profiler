@@ -96,8 +96,8 @@ protected:
     ::profiler::SerializedData m_serializedDescriptors;
     EasyFileReader                            m_reader;
 
-    QTcpServer* m_server;
-    QTcpSocket* m_client;
+    QTcpServer* m_server = nullptr;
+    QTcpSocket* m_client = nullptr;
     std::stringstream m_receivedProfileData;
     bool m_recFrames = false;
 public:
@@ -128,6 +128,7 @@ protected slots:
 
     void readTcpData();
     void onNewConnection();
+    void onDisconnection();
 private:
 
     // Private non-virtual methods

@@ -240,7 +240,7 @@ int main(int argc, char* argv[])
     std::cout << "Resource loading count: " << RESOURCE_LOADING_COUNT << std::endl;
 
     auto start = std::chrono::system_clock::now();
-    EASY_PROFILER_ENABLE;
+    //EASY_PROFILER_ENABLE;
     EASY_MAIN_THREAD;
     profiler::startListenSignalToCapture();
     //one();
@@ -285,5 +285,7 @@ int main(int argc, char* argv[])
 
     std::cout << "Blocks count: " << blocks_count << std::endl;
 
+
+    profiler::stopListenSignalToCapture();
     return 0;
 }

@@ -347,10 +347,29 @@ void EasyMainWindow::onCollapseAllClicked(bool)
 
 void EasyMainWindow::onCaptureClicked(bool)
 {
+    if(m_client != nullptr)
+    {
+        profiler::net::Message requestMessage(profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE);
+        m_client->write((const char*)&requestMessage, sizeof(requestMessage));
+    }else
+    {
+        QMessageBox::warning(this,"Warning" ,"No connection with profiling app",QMessageBox::Close);
+        return;
+    }
+
+
     QMessageBox::information(this,"Capturing frames..." ,"Close this window to stop capturing.",QMessageBox::Close);
 
-    profiler::net::Message requestMessage(profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE);
-    m_client->write((const char*)&requestMessage, sizeof(requestMessage));
+    if(m_client != nullptr)
+    {
+        profiler::net::Message requestMessage(profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE);
+        m_client->write((const char*)&requestMessage, sizeof(requestMessage));
+    }else
+    {
+        QMessageBox::warning(this,"Warning" ,"Application was disconnected",QMessageBox::Close);
+        return;
+    }
+
 /*
     //int sock = nn_socket (AF_SP, NN_BUS);
     //assert (sock >= 0);
@@ -536,7 +555,7 @@ void EasyMainWindow::readTcpData()
 
 
         profiler::net::Message* message = (profiler::net::Message*)data.data();
-        qInfo() << "rec size: " << data.size() << " " << QString(data);;
+        //qInfo() << "rec size: " << data.size() << " " << QString(data);;
         if(!m_recFrames && !message->isEasyNetMessage()){
             return;
         }else if(m_recFrames){
@@ -569,6 +588,8 @@ void EasyMainWindow::readTcpData()
                 of << m_receivedProfileData.str();
                 of.close();
 
+                m_receivedProfileData.str(std::string());
+                m_receivedProfileData.clear();
                 loadFile(QString(tempfilename.c_str()));
 
             }
@@ -582,7 +603,7 @@ void EasyMainWindow::readTcpData()
             }   break;
 
             default:
-                qInfo() << "Receive unknown " << message->type;
+                //qInfo() << "Receive unknown " << message->type;
                 break;
 
         }
@@ -599,11 +620,15 @@ void EasyMainWindow::onNewConnection()
     qInfo() << "New connection!" << m_client;
 
 
-    connect(m_client, &QAbstractSocket::disconnected, m_client, &QObject::deleteLater) ;
+    connect(m_client, SIGNAL(disconnected()), this, SLOT(onDisconnection())) ;
     connect(m_client, SIGNAL(readyRead()), this, SLOT(readTcpData())   );
 
-    profiler::net::Message requestMessage(profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE);
-    m_client->write((const char*)&requestMessage, sizeof(requestMessage));
+
+}
+
+void EasyMainWindow::onDisconnection()
+{
+    m_client = nullptr;
 }
 
 //////////////////////////////////////////////////////////////////////////
