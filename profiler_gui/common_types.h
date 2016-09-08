@@ -119,6 +119,12 @@ inline bool isLightColor(::profiler::color_t _color)
     return sum < 76.5 || ((_color & 0xff000000) >> 24) < 0x80;
 }
 
+inline bool isLightColor(::profiler::color_t _color, qreal _maxSum)
+{
+    const auto sum = 255. - (((_color & 0x00ff0000) >> 16) * 0.299 + ((_color & 0x0000ff00) >> 8) * 0.587 + (_color & 0x000000ff) * 0.114);
+    return sum < _maxSum || ((_color & 0xff000000) >> 24) < 0x80;
+}
+
 inline ::profiler::color_t textColorForRgb(::profiler::color_t _color)
 {
     return isLightColor(_color) ? ::profiler::colors::Dark : ::profiler::colors::CreamWhite;
