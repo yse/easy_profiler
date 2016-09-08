@@ -79,12 +79,13 @@ class EasyGraphicsItem : public QGraphicsItem
     Sublevels                        m_levels; ///< Arrays of items for each level
 
     QRectF                     m_boundingRect; ///< boundingRect (see QGraphicsItem)
+    QString                      m_threadName; ///< 
     const ::profiler::BlocksTreeRoot* m_pRoot; ///< Pointer to the root profiler block (thread block). Used by ProfTreeWidget to restore hierarchy.
     uint8_t                           m_index; ///< This item's index in the list of items of EasyGraphicsView
 
 public:
 
-    EasyGraphicsItem(uint8_t _index, const::profiler::BlocksTreeRoot* _root);
+    explicit EasyGraphicsItem(uint8_t _index, const::profiler::BlocksTreeRoot& _root);
     virtual ~EasyGraphicsItem();
 
     // Public virtual methods
@@ -96,6 +97,9 @@ public:
 public:
 
     // Public non-virtual methods
+
+    const ::profiler::BlocksTreeRoot* root() const;
+    const QString& threadName() const;
 
     QRect getRect() const;
 
@@ -324,6 +328,7 @@ signals:
 
     // Signals
 
+    void treeChanged();
     void intervalChanged(const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _session_begin_time, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict);
 
 private:
@@ -396,22 +401,61 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyThreadViewWidget : public QWidget
+class EasyThreadNameItem : public QGraphicsItem
 {
-    Q_OBJECT
-private:
-    EasyGraphicsView*                 m_view;
-    QLabel*                           m_label;
-    typedef EasyThreadViewWidget This;
-
-    QHBoxLayout *m_layout;
+    QRectF m_boundingRect; ///< boundingRect (see QGraphicsItem)
 
 public:
-   EasyThreadViewWidget(QWidget *parent, EasyGraphicsView* view);
-   virtual ~EasyThreadViewWidget();
-public slots:
-   void onSelectedThreadChange(::profiler::thread_id_t _id);
+
+    explicit EasyThreadNameItem();
+    virtual ~EasyThreadNameItem();
+
+    // Public virtual methods
+
+    QRectF boundingRect() const override;
+
+    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
+
+public:
+
+    // Public non-virtual methods
+
+    void setBoundingRect(const QRectF& _rect);
+
 };
+
+class EasyThreadNamesWidget : public QGraphicsView
+{
+    Q_OBJECT
+
+private:
+
+    typedef QGraphicsView Parent;
+    typedef EasyThreadNamesWidget This;
+
+    EasyGraphicsView* m_view;
+
+public:
+
+   explicit EasyThreadNamesWidget(EasyGraphicsView* _view, QWidget* _parent = nullptr);
+   virtual ~EasyThreadNamesWidget();
+
+   void mousePressEvent(QMouseEvent* _event) override;
+   void mouseDoubleClickEvent(QMouseEvent* _event) override;
+   void mouseReleaseEvent(QMouseEvent* _event) override;
+   void mouseMoveEvent(QMouseEvent* _event) override;
+
+   const EasyGraphicsView* view() const
+   {
+       return m_view;
+   }
+
+private slots:
+
+   void onTreeChange();
+   void onSelectedThreadChange(::profiler::thread_id_t _id);
+
+}; // END of class EasyThreadNamesWidget.
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -421,9 +465,9 @@ class EasyGraphicsViewWidget : public QWidget
 
 private:
 
-    EasyGraphicsView*                 m_view;
-    EasyGraphicsScrollbar* m_scrollbar;
-    //EasyThreadViewWidget* m_threadWidget;
+    EasyGraphicsScrollbar*         m_scrollbar;
+    EasyGraphicsView*                   m_view;
+    EasyThreadNamesWidget* m_threadNamesWidget;
 
 public:
 

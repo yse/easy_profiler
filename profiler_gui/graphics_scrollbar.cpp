@@ -546,7 +546,7 @@ void EasyGraphicsScrollbar::onThreadActionClicked(bool)
         return;
 
     const auto thread_id = action->data().toUInt();
-    if (thread_id != m_minimap->threadId())
+    if (thread_id != EASY_GLOBALS.selected_thread)
     {
         EASY_GLOBALS.selected_thread = thread_id;
         emit EASY_GLOBALS.events.selectedThreadChanged(thread_id);

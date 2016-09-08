@@ -364,7 +364,7 @@ namespace profiler {
         const color_t Skin        = Orange100;
         const color_t DeepOrange  = DeepOrange500;
         const color_t Brick       = DeepOrange900;
-        const color_t Coral       = DeepOrange200;
+        const color_t Coral       = DeepOrange300;
         const color_t Brown       = Brown500;
         const color_t DarkBrown   = Brown900;
         const color_t CreamWhite  = Orange50;

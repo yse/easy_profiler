@@ -77,19 +77,29 @@ const unsigned short GRAPHICS_ROW_SIZE_FULL = GRAPHICS_ROW_SIZE + GRAPHICS_ROW_S
 const unsigned short THREADS_ROW_SPACING = 8;
 const unsigned short TIMELINE_ROW_SIZE = 20;
 
-const QRgb BORDERS_COLOR = 0x00686868;// 0x00a07050;
-const QRgb BACKGROUND_1 = 0x00dddddd;
-const QRgb BACKGROUND_2 = 0x00ffffff;
-const QRgb TIMELINE_BACKGROUND = 0x20303030;
-const QRgb SELECTED_ITEM_COLOR = 0x000050a0;
-const QColor CHRONOMETER_COLOR2 = QColor::fromRgba(0x40408040);
+const QRgb BORDERS_COLOR = ::profiler::colors::Grey700 & 0x00ffffff;// 0x00686868;
+const QRgb BACKGROUND_1 = ::profiler::colors::Grey300;
+const QRgb BACKGROUND_2 = ::profiler::colors::White;
+const QRgb TIMELINE_BACKGROUND = 0x20000000 | (::profiler::colors::Grey800 & 0x00ffffff);// 0x20303030;
+//const QRgb SELECTED_ITEM_COLOR = ::profiler::colors::Dark;// 0x000050a0;
+//const QRgb SELECTED_ITEM_BORDER_LIGHT = ::profiler::colors::RichRed;
+const QRgb SELECTED_ITEM_BORDER_DARK = ::profiler::colors::Black;
+const QColor CHRONOMETER_COLOR2 = QColor::fromRgba(0x40000000 | (::profiler::colors::Green700 & 0x00ffffff));// 0x40408040);
+
+inline QRgb selectedItemBorderColor(::profiler::color_t _color)
+{
+    //return ::profiler_gui::isLightColor(_color) ? SELECTED_ITEM_BORDER_DARK : SELECTED_ITEM_BORDER_LIGHT;
+    return SELECTED_ITEM_BORDER_DARK;
+}
 
 //const unsigned int TEST_PROGRESSION_BASE = 4;
 
 const int FLICKER_INTERVAL = 16; // 60Hz
 
-const auto CHRONOMETER_FONT = QFont("CourierNew", 18, 2);
-const auto ITEMS_FONT = QFont("CourierNew", 10);// , 2);
+const auto BG_FONT = QFont("CourierNew", 10, QFont::Bold);
+const auto CHRONOMETER_FONT = QFont("CourierNew", 16, QFont::Bold);
+const auto ITEMS_FONT = QFont("CourierNew", 10, QFont::Medium);
+const auto SELECTED_ITEM_FONT = QFont("CourierNew", 10, QFont::Bold);
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -108,9 +118,10 @@ inline T logn(T _value)
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyGraphicsItem::EasyGraphicsItem(uint8_t _index, const::profiler::BlocksTreeRoot* _root)
+EasyGraphicsItem::EasyGraphicsItem(uint8_t _index, const::profiler::BlocksTreeRoot& _root)
     : QGraphicsItem(nullptr)
-    , m_pRoot(_root)
+    , m_threadName(*_root.thread_name != 0 ? QString("%1 Thread %2").arg(_root.thread_name).arg(_root.thread_id) : QString("Thread %1").arg(_root.thread_id))
+    , m_pRoot(&_root)
     , m_index(_index)
 {
 }
@@ -288,78 +299,32 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 if (dh > 0)
                     h -= dh;
 
-                bool changepen = false;
                 if (item.block == EASY_GLOBALS.selected_block)
-                {
                     selectedItemsWasPainted = true;
-                    changepen = true;
-                    QPen pen(Qt::SolidLine);
-                    pen.setColor(Qt::red);
-                    pen.setWidth(2);
-                    _painter->setPen(pen);
 
-                    previousColor = SELECTED_ITEM_COLOR;
+                const bool colorChange = (previousColor != item.color);
+                if (colorChange)
+                {
+                    // Set background color brush for rectangle
+                    previousColor = item.color;
                     inverseColor = 0xffffffff - previousColor;
                     textColor = ::profiler_gui::textColorForRgb(previousColor);
                     brush.setColor(previousColor);
                     _painter->setBrush(brush);
                 }
-                else
-                {
-                    const bool colorChange = (previousColor != item.color);
-                    if (colorChange)
-                    {
-                        // Set background color brush for rectangle
-                        previousColor = item.color;
-                        inverseColor = 0xffffffff - previousColor;
-                        textColor = ::profiler_gui::textColorForRgb(previousColor);
-                        brush.setColor(previousColor);
-                        _painter->setBrush(brush);
-                    }
 
-                    if (EASY_GLOBALS.draw_graphics_items_borders)
-                    {
-                        //if (w < 2)
-                        //{
-                        //    // Do not paint borders for very narrow items
-                        //    if (previousPenStyle != Qt::NoPen)
-                        //    {
-                        //        previousPenStyle = Qt::NoPen;
-                        //        _painter->setPen(Qt::NoPen);
-                        //    }
-                        //}
-                        //else
-                        if (previousPenStyle != Qt::SolidLine || colorChange)
-                        {
-                            // Restore pen for item which is wide enough to paint borders
-                            previousPenStyle = Qt::SolidLine;
-                            _painter->setPen(BORDERS_COLOR & inverseColor);// BORDERS_COLOR);
-                        }
-                    }
+                if (EASY_GLOBALS.draw_graphics_items_borders && (previousPenStyle != Qt::SolidLine || colorChange))
+                {
+                    // Restore pen for item which is wide enough to paint borders
+                    previousPenStyle = Qt::SolidLine;
+                    _painter->setPen(BORDERS_COLOR & inverseColor);// BORDERS_COLOR);
                 }
 
                 if (w < 2) w = 2;
-                //if (w < 2 && !changepen)
-                //{
-                //    // Draw line
-                //    changepen = true;
-                //    _painter->setPen(previousColor);
-                //    _painter->drawLine(QPointF(x, top), QPointF(x, top + h));
-                //}
-                //else
-                {
-                    // Draw rectangle
-                    rect.setRect(x, top, w, h);
-                    _painter->drawRect(rect);
-                }
 
-                if (changepen)
-                {
-                    if (previousPenStyle == Qt::NoPen)
-                        _painter->setPen(Qt::NoPen);
-                    else
-                        _painter->setPen(BORDERS_COLOR & inverseColor);// BORDERS_COLOR); // restore pen for rectangle painting
-                }
+                // Draw rectangle
+                rect.setRect(x, top, w, h);
+                _painter->drawRect(rect);
 
                 prevRight = rect.right();
                 skip_children(next_level, item.children_begin);
@@ -386,38 +351,24 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 }
 
                 if (item.block == EASY_GLOBALS.selected_block)
-                {
                     selectedItemsWasPainted = true;
-                    QPen pen(Qt::SolidLine);
-                    pen.setColor(Qt::red);
-                    pen.setWidth(2);
-                    _painter->setPen(pen);
 
-                    previousColor = SELECTED_ITEM_COLOR;
+                const bool colorChange = (previousColor != item.color);
+                if (colorChange)
+                {
+                    // Set background color brush for rectangle
+                    previousColor = item.color;
                     inverseColor = 0xffffffff - previousColor;
                     textColor = ::profiler_gui::textColorForRgb(previousColor);
                     brush.setColor(previousColor);
                     _painter->setBrush(brush);
                 }
-                else
-                {
-                    const bool colorChange = (previousColor != item.color);
-                    if (colorChange)
-                    {
-                        // Set background color brush for rectangle
-                        previousColor = item.color;
-                        inverseColor = 0xffffffff - previousColor;
-                        textColor = ::profiler_gui::textColorForRgb(previousColor);
-                        brush.setColor(previousColor);
-                        _painter->setBrush(brush);
-                    }
 
-                    if (EASY_GLOBALS.draw_graphics_items_borders && (previousPenStyle != Qt::SolidLine || colorChange))
-                    {
-                        // Restore pen for item which is wide enough to paint borders
-                        previousPenStyle = Qt::SolidLine;
-                        _painter->setPen(BORDERS_COLOR & inverseColor);// BORDERS_COLOR);
-                    }
+                if (EASY_GLOBALS.draw_graphics_items_borders && (previousPenStyle != Qt::SolidLine || colorChange))
+                {
+                    // Restore pen for item which is wide enough to paint borders
+                    previousPenStyle = Qt::SolidLine;
+                    _painter->setPen(BORDERS_COLOR & inverseColor);// BORDERS_COLOR);
                 }
 
                 // Draw rectangle
@@ -459,6 +410,9 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
             //if (textColor == previousColor) textColor = 0;
             _painter->setPen(QColor::fromRgb(textColor));
 
+            if (item.block == EASY_GLOBALS.selected_block)
+                _painter->setFont(SELECTED_ITEM_FONT);
+
             // drawing text
             auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : easyDescriptor(itemBlock.tree.node->id()).name();
             _painter->drawText(rect, flags, ::profiler_gui::toUnicode(name));
@@ -468,11 +422,15 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 _painter->setPen(Qt::NoPen);
             else
                 _painter->setPen(BORDERS_COLOR & inverseColor);// BORDERS_COLOR); // restore pen for rectangle painting
+
+            // restore font
+            if (item.block == EASY_GLOBALS.selected_block)
+                _painter->setFont(ITEMS_FONT);
             // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         }
     }
 
-    if (!selectedItemsWasPainted && EASY_GLOBALS.selected_block < EASY_GLOBALS.gui_blocks.size())
+    if (EASY_GLOBALS.selected_block < EASY_GLOBALS.gui_blocks.size())
     {
         const auto& guiblock = EASY_GLOBALS.gui_blocks[EASY_GLOBALS.selected_block];
         if (guiblock.graphics_item == m_index)
@@ -481,7 +439,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
             if (item.left() < sceneRight && item.right() > sceneLeft)
             {
                 auto top = levelY(guiblock.graphics_item_level);
-                decltype(top) h = item.totalHeight;
+                auto w = ::std::max(item.width() * currentScale, 1.0);
+                decltype(top) h = (selectedItemsWasPainted && easyBlock(item.block).expanded && w > 20) ? GRAPHICS_ROW_SIZE : item.totalHeight;
 
                 auto dh = top + h - visibleBottom;
                 if (dh < h)
@@ -490,19 +449,26 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         h -= dh;
 
                     QPen pen(Qt::SolidLine);
-                    pen.setColor(Qt::red);
-                    pen.setWidth(2);
+                    pen.setJoinStyle(Qt::MiterJoin);
+                    pen.setColor(selectedItemBorderColor(item.color));//Qt::red);
+                    pen.setWidth(3);
                     _painter->setPen(pen);
 
-                    brush.setColor(SELECTED_ITEM_COLOR);
-                    _painter->setBrush(brush);
+                    if (!selectedItemsWasPainted)
+                    {
+                        brush.setColor(item.color);// SELECTED_ITEM_COLOR);
+                        _painter->setBrush(brush);
+                    }
+                    else
+                    {
+                        _painter->setBrush(Qt::NoBrush);
+                    }
 
                     auto x = item.left() * currentScale - dx;
-                    auto w = ::std::max(item.width() * currentScale, 1.0);
                     rect.setRect(x, top, w, h);
                     _painter->drawRect(rect);
 
-                    if (w > 20)
+                    if (!selectedItemsWasPainted && w > 20)
                     {
                         // Draw text-----------------------------------
                         // calculating text coordinates
@@ -525,8 +491,10 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         // text will be painted with inverse color
                         //auto textColor = 0x00ffffff - previousColor;
                         //if (textColor == previousColor) textColor = 0;
-                        textColor = ::profiler_gui::textColorForRgb(SELECTED_ITEM_COLOR);
+                        textColor = ::profiler_gui::textColorForRgb(item.color);// SELECTED_ITEM_COLOR);
                         _painter->setPen(textColor);
+
+                        _painter->setFont(SELECTED_ITEM_FONT);
 
                         // drawing text
                         const auto& itemBlock = easyBlock(item.block);
@@ -543,8 +511,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 #ifdef EASY_STORE_CSWITCH_SEPARATELY
     if (!m_pRoot->sync.empty())
     {
-        _painter->setBrush(QColor::fromRgba(0xfffe6030));
-        _painter->setPen(QColor::fromRgb(0x00505050));
+        _painter->setBrush(QColor::fromRgb(::profiler::colors::Coral));// 0xfffe6030));
+        _painter->setPen(QColor::fromRgb(::profiler::colors::Grey800));// 0x00505050));
 
         qreal prevRight = -1e100, top = y() - 4, h = 3;
         if (top + h < visibleBottom)
@@ -589,6 +557,18 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
 
     _painter->restore();
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+const ::profiler::BlocksTreeRoot* EasyGraphicsItem::root() const
+{
+    return m_pRoot;
+}
+
+const QString& EasyGraphicsItem::threadName() const
+{
+    return m_threadName;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1454,20 +1434,18 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
 
     // Calculating start and end time
     ::profiler::timestamp_t finish = 0;
-    ::profiler::thread_id_t longestTree = 0;
-    const EasyGraphicsItem* longestItem = nullptr;
-    const EasyGraphicsItem* mainThreadItem = nullptr;
+    ::profiler::thread_id_t longestTree = 0, mainTree = 0;
     for (const auto& threadTree : _blocksTree)
     {
-        const auto& tree = threadTree.second.children;
-        auto timestart = blocksTree(tree.front()).node->begin();
+        const auto& t = threadTree.second;
+        auto timestart = blocksTree(t.children.front()).node->begin();
 
 #ifdef EASY_STORE_CSWITCH_SEPARATELY
-        if (!threadTree.second.sync.empty())
-            timestart = ::std::min(timestart, blocksTree(threadTree.second.sync.front()).node->begin());
+        if (!t.sync.empty())
+            timestart = ::std::min(timestart, blocksTree(t.sync.front()).node->begin());
 #endif
 
-        const auto timefinish = blocksTree(tree.back()).node->end();
+        const auto timefinish = blocksTree(t.children.back()).node->end();
 
         if (m_beginTime > timestart)
         {
@@ -1479,11 +1457,17 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
             finish = timefinish;
             longestTree = threadTree.first;
         }
+
+        if (mainTree == 0 && !strcmp(t.thread_name, "Main"))
+        {
+            mainTree = threadTree.first;
+        }
     }
 
     // Filling scene with items
     m_items.reserve(_blocksTree.size());
     qreal y = TIMELINE_ROW_SIZE;
+    const EasyGraphicsItem *longestItem = nullptr, *mainThreadItem = nullptr;
     for (const auto& threadTree : _blocksTree)
     {
         if (m_items.size() == 0xff)
@@ -1492,11 +1476,13 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
             break;
         }
 
+        const auto& t = threadTree.second;
+
         // fill scene with new items
-        const auto& tree = threadTree.second.children;
+        const auto& tree = t.children;
         qreal h = 0, x = time2position(blocksTree(tree.front()).node->begin());
-        auto item = new EasyGraphicsItem(static_cast<uint8_t>(m_items.size()), &threadTree.second);
-        item->setLevels(threadTree.second.depth);
+        auto item = new EasyGraphicsItem(static_cast<uint8_t>(m_items.size()), t);
+        item->setLevels(t.depth);
         item->setPos(0, y);
 
         const auto children_duration = setTree(item, tree, h, y, 0);
@@ -1510,7 +1496,7 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         if (longestTree == threadTree.first)
             longestItem = item;
 
-        if (mainThreadItem == nullptr && !strcmp(threadTree.second.thread_name, "Main"))
+        if (mainTree == threadTree.first)
             mainThreadItem = item;
     }
 
@@ -1523,16 +1509,6 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     // Center view on the beginning of the scene
     updateVisibleSceneRect();
     setScrollbar(m_pScrollbar);
-
-    if (mainThreadItem != nullptr)
-        longestItem = mainThreadItem;
-
-    if (longestItem != nullptr)
-    {
-        m_pScrollbar->setMinimapFrom(longestItem->threadId(), longestItem->items(0));
-        EASY_GLOBALS.selected_thread = longestItem->threadId();
-        emit EASY_GLOBALS.events.selectedThreadChanged(longestItem->threadId());
-    }
 
     // Create new chronometer item (previous item was destroyed by scene on scene()->clear()).
     // It will be shown on mouse right button click.
@@ -1549,6 +1525,19 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     m_bEmpty = false;
 
     scaleTo(BASE_SCALE);
+
+
+    emit treeChanged();
+
+    if (mainThreadItem != nullptr)
+        longestItem = mainThreadItem;
+
+    if (longestItem != nullptr)
+    {
+        m_pScrollbar->setMinimapFrom(longestItem->threadId(), longestItem->items(0));
+        EASY_GLOBALS.selected_thread = longestItem->threadId();
+        emit EASY_GLOBALS.events.selectedThreadChanged(longestItem->threadId());
+    }
 }
 
 const EasyGraphicsView::Items &EasyGraphicsView::getItems() const
@@ -1910,25 +1899,28 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
 
             //clicked = true;
             auto mouseClickPos = mapToScene(m_mousePressPos);
-            mouseClickPos.setX(m_offset + mouseClickPos.x() / m_scale);
-
-            // Try to select one of item blocks
-            for (auto item : m_items)
+            if (mouseClickPos.x() >= 0)
             {
-                auto block = item->intersect(mouseClickPos);
-                if (block)
+                mouseClickPos.setX(m_offset + mouseClickPos.x() / m_scale);
+
+                // Try to select one of item blocks
+                for (auto item : m_items)
+                {
+                    auto block = item->intersect(mouseClickPos);
+                    if (block)
+                    {
+                        changedSelectedItem = true;
+                        selectedBlock = block;
+                        EASY_GLOBALS.selected_block = block->block;
+                        break;
+                    }
+                }
+
+                if (!changedSelectedItem && EASY_GLOBALS.selected_block != ::profiler_gui::numeric_max(EASY_GLOBALS.selected_block))
                 {
                     changedSelectedItem = true;
-                    selectedBlock = block;
-                    EASY_GLOBALS.selected_block = block->block;
-                    break;
+                    ::profiler_gui::set_max(EASY_GLOBALS.selected_block);
                 }
-            }
-
-            if (!changedSelectedItem && EASY_GLOBALS.selected_block != ::profiler_gui::numeric_max(EASY_GLOBALS.selected_block))
-            {
-                changedSelectedItem = true;
-                ::profiler_gui::set_max(EASY_GLOBALS.selected_block);
             }
         }
     }
@@ -2019,10 +2011,11 @@ void EasyGraphicsView::mouseMoveEvent(QMouseEvent* _event)
 
     auto mouseScenePos = mapToScene(m_mousePressPos);
     mouseScenePos.setX(m_offset + mouseScenePos.x() / m_scale);
+    const auto x = clamp(0., mouseScenePos.x(), sceneRect().width());
 
     if (m_mouseButtons & Qt::RightButton)
     {
-        bool showItem = moveChrono(m_chronometerItem, mouseScenePos.x());
+        bool showItem = moveChrono(m_chronometerItem, x);
         m_pScrollbar->setChronoPos(m_chronometerItem->left(), m_chronometerItem->right());
 
         if (showItem)
@@ -2037,7 +2030,7 @@ void EasyGraphicsView::mouseMoveEvent(QMouseEvent* _event)
     {
         if (m_bDoubleClick)
         {
-            moveChrono(m_chronometerItemAux, mouseScenePos.x());
+            moveChrono(m_chronometerItemAux, x);
         }
         else
         {
@@ -2243,9 +2236,9 @@ void EasyGraphicsView::onItemsEspandStateChange()
 
 EasyGraphicsViewWidget::EasyGraphicsViewWidget(QWidget* _parent)
     : QWidget(_parent)
-    , m_scrollbar(new EasyGraphicsScrollbar(nullptr))
-    , m_view(new EasyGraphicsView(nullptr))
-    //, m_threadWidget(new EasyThreadViewWidget(this,m_view))
+    , m_scrollbar(new EasyGraphicsScrollbar(this))
+    , m_view(new EasyGraphicsView(this))
+    , m_threadNamesWidget(new EasyThreadNamesWidget(m_view, this))
 {
     initWidget();
 }
@@ -2254,11 +2247,11 @@ void EasyGraphicsViewWidget::initWidget()
 {
     auto lay = new QGridLayout(this);
     lay->setContentsMargins(1, 0, 1, 0);
+    lay->addWidget(m_threadNamesWidget, 0, 0);
+    lay->setSpacing(1);
     lay->addWidget(m_view, 0, 1);
     lay->setSpacing(1);
     lay->addWidget(m_scrollbar, 1, 1);
-    //lay->setSpacing(1);
-    //lay->addWidget(m_threadWidget, 0, 0);
     setLayout(lay);
 
     m_view->setScrollbar(m_scrollbar);
@@ -2277,47 +2270,186 @@ EasyGraphicsView* EasyGraphicsViewWidget::view()
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-EasyThreadViewWidget::EasyThreadViewWidget(QWidget *parent, EasyGraphicsView* view):QWidget(parent),
-    m_view(view)
-  , m_label(new QLabel("",this))
+EasyThreadNameItem::EasyThreadNameItem() : QGraphicsItem(nullptr)
 {
-    m_layout = new QHBoxLayout;
-    //QPushButton *button1 = new QPushButton();
 
-    //m_layout->addWidget(m_label);
-    //setLayout(m_layout);
-    //show();
+}
+
+EasyThreadNameItem::~EasyThreadNameItem()
+{
+
+}
+
+QRectF EasyThreadNameItem::boundingRect() const
+{
+    return m_boundingRect;
+}
+
+void EasyThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
+{
+    const auto view = static_cast<const EasyThreadNamesWidget*>(scene()->parent())->view();
+    const auto& items = view->getItems();
+    if (items.empty())
+        return;
+
+    const auto visibleSceneRect = view->visibleSceneRect();
+    const auto h = visibleSceneRect.height() + TIMELINE_ROW_SIZE;
+    const auto w = scene()->sceneRect().width();
+
+    static const auto OVERLAP = THREADS_ROW_SPACING >> 1;
+    static const QBrush brushes[2] = {QColor::fromRgb(BACKGROUND_1), QColor::fromRgb(BACKGROUND_2)};
+    int i = -1;
+
+    QRectF rect;
+
+    _painter->resetTransform();
+    _painter->setFont(BG_FONT);
+
+    for (auto item : items)
+    {
+        ++i;
+
+        auto br = item->boundingRect();
+        auto top = item->y() + br.top() - visibleSceneRect.top() - OVERLAP;
+        auto hgt = br.height() + THREADS_ROW_SPACING;
+        auto bottom = top + hgt;
+
+        if (top > h || bottom < 0)
+            continue;
+
+        if (item->threadId() == EASY_GLOBALS.selected_thread)
+            _painter->setBrush(QBrush(QColor::fromRgb(::profiler_gui::SELECTED_THREAD_BACKGROUND)));
+        else
+            _painter->setBrush(brushes[i & 1]);
+
+        const auto dh = rect.bottom() - h;
+        if (dh > 0) hgt -= dh;
+        if (top < 0) { hgt += top; top = 0; }
+        rect.setRect(0, top, w, hgt);
+
+        _painter->setPen(Qt::NoPen);
+        _painter->drawRect(rect);
+
+        rect.translate(-5, 0);
+        _painter->setPen(QColor::fromRgb(::profiler::colors::Dark));
+        _painter->drawText(rect, Qt::AlignRight | Qt::AlignVCenter, item->threadName());
+    }
+}
+
+void EasyThreadNameItem::setBoundingRect(const QRectF& _rect)
+{
+    m_boundingRect = _rect;
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+EasyThreadNamesWidget::EasyThreadNamesWidget(EasyGraphicsView* _view, QWidget* _parent) : Parent(_parent)
+    , m_view(_view)
+{
+    setScene(new QGraphicsScene(this));
+
+    setCacheMode(QGraphicsView::CacheNone);
+    setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+    setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    setFixedWidth(100);
+
     connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
+    connect(m_view, &EasyGraphicsView::treeChanged, this, &This::onTreeChange);
+    connect(m_view->verticalScrollBar(), &QScrollBar::valueChanged, verticalScrollBar(), &QScrollBar::setValue);
+    connect(m_view->verticalScrollBar(), &QScrollBar::rangeChanged, verticalScrollBar(), &QScrollBar::setRange);
 }
 
-EasyThreadViewWidget::~EasyThreadViewWidget()
+EasyThreadNamesWidget::~EasyThreadNamesWidget()
 {
 
 }
 
-void EasyThreadViewWidget::onSelectedThreadChange(::profiler::thread_id_t _id)
+void EasyThreadNamesWidget::onTreeChange()
 {
-/*
-    auto threadName = EASY_GLOBALS.profiler_blocks[EASY_GLOBALS.selected_thread].thread_name;
-    if(threadName[0]!=0)
-    {
-        m_label->setText(threadName);
-    }
-    else
-    {
-        m_label->setText(QString("Thread %1").arg(EASY_GLOBALS.selected_thread));
-    }
-*/
-    QLayoutItem *ditem;
-    while ((ditem = m_layout->takeAt(0)))
-        delete ditem;
+    QSignalBlocker b(this);
+    scene()->clear();
 
+    QFontMetricsF fm(BG_FONT);
+    qreal maxLength = 0;
+    const auto& graphicsItems = m_view->getItems();
+    for (auto graphicsItem : graphicsItems)
+        maxLength = ::std::max(maxLength, fm.boundingRect(graphicsItem->threadName()).width());
+
+    auto vbar = verticalScrollBar();
+    auto viewBar = m_view->verticalScrollBar();
+
+    vbar->setRange(viewBar->minimum(), viewBar->maximum());
+    vbar->setSingleStep(viewBar->singleStep());
+    vbar->setPageStep(viewBar->pageStep());
+
+    auto r = m_view->sceneRect();
+    setSceneRect(0, r.top(), maxLength, r.height());
+
+    auto item = new EasyThreadNameItem();
+    item->setPos(0, 0);
+    item->setBoundingRect(sceneRect());
+    scene()->addItem(item);
+
+    b.unblock();
+    setFixedWidth(maxLength);
+    scene()->update();
+}
+
+void EasyThreadNamesWidget::onSelectedThreadChange(::profiler::thread_id_t)
+{
+    scene()->update();
+}
+
+void EasyThreadNamesWidget::mousePressEvent(QMouseEvent* _event)
+{
+    QMouseEvent e(_event->type(), _event->pos() - QPointF(sceneRect().width(), 0), _event->button(), _event->buttons() & ~Qt::RightButton, _event->modifiers());
+    m_view->mousePressEvent(&e);
+    _event->accept();
+}
+
+void EasyThreadNamesWidget::mouseDoubleClickEvent(QMouseEvent* _event)
+{
+    static const auto OVERLAP = THREADS_ROW_SPACING >> 1;
+
+    auto y = mapToScene(_event->pos()).y();
     const auto& items = m_view->getItems();
-    for(const auto& item: items)
+    for (auto item : items)
     {
-        m_layout->addWidget(new QLabel(QString("Thread %1").arg(item->threadId())));
-        m_layout->setSpacing(1);
-    }
-    setLayout(m_layout);
+        auto br = item->boundingRect();
+        auto top = item->y() + br.top() - OVERLAP;
+        auto bottom = top + br.height() + OVERLAP;
 
+        if (y < top || y > bottom)
+            continue;
+
+        const auto thread_id = item->threadId();
+        if (thread_id != EASY_GLOBALS.selected_thread)
+        {
+            EASY_GLOBALS.selected_thread = thread_id;
+            emit EASY_GLOBALS.events.selectedThreadChanged(thread_id);
+        }
+
+        break;
+    }
+
+    _event->accept();
 }
+
+void EasyThreadNamesWidget::mouseReleaseEvent(QMouseEvent* _event)
+{
+    QMouseEvent e(_event->type(), _event->pos() - QPointF(sceneRect().width(), 0), _event->button(), _event->buttons() & ~Qt::RightButton, _event->modifiers());
+    m_view->mouseReleaseEvent(&e);
+    _event->accept();
+}
+
+void EasyThreadNamesWidget::mouseMoveEvent(QMouseEvent* _event)
+{
+    QMouseEvent e(_event->type(), _event->pos() - QPointF(sceneRect().width(), 0), _event->button(), _event->buttons() & ~Qt::RightButton, _event->modifiers());
+    m_view->mouseMoveEvent(&e);
+    _event->accept();
+}
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+

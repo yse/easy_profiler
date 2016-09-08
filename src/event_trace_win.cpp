@@ -144,7 +144,7 @@ namespace profiler {
         // https://msdn.microsoft.com/en-us/library/windows/desktop/aa364093(v=vs.85).aspx
         m_stubThread = ::std::move(::std::thread([this]()
         {
-            EASY_THREAD("EasyProfiler.EventTracing");
+            EASY_THREAD("EasyProfiler.ETW");
             //EASY_BLOCK("ProcessTrace()", ::profiler::colors::Red);
             ProcessTrace(&m_openedHandle, 1, 0, 0);
         }));

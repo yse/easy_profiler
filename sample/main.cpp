@@ -56,7 +56,7 @@ void calcIntersect(){
 
 double multModel(double i)
 {
-    EASY_FUNCTION(profiler::colors::Blue);
+    EASY_FUNCTION(profiler::colors::PaleGold);
     return i * sin(i) * cos(i);
 }
 
