@@ -35,7 +35,9 @@
 #include <atomic>
 #include <QMainWindow>
 #include <QTimer>
+#include <QtNetwork>
 #include "profiler/reader.h"
+#include <sstream>
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -94,6 +96,10 @@ protected:
     ::profiler::SerializedData m_serializedDescriptors;
     EasyFileReader                            m_reader;
 
+    QTcpServer* m_server;
+    QTcpSocket* m_client;
+    std::stringstream m_receivedProfileData;
+    bool m_recFrames = false;
 public:
 
     EasyMainWindow();
@@ -118,7 +124,10 @@ protected slots:
     void onCollapseAllClicked(bool);
     void onFileReaderTimeout();
     void onFileReaderCancel();
+    void onCaptureClicked(bool);
 
+    void readTcpData();
+    void onNewConnection();
 private:
 
     // Private non-virtual methods
@@ -128,6 +137,9 @@ private:
     void loadSettings();
     void loadGeometry();
     void saveSettingsAndGeometry();
+
+    bool m_isClientPreparedBlocks = false;
+    bool m_isClientCaptured = false;
 
 }; // END of class EasyMainWindow.
 

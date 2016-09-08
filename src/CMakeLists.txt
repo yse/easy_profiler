@@ -11,6 +11,7 @@ set(H_FILES
     ${ROOT}/include/profiler/profiler.h
     ${ROOT}/include/profiler/reader.h
     ${ROOT}/include/profiler/event_trace_status.h
+    ${ROOT}/include/profiler/easy_net.h
     profile_manager.h
     spin_lock.h
     event_trace_win.h
@@ -23,5 +24,8 @@ set(SOURCES
 add_definitions(
     -D_BUILD_PROFILER
 )
+
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 
+
+target_link_libraries(${PROJECT_NAME} pthread)

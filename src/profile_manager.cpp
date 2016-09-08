@@ -27,6 +27,8 @@
 #include "profiler/serialized_block.h"
 #include "event_trace_win.h"
 
+#include "profiler/easy_net.h"
+
 #include <thread>
 #include <string.h>
 
@@ -90,6 +92,16 @@ extern "C" {
     PROFILER_API const char* getContextSwitchLogFilename()
     {
         return MANAGER.getContextSwitchLogFilename();
+    }
+
+    PROFILER_API void   startListenSignalToCapture()
+    {
+        return MANAGER.startListenSignalToCapture();
+    }
+
+    PROFILER_API void   stopListenSignalToCapture()
+    {
+        return MANAGER.stopListenSignalToCapture();
     }
 
 }
@@ -170,12 +182,15 @@ ProfileManager::ProfileManager()
 {
 // #ifdef _WIN32
 //     PREVIOUS_FILTER = SetUnhandledExceptionFilter(easyTopLevelExceptionFilter);
-// #endif
+    // #endif
 }
 
 ProfileManager::~ProfileManager()
 {
-    //dumpBlocksToFile("test.prof");
+    stopListenSignalToCapture();
+    if(m_listenThread.joinable()){
+        m_listenThread.join();
+    }
 }
 
 ProfileManager& ProfileManager::instance()
@@ -247,6 +262,20 @@ void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, profiler
     ts->sync.openedList.pop();
 }
 
+void ProfileManager::startListenSignalToCapture()
+{
+    if(!m_isAlreadyListened)
+    {
+        m_listenThread  = std::thread(&ProfileManager::startListen, this);
+        m_isAlreadyListened = true;
+    }
+}
+
+void ProfileManager::stopListenSignalToCapture()
+{
+
+}
+
 void ProfileManager::setEnabled(bool isEnable)
 {
     m_isEnabled = isEnable;
@@ -254,35 +283,11 @@ void ProfileManager::setEnabled(bool isEnable)
 
 //////////////////////////////////////////////////////////////////////////
 
-class FileWriter final
-{
-    std::ofstream m_file;
-
-public:
-
-    explicit FileWriter(const char* _filename) : m_file(_filename, std::fstream::binary) { }
-
-    template <typename T> void write(const char* _data, T _size) {
-        m_file.write(_data, _size);
-    }
-
-    template <class T> void write(const T& _data) {
-        m_file.write((const char*)&_data, sizeof(T));
-    }
-
-    void writeBlock(const profiler::SerializedBlock* _block)
-    {
-        auto sz = static_cast<uint16_t>(sizeof(BaseBlockData) + strlen(_block->name()) + 1);
-        write(sz);
-        write(_block->data(), sz);
-    }
-};
-
 //////////////////////////////////////////////////////////////////////////
 
 #define STORE_CSWITCHES_SEPARATELY
 
-uint32_t ProfileManager::dumpBlocksToFile(const char* filename)
+uint32_t ProfileManager::dumpBlocksToStream(StreamWriter& of)
 {
     const bool wasEnabled = m_isEnabled;
     if (wasEnabled)
@@ -305,10 +310,6 @@ uint32_t ProfileManager::dumpBlocksToFile(const char* filename)
     }
 
 #endif
-
-
-    FileWriter of(filename);
-
     uint64_t usedMemorySize = 0;
     uint32_t blocks_number = 0;
     for (const auto& thread_storage : m_threads)
@@ -398,6 +399,19 @@ uint32_t ProfileManager::dumpBlocksToFile(const char* filename)
     return blocks_number;
 }
 
+uint32_t ProfileManager::dumpBlocksToFile(const char* filename)
+{
+    StreamWriter os;
+    auto res =  dumpBlocksToStream(os);
+
+
+
+    std::ofstream of(filename, std::fstream::binary);
+    of << os.stream().str();
+
+    return res;
+}
+
 const char* ProfileManager::setThreadName(const char* name, const char* filename, const char* _funcname, int line)
 {
     if (THREAD_STORAGE == nullptr)
@@ -418,3 +432,108 @@ const char* ProfileManager::setThreadName(const char* name, const char* filename
 
 //////////////////////////////////////////////////////////////////////////
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <stdio.h>
+
+
+void error(const char *msg)
+{
+    perror(msg);
+    exit(0);
+}
+
+void ProfileManager::startListen()
+{
+    int sockfd, portno, n;
+    struct sockaddr_in serv_addr;
+    struct hostent *server;
+
+    portno = 28077;
+
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0)
+        error("ERROR opening socket");
+    server = gethostbyname("127.0.0.1");
+    if (server == NULL) {
+        fprintf(stderr,"ERROR, no such host\n");
+        exit(0);
+    }
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    bcopy((char *)server->h_addr,
+         (char *)&serv_addr.sin_addr.s_addr,
+         server->h_length);
+    serv_addr.sin_port = htons(portno);
+    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
+        error("ERROR connecting");
+
+    profiler::net::Message replyMessage(profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING);
+
+    char buffer[256];
+    bzero(buffer,256);
+    while(1)
+    {
+        n = read(sockfd,buffer,255);
+
+        char *buf = &buffer[0];
+        int bytes = n;
+        if(bytes > 0)
+        {
+            profiler::net::Message* message = (profiler::net::Message*)buf;
+            if(!message->isEasyNetMessage()){
+                continue;
+            }
+
+            switch (message->type) {
+                case profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE:
+                {
+                    //printf ("RECEIVED MESSAGE_TYPE_REQUEST_START_CAPTURE\n");
+                    profiler::setEnabled(true);
+
+                    replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING;
+                    write(sockfd,&replyMessage,sizeof(replyMessage));
+                }
+                    break;
+                case profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE:
+                {
+                    //printf ("RECEIVED MESSAGE_TYPE_REQUEST_STOP_CAPTURE\n");
+                    profiler::setEnabled(false);
+
+                    replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_PREPARE_BLOCKS;
+                    int send_bytes = write(sockfd,&replyMessage,sizeof(replyMessage));
+
+
+                    profiler::net::DataMessage dm;
+                    StreamWriter os;
+                    dumpBlocksToStream(os);
+                    dm.size = os.stream().str().length();
+
+                    int packet_size = int(sizeof(dm))+int(dm.size);
+
+                    char *sendbuf = new char[packet_size];
+
+                    memset(sendbuf,0,packet_size);
+                    memcpy(sendbuf,&dm,sizeof(dm));
+                    memcpy(sendbuf + sizeof(dm),os.stream().str().c_str(),dm.size);
+
+                    send_bytes = write(sockfd,sendbuf,packet_size);
+
+                    delete [] sendbuf;
+
+                    replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_END_SEND_BLOCKS;
+                    send_bytes = write(sockfd,&replyMessage,sizeof(replyMessage));
+                }
+                    break;
+                default:
+                    break;
+            }
+
+
+            //nn_freemsg (buf);
+        }
+
+    }
+
+}

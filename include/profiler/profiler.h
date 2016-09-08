@@ -259,6 +259,9 @@ namespace profiler {
         PROFILER_API const char* setThreadName(const char* name, const char* filename, const char* _funcname, int line);
         PROFILER_API void        setContextSwitchLogFilename(const char* name);
         PROFILER_API const char* getContextSwitchLogFilename();
+
+        PROFILER_API void        startListenSignalToCapture();
+        PROFILER_API void        stopListenSignalToCapture();
     }
 
 #pragma pack(push,1)

@@ -20,6 +20,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #define ___PROFILER____MANAGER____H______
 
 #include "profiler/profiler.h"
+#include "profiler/serialized_block.h"
 
 #include "spin_lock.h"
 
@@ -29,6 +30,9 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #include <vector>
 #include <string>
 #include <functional>
+#include <sstream>
+#include <string.h>
+
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -163,6 +167,31 @@ public:
     ThreadStorage() = default;
 };
 
+class StreamWriter final
+{
+    std::stringstream m_stream;
+
+public:
+
+    explicit StreamWriter() : m_stream(std::ios_base::out | std::ios_base::binary) { }
+
+    template <typename T> void write(const char* _data, T _size) {
+        m_stream.write(_data, _size);
+    }
+
+    template <class T> void write(const T& _data) {
+        m_stream.write((const char*)&_data, sizeof(T));
+    }
+
+    void writeBlock(const profiler::SerializedBlock* _block)
+    {
+        auto sz = static_cast<uint16_t>(sizeof(profiler::BaseBlockData) + strlen(_block->name()) + 1);
+        write(sz);
+        write(_block->data(), sz);
+    }
+    const std::stringstream& stream() const {return m_stream;}
+};
+
 //////////////////////////////////////////////////////////////////////////
 
 class ProfileManager final
@@ -183,6 +212,14 @@ class ProfileManager final
     bool            m_isEnabled = false;
 
     std::string m_csInfoFilename = "/tmp/cs_profiling_info.log";
+
+    std::thread m_listenThread;
+    bool m_isAlreadyListened = false;
+    void startListen();
+
+    int m_socket = 0;//TODO crossplatform
+
+    uint32_t dumpBlocksToStream(StreamWriter& _stream);
 
 public:
 
@@ -217,6 +254,9 @@ public:
     void beginContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::block_id_t _id);
     void storeContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::block_id_t _id);
     void endContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime);
+
+    void startListenSignalToCapture();
+    void stopListenSignalToCapture();
 
 private:
 

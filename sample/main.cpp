@@ -242,6 +242,7 @@ int main(int argc, char* argv[])
     auto start = std::chrono::system_clock::now();
     EASY_PROFILER_ENABLE;
     EASY_MAIN_THREAD;
+    profiler::startListenSignalToCapture();
     //one();
     //one();
     /**/
