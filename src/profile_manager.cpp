@@ -29,6 +29,8 @@
 
 #include "profiler/easy_net.h"
 
+#include "easy_socket.h"
+
 #include <thread>
 #include <string.h>
 
@@ -437,6 +439,7 @@ const char* ProfileManager::setThreadName(const char* name, const char* filename
 
 //////////////////////////////////////////////////////////////////////////
 
+/*
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -444,59 +447,26 @@ const char* ProfileManager::setThreadName(const char* name, const char* filename
 #include <unistd.h>
 #include <fcntl.h>
 
-
-void error(const char *msg)
-{
-    perror(msg);
-    exit(0);
-}
+*/
 
 void ProfileManager::startListen()
 {
-    int sockfd, portno, n;
-    struct sockaddr_in serv_addr;
-    struct hostent *server;
 
-    portno = 28077;
+    EasySocket socket;
 
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0)
-        error("ERROR opening socket");
-    server = gethostbyname("127.0.0.1");
-    if (server == NULL) {
-        fprintf(stderr,"ERROR, no such host\n");
-        exit(0);
-    }
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    bcopy((char *)server->h_addr,
-         (char *)&serv_addr.sin_addr.s_addr,
-         server->h_length);
-    serv_addr.sin_port = htons(portno);
-
-    struct timeval tv;
-
-    tv.tv_sec = 1;  /* 30 Secs Timeout */
-    tv.tv_usec = 0;  // Not init'ing this can cause strange errors
-
-    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
-
-    while(!m_stopListen.load() && (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0 ) ) {}
-    //if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
-    //    error("ERROR connecting");
-
-
+    socket.setAddress("127.0.0.1",28077);
+    while(!m_stopListen.load() && (socket.connect() < 0 ) ) {}
 
     profiler::net::Message replyMessage(profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING);
 
-    char buffer[256];
-    bzero(buffer,256);
+    char buffer[256] = {};
+    //bzero(buffer,256);
     while(!m_stopListen.load())
     {
-        n = read(sockfd,buffer,255);
+        int bytes = socket.read(buffer,255);
 
         char *buf = &buffer[0];
-        int bytes = n;
+
         if(bytes > 0)
         {
             profiler::net::Message* message = (profiler::net::Message*)buf;
@@ -511,7 +481,7 @@ void ProfileManager::startListen()
                     profiler::setEnabled(true);
 
                     replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING;
-                    write(sockfd,&replyMessage,sizeof(replyMessage));
+                    socket.write(&replyMessage,sizeof(replyMessage));
                 }
                     break;
                 case profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE:
@@ -520,7 +490,7 @@ void ProfileManager::startListen()
                     profiler::setEnabled(false);
 
                     replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_PREPARE_BLOCKS;
-                    int send_bytes = write(sockfd,&replyMessage,sizeof(replyMessage));
+                    int send_bytes = socket.write(&replyMessage,sizeof(replyMessage));
 
 
                     profiler::net::DataMessage dm;
@@ -536,12 +506,12 @@ void ProfileManager::startListen()
                     memcpy(sendbuf,&dm,sizeof(dm));
                     memcpy(sendbuf + sizeof(dm),os.stream().str().c_str(),dm.size);
 
-                    send_bytes = write(sockfd,sendbuf,packet_size);
+                    send_bytes = socket.write(sendbuf,packet_size);
 
                     delete [] sendbuf;
 
                     replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_END_SEND_BLOCKS;
-                    send_bytes = write(sockfd,&replyMessage,sizeof(replyMessage));
+                    send_bytes = socket.write(&replyMessage,sizeof(replyMessage));
                 }
                     break;
                 default:

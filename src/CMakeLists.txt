@@ -5,6 +5,7 @@ set(CPP_FILES
     profile_manager.cpp
     reader.cpp
     event_trace_win.cpp
+    easy_socket.cpp
 )
 
 set(H_FILES
@@ -15,6 +16,7 @@ set(H_FILES
     profile_manager.h
     spin_lock.h
     event_trace_win.h
+    easy_socket.h
 )
 
 set(SOURCES
