@@ -118,6 +118,11 @@ struct BlocksList final
             m_stack.emplace_back(_block);
         }
 
+        inline void emplace(profiler::Block&& _block) {
+            //m_stack.emplace(_block);
+            m_stack.emplace_back(std::forward<profiler::Block&&>(_block));
+        }
+
         template <class ... TArgs> inline void emplace(TArgs ... _args) {
             //m_stack.emplace(_args);
             m_stack.emplace_back(_args...);
@@ -173,7 +178,7 @@ class ProfileManager final
 
     typedef profiler::guard_lock<profiler::spin_lock> guard_lock_t;
     typedef std::map<profiler::thread_id_t, ThreadStorage> map_of_threads_stacks;
-    typedef std::vector<profiler::BlockDescriptor> block_descriptors_t;
+    typedef std::vector<profiler::BlockDescriptor*> block_descriptors_t;
 
     map_of_threads_stacks     m_threads;
     block_descriptors_t   m_descriptors;
@@ -190,14 +195,15 @@ public:
     ~ProfileManager();
 
     template <class ... TArgs>
-    uint32_t addBlockDescriptor(TArgs ... _args)
+    const profiler::BaseBlockDescriptor& addBlockDescriptor(TArgs ... _args)
     {
         guard_lock_t lock(m_storedSpin);
-        const auto id = static_cast<uint32_t>(m_descriptors.size());
-        m_descriptors.emplace_back(m_usedMemorySize, _args...);
-        return id;
+        const auto id = static_cast<profiler::block_id_t>(m_descriptors.size());
+        m_descriptors.emplace_back(new profiler::BlockDescriptor(m_usedMemorySize, id, _args...));
+        return *m_descriptors.back();
     }
 
+    void storeBlock(const profiler::BaseBlockDescriptor& _desc, const char* _runtimeName);
     void beginBlock(profiler::Block& _block);
     void endBlock();
     void setEnabled(bool isEnable);

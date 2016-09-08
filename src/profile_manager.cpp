@@ -46,7 +46,7 @@ extern decltype(LARGE_INTEGER::QuadPart) CPU_FREQUENCY;
 
 extern "C" {
 
-    PROFILER_API block_id_t registerDescription(const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
+    PROFILER_API const BaseBlockDescriptor& registerDescription(const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
     {
         return MANAGER.addBlockDescriptor(_name, _filename, _line, _block_type, _color);
     }
@@ -65,6 +65,11 @@ extern "C" {
         else
             EasyEventTracer::instance().disable();
 #endif
+    }
+
+    PROFILER_API void storeBlock(const BaseBlockDescriptor& _desc, const char* _runtimeName)
+    {
+        MANAGER.storeBlock(_desc, _runtimeName);
     }
 
     PROFILER_API void beginBlock(Block& _block)
@@ -104,16 +109,18 @@ SerializedBlock::SerializedBlock(const Block& block, uint16_t name_length)
 
 //////////////////////////////////////////////////////////////////////////
 
-BaseBlockDescriptor::BaseBlockDescriptor(int _line, block_type_t _block_type, color_t _color)
-    : m_line(_line)
+BaseBlockDescriptor::BaseBlockDescriptor(block_id_t _id, int _line, block_type_t _block_type, color_t _color)
+    : m_id(_id)
+    , m_line(_line)
     , m_type(_block_type)
     , m_color(_color)
+    , m_enabled(true)
 {
 
 }
 
-BlockDescriptor::BlockDescriptor(uint64_t& _used_mem, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
-    : BaseBlockDescriptor(_line, _block_type, _color)
+BlockDescriptor::BlockDescriptor(uint64_t& _used_mem, block_id_t _id, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
+    : BaseBlockDescriptor(_id, _line, _block_type, _color)
     , m_name(_name)
     , m_filename(_filename)
 {
@@ -176,6 +183,10 @@ ProfileManager::ProfileManager()
 ProfileManager::~ProfileManager()
 {
     //dumpBlocksToFile("test.prof");
+    for (auto desc : m_descriptors)
+    {
+        delete desc;
+    }
 }
 
 ProfileManager& ProfileManager::instance()
@@ -186,6 +197,20 @@ ProfileManager& ProfileManager::instance()
     return m_profileManager;
 }
 
+void ProfileManager::storeBlock(const profiler::BaseBlockDescriptor& _desc, const char* _runtimeName)
+{
+    if (!m_isEnabled || !_desc.enabled())
+        return;
+
+    profiler::Block b(_desc, _runtimeName);
+    b.finish(b.begin());
+
+    if (THREAD_STORAGE == nullptr)
+        THREAD_STORAGE = &threadStorage(getCurrentThreadId());
+
+    THREAD_STORAGE->storeBlock(b);
+}
+
 void ProfileManager::beginBlock(Block& _block)
 {
     if (!m_isEnabled)
@@ -194,17 +219,14 @@ void ProfileManager::beginBlock(Block& _block)
     if (THREAD_STORAGE == nullptr)
         THREAD_STORAGE = &threadStorage(getCurrentThreadId());
 
-    if (!_block.isFinished())
-        THREAD_STORAGE->blocks.openedList.emplace(_block);
-    else
-        THREAD_STORAGE->storeBlock(_block);
+    THREAD_STORAGE->blocks.openedList.emplace(_block);
 }
 
 void ProfileManager::beginContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::block_id_t _id)
 {
     auto ts = findThreadStorage(_thread_id);
     if (ts != nullptr)
-        ts->sync.openedList.emplace(_time, profiler::BLOCK_TYPE_CONTEXT_SWITCH, _id, "");
+        ts->sync.openedList.emplace(_time, _id, true, "");
 }
 
 void ProfileManager::storeContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::block_id_t _id)
@@ -212,9 +234,9 @@ void ProfileManager::storeContextSwitch(profiler::thread_id_t _thread_id, profil
     auto ts = findThreadStorage(_thread_id);
     if (ts != nullptr)
     {
-        profiler::Block lastBlock(_time, profiler::BLOCK_TYPE_CONTEXT_SWITCH, _id, "");
-        lastBlock.finish(_time);
-        ts->storeCSwitch(lastBlock);
+        profiler::Block b(_time, _id, true, "");
+        b.finish(_time);
+        ts->storeCSwitch(b);
     }
 }
 
@@ -227,10 +249,13 @@ void ProfileManager::endBlock()
         return;
 
     Block& lastBlock = THREAD_STORAGE->blocks.openedList.top();
-    if (!lastBlock.isFinished())
-        lastBlock.finish();
+    if (lastBlock.enabled())
+    {
+        if (!lastBlock.finished())
+            lastBlock.finish();
+        THREAD_STORAGE->storeBlock(lastBlock);
+    }
 
-    THREAD_STORAGE->storeBlock(lastBlock);
     THREAD_STORAGE->blocks.openedList.pop();
 }
 
@@ -280,8 +305,6 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
-#define STORE_CSWITCHES_SEPARATELY
-
 uint32_t ProfileManager::dumpBlocksToFile(const char* filename)
 {
     const bool wasEnabled = m_isEnabled;
@@ -329,17 +352,17 @@ uint32_t ProfileManager::dumpBlocksToFile(const char* filename)
     of.write(static_cast<uint32_t>(m_descriptors.size()));
     of.write(m_usedMemorySize);
 
-    for (const auto& descriptor : m_descriptors)
+    for (const auto descriptor : m_descriptors)
     {
-        const auto name_size = static_cast<uint16_t>(strlen(descriptor.name()) + 1);
-        const auto filename_size = static_cast<uint16_t>(strlen(descriptor.file()) + 1);
+        const auto name_size = static_cast<uint16_t>(strlen(descriptor->name()) + 1);
+        const auto filename_size = static_cast<uint16_t>(strlen(descriptor->file()) + 1);
         const auto size = static_cast<uint16_t>(sizeof(profiler::SerializedBlockDescriptor) + name_size + filename_size);
 
         of.write(size);
-        of.write<profiler::BaseBlockDescriptor>(descriptor);
+        of.write<profiler::BaseBlockDescriptor>(*descriptor);
         of.write(name_size);
-        of.write(descriptor.name(), name_size);
-        of.write(descriptor.file(), filename_size);
+        of.write(descriptor->name(), name_size);
+        of.write(descriptor->file(), filename_size);
     }
 
     for (auto& thread_storage : m_threads)
@@ -347,47 +370,14 @@ uint32_t ProfileManager::dumpBlocksToFile(const char* filename)
         auto& t = thread_storage.second;
 
         of.write(thread_storage.first);
-#ifdef STORE_CSWITCHES_SEPARATELY
-        of.write(static_cast<uint32_t>(t.blocks.closedList.size()));
-#else
-        of.write(static_cast<uint32_t>(t.blocks.closedList.size()) + static_cast<uint32_t>(t.sync.closedList.size()));
-        uint32_t i = 0;
-#endif
 
-        for (auto b : t.blocks.closedList)
-        {
-#ifndef STORE_CSWITCHES_SEPARATELY
-            if (i < t.sync.closedList.size())
-            {
-                auto s = t.sync.closedList[i];
-                if (s->end() <= b->end())// || s->begin() >= b->begin())
-                //if (((s->end() <= b->end() && s->end() >= b->begin()) || (s->begin() >= b->begin() && s->begin() <= b->end())))
-                {
-                    if (s->m_begin < b->m_begin)
-                        s->m_begin = b->m_begin;
-                    if (s->m_end > b->m_end)
-                        s->m_end = b->m_end;
-                    of.writeBlock(s);
-                    ++i;
-                }
-            }
-#endif
-
-            of.writeBlock(b);
-        }
-
-#ifdef STORE_CSWITCHES_SEPARATELY
         of.write(static_cast<uint32_t>(t.sync.closedList.size()));
         for (auto b : t.sync.closedList)
-        {
-#else
-        for (; i < t.sync.closedList.size(); ++i)
-        {
-            auto b = t.sync.closedList[i];
-#endif
-
             of.writeBlock(b);
-        }
+
+        of.write(static_cast<uint32_t>(t.blocks.closedList.size()));
+        for (auto b : t.blocks.closedList)
+            of.writeBlock(b);
 
         t.clearClosed();
     }
@@ -407,8 +397,12 @@ const char* ProfileManager::setThreadName(const char* name, const char* filename
 
     if (!THREAD_STORAGE->named)
     {
-        const auto id = addBlockDescriptor(_funcname, filename, line, profiler::BLOCK_TYPE_THREAD_SIGN, profiler::colors::Black);
-        THREAD_STORAGE->storeBlock(profiler::Block(profiler::BLOCK_TYPE_THREAD_SIGN, id, name));
+        const auto& desc = addBlockDescriptor(_funcname, filename, line, profiler::BLOCK_TYPE_THREAD_SIGN, profiler::colors::Black);
+
+        profiler::Block b(desc, name);
+        b.finish(b.begin());
+
+        THREAD_STORAGE->storeBlock(b);
         THREAD_STORAGE->name = name;
         THREAD_STORAGE->named = true;
     }

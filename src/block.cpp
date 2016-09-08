@@ -67,19 +67,16 @@ Block::Block(Block&& that)
     m_end = that.m_end;
 }
 
-Block::Block(block_type_t _block_type, block_id_t _descriptor_id, const char* _name)
-    : Block(getCurrentTime(), _block_type, _descriptor_id, _name)
+Block::Block(const BaseBlockDescriptor& _descriptor, const char* _runtimeName)
+    : Block(getCurrentTime(), _descriptor.id(), _descriptor.enabled(), _runtimeName)
 {
 }
 
-Block::Block(timestamp_t _begin_time, block_type_t _block_type, block_id_t _descriptor_id, const char* _name)
+Block::Block(timestamp_t _begin_time, block_id_t _descriptor_id, bool _enabled, const char* _runtimeName)
     : BaseBlockData(_begin_time, _descriptor_id)
-    , m_name(_name)
+    , m_name(_runtimeName)
+    , m_enabled(_enabled)
 {
-    if (static_cast<uint8_t>(_block_type) < BLOCK_TYPE_BLOCK)
-    {
-        m_end = m_begin;
-    }
 }
 
 void Block::finish()
@@ -94,6 +91,6 @@ void Block::finish(timestamp_t _end_time)
 
 Block::~Block()
 {
-    if (!isFinished())
+    if (!finished())
         ::profiler::endBlock();
 }

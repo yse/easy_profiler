@@ -21,6 +21,8 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 #include "profiler/profiler.h"
 
+class ThreadStorage;
+
 namespace profiler {
 
     //////////////////////////////////////////////////////////////////////////

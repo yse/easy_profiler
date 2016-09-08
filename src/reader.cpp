@@ -345,11 +345,62 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
         ::profiler::thread_id_t thread_id = 0;
         inFile.read((char*)&thread_id, sizeof(decltype(thread_id)));
 
+        auto& root = threaded_trees[thread_id];
+
         uint32_t blocks_number_in_thread = 0;
         inFile.read((char*)&blocks_number_in_thread, sizeof(decltype(blocks_number_in_thread)));
-
-        auto& root = threaded_trees[thread_id];
         auto threshold = read_number + blocks_number_in_thread;
+        while (!inFile.eof() && read_number < threshold)
+        {
+            EASY_BLOCK("Read context switch", ::profiler::colors::Green);
+
+            ++read_number;
+
+            uint16_t sz = 0;
+            inFile.read((char*)&sz, sizeof(sz));
+            if (sz == 0)
+                return 0;
+
+            char* data = serialized_blocks[i];
+            inFile.read(data, sz);
+            i += sz;
+            auto baseData = reinterpret_cast<::profiler::SerializedBlock*>(data);
+
+            if (cpu_frequency != 0)
+            {
+                auto t_begin = reinterpret_cast<::profiler::timestamp_t*>(data);
+                auto t_end = t_begin + 1;
+
+                *t_begin *= 1000000000LL;
+                *t_begin /= cpu_frequency;
+
+                *t_end *= 1000000000LL;
+                *t_end /= cpu_frequency;
+            }
+
+            blocks.emplace_back();
+            ::profiler::BlocksTree& tree = blocks.back();
+            tree.node = baseData;
+            const auto block_index = blocks_counter++;
+
+            auto descriptor = descriptors[baseData->id()];
+            if (descriptor->type() != ::profiler::BLOCK_TYPE_CONTEXT_SWITCH)
+                continue;
+
+            root.sync.emplace_back(block_index);
+
+            if (progress.load() < 0)
+                break;
+
+            progress.store(10 + static_cast<int>(80 * i / memory_size));
+        }
+
+        if (progress.load() < 0 || inFile.eof())
+            break;
+
+        blocks_number_in_thread = 0;
+        inFile.read((char*)&blocks_number_in_thread, sizeof(decltype(blocks_number_in_thread)));
+        threshold = read_number + blocks_number_in_thread;
         while (!inFile.eof() && read_number < threshold)
         {
             EASY_BLOCK("Read block", ::profiler::colors::Green);
@@ -481,60 +532,6 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
                 break;
             progress.store(10 + static_cast<int>(80 * i / memory_size));
         }
-
-        if (progress.load() < 0 || inFile.eof())
-            break;
-
-#ifdef EASY_STORE_CSWITCH_SEPARATELY
-        blocks_number_in_thread = 0;
-        inFile.read((char*)&blocks_number_in_thread, sizeof(decltype(blocks_number_in_thread)));
-
-        threshold = read_number + blocks_number_in_thread;
-        while (!inFile.eof() && read_number < threshold)
-        {
-            EASY_BLOCK("Read context switch", ::profiler::colors::Green);
-
-            ++read_number;
-
-            uint16_t sz = 0;
-            inFile.read((char*)&sz, sizeof(sz));
-            if (sz == 0)
-                return 0;
-
-            char* data = serialized_blocks[i];
-            inFile.read(data, sz);
-            i += sz;
-            auto baseData = reinterpret_cast<::profiler::SerializedBlock*>(data);
-
-            if (cpu_frequency != 0)
-            {
-                auto t_begin = reinterpret_cast<::profiler::timestamp_t*>(data);
-                auto t_end = t_begin + 1;
-
-                *t_begin *= 1000000000LL;
-                *t_begin /= cpu_frequency;
-
-                *t_end *= 1000000000LL;
-                *t_end /= cpu_frequency;
-            }
-
-            blocks.emplace_back();
-            ::profiler::BlocksTree& tree = blocks.back();
-            tree.node = baseData;
-            const auto block_index = blocks_counter++;
-
-            auto descriptor = descriptors[baseData->id()];
-            if (descriptor->type() != ::profiler::BLOCK_TYPE_CONTEXT_SWITCH)
-                continue;
-
-            root.sync.emplace_back(block_index);
-
-            if (progress.load() < 0)
-                break;
-
-            progress.store(10 + static_cast<int>(80 * i / memory_size));
-        }
-#endif
     }
 
     if (progress.load() < 0)
@@ -563,12 +560,10 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
 
             statistics_threads.emplace_back(::std::thread([&per_parent_statistics, &per_frame_statistics, &blocks](::profiler::BlocksTreeRoot& root)
             {
-#ifdef EASY_STORE_CSWITCH_SEPARATELY
-                ::std::sort(root.sync.begin(), root.sync.end(), [&blocks](::profiler::block_index_t left, ::profiler::block_index_t right)
-                {
-                    return blocks[left].node->begin() < blocks[right].node->begin();
-                });
-#endif
+                //::std::sort(root.sync.begin(), root.sync.end(), [&blocks](::profiler::block_index_t left, ::profiler::block_index_t right)
+                //{
+                //    return blocks[left].node->begin() < blocks[right].node->begin();
+                //});
 
                 for (auto i : root.children)
                 {
@@ -601,12 +596,10 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
             auto& root = it.second;
             root.thread_id = it.first;
 
-#ifdef EASY_STORE_CSWITCH_SEPARATELY
-            ::std::sort(root.sync.begin(), root.sync.end(), [&blocks](::profiler::block_index_t left, ::profiler::block_index_t right)
-            {
-                return blocks[left].node->begin() < blocks[right].node->begin();
-            });
-#endif
+            //::std::sort(root.sync.begin(), root.sync.end(), [&blocks](::profiler::block_index_t left, ::profiler::block_index_t right)
+            //{
+            //    return blocks[left].node->begin() < blocks[right].node->begin();
+            //});
 
             //root.tree.shrink_to_fit();
             for (auto i : root.children)

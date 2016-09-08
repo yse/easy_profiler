@@ -104,9 +104,9 @@ Block will be automatically completed by destructor.
 \ingroup profiler
 */
 #define EASY_BLOCK(name, ...)\
-    static const ::profiler::block_id_t EASY_UNIQUE_DESC(__LINE__) = ::profiler::registerDescription(EASY_COMPILETIME_NAME(name), __FILE__, __LINE__,\
+    static const ::profiler::BaseBlockDescriptor& EASY_UNIQUE_DESC(__LINE__) = ::profiler::registerDescription(EASY_COMPILETIME_NAME(name), __FILE__, __LINE__,\
         ::profiler::BLOCK_TYPE_BLOCK , ## __VA_ARGS__);\
-    ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(::profiler::BLOCK_TYPE_BLOCK, EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name));\
+    ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name));\
     ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
 /** Macro of beginning of block with function name and custom color.
@@ -129,9 +129,9 @@ Name of the block automatically created with function name.
 \ingroup profiler
 */
 #define EASY_FUNCTION(...)\
-    static const ::profiler::block_id_t EASY_UNIQUE_DESC(__LINE__) = ::profiler::registerDescription(__func__, __FILE__, __LINE__,\
+    static const ::profiler::BaseBlockDescriptor& EASY_UNIQUE_DESC(__LINE__) = ::profiler::registerDescription(__func__, __FILE__, __LINE__,\
         ::profiler::BLOCK_TYPE_BLOCK , ## __VA_ARGS__);\
-    ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(::profiler::BLOCK_TYPE_BLOCK, EASY_UNIQUE_DESC(__LINE__), "");\
+    ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(EASY_UNIQUE_DESC(__LINE__), "");\
     ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
 /** Macro of completion of last nearest open block.
@@ -169,10 +169,9 @@ will end previously opened EASY_BLOCK or EASY_FUNCTION.
 \ingroup profiler
 */
 #define EASY_EVENT(name, ...)\
-    static const ::profiler::block_id_t EASY_UNIQUE_DESC(__LINE__) = ::profiler::registerDescription(EASY_COMPILETIME_NAME(name), __FILE__, __LINE__,\
-        ::profiler::BLOCK_TYPE_EVENT , ## __VA_ARGS__);\
-    ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(::profiler::BLOCK_TYPE_EVENT, EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name));\
-    ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
+    static const ::profiler::BaseBlockDescriptor& EASY_UNIQUE_DESC(__LINE__) = \
+        ::profiler::registerDescription(EASY_COMPILETIME_NAME(name), __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT , ## __VA_ARGS__);\
+    ::profiler::storeBlock(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name));
 
 /** Macro enabling profiler
 \ingroup profiler
@@ -229,11 +228,11 @@ This is only for user comfort. There is no difference for EasyProfiler GUI betwe
 #endif
 
 class ProfileManager;
-class ThreadStorage;
 
 namespace profiler {
 
     class Block;
+    class BaseBlockDescriptor;
 
     typedef uint64_t timestamp_t;
     typedef uint32_t thread_id_t;
@@ -251,42 +250,51 @@ namespace profiler {
     typedef BlockType block_type_t;
 
     extern "C" {
-        PROFILER_API block_id_t  registerDescription(const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color = ::profiler::colors::Default);
+        PROFILER_API const BaseBlockDescriptor& registerDescription(const char* _compiletimeName, const char* _filename, int _line, block_type_t _block_type, color_t _color = ::profiler::colors::Default);
+        PROFILER_API void        storeBlock(const BaseBlockDescriptor& _desc, const char* _runtimeName);
         PROFILER_API void        beginBlock(Block& _block);
         PROFILER_API void        endBlock();
-        PROFILER_API void        setEnabled(bool isEnable);
-        PROFILER_API uint32_t    dumpBlocksToFile(const char* filename);
-        PROFILER_API const char* setThreadName(const char* name, const char* filename, const char* _funcname, int line);
-        PROFILER_API void        setContextSwitchLogFilename(const char* name);
+        PROFILER_API void        setEnabled(bool _isEnable);
+        PROFILER_API uint32_t    dumpBlocksToFile(const char* _filename);
+        PROFILER_API const char* setThreadName(const char* _name, const char* _filename, const char* _funcname, int _line);
+        PROFILER_API void        setContextSwitchLogFilename(const char* _name);
         PROFILER_API const char* getContextSwitchLogFilename();
     }
 
 #pragma pack(push,1)
     class PROFILER_API BaseBlockDescriptor
     {
+        friend ::ProfileManager;
+
     protected:
 
+        block_id_t      m_id; ///< This descriptor id (We can afford this spending because there are much more blocks than descriptors)
         int           m_line; ///< Line number in the source file
         color_t      m_color; ///< Color of the block packed into 1-byte structure
         block_type_t  m_type; ///< Type of the block (See BlockType)
+        bool       m_enabled; ///< If false then blocks with such id() will not be stored by profiler during profile session
 
-        BaseBlockDescriptor(int _line, block_type_t _block_type, color_t _color);
+        BaseBlockDescriptor(block_id_t _id, int _line, block_type_t _block_type, color_t _color);
 
     public:
 
+        inline block_id_t id() const { return m_id; }
         inline int line() const { return m_line; }
-        inline block_type_t type() const { return m_type; }
         inline color_t color() const { return m_color; }
+        inline block_type_t type() const { return m_type; }
+        inline bool enabled() const { return m_enabled; }
     };
 
     class PROFILER_API BlockDescriptor final : public BaseBlockDescriptor
     {
+        friend ::ProfileManager;
+
         const char*     m_name; ///< Static name of all blocks of the same type (blocks can have dynamic name) which is, in pair with descriptor id, a unique block identifier
         const char* m_filename; ///< Source file name where this block is declared
 
     public:
 
-        BlockDescriptor(uint64_t& _used_mem, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color);
+        BlockDescriptor(uint64_t& _used_mem, block_id_t _id, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color);
 
         inline const char* name() const { return m_name; }
         inline const char* file() const { return m_filename; }
@@ -325,18 +333,20 @@ namespace profiler {
         friend ::ProfileManager;
 
         const char* m_name;
+        bool     m_enabled;
 
     private:
 
         void finish();
         void finish(timestamp_t _end_time);
-        inline bool isFinished() const { return m_end >= m_begin; }
+        inline bool finished() const { return m_end >= m_begin; }
+        inline bool enabled() const { return m_enabled; }
 
     public:
 
         Block(Block&& that);
-        Block(block_type_t _block_type, block_id_t _id, const char* _name);
-        Block(timestamp_t _begin_time, block_type_t _block_type, block_id_t _id, const char* _name);
+        Block(const BaseBlockDescriptor& _desc, const char* _runtimeName);
+        Block(timestamp_t _begin_time, block_id_t _id, bool _enabled, const char* _runtimeName);
         ~Block();
 
         inline const char* name() const { return m_name; }
