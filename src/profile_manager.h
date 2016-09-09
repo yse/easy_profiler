@@ -32,13 +32,14 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #include <functional>
 #include <sstream>
 #include <string.h>
+#include <thread>
 #include <atomic>
 
 
 //////////////////////////////////////////////////////////////////////////
 
 #ifdef _WIN32
-#include <Windows.h>
+//#include <Windows.h>
 #else
 #include <thread>
 #include <sys/types.h>

@@ -27,6 +27,21 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
+#else
+
+#define WIN32_LEAN_AND_MEAN
+
+#include <windows.h>
+#include <winsock2.h>
+
+#include <ws2tcpip.h>
+
+
+
+#include <stdlib.h>
+#include <stdio.h>
+
+
 #endif
 
 class EasySocket
@@ -36,10 +51,15 @@ class EasySocket
     uint16_t m_port = 0;
     struct sockaddr_in serv_addr;
     struct hostent *server = nullptr;
+#else
+    SOCKET m_socket = 0;
+    struct addrinfo  *result = NULL;
+    struct addrinfo   hints;
 #endif
 
 public:
     EasySocket();
+    ~EasySocket();
 
     size_t write(const void *buf, size_t nbyte);
     size_t read(void *buf, size_t nbyte);

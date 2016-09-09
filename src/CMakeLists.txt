@@ -29,5 +29,8 @@ add_definitions(
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 
+if(UNIX)
+set(PLATFORM_LIBS thread)
+endif(UNIX)
 
-target_link_libraries(${PROJECT_NAME} pthread)
+target_link_libraries(${PROJECT_NAME} ${PLATFORM_LIBS})
