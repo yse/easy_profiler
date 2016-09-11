@@ -247,6 +247,7 @@ private:
 
     ///< Returns pointer to the EasyGraphicsView widget.
     const EasyGraphicsView* view() const;
+    EasyGraphicsView* view();
 
 }; // END of class EasyChronometerItem.
 
@@ -277,6 +278,7 @@ class EasyGraphicsView : public QGraphicsView
 
 private:
 
+    typedef QGraphicsView Parent;
     typedef EasyGraphicsView This;
     typedef ::std::vector<EasyGraphicsItem*> Items;
     typedef ::std::unordered_set<int, ::profiler_gui::do_no_hash<int>::hasher_t> Keys;

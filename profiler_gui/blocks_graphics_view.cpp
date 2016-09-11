@@ -95,10 +95,34 @@ inline QRgb selectedItemBorderColor(::profiler::color_t _color)
 
 const int FLICKER_INTERVAL = 16; // 60Hz
 
-const auto BG_FONT = QFont("CourierNew", 10, QFont::Bold);
-const auto CHRONOMETER_FONT = QFont("CourierNew", 16, QFont::Bold);
-const auto ITEMS_FONT = QFont("CourierNew", 10, QFont::Medium);
-const auto SELECTED_ITEM_FONT = QFont("CourierNew", 10, QFont::Bold);
+QFont EFont(const char* _family, int _size, int _weight = -1)
+{
+    QFont f;
+    f.setStyleHint(QFont::Helvetica, QFont::PreferMatch);
+    f.setFamily(_family);
+    f.setPointSize(_size);
+    f.setWeight(_weight);
+    return f;
+}
+
+const auto BG_FONT = EFont("Helvetica", 10, QFont::Bold);
+const auto CHRONOMETER_FONT = EFont("Helvetica", 16, QFont::Bold);
+const auto ITEMS_FONT = EFont("Helvetica", 10, QFont::Medium);
+const auto SELECTED_ITEM_FONT = EFont("Helvetica", 10, QFont::Bold);
+
+#ifdef _WIN32
+const qreal FONT_METRICS_FACTOR = 1.05;
+#else
+const qreal FONT_METRICS_FACTOR = 1.;
+#endif
+
+#ifdef max
+#undef max
+#endif
+
+#ifdef min
+#undef min
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -840,7 +864,7 @@ QRectF EasyChronometerItem::boundingRect() const
 
 void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
 {
-    const auto sceneView = view();
+    auto const sceneView = view();
     const auto currentScale = sceneView->scale();
     const auto offset = sceneView->offset();
     const auto visibleSceneRect = sceneView->visibleSceneRect();
@@ -893,7 +917,7 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     selectedInterval = units2microseconds(selectedInterval);
 
     const QString text = ::profiler_gui::timeStringReal(selectedInterval); // Displayed text
-    const auto textRect = QFontMetricsF(CHRONOMETER_FONT).boundingRect(text); // Calculate displayed text boundingRect
+    const auto textRect = QFontMetricsF(CHRONOMETER_FONT, sceneView).boundingRect(text); // Calculate displayed text boundingRect
     const auto rgb = m_color.rgb() & 0x00ffffff;
 
 
@@ -955,7 +979,8 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
             break;
     }
 
-    if (textRect.width() < rect.width())
+    const auto textRect_width = textRect.width() * FONT_METRICS_FACTOR;
+    if (textRect_width < rect.width())
     {
         // Text will be drawed inside rectangle
         _painter->drawText(rect, textFlags, text);
@@ -963,7 +988,7 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
         return;
     }
 
-    const auto w = textRect.width() / currentScale;
+    const auto w = textRect_width / currentScale;
     if (m_right + w < sceneRight)
     {
         // Text will be drawed to the right of rectangle
@@ -1039,11 +1064,16 @@ const EasyGraphicsView* EasyChronometerItem::view() const
     return static_cast<const EasyGraphicsView*>(scene()->parent());
 }
 
+EasyGraphicsView* EasyChronometerItem::view()
+{
+    return static_cast<EasyGraphicsView*>(scene()->parent());
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
 {
-    const auto sceneView = static_cast<const EasyGraphicsView*>(scene()->parent());
+    auto const sceneView = static_cast<EasyGraphicsView*>(scene()->parent());
     const auto visibleSceneRect = sceneView->visibleSceneRect();
     const auto currentScale = sceneView->scale();
     const auto offset = sceneView->offset();
@@ -1109,7 +1139,7 @@ void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
 
     QLineF marks[20];
     qreal first_x = first * sceneStep;
-    const auto textWidth = QFontMetricsF(_painter->font()).boundingRect(QString::number(static_cast<quint64>(0.5 + first_x * factor))).width() + 10;
+    const auto textWidth = QFontMetricsF(_painter->font(), sceneView).width(QString::number(static_cast<quint64>(0.5 + first_x * factor))) * FONT_METRICS_FACTOR + 10;
     const int n = 1 + static_cast<int>(textWidth / step);
     int next = first % n;
     if (next)
@@ -1188,7 +1218,7 @@ void EasyTimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGrap
 //////////////////////////////////////////////////////////////////////////
 
 EasyGraphicsView::EasyGraphicsView(QWidget* _parent)
-    : QGraphicsView(_parent)
+    : Parent(_parent)
     , m_beginTime(::std::numeric_limits<decltype(m_beginTime)>::max())
     , m_scale(1)
     , m_offset(0)
@@ -1988,8 +2018,24 @@ void EasyGraphicsView::keyReleaseEvent(QKeyEvent* _event)
 
 void EasyGraphicsView::resizeEvent(QResizeEvent* _event)
 {
-    QGraphicsView::resizeEvent(_event);
-    updateVisibleSceneRect(); // Update scene visible rect only once
+    Parent::resizeEvent(_event);
+
+    const QRectF previousRect = m_visibleSceneRect;
+    updateVisibleSceneRect(); // Update scene visible rect only once    
+
+    // Update slider width for scrollbar
+    const auto windowWidth = m_visibleSceneRect.width() / m_scale;
+    m_pScrollbar->setSliderWidth(windowWidth);
+
+    // Calculate new offset to save old screen center
+    const auto deltaWidth = m_visibleSceneRect.width() - previousRect.width();
+    m_offset = clamp(0., m_offset - deltaWidth * 0.5 / m_scale, scene()->width() - windowWidth);
+
+    // Update slider position
+    m_bUpdatingRect = true; // To be sure that updateVisibleSceneRect will not be called by scrollbar change
+    m_pScrollbar->setValue(m_offset);
+    m_bUpdatingRect = false;
+
     repaintScene(); // repaint scene
 }
 
@@ -2198,7 +2244,8 @@ QRectF EasyThreadNameItem::boundingRect() const
 
 void EasyThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
 {
-    const auto view = static_cast<const EasyThreadNamesWidget*>(scene()->parent())->view();
+    auto const parentView = static_cast<EasyThreadNamesWidget*>(scene()->parent());
+    const auto view = parentView->view();
     const auto& items = view->getItems();
     if (items.empty())
         return;
@@ -2261,7 +2308,7 @@ void EasyThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
 
     // Draw information
     _painter->setFont(CHRONOMETER_FONT);
-    QFontMetricsF fm(CHRONOMETER_FONT);
+    QFontMetricsF fm(CHRONOMETER_FONT, parentView);
     const qreal time1 = view->chronoTime();
     const qreal time2 = view->chronoTimeAux();
 
@@ -2272,13 +2319,13 @@ void EasyThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
         if (time > 0)
         {
             const QString text = ::profiler_gui::timeStringReal(time); // Displayed text
-            const auto textRect = fm.boundingRect(text); // Calculate displayed text boundingRect
-            rect.setRect(0, y, w, textRect.height());
+            const auto th = fm.height(); // Calculate displayed text height
+            rect.setRect(0, y, w, th);
 
             _painter->setPen(color);
             _painter->drawText(rect, Qt::AlignCenter, text);
 
-            y += textRect.height();
+            y += th;
         }
     };
 
@@ -2293,10 +2340,13 @@ void EasyThreadNameItem::setBoundingRect(const QRectF& _rect)
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyThreadNamesWidget::EasyThreadNamesWidget(EasyGraphicsView* _view, int _additionalHeight, QWidget* _parent) : Parent(_parent)
+EasyThreadNamesWidget::EasyThreadNamesWidget(EasyGraphicsView* _view, int _additionalHeight, QWidget* _parent)
+    : Parent(_parent)
     , m_view(_view)
     , m_additionalHeight(_additionalHeight + 1)
 {
+    setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Ignored);
+
     setScene(new QGraphicsScene(this));
 
     setCacheMode(QGraphicsView::CacheNone);
@@ -2324,14 +2374,14 @@ void EasyThreadNamesWidget::setVerticalScrollbarRange(int _minValue, int _maxVal
 
 void EasyThreadNamesWidget::onTreeChange()
 {
-    QSignalBlocker b(this);
+    const QSignalBlocker b(this);
     scene()->clear();
 
-    QFontMetricsF fm(BG_FONT);
+    QFontMetricsF fm(BG_FONT, this);
     qreal maxLength = 0;
     const auto& graphicsItems = m_view->getItems();
     for (auto graphicsItem : graphicsItems)
-        maxLength = ::std::max(maxLength, fm.boundingRect(graphicsItem->threadName()).width());
+        maxLength = ::std::max(maxLength, fm.width(graphicsItem->threadName()) * FONT_METRICS_FACTOR);
 
     auto vbar = verticalScrollBar();
     auto viewBar = m_view->verticalScrollBar();
@@ -2348,9 +2398,7 @@ void EasyThreadNamesWidget::onTreeChange()
     item->setBoundingRect(sceneRect());
     scene()->addItem(item);
 
-    b.unblock();
     setFixedWidth(maxLength);
-    scene()->update();
 }
 
 void EasyThreadNamesWidget::onSelectedThreadChange(::profiler::thread_id_t)
