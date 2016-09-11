@@ -3,10 +3,11 @@
 #ifdef _WIN32
 #include <memory.h>
 #include <chrono>
-#include "event_trace_win.h"
+
 #include "profiler/profiler.h"
 #include "profile_manager.h"
 
+#include "event_trace_win.h"
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
@@ -76,6 +77,7 @@ namespace profiler {
         switch (startTraceResult)
         {
             case ERROR_SUCCESS:
+                printf("EVENT_TRACING_LAUNCHED_SUCCESSFULLY\n");
                 return EVENT_TRACING_LAUNCHED_SUCCESSFULLY;
 
             case ERROR_ALREADY_EXISTS:
@@ -91,14 +93,16 @@ namespace profiler {
                         return startTrace(true, ++_step);
                     }
                 }
-
+                printf("EVENT_TRACING_WAS_LAUNCHED_BY_SOMEBODY_ELSE\n");
                 return EVENT_TRACING_WAS_LAUNCHED_BY_SOMEBODY_ELSE;
             }
 
             case ERROR_ACCESS_DENIED:
+                printf("EVENT_TRACING_NOT_ENOUGH_ACCESS_RIGHTS\n");
                 return EVENT_TRACING_NOT_ENOUGH_ACCESS_RIGHTS;
 
             case ERROR_BAD_LENGTH:
+                printf("EVENT_TRACING_BAD_PROPERTIES_SIZE\n");
                 return EVENT_TRACING_BAD_PROPERTIES_SIZE;
         }
 

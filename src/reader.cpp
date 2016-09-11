@@ -385,6 +385,10 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
 
             auto& per_parent_statistics = parent_statistics[thread_id];
             auto& per_thread_statistics = thread_statistics[thread_id];
+            if (baseData->id() > descriptors.size())
+            {
+                continue;
+            }
             auto descriptor = descriptors[baseData->id()];
 
             if (descriptor->type() == ::profiler::BLOCK_TYPE_THREAD_SIGN)
@@ -522,7 +526,10 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
             ::profiler::BlocksTree& tree = blocks.back();
             tree.node = baseData;
             const auto block_index = blocks_counter++;
-
+            if (baseData->id() > descriptors.size())
+            {
+                continue;
+            }
             auto descriptor = descriptors[baseData->id()];
             if (descriptor->type() != ::profiler::BLOCK_TYPE_CONTEXT_SWITCH)
                 continue;

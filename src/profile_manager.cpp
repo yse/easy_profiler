@@ -25,11 +25,10 @@
 ************************************************************************/
 #include "profile_manager.h"
 #include "profiler/serialized_block.h"
-#include "event_trace_win.h"
-
 #include "profiler/easy_net.h"
 
 #include "easy_socket.h"
+#include "event_trace_win.h"
 
 #include <thread>
 #include <string.h>
@@ -454,7 +453,7 @@ void ProfileManager::startListen()
 
     EasySocket socket;
 
-    socket.setAddress("127.0.0.1",28077);
+    socket.setAddress("192.224.4.115",28077);
     while(!m_stopListen.load() && (socket.connect() < 0 ) ) {}
 
     profiler::net::Message replyMessage(profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING);
@@ -463,9 +462,15 @@ void ProfileManager::startListen()
     //bzero(buffer,256);
     while(!m_stopListen.load())
     {
-        int bytes = socket.read(buffer,255);
+        auto bytes = socket.read(buffer,255);
 
         char *buf = &buffer[0];
+
+        if (bytes == 0)
+        {
+            while (!m_stopListen.load() && (socket.connect() < 0)) {}
+            continue;
+        }
 
         if(bytes > 0)
         {
@@ -477,7 +482,7 @@ void ProfileManager::startListen()
             switch (message->type) {
                 case profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE:
                 {
-                    //printf ("RECEIVED MESSAGE_TYPE_REQUEST_START_CAPTURE\n");
+                    printf ("RECEIVED MESSAGE_TYPE_REQUEST_START_CAPTURE\n");
                     profiler::setEnabled(true);
 
                     replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING;
@@ -486,17 +491,17 @@ void ProfileManager::startListen()
                     break;
                 case profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE:
                 {
-                    //printf ("RECEIVED MESSAGE_TYPE_REQUEST_STOP_CAPTURE\n");
+                    printf ("RECEIVED MESSAGE_TYPE_REQUEST_STOP_CAPTURE\n");
                     profiler::setEnabled(false);
 
                     replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_PREPARE_BLOCKS;
-                    int send_bytes = socket.write(&replyMessage,sizeof(replyMessage));
+                    auto send_bytes = socket.write(&replyMessage,sizeof(replyMessage));
 
 
                     profiler::net::DataMessage dm;
                     StreamWriter os;
                     dumpBlocksToStream(os);
-                    dm.size = os.stream().str().length();
+                    dm.size = (uint32_t)os.stream().str().length();
 
                     int packet_size = int(sizeof(dm))+int(dm.size);
 
@@ -508,10 +513,16 @@ void ProfileManager::startListen()
 
                     send_bytes = socket.write(sendbuf,packet_size);
 
-                    delete [] sendbuf;
 
+                    /*std::string tempfilename = "test_snd.prof";
+                    std::ofstream of(tempfilename, std::fstream::binary);
+                    of.write((const char*)os.stream().str().c_str(), dm.size);
+                    of.close();*/
+
+                    delete [] sendbuf;
+                    //std::this_thread::sleep_for(std::chrono::seconds(2));
                     replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_END_SEND_BLOCKS;
-                    send_bytes = socket.write(&replyMessage,sizeof(replyMessage));
+                    //send_bytes = socket.write(&replyMessage,sizeof(replyMessage));
                 }
                     break;
                 default:

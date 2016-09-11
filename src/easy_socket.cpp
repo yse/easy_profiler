@@ -37,7 +37,7 @@ EasySocket::~EasySocket()
 {
 }
 
-size_t EasySocket::write(const void *buf, size_t nbyte)
+int EasySocket::write(const void *buf, size_t nbyte)
 {
     if(m_socket <= 0){
         return -1;
@@ -45,7 +45,7 @@ size_t EasySocket::write(const void *buf, size_t nbyte)
     return ::write(m_socket,buf,nbyte);
 }
 
-size_t EasySocket::read(void *buf, size_t nbyte)
+int EasySocket::read(void *buf, size_t nbyte)
 {
     if(m_socket <= 0){
         return -1;
@@ -100,6 +100,9 @@ EasySocket::EasySocket()
     }
     
 
+    u_long iMode = 0;
+    ioctlsocket(m_socket, FIONBIO, &iMode);
+
 }
 
 EasySocket::~EasySocket()
@@ -108,7 +111,7 @@ EasySocket::~EasySocket()
         WSACleanup();
 }
 
-size_t EasySocket::write(const void *buf, size_t nbyte)
+int EasySocket::write(const void *buf, size_t nbyte)
 {
     if (m_socket <= 0){
         return -1;
@@ -116,12 +119,30 @@ size_t EasySocket::write(const void *buf, size_t nbyte)
     return send(m_socket, (const char*)buf, nbyte,0);
 }
 
-size_t EasySocket::read(void *buf, size_t nbyte)
+#include <stdio.h>
+
+int EasySocket::read(void *buf, size_t nbyte)
 {
     if (m_socket <= 0){
         return -1;
     }
-    return recv(m_socket, (char*)buf, nbyte,0);
+
+    int res = recv(m_socket, (char*)buf, nbyte, 0);
+
+    if (res == SOCKET_ERROR)
+    {
+        LPWSTR *s = NULL;
+        int err = WSAGetLastError();
+        FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+            NULL, err,
+            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+            (LPWSTR)&s, 0, NULL);
+        printf("%S\n", s);
+        LocalFree(s);
+
+
+    }
+    return res;
 }
 
 bool EasySocket::setAddress(const char *serv, uint16_t portno)
@@ -139,7 +160,7 @@ bool EasySocket::setAddress(const char *serv, uint16_t portno)
         return false;
     }
 
-    return false;
+    return true;
 }
 
 int EasySocket::connect()
@@ -148,9 +169,11 @@ int EasySocket::connect()
         return -1;
     }
     
-    SOCKET ConnectSocket = socket(result->ai_family, result->ai_socktype,
+    SOCKET  ConnectSocket = socket(result->ai_family, result->ai_socktype,
         result->ai_protocol);
     if (ConnectSocket == INVALID_SOCKET) {
+        printf("socket failed with error: %ld\n", WSAGetLastError());
+        WSACleanup();
         return -1;
     }
 
@@ -159,8 +182,17 @@ int EasySocket::connect()
     if (iResult == SOCKET_ERROR) {
         closesocket(ConnectSocket);
         ConnectSocket = INVALID_SOCKET;
+        return -1;
     }
-    
+    m_socket = ConnectSocket;
+    /**
+    // Connect to server.
+    auto iResult = ::connect(m_socket, result->ai_addr, (int)result->ai_addrlen);
+    if (iResult == SOCKET_ERROR) {
+        closesocket(m_socket);
+        m_socket = INVALID_SOCKET;
+    }
+    /**/
     return iResult;
 }
 

@@ -35,7 +35,8 @@
 #include <atomic>
 #include <QMainWindow>
 #include <QTimer>
-#include <QtNetwork>
+#include <QTcpServer>
+#include <QTcpSocket>
 #include "profiler/reader.h"
 #include <sstream>
 

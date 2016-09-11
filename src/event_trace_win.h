@@ -6,8 +6,9 @@
 #ifdef _WIN32
 
 #define INITGUID  // This is to enable using SystemTraceControlGuid in evntrace.h.
-//#include <Windows.h>
-//#include <Strsafe.h>
+#include <Windows.h>
+#include <Strsafe.h>
+#include <Shellapi.h>
 #include <wmistr.h>
 #include <evntrace.h>
 #include <evntcons.h>

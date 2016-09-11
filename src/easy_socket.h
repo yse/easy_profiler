@@ -31,17 +31,10 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 #define WIN32_LEAN_AND_MEAN
 
-#include <windows.h>
 #include <winsock2.h>
-
+#include <windows.h>
 #include <ws2tcpip.h>
-
-
-
 #include <stdlib.h>
-#include <stdio.h>
-
-
 #endif
 
 class EasySocket
@@ -61,8 +54,8 @@ public:
     EasySocket();
     ~EasySocket();
 
-    size_t write(const void *buf, size_t nbyte);
-    size_t read(void *buf, size_t nbyte);
+    int write(const void *buf, size_t nbyte);
+    int read(void *buf, size_t nbyte);
 
     bool setAddress(const char* serv, uint16_t port);
     int connect();

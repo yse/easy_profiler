@@ -100,7 +100,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     //m_server->connectToHost("127.0.0.1",28077);
     //connect( m_server, SIGNAL(readyRead()), SLOT(readTcpData()) );
 
-    if (!m_server->listen(QHostAddress("127.0.0.1"), 28077)) {
+    if (!m_server->listen(QHostAddress(QHostAddress::Any), 28077)) {
             QMessageBox::critical(0,
                                   "Server Error",
                                   "Unable to start the server:"
@@ -547,8 +547,8 @@ void EasyMainWindow::onCaptureClicked(bool)
 void EasyMainWindow::readTcpData()
 {
     QTcpSocket* pClientSocket = (QTcpSocket*)sender();
-
-
+    static int necessarySize = 0;
+    static int loadedSize = 0;
     while(pClientSocket->bytesAvailable())
     {
         QByteArray data = pClientSocket->readAll();
@@ -560,6 +560,23 @@ void EasyMainWindow::readTcpData()
             return;
         }else if(m_recFrames){
             m_receivedProfileData.write(data.data(),data.size());
+            loadedSize += data.size();
+            if (loadedSize == necessarySize)
+            {
+                qInfo() << "Write FILE";
+                std::string tempfilename = "test_rec.prof";
+                std::ofstream of(tempfilename, std::fstream::binary);
+                of << m_receivedProfileData.str();
+                of.close();
+
+                m_receivedProfileData.str(std::string());
+                m_receivedProfileData.clear();
+                loadFile(QString(tempfilename.c_str()));
+                m_recFrames = false;
+            }
+            //qInfo() << necessarySize << " " << loadedSize;
+            if (m_recFrames)
+                continue;
         }
 
 
@@ -580,17 +597,10 @@ void EasyMainWindow::readTcpData()
             case profiler::net::MESSAGE_TYPE_REPLY_END_SEND_BLOCKS:
             {
                 qInfo() << "Receive MESSAGE_TYPE_REPLY_END_SEND_BLOCKS";
-                m_recFrames = false;
+                //m_recFrames = false;
 
 
-                std::string tempfilename = "test_rec.prof";
-                std::ofstream of(tempfilename, std::fstream::binary);
-                of << m_receivedProfileData.str();
-                of.close();
-
-                m_receivedProfileData.str(std::string());
-                m_receivedProfileData.clear();
-                loadFile(QString(tempfilename.c_str()));
+                
 
             }
                 break;
@@ -598,7 +608,10 @@ void EasyMainWindow::readTcpData()
             {
                 qInfo() << "Receive MESSAGE_TYPE_REPLY_BLOCKS";
                 m_recFrames = true;
+                profiler::net::DataMessage* dm = (profiler::net::DataMessage*)message;
+                necessarySize = dm->size;
                 m_receivedProfileData.write(data.data()+sizeof(profiler::net::DataMessage),data.size() - sizeof(profiler::net::DataMessage));
+                loadedSize += data.size() - sizeof(profiler::net::DataMessage);
 
             }   break;
 

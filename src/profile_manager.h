@@ -22,6 +22,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #include "profiler/profiler.h"
 #include "profiler/serialized_block.h"
 
+#include "easy_socket.h"
 #include "spin_lock.h"
 
 #include <stack>
@@ -39,7 +40,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 //////////////////////////////////////////////////////////////////////////
 
 #ifdef _WIN32
-//#include <Windows.h>
+#include <Windows.h>
 #else
 #include <thread>
 #include <sys/types.h>
