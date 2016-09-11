@@ -135,7 +135,7 @@ namespace profiler {
 
     template <class ... TArgs>
     inline color_t extract_color(TArgs...) {
-        static_assert(false, "No profiler::color_t in arguments list for EASY_BLOCK(name, ...)!");
+        static_assert(sizeof...(TArgs) < 2, "No profiler::color_t in arguments list for EASY_BLOCK(name, ...)!");
         return ::profiler::colors::Default;
     }
 

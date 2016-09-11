@@ -79,8 +79,8 @@ Block will be automatically completed by destructor.
 \ingroup profiler
 */
 # define EASY_BLOCK(name, ...)\
-    static const ::profiler::BlockDescRef EASY_UNIQUE_DESC(__LINE__) = ::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__),\
-        EASY_COMPILETIME_NAME(name), __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__));\
+    static const ::profiler::BlockDescRef EASY_UNIQUE_DESC(__LINE__)(::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__),\
+        EASY_COMPILETIME_NAME(name), __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__)));\
     ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name));\
     ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
@@ -109,8 +109,8 @@ Name of the block automatically created with function name.
 \ingroup profiler
 */
 # define EASY_FUNCTION(...)\
-    static const ::profiler::BlockDescRef EASY_UNIQUE_DESC(__LINE__) = ::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__),\
-        __func__, __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__));\
+    static const ::profiler::BlockDescRef EASY_UNIQUE_DESC(__LINE__)(::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__),\
+        __func__, __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__)));\
     ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(EASY_UNIQUE_DESC(__LINE__), "");\
     ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
@@ -149,9 +149,9 @@ will end previously opened EASY_BLOCK or EASY_FUNCTION.
 \ingroup profiler
 */
 # define EASY_EVENT(name, ...)\
-    static const ::profiler::BlockDescRef EASY_UNIQUE_DESC(__LINE__) = \
+    static const ::profiler::BlockDescRef EASY_UNIQUE_DESC(__LINE__)(\
         ::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__), EASY_COMPILETIME_NAME(name), __FILE__, __LINE__,\
-            ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__));\
+            ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__)));\
     ::profiler::storeBlock(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name));
 
 /** Macro enabling profiler
@@ -346,7 +346,7 @@ namespace profiler {
 
     public:
 
-        BlockDescRef(const BaseBlockDescriptor& _desc) : m_desc(_desc) { }
+        explicit BlockDescRef(const BaseBlockDescriptor& _desc) : m_desc(_desc) { }
         inline operator const BaseBlockDescriptor& () const { return m_desc; }
         ~BlockDescRef();
 
