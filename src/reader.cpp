@@ -43,6 +43,7 @@
 ************************************************************************/
 
 #include "profiler/reader.h"
+#include "hashed_cstr.h"
 #include <fstream>
 #include <iterator>
 #include <algorithm>
@@ -89,111 +90,17 @@ namespace profiler {
 
 #ifdef _WIN32
 
-/** \brief Simple C-string pointer with length.
-
-It is used as base class for a key in std::unordered_map.
-It is used to get better performance than std::string.
-It simply stores a pointer and a length, there is no
-any memory allocation and copy.
-
-\note It is absolutely safe to store pointer because std::unordered_map,
-which uses it as a key, exists only inside fillTreesFromFile function.
-
-*/
-class cstring
-{
-protected:
-
-    const char* str;
-    size_t  str_len;
-
-public:
-
-    explicit cstring(const char* _str) : str(_str), str_len(strlen(_str))
-    {
-    }
-
-    cstring(const cstring& _other) : str(_other.str), str_len(_other.str_len)
-    {
-    }
-
-    inline bool operator == (const cstring& _other) const
-    {
-        return str_len == _other.str_len && !strncmp(str, _other.str, str_len);
-    }
-
-    inline bool operator != (const cstring& _other) const
-    {
-        return !operator == (_other);
-    }
-
-    inline bool operator < (const cstring& _other) const
-    {
-        if (str_len == _other.str_len)
-        {
-            return strncmp(str, _other.str, str_len) < 0;
-        }
-
-        return str_len < _other.str_len;
-    }
-};
-
-/** \brief cstring with precalculated hash.
-
-This is used to calculate hash for C-string and to cache it
-to be used in the future without recurring hash calculatoin.
-
-\note This class is used as a key in std::unordered_map.
-
-*/
-class hashed_cstr : public cstring
-{
-    typedef cstring Parent;
-
-public:
-
-    size_t str_hash;
-
-    explicit hashed_cstr(const char* _str) : Parent(_str), str_hash(0)
-    {
-        str_hash = ::std::_Hash_seq((const unsigned char *)str, str_len);
-    }
-
-    hashed_cstr(const hashed_cstr& _other) : Parent(_other), str_hash(_other.str_hash)
-    {
-    }
-
-    inline bool operator == (const hashed_cstr& _other) const
-    {
-        return str_hash == _other.str_hash && Parent::operator == (_other);
-    }
-
-    inline bool operator != (const hashed_cstr& _other) const
-    {
-        return !operator == (_other);
-    }
-};
-
-namespace std {
-
-    /** \brief Simply returns precalculated hash of a C-string. */
-    template <> struct hash<hashed_cstr> {
-        inline size_t operator () (const hashed_cstr& _str) const {
-            return _str.str_hash;
-        }
-    };
-
-}
-
 typedef ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, passthrough_hash> StatsMap;
-typedef ::std::unordered_map<hashed_cstr, ::profiler::block_id_t> IdMap;
+
+/** \note It is absolutely safe to use hashed_cstr (which simply stores pointer) because std::unordered_map,
+which uses it as a key, exists only inside fillTreesFromFile function. */
+typedef ::std::unordered_map<::profiler::hashed_cstr, ::profiler::block_id_t> IdMap;
 
 #else
 
-// TODO: optimize for Linux too
-#include <string>
+// TODO: Create optimized version of profiler::hashed_cstr for Linux too.
 typedef ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, passthrough_hash> StatsMap;
-typedef ::std::unordered_map<::std::string, ::profiler::block_id_t> IdMap;
+typedef ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::block_id_t> IdMap;
 
 #endif
 

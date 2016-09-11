@@ -68,15 +68,27 @@ Block::Block(Block&& that)
 }
 
 Block::Block(const BaseBlockDescriptor& _descriptor, const char* _runtimeName)
-    : Block(getCurrentTime(), _descriptor.id(), _descriptor.enabled(), _runtimeName)
+    : BaseBlockData(_descriptor.enabled() ? getCurrentTime() : 1ULL, _descriptor.id())
+    , m_name(_runtimeName)
+    , m_enabled(_descriptor.enabled())
 {
 }
 
-Block::Block(timestamp_t _begin_time, block_id_t _descriptor_id, bool _enabled, const char* _runtimeName)
+Block::Block(timestamp_t _begin_time, block_id_t _descriptor_id, const char* _runtimeName)
     : BaseBlockData(_begin_time, _descriptor_id)
     , m_name(_runtimeName)
-    , m_enabled(_enabled)
+    , m_enabled(true)
 {
+}
+
+void Block::start()
+{
+    m_begin = getCurrentTime();
+}
+
+void Block::start(timestamp_t _time)
+{
+    m_begin = _time;
 }
 
 void Block::finish()
@@ -84,9 +96,9 @@ void Block::finish()
     m_end = getCurrentTime();
 }
 
-void Block::finish(timestamp_t _end_time)
+void Block::finish(timestamp_t _time)
 {
-    m_end = _end_time;
+    m_end = _time;
 }
 
 Block::~Block()

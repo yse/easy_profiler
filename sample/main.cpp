@@ -105,7 +105,7 @@ void prepareRender(){
 
 int multPhys(int i)
 {
-    EASY_FUNCTION(profiler::colors::Red700);
+    EASY_FUNCTION(profiler::colors::Red700, profiler::DISABLED);
     return i * i * i * i / 100;
 }
 

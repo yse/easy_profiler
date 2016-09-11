@@ -43,12 +43,12 @@ namespace profiler {
         if (sizeof(CSwitch) != _traceEvent->UserDataLength)
             return;
 
-        //EASY_FUNCTION(::profiler::colors::Red);
+        //EASY_FUNCTION(::profiler::colors::White);
 
         auto _contextSwitchEvent = reinterpret_cast<CSwitch*>(_traceEvent->UserData);
         const auto time = static_cast<::profiler::timestamp_t>(_traceEvent->EventHeader.TimeStamp.QuadPart);
 
-        static const auto& desc = MANAGER.addBlockDescriptor("OS.ContextSwitch", __FILE__, __LINE__, ::profiler::BLOCK_TYPE_CONTEXT_SWITCH, ::profiler::colors::White);
+        static const auto& desc = MANAGER.addBlockDescriptor(true, "OS.ContextSwitch", __FILE__, __LINE__, ::profiler::BLOCK_TYPE_CONTEXT_SWITCH, ::profiler::colors::White);
         MANAGER.beginContextSwitch(_contextSwitchEvent->OldThreadId, time, desc.id());
         MANAGER.endContextSwitch(_contextSwitchEvent->NewThreadId, time);
     }
@@ -145,7 +145,6 @@ namespace profiler {
         m_stubThread = ::std::move(::std::thread([this]()
         {
             EASY_THREAD("EasyProfiler.ETW");
-            //EASY_BLOCK("ProcessTrace()", ::profiler::colors::Red);
             ProcessTrace(&m_openedHandle, 1, 0, 0);
         }));
 
