@@ -17,7 +17,7 @@ echo "Blocks count, dT prof enabled usec, dT prof disabled usec" > $RESULT_FILE
 
 for i in {1..9} 
 do 
-        OBJECTS_COUNT=$(($i*10))
+        OBJECTS_COUNT=$(($i*100))
 	for j in {10..15} 
 	do 
                 RENDER_COUNT=$(($j*100))
