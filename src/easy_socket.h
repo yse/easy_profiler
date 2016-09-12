@@ -41,6 +41,7 @@ class EasySocket
 {
 #ifndef _WIN32
     int m_socket = 0;
+    int m_replySocket = 0;
     uint16_t m_port = 0;
     struct sockaddr_in serv_addr;
     struct hostent *server = nullptr;
@@ -50,12 +51,17 @@ class EasySocket
     struct addrinfo   hints;
 #endif
 
+
+
 public:
     EasySocket();
     ~EasySocket();
 
-    int write(const void *buf, size_t nbyte);
-    int read(void *buf, size_t nbyte);
+    int send(const void *buf, size_t nbyte);
+    int receive(void *buf, size_t nbyte);
+    int listen(int count=5);
+    int accept();
+    int bind(uint16_t portno);
 
     bool setAddress(const char* serv, uint16_t port);
     int connect();

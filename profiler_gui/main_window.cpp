@@ -95,12 +95,12 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     fileToolBar->addAction(newAct);
     connect(newAct, &QAction::triggered, this, &This::onCaptureClicked);
 
-    m_server = new QTcpServer( this );
+    m_server = new QTcpSocket( this );
 
-    //m_server->connectToHost("127.0.0.1",28077);
-    //connect( m_server, SIGNAL(readyRead()), SLOT(readTcpData()) );
+    m_server->connectToHost("127.0.0.1",profiler::DEFAULT_PORT);
+    connect( m_server, SIGNAL(readyRead()), SLOT(readTcpData()) );
 
-    if (!m_server->listen(QHostAddress(QHostAddress::Any), 28077)) {
+    /*if (!m_server->listen(QHostAddress(QHostAddress::Any), 28077)) {
             QMessageBox::critical(0,
                                   "Server Error",
                                   "Unable to start the server:"
@@ -110,9 +110,9 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
         }
 
     connect(m_server, SIGNAL(newConnection()),
-                this,         SLOT(onNewConnection())
+               this,         SLOT(onNewConnection())
                );
-
+    */
     loadSettings();
 
 
@@ -547,6 +547,7 @@ void EasyMainWindow::onCaptureClicked(bool)
 void EasyMainWindow::readTcpData()
 {
     QTcpSocket* pClientSocket = (QTcpSocket*)sender();
+    m_client =  pClientSocket;
     static int necessarySize = 0;
     static int loadedSize = 0;
     while(pClientSocket->bytesAvailable())
@@ -563,20 +564,11 @@ void EasyMainWindow::readTcpData()
             loadedSize += data.size();
             if (loadedSize == necessarySize)
             {
-                qInfo() << "Write FILE";
-                std::string tempfilename = "test_rec.prof";
-                std::ofstream of(tempfilename, std::fstream::binary);
-                of << m_receivedProfileData.str();
-                of.close();
 
-                m_receivedProfileData.str(std::string());
-                m_receivedProfileData.clear();
-                loadFile(QString(tempfilename.c_str()));
-                m_recFrames = false;
             }
             //qInfo() << necessarySize << " " << loadedSize;
-            if (m_recFrames)
-                continue;
+            //if (m_recFrames)
+            //    continue;
         }
 
 
@@ -597,10 +589,19 @@ void EasyMainWindow::readTcpData()
             case profiler::net::MESSAGE_TYPE_REPLY_END_SEND_BLOCKS:
             {
                 qInfo() << "Receive MESSAGE_TYPE_REPLY_END_SEND_BLOCKS";
-                //m_recFrames = false;
+                m_recFrames = false;
 
 
-                
+                qInfo() << "Write FILE";
+                std::string tempfilename = "test_rec.prof";
+                std::ofstream of(tempfilename, std::fstream::binary);
+                of << m_receivedProfileData.str();
+                of.close();
+
+                m_receivedProfileData.str(std::string());
+                m_receivedProfileData.clear();
+                loadFile(QString(tempfilename.c_str()));
+                m_recFrames = false;
 
             }
                 break;
@@ -628,7 +629,7 @@ void EasyMainWindow::readTcpData()
 void EasyMainWindow::onNewConnection()
 {
 
-    m_client = m_server->nextPendingConnection();
+    //m_client = m_server->nextPendingConnection();
 
     qInfo() << "New connection!" << m_client;
 

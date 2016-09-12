@@ -233,6 +233,8 @@ class ThreadStorage;
 
 namespace profiler {
 
+    const uint32_t DEFAULT_PORT = 28077;
+
     class Block;
 
     typedef uint64_t timestamp_t;

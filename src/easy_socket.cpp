@@ -22,6 +22,17 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #ifndef _WIN32
 #include <strings.h>
 
+int EasySocket::bind(uint16_t portno)
+{
+    if(m_socket < 0 ) return -1;
+    struct sockaddr_in serv_addr;
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = INADDR_ANY;
+    serv_addr.sin_port = htons(portno);
+    return ::bind(m_socket, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
+}
+
 EasySocket::EasySocket()
 {
     m_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -30,27 +41,36 @@ EasySocket::EasySocket()
     tv.tv_sec = 1;
     tv.tv_usec = 0;
 
-    setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
+    //setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
 }
 
 EasySocket::~EasySocket()
 {
 }
 
-int EasySocket::write(const void *buf, size_t nbyte)
+int EasySocket::send(const void *buf, size_t nbyte)
 {
-    if(m_socket <= 0){
-        return -1;
-    }
-    return ::write(m_socket,buf,nbyte);
+    if(m_replySocket <= 0)  return -1;
+    return ::write(m_replySocket,buf,nbyte);
 }
 
-int EasySocket::read(void *buf, size_t nbyte)
+int EasySocket::receive(void *buf, size_t nbyte)
 {
-    if(m_socket <= 0){
-        return -1;
-    }
-    return ::read(m_socket,buf,nbyte);
+    if(m_replySocket <= 0) return -1;
+    return ::read(m_replySocket,buf,nbyte);
+}
+
+int EasySocket::listen(int count)
+{
+    if(m_socket < 0 ) return -1;
+    return ::listen(m_socket,count);
+}
+
+int EasySocket::accept()
+{
+    if(m_socket < 0 ) return -1;
+    m_replySocket = ::accept(m_socket,nullptr,nullptr);
+    return m_replySocket;
 }
 
 bool EasySocket::setAddress(const char *serv, uint16_t portno)
@@ -111,7 +131,7 @@ EasySocket::~EasySocket()
         WSACleanup();
 }
 
-int EasySocket::write(const void *buf, size_t nbyte)
+int EasySocket::send(const void *buf, size_t nbyte)
 {
     if (m_socket <= 0){
         return -1;
@@ -121,7 +141,7 @@ int EasySocket::write(const void *buf, size_t nbyte)
 
 #include <stdio.h>
 
-int EasySocket::read(void *buf, size_t nbyte)
+int EasySocket::receive(void *buf, size_t nbyte)
 {
     if (m_socket <= 0){
         return -1;
