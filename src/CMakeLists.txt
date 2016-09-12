@@ -30,7 +30,7 @@ add_definitions(
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 
 if(UNIX)
-set(PLATFORM_LIBS thread)
+set(PLATFORM_LIBS pthread)
 endif(UNIX)
 
 target_link_libraries(${PROJECT_NAME} ${PLATFORM_LIBS})
