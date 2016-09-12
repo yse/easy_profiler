@@ -97,7 +97,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
 
     m_server = new QTcpSocket( this );
 
-    m_server->connectToHost("127.0.0.1",profiler::DEFAULT_PORT);
+    
     connect( m_server, SIGNAL(readyRead()), SLOT(readTcpData()) );
 
     /*if (!m_server->listen(QHostAddress(QHostAddress::Any), 28077)) {
@@ -344,15 +344,49 @@ void EasyMainWindow::onCollapseAllClicked(bool)
     const QSignalBlocker b(tree);
     tree->collapseAll();
 }
-
+#include <QDialog>
+#include <QLineEdit>
+#include <QFormLayout>
+#include <QPushButton>
 void EasyMainWindow::onCaptureClicked(bool)
 {
+    QDialog *dialog = new QDialog();
+    dialog->setWindowTitle(tr("Set network parameters"));
+    QFormLayout *layout = new QFormLayout;
+
+
+    QLineEdit* hostString = new QLineEdit();
+    QRegExp rx("[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}");
+    QRegExpValidator regValidator(rx, 0);
+    hostString->setInputMask("000.000.000.000;");
+    hostString->setValidator(&regValidator);
+    hostString->setText("127.0.0.1");
+
+    QLineEdit* portString = new QLineEdit();
+    portString->setValidator(new QIntValidator(1024, 65536, this));
+    portString->setText(QString::number(profiler::DEFAULT_PORT));
+
+    //layout->addWidget(hostString);
+    layout->addRow(tr("&Address:"), hostString);
+    layout->addRow(tr("&Port:"), portString);
+
+
+    layout->addWidget(new QPushButton(tr("Connect")));
+    dialog->setLayout(layout);
+    dialog->exec();
+    
+
+    qInfo() << portString->text();
+    m_server->connectToHost("127.0.0.1", profiler::DEFAULT_PORT);
+    //TODO dialog
+    
     if(m_client != nullptr)
     {
         profiler::net::Message requestMessage(profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE);
         m_client->write((const char*)&requestMessage, sizeof(requestMessage));
     }else
     {
+        
         QMessageBox::warning(this,"Warning" ,"No connection with profiling app",QMessageBox::Close);
         return;
     }
@@ -369,179 +403,6 @@ void EasyMainWindow::onCaptureClicked(bool)
         QMessageBox::warning(this,"Warning" ,"Application was disconnected",QMessageBox::Close);
         return;
     }
-
-/*
-    //int sock = nn_socket (AF_SP, NN_BUS);
-    //assert (sock >= 0);
-    const char* url = profiler::net::DAFAULT_ADDRESS;
-    //assert (nn_bind (sock, url) >= 0);
-
-    //int packet_size = 200 * 1024 *1024;
-    //assert(nn_setsockopt(sock, NN_SOL_SOCKET, NN_RCVBUF, &packet_size, sizeof(int)) >= 0);
-
-    int res_size = 0;
-    size_t sz = sizeof(int);
-    //nn_getsockopt(sock, NN_SOL_SOCKET, NN_RCVBUF, &res_size, &sz );
-    //qInfo() << "nn_getsockopt " << res_size;
-
-    std::atomic_bool terminate = ATOMIC_VAR_INIT(false);
-    auto capturing = std::thread([&]()
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
-        while (!terminate.load())
-        {
-            profiler::net::Message requestMessage(profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE);
-            int bytes = 0;
-            if(!m_isClientCaptured)
-            {
-                //bytes = nn_send (sock, &requestMessage, sizeof(requestMessage), 0);
-                //assert (bytes == sizeof(requestMessage));
-                //m_server->write((const char*)&requestMessage, sizeof(requestMessage));
-                //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-            }
-
-          char *buf = NULL;
-            bytes = nn_recv (sock, &buf, NN_MSG, 0);
-            //qInfo() << "Receive " << bytes << "bytes";
-            if(bytes > 0)
-            {
-                profiler::net::Message* message = (profiler::net::Message*)buf;
-                if(!message->isEasyNetMessage()){
-                    nn_freemsg (buf);
-                    continue;
-                }
-
-                switch (message->type) {
-                    case profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING:
-                    {
-                        qInfo() << "Receive MESSAGE_TYPE_REPLY_START_CAPTURING";
-                        m_isClientCaptured = true;
-                        terminate.store(true);
-                    }
-                        break;
-                    case profiler::net::MESSAGE_TYPE_REPLY_PREPARE_BLOCKS:
-                    {
-                        qInfo() << "Receive MESSAGE_TYPE_REPLY_PREPARE_BLOCKS";
-                    }
-                        break;
-                default:
-                    break;
-                }
-
-                nn_freemsg (buf);
-            }
-
-
-        }
-    });
-
-    QMessageBox::information(this,"Capturing frames..." ,"Close this window to stop capturing.",QMessageBox::Close);
-
-
-    terminate.store(true);
-    capturing.join();
-    terminate.store(false);
-
-    auto receiving = std::thread([&]()
-    {
-
-        while (!terminate.load())
-        {
-            profiler::net::Message requestMessage(profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE);
-            int bytes = 0;
-            if(!m_isClientPreparedBlocks)
-            {
-                //m_server->write((const char*)&requestMessage, sizeof(requestMessage));
-
-                //bytes = nn_send (sock, , 0);
-                //assert (bytes == sizeof(requestMessage));
-                //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-            }
-/*
-            char *buf = NULL;
-            bytes = nn_recv (sock, &buf, NN_MSG, NN_DONTWAIT);
-            //qInfo() << "Receive " << bytes << "bytes";
-            if(bytes > 0)
-            {
-                profiler::net::Message* message = (profiler::net::Message*)buf;
-                if(!message->isEasyNetMessage()){
-                    nn_freemsg (buf);
-                    continue;
-                }
-
-                switch (message->type) {
-                    case profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING:
-                    {
-                        qInfo() << "Receive MESSAGE_TYPE_REPLY_START_CAPTURING";
-
-                    }
-                        break;
-                    case profiler::net::MESSAGE_TYPE_REPLY_PREPARE_BLOCKS:
-                    {
-                        qInfo() << "Receive MESSAGE_TYPE_REPLY_PREPARE_BLOCKS";
-                        m_isClientPreparedBlocks = true;
-                        terminate.store(true);
-
-
-                        m_socket->connectToHost("127.0.0.1", 28077);
-
-
-                        //
-                    }
-                        break;
-                    case profiler::net::MESSAGE_TYPE_REPLY_END_SEND_BLOCKS:
-                    {
-                        qInfo() << "Receive MESSAGE_TYPE_REPLY_END_SEND_BLOCKS";
-
-                        terminate.store(true);
-                    }
-                        break;
-                    case profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE:
-                    {
-                    }
-                        break;
-                    case profiler::net::MESSAGE_TYPE_REPLY_BLOCKS:
-                    {
-                        qInfo() << "Receive MESSAGE_TYPE_REPLY_BLOCKS";
-                        profiler::net::DataMessage* dm = (profiler::net::DataMessage*)message;
-                        char* rec_data = new char[dm->size];
-
-                        memcpy(rec_data,buf+sizeof(dm),dm->size);
-
-
-                        std::ofstream testfile("test_rec.prof",std::ofstream::binary);
-                        testfile.write(rec_data,dm->size);
-
-                        delete [] rec_data;
-
-                    }
-                        break;
-
-                    default:
-                        qInfo() << "Receive unknown " << message->type;
-                        break;
-
-                }
-
-                nn_freemsg (buf);
-            }
-
-
-        }
-
-
-    });
-
-
-    //nn_shutdown (sock, 0);
-
-    QMessageBox::information(this,"Receiving frames..." ,"Receive from client.",QMessageBox::Close);
-    terminate.store(true);
-    receiving.join();
-    terminate.store(false);
-*/
-    //nn_shutdown (sock, 0);
 }
 
 void EasyMainWindow::readTcpData()
@@ -564,15 +425,19 @@ void EasyMainWindow::readTcpData()
             loadedSize += data.size();
             if (loadedSize == necessarySize)
             {
-
+                m_recFrames = false;
             }
             //qInfo() << necessarySize << " " << loadedSize;
-            //if (m_recFrames)
-            //    continue;
+            if (m_recFrames)
+                continue;
         }
 
-
         switch (message->type) {
+            case profiler::net::MESSAGE_TYPE_ACCEPTED_CONNECTION:
+            {
+                qInfo() << "Receive MESSAGE_TYPE_ACCEPTED_CONNECTION";
+            }
+                break;
             case profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING:
             {
                 qInfo() << "Receive MESSAGE_TYPE_REPLY_START_CAPTURING";

@@ -120,9 +120,11 @@ EasySocket::EasySocket()
     }
     
 
-    u_long iMode = 0;
+    u_long iMode = 0;//0 - blocking, 1 - non blocking
     ioctlsocket(m_socket, FIONBIO, &iMode);
 
+    int opt = 1;
+    setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt));
 }
 
 EasySocket::~EasySocket()
@@ -133,21 +135,21 @@ EasySocket::~EasySocket()
 
 int EasySocket::send(const void *buf, size_t nbyte)
 {
-    if (m_socket <= 0){
+    if (m_replySocket <= 0){
         return -1;
     }
-    return send(m_socket, (const char*)buf, nbyte,0);
+    return ::send(m_replySocket, (const char*)buf, nbyte, 0);
 }
 
 #include <stdio.h>
 
 int EasySocket::receive(void *buf, size_t nbyte)
 {
-    if (m_socket <= 0){
+    if (m_replySocket <= 0){
         return -1;
     }
 
-    int res = recv(m_socket, (char*)buf, nbyte, 0);
+    int res = ::recv(m_replySocket, (char*)buf, nbyte, 0);
 
     if (res == SOCKET_ERROR)
     {
@@ -216,6 +218,36 @@ int EasySocket::connect()
     return iResult;
 }
 
+
+int EasySocket::listen(int count)
+{
+    if (m_socket < 0) return -1;
+    return ::listen(m_socket, count);
+}
+
+int EasySocket::accept()
+{
+    if (m_socket < 0) return -1;
+    m_replySocket = ::accept(m_socket, nullptr, nullptr);
+    return (int)m_replySocket;
+}
+
+int EasySocket::bind(uint16_t portno)
+{
+    if (m_socket < 0) return -1;
+    struct sockaddr_in serv_addr;
+    memset(&serv_addr, 0, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = INADDR_ANY;
+    serv_addr.sin_port = htons(portno);
+    auto res = ::bind(m_socket, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
+    if (res == SOCKET_ERROR)
+    {
+        printf("bind failed with error %u\n", WSAGetLastError());
+        return -1;
+    }
+    return res;
+}
 
 
 #endif

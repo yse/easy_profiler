@@ -39,14 +39,20 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 class EasySocket
 {
-#ifndef _WIN32
-    int m_socket = 0;
-    int m_replySocket = 0;
+#ifdef _WIN32
+    typedef SOCKET socket_t;
+#else
+    typedef int socket_t;
+#endif
+    
+    socket_t m_socket = 0;
+    socket_t m_replySocket = 0;
     uint16_t m_port = 0;
+
+#ifndef _WIN32
     struct sockaddr_in serv_addr;
     struct hostent *server = nullptr;
 #else
-    SOCKET m_socket = 0;
     struct addrinfo  *result = NULL;
     struct addrinfo   hints;
 #endif

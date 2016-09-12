@@ -452,89 +452,105 @@ void ProfileManager::startListen()
 {
 
     EasySocket socket;
-
-    socket.bind(profiler::DEFAULT_PORT);
-
-    socket.listen();
-
-    socket.accept();
-
-    int foo = 0;
-    socket.send(&foo,sizeof(foo));
-
-    //socket.setAddress("192.224.4.115",28077);
-    //while(!m_stopListen.load() && (socket.connect() < 0 ) ) {}
-
     profiler::net::Message replyMessage(profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING);
 
-    char buffer[256] = {};
-    //bzero(buffer,256);
-    while(!m_stopListen.load())
+    socket.bind(profiler::DEFAULT_PORT);
+    int bytes = 0;
+    while (!m_stopListen.load())
     {
-        auto bytes = socket.receive(buffer,255);
+        bool hasConnect = false;
 
-        char *buf = &buffer[0];
+        socket.listen();
 
-        if(bytes > 0)
+        socket.accept();
+
+        hasConnect = true;
+        printf("Client Accepted!\n");
+
+        replyMessage.type = profiler::net::MESSAGE_TYPE_ACCEPTED_CONNECTION;
+        bytes = socket.send(&replyMessage, sizeof(replyMessage));
+
+        hasConnect = bytes > 0;
+
+        while (hasConnect && !m_stopListen.load())
         {
-            profiler::net::Message* message = (profiler::net::Message*)buf;
-            if(!message->isEasyNetMessage()){
-                continue;
-            }
+             
+            char buffer[256] = {};
 
-            switch (message->type) {
+            bytes = socket.receive(buffer, 255);
+
+            hasConnect = bytes > 0;
+
+            char *buf = &buffer[0];
+
+            if (bytes > 0)
+            {
+                profiler::net::Message* message = (profiler::net::Message*)buf;
+                if (!message->isEasyNetMessage()){
+                    continue;
+                }
+
+                switch (message->type) {
                 case profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE:
                 {
-                    printf ("RECEIVED MESSAGE_TYPE_REQUEST_START_CAPTURE\n");
+                    printf("RECEIVED MESSAGE_TYPE_REQUEST_START_CAPTURE\n");
                     profiler::setEnabled(true);
 
                     replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING;
-                    socket.send(&replyMessage,sizeof(replyMessage));
+                    bytes = socket.send(&replyMessage, sizeof(replyMessage));
+                    hasConnect = bytes > 0;
                 }
-                    break;
+                break;
                 case profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE:
                 {
-                    printf ("RECEIVED MESSAGE_TYPE_REQUEST_STOP_CAPTURE\n");
+                    printf("RECEIVED MESSAGE_TYPE_REQUEST_STOP_CAPTURE\n");
                     profiler::setEnabled(false);
 
                     replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_PREPARE_BLOCKS;
-                    auto send_bytes = socket.send(&replyMessage,sizeof(replyMessage));
-
+                    bytes = socket.send(&replyMessage, sizeof(replyMessage));
+                    hasConnect = bytes > 0;
+                    
+                    //TODO
+                    //if connection aborted - ignore this part
 
                     profiler::net::DataMessage dm;
                     StreamWriter os;
                     dumpBlocksToStream(os);
                     dm.size = (uint32_t)os.stream().str().length();
 
-                    int packet_size = int(sizeof(dm))+int(dm.size);
+                    int packet_size = int(sizeof(dm)) + int(dm.size);
 
                     char *sendbuf = new char[packet_size];
 
-                    memset(sendbuf,0,packet_size);
-                    memcpy(sendbuf,&dm,sizeof(dm));
-                    memcpy(sendbuf + sizeof(dm),os.stream().str().c_str(),dm.size);
+                    memset(sendbuf, 0, packet_size);
+                    memcpy(sendbuf, &dm, sizeof(dm));
+                    memcpy(sendbuf + sizeof(dm), os.stream().str().c_str(), dm.size);
 
-                    send_bytes = socket.send(sendbuf,packet_size);
+                    bytes = socket.send(sendbuf, packet_size);
+                    hasConnect = bytes > 0;
 
-
-                    /*std::string tempfilename = "test_snd.prof";
+                    std::string tempfilename = "test_snd.prof";
                     std::ofstream of(tempfilename, std::fstream::binary);
                     of.write((const char*)os.stream().str().c_str(), dm.size);
-                    of.close();*/
+                    of.close();
 
-                    delete [] sendbuf;
+                    delete[] sendbuf;
                     //std::this_thread::sleep_for(std::chrono::seconds(2));
                     replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_END_SEND_BLOCKS;
-                    send_bytes = socket.send(&replyMessage,sizeof(replyMessage));
+                    bytes = socket.send(&replyMessage, sizeof(replyMessage));
+                    hasConnect = bytes > 0;
                 }
-                    break;
+                break;
                 default:
                     break;
+                }
+
+
+                //nn_freemsg (buf);
             }
-
-
-            //nn_freemsg (buf);
         }
+
+        
 
     }
 
