@@ -515,14 +515,10 @@ void EasyGraphicsScrollbar::contextMenuEvent(QContextMenuEvent* _event)
     for (const auto& it : EASY_GLOBALS.profiler_blocks)
     {
         QString label;
-        if (it.second.gotName())
-        {
+        if (it.second.got_name())
             label = ::std::move(QString("%1 Thread %2").arg(it.second.name()).arg(it.first));
-        }
         else
-        {
             label = ::std::move(QString("Thread %1").arg(it.first));
-        }
 
         auto action = new QAction(label, nullptr);
         action->setData(it.first);

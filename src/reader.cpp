@@ -110,7 +110,7 @@ typedef ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::block_id_
 automatically receive statistics update.
 
 */
-::profiler::BlockStatistics* update_statistics(StatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index)
+::profiler::BlockStatistics* update_statistics(StatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index)
 {
     auto duration = _current.node->duration();
     //StatsMap::key_type key(_current.node->name());
@@ -146,7 +146,7 @@ automatically receive statistics update.
 
     // This is first time the block appear in the file.
     // Create new statistics.
-    auto stats = new ::profiler::BlockStatistics(duration, _current_index);
+    auto stats = new ::profiler::BlockStatistics(duration, _current_index, _parent_index);
     //_stats_map.emplace(key, stats);
     _stats_map.emplace(_current.node->id(), stats);
 
@@ -155,12 +155,12 @@ automatically receive statistics update.
 
 //////////////////////////////////////////////////////////////////////////
 
-void update_statistics_recursive(StatsMap& _stats_map, ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::blocks_t& _blocks)
+void update_statistics_recursive(StatsMap& _stats_map, ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, ::profiler::blocks_t& _blocks)
 {
-    _current.per_frame_stats = update_statistics(_stats_map, _current, _current_index);
+    _current.per_frame_stats = update_statistics(_stats_map, _current, _current_index, _parent_index);
     for (auto i : _current.children)
     {
-        update_statistics_recursive(_stats_map, _blocks[i], i, _blocks);
+        update_statistics_recursive(_stats_map, _blocks[i], i, _parent_index, _blocks);
     }
 }
 
@@ -397,7 +397,7 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
                         for (auto i : tree.children)
                         {
                             auto& child = blocks[i];
-                            child.per_parent_stats = update_statistics(per_parent_statistics, child, i);
+                            child.per_parent_stats = update_statistics(per_parent_statistics, child, i, block_index);
 
                             children_duration += child.node->duration();
                             if (tree.depth < child.depth)
@@ -426,7 +426,7 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
             if (gather_statistics)
             {
                 EASY_BLOCK("Gather per thread statistics", ::profiler::colors::Coral);
-                tree.per_thread_stats = update_statistics(per_thread_statistics, tree, block_index);
+                tree.per_thread_stats = update_statistics(per_thread_statistics, tree, block_index, thread_id);
             }
 
             if (progress.load() < 0)
@@ -469,13 +469,15 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
                 for (auto i : root.children)
                 {
                     auto& frame = blocks[i];
-                    frame.per_parent_stats = update_statistics(per_parent_statistics, frame, i);
+                    frame.per_parent_stats = update_statistics(per_parent_statistics, frame, i, root.thread_id);
 
                     per_frame_statistics.clear();
-                    update_statistics_recursive(per_frame_statistics, frame, i, blocks);
+                    update_statistics_recursive(per_frame_statistics, frame, i, i, blocks);
 
                     if (root.depth < frame.depth)
                         root.depth = frame.depth;
+
+                    root.active_time += frame.node->duration();
                 }
 
                 ++root.depth;
@@ -508,6 +510,7 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
                 auto& frame = blocks[i];
                 if (root.depth < frame.depth)
                     root.depth = frame.depth;
+                root.active_time += frame.node->duration();
             }
 
             ++root.depth;

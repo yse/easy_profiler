@@ -226,7 +226,7 @@ inline qreal timeFactor(qreal _interval)
 inline QString timeStringReal(qreal _interval, int _precision = 1)
 {
     if (_interval < 1) // interval in nanoseconds
-        return QString("%1 ns").arg(_interval * 1e3, 0, 'f', _precision);
+        return QString("%1 ns").arg(static_cast<quint32>(_interval * 1e3));
 
     if (_interval < 1e3) // interval in microseconds
         return QString("%1 us").arg(_interval, 0, 'f', _precision);
@@ -265,6 +265,18 @@ template <class T> inline T numeric_max(T) {
 
 template <class T> inline void set_max(T& _value) {
     _value = ::std::numeric_limits<T>::max();
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+inline double percentReal(::profiler::timestamp_t _partial, ::profiler::timestamp_t _total)
+{
+    return 100. * static_cast<double>(_partial) / static_cast<double>(_total);
+}
+
+inline int percent(::profiler::timestamp_t _partial, ::profiler::timestamp_t _total)
+{
+    return static_cast<int>(0.5 + percentReal(_partial, _total));
 }
 
 //////////////////////////////////////////////////////////////////////////

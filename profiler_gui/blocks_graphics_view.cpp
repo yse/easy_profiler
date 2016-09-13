@@ -150,7 +150,7 @@ inline T logn(T _value)
 
 EasyGraphicsItem::EasyGraphicsItem(uint8_t _index, const::profiler::BlocksTreeRoot& _root)
     : QGraphicsItem(nullptr)
-    , m_threadName(_root.gotName() ? QString("%1 Thread %2").arg(_root.name()).arg(_root.thread_id) : QString("Thread %1").arg(_root.thread_id))
+    , m_threadName(_root.got_name() ? QString("%1 Thread %2").arg(_root.name()).arg(_root.thread_id) : QString("Thread %1").arg(_root.thread_id))
     , m_pRoot(&_root)
     , m_index(_index)
 {
@@ -460,9 +460,10 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 const auto& item = m_levels[guiblock.graphics_item_level][guiblock.graphics_item_index];
                 if (item.left() < sceneRight && item.right() > sceneLeft)
                 {
+                    const auto& itemBlock = easyBlock(item.block);
                     auto top = levelY(guiblock.graphics_item_level);
                     auto w = ::std::max(item.width() * currentScale, 1.0);
-                    decltype(top) h = (selectedItemsWasPainted && easyBlock(item.block).expanded && w > 20) ? GRAPHICS_ROW_SIZE : item.totalHeight;
+                    decltype(top) h = (selectedItemsWasPainted && itemBlock.expanded && w > 20) ? GRAPHICS_ROW_SIZE : item.totalHeight;
 
                     auto dh = top + h - visibleBottom;
                     if (dh < h)
@@ -470,7 +471,6 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         if (dh > 0)
                             h -= dh;
 
-                        const auto& itemBlock = easyBlock(item.block);
                         const auto& itemDesc = easyDescriptor(itemBlock.tree.node->id());
 
                         QPen pen(Qt::SolidLine);
@@ -538,7 +538,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     {
         auto firstSync = ::std::lower_bound(m_pRoot->sync.begin(), m_pRoot->sync.end(), sceneLeft, [&sceneView](::profiler::block_index_t _index, qreal _value)
         {
-            return sceneView->time2position(easyBlock(_index).tree.node->begin()) < _value;
+            return sceneView->time2position(blocksTree(_index).node->begin()) < _value;
         });
 
         if (firstSync != m_pRoot->sync.end())
@@ -558,7 +558,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         {
             for (auto it = firstSync, end = m_pRoot->sync.end(); it != end; ++it)
             {
-                const auto& item = easyBlock(*it).tree;
+                const auto& item = blocksTree(*it);
                 auto left = sceneView->time2position(item.node->begin());
 
                 if (left > sceneRight)
@@ -829,7 +829,7 @@ const ::profiler_gui::EasyBlock* EasyGraphicsItem::intersectEvent(const QPointF&
     const auto currentScale = view()->scale();
     auto firstSync = ::std::lower_bound(m_pRoot->sync.begin(), m_pRoot->sync.end(), _pos.x(), [&sceneView](::profiler::block_index_t _index, qreal _value)
     {
-        return sceneView->time2position(easyBlock(_index).tree.node->begin()) < _value;
+        return sceneView->time2position(blocksTree(_index).node->begin()) < _value;
     });
 
     if (firstSync == m_pRoot->sync.end())
@@ -1357,6 +1357,15 @@ void EasyGraphicsView::clearSilent()
     m_flickerCounterX = 0;
     m_flickerCounterY = 0;
 
+    if (m_csInfoWidget != nullptr)
+    {
+        auto widget = m_csInfoWidget->widget();
+        widget->setParent(nullptr);
+        m_csInfoWidget->setWidget(nullptr);
+        delete widget;
+        m_csInfoWidget = nullptr;
+    }
+
     // Clear all items
     scene()->clear();
     m_items.clear();
@@ -1369,7 +1378,6 @@ void EasyGraphicsView::clearSilent()
 
     m_idleTimer.stop();
     m_idleTime = 0;
-    m_csInfoWidget = nullptr;
 
     // Reset necessary flags
     //m_bTest = false;
@@ -2290,14 +2298,29 @@ void EasyGraphicsView::onIdleTimeout()
             auto block = item->intersect(pos);
             if (block)
             {
-                const auto& itemBlock = easyBlock(block->block);
-                auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : easyDescriptor(itemBlock.tree.node->id()).name();
+                const auto& itemBlock = blocksTree(block->block);
+                auto name = *itemBlock.node->name() != 0 ? itemBlock.node->name() : easyDescriptor(itemBlock.node->id()).name();
 
                 auto widget = new QWidget();
                 auto lay = new QFormLayout(widget);
                 lay->setLabelAlignment(Qt::AlignRight);
                 lay->addRow("Name:", new QLabel(name));
-                lay->addRow("Duration:", new QLabel(::profiler_gui::timeStringReal(units2microseconds(block->w), 3)));
+                lay->addRow("Duration:", new QLabel(::profiler_gui::timeStringReal(PROF_MICROSECONDS(itemBlock.node->duration()), 3)));
+                if (itemBlock.per_thread_stats)
+                {
+                    lay->addRow("%/Thread:", new QLabel(QString::number(::profiler_gui::percent(itemBlock.per_thread_stats->total_duration, item->root()->active_time))));
+                    lay->addRow("N/Thread:", new QLabel(QString::number(itemBlock.per_thread_stats->calls_number)));
+                    if (itemBlock.per_parent_stats->parent_block == item->threadId())
+                    {
+                        auto percent = ::profiler_gui::percentReal(itemBlock.node->duration(), item->root()->active_time);
+                        lay->addRow("%:", new QLabel(percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent))));
+                    }
+                    else
+                    {
+                        auto percent = ::profiler_gui::percentReal(itemBlock.node->duration(), blocksTree(itemBlock.per_parent_stats->parent_block).node->duration());
+                        lay->addRow("%:", new QLabel(percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent))));
+                    }
+                }
 
                 m_csInfoWidget = new QGraphicsProxyWidget();
                 m_csInfoWidget->setWidget(widget);
@@ -2343,6 +2366,10 @@ void EasyGraphicsView::onIdleTimeout()
     }
     else if (m_csInfoWidget != nullptr)
     {
+        auto widget = m_csInfoWidget->widget();
+        widget->setParent(nullptr);
+        m_csInfoWidget->setWidget(nullptr);
+        delete widget;
         scene()->removeItem(m_csInfoWidget);
         m_csInfoWidget = nullptr;
     }

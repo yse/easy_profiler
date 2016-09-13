@@ -161,7 +161,7 @@ void FillTreeClass<T>::setTreeInternal1(T& _safelocker, Items& _items, ThreadedI
         const auto& root = threadTree.second;
         auto item = new EasyTreeWidgetItem();
 
-        if (root.gotName())
+        if (root.got_name())
             item->setText(COL_NAME, QString("%1 Thread %2").arg(root.name()).arg(root.thread_id));
         else
             item->setText(COL_NAME, QString("Thread %1").arg(root.thread_id));
@@ -176,13 +176,9 @@ void FillTreeClass<T>::setTreeInternal1(T& _safelocker, Items& _items, ThreadedI
 
         //_items.push_back(item);
 
-        // TODO: Optimize children duration calculation (it must be calculated before setTreeInternal now)
-        ::profiler::timestamp_t children_duration = 0;
-        for (auto i : root.children)
-            children_duration += blocksTree(i).node->duration();
-        item->setTimeSmart(COL_SELF_DURATION, children_duration);
+        item->setTimeSmart(COL_SELF_DURATION, root.active_time);
 
-        children_duration = 0;
+        ::profiler::timestamp_t children_duration = 0;
         const auto children_items_number = FillTreeClass<T>::setTreeInternal(_safelocker, _items, _beginTime, root.children, item, nullptr, item, _beginTime, finishtime + 1000000000ULL, false, children_duration, _colorizeRows);
 
         if (children_items_number > 0)
@@ -253,7 +249,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
         {
             thread_item = new EasyTreeWidgetItem();
 
-            if (block.root->gotName())
+            if (block.root->got_name())
                 thread_item->setText(COL_NAME, QString("%1 Thread %2").arg(block.root->name()).arg(block.root->thread_id));
             else
                 thread_item->setText(COL_NAME, QString("Thread %1").arg(block.root->thread_id));
@@ -265,11 +261,8 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
             thread_item->setBackgroundColor(::profiler_gui::SELECTED_THREAD_BACKGROUND);
             thread_item->setTextColor(::profiler_gui::SELECTED_THREAD_FOREGROUND);
 
-            // Calculate clean duration (sum of all children durations)
-            ::profiler::timestamp_t children_duration = 0;
-            for (auto i : block.root->children)
-                children_duration += blocksTree(i).node->duration();
-            thread_item->setTimeSmart(COL_SELF_DURATION, children_duration);
+            // Sum of all children durations:
+            thread_item->setTimeSmart(COL_SELF_DURATION, block.root->active_time);
 
             threadsMap.insert(::std::make_pair(block.root->thread_id, thread_item));
         }
@@ -307,7 +300,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
             item->setData(COL_NCALLS_PER_THREAD, Qt::UserRole, per_thread_stats->calls_number);
             item->setText(COL_NCALLS_PER_THREAD, QString::number(per_thread_stats->calls_number));
 
-            auto percentage_per_thread = static_cast<int>(0.5 + 100. * static_cast<double>(per_thread_stats->total_duration) / static_cast<double>(thread_item->selfDuration()));
+            auto percentage_per_thread = ::profiler_gui::percent(per_thread_stats->total_duration, block.root->active_time);
             item->setData(COL_PERCENT_SUM_PER_THREAD, Qt::UserRole, percentage_per_thread);
             item->setText(COL_PERCENT_SUM_PER_THREAD, QString::number(percentage_per_thread));
 
@@ -455,8 +448,8 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
             const auto& per_parent_stats = child.per_parent_stats;
             const auto& per_frame_stats = child.per_frame_stats;
 
-            auto percentage = duration == 0 ? 0 : static_cast<int>(0.5 + 100. * static_cast<double>(duration) / static_cast<double>(_parent->duration()));
-            auto percentage_sum = static_cast<int>(0.5 + 100. * static_cast<double>(per_parent_stats->total_duration) / static_cast<double>(_parent->duration()));
+            auto percentage = duration == 0 ? 0 : ::profiler_gui::percent(duration, _parent->duration());
+            auto percentage_sum = ::profiler_gui::percent(per_parent_stats->total_duration, _parent->duration());
             item->setData(COL_PERCENT_PER_PARENT, Qt::UserRole, percentage);
             item->setText(COL_PERCENT_PER_PARENT, QString::number(percentage));
             item->setData(COL_PERCENT_SUM_PER_PARENT, Qt::UserRole, percentage_sum);
@@ -466,8 +459,8 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
             {
                 if (_parent != _frame)
                 {
-                    percentage = duration == 0 ? 0 : static_cast<int>(0.5 + 100. * static_cast<double>(duration) / static_cast<double>(_frame->duration()));
-                    percentage_sum = static_cast<int>(0.5 + 100. * static_cast<double>(per_frame_stats->total_duration) / static_cast<double>(_frame->duration()));
+                    percentage = duration == 0 ? 0 : ::profiler_gui::percent(duration, _frame->duration());
+                    percentage_sum = ::profiler_gui::percent(per_frame_stats->total_duration, _frame->duration());
                 }
 
                 item->setData(COL_PERCENT_PER_FRAME, Qt::UserRole, percentage);
@@ -497,7 +490,7 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
 
             if (_thread)
             {
-                auto percentage_per_thread = static_cast<int>(0.5 + 100. * static_cast<double>(per_thread_stats->total_duration) / static_cast<double>(_thread->selfDuration()));
+                auto percentage_per_thread = ::profiler_gui::percent(per_thread_stats->total_duration, _thread->selfDuration());
                 item->setData(COL_PERCENT_SUM_PER_THREAD, Qt::UserRole, percentage_per_thread);
                 item->setText(COL_PERCENT_SUM_PER_THREAD, QString::number(percentage_per_thread));
             }
@@ -558,7 +551,7 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
         auto self_duration = duration - children_duration;
         if (children_duration > 0 && duration > 0)
         {
-            percentage = static_cast<int>(0.5 + 100. * static_cast<double>(self_duration) / static_cast<double>(duration));
+            percentage = ::profiler_gui::percent(self_duration, duration);
         }
 
         item->setTimeSmart(COL_SELF_DURATION, self_duration);
