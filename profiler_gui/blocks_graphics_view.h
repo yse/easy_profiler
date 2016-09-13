@@ -161,6 +161,7 @@ public:
     void getBlocks(qreal _left, qreal _right, ::profiler_gui::TreeBlocks& _blocks) const;
 
     const ::profiler_gui::EasyBlockItem* intersect(const QPointF& _pos) const;
+    const ::profiler_gui::EasyBlock* intersectEvent(const QPointF& _pos) const;
 
 private:
 
@@ -272,6 +273,8 @@ EASY_QGRAPHICSITEM(EasyTimelineIndicatorItem);
 
 //////////////////////////////////////////////////////////////////////////
 
+class QGraphicsProxyWidget;
+
 class EasyGraphicsView : public QGraphicsView
 {
     Q_OBJECT
@@ -287,19 +290,24 @@ private:
     Keys                                 m_keys; ///< Pressed keys
     ::profiler_gui::TreeBlocks m_selectedBlocks; ///< Array of items which were selected by selection zone (EasyChronometerItem)
     QTimer                       m_flickerTimer; ///< Timer for flicking behavior
+    QTimer                          m_idleTimer; ///< 
     QRectF                   m_visibleSceneRect; ///< Visible scene rectangle
     ::profiler::timestamp_t         m_beginTime; ///< Begin time of profiler session. Used to reduce values of all begin and end times of profiler blocks.
     qreal                               m_scale; ///< Current scale
     qreal                              m_offset; ///< Have to use manual offset for all scene content instead of using scrollbars because QScrollBar::value is 32-bit integer :(
     qreal                        m_timelineStep; ///< 
+    uint64_t                         m_idleTime; ///< 
     QPoint                      m_mousePressPos; ///< Last mouse global position (used by mousePressEvent and mouseMoveEvent)
     QPoint                      m_mouseMovePath; ///< Mouse move path between press and release of any button
     Qt::MouseButtons             m_mouseButtons; ///< Pressed mouse buttons
     EasyGraphicsScrollbar*         m_pScrollbar; ///< Pointer to the graphics scrollbar widget
     EasyChronometerItem*      m_chronometerItem; ///< Pointer to the EasyChronometerItem which is displayed when you press right mouse button and move mouse left or right. This item is used to select blocks to display in tree widget.
     EasyChronometerItem*   m_chronometerItemAux; ///< Pointer to the EasyChronometerItem which is displayed when you double click left mouse button and move mouse left or right. This item is used only to measure time.
+    QGraphicsProxyWidget*        m_csInfoWidget; ///< 
     int                         m_flickerSpeedX; ///< Current flicking speed x
     int                         m_flickerSpeedY; ///< Current flicking speed y
+    int                       m_flickerCounterX;
+    int                       m_flickerCounterY;
     bool                         m_bDoubleClick; ///< Is mouse buttons double clicked
     bool                        m_bUpdatingRect; ///< Stub flag which is used to avoid excess calculations on some scene update (flicking, scaling and so on)
     bool                               m_bEmpty; ///< Indicates whether scene is empty and has no items
@@ -361,6 +369,7 @@ private slots:
     void onScrollbarValueChange(int);
     void onGraphicsScrollbarValueChange(qreal);
     void onFlickerTimeout();
+    void onIdleTimeout();
     void onSelectedThreadChange(::profiler::thread_id_t _id);
     void onSelectedBlockChange(unsigned int _block_index);
     void onItemsEspandStateChange();

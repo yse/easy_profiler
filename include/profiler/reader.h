@@ -21,8 +21,9 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include <map>
+#include <unordered_map>
 #include <vector>
+#include <string>
 #include <atomic>
 #include "profiler/profiler.h"
 #include "profiler/serialized_block.h"
@@ -175,7 +176,7 @@ namespace profiler {
 
         BlocksTree::children_t     children;
         BlocksTree::children_t         sync;
-        const char*             thread_name;
+        std::string             thread_name;
         ::profiler::thread_id_t   thread_id;
         uint16_t                      depth;
 
@@ -186,7 +187,7 @@ namespace profiler {
         BlocksTreeRoot(This&& that)
             : children(::std::move(that.children))
             , sync(::std::move(that.sync))
-            , thread_name(that.thread_name)
+            , thread_name(::std::move(that.thread_name))
             , thread_id(that.thread_id)
             , depth(that.depth)
         {
@@ -196,10 +197,22 @@ namespace profiler {
         {
             children = ::std::move(that.children);
             sync = ::std::move(that.sync);
-            thread_name = that.thread_name;
+            thread_name = ::std::move(that.thread_name);
             thread_id = that.thread_id;
             depth = that.depth;
             return *this;
+        }
+
+        inline bool gotName() const
+        {
+            //return thread_name && *thread_name != 0;
+            return thread_name.front() != 0;
+        }
+
+        inline const char* name() const
+        {
+            //return thread_name;
+            return thread_name.c_str();
         }
 
         bool operator < (const This& other) const
@@ -215,7 +228,7 @@ namespace profiler {
     }; // END of class BlocksTreeRoot.
 
     typedef ::profiler::BlocksTree::blocks_t blocks_t;
-    typedef ::std::map<::profiler::thread_id_t, ::profiler::BlocksTreeRoot> thread_blocks_tree_t;
+    typedef ::std::unordered_map<::profiler::thread_id_t, ::profiler::BlocksTreeRoot, ::profiler::passthrough_hash> thread_blocks_tree_t;
 
     //////////////////////////////////////////////////////////////////////////
 

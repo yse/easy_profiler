@@ -47,9 +47,9 @@ extern timestamp_t getCurrentTime();
 
 extern "C" {
 
-    PROFILER_API const BaseBlockDescriptor& registerDescription(bool _enabled, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
+    PROFILER_API const BaseBlockDescriptor& registerDescription(bool _enabled, const char* _autogenUniqueId, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
     {
-        return MANAGER.addBlockDescriptor(_enabled, _name, _filename, _line, _block_type, _color);
+        return MANAGER.addBlockDescriptor(_enabled, _autogenUniqueId, _name, _filename, _line, _block_type, _color);
     }
 
     PROFILER_API void endBlock()
@@ -60,15 +60,9 @@ extern "C" {
     PROFILER_API void setEnabled(bool isEnable)
     {
         MANAGER.setEnabled(isEnable);
-#ifdef _WIN32
-        if (isEnable)
-            EasyEventTracer::instance().enable(true);
-        else
-            EasyEventTracer::instance().disable();
-#endif
     }
 
-    PROFILER_API void storeBlock(const BaseBlockDescriptor& _desc, const char* _runtimeName)
+    PROFILER_API void storeEvent(const BaseBlockDescriptor& _desc, const char* _runtimeName)
     {
         MANAGER.storeBlock(_desc, _runtimeName);
     }
@@ -83,11 +77,12 @@ extern "C" {
         return MANAGER.dumpBlocksToFile(filename);
     }
 
-    PROFILER_API const char* setThreadName(const char* name, const char* filename, const char* _funcname, int line)
+    PROFILER_API const char* registerThread(const char* name)//, const char* filename, const char* _funcname, int line)
     {
-        return MANAGER.setThreadName(name, filename, _funcname, line);
+        return MANAGER.registerThread(name);// , filename, _funcname, line);
     }
 
+#ifndef _WIN32
     PROFILER_API void setContextSwitchLogFilename(const char* name)
     {
         return MANAGER.setContextSwitchLogFilename(name);
@@ -97,6 +92,7 @@ extern "C" {
     {
         return MANAGER.getContextSwitchLogFilename();
     }
+#endif
 
 }
 
@@ -124,6 +120,8 @@ BlockDescriptor::BlockDescriptor(uint64_t& _used_mem, block_id_t _id, bool _enab
     : BaseBlockDescriptor(_id, _enabled, _line, _block_type, _color)
     , m_name(_name)
     , m_filename(_filename)
+    , m_pEnable(nullptr)
+    , m_expired(false)
 {
     _used_mem += sizeof(profiler::SerializedBlockDescriptor) + strlen(_name) + strlen(_filename) + 2;
 }
@@ -132,13 +130,10 @@ BlockDescriptor::BlockDescriptor(uint64_t& _used_mem, bool _enabled, const char*
     : BaseBlockDescriptor(0, _enabled, _line, _block_type, _color)
     , m_name(_name)
     , m_filename(_filename)
+    , m_pEnable(nullptr)
+    , m_expired(false)
 {
     _used_mem += sizeof(profiler::SerializedBlockDescriptor) + strlen(_name) + strlen(_filename) + 2;
-}
-
-void BlockDescriptor::setId(block_id_t _id)
-{
-    m_id = _id;
 }
 
 BlockDescRef::~BlockDescRef()
@@ -151,7 +146,7 @@ BlockDescRef::~BlockDescRef()
 void ThreadStorage::storeBlock(const profiler::Block& block)
 {
 #if EASY_MEASURE_STORAGE_EXPAND != 0
-    static const auto desc = MANAGER.addBlockDescriptor(EASY_STORAGE_EXPAND_ENABLED, "EasyProfiler.ExpandStorage", __FILE__, __LINE__, profiler::BLOCK_TYPE_BLOCK, profiler::colors::White);
+    static const auto desc = MANAGER.addBlockDescriptor(EASY_STORAGE_EXPAND_ENABLED, EASY_UNIQUE_LINE_ID, "EasyProfiler.ExpandStorage", __FILE__, __LINE__, profiler::BLOCK_TYPE_BLOCK, profiler::colors::White);
 #endif
 
     auto name_length = static_cast<uint16_t>(strlen(block.name()));
@@ -205,7 +200,8 @@ EASY_THREAD_LOCAL static ::ThreadStorage* THREAD_STORAGE = nullptr;
 
 ProfileManager::ProfileManager()
 {
-    m_expiredDescriptors.reserve(1024U);
+    m_isEnabled = ATOMIC_VAR_INIT(false);
+    m_isEventTracingEnabled = ATOMIC_VAR_INIT(EASY_EVENT_TRACING_ENABLED);
 }
 
 ProfileManager::~ProfileManager()
@@ -213,7 +209,8 @@ ProfileManager::~ProfileManager()
     //dumpBlocksToFile("test.prof");
     for (auto desc : m_descriptors)
     {
-        delete desc;
+        if (desc != nullptr)
+            delete desc;
     }
 }
 
@@ -231,7 +228,7 @@ void ProfileManager::markExpired(profiler::block_id_t _id)
     // We can not delete this descriptor now, because we need to send/write all collected data first.
 
     guard_lock_t lock(m_storedSpin);
-    m_expiredDescriptors.push_back(_id);
+    m_descriptors[_id]->m_expired = true;
 }
 
 ThreadStorage& ProfileManager::threadStorage(profiler::thread_id_t _thread_id)
@@ -240,9 +237,8 @@ ThreadStorage& ProfileManager::threadStorage(profiler::thread_id_t _thread_id)
     return m_threads[_thread_id];
 }
 
-ThreadStorage* ProfileManager::findThreadStorage(profiler::thread_id_t _thread_id)
+ThreadStorage* ProfileManager::_findThreadStorage(profiler::thread_id_t _thread_id)
 {
-    guard_lock_t lock(m_spin);
     auto it = m_threads.find(_thread_id);
     return it != m_threads.end() ? &it->second : nullptr;
 }
@@ -272,19 +268,21 @@ void ProfileManager::beginBlock(Block& _block)
     THREAD_STORAGE->blocks.openedList.emplace(_block);
 }
 
-void ProfileManager::beginContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::block_id_t _id)
+void ProfileManager::beginContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, const char* _target_process, bool _lockSpin)
 {
-    auto ts = findThreadStorage(_thread_id);
+    auto ts = _lockSpin ? findThreadStorage(_thread_id) : _findThreadStorage(_thread_id);
     if (ts != nullptr)
-        ts->sync.openedList.emplace(_time, _id, "");
+        // Dirty hack: _target_thread_id will be written to the field "block_id_t m_id"
+        // and will be available calling method id().
+        ts->sync.openedList.emplace(_time, _target_thread_id, _target_process);
 }
 
-void ProfileManager::storeContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::block_id_t _id)
+void ProfileManager::storeContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, bool _lockSpin)
 {
-    auto ts = findThreadStorage(_thread_id);
+    auto ts = _lockSpin ? findThreadStorage(_thread_id) : _findThreadStorage(_thread_id);
     if (ts != nullptr)
     {
-        profiler::Block b(_time, _id, "");
+        profiler::Block b(_time, _target_thread_id, "");
         b.finish(_time);
         ts->storeCSwitch(b);
     }
@@ -309,9 +307,9 @@ void ProfileManager::endBlock()
     THREAD_STORAGE->blocks.openedList.pop();
 }
 
-void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime)
+void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime, bool _lockSpin)
 {
-    auto ts = findThreadStorage(_thread_id);
+    auto ts = _lockSpin ? findThreadStorage(_thread_id) : _findThreadStorage(_thread_id);
     if (ts == nullptr || ts->sync.openedList.empty())
         return;
 
@@ -325,6 +323,15 @@ void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, profiler
 void ProfileManager::setEnabled(bool isEnable)
 {
     m_isEnabled = isEnable;
+
+#ifdef _WIN32
+    if (isEnable) {
+        if (m_isEventTracingEnabled)
+            EasyEventTracer::instance().enable(true);
+    } else {
+        EasyEventTracer::instance().disable();
+    }
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -332,28 +339,36 @@ void ProfileManager::setEnabled(bool isEnable)
 uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
 {
     const bool wasEnabled = m_isEnabled;
+    const bool eventTracingEnabled = m_isEventTracingEnabled;
     if (wasEnabled)
         ::profiler::setEnabled(false);
 
 
+    // This is to make sure that no new descriptors or new threads will be
+    // added until we finish sending data.
+    guard_lock_t lock1(m_storedSpin);
+    guard_lock_t lock2(m_spin);
+    // This is the only place using both spins, so no dead-lock will occur
+
+
 #ifndef _WIN32
-    // Read thread context switch events from temporary file
-
-    uint64_t timestamp;
-    uint32_t thread_from, thread_to;
-
-    std::ifstream infile(m_csInfoFilename.c_str());
-
-    if(infile.is_open())
+    if (eventTracingEnabled)
     {
-        static const auto& desc = addBlockDescriptor(true, "OS.ContextSwitch", __FILE__, __LINE__, profiler::BLOCK_TYPE_CONTEXT_SWITCH, profiler::colors::White);
-        while (infile >> timestamp >> thread_from >> thread_to)
-        {
-            beginContextSwitch(thread_from, timestamp, desc.id());
-            endContextSwitch(thread_to, timestamp);
+        // Read thread context switch events from temporary file
+
+        uint64_t timestamp = 0;
+        uint32_t thread_from = 0, thread_to = 0;
+
+        std::ifstream infile(m_csInfoFilename.c_str());
+        if(infile.is_open()) {
+            while (infile >> timestamp >> thread_from >> thread_to) {
+                beginContextSwitch(thread_from, timestamp, thread_to, "", false);
+                endContextSwitch(thread_to, timestamp, false);
+            }
         }
     }
 #endif
+
 
     // Calculate used memory total size and total blocks number
     uint64_t usedMemorySize = 0;
@@ -381,6 +396,9 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
     // Write block descriptors
     for (const auto descriptor : m_descriptors)
     {
+        if (descriptor == nullptr)
+            continue;
+
         const auto name_size = static_cast<uint16_t>(strlen(descriptor->name()) + 1);
         const auto filename_size = static_cast<uint16_t>(strlen(descriptor->file()) + 1);
         const auto size = static_cast<uint16_t>(sizeof(profiler::SerializedBlockDescriptor) + name_size + filename_size);
@@ -399,27 +417,30 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
 
         _outputStream.write(thread_storage.first);
 
+        const auto name_size = static_cast<uint16_t>(t.name.size() + 1);
+        _outputStream.write(name_size);
+        _outputStream.write(name_size > 1 ? t.name.c_str() : "", name_size);
+
         _outputStream.write(t.sync.closedList.size());
         t.sync.closedList.serialize(_outputStream);
 
         _outputStream.write(t.blocks.closedList.size());
-        t.blocks.closedList.serialize(_outputStream);
+        if (!t.blocks.closedList.empty())
+            t.blocks.closedList.serialize(_outputStream);
 
         t.clearClosed();
+        t.blocks.openedList.clear();
+        t.sync.openedList.clear();
     }
 
-    if (!m_expiredDescriptors.empty())
+    // Remove all expired block descriptors (descriptor may become expired if it's .dll/.so have been unloaded during application execution)
+    for (auto& desc : m_descriptors)
     {
-        // Remove all expired block descriptors (descriptor may become expired if it's .dll/.so have been unloaded during application execution)
+        if (desc == nullptr || !desc->m_expired)
+            continue;
 
-        std::sort(m_expiredDescriptors.begin(), m_expiredDescriptors.end());
-        for (auto it = m_expiredDescriptors.rbegin(), rend = m_expiredDescriptors.rend(); it != rend; ++it)
-        {
-            auto id = *it;
-            delete m_descriptors[id];
-            m_descriptors.erase(m_descriptors.begin() + id);
-        }
-        m_expiredDescriptors.clear();
+        delete desc;
+        desc = nullptr;
     }
 
     //if (wasEnabled)
@@ -439,7 +460,7 @@ uint32_t ProfileManager::dumpBlocksToFile(const char* _filename)
     return blocksNumber;
 }
 
-const char* ProfileManager::setThreadName(const char* name, const char* filename, const char* _funcname, int line)
+const char* ProfileManager::registerThread(const char* name)
 {
     if (THREAD_STORAGE == nullptr)
     {
@@ -448,17 +469,30 @@ const char* ProfileManager::setThreadName(const char* name, const char* filename
 
     if (!THREAD_STORAGE->named)
     {
-        const auto& desc = addBlockDescriptor(true, _funcname, filename, line, profiler::BLOCK_TYPE_THREAD_SIGN, profiler::colors::Black);
-
-        profiler::Block b(desc, name);
-        b.finish(b.begin());
-
-        THREAD_STORAGE->storeBlock(b);
-        THREAD_STORAGE->name = name;
         THREAD_STORAGE->named = true;
+        THREAD_STORAGE->name = name;
     }
 
     return THREAD_STORAGE->name.c_str();
+}
+
+void ProfileManager::setBlockEnabled(profiler::block_id_t _id, const profiler::hashed_stdstring& _key, bool _enabled)
+{
+    guard_lock_t lock(m_storedSpin);
+
+    auto desc = m_descriptors[_id];
+    if (desc != nullptr)
+    {
+        lock.unlock();
+
+        *desc->m_pEnable = _enabled;
+        desc->m_enabled = _enabled;
+    }
+    else
+    {
+        blocks_enable_status_t::key_type key(_key.c_str(), _key.size(), _key.hcode());
+        m_blocksEnableStatus[key] = _enabled;
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////

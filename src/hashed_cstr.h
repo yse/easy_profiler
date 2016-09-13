@@ -64,7 +64,11 @@ namespace profiler {
 
     public:
 
-        explicit cstring(const char* _str) : m_str(_str), m_len(strlen(_str))
+        cstring(const char* _str) : m_str(_str), m_len(strlen(_str))
+        {
+        }
+
+        cstring(const char* _str, size_t _len) : m_str(_str), m_len(_len)
         {
         }
 
@@ -91,6 +95,16 @@ namespace profiler {
             return m_len < _other.m_len;
         }
 
+        inline const char* c_str() const
+        {
+            return m_str;
+        }
+
+        inline size_t size() const
+        {
+            return m_len;
+        }
+
     }; // END of class cstring.
 
     /** \brief cstring with precalculated hash.
@@ -110,9 +124,17 @@ namespace profiler {
 
     public:
 
-        explicit hashed_cstr(const char* _str) : Parent(_str), m_hash(0)
+        hashed_cstr(const char* _str) : Parent(_str), m_hash(0)
         {
             m_hash = ::std::_Hash_seq((const unsigned char *)m_str, m_len);
+        }
+
+        hashed_cstr(const char* _str, size_t _hash_code) : Parent(_str), m_hash(_hash_code)
+        {
+        }
+
+        hashed_cstr(const char* _str, size_t _len, size_t _hash_code) : Parent(_str, _len), m_hash(_hash_code)
+        {
         }
 
         hashed_cstr(const hashed_cstr&) = default;
@@ -204,6 +226,16 @@ namespace profiler {
         inline size_t hcode() const
         {
             return m_hash;
+        }
+
+        inline const char* c_str() const
+        {
+            return m_str.c_str();
+        }
+
+        inline size_t size() const
+        {
+            return m_str.size();
         }
 
     }; // END of class hashed_stdstring.

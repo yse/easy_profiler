@@ -86,6 +86,12 @@ namespace profiler {
         ENABLED = 1
     };
 
+    struct passthrough_hash final {
+        template <class T> inline size_t operator () (T _value) const {
+            return static_cast<size_t>(_value);
+        }
+    };
+
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -95,6 +101,7 @@ namespace profiler {
 #include <type_traits>
 
 # define EASY_STRINGIFY(a) #a
+# define EASY_STRINGIFICATION(a) EASY_STRINGIFY(a)
 # define EASY_TOKEN_JOIN(x, y) x ## y
 # define EASY_TOKEN_CONCATENATE(x, y) EASY_TOKEN_JOIN(x, y)
 # define EASY_UNIQUE_BLOCK(x) EASY_TOKEN_CONCATENATE(unique_profiler_mark_name_, x)
@@ -165,7 +172,7 @@ namespace profiler {
 
 } // END of namespace profiler.
 
-# define EASY_UNIQUE_LINE_ID __FILE__ ":" EASY_STRINGIFY(__LINE__)
+# define EASY_UNIQUE_LINE_ID __FILE__ ":" EASY_STRINGIFICATION(__LINE__)
 # define EASY_COMPILETIME_NAME(name) ::profiler::NameSwitch<::std::is_reference<decltype(name)>::value>::compiletime_name(name, EASY_UNIQUE_LINE_ID)
 # define EASY_RUNTIME_NAME(name) ::profiler::NameSwitch<::std::is_reference<decltype(name)>::value>::runtime_name(name)
 

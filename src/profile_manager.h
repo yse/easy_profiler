@@ -22,12 +22,14 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #include "profiler/profiler.h"
 #include "spin_lock.h"
 #include "outstream.h"
-//#include "hashed_cstr.h"
+#include "hashed_cstr.h"
 #include <map>
 #include <list>
 #include <vector>
+#include <unordered_map>
 #include <string>
 #include <functional>
+#include <atomic>
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -51,7 +53,17 @@ inline uint32_t getCurrentThreadId()
 #endif
 }
 
-namespace profiler { class SerializedBlock; }
+namespace profiler {
+    
+    class SerializedBlock;
+
+    struct do_not_calc_hash {
+        template <class T> inline size_t operator()(T _value) const {
+            return static_cast<size_t>(_value);
+        }
+    };
+
+}
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -149,7 +161,7 @@ public:
             *(uint16_t*)data = n;
             data = data + sizeof(uint16_t);
 
-            if (m_shift < N)
+            if (m_shift + 1 < N)
                 *(uint16_t*)(data + n) = 0;
 
             return data;
@@ -174,6 +186,11 @@ public:
     inline uint32_t size() const
     {
         return m_size;
+    }
+
+    inline bool empty() const
+    {
+        return m_size == 0;
     }
 
     void clear()
@@ -201,7 +218,7 @@ public:
                 _outputStream.write((const char*)data, size);
                 data = data + size;
                 i += size;
-            } while (i < N && *(uint16_t*)data != 0);
+            } while (i + 1 < N && *(uint16_t*)data != 0);
             current = current->prev;
         } while (current != nullptr);
 
@@ -295,20 +312,24 @@ class ProfileManager final
     typedef profiler::guard_lock<profiler::spin_lock> guard_lock_t;
     typedef std::map<profiler::thread_id_t, ThreadStorage> map_of_threads_stacks;
     typedef std::vector<profiler::BlockDescriptor*> block_descriptors_t;
-    typedef std::vector<profiler::block_id_t> expired_ids_t;
+    typedef std::unordered_map<profiler::hashed_cstr, bool> blocks_enable_status_t;
 
-    map_of_threads_stacks          m_threads;
-    block_descriptors_t        m_descriptors;
-    expired_ids_t       m_expiredDescriptors;
-    uint64_t            m_usedMemorySize = 0;
-    profiler::spin_lock               m_spin;
-    profiler::spin_lock         m_storedSpin;
-    profiler::block_id_t     m_idCounter = 0;
-    bool                 m_isEnabled = false;
+    map_of_threads_stacks             m_threads;
+    block_descriptors_t           m_descriptors;
+    blocks_enable_status_t m_blocksEnableStatus;
+    uint64_t               m_usedMemorySize = 0;
+    profiler::spin_lock                  m_spin;
+    profiler::spin_lock            m_storedSpin;
+    profiler::block_id_t        m_idCounter = 0;
+    std::atomic_bool                m_isEnabled;
+    std::atomic_bool    m_isEventTracingEnabled;
 
+#ifndef _WIN32
     std::string m_csInfoFilename = "/tmp/cs_profiling_info.log";
+#endif
 
     uint32_t dumpBlocksToStream(profiler::OStream& _outputStream);
+    void setBlockEnabled(profiler::block_id_t _id, const profiler::hashed_stdstring& _key, bool _enabled);
 
 public:
 
@@ -316,13 +337,25 @@ public:
     ~ProfileManager();
 
     template <class ... TArgs>
-    const profiler::BaseBlockDescriptor& addBlockDescriptor(bool _enabledByDefault, TArgs ... _args)
+    const profiler::BaseBlockDescriptor& addBlockDescriptor(bool _enabledByDefault, const char* _autogenUniqueId, TArgs ... _args)
     {
         auto desc = new profiler::BlockDescriptor(m_usedMemorySize, _enabledByDefault, _args...);
 
         guard_lock_t lock(m_storedSpin);
-        desc->setId(m_idCounter++);
+        desc->m_id = m_idCounter++;
         m_descriptors.emplace_back(desc);
+
+        blocks_enable_status_t::key_type key(_autogenUniqueId);
+        auto it = m_blocksEnableStatus.find(key);
+        if (it != m_blocksEnableStatus.end())
+        {
+            desc->m_enabled = it->second;
+            desc->m_pEnable = &it->second;
+        }
+        else
+        {
+            desc->m_pEnable = &m_blocksEnableStatus.emplace(key, desc->enabled()).first->second;
+        }
 
         return *desc;
     }
@@ -332,8 +365,9 @@ public:
     void endBlock();
     void setEnabled(bool isEnable);
     uint32_t dumpBlocksToFile(const char* filename);
-    const char* setThreadName(const char* name, const char* filename, const char* _funcname, int line);
+    const char* registerThread(const char* name);// , const char* filename, const char* _funcname, int line);
 
+#ifndef _WIN32
     void setContextSwitchLogFilename(const char* name)
     {
         m_csInfoFilename = name;
@@ -343,16 +377,23 @@ public:
     {
         return m_csInfoFilename.c_str();
     }
+#endif
 
-    void beginContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::block_id_t _id);
-    void storeContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::block_id_t _id);
-    void endContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime);
+    void beginContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, const char* _target_process, bool _lockSpin = true);
+    void storeContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, bool _lockSpin = true);
+    void endContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime, bool _lockSpin = true);
 
 private:
 
     void markExpired(profiler::block_id_t _id);
     ThreadStorage& threadStorage(profiler::thread_id_t _thread_id);
-    ThreadStorage* findThreadStorage(profiler::thread_id_t _thread_id);
+    ThreadStorage* _findThreadStorage(profiler::thread_id_t _thread_id);
+
+    ThreadStorage* findThreadStorage(profiler::thread_id_t _thread_id)
+    {
+        guard_lock_t lock(m_spin);
+        return _findThreadStorage(_thread_id);
+    }
 };
 
 #endif // EASY_PROFILER____MANAGER____H______

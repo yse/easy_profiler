@@ -52,14 +52,6 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-struct passthrough_hash {
-    template <class T> inline size_t operator () (T _value) const {
-        return static_cast<size_t>(_value);
-    }
-};
-
-//////////////////////////////////////////////////////////////////////////
-
 namespace profiler {
 
     void SerializedData::set(char* _data)
@@ -90,7 +82,7 @@ namespace profiler {
 
 #ifdef _WIN32
 
-typedef ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, passthrough_hash> StatsMap;
+typedef ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, ::profiler::passthrough_hash> StatsMap;
 
 /** \note It is absolutely safe to use hashed_cstr (which simply stores pointer) because std::unordered_map,
 which uses it as a key, exists only inside fillTreesFromFile function. */
@@ -99,7 +91,7 @@ typedef ::std::unordered_map<::profiler::hashed_cstr, ::profiler::block_id_t> Id
 #else
 
 // TODO: Create optimized version of profiler::hashed_cstr for Linux too.
-typedef ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, passthrough_hash> StatsMap;
+typedef ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, ::profiler::passthrough_hash> StatsMap;
 typedef ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::block_id_t> IdMap;
 
 #endif
@@ -237,9 +229,11 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
         progress.store(static_cast<int>(10 * i / descriptors_memory_size));
     }
 
-    typedef ::std::map<::profiler::thread_id_t, StatsMap> PerThreadStats;
+    typedef ::std::unordered_map<::profiler::thread_id_t, StatsMap, ::profiler::passthrough_hash> PerThreadStats;
     PerThreadStats thread_statistics, parent_statistics, frame_statistics;
     IdMap identification_table;
+
+    ::std::vector<char> name;
 
     i = 0;
     uint32_t read_number = 0;
@@ -253,6 +247,15 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
         inFile.read((char*)&thread_id, sizeof(decltype(thread_id)));
 
         auto& root = threaded_trees[thread_id];
+
+        uint16_t name_size = 0;
+        inFile.read((char*)&name_size, sizeof(uint16_t));
+        if (name_size != 0)
+        {
+            name.resize(name_size);
+            inFile.read(name.data(), name_size);
+            root.thread_name = name.data();
+        }
 
         uint32_t blocks_number_in_thread = 0;
         inFile.read((char*)&blocks_number_in_thread, sizeof(decltype(blocks_number_in_thread)));
@@ -289,10 +292,6 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
             ::profiler::BlocksTree& tree = blocks.back();
             tree.node = baseData;
             const auto block_index = blocks_counter++;
-
-            auto descriptor = descriptors[baseData->id()];
-            if (descriptor->type() != ::profiler::BLOCK_TYPE_CONTEXT_SWITCH)
-                continue;
 
             root.sync.emplace_back(block_index);
 
@@ -338,17 +337,12 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
 
             blocks.emplace_back();
             ::profiler::BlocksTree& tree = blocks.back();
-            tree.node = baseData;// new ::profiler::SerializedBlock(sz, data);
+            tree.node = baseData;
             const auto block_index = blocks_counter++;
 
             auto& per_parent_statistics = parent_statistics[thread_id];
             auto& per_thread_statistics = thread_statistics[thread_id];
             auto descriptor = descriptors[baseData->id()];
-
-            if (descriptor->type() == ::profiler::BLOCK_TYPE_THREAD_SIGN)
-            {
-                root.thread_name = tree.node->name();
-            }
 
             if (*tree.node->name() != 0)
             {

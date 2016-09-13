@@ -29,7 +29,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #ifndef FULL_DISABLE_PROFILER
 
 /**
-\defgroup profiler Profiler
+\defgroup profiler EasyProfiler
 */
 
 /** If != 0 then EasyProfiler will measure time for blocks storage expansion.
@@ -50,7 +50,16 @@ If false then you need to enable these events via GUI if you'll want to see them
 */
 # define EASY_STORAGE_EXPAND_ENABLED true
 
-/** Macro of beginning of block with custom name and color.
+/** If true then EasyProfiler event tracing is enabled by default
+and will be turned on and off when you call profiler::setEnabled().
+Otherwise, it have to be turned on via GUI and then it will be
+turned on/off with next calls of profiler::setEnabled().
+
+\ingroup profiler
+*/
+# define EASY_EVENT_TRACING_ENABLED true
+
+/** Macro for beginning of a block with custom name and color.
 
 \code
     #include "profiler/profiler.h"
@@ -80,11 +89,11 @@ Block will be automatically completed by destructor.
 */
 # define EASY_BLOCK(name, ...)\
     static const ::profiler::BlockDescRef EASY_UNIQUE_DESC(__LINE__)(::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__),\
-        EASY_COMPILETIME_NAME(name), __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__)));\
+        EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name), __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__)));\
     ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name));\
     ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
-/** Macro of beginning of block with function name and custom color.
+/** Macro for beginning of a block with function name and custom color.
 
 \code
     #include "profiler/profiler.h"
@@ -110,11 +119,11 @@ Name of the block automatically created with function name.
 */
 # define EASY_FUNCTION(...)\
     static const ::profiler::BlockDescRef EASY_UNIQUE_DESC(__LINE__)(::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__),\
-        __func__, __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__)));\
+        EASY_UNIQUE_LINE_ID, __func__, __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__)));\
     ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(EASY_UNIQUE_DESC(__LINE__), "");\
     ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
-/** Macro of completion of last nearest open block.
+/** Macro for completion of last opened block.
 
 \code
 #include "profiler/profiler.h"
@@ -139,7 +148,7 @@ int foo()
 */
 # define EASY_END_BLOCK ::profiler::endBlock();
 
-/** Macro of creating event with custom name and color.
+/** Macro for creating event with custom name and color.
 
 Event is a block with zero duration and special type.
 
@@ -150,44 +159,61 @@ will end previously opened EASY_BLOCK or EASY_FUNCTION.
 */
 # define EASY_EVENT(name, ...)\
     static const ::profiler::BlockDescRef EASY_UNIQUE_DESC(__LINE__)(\
-        ::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__), EASY_COMPILETIME_NAME(name), __FILE__, __LINE__,\
-            ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__)));\
-    ::profiler::storeBlock(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name));
+        ::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
+            __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__)));\
+    ::profiler::storeEvent(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name));
 
-/** Macro enabling profiler
+/** Macro for enabling profiler.
 
 \ingroup profiler
 */
 # define EASY_PROFILER_ENABLE ::profiler::setEnabled(true);
 
-/** Macro disabling profiler
+/** Macro for disabling profiler.
 
 \ingroup profiler
 */
 # define EASY_PROFILER_DISABLE ::profiler::setEnabled(false);
 
-/** Macro of naming current thread.
+/** Macro for current thread registration.
 
-If this thread has been already named then nothing changes.
+\note If this thread has been already registered then nothing happens.
 
 \ingroup profiler
 */
 # define EASY_THREAD(name)\
     EASY_THREAD_LOCAL static const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = nullptr;\
     if (EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) == nullptr)\
-        EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = ::profiler::setThreadName(name, __FILE__, __func__, __LINE__);
+        EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = ::profiler::registerThread(name);
 
-/** Macro of naming main thread.
+/** Macro for main thread registration.
 
-This is only for user comfort. There is no difference for EasyProfiler GUI between different threads.
+This is just for user's comfort. There is no difference for EasyProfiler GUI between different threads.
 
 \ingroup profiler
 */
 # define EASY_MAIN_THREAD EASY_THREAD("Main")
 
+# ifndef _WIN32
+/** Macro for setting temporary log-file path for Unix event tracing system.
+
+\note Default value is "/tmp/cs_profiling_info.log".
+
+\ingroup profiler
+*/
+#  define EASY_EVENT_TRACING_SET_LOG(filename) ::profiler::setContextSwitchLogFilename(filename);
+
+/** Macro returning current path to the temporary log-file for Unix event tracing system.
+
+\ingroup profiler
+*/
+#  define EASY_EVENT_TRACING_LOG ::profiler::getContextSwitchLogFilename();
+# endif
+
 #else
 # define EASY_MEASURE_STORAGE_EXPAND 0
 # define EASY_STORAGE_EXPAND_ENABLED false
+# define EASY_EVENT_TRACING_ENABLED false
 # define EASY_BLOCK(...)
 # define EASY_FUNCTION(...)
 # define EASY_END_BLOCK 
@@ -196,6 +222,12 @@ This is only for user comfort. There is no difference for EasyProfiler GUI betwe
 # define EASY_EVENT(...)
 # define EASY_THREAD(...)
 # define EASY_MAIN_THREAD 
+
+# ifndef _WIN32
+#  define EASY_EVENT_TRACING_SET_LOG(filename) 
+#  define EASY_EVENT_TRACING_LOG ""
+# endif
+
 #endif
 
 //////////////////////////////////////////////////////////////////////////
@@ -216,9 +248,7 @@ namespace profiler {
     enum BlockType : uint8_t
     {
         BLOCK_TYPE_EVENT = 0,
-        BLOCK_TYPE_THREAD_SIGN,
         BLOCK_TYPE_BLOCK,
-        BLOCK_TYPE_CONTEXT_SWITCH,
 
         BLOCK_TYPES_NUMBER
     };
@@ -290,9 +320,10 @@ namespace profiler {
 
         const char*     m_name; ///< Static name of all blocks of the same type (blocks can have dynamic name) which is, in pair with descriptor id, a unique block identifier
         const char* m_filename; ///< Source file name where this block is declared
+        bool*        m_pEnable; ///< Pointer to the enable flag in unordered_map
+        bool         m_expired; ///< Is this descriptor expired
 
         BlockDescriptor(uint64_t& _used_mem, bool _enabled, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color);
-        void setId(block_id_t _id);
 
     public:
 
@@ -336,6 +367,11 @@ namespace profiler {
 
         inline const char* name() const { return m_name; }
 
+    private:
+
+        Block(const Block&) = delete;
+        Block& operator = (const Block&) = delete;
+
     }; // END of class Block.
 
     //***********************************************
@@ -360,17 +396,80 @@ namespace profiler {
 
     //////////////////////////////////////////////////////////////////////
     // Core API
+    // Note: it is better to use macros defined above than a direct calls to API.
 
     extern "C" {
-        PROFILER_API const BaseBlockDescriptor& registerDescription(bool _enabled, const char* _compiletimeName, const char* _filename, int _line, block_type_t _block_type, color_t _color);
-        PROFILER_API void        storeBlock(const BaseBlockDescriptor& _desc, const char* _runtimeName);
-        PROFILER_API void        beginBlock(Block& _block);
-        PROFILER_API void        endBlock();
-        PROFILER_API void        setEnabled(bool _isEnable);
-        PROFILER_API uint32_t    dumpBlocksToFile(const char* _filename);
-        PROFILER_API const char* setThreadName(const char* _name, const char* _filename, const char* _funcname, int _line);
-        PROFILER_API void        setContextSwitchLogFilename(const char* _name);
+
+        /** Registers static description of a block.
+
+        It is general information which is common for all such blocks.
+        Includes color, block type (see BlockType), file-name, line-number, compile-time name of a block and enable-flag.
+
+        \ingroup profiler
+        */
+        PROFILER_API const BaseBlockDescriptor& registerDescription(bool _enabled, const char* _autogenUniqueId, const char* _compiletimeName, const char* _filename, int _line, block_type_t _block_type, color_t _color);
+
+        /** Stores event in the blocks list.
+
+        An event ends instantly and has zero duration.
+
+        \param _desc Reference to the previously registered description.
+        \param _runtimeName Standard zero-terminated string which will be copied to the events buffer.
+        
+        \ingroup profiler
+        */
+        PROFILER_API void storeEvent(const BaseBlockDescriptor& _desc, const char* _runtimeName);
+
+        /** Begins block.
+
+        \ingroup profiler
+        */
+        PROFILER_API void beginBlock(Block& _block);
+
+        /** Ends last started block.
+
+        \ingroup profiler
+        */
+        PROFILER_API void endBlock();
+
+        /** Enable or disable profiler.
+
+        \ingroup profiler
+        */
+        PROFILER_API void setEnabled(bool _isEnable);
+
+        /** Save all gathered blocks into file.
+
+        \note This also disables profiler.
+
+        \ingroup profiler
+        */
+        PROFILER_API uint32_t dumpBlocksToFile(const char* _filename);
+
+        /** Register current thread and give it a name.
+
+        \note Only first call of registerThread() for the current thread will have an effect.
+
+        \ingroup profiler
+        */
+        PROFILER_API const char* registerThread(const char* _name);
+
+#ifndef _WIN32
+        /** Set temporary log-file path for Unix event tracing system.
+
+        \note Default value is "/tmp/cs_profiling_info.log".
+
+        \ingroup profiler
+        */
+        PROFILER_API void setContextSwitchLogFilename(const char* _name);
+
+        /** Returns current path to the temporary log-file for Unix event tracing system.
+
+        \ingroup profiler
+        */
         PROFILER_API const char* getContextSwitchLogFilename();
+#endif
+
     }
 
     inline void setEnabled(::profiler::EasyEnableFlag _isEnable) {

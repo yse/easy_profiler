@@ -138,7 +138,6 @@ struct EasyBlockItem final
     //const ::profiler::BlocksTree* block; ///< Pointer to profiler block
     qreal                             x; ///< x coordinate of the item (this is made qreal=double to avoid mistakes on very wide scene)
     float                             w; ///< Width of the item
-    QRgb                          color; ///< Background color of the item
     ::profiler::block_index_t     block; ///< Index of profiler block
     uint32_t             children_begin; ///< Index of first child item on the next sublevel
     uint16_t                totalHeight; ///< Total height of the item including heights of all it's children

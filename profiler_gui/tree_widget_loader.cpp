@@ -161,20 +161,14 @@ void FillTreeClass<T>::setTreeInternal1(T& _safelocker, Items& _items, ThreadedI
         const auto& root = threadTree.second;
         auto item = new EasyTreeWidgetItem();
 
-        if (root.thread_name && root.thread_name[0] != 0)
-        {
-            item->setText(COL_NAME, QString("%1 Thread %2").arg(root.thread_name).arg(root.thread_id));
-        }
+        if (root.gotName())
+            item->setText(COL_NAME, QString("%1 Thread %2").arg(root.name()).arg(root.thread_id));
         else
-        {
             item->setText(COL_NAME, QString("Thread %1").arg(root.thread_id));
-        }
 
         ::profiler::timestamp_t duration = 0;
         if (!root.children.empty())
-        {
             duration = blocksTree(root.children.back()).node->end() - blocksTree(root.children.front()).node->begin();
-        }
 
         item->setTimeSmart(COL_DURATION, duration);
         item->setBackgroundColor(::profiler_gui::SELECTED_THREAD_BACKGROUND);
@@ -259,19 +253,13 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
         {
             thread_item = new EasyTreeWidgetItem();
 
-            if (block.root->thread_name && block.root->thread_name[0] != 0)
-            {
-                thread_item->setText(COL_NAME, QString("%1 Thread %2").arg(block.root->thread_name).arg(block.root->thread_id));
-            }
+            if (block.root->gotName())
+                thread_item->setText(COL_NAME, QString("%1 Thread %2").arg(block.root->name()).arg(block.root->thread_id));
             else
-            {
                 thread_item->setText(COL_NAME, QString("Thread %1").arg(block.root->thread_id));
-            }
 
             if (!block.root->children.empty())
-            {
                 duration = blocksTree(block.root->children.back()).node->end() - blocksTree(block.root->children.front()).node->begin();
-            }
 
             thread_item->setTimeSmart(COL_DURATION, duration);
             thread_item->setBackgroundColor(::profiler_gui::SELECTED_THREAD_BACKGROUND);
