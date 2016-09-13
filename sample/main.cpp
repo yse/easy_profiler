@@ -191,7 +191,6 @@ int main(int argc, char* argv[])
     EASY_MAIN_THREAD;
 
     std::vector<std::thread> threads;
-
     std::thread render = std::thread(renderThread);
     std::thread modelling = std::thread(modellingThread);
 
@@ -201,10 +200,10 @@ int main(int argc, char* argv[])
         threads.emplace_back(std::thread(renderThread));
         threads.emplace_back(std::thread(modellingThread));
     }
-    {
-        std::lock_guard<std::mutex> lk(cv_m);
-        g_i = 1;
-    }
+
+    cv_m.lock();
+    g_i = 1;
+    cv_m.unlock();
     cv.notify_all();
 
     for (int i = 0; i < RENDER_STEPS; ++i) {
@@ -214,9 +213,8 @@ int main(int argc, char* argv[])
 
     render.join();
     modelling.join();
-    for(auto& t : threads){
+    for(auto& t : threads)
         t.join();
-    }
     /**/
 
     auto end = std::chrono::system_clock::now();
