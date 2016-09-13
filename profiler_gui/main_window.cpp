@@ -50,6 +50,11 @@
 #include <QToolBar>
 #include <QMessageBox>
 
+#include <QDialog>
+#include <QLineEdit>
+#include <QFormLayout>
+#include <QPushButton>
+
 #include "main_window.h"
 #include "blocks_tree_widget.h"
 #include "blocks_graphics_view.h"
@@ -91,14 +96,44 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     addDockWidget(Qt::BottomDockWidgetArea, m_treeWidget);
 
     QToolBar *fileToolBar = addToolBar(tr("File"));
+    QAction *connectAct = new QAction(tr("&Connect"), this);
     QAction *newAct = new QAction(tr("&Capture"), this);
+    fileToolBar->addAction(connectAct);
     fileToolBar->addAction(newAct);
-    connect(newAct, &QAction::triggered, this, &This::onCaptureClicked);
+    
 
-    m_server = new QTcpSocket( this );
+    connect(newAct, &QAction::triggered, this, &This::onCaptureClicked);
+    connect(connectAct, &QAction::triggered, this, &This::onConnectClicked);
+
+    m_hostString = new QLineEdit();
+    QRegExp rx("[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}");
+    QRegExpValidator regValidator(rx, 0);
+    m_hostString->setInputMask("000.000.000.000;");
+    m_hostString->setValidator(&regValidator);
+    m_hostString->setText("127.0.0.1");
+
+    fileToolBar->addWidget(m_hostString);
+
+    m_portString = new QLineEdit();
+    m_portString->setValidator(new QIntValidator(1024, 65536, this));
+    m_portString->setText(QString::number(profiler::DEFAULT_PORT));
+
+    fileToolBar->addWidget(m_portString);
 
     
-    connect( m_server, SIGNAL(readyRead()), SLOT(readTcpData()) );
+
+    m_server = new QTcpSocket( this );
+    m_server->setSocketOption(QAbstractSocket::LowDelayOption, 1);
+    
+    connect(m_server, SIGNAL(readyRead()), SLOT(readTcpData()));
+    connect(m_server, SIGNAL(connected()), SLOT(onConnected()));
+    connect(m_server, SIGNAL(error(QAbstractSocket::SocketError)), SLOT(onErrorConnection(QAbstractSocket::SocketError)), Qt::UniqueConnection);
+    connect(m_server, SIGNAL(disconnected()), SLOT(onDisconnect()), Qt::UniqueConnection);
+
+    m_server->connectToHost(m_hostString->text(), m_portString->text().toUShort());
+    //TODO:
+    //connected
+    //error
 
     /*if (!m_server->listen(QHostAddress(QHostAddress::Any), 28077)) {
             QMessageBox::critical(0,
@@ -344,12 +379,31 @@ void EasyMainWindow::onCollapseAllClicked(bool)
     const QSignalBlocker b(tree);
     tree->collapseAll();
 }
-#include <QDialog>
-#include <QLineEdit>
-#include <QFormLayout>
-#include <QPushButton>
+
+void EasyMainWindow::onConnectClicked(bool)
+{
+    if (!m_isConnected)
+    {
+        qInfo() << "Try connect to: " << m_hostString->text() << ":" << m_portString->text();
+        m_server->connectToHost(m_hostString->text(), m_portString->text().toUShort());
+    }
+}
+
 void EasyMainWindow::onCaptureClicked(bool)
 {
+    
+    if (!m_isConnected)
+    {
+        m_server->connectToHost(m_hostString->text(), m_portString->text().toUShort());
+        QMessageBox::warning(this, "Warning", "No connection with profiling app", QMessageBox::Close);
+        return;
+    }
+    
+    
+    profiler::net::Message requestMessage(profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE);
+    m_server->write((const char*)&requestMessage, sizeof(requestMessage));
+
+    /**
     QDialog *dialog = new QDialog();
     dialog->setWindowTitle(tr("Set network parameters"));
     QFormLayout *layout = new QFormLayout;
@@ -376,25 +430,26 @@ void EasyMainWindow::onCaptureClicked(bool)
     dialog->exec();
     
 
-    qInfo() << portString->text();
-    m_server->connectToHost("127.0.0.1", profiler::DEFAULT_PORT);
+    //qInfo() << portString->text();
+    
     //TODO dialog
     
     if(m_client != nullptr)
     {
-        profiler::net::Message requestMessage(profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE);
-        m_client->write((const char*)&requestMessage, sizeof(requestMessage));
+        
     }else
     {
         
         QMessageBox::warning(this,"Warning" ,"No connection with profiling app",QMessageBox::Close);
         return;
     }
-
+    /**/
 
     QMessageBox::information(this,"Capturing frames..." ,"Close this window to stop capturing.",QMessageBox::Close);
 
-    if(m_client != nullptr)
+    m_isConnected = (m_server->state() == QTcpSocket::ConnectedState);
+
+    if (m_isConnected)
     {
         profiler::net::Message requestMessage(profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE);
         m_client->write((const char*)&requestMessage, sizeof(requestMessage));
@@ -409,25 +464,59 @@ void EasyMainWindow::readTcpData()
 {
     QTcpSocket* pClientSocket = (QTcpSocket*)sender();
     m_client =  pClientSocket;
-    static int necessarySize = 0;
-    static int loadedSize = 0;
-    while(pClientSocket->bytesAvailable())
+    static qint64 necessarySize = 0;
+    static qint64 loadedSize = 0;
+    while(m_server->bytesAvailable())
     {
-        QByteArray data = pClientSocket->readAll();
+        //QByteArray data = m_server->readAll();
+        //qInfo() << m_server->bytesAvailable();
+        auto bytesExpected = necessarySize - loadedSize;
+        QByteArray data;
+        if (m_recFrames){
+            data = m_server->read(qMin(bytesExpected, m_server->bytesAvailable()));
+        }
+        else
+        {
+            data = m_server->readAll();
+        }
 
 
         profiler::net::Message* message = (profiler::net::Message*)data.data();
         //qInfo() << "rec size: " << data.size() << " " << QString(data);;
         if(!m_recFrames && !message->isEasyNetMessage()){
             return;
-        }else if(m_recFrames){
+        }
+        else if (m_recFrames){
+            static bool first = true;
+            if (first)
+                m_server->waitForBytesWritten(5000);
+            first = false;
             m_receivedProfileData.write(data.data(),data.size());
             loadedSize += data.size();
-            if (loadedSize == necessarySize)
+            if (m_receivedProfileData.str().size() == necessarySize)
             {
                 m_recFrames = false;
+                qInfo() << "recieve all";
+                m_recFrames = false;
+
+
+                qInfo() << "Write FILE";
+                std::string tempfilename = "test_rec.prof";
+                std::ofstream of(tempfilename, std::fstream::binary);
+                of << m_receivedProfileData.str();
+                of.close();
+
+                m_receivedProfileData.str(std::string());
+                m_receivedProfileData.clear();
+                loadFile(QString(tempfilename.c_str()));
+                m_recFrames = false;
             }
-            //qInfo() << necessarySize << " " << loadedSize;
+            if (m_receivedProfileData.str().size() > necessarySize)
+            {
+                qInfo() << "recieve more than necessary d=" << m_receivedProfileData.str().size() - necessarySize;
+            }
+            //qInfo() << necessarySize << " " << loadedSize << m_receivedProfileData.str().size() << m_receivedProfileData.str().length();
+            qInfo() << necessarySize << " " << loadedSize;
             if (m_recFrames)
                 continue;
         }
@@ -454,19 +543,6 @@ void EasyMainWindow::readTcpData()
             case profiler::net::MESSAGE_TYPE_REPLY_END_SEND_BLOCKS:
             {
                 qInfo() << "Receive MESSAGE_TYPE_REPLY_END_SEND_BLOCKS";
-                m_recFrames = false;
-
-
-                qInfo() << "Write FILE";
-                std::string tempfilename = "test_rec.prof";
-                std::ofstream of(tempfilename, std::fstream::binary);
-                of << m_receivedProfileData.str();
-                of.close();
-
-                m_receivedProfileData.str(std::string());
-                m_receivedProfileData.clear();
-                loadFile(QString(tempfilename.c_str()));
-                m_recFrames = false;
 
             }
                 break;
@@ -476,9 +552,10 @@ void EasyMainWindow::readTcpData()
                 m_recFrames = true;
                 profiler::net::DataMessage* dm = (profiler::net::DataMessage*)message;
                 necessarySize = dm->size;
+                loadedSize = 0;
                 m_receivedProfileData.write(data.data()+sizeof(profiler::net::DataMessage),data.size() - sizeof(profiler::net::DataMessage));
                 loadedSize += data.size() - sizeof(profiler::net::DataMessage);
-
+                
             }   break;
 
             default:
@@ -491,18 +568,30 @@ void EasyMainWindow::readTcpData()
 
 }
 
+void EasyMainWindow::onConnected()
+{
+    qInfo() << "onConnected()";
+    m_isConnected = true;
+}
+void EasyMainWindow::onErrorConnection(QAbstractSocket::SocketError socketError)
+{
+    qInfo() << m_server->error();
+}
+
+void EasyMainWindow::onDisconnect()
+{
+    qInfo() << "onDisconnect()";
+    m_isConnected = false;
+}
+
 void EasyMainWindow::onNewConnection()
 {
-
     //m_client = m_server->nextPendingConnection();
 
     qInfo() << "New connection!" << m_client;
-
-
+    
     connect(m_client, SIGNAL(disconnected()), this, SLOT(onDisconnection())) ;
     connect(m_client, SIGNAL(readyRead()), this, SLOT(readTcpData())   );
-
-
 }
 
 void EasyMainWindow::onDisconnection()

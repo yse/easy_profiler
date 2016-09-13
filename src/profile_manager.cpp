@@ -537,8 +537,8 @@ void ProfileManager::startListen()
                     delete[] sendbuf;
                     //std::this_thread::sleep_for(std::chrono::seconds(2));
                     replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_END_SEND_BLOCKS;
-                    bytes = socket.send(&replyMessage, sizeof(replyMessage));
-                    hasConnect = bytes > 0;
+                    //bytes = socket.send(&replyMessage, sizeof(replyMessage));
+                    //hasConnect = bytes > 0;
                 }
                 break;
                 default:

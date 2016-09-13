@@ -134,7 +134,7 @@ void loadingResourcesThread(){
     //std::unique_lock<std::mutex> lk(cv_m);
     //cv.wait(lk, []{return g_i == 1; });
     EASY_THREAD("Resource loading");
-    for(int i = 0; i < RESOURCE_LOADING_COUNT; i++){
+    for (int i = 0; /*i < RESOURCE_LOADING_COUNT */ ; i++){
         loadingResources();
         EASY_EVENT("Resources Loading!", profiler::colors::Cyan);
         localSleep(1200000);
@@ -146,7 +146,7 @@ void modellingThread(){
     //std::unique_lock<std::mutex> lk(cv_m);
     //cv.wait(lk, []{return g_i == 1; });
     EASY_THREAD("Modelling");
-    for (int i = 0; i < RENDER_SPEPS; i++){
+    for (int i = 0; /*i < RENDER_SPEPS */ ; i++){
         modellingStep();
         localSleep(1200000);
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));
@@ -157,7 +157,7 @@ void renderThread(){
     //std::unique_lock<std::mutex> lk(cv_m);
     //cv.wait(lk, []{return g_i == 1; });
     EASY_THREAD("Render");
-    for (int i = 0; i < MODELLING_STEPS; i++){
+    for (int i = 0; /*i < MODELLING_STEPS*/; i++){
         frame();
         localSleep(1200000);
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));

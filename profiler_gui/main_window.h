@@ -101,6 +101,10 @@ protected:
     QTcpSocket* m_client = nullptr;
     std::stringstream m_receivedProfileData;
     bool m_recFrames = false;
+
+    QLineEdit* m_hostString = nullptr;
+    QLineEdit* m_portString = nullptr;
+    bool m_isConnected = false;
 public:
 
     EasyMainWindow();
@@ -130,6 +134,11 @@ protected slots:
     void readTcpData();
     void onNewConnection();
     void onDisconnection();
+    void onConnected();
+    void onErrorConnection(QAbstractSocket::SocketError socketError);
+    void onDisconnect();
+    void onConnectClicked(bool);
+
 private:
 
     // Private non-virtual methods

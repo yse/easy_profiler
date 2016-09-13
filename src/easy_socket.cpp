@@ -125,6 +125,7 @@ EasySocket::EasySocket()
 
     int opt = 1;
     setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt));
+
 }
 
 EasySocket::~EasySocket()
@@ -161,8 +162,6 @@ int EasySocket::receive(void *buf, size_t nbyte)
             (LPWSTR)&s, 0, NULL);
         printf("%S\n", s);
         LocalFree(s);
-
-
     }
     return res;
 }
@@ -229,6 +228,14 @@ int EasySocket::accept()
 {
     if (m_socket < 0) return -1;
     m_replySocket = ::accept(m_socket, nullptr, nullptr);
+
+    int send_buffer = 64 * 1024*1024;    // 64 MB
+    int send_buffer_sizeof = sizeof(int);
+    setsockopt(m_replySocket, SOL_SOCKET, SO_SNDBUF, (char*)&send_buffer, send_buffer_sizeof);
+
+    int flag = 1;
+    int result = setsockopt(m_replySocket,IPPROTO_TCP,TCP_NODELAY,(char *)&flag,sizeof(int));
+
     return (int)m_replySocket;
 }
 
