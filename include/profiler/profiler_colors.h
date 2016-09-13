@@ -329,6 +329,7 @@ namespace profiler {
 
         const color_t Red         = Red500;
         const color_t DarkRed     = Red900;
+        const color_t Coral       = Red200;
         const color_t RichRed     = 0xffff0000;
         const color_t Pink        = Pink500;
         const color_t Rose        = PinkA100;
@@ -355,7 +356,6 @@ namespace profiler {
         const color_t Lime        = Lime500;
         const color_t Olive       = Lime900;
         const color_t Yellow      = Yellow500;
-        const color_t DarkYellow  = DarkRed | DarkGreen;
         const color_t RichYellow  = YellowA200;
         const color_t Amber       = Amber500;
         const color_t Gold        = Amber300;
@@ -364,7 +364,6 @@ namespace profiler {
         const color_t Skin        = Orange100;
         const color_t DeepOrange  = DeepOrange500;
         const color_t Brick       = DeepOrange900;
-        const color_t Coral       = DeepOrange300;
         const color_t Brown       = Brown500;
         const color_t DarkBrown   = Brown900;
         const color_t CreamWhite  = Orange50;
