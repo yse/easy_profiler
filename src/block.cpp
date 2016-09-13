@@ -63,6 +63,7 @@ BaseBlockData::BaseBlockData(timestamp_t _begin_time, block_id_t _descriptor_id)
 Block::Block(Block&& that)
     : BaseBlockData(that.m_begin, that.m_id)
     , m_name(that.m_name)
+    , m_enabled(that.m_enabled)
 {
     m_end = that.m_end;
 }
