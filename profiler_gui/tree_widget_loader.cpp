@@ -34,6 +34,10 @@
 #include "tree_widget_item.h"
 #include "globals.h"
 
+#ifdef _WIN32
+#include <Windows.h>
+#endif
+
 #ifdef max
 #undef max
 #endif
@@ -111,6 +115,11 @@ void EasyTreeWidgetLoader::interrupt()
         for (auto item : _items)
             delete item.second;
     }, ::std::move(m_topLevelItems));
+
+#ifdef _WIN32
+    SetThreadPriority(deleter_thread.native_handle(), THREAD_PRIORITY_LOWEST);
+#endif
+
     deleter_thread.detach();
 
     m_items.clear();
