@@ -4,5 +4,14 @@
         <file alias="Exit">icons/off.svg</file>
         <file alias="Open">icons/open-folder.svg</file>
         <file alias="Reload">icons/reload.svg</file>
+        <file alias="Expand">icons/expand.svg</file>
+        <file alias="Collapse">icons/collapse.svg</file>
+        <file alias="Color">icons/colors.svg</file>
+        <file alias="NoColor">icons/colors-black.svg</file>
+        <file alias="Save">icons/save.svg</file>
+        <file alias="Stats">icons/statistics.svg</file>
+        <file alias="Stats-off">icons/statistics2.svg</file>
+        <file alias="LAN">icons/lan.svg</file>
+        <file alias="WiFi">icons/wifi.svg</file>
     </qresource>
 </RCC>
