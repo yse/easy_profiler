@@ -94,14 +94,17 @@ namespace profiler {
                         static TCHAR buf[MAX_PATH] = {}; // Using static is safe because processTraceEvent() is called from one thread
                         auto success = GetModuleBaseName(hProc, 0, buf, MAX_PATH);
 
-                        if (success)
+                        if (pinfo->name.empty())
                         {
                             static char numbuf[128] = {};
                             sprintf(numbuf, "%u ", pid);
-
                             pinfo->name = numbuf;
-                            pinfo->name += buf;
                             pinfo->id = pid;
+                        }
+
+                        if (success)
+                        {
+                            pinfo->name += buf;
                             pinfo->valid = 1;
                             //printf("PROCESS %u is %s\n", pid, buf);
                         }
