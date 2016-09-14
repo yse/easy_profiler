@@ -1,0 +1,4 @@
+logo.svg        - Icon made by Freepik from www.flaticon.com
+off.svg         - Icon made by Freepik from www.flaticon.com
+open-folder.svg - Icon made by Freepik from www.flaticon.com
+reload.svg      - Icon made by Freepik from www.flaticon.com

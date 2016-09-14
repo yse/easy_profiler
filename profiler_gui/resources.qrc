@@ -1,0 +1,8 @@
+<!DOCTYPE RCC><RCC version="1.0">
+    <qresource>
+        <file alias="logo">icons/logo.svg</file>
+        <file alias="Exit">icons/off.svg</file>
+        <file alias="Open">icons/open-folder.svg</file>
+        <file alias="Reload">icons/reload.svg</file>
+    </qresource>
+</RCC>

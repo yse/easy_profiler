@@ -61,9 +61,11 @@ const int LOADER_TIMER_INTERVAL = 40;
 EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsView(nullptr), m_progress(nullptr)
 {
     setObjectName("ProfilerGUI_MainWindow");
-    setWindowTitle("EasyProfiler Reader v0.2.0");
+    setWindowTitle("EasyProfiler Reader beta");
     setDockNestingEnabled(true);
     resize(800, 600);
+
+    { QIcon icon(":/logo"); if (!icon.isNull()) setWindowIcon(icon); }
     
     setStatusBar(new QStatusBar());
 
@@ -90,13 +92,16 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
 
     auto action = menu->addAction("&Open");
     connect(action, &QAction::triggered, this, &This::onOpenFileClicked);
+    { QIcon icon(":/Open"); if (!icon.isNull()) action->setIcon(icon); }
 
     action = menu->addAction("&Reload");
     connect(action, &QAction::triggered, this, &This::onReloadFileClicked);
+    { QIcon icon(":/Reload"); if (!icon.isNull()) action->setIcon(icon); }
 
     menu->addSeparator();
     action = menu->addAction("&Exit");
     connect(action, &QAction::triggered, this, &This::onExitClicked);
+    { QIcon icon(":/Exit"); if (!icon.isNull()) action->setIcon(icon); }
 
     menuBar()->addMenu(menu);
 
