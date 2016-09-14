@@ -47,6 +47,7 @@ namespace profiler_gui {
         : selected_thread(0)
         , selected_block(::profiler_gui::numeric_max<decltype(selected_block)>())
         , chrono_text_position(ChronoTextPosition_Center)
+        , enable_statistics(true)
         , draw_graphics_items_borders(true)
         , display_only_relevant_stats(true)
         , collapse_items_on_tree_close(false)

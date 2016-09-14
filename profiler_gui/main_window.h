@@ -110,6 +110,7 @@ protected slots:
     void onExitClicked(bool);
     void onEncodingChanged(bool);
     void onChronoTextPosChanged(bool);
+    void onEnableDisableStatistics(bool);
     void onDrawBordersChanged(bool);
     void onCollapseItemsAfterCloseChanged(bool);
     void onAllItemsExpandedByDefaultChange(bool);

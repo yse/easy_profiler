@@ -44,6 +44,7 @@
 #include <QCloseEvent>
 #include <QSettings>
 #include <QTextCodec>
+#include <QFont>
 #include <QProgressDialog>
 #include <QSignalBlocker>
 #include <QDebug>
@@ -111,9 +112,11 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
 
     action = menu->addAction("Expand all");
     connect(action, &QAction::triggered, this, &This::onExpandAllClicked);
+    { QIcon icon(":/Expand"); if (!icon.isNull()) action->setIcon(icon); }
 
     action = menu->addAction("Collapse all");
     connect(action, &QAction::triggered, this, &This::onCollapseAllClicked);
+    { QIcon icon(":/Collapse"); if (!icon.isNull()) action->setIcon(icon); }
 
     menu->addSeparator();
     action = menu->addAction("Draw items' borders");
@@ -170,6 +173,28 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
 
 
     menu = new QMenu("&Settings");
+    action = new QAction("Statistics enabled", nullptr);
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.enable_statistics);
+    connect(action, &QAction::triggered, this, &This::onEnableDisableStatistics);
+    if (EASY_GLOBALS.enable_statistics)
+    {
+        auto f = action->font();
+        f.setBold(true);
+        action->setFont(f);
+        QIcon icon(":/Stats");
+        if (!icon.isNull())
+            action->setIcon(icon);
+    }
+    else
+    {
+        action->setText("Statistics disabled");
+        QIcon icon(":/Stats-off");
+        if (!icon.isNull())
+            action->setIcon(icon);
+    }
+    menu->addAction(action);
+
     submenu = menu->addMenu("&Encoding");
     actionGroup = new QActionGroup(this);
     actionGroup->setExclusive(true);
@@ -272,6 +297,34 @@ void EasyMainWindow::onChronoTextPosChanged(bool)
     emit EASY_GLOBALS.events.chronoPositionChanged();
 }
 
+void EasyMainWindow::onEnableDisableStatistics(bool _checked)
+{
+    EASY_GLOBALS.enable_statistics = _checked;
+
+    auto action = qobject_cast<QAction*>(sender());
+    if (action != nullptr)
+    {
+        auto f = action->font();
+        f.setBold(_checked);
+        action->setFont(f);
+
+        if (_checked)
+        {
+            action->setText("Statistics enabled");
+            QIcon icon(":/Stats");
+            if (!icon.isNull())
+                action->setIcon(icon);
+        }
+        else
+        {
+            action->setText("Statistics disabled");
+            QIcon icon(":/Stats-off");
+            if (!icon.isNull())
+                action->setIcon(icon);
+        }
+    }
+}
+
 void EasyMainWindow::onDrawBordersChanged(bool _checked)
 {
     EASY_GLOBALS.draw_graphics_items_borders = _checked;
@@ -372,6 +425,12 @@ void EasyMainWindow::loadSettings()
         EASY_GLOBALS.bind_scene_and_tree_expand_status = flag.toBool();
     }
 
+    flag = settings.value("enable_statistics");
+    if (!flag.isNull())
+    {
+        EASY_GLOBALS.enable_statistics = flag.toBool();
+    }
+
     QString encoding = settings.value("encoding", "UTF-8").toString();
     auto default_codec_mib = QTextCodec::codecForName(encoding.toStdString().c_str())->mibEnum();
     auto default_codec = QTextCodec::codecForMib(default_codec_mib);
@@ -402,6 +461,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("collapse_items_on_tree_close", EASY_GLOBALS.collapse_items_on_tree_close);
     settings.setValue("all_items_expanded_by_default", EASY_GLOBALS.all_items_expanded_by_default);
     settings.setValue("bind_scene_and_tree_expand_status", EASY_GLOBALS.bind_scene_and_tree_expand_status);
+    settings.setValue("enable_statistics", EASY_GLOBALS.enable_statistics);
     settings.setValue("encoding", QTextCodec::codecForLocale()->name());
 
     settings.endGroup();
@@ -517,11 +577,11 @@ void EasyFileReader::load(const QString& _filename)
     interrupt();
 
     m_filename = _filename;
-    m_thread = ::std::move(::std::thread([this]() {
-        m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_serializedBlocks, m_serializedDescriptors, m_descriptors, m_blocks, m_blocksTree, true));
+    m_thread = ::std::move(::std::thread([this](bool _enableStatistics) {
+        m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_serializedBlocks, m_serializedDescriptors, m_descriptors, m_blocks, m_blocksTree, _enableStatistics));
         m_progress.store(100);
         m_bDone.store(true);
-    }));
+    }, EASY_GLOBALS.enable_statistics));
 }
 
 void EasyFileReader::interrupt()
