@@ -40,8 +40,6 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-const qreal SCALING_COEFFICIENT = 1.25;
-//const qreal SCALING_COEFFICIENT_INV = 1.0 / SCALING_COEFFICIENT;
 const int DEFAULT_TOP = -40;
 const int DEFAULT_HEIGHT = 80;
 const int INDICATOR_SIZE = 8;
