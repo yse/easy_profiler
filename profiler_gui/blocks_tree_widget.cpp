@@ -38,6 +38,7 @@
 ************************************************************************/
 
 #include <QMenu>
+#include <QHeaderView>
 #include <QContextMenuEvent>
 #include <QSignalBlocker>
 #include <QSettings>
@@ -78,44 +79,73 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
     setSortingEnabled(false);
     setColumnCount(COL_COLUMNS_NUMBER);
 
-    auto header = new QTreeWidgetItem();
+    auto header_item = new QTreeWidgetItem();
+    auto f = header()->font();
+    f.setBold(true);
+    header()->setFont(f);// ::profiler_gui::EFont("Helvetica", 9, QFont::Bold));
 
-    header->setText(COL_NAME, "Name");
+    header_item->setText(COL_NAME, "Name");
 
-    header->setText(COL_BEGIN, "Begin, ms");
+    header_item->setText(COL_BEGIN, "Begin, ms");
 
-    header->setText(COL_DURATION, "Duration");
-    header->setText(COL_SELF_DURATION, "Self Dur.");
-    //header->setToolTip(COL_SELF_DURATION, "");
-    header->setText(COL_DURATION_SUM_PER_PARENT, "Tot. Dur./Parent");
-    header->setText(COL_DURATION_SUM_PER_FRAME, "Tot. Dur./Frame");
-    header->setText(COL_DURATION_SUM_PER_THREAD, "Tot. Dur./Thread");
+    header_item->setText(COL_DURATION, "Duration");
+    header_item->setText(COL_SELF_DURATION, "Self Dur.");
+    //header_item->setToolTip(COL_SELF_DURATION, "");
+    header_item->setText(COL_DURATION_SUM_PER_PARENT, "Tot. Dur./Parent");
+    header_item->setText(COL_DURATION_SUM_PER_FRAME, "Tot. Dur./Frame");
+    header_item->setText(COL_DURATION_SUM_PER_THREAD, "Tot. Dur./Thread");
 
-    header->setText(COL_SELF_DURATION_PERCENT, "Self %");
-    header->setText(COL_PERCENT_PER_PARENT, "% / Parent");
-    header->setText(COL_PERCENT_PER_FRAME, "% / Frame");
-    header->setText(COL_PERCENT_SUM_PER_FRAME, "Tot. % / Frame");
-    header->setText(COL_PERCENT_SUM_PER_PARENT, "Tot. % / Parent");
-    header->setText(COL_PERCENT_SUM_PER_THREAD, "Tot. % / Thread");
+    header_item->setText(COL_SELF_DURATION_PERCENT, "Self %");
+    header_item->setText(COL_PERCENT_PER_PARENT, "% / Parent");
+    header_item->setText(COL_PERCENT_PER_FRAME, "% / Frame");
+    header_item->setText(COL_PERCENT_SUM_PER_FRAME, "Tot. % / Frame");
+    header_item->setText(COL_PERCENT_SUM_PER_PARENT, "Tot. % / Parent");
+    header_item->setText(COL_PERCENT_SUM_PER_THREAD, "Tot. % / Thread");
 
-    header->setText(COL_END, "End, ms");
+    header_item->setText(COL_END, "End, ms");
 
-    header->setText(COL_MIN_PER_FRAME, "Min dur./Frame");
-    header->setText(COL_MAX_PER_FRAME, "Max dur./Frame");
-    header->setText(COL_AVERAGE_PER_FRAME, "Average dur./Frame");
-    header->setText(COL_NCALLS_PER_FRAME, "N Calls/Frame");
+    header_item->setText(COL_MIN_PER_FRAME, "Min dur./Frame");
+    header_item->setText(COL_MAX_PER_FRAME, "Max dur./Frame");
+    header_item->setText(COL_AVERAGE_PER_FRAME, "Average dur./Frame");
+    header_item->setText(COL_NCALLS_PER_FRAME, "N Calls/Frame");
 
-    header->setText(COL_MIN_PER_PARENT, "Min dur./Parent");
-    header->setText(COL_MAX_PER_PARENT, "Max dur./Parent");
-    header->setText(COL_AVERAGE_PER_PARENT, "Average dur./Parent");
-    header->setText(COL_NCALLS_PER_PARENT, "N Calls/Parent");
+    header_item->setText(COL_MIN_PER_PARENT, "Min dur./Parent");
+    header_item->setText(COL_MAX_PER_PARENT, "Max dur./Parent");
+    header_item->setText(COL_AVERAGE_PER_PARENT, "Average dur./Parent");
+    header_item->setText(COL_NCALLS_PER_PARENT, "N Calls/Parent");
 
-    header->setText(COL_MIN_PER_THREAD, "Min dur./Thread");
-    header->setText(COL_MAX_PER_THREAD, "Max dur./Thread");
-    header->setText(COL_AVERAGE_PER_THREAD, "Average dur./Thread");
-    header->setText(COL_NCALLS_PER_THREAD, "N Calls/Thread");
+    header_item->setText(COL_MIN_PER_THREAD, "Min dur./Thread");
+    header_item->setText(COL_MAX_PER_THREAD, "Max dur./Thread");
+    header_item->setText(COL_AVERAGE_PER_THREAD, "Average dur./Thread");
+    header_item->setText(COL_NCALLS_PER_THREAD, "N Calls/Thread");
 
-    setHeaderItem(header);
+    auto color = QColor::fromRgb(::profiler::colors::DeepOrange900);
+    header_item->setForeground(COL_MIN_PER_THREAD, color);
+    header_item->setForeground(COL_MAX_PER_THREAD, color);
+    header_item->setForeground(COL_AVERAGE_PER_THREAD, color);
+    header_item->setForeground(COL_NCALLS_PER_THREAD, color);
+    header_item->setForeground(COL_PERCENT_SUM_PER_THREAD, color);
+    header_item->setForeground(COL_DURATION_SUM_PER_THREAD, color);
+
+    color = QColor::fromRgb(::profiler::colors::Blue900);
+    header_item->setForeground(COL_MIN_PER_FRAME, color);
+    header_item->setForeground(COL_MAX_PER_FRAME, color);
+    header_item->setForeground(COL_AVERAGE_PER_FRAME, color);
+    header_item->setForeground(COL_NCALLS_PER_FRAME, color);
+    header_item->setForeground(COL_PERCENT_SUM_PER_FRAME, color);
+    header_item->setForeground(COL_DURATION_SUM_PER_FRAME, color);
+    header_item->setForeground(COL_PERCENT_PER_FRAME, color);
+
+    color = QColor::fromRgb(::profiler::colors::Teal900);
+    header_item->setForeground(COL_MIN_PER_PARENT, color);
+    header_item->setForeground(COL_MAX_PER_PARENT, color);
+    header_item->setForeground(COL_AVERAGE_PER_PARENT, color);
+    header_item->setForeground(COL_NCALLS_PER_PARENT, color);
+    header_item->setForeground(COL_PERCENT_SUM_PER_PARENT, color);
+    header_item->setForeground(COL_DURATION_SUM_PER_PARENT, color);
+    header_item->setForeground(COL_PERCENT_PER_PARENT, color);
+
+    setHeaderItem(header_item);
 
     connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
     connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
@@ -329,9 +359,11 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     {
         action = menu.addAction("Expand all");
         connect(action, &QAction::triggered, this, &This::onExpandAllClicked);
+        { QIcon icon(":/Expand"); if (!icon.isNull()) action->setIcon(icon); }
 
         action = menu.addAction("Collapse all");
         connect(action, &QAction::triggered, this, &This::onCollapseAllClicked);
+        { QIcon icon(":/Collapse"); if (!icon.isNull()) action->setIcon(icon); }
 
         if (item != nullptr && col >= 0)
         {
@@ -339,9 +371,11 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 
             action = menu.addAction("Expand all children");
             connect(action, &QAction::triggered, this, &This::onExpandAllChildrenClicked);
+            { QIcon icon(":/Expand"); if (!icon.isNull()) action->setIcon(icon); }
 
             action = menu.addAction("Collapse all children");
             connect(action, &QAction::triggered, this, &This::onCollapseAllChildrenClicked);
+            { QIcon icon(":/Collapse"); if (!icon.isNull()) action->setIcon(icon); }
         }
 
         menu.addSeparator();
@@ -351,6 +385,13 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     action->setCheckable(true);
     action->setChecked(m_bColorRows);
     connect(action, &QAction::triggered, this, &This::onColorizeRowsTriggered);
+    if (m_bColorRows) {
+        auto f = action->font();
+        f.setBold(true);
+        action->setFont(f);
+        { QIcon icon(":/Color"); if (!icon.isNull()) action->setIcon(icon); }
+    }
+    else { QIcon icon(":/NoColor"); if (!icon.isNull()) action->setIcon(icon); }
 
     if (item != nullptr && item->parent() != nullptr)
     {

@@ -37,6 +37,7 @@
 #include <unordered_map>
 #include <QRgb>
 #include <QString>
+#include <QFont>
 #include "profiler/reader.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -277,6 +278,23 @@ inline double percentReal(::profiler::timestamp_t _partial, ::profiler::timestam
 inline int percent(::profiler::timestamp_t _partial, ::profiler::timestamp_t _total)
 {
     return static_cast<int>(0.5 + percentReal(_partial, _total));
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+inline QFont EFont(QFont::StyleHint _hint, const char* _family, int _size, int _weight = -1)
+{
+    QFont f;
+    f.setStyleHint(_hint, QFont::PreferMatch);
+    f.setFamily(_family);
+    f.setPointSize(_size);
+    f.setWeight(_weight);
+    return f;
+}
+
+inline QFont EFont(const char* _family, int _size, int _weight = -1)
+{
+    return EFont(QFont::Helvetica, _family, _size, _weight);
 }
 
 //////////////////////////////////////////////////////////////////////////

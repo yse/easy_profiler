@@ -102,20 +102,10 @@ const uint64_t IDLE_TIME = 400;
 const int FLICKER_INTERVAL = 10; // 100Hz
 const qreal FLICKER_FACTOR = 16.0 / FLICKER_INTERVAL;
 
-QFont EFont(const char* _family, int _size, int _weight = -1)
-{
-    QFont f;
-    f.setStyleHint(QFont::Helvetica, QFont::PreferMatch);
-    f.setFamily(_family);
-    f.setPointSize(_size);
-    f.setWeight(_weight);
-    return f;
-}
-
-const auto BG_FONT = EFont("Helvetica", 10, QFont::Bold);
-const auto CHRONOMETER_FONT = EFont("Helvetica", 16, QFont::Bold);
-const auto ITEMS_FONT = EFont("Helvetica", 10, QFont::Medium);
-const auto SELECTED_ITEM_FONT = EFont("Helvetica", 10, QFont::Bold);
+const auto BG_FONT = ::profiler_gui::EFont("Helvetica", 10, QFont::Bold);
+const auto CHRONOMETER_FONT = ::profiler_gui::EFont("Helvetica", 16, QFont::Bold);
+const auto ITEMS_FONT = ::profiler_gui::EFont("Helvetica", 10, QFont::Medium);
+const auto SELECTED_ITEM_FONT = ::profiler_gui::EFont("Helvetica", 10, QFont::Bold);
 
 #ifdef _WIN32
 const qreal FONT_METRICS_FACTOR = 1.05;
