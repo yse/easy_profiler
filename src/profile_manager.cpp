@@ -518,6 +518,9 @@ void ProfileManager::startListen()
                     dumpBlocksToStream(os);
                     dm.size = (uint32_t)os.stream().str().length();
 
+
+                    //dm.size = 8192*4;
+
                     int packet_size = int(sizeof(dm)) + int(dm.size);
 
                     char *sendbuf = new char[packet_size];
@@ -537,7 +540,7 @@ void ProfileManager::startListen()
                     delete[] sendbuf;
                     //std::this_thread::sleep_for(std::chrono::seconds(2));
                     replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_END_SEND_BLOCKS;
-                    //bytes = socket.send(&replyMessage, sizeof(replyMessage));
+                    bytes = socket.send(&replyMessage, sizeof(replyMessage));
                     //hasConnect = bytes > 0;
                 }
                 break;

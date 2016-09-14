@@ -189,7 +189,7 @@ int EasySocket::connect()
     if (!m_socket || !result){
         return -1;
     }
-    
+    /**
     SOCKET  ConnectSocket = socket(result->ai_family, result->ai_socktype,
         result->ai_protocol);
     if (ConnectSocket == INVALID_SOCKET) {
@@ -206,7 +206,7 @@ int EasySocket::connect()
         return -1;
     }
     m_socket = ConnectSocket;
-    /**
+    /**/
     // Connect to server.
     auto iResult = ::connect(m_socket, result->ai_addr, (int)result->ai_addrlen);
     if (iResult == SOCKET_ERROR) {
@@ -214,6 +214,7 @@ int EasySocket::connect()
         m_socket = INVALID_SOCKET;
     }
     /**/
+    m_replySocket = m_socket;
     return iResult;
 }
 
@@ -233,8 +234,11 @@ int EasySocket::accept()
     int send_buffer_sizeof = sizeof(int);
     setsockopt(m_replySocket, SOL_SOCKET, SO_SNDBUF, (char*)&send_buffer, send_buffer_sizeof);
 
-    int flag = 1;
-    int result = setsockopt(m_replySocket,IPPROTO_TCP,TCP_NODELAY,(char *)&flag,sizeof(int));
+    //int flag = 1;
+    //int result = setsockopt(m_replySocket,IPPROTO_TCP,TCP_NODELAY,(char *)&flag,sizeof(int));
+
+    u_long iMode = 0;//0 - blocking, 1 - non blocking
+    ioctlsocket(m_replySocket, FIONBIO, &iMode);
 
     return (int)m_replySocket;
 }

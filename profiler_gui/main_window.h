@@ -37,6 +37,7 @@
 #include <QTimer>
 #include <QTcpServer>
 #include <QTcpSocket>
+#include <QThread>
 #include "profiler/reader.h"
 #include <sstream>
 
@@ -78,11 +79,28 @@ public:
 }; // END of class EasyFileReader.
 
 //////////////////////////////////////////////////////////////////////////
+class EasyMainWindow;
+class TcpReceiverThread : public QThread
+{
+    Q_OBJECT
+        EasyMainWindow* mainwindow;
+public:
+    QTcpSocket * m_server;
+    explicit TcpReceiverThread(QObject *parent, EasyMainWindow* mw);
+
+    void run() Q_DECL_OVERRIDE;
+public slots:
+
+    void readTcpData();
+    void onConnected();
+signals:
+    void resultReady(const QString &s);
+};
 
 class EasyMainWindow : public QMainWindow
 {
     Q_OBJECT
-
+        friend class TcpReceiverThread;
 protected:
 
     typedef EasyMainWindow This;
@@ -98,13 +116,17 @@ protected:
     EasyFileReader                            m_reader;
 
     QTcpSocket* m_server = nullptr;
-    QTcpSocket* m_client = nullptr;
+
     std::stringstream m_receivedProfileData;
     bool m_recFrames = false;
 
     QLineEdit* m_hostString = nullptr;
     QLineEdit* m_portString = nullptr;
     bool m_isConnected = false;
+
+    TcpReceiverThread* m_receiver;
+
+    std::thread m_thread;
 public:
 
     EasyMainWindow();
@@ -113,6 +135,8 @@ public:
     // Public virtual methods
 
     void closeEvent(QCloseEvent* close_event) override;
+
+    void listen();
 
 protected slots:
 
@@ -139,6 +163,7 @@ protected slots:
     void onDisconnect();
     void onConnectClicked(bool);
 
+    void handleResults(const QString &s);
 private:
 
     // Private non-virtual methods

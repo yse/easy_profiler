@@ -252,7 +252,7 @@ int main(int argc, char* argv[])
     std::thread modelling = std::thread(modellingThread);
 
     
-    for(int i=0; i < 3; i++){
+    for(int i=0; i < 0; i++){
         threads.emplace_back(std::thread(loadingResourcesThread));
         threads.emplace_back(std::thread(renderThread));
         threads.emplace_back(std::thread(modellingThread));
