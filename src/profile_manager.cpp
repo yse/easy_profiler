@@ -490,8 +490,12 @@ void ProfileManager::setBlockEnabled(profiler::block_id_t _id, const profiler::h
     }
     else
     {
+#ifdef _WIN32
         blocks_enable_status_t::key_type key(_key.c_str(), _key.size(), _key.hcode());
         m_blocksEnableStatus[key] = _enabled;
+#else
+        m_blocksEnableStatus[_key] = _enabled;
+#endif
     }
 }
 

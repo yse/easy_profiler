@@ -203,6 +203,18 @@ namespace profiler {
         {
         }
 
+        hashed_stdstring(const char* _str, size_t _hash_code) : m_str(_str), m_hash(_hash_code)
+        {
+        }
+
+        hashed_stdstring(const ::std::string& _str, size_t _hash_code) : m_str(_str), m_hash(_hash_code)
+        {
+        }
+
+        hashed_stdstring(::std::string&& _str, size_t _hash_code) : m_str(::std::forward<::std::string&&>(_str)), m_hash(_hash_code)
+        {
+        }
+
         hashed_stdstring(const hashed_stdstring&) = default;
         hashed_stdstring& operator = (const hashed_stdstring&) = default;
 

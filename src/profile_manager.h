@@ -312,7 +312,12 @@ class ProfileManager final
     typedef profiler::guard_lock<profiler::spin_lock> guard_lock_t;
     typedef std::map<profiler::thread_id_t, ThreadStorage> map_of_threads_stacks;
     typedef std::vector<profiler::BlockDescriptor*> block_descriptors_t;
+
+#ifdef _WIN32
     typedef std::unordered_map<profiler::hashed_cstr, bool> blocks_enable_status_t;
+#else
+    typedef std::unordered_map<profiler::hashed_stdstring, bool> blocks_enable_status_t;
+#endif
 
     map_of_threads_stacks             m_threads;
     block_descriptors_t           m_descriptors;
