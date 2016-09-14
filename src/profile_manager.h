@@ -342,7 +342,7 @@ public:
     ~ProfileManager();
 
     template <class ... TArgs>
-    const profiler::BaseBlockDescriptor& addBlockDescriptor(bool _enabledByDefault, const char* _autogenUniqueId, TArgs ... _args)
+    const profiler::BaseBlockDescriptor* addBlockDescriptor(bool _enabledByDefault, const char* _autogenUniqueId, TArgs ... _args)
     {
         auto desc = new profiler::BlockDescriptor(m_usedMemorySize, _enabledByDefault, _args...);
 
@@ -362,7 +362,7 @@ public:
             desc->m_pEnable = &m_blocksEnableStatus.emplace(key, desc->enabled()).first->second;
         }
 
-        return *desc;
+        return desc;
     }
 
     void storeBlock(const profiler::BaseBlockDescriptor& _desc, const char* _runtimeName);

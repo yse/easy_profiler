@@ -383,6 +383,7 @@ namespace profiler {
     public:
 
         explicit BlockDescRef(const BaseBlockDescriptor& _desc) : m_desc(_desc) { }
+        explicit BlockDescRef(const BaseBlockDescriptor* _desc) : m_desc(*_desc) { }
         inline operator const BaseBlockDescriptor& () const { return m_desc; }
         ~BlockDescRef();
 
@@ -407,7 +408,7 @@ namespace profiler {
 
         \ingroup profiler
         */
-        PROFILER_API const BaseBlockDescriptor& registerDescription(bool _enabled, const char* _autogenUniqueId, const char* _compiletimeName, const char* _filename, int _line, block_type_t _block_type, color_t _color);
+        PROFILER_API const BaseBlockDescriptor* registerDescription(bool _enabled, const char* _autogenUniqueId, const char* _compiletimeName, const char* _filename, int _line, block_type_t _block_type, color_t _color);
 
         /** Stores event in the blocks list.
 

@@ -47,7 +47,7 @@ extern timestamp_t getCurrentTime();
 
 extern "C" {
 
-    PROFILER_API const BaseBlockDescriptor& registerDescription(bool _enabled, const char* _autogenUniqueId, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
+    PROFILER_API const BaseBlockDescriptor* registerDescription(bool _enabled, const char* _autogenUniqueId, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
     {
         return MANAGER.addBlockDescriptor(_enabled, _autogenUniqueId, _name, _filename, _line, _block_type, _color);
     }
@@ -153,8 +153,8 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
     auto size = static_cast<uint16_t>(sizeof(BaseBlockData) + name_length + 1);
 
 #if EASY_MEASURE_STORAGE_EXPAND != 0
-    const bool expanded = desc.enabled() && blocks.closedList.need_expand(size);
-    profiler::Block b(0ULL, desc.id(), "");
+    const bool expanded = desc->enabled() && blocks.closedList.need_expand(size);
+    profiler::Block b(0ULL, desc->id(), "");
     if (expanded) b.start();
 #endif
 

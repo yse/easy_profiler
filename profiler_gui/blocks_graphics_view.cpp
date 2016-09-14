@@ -816,7 +816,6 @@ const ::profiler_gui::EasyBlock* EasyGraphicsItem::intersectEvent(const QPointF&
     }
 
     const auto sceneView = view();
-    const auto currentScale = view()->scale();
     auto firstSync = ::std::lower_bound(m_pRoot->sync.begin(), m_pRoot->sync.end(), _pos.x(), [&sceneView](::profiler::block_index_t _index, qreal _value)
     {
         return sceneView->time2position(blocksTree(_index).node->begin()) < _value;

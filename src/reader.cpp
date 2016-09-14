@@ -342,7 +342,6 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
 
             auto& per_parent_statistics = parent_statistics[thread_id];
             auto& per_thread_statistics = thread_statistics[thread_id];
-            auto descriptor = descriptors[baseData->id()];
 
             if (*tree.node->name() != 0)
             {
