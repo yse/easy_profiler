@@ -218,12 +218,12 @@ public:
         do {
             const int8_t* data = current->data;
             uint16_t i = 0;
-            do {
+            while (i + 1 < N && *(uint16_t*)data != 0) {
                 const uint16_t size = sizeof(uint16_t) + *(uint16_t*)data;
                 _outputStream.write((const char*)data, size);
                 data = data + size;
                 i += size;
-            } while (i + 1 < N && *(uint16_t*)data != 0);
+            }
             current = current->prev;
         } while (current != nullptr);
 

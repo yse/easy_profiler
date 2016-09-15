@@ -105,9 +105,10 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
 
     QToolBar *fileToolBar = addToolBar(tr("File"));
     QAction *connectAct = new QAction(tr("&Connect"), this);
-    { QIcon icon(":/WiFi"); if (!icon.isNull()) connectAct->setIcon(icon); }
+    SET_ICON(connectAct, ":/WiFi");
 
     QAction *newAct = new QAction(tr("&Capture"), this);
+    SET_ICON(newAct, ":/Start");
     fileToolBar->addAction(connectAct);
     fileToolBar->addAction(newAct);
     
