@@ -13,5 +13,6 @@
         <file alias="Stats-off">icons/statistics2.svg</file>
         <file alias="LAN">icons/lan.svg</file>
         <file alias="WiFi">icons/wifi.svg</file>
+        <file alias="Start">icons/play.svg</file>
     </qresource>
 </RCC>
