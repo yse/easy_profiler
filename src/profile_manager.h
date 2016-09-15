@@ -369,6 +369,7 @@ public:
     void beginBlock(profiler::Block& _block);
     void endBlock();
     void setEnabled(bool isEnable);
+    void setEventTracingEnabled(bool _isEnable);
     uint32_t dumpBlocksToFile(const char* filename);
     const char* registerThread(const char* name);// , const char* filename, const char* _funcname, int line);
 

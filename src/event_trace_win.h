@@ -12,6 +12,7 @@
 #include <evntrace.h>
 #include <evntcons.h>
 #include <thread>
+#include <atomic>
 #include "event_trace_status.h"
 #include "spin_lock.h"
 
@@ -30,13 +31,14 @@ namespace profiler {
         };
 #pragma pack(pop)
 
-        ::std::thread  m_processThread;
-        Properties        m_properties;
-        EVENT_TRACE_LOGFILE    m_trace;
-        profiler::spin_lock     m_spin;
-        TRACEHANDLE    m_sessionHandle = INVALID_PROCESSTRACE_HANDLE;
-        TRACEHANDLE     m_openedHandle = INVALID_PROCESSTRACE_HANDLE;
-        bool                m_bEnabled = false;
+        ::std::thread       m_processThread;
+        Properties             m_properties;
+        EVENT_TRACE_LOGFILE         m_trace;
+        profiler::spin_lock          m_spin;
+        ::std::atomic_bool    m_lowPriority;
+        TRACEHANDLE         m_sessionHandle = INVALID_PROCESSTRACE_HANDLE;
+        TRACEHANDLE          m_openedHandle = INVALID_PROCESSTRACE_HANDLE;
+        bool                     m_bEnabled = false;
 
     public:
 
@@ -45,6 +47,7 @@ namespace profiler {
 
         ::profiler::EventTracingEnableStatus enable(bool _force = false);
         void disable();
+        void setLowPriority(bool _value);
 
     private:
 

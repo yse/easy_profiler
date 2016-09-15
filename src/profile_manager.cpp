@@ -82,6 +82,20 @@ extern "C" {
         return MANAGER.registerThread(name);// , filename, _funcname, line);
     }
 
+    PROFILER_API void setEventTracingEnabled(bool _isEnable)
+    {
+        MANAGER.setEventTracingEnabled(_isEnable);
+    }
+
+#ifdef _WIN32
+    PROFILER_API void setLowPriorityEventTracing(bool _isLowPriority)
+    {
+        EasyEventTracer::instance().setLowPriority(_isLowPriority);
+    }
+#else
+    PROFILER_API void setLowPriorityEventTracing(bool) { }
+#endif
+
 #ifndef _WIN32
     PROFILER_API void setContextSwitchLogFilename(const char* name)
     {
@@ -245,7 +259,7 @@ ThreadStorage* ProfileManager::_findThreadStorage(profiler::thread_id_t _thread_
 
 void ProfileManager::storeBlock(const profiler::BaseBlockDescriptor& _desc, const char* _runtimeName)
 {
-    if (!m_isEnabled || !_desc.enabled())
+    if (!m_isEnabled.load(std::memory_order_acquire) || !_desc.enabled())
         return;
 
     profiler::Block b(_desc, _runtimeName);
@@ -259,7 +273,7 @@ void ProfileManager::storeBlock(const profiler::BaseBlockDescriptor& _desc, cons
 
 void ProfileManager::beginBlock(Block& _block)
 {
-    if (!m_isEnabled)
+    if (!m_isEnabled.load(std::memory_order_acquire))
         return;
 
     if (THREAD_STORAGE == nullptr)
@@ -290,7 +304,7 @@ void ProfileManager::storeContextSwitch(profiler::thread_id_t _thread_id, profil
 
 void ProfileManager::endBlock()
 {
-    if (!m_isEnabled)
+    if (!m_isEnabled.load(std::memory_order_acquire))
         return;
 
     if (THREAD_STORAGE->blocks.openedList.empty())
@@ -322,11 +336,11 @@ void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, profiler
 
 void ProfileManager::setEnabled(bool isEnable)
 {
-    m_isEnabled = isEnable;
+    m_isEnabled.store(isEnable, std::memory_order_release);
 
 #ifdef _WIN32
     if (isEnable) {
-        if (m_isEventTracingEnabled)
+        if (m_isEventTracingEnabled.load(std::memory_order_acquire))
             EasyEventTracer::instance().enable(true);
     } else {
         EasyEventTracer::instance().disable();
@@ -334,12 +348,17 @@ void ProfileManager::setEnabled(bool isEnable)
 #endif
 }
 
+void ProfileManager::setEventTracingEnabled(bool _isEnable)
+{
+    m_isEventTracingEnabled.store(_isEnable, std::memory_order_release);
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
 {
-    const bool wasEnabled = m_isEnabled;
-    const bool eventTracingEnabled = m_isEventTracingEnabled;
+    const bool wasEnabled = m_isEnabled.load(std::memory_order_acquire);
+    const bool eventTracingEnabled = m_isEventTracingEnabled.load(std::memory_order_acquire);
     if (wasEnabled)
         ::profiler::setEnabled(false);
 

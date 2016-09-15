@@ -71,7 +71,7 @@ namespace profiler {
         auto _contextSwitchEvent = reinterpret_cast<CSwitch*>(_traceEvent->UserData);
         const auto time = static_cast<::profiler::timestamp_t>(_traceEvent->EventHeader.TimeStamp.QuadPart);
 
-        ProcessInfo* pinfo = nullptr;
+        const char* process_name = "";
         auto it = THREAD_PROCESS_INFO_TABLE.find(_contextSwitchEvent->NewThreadId);
         if (it == THREAD_PROCESS_INFO_TABLE.end())
         {
@@ -79,10 +79,18 @@ namespace profiler {
             if (hThread != nullptr)
             {
                 auto pid = GetProcessIdOfThread(hThread);
-                pinfo = &PROCESS_INFO_TABLE[pid];
+                auto pinfo = &PROCESS_INFO_TABLE[pid];
 
                 if (pinfo->valid == 0)
                 {
+                    if (pinfo->name.empty())
+                    {
+                        static char numbuf[128] = {};
+                        sprintf(numbuf, "%u", pid);
+                        pinfo->name = numbuf;
+                        pinfo->id = pid;
+                    }
+
                     // According to documentation, using GetModuleBaseName() requires
                     // PROCESS_QUERY_INFORMATION | PROCESS_VM_READ access rights.
                     // But it works fine with PROCESS_QUERY_LIMITED_INFORMATION instead of PROCESS_QUERY_INFORMATION.
@@ -94,54 +102,43 @@ namespace profiler {
                         static TCHAR buf[MAX_PATH] = {}; // Using static is safe because processTraceEvent() is called from one thread
                         auto success = GetModuleBaseName(hProc, 0, buf, MAX_PATH);
 
-                        if (pinfo->name.empty())
-                        {
-                            static char numbuf[128] = {};
-                            sprintf(numbuf, "%u ", pid);
-                            pinfo->name = numbuf;
-                            pinfo->id = pid;
-                        }
-
                         if (success)
                         {
-                            pinfo->name += buf;
+                            auto len = strlen(buf);
+                            pinfo->name.reserve(pinfo->name.size() + 2 + len);
+                            pinfo->name.append(" ", 1);
+                            pinfo->name.append(buf, len);
                             pinfo->valid = 1;
-                            //printf("PROCESS %u is %s\n", pid, buf);
                         }
 
                         CloseHandle(hProc);
                     }
                     else
                     {
+                        //printf("Can not OpenProcess(%u);\n", pid);
                         pinfo->valid = -1;
                     }
                 }
 
-                if (pinfo->valid > 0)
-                {
-                    THREAD_PROCESS_INFO_TABLE[_contextSwitchEvent->NewThreadId] = pinfo;
-                }
-                else if (pinfo->valid < 0)
-                {
-                    pinfo = nullptr;
-                    THREAD_PROCESS_INFO_TABLE[_contextSwitchEvent->NewThreadId] = nullptr;
-                }
+                process_name = pinfo->name.c_str();
+                THREAD_PROCESS_INFO_TABLE[_contextSwitchEvent->NewThreadId] = pinfo;
 
                 CloseHandle(hThread);
             }
             else
             {
+                //printf("Can not OpenThread(%u);\n", _contextSwitchEvent->NewThreadId);
                 THREAD_PROCESS_INFO_TABLE[_contextSwitchEvent->NewThreadId] = nullptr;
             }
         }
         else
         {
-            pinfo = it->second;
-            if (pinfo != nullptr && pinfo->valid < 0)
-                pinfo = nullptr;
+            auto pinfo = it->second;
+            if (pinfo != nullptr)
+                process_name = pinfo->name.c_str();
         }
 
-        MANAGER.beginContextSwitch(_contextSwitchEvent->OldThreadId, time, _contextSwitchEvent->NewThreadId, pinfo ? pinfo->name.c_str() : "");
+        MANAGER.beginContextSwitch(_contextSwitchEvent->OldThreadId, time, _contextSwitchEvent->NewThreadId, process_name);
         MANAGER.endContextSwitch(_contextSwitchEvent->NewThreadId, time);
     }
 
@@ -155,11 +152,17 @@ namespace profiler {
 
     EasyEventTracer::EasyEventTracer()
     {
+        m_lowPriority = ATOMIC_VAR_INIT(EASY_LOW_PRIORITY_EVENT_TRACING);
     }
 
     EasyEventTracer::~EasyEventTracer()
     {
         disable();
+    }
+
+    void EasyEventTracer::setLowPriority(bool _value)
+    {
+        m_lowPriority.store(_value, ::std::memory_order_release);
     }
 
     ::profiler::EventTracingEnableStatus EasyEventTracer::startTrace(bool _force, int _step)
@@ -242,7 +245,8 @@ namespace profiler {
         }));
 
         // Set low priority for event tracing thread
-        SetThreadPriority(m_processThread.native_handle(), THREAD_PRIORITY_LOWEST);
+        if (m_lowPriority.load(::std::memory_order_acquire))
+            SetThreadPriority(m_processThread.native_handle(), THREAD_PRIORITY_LOWEST);
 
         m_bEnabled = true;
 
