@@ -16,26 +16,25 @@ You should have received a copy of the GNU General Public License
 along with this program.If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#ifndef ___PROFILER____MANAGER____H______
-#define ___PROFILER____MANAGER____H______
+#ifndef EASY_PROFILER____MANAGER____H______
+#define EASY_PROFILER____MANAGER____H______
 
 #include "profiler/profiler.h"
 #include "profiler/serialized_block.h"
 
-#include "easy_socket.h"
+#include "profiler/easy_socket.h"
 #include "spin_lock.h"
-
-#include <stack>
+#include "outstream.h"
+#include "hashed_cstr.h"
 #include <map>
 #include <list>
 #include <vector>
+#include <unordered_map>
 #include <string>
 #include <functional>
-#include <sstream>
 #include <string.h>
 #include <thread>
 #include <atomic>
-
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -59,50 +58,182 @@ inline uint32_t getCurrentThreadId()
 #endif
 }
 
-namespace profiler { class SerializedBlock; }
+namespace profiler {
+    
+    class SerializedBlock;
+
+    struct do_not_calc_hash {
+        template <class T> inline size_t operator()(T _value) const {
+            return static_cast<size_t>(_value);
+        }
+    };
+
+}
 
 //////////////////////////////////////////////////////////////////////////
 
-template <class T, const uint16_t N>
+//#define EASY_ENABLE_ALIGNMENT
+
+#ifndef EASY_ENABLE_ALIGNMENT
+# define EASY_ALIGNED(TYPE, VAR, A) TYPE VAR
+# define EASY_MALLOC(MEMSIZE, A) malloc(MEMSIZE)
+# define EASY_FREE(MEMPTR) free(MEMPTR)
+#else
+# if defined(_WIN32)
+#  define EASY_ALIGNED(TYPE, VAR, A) __declspec(align(A)) TYPE VAR
+#  define EASY_MALLOC(MEMSIZE, A) _aligned_malloc(MEMSIZE, A)
+#  define EASY_FREE(MEMPTR) _aligned_free(MEMPTR)
+# elif defined(__GNUC__)
+#  define EASY_ALIGNED(TYPE, VAR, A) TYPE VAR __attribute__(aligned(A))
+# else
+#  define EASY_ALIGNED(TYPE, VAR, A) TYPE VAR
+# endif
+#endif
+
+template <const uint16_t N>
 class chunk_allocator final
 {
-    struct chunk { T data[N]; };
+    struct chunk { EASY_ALIGNED(int8_t, data[N], 64); chunk* prev = nullptr; };
 
-    std::list<chunk> m_chunks;
-    uint16_t           m_size;
+    struct chunk_list
+    {
+        chunk* last = nullptr;
+
+        ~chunk_list()
+        {
+            clear();
+        }
+
+        void clear()
+        {
+            do {
+                auto p = last;
+                last = last->prev;
+                EASY_FREE(p);
+            } while (last != nullptr);
+        }
+
+        chunk& back()
+        {
+            return *last;
+        }
+
+        void emplace_back()
+        {
+            auto prev = last;
+            last = ::new (EASY_MALLOC(sizeof(chunk), 64)) chunk();
+            last->prev = prev;
+            *(uint16_t*)last->data = 0;
+        }
+
+        void invert()
+        {
+            chunk* next = nullptr;
+
+            while (last->prev != nullptr) {
+                auto p = last->prev;
+                last->prev = next;
+                next = last;
+                last = p;
+            }
+
+            last->prev = next;
+        }
+    };
+
+    //typedef std::list<chunk> chunk_list;
+
+    chunk_list m_chunks;
+    uint32_t     m_size;
+    uint16_t    m_shift;
 
 public:
 
-    chunk_allocator() : m_size(0)
+    chunk_allocator() : m_size(0), m_shift(0)
     {
         m_chunks.emplace_back();
     }
 
-    T* allocate(uint16_t n)
+    void* allocate(uint16_t n)
     {
-        if (m_size + n <= N)
+        ++m_size;
+
+        if (!need_expand(n))
         {
-            T* data = m_chunks.back().data + m_size;
-            m_size += n;
+            int8_t* data = m_chunks.back().data + m_shift;
+            m_shift += n + sizeof(uint16_t);
+
+            *(uint16_t*)data = n;
+            data = data + sizeof(uint16_t);
+
+            if (m_shift + 1 < N)
+                *(uint16_t*)(data + n) = 0;
+
             return data;
         }
 
-        m_size = n;
+        m_shift = n + sizeof(uint16_t);
         m_chunks.emplace_back();
-        return m_chunks.back().data;
+        auto data = m_chunks.back().data;
+
+        *(uint16_t*)data = n;
+        data = data + sizeof(uint16_t);
+
+        *(uint16_t*)(data + n) = 0;
+        return data;
+    }
+
+    inline bool need_expand(uint16_t n) const
+    {
+        return (m_shift + n + sizeof(uint16_t)) > N;
+    }
+
+    inline uint32_t size() const
+    {
+        return m_size;
+    }
+
+    inline bool empty() const
+    {
+        return m_size == 0;
     }
 
     void clear()
     {
         m_size = 0;
+        m_shift = 0;
         m_chunks.clear();
         m_chunks.emplace_back();
+    }
+
+    /** Serialize data to stream.
+
+    \warning Data will be cleared after serialization.
+    */
+    void serialize(profiler::OStream& _outputStream)
+    {
+        m_chunks.invert();
+
+        auto current = m_chunks.last;
+        do {
+            const int8_t* data = current->data;
+            uint16_t i = 0;
+            do {
+                const uint16_t size = sizeof(uint16_t) + *(uint16_t*)data;
+                _outputStream.write((const char*)data, size);
+                data = data + size;
+                i += size;
+            } while (i + 1 < N && *(uint16_t*)data != 0);
+            current = current->prev;
+        } while (current != nullptr);
+
+        clear();
     }
 };
 
 //////////////////////////////////////////////////////////////////////////
 
-const uint16_t SIZEOF_CSWITCH = sizeof(profiler::BaseBlockData) + 1;
+const uint16_t SIZEOF_CSWITCH = sizeof(profiler::BaseBlockData) + 1 + sizeof(uint16_t);
 
 typedef std::vector<profiler::SerializedBlock*> serialized_list_t;
 
@@ -125,6 +256,11 @@ struct BlocksList final
             m_stack.emplace_back(_block);
         }
 
+        inline void emplace(profiler::Block&& _block) {
+            //m_stack.emplace(_block);
+            m_stack.emplace_back(std::forward<profiler::Block&&>(_block));
+        }
+
         template <class ... TArgs> inline void emplace(TArgs ... _args) {
             //m_stack.emplace(_args);
             m_stack.emplace_back(_args...);
@@ -141,14 +277,12 @@ struct BlocksList final
         }
     };
 
-    chunk_allocator<char, N>       alloc;
     Stack                     openedList;
-    serialized_list_t         closedList;
+    chunk_allocator<N>        closedList;
     uint64_t          usedMemorySize = 0;
 
     void clearClosed() {
-        serialized_list_t().swap(closedList);
-        alloc.clear();
+        //closedList.clear();
         usedMemorySize = 0;
     }
 };
@@ -158,8 +292,8 @@ class ThreadStorage final
 {
 public:
 
-    BlocksList<std::reference_wrapper<profiler::Block>, SIZEOF_CSWITCH * (uint16_t)1024U> blocks;
-    BlocksList<profiler::Block, SIZEOF_CSWITCH * (uint16_t)128U>                            sync;
+    BlocksList<std::reference_wrapper<profiler::Block>, SIZEOF_CSWITCH * (uint16_t)128U> blocks;
+    BlocksList<profiler::Block, SIZEOF_CSWITCH * (uint16_t)128U>                           sync;
     std::string name;
     bool named = false;
 
@@ -170,51 +304,42 @@ public:
     ThreadStorage() = default;
 };
 
-class StreamWriter final
-{
-    std::stringstream m_stream;
-
-public:
-
-    explicit StreamWriter() : m_stream(std::ios_base::out | std::ios_base::binary) { }
-
-    template <typename T> void write(const char* _data, T _size) {
-        m_stream.write(_data, _size);
-    }
-
-    template <class T> void write(const T& _data) {
-        m_stream.write((const char*)&_data, sizeof(T));
-    }
-
-    void writeBlock(const profiler::SerializedBlock* _block)
-    {
-        auto sz = static_cast<uint16_t>(sizeof(profiler::BaseBlockData) + strlen(_block->name()) + 1);
-        write(sz);
-        write(_block->data(), sz);
-    }
-    const std::stringstream& stream() const {return m_stream;}
-};
-
 //////////////////////////////////////////////////////////////////////////
 
 class ProfileManager final
 {
+    friend profiler::BlockDescRef;
+
     ProfileManager();
     ProfileManager(const ProfileManager& p) = delete;
     ProfileManager& operator=(const ProfileManager&) = delete;
 
     typedef profiler::guard_lock<profiler::spin_lock> guard_lock_t;
     typedef std::map<profiler::thread_id_t, ThreadStorage> map_of_threads_stacks;
-    typedef std::vector<profiler::BlockDescriptor> block_descriptors_t;
+    typedef std::vector<profiler::BlockDescriptor*> block_descriptors_t;
 
-    map_of_threads_stacks     m_threads;
-    block_descriptors_t   m_descriptors;
-    uint64_t       m_usedMemorySize = 0;
-    profiler::spin_lock          m_spin;
-    profiler::spin_lock    m_storedSpin;
-    bool            m_isEnabled = false;
+#ifdef _WIN32
+    typedef std::unordered_map<profiler::hashed_cstr, bool> blocks_enable_status_t;
+#else
+    typedef std::unordered_map<profiler::hashed_stdstring, bool> blocks_enable_status_t;
+#endif
 
+    map_of_threads_stacks             m_threads;
+    block_descriptors_t           m_descriptors;
+    blocks_enable_status_t m_blocksEnableStatus;
+    uint64_t               m_usedMemorySize = 0;
+    profiler::spin_lock                  m_spin;
+    profiler::spin_lock            m_storedSpin;
+    profiler::block_id_t        m_idCounter = 0;
+    std::atomic_bool                m_isEnabled;
+    std::atomic_bool    m_isEventTracingEnabled;
+
+#ifndef _WIN32
     std::string m_csInfoFilename = "/tmp/cs_profiling_info.log";
+#endif
+
+    uint32_t dumpBlocksToStream(profiler::OStream& _outputStream);
+    void setBlockEnabled(profiler::block_id_t _id, const profiler::hashed_stdstring& _key, bool _enabled);
 
     std::thread m_listenThread;
     bool m_isAlreadyListened = false;
@@ -222,7 +347,6 @@ class ProfileManager final
 
     int m_socket = 0;//TODO crossplatform
 
-    uint32_t dumpBlocksToStream(StreamWriter& _stream);
     std::atomic_bool m_stopListen;
 public:
 
@@ -230,20 +354,37 @@ public:
     ~ProfileManager();
 
     template <class ... TArgs>
-    uint32_t addBlockDescriptor(TArgs ... _args)
+    const profiler::BaseBlockDescriptor* addBlockDescriptor(bool _enabledByDefault, const char* _autogenUniqueId, TArgs ... _args)
     {
+        auto desc = new profiler::BlockDescriptor(m_usedMemorySize, _enabledByDefault, _args...);
+
         guard_lock_t lock(m_storedSpin);
-        const auto id = static_cast<uint32_t>(m_descriptors.size());
-        m_descriptors.emplace_back(m_usedMemorySize, _args...);
-        return id;
+        desc->m_id = m_idCounter++;
+        m_descriptors.emplace_back(desc);
+
+        blocks_enable_status_t::key_type key(_autogenUniqueId);
+        auto it = m_blocksEnableStatus.find(key);
+        if (it != m_blocksEnableStatus.end())
+        {
+            desc->m_enabled = it->second;
+            desc->m_pEnable = &it->second;
+        }
+        else
+        {
+            desc->m_pEnable = &m_blocksEnableStatus.emplace(key, desc->enabled()).first->second;
+        }
+
+        return desc;
     }
 
+    void storeBlock(const profiler::BaseBlockDescriptor& _desc, const char* _runtimeName);
     void beginBlock(profiler::Block& _block);
     void endBlock();
     void setEnabled(bool isEnable);
     uint32_t dumpBlocksToFile(const char* filename);
-    const char* setThreadName(const char* name, const char* filename, const char* _funcname, int line);
+    const char* registerThread(const char* name);// , const char* filename, const char* _funcname, int line);
 
+#ifndef _WIN32
     void setContextSwitchLogFilename(const char* name)
     {
         m_csInfoFilename = name;
@@ -253,28 +394,24 @@ public:
     {
         return m_csInfoFilename.c_str();
     }
+#endif
 
-    void beginContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::block_id_t _id);
-    void storeContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::block_id_t _id);
-    void endContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime);
-
+    void beginContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, const char* _target_process, bool _lockSpin = true);
+    void storeContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, bool _lockSpin = true);
+    void endContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime, bool _lockSpin = true);
     void startListenSignalToCapture();
     void stopListenSignalToCapture();
-
 private:
 
-    ThreadStorage& threadStorage(profiler::thread_id_t _thread_id)
-    {
-        guard_lock_t lock(m_spin);
-        return m_threads[_thread_id];
-    }
+    void markExpired(profiler::block_id_t _id);
+    ThreadStorage& threadStorage(profiler::thread_id_t _thread_id);
+    ThreadStorage* _findThreadStorage(profiler::thread_id_t _thread_id);
 
     ThreadStorage* findThreadStorage(profiler::thread_id_t _thread_id)
     {
         guard_lock_t lock(m_spin);
-        auto it = m_threads.find(_thread_id);
-        return it != m_threads.end() ? &it->second : nullptr;
+        return _findThreadStorage(_thread_id);
     }
 };
 
-#endif
+#endif // EASY_PROFILER____MANAGER____H______

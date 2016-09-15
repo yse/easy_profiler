@@ -46,7 +46,7 @@ namespace profiler_gui {
     const QString ORGANAZATION_NAME = "EasyProfiler";
     const QString APPLICATION_NAME = "Easy profiler gui application";
 
-    const QColor CHRONOMETER_COLOR = QColor::fromRgba(0x402020c0);
+    const QColor CHRONOMETER_COLOR = QColor::fromRgba(0x40000000 | (::profiler::colors::RichBlue & 0x00ffffff));// 0x402020c0);
     const QRgb SELECTED_THREAD_BACKGROUND = 0x00e0e060;
     const QRgb SELECTED_THREAD_FOREGROUND = 0x00ffffff - SELECTED_THREAD_BACKGROUND;
 
@@ -84,6 +84,7 @@ namespace profiler_gui {
         ::profiler::thread_id_t          selected_thread; ///< Current selected thread id
         unsigned int                      selected_block; ///< Current selected profiler block index
         ChronometerTextPosition     chrono_text_position; ///< 
+        bool                           enable_statistics; ///< Enable gathering and using statistics (Disable if you want to consume less memory)
         bool                 draw_graphics_items_borders; ///< Draw borders for graphics blocks or not
         bool                 display_only_relevant_stats; ///< Display only relevant information in ProfTreeWidget (excludes min, max, average times if there are only 1 calls number)
         bool                collapse_items_on_tree_close; ///< Collapse all items which were displayed in the hierarchy tree after tree close/reset

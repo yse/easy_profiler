@@ -1,0 +1,13 @@
+logo.svg         - Icon made by Freepik from www.flaticon.com
+off.svg          - Icon made by Freepik from www.flaticon.com
+open-folder.svg  - Icon made by Freepik from www.flaticon.com
+reload.svg       - Icon made by Freepik from www.flaticon.com
+expand.svg       - Icon made by Freepik from www.flaticon.com
+collapse.svg     - Icon made by Freepik from www.flaticon.com
+colors.svg       - Icon made by Freepik from www.flaticon.com
+colors-black.svg - Icon made by Freepik from www.flaticon.com
+save.svg         - Icon made by Freepik from www.flaticon.com
+statistics.svg   - Icon made by Freepik from www.flaticon.com
+statistics2.svg  - Icon made by Freepik from www.flaticon.com
+lan.svg          - Icon made by Freepik from www.flaticon.com
+wifi.svg         - Icon made by Freepik from www.flaticon.com

@@ -40,8 +40,6 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-const qreal SCALING_COEFFICIENT = 1.25;
-//const qreal SCALING_COEFFICIENT_INV = 1.0 / SCALING_COEFFICIENT;
 const int DEFAULT_TOP = -40;
 const int DEFAULT_HEIGHT = 80;
 const int INDICATOR_SIZE = 8;
@@ -515,14 +513,10 @@ void EasyGraphicsScrollbar::contextMenuEvent(QContextMenuEvent* _event)
     for (const auto& it : EASY_GLOBALS.profiler_blocks)
     {
         QString label;
-        if (it.second.thread_name && it.second.thread_name[0] != 0)
-        {
-            label = ::std::move(QString("%1 Thread %2").arg(it.second.thread_name).arg(it.first));
-        }
+        if (it.second.got_name())
+            label = ::std::move(QString("%1 Thread %2").arg(it.second.name()).arg(it.first));
         else
-        {
             label = ::std::move(QString("Thread %1").arg(it.first));
-        }
 
         auto action = new QAction(label, nullptr);
         action->setData(it.first);
@@ -546,7 +540,7 @@ void EasyGraphicsScrollbar::onThreadActionClicked(bool)
         return;
 
     const auto thread_id = action->data().toUInt();
-    if (thread_id != m_minimap->threadId())
+    if (thread_id != EASY_GLOBALS.selected_thread)
     {
         EASY_GLOBALS.selected_thread = thread_id;
         emit EASY_GLOBALS.events.selectedThreadChanged(thread_id);

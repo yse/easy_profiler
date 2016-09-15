@@ -44,6 +44,7 @@
 #include <QLabel>
 #include <QLayout>
 #include <stdlib.h>
+#include <unordered_set>
 #include "graphics_scrollbar.h"
 #include "profiler/reader.h"
 #include "common_types.h"
@@ -79,12 +80,13 @@ class EasyGraphicsItem : public QGraphicsItem
     Sublevels                        m_levels; ///< Arrays of items for each level
 
     QRectF                     m_boundingRect; ///< boundingRect (see QGraphicsItem)
+    QString                      m_threadName; ///< 
     const ::profiler::BlocksTreeRoot* m_pRoot; ///< Pointer to the root profiler block (thread block). Used by ProfTreeWidget to restore hierarchy.
     uint8_t                           m_index; ///< This item's index in the list of items of EasyGraphicsView
 
 public:
 
-    EasyGraphicsItem(uint8_t _index, const::profiler::BlocksTreeRoot* _root);
+    explicit EasyGraphicsItem(uint8_t _index, const::profiler::BlocksTreeRoot& _root);
     virtual ~EasyGraphicsItem();
 
     // Public virtual methods
@@ -96,6 +98,9 @@ public:
 public:
 
     // Public non-virtual methods
+
+    const ::profiler::BlocksTreeRoot* root() const;
+    const QString& threadName() const;
 
     QRect getRect() const;
 
@@ -156,6 +161,7 @@ public:
     void getBlocks(qreal _left, qreal _right, ::profiler_gui::TreeBlocks& _blocks) const;
 
     const ::profiler_gui::EasyBlockItem* intersect(const QPointF& _pos) const;
+    const ::profiler_gui::EasyBlock* intersectEvent(const QPointF& _pos) const;
 
 private:
 
@@ -242,6 +248,7 @@ private:
 
     ///< Returns pointer to the EasyGraphicsView widget.
     const EasyGraphicsView* view() const;
+    EasyGraphicsView* view();
 
 }; // END of class EasyChronometerItem.
 
@@ -266,34 +273,44 @@ EASY_QGRAPHICSITEM(EasyTimelineIndicatorItem);
 
 //////////////////////////////////////////////////////////////////////////
 
+class QGraphicsProxyWidget;
+
 class EasyGraphicsView : public QGraphicsView
 {
     Q_OBJECT
 
 private:
 
+    typedef QGraphicsView Parent;
     typedef EasyGraphicsView This;
     typedef ::std::vector<EasyGraphicsItem*> Items;
+    typedef ::std::unordered_set<int, ::profiler_gui::do_no_hash<int>::hasher_t> Keys;
 
-    Items                                   m_items; ///< Array of all EasyGraphicsItem items
-    ::profiler_gui::TreeBlocks     m_selectedBlocks; ///< Array of items which were selected by selection zone (EasyChronometerItem)
-    QTimer                           m_flickerTimer; ///< Timer for flicking behavior
-    QRectF                       m_visibleSceneRect; ///< Visible scene rectangle
-    ::profiler::timestamp_t             m_beginTime; ///< Begin time of profiler session. Used to reduce values of all begin and end times of profiler blocks.
-    qreal                                   m_scale; ///< Current scale
-    qreal                                  m_offset; ///< Have to use manual offset for all scene content instead of using scrollbars because QScrollBar::value is 32-bit integer :(
-    qreal                            m_timelineStep; ///< 
-    QPoint                          m_mousePressPos; ///< Last mouse global position (used by mousePressEvent and mouseMoveEvent)
-    QPoint                          m_mouseMovePath; ///< Mouse move path between press and release of any button
-    Qt::MouseButtons                 m_mouseButtons; ///< Pressed mouse buttons
-    EasyGraphicsScrollbar*             m_pScrollbar; ///< Pointer to the graphics scrollbar widget
-    EasyChronometerItem*          m_chronometerItem; ///< Pointer to the EasyChronometerItem which is displayed when you press right mouse button and move mouse left or right. This item is used to select blocks to display in tree widget.
-    EasyChronometerItem*       m_chronometerItemAux; ///< Pointer to the EasyChronometerItem which is displayed when you double click left mouse button and move mouse left or right. This item is used only to measure time.
-    int                             m_flickerSpeedX; ///< Current flicking speed x
-    int                             m_flickerSpeedY; ///< Current flicking speed y
-    bool                             m_bDoubleClick; ///< Is mouse buttons double clicked
-    bool                            m_bUpdatingRect; ///< Stub flag which is used to avoid excess calculations on some scene update (flicking, scaling and so on)
-    bool                                   m_bEmpty; ///< Indicates whether scene is empty and has no items
+    Items                               m_items; ///< Array of all EasyGraphicsItem items
+    Keys                                 m_keys; ///< Pressed keys
+    ::profiler_gui::TreeBlocks m_selectedBlocks; ///< Array of items which were selected by selection zone (EasyChronometerItem)
+    QTimer                       m_flickerTimer; ///< Timer for flicking behavior
+    QTimer                          m_idleTimer; ///< 
+    QRectF                   m_visibleSceneRect; ///< Visible scene rectangle
+    ::profiler::timestamp_t         m_beginTime; ///< Begin time of profiler session. Used to reduce values of all begin and end times of profiler blocks.
+    qreal                               m_scale; ///< Current scale
+    qreal                              m_offset; ///< Have to use manual offset for all scene content instead of using scrollbars because QScrollBar::value is 32-bit integer :(
+    qreal                        m_timelineStep; ///< 
+    uint64_t                         m_idleTime; ///< 
+    QPoint                      m_mousePressPos; ///< Last mouse global position (used by mousePressEvent and mouseMoveEvent)
+    QPoint                      m_mouseMovePath; ///< Mouse move path between press and release of any button
+    Qt::MouseButtons             m_mouseButtons; ///< Pressed mouse buttons
+    EasyGraphicsScrollbar*         m_pScrollbar; ///< Pointer to the graphics scrollbar widget
+    EasyChronometerItem*      m_chronometerItem; ///< Pointer to the EasyChronometerItem which is displayed when you press right mouse button and move mouse left or right. This item is used to select blocks to display in tree widget.
+    EasyChronometerItem*   m_chronometerItemAux; ///< Pointer to the EasyChronometerItem which is displayed when you double click left mouse button and move mouse left or right. This item is used only to measure time.
+    QGraphicsProxyWidget*        m_csInfoWidget; ///< 
+    int                         m_flickerSpeedX; ///< Current flicking speed x
+    int                         m_flickerSpeedY; ///< Current flicking speed y
+    int                       m_flickerCounterX;
+    int                       m_flickerCounterY;
+    bool                         m_bDoubleClick; ///< Is mouse buttons double clicked
+    bool                        m_bUpdatingRect; ///< Stub flag which is used to avoid excess calculations on some scene update (flicking, scaling and so on)
+    bool                               m_bEmpty; ///< Indicates whether scene is empty and has no items
 
 public:
 
@@ -307,6 +324,8 @@ public:
     void mouseDoubleClickEvent(QMouseEvent* _event) override;
     void mouseReleaseEvent(QMouseEvent* _event) override;
     void mouseMoveEvent(QMouseEvent* _event) override;
+    void keyPressEvent(QKeyEvent* _event) override;
+    void keyReleaseEvent(QKeyEvent* _event) override;
     void resizeEvent(QResizeEvent* _event) override;
 
 public:
@@ -324,6 +343,8 @@ signals:
 
     // Signals
 
+    void sceneUpdated();
+    void treeChanged();
     void intervalChanged(const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _session_begin_time, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict);
 
 private:
@@ -343,11 +364,12 @@ private slots:
 
     // Private Slots
 
-    void updateScene();
+    void repaintScene();
     void onGraphicsScrollbarWheel(qreal _mouseX, int _wheelDelta);
     void onScrollbarValueChange(int);
     void onGraphicsScrollbarValueChange(qreal);
     void onFlickerTimeout();
+    void onIdleTimeout();
     void onSelectedThreadChange(::profiler::thread_id_t _id);
     void onSelectedBlockChange(unsigned int _block_index);
     void onItemsEspandStateChange();
@@ -376,6 +398,16 @@ public:
         return m_timelineStep;
     }
 
+    inline qreal chronoTime() const
+    {
+        return m_chronometerItem->width();
+    }
+
+    inline qreal chronoTimeAux() const
+    {
+        return m_chronometerItemAux->width();
+    }
+
 //private:
 
     // Private inline methods
@@ -396,22 +428,66 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyThreadViewWidget : public QWidget
+class EasyThreadNameItem : public QGraphicsItem
 {
-    Q_OBJECT
-private:
-    EasyGraphicsView*                 m_view;
-    QLabel*                           m_label;
-    typedef EasyThreadViewWidget This;
-
-    QHBoxLayout *m_layout;
+    QRectF m_boundingRect; ///< boundingRect (see QGraphicsItem)
 
 public:
-   EasyThreadViewWidget(QWidget *parent, EasyGraphicsView* view);
-   virtual ~EasyThreadViewWidget();
-public slots:
-   void onSelectedThreadChange(::profiler::thread_id_t _id);
+
+    explicit EasyThreadNameItem();
+    virtual ~EasyThreadNameItem();
+
+    // Public virtual methods
+
+    QRectF boundingRect() const override;
+
+    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
+
+public:
+
+    // Public non-virtual methods
+
+    void setBoundingRect(const QRectF& _rect);
+
 };
+
+class EasyThreadNamesWidget : public QGraphicsView
+{
+    Q_OBJECT
+
+private:
+
+    typedef QGraphicsView Parent;
+    typedef EasyThreadNamesWidget This;
+
+    EasyGraphicsView*     m_view;
+    const int m_additionalHeight;
+
+public:
+
+    explicit EasyThreadNamesWidget(EasyGraphicsView* _view, int _additionalHeight, QWidget* _parent = nullptr);
+    virtual ~EasyThreadNamesWidget();
+
+    void mousePressEvent(QMouseEvent* _event) override;
+    void mouseDoubleClickEvent(QMouseEvent* _event) override;
+    void mouseReleaseEvent(QMouseEvent* _event) override;
+    void mouseMoveEvent(QMouseEvent* _event) override;
+    void keyPressEvent(QKeyEvent* _event) override;
+    void keyReleaseEvent(QKeyEvent* _event) override;
+
+    const EasyGraphicsView* view() const
+    {
+        return m_view;
+    }
+
+private slots:
+
+    void setVerticalScrollbarRange(int _minValue, int _maxValue);
+    void onTreeChange();
+    void onSelectedThreadChange(::profiler::thread_id_t _id);
+    void repaintScene();
+
+}; // END of class EasyThreadNamesWidget.
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -421,9 +497,9 @@ class EasyGraphicsViewWidget : public QWidget
 
 private:
 
-    EasyGraphicsView*                 m_view;
-    EasyGraphicsScrollbar* m_scrollbar;
-    //EasyThreadViewWidget* m_threadWidget;
+    EasyGraphicsScrollbar*         m_scrollbar;
+    EasyGraphicsView*                   m_view;
+    EasyThreadNamesWidget* m_threadNamesWidget;
 
 public:
 

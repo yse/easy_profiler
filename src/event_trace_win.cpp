@@ -3,11 +3,15 @@
 #ifdef _WIN32
 #include <memory.h>
 #include <chrono>
+#include <unordered_map>
+
 
 #include "profiler/profiler.h"
 #include "profile_manager.h"
 
+
 #include "event_trace_win.h"
+#include "Psapi.h"
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
@@ -15,6 +19,16 @@
 #define MANAGER ProfileManager::instance()
 
 namespace profiler {
+
+    //////////////////////////////////////////////////////////////////////////
+
+    struct ProcessInfo final {
+        std::string    name;
+        uint32_t     id = 0;
+        int8_t    valid = 0;
+    };
+
+    //////////////////////////////////////////////////////////////////////////
 
     // CSwitch class
     // See https://msdn.microsoft.com/en-us/library/windows/desktop/aa964744(v=vs.85).aspx
@@ -35,6 +49,17 @@ namespace profiler {
         uint32_t                    Reserved;
     };
 
+    //////////////////////////////////////////////////////////////////////////
+
+    typedef ::std::unordered_map<decltype(CSwitch::NewThreadId), ProcessInfo*, ::profiler::do_not_calc_hash> thread_process_info_map;
+    typedef ::std::unordered_map<uint32_t, ProcessInfo, ::profiler::do_not_calc_hash> process_info_map;
+
+    // Using static is safe because processTraceEvent() is called from one thread
+    static process_info_map PROCESS_INFO_TABLE;
+    static thread_process_info_map THREAD_PROCESS_INFO_TABLE = ([](){ thread_process_info_map initial; initial[0U] = nullptr; return ::std::move(initial); })();
+
+    //////////////////////////////////////////////////////////////////////////
+
     void WINAPI processTraceEvent(PEVENT_RECORD _traceEvent)
     {
         static const decltype(_traceEvent->EventHeader.EventDescriptor.Opcode) SWITCH_CONTEXT_OPCODE = 36;
@@ -44,13 +69,82 @@ namespace profiler {
         if (sizeof(CSwitch) != _traceEvent->UserDataLength)
             return;
 
-        //EASY_FUNCTION(::profiler::colors::Red);
+        EASY_FUNCTION(::profiler::colors::White, ::profiler::DISABLED);
 
         auto _contextSwitchEvent = reinterpret_cast<CSwitch*>(_traceEvent->UserData);
         const auto time = static_cast<::profiler::timestamp_t>(_traceEvent->EventHeader.TimeStamp.QuadPart);
 
-        static const auto desc = MANAGER.addBlockDescriptor("OS.ContextSwitch", __FILE__, __LINE__, ::profiler::BLOCK_TYPE_CONTEXT_SWITCH, ::profiler::colors::White);
-        MANAGER.beginContextSwitch(_contextSwitchEvent->OldThreadId, time, desc);
+        ProcessInfo* pinfo = nullptr;
+        auto it = THREAD_PROCESS_INFO_TABLE.find(_contextSwitchEvent->NewThreadId);
+        if (it == THREAD_PROCESS_INFO_TABLE.end())
+        {
+            auto hThread = OpenThread(THREAD_QUERY_LIMITED_INFORMATION, FALSE, _contextSwitchEvent->NewThreadId);
+            if (hThread != nullptr)
+            {
+                auto pid = GetProcessIdOfThread(hThread);
+                pinfo = &PROCESS_INFO_TABLE[pid];
+
+                if (pinfo->valid == 0)
+                {
+                    // According to documentation, using GetModuleBaseName() requires
+                    // PROCESS_QUERY_INFORMATION | PROCESS_VM_READ access rights.
+                    // But it works fine with PROCESS_QUERY_LIMITED_INFORMATION instead of PROCESS_QUERY_INFORMATION.
+                    // 
+                    // See https://msdn.microsoft.com/en-us/library/windows/desktop/ms683196(v=vs.85).aspx
+                    auto hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+                    if (hProc != nullptr)
+                    {
+                        static TCHAR buf[MAX_PATH] = {}; // Using static is safe because processTraceEvent() is called from one thread
+                        auto success = GetModuleBaseName(hProc, 0, buf, MAX_PATH);
+
+                        if (pinfo->name.empty())
+                        {
+                            static char numbuf[128] = {};
+                            sprintf(numbuf, "%u ", pid);
+                            pinfo->name = numbuf;
+                            pinfo->id = pid;
+                        }
+
+                        if (success)
+                        {
+                            pinfo->name += buf;
+                            pinfo->valid = 1;
+                            //printf("PROCESS %u is %s\n", pid, buf);
+                        }
+
+                        CloseHandle(hProc);
+                    }
+                    else
+                    {
+                        pinfo->valid = -1;
+                    }
+                }
+
+                if (pinfo->valid > 0)
+                {
+                    THREAD_PROCESS_INFO_TABLE[_contextSwitchEvent->NewThreadId] = pinfo;
+                }
+                else if (pinfo->valid < 0)
+                {
+                    pinfo = nullptr;
+                    THREAD_PROCESS_INFO_TABLE[_contextSwitchEvent->NewThreadId] = nullptr;
+                }
+
+                CloseHandle(hThread);
+            }
+            else
+            {
+                THREAD_PROCESS_INFO_TABLE[_contextSwitchEvent->NewThreadId] = nullptr;
+            }
+        }
+        else
+        {
+            pinfo = it->second;
+            if (pinfo != nullptr && pinfo->valid < 0)
+                pinfo = nullptr;
+        }
+
+        MANAGER.beginContextSwitch(_contextSwitchEvent->OldThreadId, time, _contextSwitchEvent->NewThreadId, pinfo ? pinfo->name.c_str() : "");
         MANAGER.endContextSwitch(_contextSwitchEvent->NewThreadId, time);
     }
 
@@ -77,7 +171,6 @@ namespace profiler {
         switch (startTraceResult)
         {
             case ERROR_SUCCESS:
-                printf("EVENT_TRACING_LAUNCHED_SUCCESSFULLY\n");
                 return EVENT_TRACING_LAUNCHED_SUCCESSFULLY;
 
             case ERROR_ALREADY_EXISTS:
@@ -93,16 +186,14 @@ namespace profiler {
                         return startTrace(true, ++_step);
                     }
                 }
-                printf("EVENT_TRACING_WAS_LAUNCHED_BY_SOMEBODY_ELSE\n");
+
                 return EVENT_TRACING_WAS_LAUNCHED_BY_SOMEBODY_ELSE;
             }
 
             case ERROR_ACCESS_DENIED:
-                printf("EVENT_TRACING_NOT_ENOUGH_ACCESS_RIGHTS\n");
                 return EVENT_TRACING_NOT_ENOUGH_ACCESS_RIGHTS;
 
             case ERROR_BAD_LENGTH:
-                printf("EVENT_TRACING_BAD_PROPERTIES_SIZE\n");
                 return EVENT_TRACING_BAD_PROPERTIES_SIZE;
         }
 
@@ -113,6 +204,7 @@ namespace profiler {
     {
         static const decltype(m_properties.base.Wnode.ClientContext) RAW_TIMESTAMP_TIME_TYPE = 1;
 
+        profiler::guard_lock<profiler::spin_lock> lock(m_spin);
         if (m_bEnabled)
             return EVENT_TRACING_LAUNCHED_SUCCESSFULLY;
 
@@ -146,12 +238,14 @@ namespace profiler {
         // the controller stops the trace session. (Note that there may be a several-second delay before the function returns.)
         // 
         // https://msdn.microsoft.com/en-us/library/windows/desktop/aa364093(v=vs.85).aspx
-        m_stubThread = ::std::move(::std::thread([this]()
+        m_processThread = ::std::move(::std::thread([this]()
         {
-            EASY_THREAD("EasyProfiler.EventTracing");
-            //EASY_BLOCK("ProcessTrace()", ::profiler::colors::Red);
+            EASY_THREAD("EasyProfiler.ETW");
             ProcessTrace(&m_openedHandle, 1, 0, 0);
         }));
+
+        // Set low priority for event tracing thread
+        SetThreadPriority(m_processThread.native_handle(), THREAD_PRIORITY_LOWEST);
 
         m_bEnabled = true;
 
@@ -160,17 +254,23 @@ namespace profiler {
 
     void EasyEventTracer::disable()
     {
+        profiler::guard_lock<profiler::spin_lock> lock(m_spin);
         if (!m_bEnabled)
             return;
 
         ControlTrace(m_openedHandle, KERNEL_LOGGER_NAME, props(), EVENT_TRACE_CONTROL_STOP);
         CloseTrace(m_openedHandle);
 
-        // Wait for ProcessThread to finish
-        if (m_stubThread.joinable())
-            m_stubThread.join();
+        // Wait for ProcessTrace to finish to make sure no processTraceEvent() will be called later.
+        if (m_processThread.joinable())
+            m_processThread.join();
 
         m_bEnabled = false;
+
+        // processTraceEvent() is not called anymore. Clean static maps is safe.
+        PROCESS_INFO_TABLE.clear();
+        THREAD_PROCESS_INFO_TABLE.clear();
+        THREAD_PROCESS_INFO_TABLE[0U] = nullptr;
     }
 
 } // END of namespace profiler.

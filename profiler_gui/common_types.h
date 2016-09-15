@@ -37,6 +37,7 @@
 #include <unordered_map>
 #include <QRgb>
 #include <QString>
+#include <QFont>
 #include "profiler/reader.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -101,24 +102,33 @@ struct do_no_hash {
 
 //////////////////////////////////////////////////////////////////////////
 
-const QRgb DEFAULT_COLOR = profiler::DefaultBlockColor;// 0x00d4b494;
-
-inline QRgb toRgb(unsigned int _red, unsigned int _green, unsigned int _blue)
+inline QRgb toRgb(uint32_t _red, uint32_t _green, uint32_t _blue)
 {
     return (_red << 16) + (_green << 8) + _blue;
 }
 
-inline QRgb fromProfilerRgb(unsigned int _red, unsigned int _green, unsigned int _blue)
+inline QRgb fromProfilerRgb(uint32_t _red, uint32_t _green, uint32_t _blue)
 {
     if (_red == 0 && _green == 0 && _blue == 0)
-        return DEFAULT_COLOR;
+        return ::profiler::colors::Default;
     return toRgb(_red, _green, _blue) | 0x00141414;
 }
 
-inline QRgb textColorForRgb(QRgb _color)
+inline bool isLightColor(::profiler::color_t _color)
 {
-    const QRgb sum = 0xff - ((_color & 0xff000000) >> 24) + ((_color & 0x00ff0000) >> 16) + ((_color & 0x0000ff00) >> 8) + (_color & 0x000000ff);
-    return sum > 0x215 ? ::profiler::colors::Black : ::profiler::colors::White;
+    const auto sum = 255. - (((_color & 0x00ff0000) >> 16) * 0.299 + ((_color & 0x0000ff00) >> 8) * 0.587 + (_color & 0x000000ff) * 0.114);
+    return sum < 76.5 || ((_color & 0xff000000) >> 24) < 0x80;
+}
+
+inline bool isLightColor(::profiler::color_t _color, qreal _maxSum)
+{
+    const auto sum = 255. - (((_color & 0x00ff0000) >> 16) * 0.299 + ((_color & 0x0000ff00) >> 8) * 0.587 + (_color & 0x000000ff) * 0.114);
+    return sum < _maxSum || ((_color & 0xff000000) >> 24) < 0x80;
+}
+
+inline ::profiler::color_t textColorForRgb(::profiler::color_t _color)
+{
+    return isLightColor(_color) ? ::profiler::colors::Dark : ::profiler::colors::CreamWhite;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -129,7 +139,6 @@ struct EasyBlockItem final
     //const ::profiler::BlocksTree* block; ///< Pointer to profiler block
     qreal                             x; ///< x coordinate of the item (this is made qreal=double to avoid mistakes on very wide scene)
     float                             w; ///< Width of the item
-    QRgb                          color; ///< Background color of the item
     ::profiler::block_index_t     block; ///< Index of profiler block
     uint32_t             children_begin; ///< Index of first child item on the next sublevel
     uint16_t                totalHeight; ///< Total height of the item including heights of all it's children
@@ -218,7 +227,7 @@ inline qreal timeFactor(qreal _interval)
 inline QString timeStringReal(qreal _interval, int _precision = 1)
 {
     if (_interval < 1) // interval in nanoseconds
-        return QString("%1 ns").arg(_interval * 1e3, 0, 'f', _precision);
+        return QString("%1 ns").arg(static_cast<quint32>(_interval * 1e3));
 
     if (_interval < 1e3) // interval in microseconds
         return QString("%1 us").arg(_interval, 0, 'f', _precision);
@@ -257,6 +266,35 @@ template <class T> inline T numeric_max(T) {
 
 template <class T> inline void set_max(T& _value) {
     _value = ::std::numeric_limits<T>::max();
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+inline double percentReal(::profiler::timestamp_t _partial, ::profiler::timestamp_t _total)
+{
+    return 100. * static_cast<double>(_partial) / static_cast<double>(_total);
+}
+
+inline int percent(::profiler::timestamp_t _partial, ::profiler::timestamp_t _total)
+{
+    return static_cast<int>(0.5 + percentReal(_partial, _total));
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+inline QFont EFont(QFont::StyleHint _hint, const char* _family, int _size, int _weight = -1)
+{
+    QFont f;
+    f.setStyleHint(_hint, QFont::PreferMatch);
+    f.setFamily(_family);
+    f.setPointSize(_size);
+    f.setWeight(_weight);
+    return f;
+}
+
+inline QFont EFont(const char* _family, int _size, int _weight = -1)
+{
+    return EFont(QFont::Helvetica, _family, _size, _weight);
 }
 
 //////////////////////////////////////////////////////////////////////////

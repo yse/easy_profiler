@@ -21,8 +21,9 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include <map>
+#include <unordered_map>
 #include <vector>
+#include <string>
 #include <atomic>
 #include "profiler/profiler.h"
 #include "profiler/serialized_block.h"
@@ -42,14 +43,16 @@ namespace profiler {
         ::profiler::timestamp_t          max_duration; ///< Cached block->duration() value. TODO: Remove this if memory consumption will be too high
         ::profiler::block_index_t  min_duration_block; ///< Will be used in GUI to jump to the block with min duration
         ::profiler::block_index_t  max_duration_block; ///< Will be used in GUI to jump to the block with max duration
+        ::profiler::block_index_t        parent_block; ///< Index of block which is "parent" for "per_parent_stats" or "frame" for "per_frame_stats" or thread-id for "per_thread_stats"
         ::profiler::calls_number_t       calls_number; ///< Block calls number
 
-        BlockStatistics(::profiler::timestamp_t _duration, ::profiler::block_index_t _block_index)
+        explicit BlockStatistics(::profiler::timestamp_t _duration, ::profiler::block_index_t _block_index, ::profiler::block_index_t _parent_index)
             : total_duration(_duration)
             , min_duration(_duration)
             , max_duration(_duration)
             , min_duration_block(_block_index)
             , max_duration_block(_block_index)
+            , parent_block(_parent_index)
             , calls_number(1)
         {
         }
@@ -94,12 +97,12 @@ namespace profiler {
 
         BlocksTree(This&& that) : BlocksTree()
         {
-            makeMove(::std::forward<This&&>(that));
+            make_move(::std::forward<This&&>(that));
         }
 
         This& operator = (This&& that)
         {
-            makeMove(::std::forward<This&&>(that));
+            make_move(::std::forward<This&&>(that));
             return *this;
         }
 
@@ -113,9 +116,7 @@ namespace profiler {
         bool operator < (const This& other) const
         {
             if (!node || !other.node)
-            {
                 return false;
-            }
             return node->begin() < other.node->begin();
         }
 
@@ -139,7 +140,7 @@ namespace profiler {
         BlocksTree(const This&) = delete;
         This& operator = (const This&) = delete;
 
-        void makeMove(This&& that)
+        void make_move(This&& that)
         {
             if (per_thread_stats != that.per_thread_stats)
                 release_stats(per_thread_stats);
@@ -167,33 +168,28 @@ namespace profiler {
 
     //////////////////////////////////////////////////////////////////////////
 
-#define EASY_STORE_CSWITCH_SEPARATELY
-//#undef  EASY_STORE_CSWITCH_SEPARATELY
-
     class BlocksTreeRoot final
     {
         typedef BlocksTreeRoot This;
 
     public:
 
-        BlocksTree::children_t     children;
-#ifdef EASY_STORE_CSWITCH_SEPARATELY
-        BlocksTree::children_t         sync;
-#endif
-        const char*             thread_name;
-        ::profiler::thread_id_t   thread_id;
-        uint16_t                      depth;
+        BlocksTree::children_t     children; ///< List of children indexes
+        BlocksTree::children_t         sync; ///< List of context-switch events
+        std::string             thread_name; ///< Name of this thread
+        ::profiler::timestamp_t active_time; ///< Active time of this thread (sum of all children duration)
+        ::profiler::thread_id_t   thread_id; ///< System Id of this thread
+        uint16_t                      depth; ///< Maximum stack depth (number of levels)
 
-        BlocksTreeRoot() : thread_name(""), thread_id(0), depth(0)
+        BlocksTreeRoot() : thread_name(""), active_time(0), thread_id(0), depth(0)
         {
         }
 
         BlocksTreeRoot(This&& that)
             : children(::std::move(that.children))
-#ifdef EASY_STORE_CSWITCH_SEPARATELY
             , sync(::std::move(that.sync))
-#endif
-            , thread_name(that.thread_name)
+            , thread_name(::std::move(that.thread_name))
+            , active_time(that.active_time)
             , thread_id(that.thread_id)
             , depth(that.depth)
         {
@@ -202,13 +198,24 @@ namespace profiler {
         This& operator = (This&& that)
         {
             children = ::std::move(that.children);
-#ifdef EASY_STORE_CSWITCH_SEPARATELY
             sync = ::std::move(that.sync);
-#endif
-            thread_name = that.thread_name;
+            thread_name = ::std::move(that.thread_name);
+            active_time = that.active_time;
             thread_id = that.thread_id;
             depth = that.depth;
             return *this;
+        }
+
+        inline bool got_name() const
+        {
+            //return thread_name && *thread_name != 0;
+            return thread_name.front() != 0;
+        }
+
+        inline const char* name() const
+        {
+            //return thread_name;
+            return thread_name.c_str();
         }
 
         bool operator < (const This& other) const
@@ -224,7 +231,7 @@ namespace profiler {
     }; // END of class BlocksTreeRoot.
 
     typedef ::profiler::BlocksTree::blocks_t blocks_t;
-    typedef ::std::map<::profiler::thread_id_t, ::profiler::BlocksTreeRoot> thread_blocks_tree_t;
+    typedef ::std::unordered_map<::profiler::thread_id_t, ::profiler::BlocksTreeRoot, ::profiler::passthrough_hash> thread_blocks_tree_t;
 
     //////////////////////////////////////////////////////////////////////////
 

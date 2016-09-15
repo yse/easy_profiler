@@ -63,23 +63,33 @@ BaseBlockData::BaseBlockData(timestamp_t _begin_time, block_id_t _descriptor_id)
 Block::Block(Block&& that)
     : BaseBlockData(that.m_begin, that.m_id)
     , m_name(that.m_name)
+    , m_enabled(that.m_enabled)
 {
     m_end = that.m_end;
 }
 
-Block::Block(block_type_t _block_type, block_id_t _descriptor_id, const char* _name)
-    : Block(getCurrentTime(), _block_type, _descriptor_id, _name)
+Block::Block(const BaseBlockDescriptor& _descriptor, const char* _runtimeName)
+    : BaseBlockData(_descriptor.enabled() ? getCurrentTime() : 1ULL, _descriptor.id())
+    , m_name(_runtimeName)
+    , m_enabled(_descriptor.enabled())
 {
 }
 
-Block::Block(timestamp_t _begin_time, block_type_t _block_type, block_id_t _descriptor_id, const char* _name)
+Block::Block(timestamp_t _begin_time, block_id_t _descriptor_id, const char* _runtimeName)
     : BaseBlockData(_begin_time, _descriptor_id)
-    , m_name(_name)
+    , m_name(_runtimeName)
+    , m_enabled(true)
 {
-    if (static_cast<uint8_t>(_block_type) < BLOCK_TYPE_BLOCK)
-    {
-        m_end = m_begin;
-    }
+}
+
+void Block::start()
+{
+    m_begin = getCurrentTime();
+}
+
+void Block::start(timestamp_t _time)
+{
+    m_begin = _time;
 }
 
 void Block::finish()
@@ -87,13 +97,13 @@ void Block::finish()
     m_end = getCurrentTime();
 }
 
-void Block::finish(timestamp_t _end_time)
+void Block::finish(timestamp_t _time)
 {
-    m_end = _end_time;
+    m_end = _time;
 }
 
 Block::~Block()
 {
-    if (!isFinished())
+    if (!finished())
         ::profiler::endBlock();
 }

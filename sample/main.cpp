@@ -14,7 +14,7 @@ std::mutex cv_m;
 int g_i = 0;
 
 int OBJECTS = 500;
-int RENDER_SPEPS = 1600;
+int RENDER_STEPS = 1600;
 int MODELLING_STEPS = 1000;
 int RESOURCE_LOADING_COUNT = 50;
 
@@ -32,7 +32,7 @@ void loadingResources(){
 }
 
 void prepareMath(){
-    EASY_FUNCTION(profiler::colors::Blue);
+    EASY_FUNCTION(profiler::colors::Green);
     int* intarray = new int[OBJECTS];
     for (int i = 0; i < OBJECTS; ++i)
         intarray[i] = i * i;
@@ -41,7 +41,7 @@ void prepareMath(){
 }
 
 void calcIntersect(){
-    EASY_FUNCTION(profiler::colors::Blue);
+    EASY_FUNCTION(profiler::colors::Gold);
     //int* intarray = new int[OBJECTS * OBJECTS];
     int* intarray = new int[OBJECTS];
     for (int i = 0; i < OBJECTS; ++i)
@@ -56,12 +56,12 @@ void calcIntersect(){
 
 double multModel(double i)
 {
-    EASY_FUNCTION(profiler::colors::Blue);
+    EASY_FUNCTION(profiler::colors::PaleGold);
     return i * sin(i) * cos(i);
 }
 
 void calcPhys(){
-    EASY_FUNCTION(profiler::colors::Blue);
+    EASY_FUNCTION(profiler::colors::Amber);
     double* intarray = new double[OBJECTS];
     for (int i = 0; i < OBJECTS; ++i)
         intarray[i] = multModel(double(i)) + double(i / 3) - double((OBJECTS - i) / 2);
@@ -71,12 +71,12 @@ void calcPhys(){
 
 double calcSubbrain(int i)
 {
-    EASY_FUNCTION(profiler::colors::Blue);
+    EASY_FUNCTION(profiler::colors::Navy);
     return i * i * i - i / 10 + (OBJECTS - i) * 7 ;
 }
 
 void calcBrain(){
-    EASY_FUNCTION(profiler::colors::Blue);
+    EASY_FUNCTION(profiler::colors::LightBlue);
     double* intarray = new double[OBJECTS];
     for (int i = 0; i < OBJECTS; ++i)
         intarray[i] = calcSubbrain(i) + double(i * 180 / 3);
@@ -85,19 +85,19 @@ void calcBrain(){
 }
 
 void calculateBehavior(){
-    EASY_FUNCTION(profiler::colors::DarkBlue);
+    EASY_FUNCTION(profiler::colors::Blue);
     calcPhys();
     calcBrain();
 }
 
 void modellingStep(){
-    EASY_FUNCTION(profiler::colors::Navy);
+    EASY_FUNCTION();
     prepareMath();
     calculateBehavior();
 }
 
 void prepareRender(){
-    EASY_FUNCTION(profiler::colors::DarkRed);
+    EASY_FUNCTION(profiler::colors::Brick);
     localSleep();
     //std::this_thread::sleep_for(std::chrono::milliseconds(8));
 
@@ -105,7 +105,7 @@ void prepareRender(){
 
 int multPhys(int i)
 {
-    EASY_FUNCTION(profiler::colors::Red);
+    EASY_FUNCTION(profiler::colors::Red700, profiler::DISABLED);
     return i * i * i * i / 100;
 }
 
@@ -134,7 +134,7 @@ void loadingResourcesThread(){
     //std::unique_lock<std::mutex> lk(cv_m);
     //cv.wait(lk, []{return g_i == 1; });
     EASY_THREAD("Resource loading");
-    for (int i = 0; /*i < RESOURCE_LOADING_COUNT */ ; i++){
+    for(int i = 0; i < RESOURCE_LOADING_COUNT; i++){
         loadingResources();
         EASY_EVENT("Resources Loading!", profiler::colors::Cyan);
         localSleep(1200000);
@@ -146,7 +146,7 @@ void modellingThread(){
     //std::unique_lock<std::mutex> lk(cv_m);
     //cv.wait(lk, []{return g_i == 1; });
     EASY_THREAD("Modelling");
-    for (int i = 0; /*i < RENDER_SPEPS */ ; i++){
+    for (int i = 0; i < RENDER_STEPS; i++){
         modellingStep();
         localSleep(1200000);
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));
@@ -157,67 +157,14 @@ void renderThread(){
     //std::unique_lock<std::mutex> lk(cv_m);
     //cv.wait(lk, []{return g_i == 1; });
     EASY_THREAD("Render");
-    for (int i = 0; /*i < MODELLING_STEPS*/; i++){
+    for (int i = 0; i < MODELLING_STEPS; i++){
         frame();
         localSleep(1200000);
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
 }
 
-void four()
-{
-    EASY_FUNCTION(profiler::colors::Red);
-    std::this_thread::sleep_for(std::chrono::milliseconds(37));
-}
-
-void five()
-{
-    EASY_FUNCTION(profiler::colors::Red);
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
-}
-void six()
-{
-    EASY_FUNCTION(profiler::colors::Red);
-    std::this_thread::sleep_for(std::chrono::milliseconds(42));
-}
-
-void three()
-{
-    EASY_FUNCTION(profiler::colors::Red);
-    four();
-    five();
-    six();
-}
-
-void seven()
-{
-    EASY_FUNCTION(profiler::colors::Red);
-    std::this_thread::sleep_for(std::chrono::milliseconds(147));
-}
-
-void two()
-{
-    EASY_FUNCTION(profiler::colors::Red);
-    std::this_thread::sleep_for(std::chrono::milliseconds(26));
-}
-
-void one()
-{
-    EASY_FUNCTION(profiler::colors::Red);
-    two();
-    three();
-    seven();
-}
-
-/*
-one
-    two
-    three
-        four
-        five
-        six
-    seven
-*/
+//////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char* argv[])
 {
@@ -225,7 +172,7 @@ int main(int argc, char* argv[])
         OBJECTS = std::atoi(argv[1]);
     }
     if (argc > 2 && argv[2]){
-        RENDER_SPEPS = std::atoi(argv[2]);
+        RENDER_STEPS = std::atoi(argv[2]);
     }
     if (argc > 3 && argv[3]){
         MODELLING_STEPS = std::atoi(argv[3]);
@@ -235,12 +182,12 @@ int main(int argc, char* argv[])
     }
 
     std::cout << "Objects count: " << OBJECTS << std::endl;
-    std::cout << "Render steps: " << RENDER_SPEPS << std::endl;
+    std::cout << "Render steps: " << RENDER_STEPS << std::endl;
     std::cout << "Modelling steps: " << MODELLING_STEPS << std::endl;
     std::cout << "Resource loading count: " << RESOURCE_LOADING_COUNT << std::endl;
 
     auto start = std::chrono::system_clock::now();
-    //EASY_PROFILER_ENABLE;
+    EASY_PROFILER_ENABLE;
     EASY_MAIN_THREAD;
     profiler::startListenSignalToCapture();
     //one();
@@ -252,27 +199,26 @@ int main(int argc, char* argv[])
     std::thread modelling = std::thread(modellingThread);
 
     
-    for(int i=0; i < 0; i++){
+    for(int i=0; i < 3; i++){
         threads.emplace_back(std::thread(loadingResourcesThread));
         threads.emplace_back(std::thread(renderThread));
         threads.emplace_back(std::thread(modellingThread));
     }
-    {
-        std::lock_guard<std::mutex> lk(cv_m);
-        g_i = 1;
-    }
+
+    cv_m.lock();
+    g_i = 1;
+    cv_m.unlock();
     cv.notify_all();
 
-    for (int i = 0; i < RENDER_SPEPS; ++i) {
+    for (int i = 0; i < RENDER_STEPS; ++i) {
         modellingStep();
         localSleep(1200000);
     }
 
     render.join();
     modelling.join();
-    for(auto& t : threads){
+    for(auto& t : threads)
         t.join();
-    }
     /**/
 
     auto end = std::chrono::system_clock::now();
