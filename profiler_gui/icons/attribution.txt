@@ -10,5 +10,7 @@ save.svg         - Icon made by Freepik from www.flaticon.com
 statistics.svg   - Icon made by Freepik from www.flaticon.com
 statistics2.svg  - Icon made by Freepik from www.flaticon.com
 lan.svg          - Icon made by Freepik from www.flaticon.com
+lan_on.svg       - Icon made by Freepik from www.flaticon.com
 wifi.svg         - Icon made by Freepik from www.flaticon.com
+wifi_on.svg      - Icon made by Freepik from www.flaticon.com
 play.svg         - Icon made by Google  from www.flaticon.com

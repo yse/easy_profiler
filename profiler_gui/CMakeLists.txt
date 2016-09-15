@@ -39,6 +39,7 @@ add_executable(${PROJECT_NAME}
     #treeitem.h
     #treeitem.cpp
     resources.qrc
+    resources.rc
 )
 
 if(UNIX)
