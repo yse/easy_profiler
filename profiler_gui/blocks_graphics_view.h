@@ -15,6 +15,8 @@
 *                   :
 *                   : * 2016/06/30 Victor Zarubkin: Replaced doubles with floats (in ProfBlockItem) for less memory consumption.
 *                   :
+*                   : * 2016/09/15 Victor Zarubkin: Moved sources of EasyGraphicsItem and EasyChronometerItem to separate files.
+*                   :
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
@@ -37,220 +39,24 @@
 #ifndef EASY__GRAPHICS_VIEW__H_
 #define EASY__GRAPHICS_VIEW__H_
 
+#include <stdlib.h>
+#include <unordered_set>
 #include <QGraphicsView>
 #include <QGraphicsItem>
 #include <QPoint>
+#include <QRectF>
 #include <QTimer>
-#include <QLabel>
-#include <QLayout>
-#include <stdlib.h>
-#include <unordered_set>
-#include "graphics_scrollbar.h"
 #include "profiler/reader.h"
 #include "common_types.h"
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
+class QGraphicsProxyWidget;
 class EasyGraphicsView;
-
-//////////////////////////////////////////////////////////////////////////
-
-inline qreal units2microseconds(qreal _value)
-{
-    return _value;
-    //return _value * 1e3;
-}
-
-inline qreal microseconds2units(qreal _value)
-{
-    return _value;
-    //return _value * 1e-3;
-}
-
-//////////////////////////////////////////////////////////////////////////
-
-class EasyGraphicsItem : public QGraphicsItem
-{
-    typedef ::profiler_gui::EasyItems       Children;
-    typedef ::std::vector<unsigned int>  DrawIndexes;
-    typedef ::std::vector<Children>        Sublevels;
-
-    DrawIndexes               m_levelsIndexes; ///< Indexes of first item on each level from which we must start painting
-    Sublevels                        m_levels; ///< Arrays of items for each level
-
-    QRectF                     m_boundingRect; ///< boundingRect (see QGraphicsItem)
-    QString                      m_threadName; ///< 
-    const ::profiler::BlocksTreeRoot* m_pRoot; ///< Pointer to the root profiler block (thread block). Used by ProfTreeWidget to restore hierarchy.
-    uint8_t                           m_index; ///< This item's index in the list of items of EasyGraphicsView
-
-public:
-
-    explicit EasyGraphicsItem(uint8_t _index, const::profiler::BlocksTreeRoot& _root);
-    virtual ~EasyGraphicsItem();
-
-    // Public virtual methods
-
-    QRectF boundingRect() const override;
-
-    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
-
-public:
-
-    // Public non-virtual methods
-
-    const ::profiler::BlocksTreeRoot* root() const;
-    const QString& threadName() const;
-
-    QRect getRect() const;
-
-    void setBoundingRect(qreal x, qreal y, qreal w, qreal h);
-    void setBoundingRect(const QRectF& _rect);
-
-    ::profiler::thread_id_t threadId() const;
-
-    ///< Returns number of levels
-    uint8_t levels() const;
-
-    float levelY(uint8_t _level) const;
-
-    /** \brief Sets number of levels.
-    
-    \note Must be set before doing anything else.
-    
-    \param _levels Desired number of levels */
-    void setLevels(uint8_t _levels);
-
-    /** \brief Reserves memory for desired number of items on specified level.
-    
-    \param _level Index of the level
-    \param _items Desired number of items on this level */
-    void reserve(uint8_t _level, unsigned int _items);
-
-    /**\brief Returns reference to the array of items of specified level.
-    
-    \param _level Index of the level */
-    const Children& items(uint8_t _level) const;
-
-    /**\brief Returns reference to the item with required index on specified level.
-    
-    \param _level Index of the level
-    \param _index Index of required item */
-    const ::profiler_gui::EasyBlockItem& getItem(uint8_t _level, unsigned int _index) const;
-
-    /**\brief Returns reference to the item with required index on specified level.
-
-    \param _level Index of the level
-    \param _index Index of required item */
-    ::profiler_gui::EasyBlockItem& getItem(uint8_t _level, unsigned int _index);
-
-    /** \brief Adds new item to required level.
-    
-    \param _level Index of the level
-    
-    \retval Index of the new created item */
-    unsigned int addItem(uint8_t _level);
-
-    /** \brief Finds top-level blocks which are intersects with required selection zone.
-
-    \note Found blocks will be added into the array of selected blocks.
-    
-    \param _left Left bound of the selection zone
-    \param _right Right bound of the selection zone
-    \param _blocks Reference to the array of selected blocks */
-    void getBlocks(qreal _left, qreal _right, ::profiler_gui::TreeBlocks& _blocks) const;
-
-    const ::profiler_gui::EasyBlockItem* intersect(const QPointF& _pos) const;
-    const ::profiler_gui::EasyBlock* intersectEvent(const QPointF& _pos) const;
-
-private:
-
-    ///< Returns pointer to the EasyGraphicsView widget.
-    const EasyGraphicsView* view() const;
-
-public:
-
-    // Public inline methods
-
-    ///< Returns this item's index in the list of graphics items of EasyGraphicsView
-    inline uint8_t index() const
-    {
-        return m_index;
-    }
-
-}; // END of class EasyGraphicsItem.
-
-//////////////////////////////////////////////////////////////////////////
-
-class EasyChronometerItem : public QGraphicsItem
-{
-    QPolygonF  m_indicator; ///< Indicator displayed when this chrono item is out of screen (displaying only for main item)
-    QRectF  m_boundingRect; ///< boundingRect (see QGraphicsItem)
-    QColor         m_color; ///< Color of the item
-    qreal  m_left, m_right; ///< Left and right bounds of the selection zone
-    bool           m_bMain; ///< Is this chronometer main (true, by default)
-    bool        m_bReverse; ///< 
-    bool m_bHoverIndicator; ///< Mouse hover above indicator
-
-public:
-
-    explicit EasyChronometerItem(bool _main = true);
-    virtual ~EasyChronometerItem();
-
-    // Public virtual methods
-
-    QRectF boundingRect() const override;
-    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
-
-public:
-
-    // Public non-virtual methods
-
-    void setColor(const QColor& _color);
-
-    void setBoundingRect(qreal x, qreal y, qreal w, qreal h);
-    void setBoundingRect(const QRectF& _rect);
-
-    void setLeftRight(qreal _left, qreal _right);
-
-    void setReverse(bool _reverse);
-
-    void setHover(bool _hover);
-
-    bool contains(const QPointF& _pos) const override;
-
-    inline bool hoverIndicator() const
-    {
-        return m_bHoverIndicator;
-    }
-
-    inline bool reverse() const
-    {
-        return m_bReverse;
-    }
-
-    inline qreal left() const
-    {
-        return m_left;
-    }
-
-    inline qreal right() const
-    {
-        return m_right;
-    }
-
-    inline qreal width() const
-    {
-        return m_right - m_left;
-    }
-
-private:
-
-    ///< Returns pointer to the EasyGraphicsView widget.
-    const EasyGraphicsView* view() const;
-    EasyGraphicsView* view();
-
-}; // END of class EasyChronometerItem.
+class EasyGraphicsItem;
+class EasyGraphicsScrollbar;
+class EasyChronometerItem;
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -268,12 +74,11 @@ public: \
 
 EASY_QGRAPHICSITEM(EasyBackgroundItem);
 EASY_QGRAPHICSITEM(EasyTimelineIndicatorItem);
+EASY_QGRAPHICSITEM(EasyThreadNameItem);
 
 #undef EASY_QGRAPHICSITEM
 
 //////////////////////////////////////////////////////////////////////////
-
-class QGraphicsProxyWidget;
 
 class EasyGraphicsView : public QGraphicsView
 {
@@ -331,6 +136,9 @@ public:
 public:
 
     // Public non-virtual methods
+
+    qreal chronoTime() const;
+    qreal chronoTimeAux() const;
 
     void setScrollbar(EasyGraphicsScrollbar* _scrollbar);
     void clearSilent();
@@ -398,20 +206,6 @@ public:
         return m_timelineStep;
     }
 
-    inline qreal chronoTime() const
-    {
-        return m_chronometerItem->width();
-    }
-
-    inline qreal chronoTimeAux() const
-    {
-        return m_chronometerItemAux->width();
-    }
-
-//private:
-
-    // Private inline methods
-
     inline qreal time2position(const profiler::timestamp_t& _time) const
     {
         return PROF_MICROSECONDS(qreal(_time - m_beginTime));
@@ -427,29 +221,6 @@ public:
 }; // END of class EasyGraphicsView.
 
 //////////////////////////////////////////////////////////////////////////
-
-class EasyThreadNameItem : public QGraphicsItem
-{
-    QRectF m_boundingRect; ///< boundingRect (see QGraphicsItem)
-
-public:
-
-    explicit EasyThreadNameItem();
-    virtual ~EasyThreadNameItem();
-
-    // Public virtual methods
-
-    QRectF boundingRect() const override;
-
-    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
-
-public:
-
-    // Public non-virtual methods
-
-    void setBoundingRect(const QRectF& _rect);
-
-};
 
 class EasyThreadNamesWidget : public QGraphicsView
 {

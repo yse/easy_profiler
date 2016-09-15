@@ -60,6 +60,20 @@
 
 //////////////////////////////////////////////////////////////////////////
 
+inline qreal units2microseconds(qreal _value)
+{
+    return _value;
+    //return _value * 1e3;
+}
+
+inline qreal microseconds2units(qreal _value)
+{
+    return _value;
+    //return _value * 1e-3;
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 namespace profiler_gui {
 
 template <const size_t SIZEOF_T>

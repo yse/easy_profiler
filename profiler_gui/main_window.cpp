@@ -34,6 +34,7 @@
 *                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
+#include <QApplication>
 #include <QStatusBar>
 #include <QDockWidget>
 #include <QFileDialog>
@@ -78,12 +79,12 @@ const int LOADER_TIMER_INTERVAL = 40;
 
 EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsView(nullptr), m_progress(nullptr)
 {
+    { QIcon icon(":/logo"); if (!icon.isNull()) QApplication::setWindowIcon(icon); }
+
     setObjectName("ProfilerGUI_MainWindow");
     setWindowTitle("EasyProfiler Reader beta");
     setDockNestingEnabled(true);
     resize(800, 600);
-
-    { QIcon icon(":/logo"); if (!icon.isNull()) setWindowIcon(icon); }
     
     setStatusBar(new QStatusBar());
 
@@ -180,16 +181,16 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
 
     auto action = menu->addAction("&Open");
     connect(action, &QAction::triggered, this, &This::onOpenFileClicked);
-    { QIcon icon(":/Open"); if (!icon.isNull()) action->setIcon(icon); }
+    SET_ICON(action, ":/Open");
 
     action = menu->addAction("&Reload");
     connect(action, &QAction::triggered, this, &This::onReloadFileClicked);
-    { QIcon icon(":/Reload"); if (!icon.isNull()) action->setIcon(icon); }
+    SET_ICON(action, ":/Reload");
 
     menu->addSeparator();
     action = menu->addAction("&Exit");
     connect(action, &QAction::triggered, this, &This::onExitClicked);
-    { QIcon icon(":/Exit"); if (!icon.isNull()) action->setIcon(icon); }
+    SET_ICON(action, ":/Exit");
 
     menuBar()->addMenu(menu);
 
@@ -199,11 +200,11 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
 
     action = menu->addAction("Expand all");
     connect(action, &QAction::triggered, this, &This::onExpandAllClicked);
-    { QIcon icon(":/Expand"); if (!icon.isNull()) action->setIcon(icon); }
+    SET_ICON(action, ":/Expand");
 
     action = menu->addAction("Collapse all");
     connect(action, &QAction::triggered, this, &This::onCollapseAllClicked);
-    { QIcon icon(":/Collapse"); if (!icon.isNull()) action->setIcon(icon); }
+    SET_ICON(action, ":/Collapse");
 
     menu->addSeparator();
     action = menu->addAction("Draw items' borders");
@@ -269,16 +270,12 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
         auto f = action->font();
         f.setBold(true);
         action->setFont(f);
-        QIcon icon(":/Stats");
-        if (!icon.isNull())
-            action->setIcon(icon);
+        SET_ICON(action, ":/Stats");
     }
     else
     {
         action->setText("Statistics disabled");
-        QIcon icon(":/Stats-off");
-        if (!icon.isNull())
-            action->setIcon(icon);
+        SET_ICON(action, ":/Stats-off");
     }
     menu->addAction(action);
 
@@ -502,7 +499,8 @@ EasyMainWindow::~EasyMainWindow()
 void EasyMainWindow::onOpenFileClicked(bool)
 {
     auto filename = QFileDialog::getOpenFileName(this, "Open profiler log", m_lastFile, "Profiler Log File (*.prof);;All Files (*.*)");
-    loadFile(filename);
+    if (!filename.isEmpty())
+        loadFile(filename);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -566,16 +564,12 @@ void EasyMainWindow::onEnableDisableStatistics(bool _checked)
         if (_checked)
         {
             action->setText("Statistics enabled");
-            QIcon icon(":/Stats");
-            if (!icon.isNull())
-                action->setIcon(icon);
+            SET_ICON(action, ":/Stats");
         }
         else
         {
             action->setText("Statistics disabled");
-            QIcon icon(":/Stats-off");
-            if (!icon.isNull())
-                action->setIcon(icon);
+            SET_ICON(action, ":/Stats-off");
         }
     }
 }

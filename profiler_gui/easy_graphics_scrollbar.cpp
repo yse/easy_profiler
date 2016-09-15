@@ -1,5 +1,5 @@
 /************************************************************************
-* file name         : graphics_scrollbar.cpp
+* file name         : easy_graphics_scrollbar.cpp
 * ----------------- :
 * creation time     : 2016/07/04
 * author            : Victor Zarubkin
@@ -35,7 +35,7 @@
 #include <QResizeEvent>
 #include <QContextMenuEvent>
 #include <QMenu>
-#include "graphics_scrollbar.h"
+#include "easy_graphics_scrollbar.h"
 #include "globals.h"
 
 //////////////////////////////////////////////////////////////////////////

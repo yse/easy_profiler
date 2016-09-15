@@ -32,32 +32,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 \defgroup profiler EasyProfiler
 */
 
-/** If != 0 then EasyProfiler will measure time for blocks storage expansion.
-If 0 then EasyProfiler will be compiled without blocks of code responsible
-for measuring these events.
-
-These are "EasyProfiler.ExpandStorage" blocks on a diagram.
-
-\ingroup profiler
-*/
-# define EASY_MEASURE_STORAGE_EXPAND 0
-
-/** If true then "EasyProfiler.ExpandStorage" events are enabled by default and will be
-writed to output file or translated over the net.
-If false then you need to enable these events via GUI if you'll want to see them.
-
-\ingroup profiler
-*/
-# define EASY_STORAGE_EXPAND_ENABLED true
-
-/** If true then EasyProfiler event tracing is enabled by default
-and will be turned on and off when you call profiler::setEnabled().
-Otherwise, it have to be turned on via GUI and then it will be
-turned on/off with next calls of profiler::setEnabled().
-
-\ingroup profiler
-*/
-# define EASY_EVENT_TRACING_ENABLED true
+// EasyProfiler core API:
 
 /** Macro for beginning of a block with custom name and color.
 
@@ -194,6 +169,35 @@ This is just for user's comfort. There is no difference for EasyProfiler GUI bet
 */
 # define EASY_MAIN_THREAD EASY_THREAD("Main")
 
+/** Enable or disable event tracing (context switch events).
+
+\note Default value is controlled by EASY_EVENT_TRACING_ENABLED macro.
+
+\note Change will take effect on the next call to EASY_PROFILER_ENABLE.
+
+\sa EASY_PROFILER_ENABLE, EASY_EVENT_TRACING_ENABLED
+
+\ingroup profiler
+*/
+# define EASY_SET_EVENT_TRACING_ENABLED(isEnabled) ::profiler::setEventTracingEnabled(isEnabled);
+
+/** Set event tracing thread priority (low or normal).
+
+Event tracing with low priority will affect your application performance much more less, but
+it can be late to gather information about thread/process (thread could be finished to the moment
+when event tracing thread will be awaken) and you will not see process name and process id
+information in GUI for such threads. You will still be able to see all context switch events.
+
+Event tracing with normal priority could gather more information about processes but potentially
+it could affect performance as it has more work to do. Usually you will not notice any performance
+breakdown, but if you care about that then you change set event tracing priority level to low.
+
+\sa EASY_LOW_PRIORITY_EVENT_TRACING
+
+\ingroup profiler
+*/
+# define EASY_SET_LOW_PRIORITY_EVENT_TRACING(isLowPriority) ::profiler::setLowPriorityEventTracing(isLowPriority);
+
 # ifndef _WIN32
 /** Macro for setting temporary log-file path for Unix event tracing system.
 
@@ -210,10 +214,52 @@ This is just for user's comfort. There is no difference for EasyProfiler GUI bet
 #  define EASY_EVENT_TRACING_LOG ::profiler::getContextSwitchLogFilename();
 # endif
 
-#else
+
+
+// EasyProfiler settings:
+
+/** If != 0 then EasyProfiler will measure time for blocks storage expansion.
+If 0 then EasyProfiler will be compiled without blocks of code responsible
+for measuring these events.
+
+These are "EasyProfiler.ExpandStorage" blocks on a diagram.
+
+\ingroup profiler
+*/
 # define EASY_MEASURE_STORAGE_EXPAND 0
-# define EASY_STORAGE_EXPAND_ENABLED false
-# define EASY_EVENT_TRACING_ENABLED false
+
+/** If true then "EasyProfiler.ExpandStorage" events are enabled by default and will be
+writed to output file or translated over the net.
+If false then you need to enable these events via GUI if you'll want to see them.
+
+\ingroup profiler
+*/
+# define EASY_STORAGE_EXPAND_ENABLED true
+
+/** If true then EasyProfiler event tracing is enabled by default
+and will be turned on and off when you call profiler::setEnabled().
+Otherwise, it have to be turned on via GUI and then it will be
+turned on/off with next calls of profiler::setEnabled().
+
+\ingroup profiler
+*/
+# define EASY_EVENT_TRACING_ENABLED true
+
+/** If true then EasyProfiler.ETW thread (Event tracing for Windows) will have low priority by default.
+
+\sa EASY_SET_LOW_PRIORITY_EVENT_TRACING
+
+\note You can always change priority level via GUI or API while profiling session is not launched.
+You don't need to rebuild or restart your application for that.
+
+\ingroup profiler
+*/
+# define EASY_LOW_PRIORITY_EVENT_TRACING true
+
+
+
+#else // #ifndef FULL_DISABLE_PROFILER
+
 # define EASY_BLOCK(...)
 # define EASY_FUNCTION(...)
 # define EASY_END_BLOCK 
@@ -222,13 +268,20 @@ This is just for user's comfort. There is no difference for EasyProfiler GUI bet
 # define EASY_EVENT(...)
 # define EASY_THREAD(...)
 # define EASY_MAIN_THREAD 
+# define EASY_SET_EVENT_TRACING_ENABLED(isEnabled) 
+# define EASY_SET_LOW_PRIORITY_EVENT_TRACING(isLowPriority) 
 
 # ifndef _WIN32
 #  define EASY_EVENT_TRACING_SET_LOG(filename) 
 #  define EASY_EVENT_TRACING_LOG ""
 # endif
 
-#endif
+# define EASY_MEASURE_STORAGE_EXPAND 0
+# define EASY_STORAGE_EXPAND_ENABLED false
+# define EASY_EVENT_TRACING_ENABLED false
+# define EASY_LOW_PRIORITY_EVENT_TRACING true
+
+#endif // #ifndef FULL_DISABLE_PROFILER
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
@@ -456,6 +509,26 @@ namespace profiler {
         \ingroup profiler
         */
         PROFILER_API const char* registerThread(const char* _name);
+
+        /** Enable or disable event tracing.
+
+        \note This change will take an effect on the next call of setEnabled(true);
+
+        \sa setEnabled, EASY_SET_EVENT_TRACING_ENABLED
+
+        \ingroup profiler
+        */
+        PROFILER_API void setEventTracingEnabled(bool _isEnable);
+
+        /** Set event tracing thread priority (low or normal).
+
+        \note This change will take effect on the next call of setEnabled(true);
+
+        \sa setEnabled, EASY_SET_LOW_PRIORITY_EVENT_TRACING
+
+        \ingroup profiler
+        */
+        PROFILER_API void setLowPriorityEventTracing(bool _isLowPriority);
 
 #ifndef _WIN32
         /** Set temporary log-file path for Unix event tracing system.
