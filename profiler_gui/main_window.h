@@ -38,6 +38,7 @@
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QThread>
+#include <QLineEdit>
 #include "profiler/easy_socket.h"
 #undef max
 #undef min

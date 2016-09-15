@@ -53,7 +53,6 @@
 #include <QMessageBox>
 
 #include <QDialog>
-#include <QLineEdit>
 #include <QFormLayout>
 #include <QPushButton>
 
