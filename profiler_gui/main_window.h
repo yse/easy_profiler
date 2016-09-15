@@ -38,6 +38,9 @@
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QThread>
+#include "profiler/easy_socket.h"
+#undef max
+#undef min
 #include "profiler/reader.h"
 #include <sstream>
 
@@ -100,7 +103,7 @@ signals:
 class EasyMainWindow : public QMainWindow
 {
     Q_OBJECT
-        friend class TcpReceiverThread;
+    friend class TcpReceiverThread;
 protected:
 
     typedef EasyMainWindow This;
@@ -110,7 +113,10 @@ protected:
     QDockWidget*                          m_treeWidget;
     QDockWidget*                        m_graphicsView;
     class QProgressDialog*                  m_progress;
+    class QProgressDialog*        m_downloadingProgress;
+
     QTimer                               m_readerTimer;
+    QTimer                               m_downloadedTimer;
     ::profiler::SerializedData      m_serializedBlocks;
     ::profiler::SerializedData m_serializedDescriptors;
     EasyFileReader                            m_reader;
@@ -127,6 +133,11 @@ protected:
     TcpReceiverThread* m_receiver;
 
     std::thread m_thread;
+
+    EasySocket m_easySocket;
+
+    bool m_downloading = false;
+    ::std::atomic<int>                      m_downloadedBytes;
 public:
 
     EasyMainWindow();
@@ -153,6 +164,7 @@ protected slots:
     void onExpandAllClicked(bool);
     void onCollapseAllClicked(bool);
     void onFileReaderTimeout();
+    void onDownloadTimeout();
     void onFileReaderCancel();
     void onCaptureClicked(bool);
 

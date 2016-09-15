@@ -177,7 +177,6 @@ bool EasySocket::setAddress(const char *serv, uint16_t portno)
     _itoa(portno, buffer, 10);
     iResult = getaddrinfo(serv, buffer, &hints, &result);
     if (iResult != 0) {
-        WSACleanup();
         return false;
     }
 
@@ -210,8 +209,7 @@ int EasySocket::connect()
     // Connect to server.
     auto iResult = ::connect(m_socket, result->ai_addr, (int)result->ai_addrlen);
     if (iResult == SOCKET_ERROR) {
-        closesocket(m_socket);
-        m_socket = INVALID_SOCKET;
+        return iResult;
     }
     /**/
     m_replySocket = m_socket;
