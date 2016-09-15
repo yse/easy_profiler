@@ -51,6 +51,7 @@
 #include <QGridLayout>
 #include <QDebug>
 #include <QSignalBlocker>
+#include <math.h>
 #include "blocks_graphics_view.h"
 #include "easy_graphics_item.h"
 #include "easy_chronometer_item.h"
