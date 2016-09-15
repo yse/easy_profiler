@@ -1,5 +1,5 @@
 /************************************************************************
-* file name         : graphics_scrollbar.h
+* file name         : easy_graphics_scrollbar.h
 * ----------------- : 
 * creation time     : 2016/07/04
 * author            : Victor Zarubkin

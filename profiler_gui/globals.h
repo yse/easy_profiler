@@ -47,11 +47,23 @@ namespace profiler_gui {
     const QString APPLICATION_NAME = "Easy profiler gui application";
 
     const QColor CHRONOMETER_COLOR = QColor::fromRgba(0x40000000 | (::profiler::colors::RichBlue & 0x00ffffff));// 0x402020c0);
+    const QColor CHRONOMETER_COLOR2 = QColor::fromRgba(0x40000000 | (::profiler::colors::Dark & 0x00ffffff));// 0x40408040);
     const QRgb SELECTED_THREAD_BACKGROUND = 0x00e0e060;
     const QRgb SELECTED_THREAD_FOREGROUND = 0x00ffffff - SELECTED_THREAD_BACKGROUND;
 
     const qreal SCALING_COEFFICIENT = 1.25;
     const qreal SCALING_COEFFICIENT_INV = 1.0 / SCALING_COEFFICIENT;
+
+    const uint16_t GRAPHICS_ROW_SIZE = 18;
+    const uint16_t GRAPHICS_ROW_SPACING = 2;
+    const uint16_t GRAPHICS_ROW_SIZE_FULL = GRAPHICS_ROW_SIZE + GRAPHICS_ROW_SPACING;
+    const uint16_t THREADS_ROW_SPACING = 8;
+
+#ifdef _WIN32
+    const qreal FONT_METRICS_FACTOR = 1.05;
+#else
+    const qreal FONT_METRICS_FACTOR = 1.;
+#endif
 
     //////////////////////////////////////////////////////////////////////////
 

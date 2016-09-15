@@ -16,11 +16,15 @@ add_executable(${PROJECT_NAME}
     blocks_graphics_view.cpp
     blocks_tree_widget.h
     blocks_tree_widget.cpp
+    easy_chronometer_item.h
+    easy_chronometer_item.cpp
+    easy_graphics_item.h
+    easy_graphics_item.cpp
+    easy_graphics_scrollbar.h
+    easy_graphics_scrollbar.cpp
     globals.h
     globals.cpp
     globals_qobjects.cpp
-    graphics_scrollbar.h
-    graphics_scrollbar.cpp
     main_window.h
     main_window.cpp
     tree_widget_item.h
