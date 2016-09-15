@@ -35,6 +35,7 @@
 #include <QObject>
 #include <QColor>
 #include <QTextCodec>
+#include <QSize>
 #include "common_types.h"
 #include "globals_qobjects.h"
 
@@ -129,6 +130,8 @@ inline ::profiler::BlocksTree& blocksTree(::profiler::block_index_t i) {
     return easyBlock(i).tree;
 }
 #endif
+
+#define SET_ICON(objectName, iconName) { QIcon icon(iconName); if (!icon.isNull()) objectName->setIcon(icon); }
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////

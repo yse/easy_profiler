@@ -359,11 +359,11 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     {
         action = menu.addAction("Expand all");
         connect(action, &QAction::triggered, this, &This::onExpandAllClicked);
-        { QIcon icon(":/Expand"); if (!icon.isNull()) action->setIcon(icon); }
+        SET_ICON(action, ":/Expand");
 
         action = menu.addAction("Collapse all");
         connect(action, &QAction::triggered, this, &This::onCollapseAllClicked);
-        { QIcon icon(":/Collapse"); if (!icon.isNull()) action->setIcon(icon); }
+        SET_ICON(action, ":/Colapse");
 
         if (item != nullptr && col >= 0)
         {
@@ -371,11 +371,11 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 
             action = menu.addAction("Expand all children");
             connect(action, &QAction::triggered, this, &This::onExpandAllChildrenClicked);
-            { QIcon icon(":/Expand"); if (!icon.isNull()) action->setIcon(icon); }
+            SET_ICON(action, ":/Expand");
 
             action = menu.addAction("Collapse all children");
             connect(action, &QAction::triggered, this, &This::onCollapseAllChildrenClicked);
-            { QIcon icon(":/Collapse"); if (!icon.isNull()) action->setIcon(icon); }
+            SET_ICON(action, ":/Collapse");
         }
 
         menu.addSeparator();
@@ -389,9 +389,9 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
         auto f = action->font();
         f.setBold(true);
         action->setFont(f);
-        { QIcon icon(":/Color"); if (!icon.isNull()) action->setIcon(icon); }
+        SET_ICON(action, ":/Color");
     }
-    else { QIcon icon(":/NoColor"); if (!icon.isNull()) action->setIcon(icon); }
+    else SET_ICON(action, ":/NoColor");
 
     if (item != nullptr && item->parent() != nullptr)
     {
