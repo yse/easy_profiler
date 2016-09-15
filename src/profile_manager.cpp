@@ -363,7 +363,8 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
     if (wasEnabled)
         ::profiler::setEnabled(false);
 
-
+    //TODO remove it
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     // This is to make sure that no new descriptors or new threads will be
     // added until we finish sending data.
     guard_lock_t lock1(m_storedSpin);
@@ -442,7 +443,8 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
         _outputStream.write(name_size > 1 ? t.name.c_str() : "", name_size);
 
         _outputStream.write(t.sync.closedList.size());
-        t.sync.closedList.serialize(_outputStream);
+        if (!t.sync.closedList.empty())
+            t.sync.closedList.serialize(_outputStream);
 
         _outputStream.write(t.blocks.closedList.size());
         if (!t.blocks.closedList.empty())
