@@ -363,7 +363,7 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 
         action = menu.addAction("Collapse all");
         connect(action, &QAction::triggered, this, &This::onCollapseAllClicked);
-        SET_ICON(action, ":/Colapse");
+        SET_ICON(action, ":/Collapse");
 
         if (item != nullptr && col >= 0)
         {
