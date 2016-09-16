@@ -39,6 +39,7 @@ namespace profiler {
         TRACEHANDLE         m_sessionHandle = INVALID_PROCESSTRACE_HANDLE;
         TRACEHANDLE          m_openedHandle = INVALID_PROCESSTRACE_HANDLE;
         bool                     m_bEnabled = false;
+        bool                m_bPrivilegeSet = false;
 
     public:
 
@@ -59,6 +60,7 @@ namespace profiler {
         }
 
         ::profiler::EventTracingEnableStatus startTrace(bool _force, int _step = 0);
+        bool setDebugPrivilege();
 
     }; // END of class EasyEventTracer.
 

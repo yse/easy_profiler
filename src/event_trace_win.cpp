@@ -4,10 +4,11 @@
 #include <memory.h>
 #include <chrono>
 #include <unordered_map>
-#include "event_trace_win.h"
-#include "Psapi.h"
 #include "profiler/profiler.h"
 #include "profile_manager.h"
+
+#include "event_trace_win.h"
+#include <Psapi.h>
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
@@ -96,6 +97,8 @@ namespace profiler {
                     // But it works fine with PROCESS_QUERY_LIMITED_INFORMATION instead of PROCESS_QUERY_INFORMATION.
                     // 
                     // See https://msdn.microsoft.com/en-us/library/windows/desktop/ms683196(v=vs.85).aspx
+                    //auto hProc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+                    //if (hProc == nullptr)
                     auto hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, pid);
                     if (hProc != nullptr)
                     {
@@ -115,7 +118,8 @@ namespace profiler {
                     }
                     else
                     {
-                        //printf("Can not OpenProcess(%u);\n", pid);
+                        //auto err = GetLastError();
+                        //printf("OpenProcess(%u) fail: GetLastError() == %u\n", pid, err);
                         pinfo->valid = -1;
                     }
                 }
@@ -165,6 +169,29 @@ namespace profiler {
         m_lowPriority.store(_value, ::std::memory_order_release);
     }
 
+    bool EasyEventTracer::setDebugPrivilege()
+    {
+        bool success = false;
+
+        HANDLE hToken = nullptr;
+        if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
+        {
+            LUID privilegyId;
+            if (LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &privilegyId))
+            {
+                TOKEN_PRIVILEGES tokenPrivilegy;
+                tokenPrivilegy.PrivilegeCount = 1;
+                tokenPrivilegy.Privileges[0].Luid = privilegyId;
+                tokenPrivilegy.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+                success = AdjustTokenPrivileges(hToken, FALSE, &tokenPrivilegy, sizeof(TOKEN_PRIVILEGES), NULL, NULL) != FALSE;
+            }
+
+            CloseHandle(hToken);
+        }
+
+        return success;
+    }
+
     ::profiler::EventTracingEnableStatus EasyEventTracer::startTrace(bool _force, int _step)
     {
         auto startTraceResult = StartTrace(&m_sessionHandle, KERNEL_LOGGER_NAME, props());
@@ -207,6 +234,11 @@ namespace profiler {
         profiler::guard_lock<profiler::spin_lock> lock(m_spin);
         if (m_bEnabled)
             return EVENT_TRACING_LAUNCHED_SUCCESSFULLY;
+
+        // Trying to set debug privilege for current process
+        // to be able to get other process information (process name)
+        if (!m_bPrivilegeSet)
+            m_bPrivilegeSet = setDebugPrivilege();
 
         // Clear properties
         memset(&m_properties, 0, sizeof(m_properties));
