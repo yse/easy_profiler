@@ -36,12 +36,6 @@ int EasySocket::bind(uint16_t portno)
 EasySocket::EasySocket()
 {
     m_socket = socket(AF_INET, SOCK_STREAM, 0);
-    struct timeval tv;
-
-    tv.tv_sec = 1;
-    tv.tv_usec = 0;
-
-    //setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
 }
 
 EasySocket::~EasySocket()
@@ -98,6 +92,14 @@ int EasySocket::connect()
     }
     int res = ::connect(m_socket,(struct sockaddr *) &serv_addr,sizeof(serv_addr));
     if(res == 0){
+
+        struct timeval tv;
+
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
+
+        setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
+
         m_replySocket = m_socket;
     }
     return res;

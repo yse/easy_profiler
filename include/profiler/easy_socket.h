@@ -39,6 +39,15 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 class PROFILER_API EasySocket
 {
+public:
+    enum ConnectionState
+    {
+        CONNECTION_STATE_UNKNOWN,
+        CONNECTION_STATE_SUCCESS,
+
+        CONNECTION_STATE_DISCONNECTED
+    };
+private:
 #ifdef _WIN32
     typedef SOCKET socket_t;
 #else
@@ -58,7 +67,7 @@ class PROFILER_API EasySocket
 #endif
 
 
-
+    ConnectionState m_state = CONNECTION_STATE_UNKNOWN;
 public:
     EasySocket();
     ~EasySocket();
@@ -71,6 +80,9 @@ public:
 
     bool setAddress(const char* serv, uint16_t port);
     int connect();
+
+    void setState(ConnectionState state){m_state=state;}
+    ConnectionState state() const{return m_state;}
 };
 
 #endif // EASY________SOCKET_________H

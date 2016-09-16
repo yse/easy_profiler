@@ -335,10 +335,16 @@ void EasyMainWindow::listen()
     int bytes = 0;
 
     static auto timeBegin = std::chrono::system_clock::now();
-    while (true)
+    bool isListen = true;
+    while (isListen)
     {
         if ((bytes - seek) == 0){
             bytes = m_easySocket.receive(buffer, buffer_size);
+            if(bytes == -1)
+            {
+                isListen = false;
+                continue;
+            }
             seek = 0;
         }
             
@@ -399,7 +405,8 @@ void EasyMainWindow::listen()
                 m_receivedProfileData.clear();
                 //loadFile(QString(tempfilename.c_str()));
                 m_recFrames = false;
-                return;
+                isListen = false;
+                continue;
             }
             break;
             case profiler::net::MESSAGE_TYPE_REPLY_BLOCKS:
@@ -424,6 +431,14 @@ void EasyMainWindow::listen()
                 while (neededSize > 0)
                 {
                     bytes = m_easySocket.receive(buffer, buffer_size);
+
+                    if(bytes == -1)
+                    {
+                        isListen = false;
+                        neededSize = 0;
+                        continue;
+                    }
+
                     buf = &buffer[0];
                     int toWrite = std::min(bytes, neededSize);
                     m_receivedProfileData.write(buf, toWrite);
@@ -446,6 +461,8 @@ void EasyMainWindow::listen()
 
         }
     }
+    m_easySocket.setState(EasySocket::CONNECTION_STATE_DISCONNECTED);
+    delete [] buffer;
 }
 
 void TcpReceiverThread::run()
@@ -623,6 +640,8 @@ void EasyMainWindow::onCollapseAllClicked(bool)
 
 void EasyMainWindow::onConnectClicked(bool)
 {
+    if(m_isConnected)
+        return;
     int res = m_easySocket.setAddress(m_hostString->text().toStdString().c_str(), m_portString->text().toUShort());
 
     res = m_easySocket.connect();
@@ -720,6 +739,13 @@ void EasyMainWindow::onCaptureClicked(bool)
     m_thread.join();
 
     m_downloading = false;
+
+    if(m_easySocket.state() == EasySocket::CONNECTION_STATE_DISCONNECTED)
+    {
+        QMessageBox::warning(this,"Warning" ,"Application was disconnected",QMessageBox::Close);
+        m_isConnected = false;
+        return;
+    }
 
     std::string tempfilename = "test_rec.prof";
     loadFile(QString(tempfilename.c_str()));
