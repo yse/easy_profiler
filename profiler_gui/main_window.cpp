@@ -121,7 +121,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     m_hostString->setInputMask("000.000.000.000;");
     m_hostString->setValidator(&regValidator);
     m_hostString->setText("127.0.0.1");
-    m_hostString->setText("192.224.4.109");
+    //m_hostString->setText("192.224.4.109");
 
     fileToolBar->addWidget(m_hostString);
 

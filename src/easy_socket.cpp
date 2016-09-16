@@ -96,8 +96,11 @@ int EasySocket::connect()
         return -1;
         //fprintf(stderr,"ERROR, no such host\n");
     }
-
-    return ::connect(m_socket,(struct sockaddr *) &serv_addr,sizeof(serv_addr));
+    int res = ::connect(m_socket,(struct sockaddr *) &serv_addr,sizeof(serv_addr));
+    if(res == 0){
+        m_replySocket = m_socket;
+    }
+    return res;
 }
 #else
 
