@@ -39,6 +39,8 @@
 
 //////////////////////////////////////////////////////////////////////////
 
+#define EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW 0
+
 class QDockWidget;
 
 //////////////////////////////////////////////////////////////////////////
@@ -88,8 +90,15 @@ protected:
     QString                                 m_lastFile;
     QDockWidget*                          m_treeWidget;
     QDockWidget*                        m_graphicsView;
+
+#if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
+    QDockWidget*                      m_descTreeWidget;
+#endif
+
     class QProgressDialog*                  m_progress;
     class QAction*                  m_editBlocksAction;
+    class QDialog*                    m_descTreeDialog;
+    class EasyDescWidget*             m_dialogDescTree;
     QTimer                               m_readerTimer;
     ::profiler::SerializedData      m_serializedBlocks;
     ::profiler::SerializedData m_serializedDescriptors;
@@ -121,6 +130,7 @@ protected slots:
     void onFileReaderTimeout();
     void onFileReaderCancel();
     void onEditBlocksClicked(bool);
+    void onDescTreeDialogClose(int);
 
 private:
 

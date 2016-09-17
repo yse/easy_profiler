@@ -5,7 +5,7 @@
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- : 
-* description       : The file contains declaration of EasyDescWidget and it's auxiliary classes
+* description       : The file contains declaration of EasyDescTreeWidget and it's auxiliary classes
 *                   : for displyaing EasyProfiler blocks descriptors tree.
 * ----------------- : 
 * change log        : * 2016/09/17 Victor Zarubkin: initial commit.
@@ -33,7 +33,9 @@
 #define EASY__DESCRIPTORS__WIDGET__H_
 
 #include <QTreeWidget>
-#include "profiler/reader.h"
+#include <QString>
+#include <vector>
+#include "profiler/profiler.h"
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -64,42 +66,95 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyDescWidget : public QTreeWidget
+class EasyDescTreeWidget : public QTreeWidget
 {
     Q_OBJECT
 
     typedef QTreeWidget    Parent;
-    typedef EasyDescWidget   This;
+    typedef EasyDescTreeWidget   This;
+
+    typedef ::std::vector<EasyDescWidgetItem*> Items;
 
 protected:
 
-
+    Items                 m_items;
+    QString          m_lastSearch;
+    QTreeWidgetItem*  m_lastFound;
+    int            m_searchColumn;
+    bool                m_bLocked;
 
 public:
 
-    explicit EasyDescWidget(QWidget* _parent = nullptr);
-    virtual ~EasyDescWidget();
+    // Public virtual methods
+
+    explicit EasyDescTreeWidget(QWidget* _parent = nullptr);
+    virtual ~EasyDescTreeWidget();
+    void contextMenuEvent(QContextMenuEvent* _event) override;
+    void keyPressEvent(QKeyEvent* _event) override;
+
+public:
+
+    // Public non-virtual methods
+
+    int findNext(const QString& _str);
+    int findPrev(const QString& _str);
 
 public slots:
 
     void clearSilent(bool _global = false);
     void build();
 
-protected:
-
-    void contextMenuEvent(QContextMenuEvent* _event) override;
-
 private slots:
 
+    void onSearchColumnChange(bool);
+    void onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidgetItem* _prev);
     void onItemExpand(QTreeWidgetItem* _item);
     void onDoubleClick(QTreeWidgetItem* _item, int _column);
     void onSelectedBlockChange(uint32_t _block_index);
+    void onEnableStatusChange(::profiler::block_id_t _id, bool _enabled);
     void resizeColumnsToContents();
 
-protected:
+private:
+
+    // Private methods
 
     void loadSettings();
     void saveSettings();
+
+}; // END of class EasyDescTreeWidget.
+
+//////////////////////////////////////////////////////////////////////////
+
+class EasyDescWidget : public QWidget
+{
+    Q_OBJECT
+
+    typedef QWidget      Parent;
+    typedef EasyDescWidget This;
+
+private:
+
+    EasyDescTreeWidget*   m_tree;
+    class QLineEdit* m_searchBox;
+    class QLabel*  m_foundNumber;
+
+public:
+
+    // Public virtual methods
+
+    explicit EasyDescWidget(QWidget* _parent = nullptr);
+    virtual ~EasyDescWidget();
+    void keyPressEvent(QKeyEvent* _event) override;
+
+public:
+
+    // Public non-virtual methods
+
+    void build();
+
+private slots:
+
+    void onSeachBoxReturnPressed();
 
 }; // END of class EasyDescWidget.
 

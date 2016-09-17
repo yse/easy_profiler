@@ -63,7 +63,18 @@ const int LOADER_TIMER_INTERVAL = 40;
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsView(nullptr), m_progress(nullptr), m_editBlocksAction(nullptr)
+EasyMainWindow::EasyMainWindow() : Parent()
+    , m_treeWidget(nullptr)
+    , m_graphicsView(nullptr)
+
+#if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
+    , m_descTreeWidget(nullptr)
+#endif
+
+    , m_progress(nullptr)
+    , m_editBlocksAction(nullptr)
+    , m_descTreeDialog(nullptr)
+    , m_dialogDescTree(nullptr)
 {
     { QIcon icon(":/logo"); if (!icon.isNull()) QApplication::setWindowIcon(icon); }
 
@@ -75,19 +86,31 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     setStatusBar(new QStatusBar());
 
     auto graphicsView = new EasyGraphicsViewWidget();
-    m_graphicsView = new QDockWidget("Blocks diagram");
+    m_graphicsView = new QDockWidget("Diagram");
+    m_graphicsView->setObjectName("ProfilerGUI_Diagram");
     m_graphicsView->setMinimumHeight(50);
     m_graphicsView->setAllowedAreas(Qt::AllDockWidgetAreas);
     m_graphicsView->setWidget(graphicsView);
 
     auto treeWidget = new EasyTreeWidget();
-    m_treeWidget = new QDockWidget("Blocks hierarchy");
+    m_treeWidget = new QDockWidget("Hierarchy");
+    m_treeWidget->setObjectName("ProfilerGUI_Hierarchy");
     m_treeWidget->setMinimumHeight(50);
     m_treeWidget->setAllowedAreas(Qt::AllDockWidgetAreas);
     m_treeWidget->setWidget(treeWidget);
 
     addDockWidget(Qt::TopDockWidgetArea, m_graphicsView);
     addDockWidget(Qt::BottomDockWidgetArea, m_treeWidget);
+
+#if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
+    auto descTree = new EasyDescWidget();
+    m_descTreeWidget = new QDockWidget("Blocks");
+    m_descTreeWidget->setObjectName("ProfilerGUI_Blocks");
+    m_descTreeWidget->setMinimumHeight(50);
+    m_descTreeWidget->setAllowedAreas(Qt::AllDockWidgetAreas);
+    m_descTreeWidget->setWidget(descTree);
+    addDockWidget(Qt::BottomDockWidgetArea, m_descTreeWidget);
+#endif
 
     loadSettings();
 
@@ -248,6 +271,8 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
 
 EasyMainWindow::~EasyMainWindow()
 {
+    if (m_descTreeDialog != nullptr)
+        delete m_descTreeDialog;
     delete m_progress;
 }
 
@@ -382,18 +407,33 @@ void EasyMainWindow::onCollapseAllClicked(bool)
 
 void EasyMainWindow::onEditBlocksClicked(bool)
 {
-    QDialog d(this);
-    d.setWindowTitle("EasyProfiler");
-    d.resize(800, 600);
+    if (m_descTreeDialog != nullptr)
+    {
+        m_descTreeDialog->raise();
+        return;
+    }
 
-    auto descTree = new EasyDescWidget();
-    descTree->build();
+    m_descTreeDialog = new QDialog();
+    m_descTreeDialog->setWindowTitle("EasyProfiler");
+    m_descTreeDialog->resize(800, 600);
+    connect(m_descTreeDialog, &QDialog::finished, this, &This::onDescTreeDialogClose);
 
-    auto l = new QVBoxLayout(&d);
-    l->addWidget(descTree);
+    m_dialogDescTree = new EasyDescWidget();
+    m_dialogDescTree->build();
 
-    d.setLayout(l);
-    d.exec();
+    auto l = new QVBoxLayout(m_descTreeDialog);
+    l->addWidget(m_dialogDescTree);
+
+    m_descTreeDialog->setLayout(l);
+    m_descTreeDialog->show();
+}
+
+void EasyMainWindow::onDescTreeDialogClose(int)
+{
+    m_dialogDescTree = nullptr;
+    disconnect(m_descTreeDialog, &QDialog::finished, this, &This::onDescTreeDialogClose);
+    delete m_descTreeDialog;
+    m_descTreeDialog = nullptr;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -413,47 +453,33 @@ void EasyMainWindow::loadSettings()
 
     auto last_file = settings.value("last_file");
     if (!last_file.isNull())
-    {
         m_lastFile = last_file.toString();
-    }
 
 
     auto val = settings.value("chrono_text_position");
     if (!val.isNull())
-    {
         EASY_GLOBALS.chrono_text_position = static_cast<::profiler_gui::ChronometerTextPosition>(val.toInt());
-    }
 
 
     auto flag = settings.value("draw_graphics_items_borders");
     if (!flag.isNull())
-    {
         EASY_GLOBALS.draw_graphics_items_borders = flag.toBool();
-    }
 
     flag = settings.value("collapse_items_on_tree_close");
     if (!flag.isNull())
-    {
         EASY_GLOBALS.collapse_items_on_tree_close = flag.toBool();
-    }
 
     flag = settings.value("all_items_expanded_by_default");
     if (!flag.isNull())
-    {
         EASY_GLOBALS.all_items_expanded_by_default = flag.toBool();
-    }
 
     flag = settings.value("bind_scene_and_tree_expand_status");
     if (!flag.isNull())
-    {
         EASY_GLOBALS.bind_scene_and_tree_expand_status = flag.toBool();
-    }
 
     flag = settings.value("enable_statistics");
     if (!flag.isNull())
-    {
         EASY_GLOBALS.enable_statistics = flag.toBool();
-    }
 
     QString encoding = settings.value("encoding", "UTF-8").toString();
     auto default_codec_mib = QTextCodec::codecForName(encoding.toStdString().c_str())->mibEnum();
@@ -467,9 +493,15 @@ void EasyMainWindow::loadGeometry()
 {
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
     settings.beginGroup("main");
+
     auto geometry = settings.value("geometry").toByteArray();
     if (!geometry.isEmpty())
         restoreGeometry(geometry);
+
+    auto state = settings.value("windowState").toByteArray();
+    if (!state.isEmpty())
+        restoreState(state);
+
     settings.endGroup();
 }
 
@@ -479,6 +511,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.beginGroup("main");
 
     settings.setValue("geometry", this->saveGeometry());
+    settings.setValue("windowState", this->saveState());
     settings.setValue("last_file", m_lastFile);
     settings.setValue("chrono_text_position", static_cast<int>(EASY_GLOBALS.chrono_text_position));
     settings.setValue("draw_graphics_items_borders", EASY_GLOBALS.draw_graphics_items_borders);
@@ -534,7 +567,12 @@ void EasyMainWindow::onFileReaderTimeout()
 
             static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->setTree(EASY_GLOBALS.profiler_blocks);
 
+#if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
+            static_cast<EasyDescWidget*>(m_descTreeWidget->widget())->build();
+#endif
             m_editBlocksAction->setEnabled(true);
+            if (m_dialogDescTree != nullptr)
+                m_dialogDescTree->build();
         }
         else
         {
