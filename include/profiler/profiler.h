@@ -257,6 +257,13 @@ You don't need to rebuild or restart your application for that.
 # define EASY_LOW_PRIORITY_EVENT_TRACING true
 
 
+/** If != 0 then EasyProfiler will print error messages into stderr.
+Otherwise, no log messages will be printed.
+
+\ingroup profiler
+*/
+# define EASY_LOG_ENABLED 1
+
 
 #else // #ifndef FULL_DISABLE_PROFILER
 
@@ -280,6 +287,7 @@ You don't need to rebuild or restart your application for that.
 # define EASY_STORAGE_EXPAND_ENABLED false
 # define EASY_EVENT_TRACING_ENABLED false
 # define EASY_LOW_PRIORITY_EVENT_TRACING true
+# define EASY_LOG_ENABLED 0
 
 #endif // #ifndef FULL_DISABLE_PROFILER
 

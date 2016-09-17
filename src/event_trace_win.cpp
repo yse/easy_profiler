@@ -1,4 +1,36 @@
-
+/************************************************************************
+* file name         : event_trace_win.cpp
+* ----------------- :
+* creation time     : 2016/09/04
+* author            : Victor Zarubkin
+* email             : v.s.zarubkin@gmail.com
+* ----------------- :
+* description       : The file contains implementation of EasyEventTracer class used for tracing
+*                   : Windows system events to get context switches.
+* ----------------- :
+* change log        : * 2016/09/04 Victor Zarubkin: initial commit.
+*                   :
+*                   : * 2016/09/13 Victor Zarubkin: get process id and process name
+*                   :        of the owner of thread with id == CSwitch::NewThreadId.
+*                   : 
+*                   : * 2016/09/17 Victor Zarubkin: added log messages printing.
+* ----------------- :
+* license           : Lightweight profiler library for c++
+*                   : Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
+*                   :
+*                   : This program is free software : you can redistribute it and / or modify
+*                   : it under the terms of the GNU General Public License as published by
+*                   : the Free Software Foundation, either version 3 of the License, or
+*                   : (at your option) any later version.
+*                   :
+*                   : This program is distributed in the hope that it will be useful,
+*                   : but WITHOUT ANY WARRANTY; without even the implied warranty of
+*                   : MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+*                   : GNU General Public License for more details.
+*                   :
+*                   : You should have received a copy of the GNU General Public License
+*                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
+************************************************************************/
 
 #ifdef _WIN32
 #include <memory.h>
@@ -9,6 +41,10 @@
 
 #include "event_trace_win.h"
 #include <Psapi.h>
+
+#if EASY_LOG_ENABLED != 0
+#include <iostream>
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
@@ -73,6 +109,8 @@ namespace profiler {
         const auto time = static_cast<::profiler::timestamp_t>(_traceEvent->EventHeader.TimeStamp.QuadPart);
 
         const char* process_name = "";
+
+        // Trying to get target process name and id
         auto it = THREAD_PROCESS_INFO_TABLE.find(_contextSwitchEvent->NewThreadId);
         if (it == THREAD_PROCESS_INFO_TABLE.end())
         {
@@ -92,22 +130,24 @@ namespace profiler {
                         pinfo->id = pid;
                     }
 
-                    // According to documentation, using GetModuleBaseName() requires
-                    // PROCESS_QUERY_INFORMATION | PROCESS_VM_READ access rights.
-                    // But it works fine with PROCESS_QUERY_LIMITED_INFORMATION instead of PROCESS_QUERY_INFORMATION.
-                    // 
-                    // See https://msdn.microsoft.com/en-us/library/windows/desktop/ms683196(v=vs.85).aspx
+                    /*
+                    According to documentation, using GetModuleBaseName() requires
+                    PROCESS_QUERY_INFORMATION | PROCESS_VM_READ access rights.
+                    But it works fine with PROCESS_QUERY_LIMITED_INFORMATION instead of PROCESS_QUERY_INFORMATION.
+                    
+                    See https://msdn.microsoft.com/en-us/library/windows/desktop/ms683196(v=vs.85).aspx
+                    */
+
                     //auto hProc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
                     //if (hProc == nullptr)
                     auto hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, pid);
                     if (hProc != nullptr)
                     {
                         static TCHAR buf[MAX_PATH] = {}; // Using static is safe because processTraceEvent() is called from one thread
-                        auto success = GetModuleBaseName(hProc, 0, buf, MAX_PATH);
+                        auto len = GetModuleBaseName(hProc, 0, buf, MAX_PATH);
 
-                        if (success)
+                        if (len != 0)
                         {
-                            auto len = strlen(buf);
                             pinfo->name.reserve(pinfo->name.size() + 2 + len);
                             pinfo->name.append(" ", 1);
                             pinfo->name.append(buf, len);
@@ -189,6 +229,11 @@ namespace profiler {
             CloseHandle(hToken);
         }
 
+#if EASY_LOG_ENABLED != 0
+        if (!success)
+            ::std::cerr << "Warning: EasyProfiler failed to set Debug privelege for the application. Some context switch events could not get process name.";
+#endif
+
         return success;
     }
 
@@ -206,7 +251,29 @@ namespace profiler {
                 {
                     // Try to stop another event tracing session to force launch self session.
 
-                    if ((_step == 0 && 32 < (int)ShellExecute(NULL, NULL, "logman", "stop \"" KERNEL_LOGGER_NAME "\" -ets", NULL, SW_HIDE)) || (_step > 0 && _step < 6))
+                    if (_step == 0)
+                    {
+                        /*
+                        According to https://msdn.microsoft.com/en-us/library/windows/desktop/aa363696(v=vs.85).aspx
+                        SessionHandle is ignored (and could be NULL) if SessionName is not NULL,
+                        and you only need to set the Wnode.BufferSize, Wnode.Guid, LoggerNameOffset, and LogFileNameOffset
+                        in EVENT_TRACE_PROPERTIES structure if ControlCode is EVENT_TRACE_CONTROL_STOP.
+                        All data is already set for m_properties to the moment. Simply copy m_properties and use the copy.
+
+                        This method supposed to be faster than launching console window and executing shell command,
+                        but if that would not work, return to using shell command "logman stop".
+                        */
+
+                        static Properties p; // static is safe because we are guarded by spin-lock m_spin
+                        p = m_properties; // Use copy of m_properties to make sure m_properties will not be changed
+                        ControlTrace(NULL, KERNEL_LOGGER_NAME, reinterpret_cast<EVENT_TRACE_PROPERTIES*>(&p), EVENT_TRACE_CONTROL_STOP);
+
+                        // Console window variant:
+                        //if (32 >= (int)ShellExecute(NULL, NULL, "logman", "stop \"" KERNEL_LOGGER_NAME "\" -ets", NULL, SW_HIDE))
+                        //    return EVENT_TRACING_WAS_LAUNCHED_BY_SOMEBODY_ELSE;
+                    }
+
+                    if (_step < 4)
                     {
                         // Command executed successfully. Wait for a few time until tracing session finish.
                         ::std::this_thread::sleep_for(::std::chrono::milliseconds(500));
@@ -214,16 +281,28 @@ namespace profiler {
                     }
                 }
 
+#if EASY_LOG_ENABLED != 0
+                ::std::cerr << "Error: EasyProfiler.ETW not launched: ERROR_ALREADY_EXISTS. To stop another session execute cmd: logman stop \"" << KERNEL_LOGGER_NAME << "\" -ets";
+#endif
                 return EVENT_TRACING_WAS_LAUNCHED_BY_SOMEBODY_ELSE;
             }
 
             case ERROR_ACCESS_DENIED:
+#if EASY_LOG_ENABLED != 0
+                ::std::cerr << "Error: EasyProfiler.ETW not launched: ERROR_ACCESS_DENIED. Try to launch your application as Administrator.";
+#endif
                 return EVENT_TRACING_NOT_ENOUGH_ACCESS_RIGHTS;
 
             case ERROR_BAD_LENGTH:
+#if EASY_LOG_ENABLED != 0
+                ::std::cerr << "Error: EasyProfiler.ETW not launched: ERROR_BAD_LENGTH. It seems that your KERNEL_LOGGER_NAME differs from \"" << m_properties.sessionName << "\". Try to re-compile easy_profiler or contact EasyProfiler developers.";
+#endif
                 return EVENT_TRACING_BAD_PROPERTIES_SIZE;
         }
 
+#if EASY_LOG_ENABLED != 0
+        ::std::cerr << "Error: EasyProfiler.ETW not launched: StartTrace() returned " << startTraceResult;
+#endif
         return EVENT_TRACING_MISTERIOUS_ERROR;
     }
 
@@ -231,7 +310,7 @@ namespace profiler {
     {
         static const decltype(m_properties.base.Wnode.ClientContext) RAW_TIMESTAMP_TIME_TYPE = 1;
 
-        profiler::guard_lock<profiler::spin_lock> lock(m_spin);
+        ::profiler::guard_lock<::profiler::spin_lock> lock(m_spin);
         if (m_bEnabled)
             return EVENT_TRACING_LAUNCHED_SUCCESSFULLY;
 
@@ -261,15 +340,22 @@ namespace profiler {
 
         m_openedHandle = OpenTrace(&m_trace);
         if (m_openedHandle == INVALID_PROCESSTRACE_HANDLE)
+        {
+#if EASY_LOG_ENABLED != 0
+            ::std::cerr << "Error: EasyProfiler.ETW not launched: OpenTrace() returned invalid handle.";
+#endif
             return EVENT_TRACING_OPEN_TRACE_ERROR;
+        }
 
-        // Have to launch a thread to process events because according to MSDN documentation:
-        // 
-        // The ProcessTrace function blocks the thread until it delivers all events, the BufferCallback function returns FALSE,
-        // or you call CloseTrace. If the consumer is consuming events in real time, the ProcessTrace function returns after
-        // the controller stops the trace session. (Note that there may be a several-second delay before the function returns.)
-        // 
-        // https://msdn.microsoft.com/en-us/library/windows/desktop/aa364093(v=vs.85).aspx
+        /*
+        Have to launch a thread to process events because according to MSDN documentation:
+        
+        The ProcessTrace function blocks the thread until it delivers all events, the BufferCallback function returns FALSE,
+        or you call CloseTrace. If the consumer is consuming events in real time, the ProcessTrace function returns after
+        the controller stops the trace session. (Note that there may be a several-second delay before the function returns.)
+        
+        https://msdn.microsoft.com/en-us/library/windows/desktop/aa364093(v=vs.85).aspx
+        */
         m_processThread = ::std::move(::std::thread([this]()
         {
             EASY_THREAD("EasyProfiler.ETW");
@@ -287,7 +373,7 @@ namespace profiler {
 
     void EasyEventTracer::disable()
     {
-        profiler::guard_lock<profiler::spin_lock> lock(m_spin);
+        ::profiler::guard_lock<::profiler::spin_lock> lock(m_spin);
         if (!m_bEnabled)
             return;
 

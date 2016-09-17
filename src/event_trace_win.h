@@ -1,5 +1,33 @@
-
-
+/************************************************************************
+* file name         : event_trace_win.h
+* ----------------- :
+* creation time     : 2016/09/04
+* author            : Victor Zarubkin
+* email             : v.s.zarubkin@gmail.com
+* ----------------- :
+* description       : The file contains declaration of EasyEventTracer class used for tracing
+*                   : Windows system events to get context switches.
+* ----------------- :
+* change log        : * 2016/09/04 Victor Zarubkin: initial commit.
+*                   :
+*                   : *
+* ----------------- :
+* license           : Lightweight profiler library for c++
+*                   : Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
+*                   :
+*                   : This program is free software : you can redistribute it and / or modify
+*                   : it under the terms of the GNU General Public License as published by
+*                   : the Free Software Foundation, either version 3 of the License, or
+*                   : (at your option) any later version.
+*                   :
+*                   : This program is distributed in the hope that it will be useful,
+*                   : but WITHOUT ANY WARRANTY; without even the implied warranty of
+*                   : MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+*                   : GNU General Public License for more details.
+*                   :
+*                   : You should have received a copy of the GNU General Public License
+*                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
+************************************************************************/
 
 #ifndef EASY_PROFILER__EVENT_TRACE_WINDOWS__H_
 #define EASY_PROFILER__EVENT_TRACE_WINDOWS__H_
@@ -34,7 +62,7 @@ namespace profiler {
         ::std::thread       m_processThread;
         Properties             m_properties;
         EVENT_TRACE_LOGFILE         m_trace;
-        profiler::spin_lock          m_spin;
+        ::profiler::spin_lock        m_spin;
         ::std::atomic_bool    m_lowPriority;
         TRACEHANDLE         m_sessionHandle = INVALID_PROCESSTRACE_HANDLE;
         TRACEHANDLE          m_openedHandle = INVALID_PROCESSTRACE_HANDLE;
