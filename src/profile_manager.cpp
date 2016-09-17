@@ -130,24 +130,24 @@ BaseBlockDescriptor::BaseBlockDescriptor(block_id_t _id, bool _enabled, int _lin
 
 }
 
-BlockDescriptor::BlockDescriptor(uint64_t& _used_mem, block_id_t _id, bool _enabled, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
+BlockDescriptor::BlockDescriptor(block_id_t _id, bool _enabled, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
     : BaseBlockDescriptor(_id, _enabled, _line, _block_type, _color)
     , m_name(_name)
     , m_filename(_filename)
     , m_pEnable(nullptr)
+    , m_size(static_cast<uint16_t>(sizeof(profiler::SerializedBlockDescriptor) + strlen(_name) + strlen(_filename) + 2))
     , m_expired(false)
 {
-    _used_mem += sizeof(profiler::SerializedBlockDescriptor) + strlen(_name) + strlen(_filename) + 2;
 }
 
-BlockDescriptor::BlockDescriptor(uint64_t& _used_mem, bool _enabled, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
+BlockDescriptor::BlockDescriptor(bool _enabled, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
     : BaseBlockDescriptor(0, _enabled, _line, _block_type, _color)
     , m_name(_name)
     , m_filename(_filename)
     , m_pEnable(nullptr)
+    , m_size(static_cast<uint16_t>(sizeof(profiler::SerializedBlockDescriptor) + strlen(_name) + strlen(_filename) + 2))
     , m_expired(false)
 {
-    _used_mem += sizeof(profiler::SerializedBlockDescriptor) + strlen(_name) + strlen(_filename) + 2;
 }
 
 BlockDescRef::~BlockDescRef()
@@ -417,7 +417,10 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
     for (const auto descriptor : m_descriptors)
     {
         if (descriptor == nullptr)
+        {
+            _outputStream.write<uint16_t>(0U);
             continue;
+        }
 
         const auto name_size = static_cast<uint16_t>(strlen(descriptor->name()) + 1);
         const auto filename_size = static_cast<uint16_t>(strlen(descriptor->file()) + 1);
@@ -460,6 +463,7 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
         if (desc == nullptr || !desc->m_expired)
             continue;
 
+        m_usedMemorySize -= desc->m_size;
         delete desc;
         desc = nullptr;
     }

@@ -374,13 +374,14 @@ namespace profiler {
         const char*     m_name; ///< Static name of all blocks of the same type (blocks can have dynamic name) which is, in pair with descriptor id, a unique block identifier
         const char* m_filename; ///< Source file name where this block is declared
         bool*        m_pEnable; ///< Pointer to the enable flag in unordered_map
+        uint16_t        m_size; ///< Used memory size
         bool         m_expired; ///< Is this descriptor expired
 
-        BlockDescriptor(uint64_t& _used_mem, bool _enabled, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color);
+        BlockDescriptor(bool _enabled, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color);
 
     public:
 
-        BlockDescriptor(uint64_t& _used_mem, block_id_t _id, bool _enabled, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color);
+        BlockDescriptor(block_id_t _id, bool _enabled, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color);
 
         inline const char* name() const {
             return m_name;

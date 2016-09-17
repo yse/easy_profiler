@@ -344,9 +344,10 @@ public:
     template <class ... TArgs>
     const profiler::BaseBlockDescriptor* addBlockDescriptor(bool _enabledByDefault, const char* _autogenUniqueId, TArgs ... _args)
     {
-        auto desc = new profiler::BlockDescriptor(m_usedMemorySize, _enabledByDefault, _args...);
+        auto desc = new profiler::BlockDescriptor(_enabledByDefault, _args...);
 
         guard_lock_t lock(m_storedSpin);
+        m_usedMemorySize += desc->m_size;
         desc->m_id = m_idCounter++;
         m_descriptors.emplace_back(desc);
 

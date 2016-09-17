@@ -212,10 +212,12 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
         uint16_t sz = 0;
         inFile.read((char*)&sz, sizeof(sz));
         if (sz == 0)
-            return 0;
+        {
+            descriptors.push_back(nullptr);
+            continue;
+        }
 
-        //if (i + sz > descriptors_memory_size)
-        //{
+        //if (i + sz > descriptors_memory_size) {
         //    printf("FILE CORRUPTED\n");
         //    return 0;
         //}
@@ -322,6 +324,8 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
             inFile.read(data, sz);
             i += sz;
             auto baseData = reinterpret_cast<::profiler::SerializedBlock*>(data);
+            if (descriptors[baseData->id()] == nullptr)
+                return 0;
 
             if (cpu_frequency != 0)
             {
@@ -360,6 +364,8 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
                     // There were no blocks with such name, generate new id and save it in the table for further usage.
                     auto id = static_cast<::profiler::block_id_t>(descriptors.size());
                     identification_table.emplace(key, id);
+                    if (descriptors.capacity() == descriptors.size())
+                        descriptors.reserve((descriptors.size() * 3) >> 1);
                     descriptors.push_back(descriptors[baseData->id()]);
                     baseData->setId(id);
                 }
