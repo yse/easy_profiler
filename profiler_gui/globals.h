@@ -95,7 +95,7 @@ namespace profiler_gui {
         ::profiler::descriptors_list_t       descriptors; ///< Profiler block descriptors list
         EasyBlocks                            gui_blocks; ///< Profiler graphics blocks builded by GUI
         ::profiler::thread_id_t          selected_thread; ///< Current selected thread id
-        unsigned int                      selected_block; ///< Current selected profiler block index
+        ::profiler::block_index_t         selected_block; ///< Current selected profiler block index
         ChronometerTextPosition     chrono_text_position; ///< 
         bool                           enable_statistics; ///< Enable gathering and using statistics (Disable if you want to consume less memory)
         bool                 draw_graphics_items_borders; ///< Draw borders for graphics blocks or not

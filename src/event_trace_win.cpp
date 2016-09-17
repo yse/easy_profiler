@@ -179,11 +179,11 @@ namespace profiler {
             LUID privilegyId;
             if (LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &privilegyId))
             {
-                TOKEN_PRIVILEGES tokenPrivilegy;
-                tokenPrivilegy.PrivilegeCount = 1;
-                tokenPrivilegy.Privileges[0].Luid = privilegyId;
-                tokenPrivilegy.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-                success = AdjustTokenPrivileges(hToken, FALSE, &tokenPrivilegy, sizeof(TOKEN_PRIVILEGES), NULL, NULL) != FALSE;
+                TOKEN_PRIVILEGES tokenPrivilege;
+                tokenPrivilege.PrivilegeCount = 1;
+                tokenPrivilege.Privileges[0].Luid = privilegyId;
+                tokenPrivilege.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+                success = AdjustTokenPrivileges(hToken, FALSE, &tokenPrivilege, sizeof(TOKEN_PRIVILEGES), NULL, NULL) != FALSE;
             }
 
             CloseHandle(hToken);

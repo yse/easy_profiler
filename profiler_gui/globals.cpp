@@ -44,7 +44,7 @@ namespace profiler_gui {
     }
 
     EasyGlobals::EasyGlobals()
-        : selected_thread(0)
+        : selected_thread(0U)
         , selected_block(::profiler_gui::numeric_max<decltype(selected_block)>())
         , chrono_text_position(ChronoTextPosition_Center)
         , enable_statistics(true)
