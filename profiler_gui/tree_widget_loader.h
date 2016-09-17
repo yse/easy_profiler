@@ -70,7 +70,7 @@ public:
     void takeTopLevelItems(ThreadedItems& _output);
     void takeItems(Items& _output);
 
-    void interrupt();
+    void interrupt(bool _wait = false);
     void fillTree(::profiler::timestamp_t& _beginTime, const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, bool _colorizeRows);
     void fillTreeBlocks(const::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _beginTime, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, bool _colorizeRows);
 

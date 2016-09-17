@@ -54,7 +54,7 @@ EasyTreeWidgetLoader::EasyTreeWidgetLoader() : m_bDone(ATOMIC_VAR_INIT(false)), 
 
 EasyTreeWidgetLoader::~EasyTreeWidgetLoader()
 {
-    interrupt();
+    interrupt(true);
 }
 
 bool EasyTreeWidgetLoader::done() const
@@ -101,7 +101,7 @@ void EasyTreeWidgetLoader::takeItems(Items& _output)
     }
 }
 
-void EasyTreeWidgetLoader::interrupt()
+void EasyTreeWidgetLoader::interrupt(bool _wait)
 {
     m_bInterrupt.store(true);
     if (m_thread.joinable())
@@ -111,16 +111,24 @@ void EasyTreeWidgetLoader::interrupt()
     m_bDone.store(false);
     m_progress.store(0);
 
-    auto deleter_thread = ::std::thread([](decltype(m_topLevelItems) _items) {
-        for (auto item : _items)
-            delete item.second;
-    }, ::std::move(m_topLevelItems));
+    if (!_wait)
+    {
+        auto deleter_thread = ::std::thread([](decltype(m_topLevelItems) _items) {
+            for (auto item : _items)
+                delete item.second;
+        }, ::std::move(m_topLevelItems));
 
 #ifdef _WIN32
-    SetThreadPriority(deleter_thread.native_handle(), THREAD_PRIORITY_LOWEST);
+        SetThreadPriority(deleter_thread.native_handle(), THREAD_PRIORITY_LOWEST);
 #endif
 
-    deleter_thread.detach();
+        deleter_thread.detach();
+    }
+    else
+    {
+        for (auto item : m_topLevelItems)
+            delete item.second;
+    }
 
     m_items.clear();
     m_topLevelItems.clear();
