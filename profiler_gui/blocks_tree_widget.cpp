@@ -50,6 +50,10 @@
 #include "tree_widget_item.h"
 #include "globals.h"
 
+#ifdef _WIN32
+#include <Windows.h>
+#endif
+
 #ifdef max
 #undef max
 #endif
@@ -332,6 +336,11 @@ void EasyTreeWidget::clearSilent(bool _global)
         for (auto item : _items)
             delete item;
     }, ::std::move(topLevelItems));
+
+#ifdef _WIN32
+    SetThreadPriority(deleter_thread.native_handle(), THREAD_PRIORITY_LOWEST);
+#endif
+
     deleter_thread.detach();
 
     //clear();
@@ -395,11 +404,6 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 
     if (item != nullptr && item->parent() != nullptr)
     {
-        //auto itemAction = new EasyItemAction("Show this item on scene", item->block()->block_index);
-        //itemAction->setToolTip("Scroll graphics scene to current item in the tree");
-        //connect(itemAction, &EasyItemAction::clicked, this, &This::onJumpToItemClicked);
-        //menu.addAction(itemAction);
-
         if (col >= 0)
         {
             switch (col)
@@ -436,6 +440,19 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
                     break;
                 }
             }
+        }
+
+        auto id = item->block().node->id();
+        action = menu.addAction("Block enabled");
+        action->setCheckable(true);
+        action->setChecked(easyDescriptor(id).enabled());
+        action->setData(id);
+        connect(action, &QAction::triggered, this, &This::onBlockEnableDisable);
+
+        if (action->isChecked()) {
+            auto f = action->font();
+            f.setBold(true);
+            action->setFont(f);
         }
     }
 
@@ -562,6 +579,19 @@ void EasyTreeWidget::onExpandAllChildrenClicked(bool)
 
 //////////////////////////////////////////////////////////////////////////
 
+void EasyTreeWidget::onBlockEnableDisable(bool _checked)
+{
+    auto action = qobject_cast<QAction*>(sender());
+    if (action != nullptr)
+    {
+        auto id = action->data().toUInt();
+        easyDescriptor(id).setEnabled(_checked);
+        emit EASY_GLOBALS.events.enableStatusChanged(id, _checked);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 void EasyTreeWidget::onItemExpand(QTreeWidgetItem* _item)
 {
     if (!EASY_GLOBALS.bind_scene_and_tree_expand_status)
@@ -640,7 +670,7 @@ void EasyTreeWidget::onSelectedThreadChange(::profiler::thread_id_t _id)
     }
 }
 
-void EasyTreeWidget::onSelectedBlockChange(unsigned int _block_index)
+void EasyTreeWidget::onSelectedBlockChange(uint32_t _block_index)
 {
     disconnect(this, &Parent::currentItemChanged, this, &This::onCurrentItemChange);
 

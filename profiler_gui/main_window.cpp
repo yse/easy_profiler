@@ -49,9 +49,12 @@
 #include <QProgressDialog>
 #include <QSignalBlocker>
 #include <QDebug>
+#include <QDialog>
+#include <QVBoxLayout>
 #include "main_window.h"
 #include "blocks_tree_widget.h"
 #include "blocks_graphics_view.h"
+#include "descriptors_tree_widget.h"
 #include "globals.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -60,7 +63,7 @@ const int LOADER_TIMER_INTERVAL = 40;
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsView(nullptr), m_progress(nullptr)
+EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsView(nullptr), m_progress(nullptr), m_editBlocksAction(nullptr)
 {
     { QIcon icon(":/logo"); if (!icon.isNull()) QApplication::setWindowIcon(icon); }
 
@@ -173,8 +176,17 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
 
 
 
+    menu = new QMenu("&Edit");
+    action = menu->addAction("Edit blocks");
+    action->setEnabled(false);
+    connect(action, &QAction::triggered, this, &This::onEditBlocksClicked);
+    m_editBlocksAction = action;
+    menuBar()->addMenu(menu);
+
+
+
     menu = new QMenu("&Settings");
-    action = new QAction("Statistics enabled", nullptr);
+    action = menu->addAction("Statistics enabled");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.enable_statistics);
     connect(action, &QAction::triggered, this, &This::onEnableDisableStatistics);
@@ -368,6 +380,24 @@ void EasyMainWindow::onCollapseAllClicked(bool)
 
 //////////////////////////////////////////////////////////////////////////
 
+void EasyMainWindow::onEditBlocksClicked(bool)
+{
+    QDialog d(this);
+    d.setWindowTitle("EasyProfiler");
+    d.resize(800, 600);
+
+    auto descTree = new EasyDescWidget();
+    descTree->build();
+
+    auto l = new QVBoxLayout(&d);
+    l->addWidget(descTree);
+
+    d.setLayout(l);
+    d.exec();
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 void EasyMainWindow::closeEvent(QCloseEvent* close_event)
 {
     saveSettingsAndGeometry();
@@ -503,6 +533,8 @@ void EasyMainWindow::onFileReaderTimeout()
             }
 
             static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->setTree(EASY_GLOBALS.profiler_blocks);
+
+            m_editBlocksAction->setEnabled(true);
         }
         else
         {

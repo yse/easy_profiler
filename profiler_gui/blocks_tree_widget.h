@@ -106,7 +106,9 @@ private slots:
 
     void onSelectedThreadChange(::profiler::thread_id_t _id);
 
-    void onSelectedBlockChange(unsigned int _block_index);
+    void onSelectedBlockChange(uint32_t _block_index);
+
+    void onBlockEnableDisable(bool _checked);
 
     void resizeColumnsToContents();
 

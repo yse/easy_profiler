@@ -48,10 +48,11 @@ namespace profiler_gui {
     signals:
 
         void selectedThreadChanged(::profiler::thread_id_t _id);
-        void selectedBlockChanged(unsigned int _block_index);
+        void selectedBlockChanged(uint32_t _block_index);
         void itemsExpandStateChanged();
         void drawBordersChanged();
         void chronoPositionChanged();
+        void enableStatusChanged(::profiler::block_id_t _id, bool _enabled);
 
     }; // END of class EasyGlobalSignals.
 

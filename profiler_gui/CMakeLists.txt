@@ -16,6 +16,8 @@ add_executable(${PROJECT_NAME}
     blocks_graphics_view.cpp
     blocks_tree_widget.h
     blocks_tree_widget.cpp
+    descriptors_tree_widget.h
+    descriptors_tree_widget.cpp
     easy_chronometer_item.h
     easy_chronometer_item.cpp
     easy_graphics_item.h

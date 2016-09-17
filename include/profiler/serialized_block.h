@@ -69,6 +69,11 @@ namespace profiler {
             return name() + m_nameLength;
         }
 
+        inline void setEnabled(bool _enabled)
+        {
+            m_enabled = _enabled;
+        }
+
     private:
 
         SerializedBlockDescriptor(const SerializedBlockDescriptor&) = delete;

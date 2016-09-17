@@ -89,6 +89,7 @@ protected:
     QDockWidget*                          m_treeWidget;
     QDockWidget*                        m_graphicsView;
     class QProgressDialog*                  m_progress;
+    class QAction*                  m_editBlocksAction;
     QTimer                               m_readerTimer;
     ::profiler::SerializedData      m_serializedBlocks;
     ::profiler::SerializedData m_serializedDescriptors;
@@ -96,7 +97,7 @@ protected:
 
 public:
 
-    EasyMainWindow();
+    explicit EasyMainWindow();
     virtual ~EasyMainWindow();
 
     // Public virtual methods
@@ -119,6 +120,7 @@ protected slots:
     void onCollapseAllClicked(bool);
     void onFileReaderTimeout();
     void onFileReaderCancel();
+    void onEditBlocksClicked(bool);
 
 private:
 
