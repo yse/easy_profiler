@@ -358,7 +358,11 @@ void ProfileManager::setEventTracingEnabled(bool _isEnable)
 uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
 {
     const bool wasEnabled = m_isEnabled.load(std::memory_order_acquire);
+
+#ifndef _WIN32
     const bool eventTracingEnabled = m_isEventTracingEnabled.load(std::memory_order_acquire);
+#endif
+
     if (wasEnabled)
         ::profiler::setEnabled(false);
 
@@ -511,7 +515,7 @@ void ProfileManager::setBlockEnabled(profiler::block_id_t _id, const profiler::h
         lock.unlock();
 
         *desc->m_pEnable = _enabled;
-        desc->m_enabled = _enabled;
+        desc->m_enabled = _enabled; // TODO: possible concurrent access, atomic may be needed
     }
     else
     {
