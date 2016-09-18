@@ -467,9 +467,6 @@ void EasyMainWindow::listen()
 
                     m_downloadedBytes.store((loaded / (neededSize+1)) * 100);
                 }
-                int k = 0;
-                int z = k + 1;
-
             }   break;
 
             default:
@@ -686,9 +683,6 @@ void EasyMainWindow::handleResults(const QString &s)
 
 void EasyMainWindow::readTcpData()
 {
-    QTcpSocket* pClientSocket = (QTcpSocket*)sender();
-
-    //qInfo() << "Rec: " << m_server->bytesAvailable() << "bytes max" << m_server->readBufferSize();
     static qint64 necessarySize = 0;
     static qint64 loadedSize = 0;
     static auto timeBegin = std::chrono::system_clock::now();
