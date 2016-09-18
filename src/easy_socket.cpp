@@ -21,6 +21,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 #ifndef _WIN32
 #include <strings.h>
+#include <errno.h>
 
 int EasySocket::bind(uint16_t portno)
 {
@@ -45,25 +46,34 @@ EasySocket::~EasySocket()
 int EasySocket::send(const void *buf, size_t nbyte)
 {
     if(m_replySocket <= 0)  return -1;
-    return ::write(m_replySocket,buf,nbyte);
+    int res = ::write(m_replySocket,buf,nbyte);
+    checkResult(res);
+    return res;
 }
 
 int EasySocket::receive(void *buf, size_t nbyte)
 {
     if(m_replySocket <= 0) return -1;
-    return ::read(m_replySocket,buf,nbyte);
+    int res = ::read(m_replySocket,buf,nbyte);
+    checkResult(res);
+    return res;
 }
 
 int EasySocket::listen(int count)
 {
     if(m_socket < 0 ) return -1;
-    return ::listen(m_socket,count);
+    int res = ::listen(m_socket,count);
+    checkResult(res);
+    return res;
 }
 
 int EasySocket::accept()
 {
     if(m_socket < 0 ) return -1;
     m_replySocket = ::accept(m_socket,nullptr,nullptr);
+
+    checkResult(m_replySocket);
+
     return m_replySocket;
 }
 
@@ -104,6 +114,26 @@ int EasySocket::connect()
     }
     return res;
 }
+#include <string.h>
+void EasySocket::checkResult(int result)
+{
+    if(result >= 0){
+        m_state = CONNECTION_STATE_SUCCESS;
+        return;
+    }else if(result == -1){
+        //printf("Errno: %s\n", strerror(errno));
+        switch(errno){
+        case ECONNABORTED:
+        case ECONNRESET:
+            m_state = CONNECTION_STATE_SUCCESS;
+            break;
+        default:
+            break;
+        }
+
+    }
+}
+
 #else
 
 #pragma comment (lib, "Ws2_32.lib")

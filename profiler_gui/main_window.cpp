@@ -121,7 +121,6 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     m_hostString->setInputMask("000.000.000.000;");
     m_hostString->setValidator(&regValidator);
     m_hostString->setText("127.0.0.1");
-    //m_hostString->setText("192.224.4.109");
 
     fileToolBar->addWidget(m_hostString);
 
@@ -342,13 +341,23 @@ void EasyMainWindow::listen()
             bytes = m_easySocket.receive(buffer, buffer_size);
             if(bytes == -1)
             {
-                isListen = false;
+                if(m_easySocket.state() == EasySocket::CONNECTION_STATE_DISCONNECTED)
+                {
+                    isListen = false;
+                }
+                seek = 0;
+                bytes = 0;
                 continue;
             }
             seek = 0;
         }
             
         char *buf = &buffer[seek];
+
+        if(bytes == 0){
+            isListen = false;
+            continue;
+        }
 
         if (bytes > 0)
         {
@@ -434,8 +443,11 @@ void EasyMainWindow::listen()
 
                     if(bytes == -1)
                     {
-                        isListen = false;
-                        neededSize = 0;
+                        if(m_easySocket.state() == EasySocket::CONNECTION_STATE_DISCONNECTED)
+                        {
+                            isListen = false;
+                            neededSize = 0;
+                        }
                         continue;
                     }
 
@@ -461,7 +473,7 @@ void EasyMainWindow::listen()
 
         }
     }
-    m_easySocket.setState(EasySocket::CONNECTION_STATE_DISCONNECTED);
+
     delete [] buffer;
 }
 
