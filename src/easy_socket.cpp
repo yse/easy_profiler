@@ -34,13 +34,30 @@ int EasySocket::bind(uint16_t portno)
     return ::bind(m_socket, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
 }
 
-EasySocket::EasySocket()
+void EasySocket::flush()
+{
+    if (m_socket){
+        close(m_socket);  
+    }
+    if (m_replySocket != m_socket){
+        close(m_replySocket);
+    }
+    m_socket = 0;
+    m_replySocket = 0;
+}
+void EasySocket::init()
 {
     m_socket = socket(AF_INET, SOCK_STREAM, 0);
 }
 
+EasySocket::EasySocket()
+{
+    init();
+}
+
 EasySocket::~EasySocket()
 {
+    flush();
 }
 
 int EasySocket::send(const void *buf, size_t nbyte)
@@ -125,7 +142,7 @@ void EasySocket::checkResult(int result)
         switch(errno){
         case ECONNABORTED:
         case ECONNRESET:
-            m_state = CONNECTION_STATE_SUCCESS;
+            m_state = CONNECTION_STATE_DISCONNECTED;
             break;
         default:
             break;
@@ -140,32 +157,67 @@ void EasySocket::checkResult(int result)
 #pragma comment (lib, "Mswsock.lib")
 #pragma comment (lib, "AdvApi32.lib")
 
-EasySocket::EasySocket()
+void EasySocket::checkResult(int result)
 {
-    // socket
-    WSADATA wsaData;
-    int wsaret = WSAStartup(0x101, &wsaData);
+    if (result >= 0){
+        m_state = CONNECTION_STATE_SUCCESS;
+        return;
+    }
+    else if (result == -1){
+        int error_code = WSAGetLastError();
+        //printf("Errno: %s\n", strerror(errno));
+        switch (error_code){
+        case WSAECONNABORTED:
+        case WSAECONNRESET:
+            m_state = CONNECTION_STATE_DISCONNECTED;
+            break;
+        default:
+            break;
+        }
 
+    }
+}
+
+void EasySocket::flush()
+{
+    if (m_socket){
+        closesocket(m_socket);  
+    }
+    if (m_replySocket != m_socket){
+        closesocket(m_replySocket);
+    }
+    m_socket = INVALID_SOCKET;
+    m_replySocket = INVALID_SOCKET;
+}
+void EasySocket::init()
+{
     if (wsaret == 0)
     {
         m_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);;
         if (m_socket == INVALID_SOCKET) {
-            WSACleanup();
+            return; 
         }
     }
     
-
     u_long iMode = 0;//0 - blocking, 1 - non blocking
     ioctlsocket(m_socket, FIONBIO, &iMode);
 
     int opt = 1;
     setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt));
+}
 
+EasySocket::EasySocket()
+{
+    // socket
+    WSADATA wsaData;
+    wsaret = WSAStartup(0x101, &wsaData);
+    init();
 }
 
 EasySocket::~EasySocket()
 {
-    if (m_socket)
+    flush();
+    if (wsaret == 0)
         WSACleanup();
 }
 
@@ -174,7 +226,10 @@ int EasySocket::send(const void *buf, size_t nbyte)
     if (m_replySocket <= 0){
         return -1;
     }
-    return ::send(m_replySocket, (const char*)buf, nbyte, 0);
+
+    int res = ::send(m_replySocket, (const char*)buf, nbyte, 0);
+    checkResult(res);
+    return res;
 }
 
 #include <stdio.h>
@@ -186,7 +241,8 @@ int EasySocket::receive(void *buf, size_t nbyte)
     }
 
     int res = ::recv(m_replySocket, (char*)buf, nbyte, 0);
-
+    checkResult(res);
+    /**
     if (res == SOCKET_ERROR)
     {
         LPWSTR *s = NULL;
@@ -198,6 +254,7 @@ int EasySocket::receive(void *buf, size_t nbyte)
         printf("%S\n", s);
         LocalFree(s);
     }
+    /**/
     return res;
 }
 
@@ -223,31 +280,23 @@ int EasySocket::connect()
     if (!m_socket || !result){
         return -1;
     }
-    /**
-    SOCKET  ConnectSocket = socket(result->ai_family, result->ai_socktype,
-        result->ai_protocol);
-    if (ConnectSocket == INVALID_SOCKET) {
-        printf("socket failed with error: %ld\n", WSAGetLastError());
-        WSACleanup();
-        return -1;
-    }
 
     // Connect to server.
-    auto iResult = ::connect(ConnectSocket, result->ai_addr, (int)result->ai_addrlen);
-    if (iResult == SOCKET_ERROR) {
-        closesocket(ConnectSocket);
-        ConnectSocket = INVALID_SOCKET;
-        return -1;
-    }
-    m_socket = ConnectSocket;
-    /**/
-    // Connect to server.
     auto iResult = ::connect(m_socket, result->ai_addr, (int)result->ai_addrlen);
+    checkResult(iResult);
     if (iResult == SOCKET_ERROR) {
         return iResult;
     }
     /**/
+    struct timeval tv;
+
+    tv.tv_sec = 1;
+    tv.tv_usec = 0;
+
+    setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(struct timeval));
+
     m_replySocket = m_socket;
+    
     return iResult;
 }
 
@@ -255,7 +304,9 @@ int EasySocket::connect()
 int EasySocket::listen(int count)
 {
     if (m_socket < 0) return -1;
-    return ::listen(m_socket, count);
+    int res = ::listen(m_socket, count);
+    checkResult(res);
+    return res;
 }
 
 int EasySocket::accept()

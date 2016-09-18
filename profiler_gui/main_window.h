@@ -83,23 +83,6 @@ public:
 }; // END of class EasyFileReader.
 
 //////////////////////////////////////////////////////////////////////////
-class EasyMainWindow;
-class TcpReceiverThread : public QThread
-{
-    Q_OBJECT
-        EasyMainWindow* mainwindow;
-public:
-    QTcpSocket * m_server;
-    explicit TcpReceiverThread(QObject *parent, EasyMainWindow* mw);
-
-    void run() Q_DECL_OVERRIDE;
-public slots:
-
-    void readTcpData();
-    void onConnected();
-signals:
-    void resultReady(const QString &s);
-};
 
 class EasyMainWindow : public QMainWindow
 {
@@ -131,14 +114,14 @@ protected:
     QLineEdit* m_portString = nullptr;
     bool m_isConnected = false;
 
-    TcpReceiverThread* m_receiver;
-
     std::thread m_thread;
 
     EasySocket m_easySocket;
 
     bool m_downloading = false;
     ::std::atomic<int>                      m_downloadedBytes;
+
+    QAction *m_connectAct = nullptr;
 public:
 
     EasyMainWindow();

@@ -103,17 +103,17 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     addDockWidget(Qt::BottomDockWidgetArea, m_treeWidget);
 
     QToolBar *fileToolBar = addToolBar(tr("File"));
-    QAction *connectAct = new QAction(tr("&Connect"), this);
-    SET_ICON(connectAct, ":/WiFi");
+    m_connectAct = new QAction(tr("&Connect"), this);
+    SET_ICON(m_connectAct, ":/WiFi");
 
     QAction *newAct = new QAction(tr("&Capture"), this);
     SET_ICON(newAct, ":/Start");
-    fileToolBar->addAction(connectAct);
+    fileToolBar->addAction(m_connectAct);
     fileToolBar->addAction(newAct);
     
 
     connect(newAct, &QAction::triggered, this, &This::onCaptureClicked);
-    connect(connectAct, &QAction::triggered, this, &This::onConnectClicked);
+    connect(m_connectAct, &QAction::triggered, this, &This::onConnectClicked);
 
     m_hostString = new QLineEdit();
     QRegExp rx("[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}");
@@ -313,6 +313,13 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_treeWidget(nullptr), m_graphicsVi
     connect(m_progress, &QProgressDialog::canceled, this, &This::onFileReaderCancel);
 
 
+    m_downloadingProgress = new QProgressDialog("Loading file...", "Cancel", 0, 100, this);
+    m_downloadingProgress->setFixedWidth(300);
+    m_downloadingProgress->setWindowTitle("EasyProfiler");
+    m_downloadingProgress->setModal(true);
+    m_downloadingProgress->setValue(100);
+    //m_downloadedTimer.start(10);
+
     loadGeometry();
 
     if(QCoreApplication::arguments().size() > 1)
@@ -477,45 +484,6 @@ void EasyMainWindow::listen()
     delete [] buffer;
 }
 
-void TcpReceiverThread::run()
-{
-    QString result;
-    //mainwindow->m_server = new QTcpSocket(this);
-
-    m_server = new QTcpSocket();
-    //mainwindow->m_server = m_server;
-    //auto m_server = mainwindow->m_server;
-    m_server->setSocketOption(QAbstractSocket::LowDelayOption, 0);
-    m_server->setReadBufferSize(16 * 1024);
-
-    m_server->connectToHost("127.0.0.1", 28077);
-
-    //connect(m_server, SIGNAL(readyRead()), SLOT(readTcpData()));
-    connect(m_server, &QAbstractSocket::connected, this, &TcpReceiverThread::onConnected);
-    //connect(m_server, SIGNAL(error(QAbstractSocket::SocketError)), SLOT(onErrorConnection(QAbstractSocket::SocketError)), Qt::UniqueConnection);
-    connect(m_server, &QAbstractSocket::disconnected, mainwindow, &EasyMainWindow::onDisconnect);
-
-    connect(m_server, &QAbstractSocket::readyRead, this, &TcpReceiverThread::readTcpData);
-    /**/
-
-    
-
-    
-
-
-
-    exec();
-    /* ... here is the expensive or blocking operation ... */
-    emit resultReady(result);
-}
-
-TcpReceiverThread::TcpReceiverThread(QObject *parent, EasyMainWindow* mw) :QThread(parent), mainwindow(mw)
-{
-    
-    
-    
-}
-
 EasyMainWindow::~EasyMainWindow()
 {
     delete m_progress;
@@ -654,8 +622,11 @@ void EasyMainWindow::onConnectClicked(bool)
 {
     if(m_isConnected)
         return;
+    m_easySocket.flush();
+    m_easySocket.init();
     int res = m_easySocket.setAddress(m_hostString->text().toStdString().c_str(), m_portString->text().toUShort());
 
+    //TODO: flush socket after disconenct
     res = m_easySocket.connect();
     if (res == -1)
     {
@@ -668,11 +639,7 @@ void EasyMainWindow::onConnectClicked(bool)
     auto _sender = qobject_cast<QAction*>(sender());
     if (_sender)
         SET_ICON(_sender, ":/WiFi-on");
-    /*if (!m_isConnected)
-    {
-        qInfo() << "Try connect to: " << m_hostString->text() << ":" << m_portString->text();
-        m_server->connectToHost(m_hostString->text(), m_portString->text().toUShort());
-    }*/
+
 }
 
 void EasyMainWindow::onCaptureClicked(bool)
@@ -680,7 +647,6 @@ void EasyMainWindow::onCaptureClicked(bool)
     
     if (!m_isConnected)
     {
-        //m_server->connectToHost(m_hostString->text(), m_portString->text().toUShort());
         QMessageBox::warning(this, "Warning", "No connection with profiling app", QMessageBox::Close);
         return;
     }
@@ -688,69 +654,13 @@ void EasyMainWindow::onCaptureClicked(bool)
     profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE);
     m_easySocket.send(&request, sizeof(request));
     
-    m_downloadingProgress = new QProgressDialog("Loading file...", "Cancel", 0, 100, this);
-    m_downloadingProgress->setFixedWidth(300);
-    m_downloadingProgress->setWindowTitle("EasyProfiler");
-    m_downloadingProgress->setModal(true);
-    m_downloadingProgress->setValue(100);
+    
     m_thread = std::thread(&This::listen, this);
     
-    /**
-    m_server = m_receiver->m_server;
-    
-    profiler::net::Message requestMessage(profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE);
-    m_server->write((const char*)&requestMessage, sizeof(requestMessage));
-
-    
-    QDialog *dialog = new QDialog();
-    dialog->setWindowTitle(tr("Set network parameters"));
-    QFormLayout *layout = new QFormLayout;
-
-
-    QLineEdit* hostString = new QLineEdit();
-    QRegExp rx("[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}");
-    QRegExpValidator regValidator(rx, 0);
-    hostString->setInputMask("000.000.000.000;");
-    hostString->setValidator(&regValidator);
-    hostString->setText("127.0.0.1");
-
-    QLineEdit* portString = new QLineEdit();
-    portString->setValidator(new QIntValidator(1024, 65536, this));
-    portString->setText(QString::number(profiler::DEFAULT_PORT));
-
-    //layout->addWidget(hostString);
-    layout->addRow(tr("&Address:"), hostString);
-    layout->addRow(tr("&Port:"), portString);
-
-
-    layout->addWidget(new QPushButton(tr("Connect")));
-    dialog->setLayout(layout);
-    dialog->exec();
-    
-
-    //qInfo() << portString->text();
-    
-    //TODO dialog
-    
-    if(m_client != nullptr)
-    {
-        
-    }else
-    {
-        
-        QMessageBox::warning(this,"Warning" ,"No connection with profiling app",QMessageBox::Close);
-        return;
-    }
-    /**/
-
     QMessageBox::information(this,"Capturing frames..." ,"Close this window to stop capturing.",QMessageBox::Close);
-
-    m_downloading = true;
+    
     request.type = profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE;
     m_easySocket.send(&request, sizeof(request));
-
-    m_downloadedTimer.start(LOADER_TIMER_INTERVAL);
-    m_downloadingProgress->show();
 
     m_thread.join();
 
@@ -760,28 +670,13 @@ void EasyMainWindow::onCaptureClicked(bool)
     {
         QMessageBox::warning(this,"Warning" ,"Application was disconnected",QMessageBox::Close);
         m_isConnected = false;
+        SET_ICON(m_connectAct, ":/WiFi");
         return;
     }
 
     std::string tempfilename = "test_rec.prof";
     loadFile(QString(tempfilename.c_str()));
-    /*m_isConnected = (m_server->state() == QTcpSocket::ConnectedState);
 
-    if (m_isConnected)
-    {
-        profiler::net::Message requestMessage(profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE);
-        m_server->write((const char*)&requestMessage, sizeof(requestMessage));
-    }else
-    {
-        QMessageBox::warning(this,"Warning" ,"Application was disconnected",QMessageBox::Close);
-        return;
-    }
-    */
-}
-
-void TcpReceiverThread::readTcpData()
-{
-    mainwindow->readTcpData();
 }
 
 void EasyMainWindow::handleResults(const QString &s)
@@ -792,15 +687,13 @@ void EasyMainWindow::handleResults(const QString &s)
 void EasyMainWindow::readTcpData()
 {
     QTcpSocket* pClientSocket = (QTcpSocket*)sender();
-    m_server = m_receiver->m_server;
+
     //qInfo() << "Rec: " << m_server->bytesAvailable() << "bytes max" << m_server->readBufferSize();
     static qint64 necessarySize = 0;
     static qint64 loadedSize = 0;
     static auto timeBegin = std::chrono::system_clock::now();
     while(m_server->bytesAvailable())
     {
-        //QByteArray data = m_server->readAll();
-        //qInfo() << m_server->bytesAvailable();
         auto bytesExpected = necessarySize - loadedSize;
         QByteArray data;
         if (m_recFrames){
@@ -850,8 +743,6 @@ void EasyMainWindow::readTcpData()
             {
                 qInfo() << "recieve more than necessary d=" << m_receivedProfileData.str().size() - necessarySize;
             }
-            //qInfo() << necessarySize << " " << loadedSize << m_receivedProfileData.str().size() << m_receivedProfileData.str().length();
-            //qInfo() << necessarySize << " " << loadedSize << QThread::currentThreadId();
             if (m_recFrames)
             {
                 m_receivedProfileData.write(data.data(), data.size());
@@ -909,21 +800,6 @@ void EasyMainWindow::readTcpData()
 
 
 }
-
-void TcpReceiverThread::onConnected()
-{
-    qInfo() << "onConnected()";
-
-    profiler::net::Message requestMessage(profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE);
-    m_server->write((const char*)&requestMessage, sizeof(requestMessage));
-
-    std::this_thread::sleep_for(std::chrono::seconds(2));
-
-    profiler::net::Message requestMessage2(profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE);
-    m_server->write((const char*)&requestMessage2, sizeof(requestMessage));
-
-}
-
 
 void EasyMainWindow::onConnected()
 {

@@ -61,6 +61,8 @@ private:
     socket_t m_replySocket = 0;
     uint16_t m_port = 0;
 
+    int wsaret = -1;
+
 #ifndef _WIN32
     struct sockaddr_in serv_addr;
     struct hostent *server = nullptr;
@@ -83,6 +85,9 @@ public:
 
     bool setAddress(const char* serv, uint16_t port);
     int connect();
+
+    void flush();
+    void init();
 
     void setState(ConnectionState state){m_state=state;}
     ConnectionState state() const{return m_state;}
