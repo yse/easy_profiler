@@ -48,6 +48,9 @@ public:
         CONNECTION_STATE_DISCONNECTED
     };
 private:
+
+    void checkResult(int result);
+
 #ifdef _WIN32
     typedef SOCKET socket_t;
 #else
