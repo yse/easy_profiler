@@ -45,7 +45,6 @@
 #include <thread>
 #include "descriptors_tree_widget.h"
 #include "globals.h"
-#include "../src/hashed_cstr.h"
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -492,7 +491,7 @@ int EasyDescTreeWidget::findNext(const QString& _str)
         for (auto item : itemsList)
         {
             if (item->parent() != nullptr) for (int i = 0; i < DESC_COL_COLUMNS_NUMBER; ++i)
-                item->setBackgroundColor(i, Qt::yellow);
+                item->setBackgroundColor(i, QColor::fromRgba(0x80000000 | (0x00ffffff & ::profiler::colors::Yellow)));
         }
     }
 
@@ -558,7 +557,7 @@ int EasyDescTreeWidget::findPrev(const QString& _str)
         for (auto item : itemsList)
         {
             if (item->parent() != nullptr) for (int i = 0; i < DESC_COL_COLUMNS_NUMBER; ++i)
-                item->setBackgroundColor(i, Qt::yellow);
+                item->setBackgroundColor(i, QColor::fromRgba(0x80000000 | (0x00ffffff & ::profiler::colors::Yellow)));
         }
     }
 
