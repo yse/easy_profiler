@@ -73,6 +73,9 @@ int EasySocket::receive(void *buf, size_t nbyte)
     if(m_replySocket <= 0) return -1;
     int res = ::read(m_replySocket,buf,nbyte);
     checkResult(res);
+    if (res == 0){
+        m_state = CONNECTION_STATE_DISCONNECTED;
+    }
     return res;
 }
 
@@ -242,6 +245,10 @@ int EasySocket::receive(void *buf, size_t nbyte)
 
     int res = ::recv(m_replySocket, (char*)buf, nbyte, 0);
     checkResult(res);
+    if (res == 0){
+        m_state = CONNECTION_STATE_DISCONNECTED;
+    }
+
     /**
     if (res == SOCKET_ERROR)
     {
