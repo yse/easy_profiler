@@ -361,11 +361,6 @@ void EasyMainWindow::listen()
             
         char *buf = &buffer[seek];
 
-        if(bytes == 0){
-            isListen = false;
-            continue;
-        }
-
         if (bytes > 0)
         {
             profiler::net::Message* message = (profiler::net::Message*)buf;
