@@ -33,17 +33,22 @@
 #include <string>
 #include <thread>
 #include <atomic>
+#include <sstream>
+
 #include <QMainWindow>
 #include <QTimer>
-#include <QTcpServer>
 #include <QTcpSocket>
-#include <QThread>
-#include <QLineEdit>
+
 #include "profiler/easy_socket.h"
-#undef max
-#undef min
 #include "profiler/reader.h"
-#include <sstream>
+
+#ifdef max
+#undef max
+#endif
+
+#ifdef min
+#undef min
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -96,20 +101,20 @@ protected:
     typedef QMainWindow  Parent;
 
     QString                                 m_lastFile;
-    QDockWidget*                          m_treeWidget;
-    QDockWidget*                        m_graphicsView;
-    class QProgressDialog*        m_downloadingProgress;
+    QDockWidget*                          m_treeWidget = nullptr;
+    QDockWidget*                        m_graphicsView = nullptr;
+    class QProgressDialog*       m_downloadingProgress = nullptr;
 
 #if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
-    QDockWidget*                      m_descTreeWidget;
+    QDockWidget*                      m_descTreeWidget = nullptr;
 #endif
 
-    class QProgressDialog*                  m_progress;
-    class QAction*                  m_editBlocksAction;
-    class QDialog*                    m_descTreeDialog;
-    class EasyDescWidget*             m_dialogDescTree;
+    class QProgressDialog*                  m_progress = nullptr;
+    class QAction*                  m_editBlocksAction = nullptr;
+    class QDialog*                    m_descTreeDialog = nullptr;
+    class EasyDescWidget*             m_dialogDescTree = nullptr;
     QTimer                               m_readerTimer;
-    QTimer                               m_downloadedTimer;
+    QTimer                           m_downloadedTimer;
     ::profiler::SerializedData      m_serializedBlocks;
     ::profiler::SerializedData m_serializedDescriptors;
     EasyFileReader                            m_reader;
@@ -119,18 +124,20 @@ protected:
     std::stringstream m_receivedProfileData;
     bool m_recFrames = false;
 
-    QLineEdit* m_hostString = nullptr;
-    QLineEdit* m_portString = nullptr;
+    class QLineEdit* m_ipEdit = nullptr;
+    class QLineEdit* m_portEdit = nullptr;
     bool m_isConnected = false;
 
     std::thread m_thread;
 
     EasySocket m_easySocket;
 
-    bool m_downloading = false;
-    ::std::atomic<int>                      m_downloadedBytes;
+    bool               m_downloading = false;
+    ::std::atomic<int>     m_downloadedBytes;
 
-    QAction *m_connectAct = nullptr;
+    class QAction* m_captureAction = nullptr;
+    class QAction* m_connectAction = nullptr;
+
 public:
 
     explicit EasyMainWindow();

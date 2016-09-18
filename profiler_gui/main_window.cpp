@@ -34,14 +34,17 @@
 *                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
+#include <chrono>
+#include <fstream>
+
 #include <QApplication>
+#include <QCoreApplication>
 #include <QStatusBar>
 #include <QDockWidget>
 #include <QFileDialog>
 #include <QAction>
 #include <QMenu>
 #include <QMenuBar>
-#include <QCoreApplication>
 #include <QCloseEvent>
 #include <QSettings>
 #include <QTextCodec>
@@ -51,23 +54,25 @@
 #include <QDebug>
 #include <QToolBar>
 #include <QMessageBox>
-
+#include <QLineEdit>
+#include <QLabel>
 #include <QDialog>
 #include <QVBoxLayout>
+
 #include "main_window.h"
 #include "blocks_tree_widget.h"
 #include "blocks_graphics_view.h"
 #include "descriptors_tree_widget.h"
 #include "globals.h"
-
 #include "profiler/easy_net.h"
 
-#include <thread>
-#include <chrono>
-#include <fstream>
-
-
+#ifdef max
 #undef max
+#endif
+
+#ifdef min
+#undef min
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -76,17 +81,6 @@ const int LOADER_TIMER_INTERVAL = 40;
 //////////////////////////////////////////////////////////////////////////
 
 EasyMainWindow::EasyMainWindow() : Parent()
-    , m_treeWidget(nullptr)
-    , m_graphicsView(nullptr)
-
-#if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
-    , m_descTreeWidget(nullptr)
-#endif
-
-    , m_progress(nullptr)
-    , m_editBlocksAction(nullptr)
-    , m_descTreeDialog(nullptr)
-    , m_dialogDescTree(nullptr)
 {
     { QIcon icon(":/logo"); if (!icon.isNull()) QApplication::setWindowIcon(icon); }
 
@@ -123,33 +117,31 @@ EasyMainWindow::EasyMainWindow() : Parent()
     m_descTreeWidget->setWidget(descTree);
     addDockWidget(Qt::BottomDockWidgetArea, m_descTreeWidget);
 #endif
-    QToolBar *fileToolBar = addToolBar(tr("File"));
-    m_connectAct = new QAction(tr("&Connect"), this);
-    SET_ICON(m_connectAct, ":/WiFi");
 
-    QAction *newAct = new QAction(tr("&Capture"), this);
-    SET_ICON(newAct, ":/Start");
-    fileToolBar->addAction(m_connectAct);
-    fileToolBar->addAction(newAct);
-    
+    auto toolbar = addToolBar("MainToolBar");
+    toolbar->setObjectName("ProfilerGUI_MainToolBar");
 
-    connect(newAct, &QAction::triggered, this, &This::onCaptureClicked);
-    connect(m_connectAct, &QAction::triggered, this, &This::onConnectClicked);
+    m_captureAction = toolbar->addAction(QIcon(":/Start"), "Capture", this, &This::onCaptureClicked);
+    m_captureAction->setEnabled(false);
 
-    m_hostString = new QLineEdit();
+    toolbar->addSeparator();
+    m_connectAction = toolbar->addAction(QIcon(":/Connection"), "Connect", this, &This::onConnectClicked);
+
+    toolbar->addWidget(new QLabel(" IP:"));
+    m_ipEdit = new QLineEdit();
+    m_ipEdit->setMaximumWidth(80);
     QRegExp rx("[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}");
+    m_ipEdit->setInputMask("000.000.000.000;");
+    m_ipEdit->setValidator(new QRegExpValidator(rx, m_ipEdit));
+    m_ipEdit->setText("127.0.0.1");
+    toolbar->addWidget(m_ipEdit);
 
-    m_hostString->setInputMask("000.000.000.000;");
-    m_hostString->setValidator(new QRegExpValidator(rx,0));
-    m_hostString->setText("127.0.0.1");
-
-    fileToolBar->addWidget(m_hostString);
-
-    m_portString = new QLineEdit();
-    m_portString->setValidator(new QIntValidator(1024, 65536, this));
-    m_portString->setText(QString::number(profiler::DEFAULT_PORT));
-
-    fileToolBar->addWidget(m_portString);
+    toolbar->addWidget(new QLabel(" Port:"));
+    m_portEdit = new QLineEdit();
+    m_portEdit->setMaximumWidth(64);
+    m_portEdit->setValidator(new QIntValidator(1024, 65536, m_portEdit));
+    m_portEdit->setText(QString::number(::profiler::DEFAULT_PORT));
+    toolbar->addWidget(m_portEdit);
 
     
 
@@ -176,7 +168,7 @@ EasyMainWindow::EasyMainWindow() : Parent()
 
     //m_receiver->run();
 
-    //m_server->connectToHost(m_hostString->text(), m_portString->text().toUShort());
+    //m_server->connectToHost(m_ipEdit->text(), m_portEdit->text().toUShort());
     //TODO:
     //connected
     //error
@@ -198,37 +190,22 @@ EasyMainWindow::EasyMainWindow() : Parent()
 
 
 
-    auto menu = new QMenu("&File");
+    auto menu = menuBar()->addMenu("&File");
+    menu->addAction(QIcon(":/Open"), "&Open", this, &This::onOpenFileClicked);
+    menu->addAction(QIcon(":/Reload"), "&Reload", this, &This::onReloadFileClicked);
+    menu->addSeparator();
+    menu->addAction(QIcon(":/Exit"), "&Exit", this, &This::onExitClicked);
 
-    auto action = menu->addAction("&Open");
-    connect(action, &QAction::triggered, this, &This::onOpenFileClicked);
-    SET_ICON(action, ":/Open");
 
-    action = menu->addAction("&Reload");
-    connect(action, &QAction::triggered, this, &This::onReloadFileClicked);
-    SET_ICON(action, ":/Reload");
+
+    menu = menuBar()->addMenu("&View");
+
+    menu->addAction(QIcon(":/Expand"), "Expand all", this, &This::onExpandAllClicked);
+    menu->addAction(QIcon(":/Collapse"), "Collapse all", this, &This::onCollapseAllClicked);
 
     menu->addSeparator();
-    action = menu->addAction("&Exit");
-    connect(action, &QAction::triggered, this, &This::onExitClicked);
-    SET_ICON(action, ":/Exit");
 
-    menuBar()->addMenu(menu);
-
-
-
-    menu = new QMenu("&View");
-
-    action = menu->addAction("Expand all");
-    connect(action, &QAction::triggered, this, &This::onExpandAllClicked);
-    SET_ICON(action, ":/Expand");
-
-    action = menu->addAction("Collapse all");
-    connect(action, &QAction::triggered, this, &This::onCollapseAllClicked);
-    SET_ICON(action, ":/Collapse");
-
-    menu->addSeparator();
-    action = menu->addAction("Draw items' borders");
+    auto action = menu->addAction("Draw items' borders");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.draw_graphics_items_borders);
     connect(action, &QAction::triggered, this, &This::onDrawBordersChanged);
@@ -277,20 +254,15 @@ EasyMainWindow::EasyMainWindow() : Parent()
     submenu->addAction(action);
     connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
 
-    menuBar()->addMenu(menu);
+
+
+    menu = menuBar()->addMenu("&Edit");
+    m_editBlocksAction = menu->addAction("Edit blocks", this, &This::onEditBlocksClicked);
+    m_editBlocksAction->setEnabled(false);
 
 
 
-    menu = new QMenu("&Edit");
-    action = menu->addAction("Edit blocks");
-    action->setEnabled(false);
-    connect(action, &QAction::triggered, this, &This::onEditBlocksClicked);
-    m_editBlocksAction = action;
-    menuBar()->addMenu(menu);
-
-
-
-    menu = new QMenu("&Settings");
+    menu = menuBar()->addMenu("&Settings");
     action = menu->addAction("Statistics enabled");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.enable_statistics);
@@ -307,7 +279,6 @@ EasyMainWindow::EasyMainWindow() : Parent()
         action->setText("Statistics disabled");
         SET_ICON(action, ":/Stats-off");
     }
-    menu->addAction(action);
 
     submenu = menu->addMenu("&Encoding");
     actionGroup = new QActionGroup(this);
@@ -327,7 +298,7 @@ EasyMainWindow::EasyMainWindow() : Parent()
         connect(action, &QAction::triggered, this, &This::onEncodingChanged);
     }
 
-    menuBar()->addMenu(menu);
+
 
     connect(graphicsView->view(), &EasyGraphicsView::intervalChanged, treeWidget, &EasyTreeWidget::setTreeBlocks);
     connect(&m_readerTimer, &QTimer::timeout, this, &This::onFileReaderTimeout);
@@ -343,7 +314,7 @@ EasyMainWindow::EasyMainWindow() : Parent()
     connect(m_progress, &QProgressDialog::canceled, this, &This::onFileReaderCancel);
 
 
-    m_downloadingProgress = new QProgressDialog("Loading file...", "Cancel", 0, 100, this);
+    m_downloadingProgress = new QProgressDialog("Capturing frames...", "Stop", 0, 100, this);
     m_downloadingProgress->setFixedWidth(300);
     m_downloadingProgress->setWindowTitle("EasyProfiler");
     m_downloadingProgress->setModal(true);
@@ -365,8 +336,8 @@ void EasyMainWindow::listen()
 
   
     //std::this_thread::sleep_for(std::chrono::seconds(2));
-    const int buffer_size = 8 * 1024 * 1024;
-    char* buffer = new char[buffer_size];
+    static const int buffer_size = 8 * 1024 * 1024;
+    char buffer[buffer_size] = {};
     int seek = 0;
     int bytes = 0;
 
@@ -374,24 +345,27 @@ void EasyMainWindow::listen()
     bool isListen = true;
     while (isListen)
     {
-        if ((bytes - seek) == 0){
+        if ((bytes - seek) == 0)
+        {
             bytes = m_easySocket.receive(buffer, buffer_size);
+
             if(bytes == -1)
             {
                 if(m_easySocket.state() == EasySocket::CONNECTION_STATE_DISCONNECTED)
-                {
                     isListen = false;
-                }
+
                 seek = 0;
                 bytes = 0;
+
                 continue;
             }
+
             seek = 0;
         }
             
         char *buf = &buffer[seek];
 
-        if(bytes == 0){
+        if (bytes == 0){
             isListen = false;
             continue;
         }
@@ -399,123 +373,123 @@ void EasyMainWindow::listen()
         if (bytes > 0)
         {
             profiler::net::Message* message = (profiler::net::Message*)buf;
-            if (!message->isEasyNetMessage()){
-                    continue;
-            }
-           
-
-            switch (message->type) {
-            case profiler::net::MESSAGE_TYPE_ACCEPTED_CONNECTION:
-            {
-                qInfo() << "Receive MESSAGE_TYPE_ACCEPTED_CONNECTION";
-                
-                //m_easySocket.send(&request, sizeof(request));
-
-                seek += sizeof(profiler::net::Message);
-
-            }
-            break;
-            case profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING:
-            {
-                qInfo() << "Receive MESSAGE_TYPE_REPLY_START_CAPTURING";
-                seek += sizeof(profiler::net::Message);
-            }
-            break;
-            case profiler::net::MESSAGE_TYPE_REPLY_PREPARE_BLOCKS:
-            {
-                qInfo() << "Receive MESSAGE_TYPE_REPLY_PREPARE_BLOCKS";
-                m_isClientPreparedBlocks = true;
-
-                seek += sizeof(profiler::net::Message);
-            }
-            break;
-            case profiler::net::MESSAGE_TYPE_REPLY_END_SEND_BLOCKS:
-            {
-                qInfo() << "Receive MESSAGE_TYPE_REPLY_END_SEND_BLOCKS";
-                seek += sizeof(profiler::net::Message);
-
-                auto timeEnd = std::chrono::system_clock::now();
-                auto dT = std::chrono::duration_cast<std::chrono::milliseconds>(timeEnd - timeBegin);
-                auto dTsec = std::chrono::duration_cast<std::chrono::seconds>(timeEnd - timeBegin);
-                qInfo() << "recieve" << m_receivedProfileData.str().size() << dT.count() << "ms" << double(m_receivedProfileData.str().size())*1000.0 / double(dT.count()) / 1024.0 << "kBytes/sec";
-                m_recFrames = false;
-
-
-                qInfo() << "Write FILE";
-                std::string tempfilename = "test_rec.prof";
-                std::ofstream of(tempfilename, std::fstream::binary);
-                of << m_receivedProfileData.str();
-                of.close();
-
-                m_receivedProfileData.str(std::string());
-                m_receivedProfileData.clear();
-                //loadFile(QString(tempfilename.c_str()));
-                m_recFrames = false;
-                isListen = false;
+            if (!message->isEasyNetMessage())
                 continue;
-            }
-            break;
-            case profiler::net::MESSAGE_TYPE_REPLY_BLOCKS:
+
+            switch (message->type)
             {
-                qInfo() << "Receive MESSAGE_TYPE_REPLY_BLOCKS";
-
-                seek += sizeof(profiler::net::DataMessage);
-                profiler::net::DataMessage* dm = (profiler::net::DataMessage*)message;
-                timeBegin = std::chrono::system_clock::now();
-
-                int neededSize = dm->size;
-
-
-                buf = &buffer[seek];
-                m_receivedProfileData.write(buf, bytes - seek);
-                neededSize -= bytes - seek;
-                seek = 0;
-                bytes = 0;
-
-                              
-                int loaded = 0;
-                while (neededSize > 0)
+                case profiler::net::MESSAGE_TYPE_ACCEPTED_CONNECTION:
                 {
-                    bytes = m_easySocket.receive(buffer, buffer_size);
-
-                    if(bytes == -1)
-                    {
-                        if(m_easySocket.state() == EasySocket::CONNECTION_STATE_DISCONNECTED)
-                        {
-                            isListen = false;
-                            neededSize = 0;
-                        }
-                        continue;
-                    }
-
-                    buf = &buffer[0];
-                    int toWrite = std::min(bytes, neededSize);
-                    m_receivedProfileData.write(buf, toWrite);
-                    neededSize -= toWrite;
-                    loaded += toWrite;
-                    seek = toWrite;
-
-                    m_downloadedBytes.store((loaded / (neededSize+1)) * 100);
+                    qInfo() << "Receive MESSAGE_TYPE_ACCEPTED_CONNECTION";
+                    //m_easySocket.send(&request, sizeof(request));
+                    seek += sizeof(profiler::net::Message);
+                    break;
                 }
-            }   break;
 
-            default:
-                //qInfo() << "Receive unknown " << message->type;
+                case profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING:
+                {
+                    qInfo() << "Receive MESSAGE_TYPE_REPLY_START_CAPTURING";
+                    seek += sizeof(profiler::net::Message);
+                    break;
+                }
+
+                case profiler::net::MESSAGE_TYPE_REPLY_PREPARE_BLOCKS:
+                {
+                    qInfo() << "Receive MESSAGE_TYPE_REPLY_PREPARE_BLOCKS";
+                    m_isClientPreparedBlocks = true;
+                    seek += sizeof(profiler::net::Message);
+                    break;
+                }
+
+                case profiler::net::MESSAGE_TYPE_REPLY_END_SEND_BLOCKS:
+                {
+                    qInfo() << "Receive MESSAGE_TYPE_REPLY_END_SEND_BLOCKS";
+                    seek += sizeof(profiler::net::Message);
+
+                    auto timeEnd = std::chrono::system_clock::now();
+                    auto dT = std::chrono::duration_cast<std::chrono::milliseconds>(timeEnd - timeBegin);
+                    auto dTsec = std::chrono::duration_cast<std::chrono::seconds>(timeEnd - timeBegin);
+                    qInfo() << "recieve" << m_receivedProfileData.str().size() << dT.count() << "ms" << double(m_receivedProfileData.str().size())*1000.0 / double(dT.count()) / 1024.0 << "kBytes/sec";
+                    m_recFrames = false;
+
+
+                    qInfo() << "Write FILE";
+                    std::string tempfilename = "test_rec.prof";
+                    std::ofstream of(tempfilename, std::fstream::binary);
+                    of << m_receivedProfileData.str();
+                    of.close();
+
+                    m_receivedProfileData.str(std::string());
+                    m_receivedProfileData.clear();
+                    //loadFile(QString(tempfilename.c_str()));
+                    m_recFrames = false;
+                    isListen = false;
+
+                    continue;
+                }
                 break;
 
-            }
+                case profiler::net::MESSAGE_TYPE_REPLY_BLOCKS:
+                {
+                    qInfo() << "Receive MESSAGE_TYPE_REPLY_BLOCKS";
 
+                    seek += sizeof(profiler::net::DataMessage);
+                    profiler::net::DataMessage* dm = (profiler::net::DataMessage*)message;
+                    timeBegin = std::chrono::system_clock::now();
+
+                    int neededSize = dm->size;
+
+
+                    buf = &buffer[seek];
+                    m_receivedProfileData.write(buf, bytes - seek);
+                    neededSize -= bytes - seek;
+                    seek = 0;
+                    bytes = 0;
+
+                              
+                    int loaded = 0;
+                    while (neededSize > 0)
+                    {
+                        bytes = m_easySocket.receive(buffer, buffer_size);
+
+                        if (bytes == -1)
+                        {
+                            if(m_easySocket.state() == EasySocket::CONNECTION_STATE_DISCONNECTED)
+                            {
+                                isListen = false;
+                                neededSize = 0;
+                            }
+                            continue;
+                        }
+
+                        buf = &buffer[0];
+                        int toWrite = std::min(bytes, neededSize);
+                        m_receivedProfileData.write(buf, toWrite);
+                        neededSize -= toWrite;
+                        loaded += toWrite;
+                        seek = toWrite;
+
+                        m_downloadedBytes.store((loaded / (neededSize+1)) * 100);
+                    }
+
+                    break;
+                }
+
+                default:
+                    //qInfo() << "Receive unknown " << message->type;
+                    break;
+            }
         }
     }
-
-    delete [] buffer;
 }
 
 EasyMainWindow::~EasyMainWindow()
 {
     if (m_descTreeDialog != nullptr)
         delete m_descTreeDialog;
+
     delete m_progress;
+
     if (m_thread.joinable())
         m_thread.join();
 }
@@ -956,9 +930,10 @@ void EasyMainWindow::onConnectClicked(bool)
 {
     if(m_isConnected)
         return;
+
     m_easySocket.flush();
     m_easySocket.init();
-    int res = m_easySocket.setAddress(m_hostString->text().toStdString().c_str(), m_portString->text().toUShort());
+    int res = m_easySocket.setAddress(m_ipEdit->text().toStdString().c_str(), m_portEdit->text().toUShort());
 
     //TODO: flush socket after disconenct
     res = m_easySocket.connect();
@@ -967,18 +942,15 @@ void EasyMainWindow::onConnectClicked(bool)
         QMessageBox::warning(this, "Warning", "Cannot connect with application", QMessageBox::Close);
         return;
     }
-    qInfo() << "Connect with application successful";
+
+    qInfo() << "Connected successfully";
     m_isConnected = true;
-
-    auto _sender = qobject_cast<QAction*>(sender());
-    if (_sender)
-        SET_ICON(_sender, ":/WiFi-on");
-
+    m_captureAction->setEnabled(true);
+    SET_ICON(m_connectAction, ":/Connection-on");
 }
 
 void EasyMainWindow::onCaptureClicked(bool)
 {
-    
     if (!m_isConnected)
     {
         QMessageBox::warning(this, "Warning", "No connection with profiling app", QMessageBox::Close);
@@ -987,12 +959,11 @@ void EasyMainWindow::onCaptureClicked(bool)
 
     profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE);
     m_easySocket.send(&request, sizeof(request));
-    
-    
+
     m_thread = std::thread(&This::listen, this);
-    
-    QMessageBox::information(this,"Capturing frames..." ,"Close this window to stop capturing.",QMessageBox::Close);
-    
+
+    QMessageBox::information(this, "Capturing frames...", "Close this window to stop capturing.", QMessageBox::Close);
+
     request.type = profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE;
     m_easySocket.send(&request, sizeof(request));
 
@@ -1004,13 +975,13 @@ void EasyMainWindow::onCaptureClicked(bool)
     {
         QMessageBox::warning(this,"Warning" ,"Application was disconnected",QMessageBox::Close);
         m_isConnected = false;
-        SET_ICON(m_connectAct, ":/WiFi");
+        m_captureAction->setEnabled(false);
+        SET_ICON(m_connectAction, ":/Connection");
         return;
     }
 
     std::string tempfilename = "test_rec.prof";
     loadFile(QString(tempfilename.c_str()));
-
 }
 
 void EasyMainWindow::handleResults(const QString &s)
@@ -1137,6 +1108,7 @@ void EasyMainWindow::onConnected()
     qInfo() << "onConnected()";
 
     m_isConnected = true;
+    m_captureAction->setEnabled(true);
 }
 void EasyMainWindow::onErrorConnection(QAbstractSocket::SocketError socketError)
 {
@@ -1147,6 +1119,7 @@ void EasyMainWindow::onDisconnect()
 {
     qInfo() << "onDisconnect()";
     m_isConnected = false;
+    m_captureAction->setEnabled(false);
 }
 
 void EasyMainWindow::onNewConnection()
