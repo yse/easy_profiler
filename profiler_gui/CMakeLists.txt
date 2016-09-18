@@ -9,6 +9,9 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 find_package(Qt5Widgets REQUIRED)
+find_package(Qt5Network REQUIRED)
+
+include_directories(${ROOT}/3rdparty/nanomsg/src)
 
 add_executable(${PROJECT_NAME}
     main.cpp
@@ -45,4 +48,4 @@ if(UNIX)
     set(SPECIAL_LIB pthread)
 endif(UNIX)
 
-target_link_libraries(${PROJECT_NAME} Qt5::Widgets easy_profiler ${SPECIAL_LIB})
+target_link_libraries(${PROJECT_NAME} Qt5::Widgets  Qt5::Network easy_profiler ${SPECIAL_LIB})

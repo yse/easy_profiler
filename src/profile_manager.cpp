@@ -23,9 +23,17 @@
 *                   : You should have received a copy of the GNU General Public License
 *                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
+#include "profile_manager.h"
+#include "profiler/serialized_block.h"
+#include "profiler/easy_net.h"
 
-#include <algorithm>
+#include "profiler/easy_socket.h"
+#include "event_trace_win.h"
+
 #include <thread>
+#include <string.h>
+#include <algorithm>
+
 #include <fstream>
 #include "profiler/serialized_block.h"
 #include "profile_manager.h"
@@ -107,6 +115,16 @@ extern "C" {
         return MANAGER.getContextSwitchLogFilename();
     }
 #endif
+
+    PROFILER_API void   startListenSignalToCapture()
+    {
+        return MANAGER.startListenSignalToCapture();
+    }
+
+    PROFILER_API void   stopListenSignalToCapture()
+    {
+        return MANAGER.stopListenSignalToCapture();
+    }
 
 }
 
@@ -216,16 +234,21 @@ ProfileManager::ProfileManager()
 {
     m_isEnabled = ATOMIC_VAR_INIT(false);
     m_isEventTracingEnabled = ATOMIC_VAR_INIT(EASY_EVENT_TRACING_ENABLED);
+    m_stopListen = ATOMIC_VAR_INIT(false);
 }
 
 ProfileManager::~ProfileManager()
 {
-    //dumpBlocksToFile("test.prof");
-    for (auto desc : m_descriptors)
-    {
-        if (desc != nullptr)
-            delete desc;
-    }
+    
+	stopListenSignalToCapture();
+	if(m_listenThread.joinable()){
+	m_listenThread.join();
+	}
+	for (auto desc : m_descriptors)
+	{
+	if (desc != nullptr)
+	    delete desc;
+	}
 }
 
 ProfileManager& ProfileManager::instance()
@@ -367,7 +390,7 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
         ::profiler::setEnabled(false);
 
     //TODO remove it
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
     // This is to make sure that no new descriptors or new threads will be
     // added until we finish sending data.
     guard_lock_t lock1(m_storedSpin);
@@ -528,5 +551,134 @@ void ProfileManager::setBlockEnabled(profiler::block_id_t _id, const profiler::h
     }
 }
 
+void ProfileManager::startListenSignalToCapture()
+{
+    if (!m_isAlreadyListened)
+    {
+        m_stopListen.store(false);
+        m_listenThread = std::thread(&ProfileManager::startListen, this);
+        m_isAlreadyListened = true;
+
+    }
+}
+
+void ProfileManager::stopListenSignalToCapture()
+{
+    m_stopListen.store(true);
+    m_isAlreadyListened = false;
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void ProfileManager::startListen()
+{
+
+    EasySocket socket;
+    profiler::net::Message replyMessage(profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING);
+
+    socket.bind(profiler::DEFAULT_PORT);
+    int bytes = 0;
+    while (!m_stopListen.load())
+    {
+        bool hasConnect = false;
+
+        socket.listen();
+
+        socket.accept();
+
+        hasConnect = true;
+        printf("Client Accepted!\n");
+
+        replyMessage.type = profiler::net::MESSAGE_TYPE_ACCEPTED_CONNECTION;
+        bytes = socket.send(&replyMessage, sizeof(replyMessage));
+
+        hasConnect = bytes > 0;
+
+        while (hasConnect && !m_stopListen.load())
+        {
+             
+            char buffer[256] = {};
+
+            bytes = socket.receive(buffer, 255);
+
+            hasConnect = bytes > 0;
+
+            char *buf = &buffer[0];
+
+            if (bytes > 0)
+            {
+                profiler::net::Message* message = (profiler::net::Message*)buf;
+                if (!message->isEasyNetMessage()){
+                    continue;
+                }
+
+                switch (message->type) {
+                case profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE:
+                {
+                    printf("RECEIVED MESSAGE_TYPE_REQUEST_START_CAPTURE\n");
+                    profiler::setEnabled(true);
+
+                    replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING;
+                    bytes = socket.send(&replyMessage, sizeof(replyMessage));
+                    hasConnect = bytes > 0;
+                }
+                break;
+                case profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE:
+                {
+                    printf("RECEIVED MESSAGE_TYPE_REQUEST_STOP_CAPTURE\n");
+                    profiler::setEnabled(false);
+
+                    replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_PREPARE_BLOCKS;
+                    bytes = socket.send(&replyMessage, sizeof(replyMessage));
+                    hasConnect = bytes > 0;
+                    
+                    //TODO
+                    //if connection aborted - ignore this part
+
+                    profiler::net::DataMessage dm;
+                    profiler::OStream os;
+                    dumpBlocksToStream(os);
+                    dm.size = (uint32_t)os.stream().str().length();
+
+
+                    //dm.size = 8192*4;
+
+                    int packet_size = int(sizeof(dm)) + int(dm.size);
+
+                    char *sendbuf = new char[packet_size];
+
+                    memset(sendbuf, 0, packet_size);
+                    memcpy(sendbuf, &dm, sizeof(dm));
+                    memcpy(sendbuf + sizeof(dm), os.stream().str().c_str(), dm.size);
+
+                    bytes = socket.send(sendbuf, packet_size);
+                    hasConnect = bytes > 0;
+
+                    std::string tempfilename = "test_snd.prof";
+                    std::ofstream of(tempfilename, std::fstream::binary);
+                    of.write((const char*)os.stream().str().c_str(), dm.size);
+                    of.close();
+
+                    delete[] sendbuf;
+                    //std::this_thread::sleep_for(std::chrono::seconds(2));
+                    replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_END_SEND_BLOCKS;
+                    bytes = socket.send(&replyMessage, sizeof(replyMessage));
+                    //hasConnect = bytes > 0;
+                }
+                break;
+                default:
+                    break;
+                }
+
+
+                //nn_freemsg (buf);
+            }
+        }
+
+        
+
+    }
+
+}
 //////////////////////////////////////////////////////////////////////////
 

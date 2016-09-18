@@ -35,7 +35,15 @@
 #include <atomic>
 #include <QMainWindow>
 #include <QTimer>
+#include <QTcpServer>
+#include <QTcpSocket>
+#include <QThread>
+#include <QLineEdit>
+#include "profiler/easy_socket.h"
+#undef max
+#undef min
 #include "profiler/reader.h"
+#include <sstream>
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -90,6 +98,7 @@ protected:
     QString                                 m_lastFile;
     QDockWidget*                          m_treeWidget;
     QDockWidget*                        m_graphicsView;
+    class QProgressDialog*        m_downloadingProgress;
 
 #if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
     QDockWidget*                      m_descTreeWidget;
@@ -100,10 +109,28 @@ protected:
     class QDialog*                    m_descTreeDialog;
     class EasyDescWidget*             m_dialogDescTree;
     QTimer                               m_readerTimer;
+    QTimer                               m_downloadedTimer;
     ::profiler::SerializedData      m_serializedBlocks;
     ::profiler::SerializedData m_serializedDescriptors;
     EasyFileReader                            m_reader;
 
+    QTcpSocket* m_server = nullptr;
+
+    std::stringstream m_receivedProfileData;
+    bool m_recFrames = false;
+
+    QLineEdit* m_hostString = nullptr;
+    QLineEdit* m_portString = nullptr;
+    bool m_isConnected = false;
+
+    std::thread m_thread;
+
+    EasySocket m_easySocket;
+
+    bool m_downloading = false;
+    ::std::atomic<int>                      m_downloadedBytes;
+
+    QAction *m_connectAct = nullptr;
 public:
 
     explicit EasyMainWindow();
@@ -112,6 +139,8 @@ public:
     // Public virtual methods
 
     void closeEvent(QCloseEvent* close_event) override;
+
+    void listen();
 
 protected slots:
 
@@ -128,10 +157,21 @@ protected slots:
     void onExpandAllClicked(bool);
     void onCollapseAllClicked(bool);
     void onFileReaderTimeout();
+    void onDownloadTimeout();
     void onFileReaderCancel();
     void onEditBlocksClicked(bool);
     void onDescTreeDialogClose(int);
+    void onCaptureClicked(bool);
 
+    void readTcpData();
+    void onNewConnection();
+    void onDisconnection();
+    void onConnected();
+    void onErrorConnection(QAbstractSocket::SocketError socketError);
+    void onDisconnect();
+    void onConnectClicked(bool);
+
+    void handleResults(const QString &s);
 private:
 
     // Private non-virtual methods
@@ -141,6 +181,9 @@ private:
     void loadSettings();
     void loadGeometry();
     void saveSettingsAndGeometry();
+
+    bool m_isClientPreparedBlocks = false;
+    bool m_isClientCaptured = false;
 
 }; // END of class EasyMainWindow.
 

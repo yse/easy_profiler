@@ -20,6 +20,9 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #define EASY_PROFILER____MANAGER____H______
 
 #include "profiler/profiler.h"
+#include "profiler/serialized_block.h"
+
+#include "profiler/easy_socket.h"
 #include "spin_lock.h"
 #include "outstream.h"
 #include "hashed_cstr.h"
@@ -29,6 +32,8 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #include <unordered_map>
 #include <string>
 #include <functional>
+#include <string.h>
+#include <thread>
 #include <atomic>
 
 //////////////////////////////////////////////////////////////////////////
@@ -213,12 +218,12 @@ public:
         do {
             const int8_t* data = current->data;
             uint16_t i = 0;
-            do {
+            while (i + 1 < N && *(uint16_t*)data != 0) {
                 const uint16_t size = sizeof(uint16_t) + *(uint16_t*)data;
                 _outputStream.write((const char*)data, size);
                 data = data + size;
                 i += size;
-            } while (i + 1 < N && *(uint16_t*)data != 0);
+            }
             current = current->prev;
         } while (current != nullptr);
 
@@ -336,6 +341,13 @@ class ProfileManager final
     uint32_t dumpBlocksToStream(profiler::OStream& _outputStream);
     void setBlockEnabled(profiler::block_id_t _id, const profiler::hashed_stdstring& _key, bool _enabled);
 
+    std::thread m_listenThread;
+    bool m_isAlreadyListened = false;
+    void startListen();
+
+    int m_socket = 0;//TODO crossplatform
+
+    std::atomic_bool m_stopListen;
 public:
 
     static ProfileManager& instance();
@@ -389,7 +401,8 @@ public:
     void beginContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, const char* _target_process, bool _lockSpin = true);
     void storeContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, bool _lockSpin = true);
     void endContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime, bool _lockSpin = true);
-
+    void startListenSignalToCapture();
+    void stopListenSignalToCapture();
 private:
 
     void markExpired(profiler::block_id_t _id);

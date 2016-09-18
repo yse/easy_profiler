@@ -189,8 +189,12 @@ int main(int argc, char* argv[])
     auto start = std::chrono::system_clock::now();
     EASY_PROFILER_ENABLE;
     EASY_MAIN_THREAD;
-
+    profiler::startListenSignalToCapture();
+    //one();
+    //one();
+    /**/
     std::vector<std::thread> threads;
+
     std::thread render = std::thread(renderThread);
     std::thread modelling = std::thread(modellingThread);
 
@@ -227,5 +231,7 @@ int main(int argc, char* argv[])
 
     std::cout << "Blocks count: " << blocks_count << std::endl;
 
+
+    profiler::stopListenSignalToCapture();
     return 0;
 }

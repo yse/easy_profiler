@@ -302,6 +302,8 @@ namespace profiler {
     //////////////////////////////////////////////////////////////////////
     // Core types
 
+    const uint16_t DEFAULT_PORT = 28077;
+
     typedef uint64_t timestamp_t;
     typedef uint32_t thread_id_t;
     typedef uint32_t  block_id_t;
@@ -552,6 +554,9 @@ namespace profiler {
         */
         PROFILER_API const char* getContextSwitchLogFilename();
 #endif
+
+	PROFILER_API void        startListenSignalToCapture();
+        PROFILER_API void        stopListenSignalToCapture();
 
     }
 
