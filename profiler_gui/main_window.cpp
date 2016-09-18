@@ -652,6 +652,10 @@ void EasyMainWindow::onConnectClicked(bool)
     }
     qInfo() << "Connect with application successful";
     m_isConnected = true;
+
+    auto _sender = qobject_cast<QAction*>(sender());
+    if (_sender)
+        SET_ICON(_sender, ":/WiFi-on");
     /*if (!m_isConnected)
     {
         qInfo() << "Try connect to: " << m_hostString->text() << ":" << m_portString->text();
