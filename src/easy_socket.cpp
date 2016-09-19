@@ -218,10 +218,21 @@ int EasySocket::accept()
     return m_replySocket;
 }
 
-#ifndef _WIN32
-#include <strings.h>
-#include <errno.h>
+bool EasySocket::setAddress(const char *serv, uint16_t portno)
+{
+    server = gethostbyname(serv);
+    if (server == NULL) {
+        return false;
+        //fprintf(stderr,"ERROR, no such host\n");
+    }
+    memset((char *)&serv_addr, 0, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    memcpy((char *)&serv_addr.sin_addr.s_addr, (char *)server->h_addr, server->h_length);
 
+    serv_addr.sin_port = htons(portno);
+
+    return true;
+}
 
 int EasySocket::connect()
 {
@@ -230,6 +241,7 @@ int EasySocket::connect()
         //fprintf(stderr,"ERROR, no such host\n");
     }
     int res = ::connect(m_socket,(struct sockaddr *) &serv_addr,sizeof(serv_addr));
+    checkResult(res);
     if(res == 0){
 
         struct timeval tv;
@@ -243,66 +255,3 @@ int EasySocket::connect()
     }
     return res;
 }
-
-bool EasySocket::setAddress(const char *serv, uint16_t portno)
-{
-    server = gethostbyname(serv);
-    if (server == NULL) {
-        return false;
-        //fprintf(stderr,"ERROR, no such host\n");
-    }
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    bcopy((char *)server->h_addr,
-         (char *)&serv_addr.sin_addr.s_addr,
-         server->h_length);
-    serv_addr.sin_port = htons(portno);
-
-    return true;
-}
-
-#else
-
-bool EasySocket::setAddress(const char *serv, uint16_t portno)
-{
-    ZeroMemory(&hints, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_protocol = IPPROTO_TCP;
-    int iResult;
-    char buffer[20] = {};
-    _itoa(portno, buffer, 10);
-    iResult = getaddrinfo(serv, buffer, &hints, &result);
-    if (iResult != 0) {
-        return false;
-    }
-
-    return true;
-}
-
-int EasySocket::connect()
-{
-    if (!m_socket || !result){
-        return -1;
-    }
-
-    // Connect to server.
-    auto iResult = ::connect(m_socket, result->ai_addr, (int)result->ai_addrlen);
-    checkResult(iResult);
-    if (iResult == SOCKET_ERROR) {
-        return iResult;
-    }
-    /**/
-    struct timeval tv;
-
-    tv.tv_sec = 1;
-    tv.tv_usec = 0;
-
-    setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(struct timeval));
-
-    m_replySocket = m_socket;
-
-    return iResult;
-}
-
-#endif

@@ -54,10 +54,9 @@ public:
 
         CONNECTION_STATE_DISCONNECTED
     };
+
 private:
-
-
-
+    
     void checkResult(int result);
     bool checkSocket(socket_t s) const;
     static int _close(socket_t s);
@@ -69,17 +68,13 @@ private:
 
     int wsaret = -1;
 
-#ifndef _WIN32
+    struct hostent * server;
     struct sockaddr_in serv_addr;
-    struct hostent *server = nullptr;
-#else
-    struct addrinfo  *result = NULL;
-    struct addrinfo   hints;
-#endif
-
 
     ConnectionState m_state = CONNECTION_STATE_UNKNOWN;
+
 public:
+
     EasySocket();
     ~EasySocket();
 
