@@ -40,6 +40,13 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 class PROFILER_API EasySocket
 {
 public:
+
+#ifdef _WIN32
+    typedef SOCKET socket_t;
+#else
+    typedef int socket_t;
+#endif
+
     enum ConnectionState
     {
         CONNECTION_STATE_UNKNOWN,
@@ -49,13 +56,12 @@ public:
     };
 private:
 
-    void checkResult(int result);
 
-#ifdef _WIN32
-    typedef SOCKET socket_t;
-#else
-    typedef int socket_t;
-#endif
+
+    void checkResult(int result);
+    bool checkSocket(socket_t s) const;
+    static int _close(socket_t s);
+    void setBlocking(socket_t s, bool blocking);
     
     socket_t m_socket = 0;
     socket_t m_replySocket = 0;
