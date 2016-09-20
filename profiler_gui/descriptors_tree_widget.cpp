@@ -31,6 +31,7 @@
 
 #include <QMenu>
 #include <QAction>
+#include <QActionGroup>
 #include <QHeaderView>
 #include <QString>
 #include <QContextMenuEvent>
@@ -63,14 +64,92 @@
 enum DescColumns
 {
     DESC_COL_FILE_LINE = 0,
+    DESC_COL_TYPE,
     DESC_COL_NAME,
     DESC_COL_STATUS,
 
     DESC_COL_COLUMNS_NUMBER
 };
 
-const auto ENABLED_COLOR = ::profiler::colors::LightGreen900;
-const auto DISABLED_COLOR = ::profiler::colors::DarkRed;
+//////////////////////////////////////////////////////////////////////////
+
+::profiler::EasyBlockStatus nextStatus(::profiler::EasyBlockStatus _status)
+{
+    switch (_status)
+    {
+        case ::profiler::OFF:
+            return ::profiler::ON;
+
+        case ::profiler::ON:
+            return ::profiler::FORCE_ON;
+
+        case ::profiler::FORCE_ON:
+            return ::profiler::OFF_RECURSIVE;
+
+        case ::profiler::OFF_RECURSIVE:
+            return ::profiler::ON_WITHOUT_CHILDREN;
+
+        case ::profiler::ON_WITHOUT_CHILDREN:
+            return ::profiler::FORCE_ON_WITHOUT_CHILDREN;
+
+        case ::profiler::FORCE_ON_WITHOUT_CHILDREN:
+            return ::profiler::OFF;
+    }
+
+    return ::profiler::OFF;
+}
+
+const char* statusText(::profiler::EasyBlockStatus _status)
+{
+    switch (_status)
+    {
+        case ::profiler::OFF:
+            return "OFF";
+
+        case ::profiler::ON:
+            return "ON";
+
+        case ::profiler::FORCE_ON:
+            return "FORCE_ON";
+
+        case ::profiler::OFF_RECURSIVE:
+            return "OFF_RECURSIVE";
+
+        case ::profiler::ON_WITHOUT_CHILDREN:
+            return "ON_WITHOUT_CHILDREN";
+
+        case ::profiler::FORCE_ON_WITHOUT_CHILDREN:
+            return "FORCE_ON_WITHOUT_CHILDREN";
+    }
+
+    return "";
+}
+
+::profiler::color_t statusColor(::profiler::EasyBlockStatus _status)
+{
+    switch (_status)
+    {
+        case ::profiler::OFF:
+            return ::profiler::colors::Red900;
+
+        case ::profiler::ON:
+            return ::profiler::colors::LightGreen900;
+
+        case ::profiler::FORCE_ON:
+            return ::profiler::colors::LightGreen900;
+
+        case ::profiler::OFF_RECURSIVE:
+            return ::profiler::colors::Red900;
+
+        case ::profiler::ON_WITHOUT_CHILDREN:
+            return ::profiler::colors::Lime900;
+
+        case ::profiler::FORCE_ON_WITHOUT_CHILDREN:
+            return ::profiler::colors::Lime900;
+    }
+
+    return ::profiler::colors::Black;
+}
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -117,12 +196,13 @@ EasyDescTreeWidget::EasyDescTreeWidget(QWidget* _parent)
 
     auto header_item = new QTreeWidgetItem();
     header_item->setText(DESC_COL_FILE_LINE, "File/Line");
+    header_item->setText(DESC_COL_TYPE, "Type");
     header_item->setText(DESC_COL_NAME, "Name");
     header_item->setText(DESC_COL_STATUS, "Status");
     setHeaderItem(header_item);
 
     connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
-    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::enableStatusChanged, this, &This::onEnableStatusChange);
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::blockStatusChanged, this, &This::onBlockStatusChange);
     connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
     connect(this, &Parent::itemDoubleClicked, this, &This::onDoubleClick);
     connect(this, &Parent::currentItemChanged, this, &This::onCurrentItemChange);
@@ -155,12 +235,40 @@ void EasyDescTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     auto header_item = headerItem();
     for (int i = 0; i < DESC_COL_STATUS; ++i)
     {
-        action = new QAction(header_item->text(i), nullptr);
+        if (i == DESC_COL_TYPE)
+            continue;
+
+        action = submenu->addAction(header_item->text(i));
+        action->setData(i);
         action->setCheckable(true);
         if (i == m_searchColumn)
             action->setChecked(true);
         connect(action, &QAction::triggered, this, &This::onSearchColumnChange);
-        submenu->addAction(action);
+    }
+
+    auto item = currentItem();
+    if (item != nullptr && item->parent() != nullptr && currentColumn() >= DESC_COL_TYPE)
+    {
+        const auto& desc = easyDescriptor(static_cast<EasyDescWidgetItem*>(item)->desc());
+
+        menu.addSeparator();
+        auto submenu = menu.addMenu("Change status");
+
+#define ADD_STATUS_ACTION(NameValue, StatusValue)\
+        action = submenu->addAction(NameValue);\
+        action->setCheckable(true);\
+        action->setChecked(desc.status() == StatusValue);\
+        action->setData(static_cast<quint32>(StatusValue));\
+        connect(action, &QAction::triggered, this, &This::onBlockStatusChangeClicked)
+
+        ADD_STATUS_ACTION("Off", ::profiler::OFF);
+        ADD_STATUS_ACTION("On", ::profiler::ON);
+        ADD_STATUS_ACTION("Force-On", ::profiler::FORCE_ON);
+        ADD_STATUS_ACTION("Off-recursive", ::profiler::OFF_RECURSIVE);
+        ADD_STATUS_ACTION("On-without-children", ::profiler::ON_WITHOUT_CHILDREN);
+        ADD_STATUS_ACTION("Force-On-without-children", ::profiler::FORCE_ON_WITHOUT_CHILDREN);
+
+#undef ADD_STATUS_ACTION
     }
 
     menu.exec(QCursor::pos());
@@ -254,6 +362,8 @@ void EasyDescTreeWidget::build()
             {
                 p.item = new QTreeWidgetItem();
                 p.item->setText(DESC_COL_FILE_LINE, desc->file());
+                p.item->setText(DESC_COL_TYPE, "F");
+                p.item->setToolTip(DESC_COL_TYPE, "File");
             }
 
             auto it = p.children.find(desc->line());
@@ -264,21 +374,20 @@ void EasyDescTreeWidget::build()
                 item->setData(DESC_COL_FILE_LINE, Qt::UserRole, desc->line());
                 item->setText(DESC_COL_NAME, desc->name());
 
-                item->setFont(DESC_COL_STATUS, f);
-
-                QBrush brush;
-                if (desc->enabled())
+                if (desc->type() == ::profiler::BLOCK_TYPE_BLOCK)
                 {
-                    item->setText(DESC_COL_STATUS, "ON");
-                    brush.setColor(QColor::fromRgba(ENABLED_COLOR));
+                    item->setText(DESC_COL_TYPE, "B");
+                    item->setToolTip(DESC_COL_TYPE, "Block");
                 }
                 else
                 {
-                    item->setText(DESC_COL_STATUS, "OFF");
-                    brush.setColor(QColor::fromRgba(DISABLED_COLOR));
+                    item->setText(DESC_COL_TYPE, "E");
+                    item->setToolTip(DESC_COL_TYPE, "Event");
                 }
 
-                item->setForeground(DESC_COL_STATUS, brush);
+                item->setFont(DESC_COL_STATUS, f);
+                item->setText(DESC_COL_STATUS, statusText(desc->status()));
+                item->setForeground(DESC_COL_STATUS, QColor::fromRgba(statusColor(desc->status())));
 
                 m_items[id] = item;
             }
@@ -312,29 +421,17 @@ void EasyDescTreeWidget::onItemExpand(QTreeWidgetItem*)
 
 void EasyDescTreeWidget::onDoubleClick(QTreeWidgetItem* _item, int _column)
 {
-    if (_column >= DESC_COL_NAME && _item->parent() != nullptr)
+    if (_column >= DESC_COL_TYPE && _item->parent() != nullptr)
     {
         auto item = static_cast<EasyDescWidgetItem*>(_item);
         auto& desc = easyDescriptor(item->desc());
+        desc.setStatus(nextStatus(desc.status()));
 
-        QBrush brush;
-        if (desc.enabled())
-        {
-            desc.setEnabled(false);
-            item->setText(DESC_COL_STATUS, "OFF");
-            brush.setColor(QColor::fromRgba(DISABLED_COLOR));
-        }
-        else
-        {
-            desc.setEnabled(true);
-            item->setText(DESC_COL_STATUS, "ON");
-            brush.setColor(QColor::fromRgba(ENABLED_COLOR));
-        }
-
-        item->setForeground(DESC_COL_STATUS, brush);
+        item->setText(DESC_COL_STATUS, statusText(desc.status()));
+        item->setForeground(DESC_COL_STATUS, QColor::fromRgba(statusColor(desc.status())));
 
         m_bLocked = true;
-        emit EASY_GLOBALS.events.enableStatusChanged(item->desc(), desc.enabled());
+        emit EASY_GLOBALS.events.blockStatusChanged(desc.id(), desc.status());
         m_bLocked = false;
     }
 }
@@ -361,7 +458,30 @@ void EasyDescTreeWidget::onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidget
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyDescTreeWidget::onEnableStatusChange(::profiler::block_id_t _id, bool _enabled)
+void EasyDescTreeWidget::onBlockStatusChangeClicked(bool _checked)
+{
+    if (!_checked)
+        return;
+
+    auto item = currentItem();
+    if (item == nullptr || item->parent() == nullptr)
+        return;
+
+    auto action = qobject_cast<QAction*>(sender());
+    if (action != nullptr)
+    {
+        auto& desc = easyDescriptor(static_cast<EasyDescWidgetItem*>(item)->desc());
+        desc.setStatus(static_cast<::profiler::EasyBlockStatus>(action->data().toUInt()));
+        item->setText(DESC_COL_STATUS, statusText(desc.status()));
+        item->setForeground(DESC_COL_STATUS, QColor::fromRgba(statusColor(desc.status())));
+
+        m_bLocked = true;
+        emit EASY_GLOBALS.events.blockStatusChanged(desc.id(), desc.status());
+        m_bLocked = false;
+    }
+}
+
+void EasyDescTreeWidget::onBlockStatusChange(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status)
 {
     if (m_bLocked)
         return;
@@ -370,19 +490,9 @@ void EasyDescTreeWidget::onEnableStatusChange(::profiler::block_id_t _id, bool _
     if (item == nullptr)
         return;
 
-    QBrush brush;
-    if (_enabled)
-    {
-        item->setText(DESC_COL_STATUS, "ON");
-        brush.setColor(QColor::fromRgba(ENABLED_COLOR));
-    }
-    else
-    {
-        item->setText(DESC_COL_STATUS, "OFF");
-        brush.setColor(QColor::fromRgba(DISABLED_COLOR));
-    }
-
-    item->setForeground(DESC_COL_STATUS, brush);
+    auto& desc = easyDescriptor(item->desc());
+    item->setText(DESC_COL_STATUS, statusText(desc.status()));
+    item->setForeground(DESC_COL_STATUS, QColor::fromRgba(statusColor(desc.status())));
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -38,6 +38,7 @@
 ************************************************************************/
 
 #include <QMenu>
+#include <QAction>
 #include <QHeaderView>
 #include <QContextMenuEvent>
 #include <QSignalBlocker>
@@ -442,18 +443,24 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
             }
         }
 
-        auto id = item->block().node->id();
-        action = menu.addAction("Block enabled");
-        action->setCheckable(true);
-        action->setChecked(easyDescriptor(id).enabled());
-        action->setData(id);
-        connect(action, &QAction::triggered, this, &This::onBlockEnableDisable);
+        const auto& desc = easyDescriptor(item->block().node->id());
+        auto submenu = menu.addMenu("Block status");
 
-        if (action->isChecked()) {
-            auto f = action->font();
-            f.setBold(true);
-            action->setFont(f);
-        }
+#define ADD_STATUS_ACTION(NameValue, StatusValue)\
+        action = submenu->addAction(NameValue);\
+        action->setCheckable(true);\
+        action->setChecked(desc.status() == StatusValue);\
+        action->setData(static_cast<quint32>(StatusValue));\
+        connect(action, &QAction::triggered, this, &This::onBlockStatusChangeClicked)
+
+        ADD_STATUS_ACTION("Off", ::profiler::OFF);
+        ADD_STATUS_ACTION("On", ::profiler::ON);
+        ADD_STATUS_ACTION("Force-On", ::profiler::FORCE_ON);
+        ADD_STATUS_ACTION("Off-recursive", ::profiler::OFF_RECURSIVE);
+        ADD_STATUS_ACTION("On-without-children", ::profiler::ON_WITHOUT_CHILDREN);
+        ADD_STATUS_ACTION("Force-On-without-children", ::profiler::FORCE_ON_WITHOUT_CHILDREN);
+
+#undef ADD_STATUS_ACTION
     }
 
     menu.addSeparator();
@@ -579,14 +586,21 @@ void EasyTreeWidget::onExpandAllChildrenClicked(bool)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyTreeWidget::onBlockEnableDisable(bool _checked)
+void EasyTreeWidget::onBlockStatusChangeClicked(bool _checked)
 {
+    if (!_checked)
+        return;
+
+    auto item = static_cast<EasyTreeWidgetItem*>(currentItem());
+    if (item == nullptr)
+        return;
+
     auto action = qobject_cast<QAction*>(sender());
     if (action != nullptr)
     {
-        auto id = action->data().toUInt();
-        easyDescriptor(id).setEnabled(_checked);
-        emit EASY_GLOBALS.events.enableStatusChanged(id, _checked);
+        auto& desc = easyDescriptor(item->block().node->id());
+        desc.setStatus(static_cast<::profiler::EasyBlockStatus>(action->data().toUInt()));
+        emit EASY_GLOBALS.events.blockStatusChanged(desc.id(), desc.status());
     }
 }
 

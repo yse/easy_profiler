@@ -21,8 +21,6 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 #include "profiler/profiler.h"
 
-class ThreadStorage;
-
 namespace profiler {
 
     //////////////////////////////////////////////////////////////////////////
@@ -69,9 +67,9 @@ namespace profiler {
             return name() + m_nameLength;
         }
 
-        inline void setEnabled(bool _enabled)
+        inline void setStatus(EasyBlockStatus _status)
         {
-            m_enabled = _enabled;
+            m_status = _status;
         }
 
     private:

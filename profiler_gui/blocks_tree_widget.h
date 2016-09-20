@@ -40,7 +40,6 @@
 #define EASY__TREE_WIDGET__H_
 
 #include <QTreeWidget>
-#include <QAction>
 #include <QTimer>
 #include "tree_widget_loader.h"
 #include "profiler/reader.h"
@@ -108,7 +107,7 @@ private slots:
 
     void onSelectedBlockChange(uint32_t _block_index);
 
-    void onBlockEnableDisable(bool _checked);
+    void onBlockStatusChangeClicked(bool);
 
     void resizeColumnsToContents();
 

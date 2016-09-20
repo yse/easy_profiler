@@ -107,11 +107,12 @@ public slots:
 private slots:
 
     void onSearchColumnChange(bool);
+    void onBlockStatusChangeClicked(bool);
     void onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidgetItem* _prev);
     void onItemExpand(QTreeWidgetItem* _item);
     void onDoubleClick(QTreeWidgetItem* _item, int _column);
     void onSelectedBlockChange(uint32_t _block_index);
-    void onEnableStatusChange(::profiler::block_id_t _id, bool _enabled);
+    void onBlockStatusChange(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status);
     void resizeColumnsToContents();
 
 private:

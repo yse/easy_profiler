@@ -80,10 +80,13 @@
 
 namespace profiler {
 
-    enum EasyEnableFlag : uint8_t
-    {
-        DISABLED = 0,
-        ENABLED = 1
+    enum EasyBlockStatus : uint8_t {
+        OFF = 0, ///< The block is OFF
+        ON = 1, ///< The block is ON (but if it's parent block is off recursively then this block will be off too)
+        FORCE_ON = ON | 2, ///< The block is ALWAYS ON (even if it's parent has turned off all children)
+        OFF_RECURSIVE = 4, ///< The block is OFF and all of it's children by call-stack are also OFF.
+        ON_WITHOUT_CHILDREN = ON | OFF_RECURSIVE, ///< The block is ON but all of it's children are OFF.
+        FORCE_ON_WITHOUT_CHILDREN = FORCE_ON | OFF_RECURSIVE, ///< The block is ALWAYS ON but all of it's children are OFF.
     };
 
     struct passthrough_hash final {
@@ -126,7 +129,7 @@ namespace profiler {
     }
 
     template <class ... TArgs>
-    inline color_t extract_color(::profiler::EasyEnableFlag, TArgs...) {
+    inline color_t extract_color(::profiler::EasyBlockStatus, TArgs...) {
         return ::profiler::colors::Default;
     }
 
@@ -148,24 +151,24 @@ namespace profiler {
 
     //***********************************************
 
-    inline bool extract_enable_flag() {
-        return true;
+    inline EasyBlockStatus extract_enable_flag() {
+        return ::profiler::ON;
     }
 
     template <class T, class ... TArgs>
-    inline bool extract_enable_flag(T, ::profiler::EasyEnableFlag _flag, TArgs...) {
-        return _flag == ::profiler::ENABLED;
+    inline EasyBlockStatus extract_enable_flag(T, ::profiler::EasyBlockStatus _flag, TArgs...) {
+        return _flag;
     }
 
     template <class ... TArgs>
-    inline bool extract_enable_flag(::profiler::EasyEnableFlag _flag, TArgs...) {
-        return _flag == ::profiler::ENABLED;
+    inline EasyBlockStatus extract_enable_flag(::profiler::EasyBlockStatus _flag, TArgs...) {
+        return _flag;
     }
 
     template <class ... TArgs>
-    inline bool extract_enable_flag(TArgs...) {
-        static_assert(sizeof...(TArgs) < 2, "No EasyEnableFlag in arguments list for EASY_BLOCK(name, ...)!");
-        return true;
+    inline EasyBlockStatus extract_enable_flag(TArgs...) {
+        static_assert(sizeof...(TArgs) < 2, "No EasyBlockStatus in arguments list for EASY_BLOCK(name, ...)!");
+        return ::profiler::ON;
     }
 
     //***********************************************

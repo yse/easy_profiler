@@ -52,7 +52,7 @@ namespace profiler_gui {
         void itemsExpandStateChanged();
         void drawBordersChanged();
         void chronoPositionChanged();
-        void enableStatusChanged(::profiler::block_id_t _id, bool _enabled);
+        void blockStatusChanged(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status);
 
     }; // END of class EasyGlobalSignals.
 

@@ -14,8 +14,8 @@ std::mutex cv_m;
 int g_i = 0;
 
 int OBJECTS = 500;
-int RENDER_STEPS = 1600;
-int MODELLING_STEPS = 1000;
+int MODELLING_STEPS = 1500;
+int RENDER_STEPS = 1500;
 int RESOURCE_LOADING_COUNT = 50;
 
 void localSleep(int magic=200000)
@@ -105,7 +105,7 @@ void prepareRender(){
 
 int multPhys(int i)
 {
-    EASY_FUNCTION(profiler::colors::Red700, profiler::DISABLED);
+    EASY_FUNCTION(profiler::colors::Red700, profiler::ON);
     return i * i * i * i / 100;
 }
 
@@ -146,7 +146,7 @@ void modellingThread(){
     //std::unique_lock<std::mutex> lk(cv_m);
     //cv.wait(lk, []{return g_i == 1; });
     EASY_THREAD("Modelling");
-    for (int i = 0; i < RENDER_STEPS; i++){
+    for (int i = 0; i < MODELLING_STEPS; i++){
         modellingStep();
         localSleep(1200000);
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));
@@ -157,7 +157,7 @@ void renderThread(){
     //std::unique_lock<std::mutex> lk(cv_m);
     //cv.wait(lk, []{return g_i == 1; });
     EASY_THREAD("Render");
-    for (int i = 0; i < MODELLING_STEPS; i++){
+    for (int i = 0; i < RENDER_STEPS; i++){
         frame();
         localSleep(1200000);
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));
@@ -172,34 +172,27 @@ int main(int argc, char* argv[])
         OBJECTS = std::atoi(argv[1]);
     }
     if (argc > 2 && argv[2]){
-        RENDER_STEPS = std::atoi(argv[2]);
+        MODELLING_STEPS = std::atoi(argv[2]);
     }
     if (argc > 3 && argv[3]){
-        MODELLING_STEPS = std::atoi(argv[3]);
+        RENDER_STEPS = std::atoi(argv[3]);
     }
     if (argc > 4 && argv[4]){
         RESOURCE_LOADING_COUNT = std::atoi(argv[4]);
     }
 
     std::cout << "Objects count: " << OBJECTS << std::endl;
-    std::cout << "Render steps: " << RENDER_STEPS << std::endl;
-    std::cout << "Modelling steps: " << MODELLING_STEPS << std::endl;
+    std::cout << "Render steps: " << MODELLING_STEPS << std::endl;
+    std::cout << "Modelling steps: " << RENDER_STEPS << std::endl;
     std::cout << "Resource loading count: " << RESOURCE_LOADING_COUNT << std::endl;
 
     auto start = std::chrono::system_clock::now();
     EASY_PROFILER_ENABLE;
     EASY_MAIN_THREAD;
     profiler::startListenSignalToCapture();
-    //one();
-    //one();
-    /**/
+
     std::vector<std::thread> threads;
-
-    std::thread render = std::thread(renderThread);
-    std::thread modelling = std::thread(modellingThread);
-
-    
-    for(int i=0; i < 3; i++){
+    for (int i=0; i < 3; i++) {
         threads.emplace_back(std::thread(loadingResourcesThread));
         threads.emplace_back(std::thread(renderThread));
         threads.emplace_back(std::thread(modellingThread));
@@ -210,16 +203,10 @@ int main(int argc, char* argv[])
     cv_m.unlock();
     cv.notify_all();
 
-    for (int i = 0; i < RENDER_STEPS; ++i) {
-        modellingStep();
-        localSleep(1200000);
-    }
+    modellingThread();
 
-    render.join();
-    modelling.join();
     for(auto& t : threads)
         t.join();
-    /**/
 
     auto end = std::chrono::system_clock::now();
     auto elapsed =

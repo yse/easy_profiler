@@ -20,31 +20,26 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #define EASY_PROFILER____MANAGER____H______
 
 #include "profiler/profiler.h"
-#include "profiler/serialized_block.h"
-
 #include "profiler/easy_socket.h"
 #include "spin_lock.h"
 #include "outstream.h"
 #include "hashed_cstr.h"
 #include <map>
-#include <list>
 #include <vector>
 #include <unordered_map>
-#include <string>
-#include <functional>
-#include <string.h>
 #include <thread>
 #include <atomic>
+//#include <list>
 
 //////////////////////////////////////////////////////////////////////////
 
 #ifdef _WIN32
 #include <Windows.h>
 #else
-#include <thread>
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/syscall.h>
+#include <chrono>
 #endif
 
 inline uint32_t getCurrentThreadId()
@@ -55,6 +50,20 @@ inline uint32_t getCurrentThreadId()
     EASY_THREAD_LOCAL static const pid_t x = syscall(__NR_gettid);
     EASY_THREAD_LOCAL static const uint32_t _id = (uint32_t)x;//std::hash<std::thread::id>()(std::this_thread::get_id());
     return _id;
+#endif
+}
+
+inline profiler::timestamp_t getCurrentTime()
+{
+#ifdef _WIN32
+    //see https://msdn.microsoft.com/library/windows/desktop/dn553408(v=vs.85).aspx
+    LARGE_INTEGER elapsedMicroseconds;
+    if (!QueryPerformanceCounter(&elapsedMicroseconds))
+        return 0;
+    return (profiler::timestamp_t)elapsedMicroseconds.QuadPart;
+#else
+    //std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds> time_point;
+    return std::chrono::time_point_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now()).time_since_epoch().count();
 #endif
 }
 
@@ -72,9 +81,10 @@ namespace profiler {
 
 //////////////////////////////////////////////////////////////////////////
 
-//#define EASY_ENABLE_ALIGNMENT
+#define EASY_ENABLE_BLOCK_STATUS 1
+#define EASY_ENABLE_ALIGNMENT 0
 
-#ifndef EASY_ENABLE_ALIGNMENT
+#if EASY_ENABLE_ALIGNMENT == 0
 # define EASY_ALIGNED(TYPE, VAR, A) TYPE VAR
 # define EASY_MALLOC(MEMSIZE, A) malloc(MEMSIZE)
 # define EASY_FREE(MEMPTR) free(MEMPTR)
@@ -288,20 +298,24 @@ struct BlocksList final
 };
 
 
-class ThreadStorage final
+struct ThreadStorage final
 {
-public:
-
     BlocksList<std::reference_wrapper<profiler::Block>, SIZEOF_CSWITCH * (uint16_t)128U> blocks;
     BlocksList<profiler::Block, SIZEOF_CSWITCH * (uint16_t)128U>                           sync;
     std::string name;
+    profiler::thread_id_t id = 0;
+    std::atomic_bool expired;
+    bool allowChildren = true;
     bool named = false;
 
     void storeBlock(const profiler::Block& _block);
     void storeCSwitch(const profiler::Block& _block);
     void clearClosed();
 
-    ThreadStorage() = default;
+    ThreadStorage()
+    {
+        expired = ATOMIC_VAR_INIT(false);
+    }
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -319,9 +333,9 @@ class ProfileManager final
     typedef std::vector<profiler::BlockDescriptor*> block_descriptors_t;
 
 #ifdef _WIN32
-    typedef std::unordered_map<profiler::hashed_cstr, bool> blocks_enable_status_t;
+    typedef std::unordered_map<profiler::hashed_cstr, profiler::EasyBlockStatus> blocks_enable_status_t;
 #else
-    typedef std::unordered_map<profiler::hashed_stdstring, bool> blocks_enable_status_t;
+    typedef std::unordered_map<profiler::hashed_stdstring, profiler::EasyBlockStatus> blocks_enable_status_t;
 #endif
 
     map_of_threads_stacks             m_threads;
@@ -339,7 +353,7 @@ class ProfileManager final
 #endif
 
     uint32_t dumpBlocksToStream(profiler::OStream& _outputStream);
-    void setBlockEnabled(profiler::block_id_t _id, const profiler::hashed_stdstring& _key, bool _enabled);
+    void setBlockStatus(profiler::block_id_t _id, const profiler::hashed_stdstring& _key, profiler::EasyBlockStatus _status);
 
     std::thread m_listenThread;
     bool m_isAlreadyListened = false;
@@ -354,9 +368,9 @@ public:
     ~ProfileManager();
 
     template <class ... TArgs>
-    const profiler::BaseBlockDescriptor* addBlockDescriptor(bool _enabledByDefault, const char* _autogenUniqueId, TArgs ... _args)
+    const profiler::BaseBlockDescriptor* addBlockDescriptor(profiler::EasyBlockStatus _defaultStatus, const char* _autogenUniqueId, TArgs ... _args)
     {
-        auto desc = new profiler::BlockDescriptor(_enabledByDefault, _args...);
+        auto desc = new profiler::BlockDescriptor(_defaultStatus, _args...);
 
         guard_lock_t lock(m_storedSpin);
         m_usedMemorySize += desc->m_size;
@@ -367,12 +381,12 @@ public:
         auto it = m_blocksEnableStatus.find(key);
         if (it != m_blocksEnableStatus.end())
         {
-            desc->m_enabled = it->second;
-            desc->m_pEnable = &it->second;
+            desc->m_status = it->second;
+            desc->m_pStatus = &it->second;
         }
         else
         {
-            desc->m_pEnable = &m_blocksEnableStatus.emplace(key, desc->enabled()).first->second;
+            desc->m_pStatus = &m_blocksEnableStatus.emplace(key, desc->status()).first->second;
         }
 
         return desc;
@@ -384,7 +398,7 @@ public:
     void setEnabled(bool isEnable);
     void setEventTracingEnabled(bool _isEnable);
     uint32_t dumpBlocksToFile(const char* filename);
-    const char* registerThread(const char* name);// , const char* filename, const char* _funcname, int line);
+    const char* registerThread(const char* name, profiler::ThreadGuard& threadGuard);
 
 #ifndef _WIN32
     void setContextSwitchLogFilename(const char* name)

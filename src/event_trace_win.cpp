@@ -103,7 +103,7 @@ namespace profiler {
         if (sizeof(CSwitch) != _traceEvent->UserDataLength)
             return;
 
-        EASY_FUNCTION(::profiler::colors::White, ::profiler::DISABLED);
+        EASY_FUNCTION(::profiler::colors::White, ::profiler::OFF);
 
         auto _contextSwitchEvent = reinterpret_cast<CSwitch*>(_traceEvent->UserData);
         const auto time = static_cast<::profiler::timestamp_t>(_traceEvent->EventHeader.TimeStamp.QuadPart);

@@ -42,7 +42,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
     {
         // some code ...
 
-        EASY_BLOCK("Check something", profiler::DISABLED); // Disabled block (There is possibility to enable this block later via GUI)
+        EASY_BLOCK("Check something", profiler::OFF); // Disabled block (There is possibility to enable this block later via GUI)
         if(something){
             EASY_BLOCK("Calling bar()"); // Block with default color
             bar();
@@ -53,8 +53,13 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
         }
         EASY_END_BLOCK; // End of "Check something" block (Even if "Check something" is disabled, this EASY_END_BLOCK will not end any other block).
 
-        EASY_BLOCK("Some another block", profiler::colors::Blue, profiler::DISABLED); // Disabled block with Blue color
+        EASY_BLOCK("Some another block", profiler::colors::Blue, profiler::ON_WITHOUT_CHILDREN); // Block with Blue color without
         // some another code...
+        EASY_BLOCK("Calculate sum"); // This block will not be profiled because it's parent is ON_WITHOUT_CHILDREN
+        int sum = 0;
+        for (int i = 0; i < 10; ++i)
+            sum += i;
+        EASY_END_BLOCK; // End of "Calculate sum" block
     }
 \endcode
 
@@ -83,7 +88,7 @@ Block will be automatically completed by destructor.
     }
 
     void baz(){
-        EASY_FUNCTION(profiler::DISABLED); // Disabled block with name="baz" and default color (There is possibility to enable this block later via GUI)
+        EASY_FUNCTION(profiler::FORCE_ON); // Force enabled block with name="baz" and default color (This block will be profiled even if it's parent is OFF_RECURSIVE)
         // som code...
     }
 \endcode
@@ -158,8 +163,10 @@ will end previously opened EASY_BLOCK or EASY_FUNCTION.
 */
 # define EASY_THREAD(name)\
     EASY_THREAD_LOCAL static const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = nullptr;\
+    ::profiler::ThreadGuard EASY_TOKEN_CONCATENATE(unique_profiler_thread_guard, __LINE__);\
     if (EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) == nullptr)\
-        EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = ::profiler::registerThread(name);
+        EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = ::profiler::registerThread(name,\
+        EASY_TOKEN_CONCATENATE(unique_profiler_thread_guard, __LINE__));
 
 /** Macro for main thread registration.
 
@@ -295,7 +302,7 @@ Otherwise, no log messages will be printed.
 //////////////////////////////////////////////////////////////////////////
 
 class ProfileManager;
-class ThreadStorage;
+struct ThreadStorage;
 
 namespace profiler {
 
@@ -323,16 +330,17 @@ namespace profiler {
     class PROFILER_API BaseBlockDescriptor
     {
         friend ::ProfileManager;
+        friend ::ThreadStorage;
 
     protected:
 
-        block_id_t      m_id; ///< This descriptor id (We can afford this spending because there are much more blocks than descriptors)
-        int           m_line; ///< Line number in the source file
-        color_t      m_color; ///< Color of the block packed into 1-byte structure
-        block_type_t  m_type; ///< Type of the block (See BlockType)
-        bool       m_enabled; ///< If false then blocks with such id() will not be stored by profiler during profile session
+        block_id_t          m_id; ///< This descriptor id (We can afford this spending because there are much more blocks than descriptors)
+        int               m_line; ///< Line number in the source file
+        color_t          m_color; ///< Color of the block packed into 1-byte structure
+        block_type_t      m_type; ///< Type of the block (See BlockType)
+        EasyBlockStatus m_status; ///< If false then blocks with such id() will not be stored by profiler during profile session
 
-        BaseBlockDescriptor(block_id_t _id, bool _enabled, int _line, block_type_t _block_type, color_t _color);
+        BaseBlockDescriptor(block_id_t _id, EasyBlockStatus _status, int _line, block_type_t _block_type, color_t _color);
 
     public:
 
@@ -340,7 +348,7 @@ namespace profiler {
         inline int line() const { return m_line; }
         inline color_t color() const { return m_color; }
         inline block_type_t type() const { return m_type; }
-        inline bool enabled() const { return m_enabled; }
+        inline EasyBlockStatus status() const { return m_status; }
 
     }; // END of class BaseBlockDescriptor.
 
@@ -381,17 +389,17 @@ namespace profiler {
     {
         friend ::ProfileManager;
 
-        const char*     m_name; ///< Static name of all blocks of the same type (blocks can have dynamic name) which is, in pair with descriptor id, a unique block identifier
-        const char* m_filename; ///< Source file name where this block is declared
-        bool*        m_pEnable; ///< Pointer to the enable flag in unordered_map
-        uint16_t        m_size; ///< Used memory size
-        bool         m_expired; ///< Is this descriptor expired
+        const char*         m_name; ///< Static name of all blocks of the same type (blocks can have dynamic name) which is, in pair with descriptor id, a unique block identifier
+        const char*     m_filename; ///< Source file name where this block is declared
+        EasyBlockStatus* m_pStatus; ///< Pointer to the enable flag in unordered_map
+        uint16_t            m_size; ///< Used memory size
+        bool             m_expired; ///< Is this descriptor expired
 
-        BlockDescriptor(bool _enabled, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color);
+        BlockDescriptor(EasyBlockStatus _status, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color);
 
     public:
 
-        BlockDescriptor(block_id_t _id, bool _enabled, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color);
+        BlockDescriptor(block_id_t _id, EasyBlockStatus _status, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color);
 
         inline const char* name() const {
             return m_name;
@@ -410,8 +418,8 @@ namespace profiler {
         friend ::ProfileManager;
         friend ::ThreadStorage;
 
-        const char* m_name;
-        bool     m_enabled;
+        const char*       m_name;
+        EasyBlockStatus m_status;
 
     private:
 
@@ -420,7 +428,8 @@ namespace profiler {
         void finish();
         void finish(timestamp_t _time);
         inline bool finished() const { return m_end >= m_begin; }
-        inline bool enabled() const { return m_enabled; }
+        inline EasyBlockStatus status() const { return m_status; }
+        inline void setStatus(EasyBlockStatus _status) { m_status = _status; }
 
     public:
 
@@ -459,6 +468,13 @@ namespace profiler {
 
     }; // END of class BlockDescRef.
 
+    class PROFILER_API ThreadGuard final {
+        friend ::ProfileManager;
+        thread_id_t m_id = 0;
+    public:
+        ~ThreadGuard();
+    };
+
     //////////////////////////////////////////////////////////////////////
     // Core API
     // Note: it is better to use macros defined above than a direct calls to API.
@@ -472,7 +488,7 @@ namespace profiler {
 
         \ingroup profiler
         */
-        PROFILER_API const BaseBlockDescriptor* registerDescription(bool _enabled, const char* _autogenUniqueId, const char* _compiletimeName, const char* _filename, int _line, block_type_t _block_type, color_t _color);
+        PROFILER_API const BaseBlockDescriptor* registerDescription(EasyBlockStatus _status, const char* _autogenUniqueId, const char* _compiletimeName, const char* _filename, int _line, block_type_t _block_type, color_t _color);
 
         /** Stores event in the blocks list.
 
@@ -517,7 +533,7 @@ namespace profiler {
 
         \ingroup profiler
         */
-        PROFILER_API const char* registerThread(const char* _name);
+        PROFILER_API const char* registerThread(const char* _name, ThreadGuard&);
 
         /** Enable or disable event tracing.
 
@@ -555,13 +571,9 @@ namespace profiler {
         PROFILER_API const char* getContextSwitchLogFilename();
 #endif
 
-	PROFILER_API void        startListenSignalToCapture();
-        PROFILER_API void        stopListenSignalToCapture();
+        PROFILER_API void startListenSignalToCapture();
+        PROFILER_API void stopListenSignalToCapture();
 
-    }
-
-    inline void setEnabled(::profiler::EasyEnableFlag _isEnable) {
-        setEnabled(_isEnable == ::profiler::ENABLED);
     }
 
     //////////////////////////////////////////////////////////////////////
