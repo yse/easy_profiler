@@ -121,11 +121,11 @@ EasyMainWindow::EasyMainWindow() : Parent()
     auto toolbar = addToolBar("MainToolBar");
     toolbar->setObjectName("ProfilerGUI_MainToolBar");
 
-    m_captureAction = toolbar->addAction(QIcon(":/Start"), "Capture", this, &This::onCaptureClicked);
+    m_captureAction = toolbar->addAction(QIcon(":/Start"), tr("Capture"), this, SLOT(onCaptureClicked(bool)));
     m_captureAction->setEnabled(false);
 
     toolbar->addSeparator();
-    m_connectAction = toolbar->addAction(QIcon(":/Connection"), "Connect", this, &This::onConnectClicked);
+    m_connectAction = toolbar->addAction(QIcon(":/Connection"), tr("Connect"), this, SLOT(onConnectClicked(bool)));
 
     toolbar->addWidget(new QLabel(" IP:"));
     m_ipEdit = new QLineEdit();
@@ -191,17 +191,17 @@ EasyMainWindow::EasyMainWindow() : Parent()
 
 
     auto menu = menuBar()->addMenu("&File");
-    menu->addAction(QIcon(":/Open"), "&Open", this, &This::onOpenFileClicked);
-    menu->addAction(QIcon(":/Reload"), "&Reload", this, &This::onReloadFileClicked);
+    menu->addAction(QIcon(":/Open"), "&Open", this, SLOT(onOpenFileClicked(bool)));
+    menu->addAction(QIcon(":/Reload"), "&Reload", this, SLOT(onReloadFileClicked(bool)));
     menu->addSeparator();
-    menu->addAction(QIcon(":/Exit"), "&Exit", this, &This::onExitClicked);
+    menu->addAction(QIcon(":/Exit"), "&Exit", this, SLOT(onExitClicked(bool)));
 
 
 
     menu = menuBar()->addMenu("&View");
 
-    menu->addAction(QIcon(":/Expand"), "Expand all", this, &This::onExpandAllClicked);
-    menu->addAction(QIcon(":/Collapse"), "Collapse all", this, &This::onCollapseAllClicked);
+    menu->addAction(QIcon(":/Expand"), "Expand all", this, SLOT(onExpandAllClicked(bool)));
+    menu->addAction(QIcon(":/Collapse"), "Collapse all", this,SLOT(onCollapseAllClicked(bool)));
 
     menu->addSeparator();
 
@@ -257,7 +257,7 @@ EasyMainWindow::EasyMainWindow() : Parent()
 
 
     menu = menuBar()->addMenu("&Edit");
-    m_editBlocksAction = menu->addAction("Edit blocks", this, &This::onEditBlocksClicked);
+    m_editBlocksAction = menu->addAction(tr("Edit blocks"), this, SLOT(onEditBlocksClicked(bool)));
     m_editBlocksAction->setEnabled(false);
 
 
@@ -337,7 +337,7 @@ void EasyMainWindow::listen()
   
     //std::this_thread::sleep_for(std::chrono::seconds(2));
     static const int buffer_size = 8 * 1024 * 1024;
-    char buffer[buffer_size] = {};
+    char*buffer = new char[buffer_size];
     int seek = 0;
     int bytes = 0;
 
@@ -481,6 +481,8 @@ void EasyMainWindow::listen()
             }
         }
     }
+
+    delete [] buffer;
 }
 
 EasyMainWindow::~EasyMainWindow()

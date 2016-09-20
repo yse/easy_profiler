@@ -26,6 +26,13 @@ add_definitions(
     -D_BUILD_PROFILER
 )
 
+if(WIN32)
+add_definitions(
+    -D_WINSOCK_DEPRECATED_NO_WARNINGS
+)
+endif(WIN32)
+
+
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 
 if(UNIX)
