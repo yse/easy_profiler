@@ -1041,12 +1041,6 @@ void EasyMainWindow::readTcpData()
                 
             }
 
-            
-
-            if (m_receivedProfileData.str().size() > necessarySize)
-            {
-                qInfo() << "recieve more than necessary d=" << m_receivedProfileData.str().size() - necessarySize;
-            }
             if (m_recFrames)
             {
                 m_receivedProfileData.write(data.data(), data.size());

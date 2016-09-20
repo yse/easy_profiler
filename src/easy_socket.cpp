@@ -165,7 +165,7 @@ int EasySocket::send(const void *buf, size_t nbyte)
     if(!checkSocket(m_replySocket))  return -1;
     int res = 0;
 #ifdef _WIN32
-    res = ::send(m_replySocket, (const char*)buf, nbyte, 0);
+    res = ::send(m_replySocket, (const char*)buf, (int)nbyte, 0);
 #else
     res = ::write(m_replySocket,buf,nbyte);
 #endif
@@ -178,7 +178,7 @@ int EasySocket::receive(void *buf, size_t nbyte)
     if(!checkSocket(m_replySocket))  return -1;
     int res = 0;
 #ifdef _WIN32
-    res = ::recv(m_replySocket, (char*)buf, nbyte, 0);
+    res = ::recv(m_replySocket, (char*)buf, (int)nbyte, 0);
 #else
     res = ::read(m_replySocket,buf,nbyte);
 #endif
@@ -203,19 +203,19 @@ int EasySocket::accept()
     if(!checkSocket(m_socket)) return -1;
     m_replySocket = ::accept(m_socket,nullptr,nullptr);
 
-    checkResult(m_replySocket);
+    checkResult((int)m_replySocket);
     if(checkSocket(m_replySocket))
     {
         int send_buffer = 64*1024*1024;
         int send_buffer_sizeof = sizeof(int);
         setsockopt(m_replySocket, SOL_SOCKET, SO_SNDBUF, (char*)&send_buffer, send_buffer_sizeof);
-
+        
         //int flag = 1;
         //int result = setsockopt(m_replySocket,IPPROTO_TCP,TCP_NODELAY,(char *)&flag,sizeof(int));
 
         //setBlocking(m_replySocket,true);
     }
-    return m_replySocket;
+    return (int)m_replySocket;
 }
 
 bool EasySocket::setAddress(const char *serv, uint16_t portno)
