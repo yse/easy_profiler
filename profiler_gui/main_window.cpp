@@ -129,7 +129,7 @@ EasyMainWindow::EasyMainWindow() : Parent()
 
     toolbar->addWidget(new QLabel(" IP:"));
     m_ipEdit = new QLineEdit();
-    m_ipEdit->setMaximumWidth(80);
+    m_ipEdit->setMaximumWidth(100);
     QRegExp rx("[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}");
     m_ipEdit->setInputMask("000.000.000.000;");
     m_ipEdit->setValidator(new QRegExpValidator(rx, m_ipEdit));
@@ -138,7 +138,7 @@ EasyMainWindow::EasyMainWindow() : Parent()
 
     toolbar->addWidget(new QLabel(" Port:"));
     m_portEdit = new QLineEdit();
-    m_portEdit->setMaximumWidth(64);
+    m_portEdit->setMaximumWidth(80);
     m_portEdit->setValidator(new QIntValidator(1024, 65536, m_portEdit));
     m_portEdit->setText(QString::number(::profiler::DEFAULT_PORT));
     toolbar->addWidget(m_portEdit);
