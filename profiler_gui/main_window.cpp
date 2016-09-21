@@ -120,6 +120,7 @@ EasyMainWindow::EasyMainWindow() : Parent()
 
     auto toolbar = addToolBar("MainToolBar");
     toolbar->setObjectName("ProfilerGUI_MainToolBar");
+    toolbar->addAction(QIcon(":/Delete"), tr("Clear all"), this, SLOT(onDeleteClicked(bool)));
 
     m_captureAction = toolbar->addAction(QIcon(":/Start"), tr("Capture"), this, SLOT(onCaptureClicked(bool)));
     m_captureAction->setEnabled(false);
@@ -259,6 +260,8 @@ EasyMainWindow::EasyMainWindow() : Parent()
     menu = menuBar()->addMenu("&Edit");
     m_editBlocksAction = menu->addAction(tr("Edit blocks"), this, SLOT(onEditBlocksClicked(bool)));
     m_editBlocksAction->setEnabled(false);
+    action = menu->addAction(tr("Clear all"), this, SLOT(onDeleteClicked(bool)));
+    SET_ICON(action, ":/Delete");
 
 
 
@@ -469,7 +472,7 @@ void EasyMainWindow::listen()
                         loaded += toWrite;
                         seek = toWrite;
 
-                        m_downloadedBytes.store((loaded / (neededSize+1)) * 100);
+                        m_downloadedBytes.store((100 * loaded / (neededSize + 1)), ::std::memory_order_release);
                     }
 
                     break;
@@ -526,6 +529,30 @@ void EasyMainWindow::onReloadFileClicked(bool)
     if (m_lastFile.isEmpty())
         return;
     loadFile(m_lastFile);
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void EasyMainWindow::onDeleteClicked(bool)
+{
+    static_cast<EasyTreeWidget*>(m_treeWidget->widget())->clearSilent(true);
+    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->clear();
+
+#if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
+    static_cast<EasyDescWidget*>(m_descTreeWidget->widget())->clear();
+#endif
+    if (m_dialogDescTree != nullptr)
+        m_dialogDescTree->clear();
+    m_editBlocksAction->setEnabled(false);
+
+    EASY_GLOBALS.selected_thread = 0;
+    ::profiler_gui::set_max(EASY_GLOBALS.selected_block);
+    EASY_GLOBALS.profiler_blocks.clear();
+    EASY_GLOBALS.descriptors.clear();
+    EASY_GLOBALS.gui_blocks.clear();
+
+    m_serializedBlocks.clear();
+    m_serializedDescriptors.clear();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -768,7 +795,7 @@ void EasyMainWindow::onDownloadTimeout()
         m_downloadedTimer.stop();
     }
     else{
-        m_downloadingProgress->setValue(m_downloadedBytes.load());
+        m_downloadingProgress->setValue(m_downloadedBytes.load(::std::memory_order_acquire));
     }
     
 }
@@ -865,17 +892,17 @@ EasyFileReader::~EasyFileReader()
 
 bool EasyFileReader::done() const
 {
-    return m_bDone.load();
+    return m_bDone.load(::std::memory_order_acquire);
 }
 
 int EasyFileReader::progress() const
 {
-    return m_progress.load();
+    return m_progress.load(::std::memory_order_acquire);
 }
 
 unsigned int EasyFileReader::size() const
 {
-    return m_size.load();
+    return m_size.load(::std::memory_order_acquire);
 }
 
 const QString& EasyFileReader::filename() const
@@ -889,21 +916,21 @@ void EasyFileReader::load(const QString& _filename)
 
     m_filename = _filename;
     m_thread = ::std::move(::std::thread([this](bool _enableStatistics) {
-        m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_serializedBlocks, m_serializedDescriptors, m_descriptors, m_blocks, m_blocksTree, _enableStatistics));
-        m_progress.store(100);
-        m_bDone.store(true);
+        m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_serializedBlocks, m_serializedDescriptors, m_descriptors, m_blocks, m_blocksTree, _enableStatistics), ::std::memory_order_release);
+        m_progress.store(100, ::std::memory_order_release);
+        m_bDone.store(true, ::std::memory_order_release);
     }, EASY_GLOBALS.enable_statistics));
 }
 
 void EasyFileReader::interrupt()
 {
-    m_progress.store(-100);
+    m_progress.store(-100, ::std::memory_order_release);
     if (m_thread.joinable())
         m_thread.join();
 
-    m_bDone.store(false);
-    m_progress.store(0);
-    m_size.store(0);
+    m_bDone.store(false, ::std::memory_order_release);
+    m_progress.store(0, ::std::memory_order_release);
+    m_size.store(0, ::std::memory_order_release);
     m_serializedBlocks.clear();
     m_serializedDescriptors.clear();
     m_descriptors.clear();

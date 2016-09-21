@@ -57,6 +57,8 @@ namespace profiler {
         {
         }
 
+        //BlockStatistics() = default;
+
         inline ::profiler::timestamp_t average_duration() const
         {
             return total_duration / calls_number;
@@ -65,7 +67,7 @@ namespace profiler {
     }; // END of struct BlockStatistics.
 #pragma pack(pop)
 
-    extern "C" void PROFILER_API release_stats(BlockStatistics*& _stats);
+    extern "C" PROFILER_API void release_stats(BlockStatistics*& _stats);
 
     //////////////////////////////////////////////////////////////////////////
 
@@ -208,13 +210,11 @@ namespace profiler {
 
         inline bool got_name() const
         {
-            //return thread_name && *thread_name != 0;
             return thread_name.front() != 0;
         }
 
         inline const char* name() const
         {
-            //return thread_name;
             return thread_name.c_str();
         }
 
@@ -237,17 +237,19 @@ namespace profiler {
 
     class PROFILER_API SerializedData final
     {
-        char* m_data;
+        char*  m_data;
+        size_t m_size;
 
     public:
 
-        SerializedData() : m_data(nullptr)
+        SerializedData() : m_data(nullptr), m_size(0)
         {
         }
 
-        SerializedData(SerializedData&& that) : m_data(that.m_data)
+        SerializedData(SerializedData&& that) : m_data(that.m_data), m_size(that.m_size)
         {
             that.m_data = nullptr;
+            that.m_size = 0;
         }
 
         ~SerializedData()
@@ -255,33 +257,57 @@ namespace profiler {
             clear();
         }
 
-        void set(char* _data);
+        void set(size_t _size);
+        void extend(size_t _size);
 
         SerializedData& operator = (SerializedData&& that)
         {
-            set(that.m_data);
+            set(that.m_data, that.m_size);
             that.m_data = nullptr;
+            that.m_size = 0;
             return *this;
         }
 
-        char* operator[](uint64_t i)
+        char* operator [] (uint64_t i)
         {
             return m_data + i;
         }
 
+        size_t size() const
+        {
+            return m_size;
+        }
+
+        char* data()
+        {
+            return m_data;
+        }
+
+        const char* data() const
+        {
+            return m_data;
+        }
+
         void clear()
         {
-            set(nullptr);
+            set(nullptr, 0);
         }
 
         void swap(SerializedData& other)
         {
-            auto temp = other.m_data;
+            char* d = other.m_data;
+            size_t sz = other.m_size;
+
             other.m_data = m_data;
-            m_data = temp;
+            other.m_size = m_size;
+
+            m_data = d;
+            m_size = sz;
         }
 
     private:
+
+        void set(char* _data, size_t _size);
 
         SerializedData(const SerializedData&) = delete;
         SerializedData& operator = (const SerializedData&) = delete;
@@ -294,18 +320,18 @@ namespace profiler {
 
 } // END of namespace profiler.
 
-extern "C" ::profiler::block_index_t PROFILER_API fillTreesFromFile(::std::atomic<int>& progress, const char* filename,
+extern "C" PROFILER_API ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progress, const char* filename,
                                                                     ::profiler::SerializedData& serialized_blocks,
                                                                     ::profiler::SerializedData& serialized_descriptors,
                                                                     ::profiler::descriptors_list_t& descriptors,
                                                                     ::profiler::blocks_t& _blocks,
                                                                     ::profiler::thread_blocks_tree_t& threaded_trees,
-                                                                    bool gather_statistics = false);
+                                                                    bool gather_statistics);
 
 inline ::profiler::block_index_t fillTreesFromFile(const char* filename, ::profiler::SerializedData& serialized_blocks,
                                                    ::profiler::SerializedData& serialized_descriptors, ::profiler::descriptors_list_t& descriptors,
                                                    ::profiler::blocks_t& _blocks, ::profiler::thread_blocks_tree_t& threaded_trees,
-                                                   bool gather_statistics = false)
+                                                   bool gather_statistics)
 {
     ::std::atomic<int> progress = ATOMIC_VAR_INIT(0);
     return fillTreesFromFile(progress, filename, serialized_blocks, serialized_descriptors, descriptors, _blocks, threaded_trees, gather_statistics);

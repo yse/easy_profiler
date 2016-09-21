@@ -145,6 +145,8 @@ public:
 
     // Public non-virtual methods
 
+    void clear();
+
     qreal getWindowScale() const;
     ::profiler::thread_id_t minimapThread() const;
 

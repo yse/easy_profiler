@@ -54,24 +54,42 @@
 
 namespace profiler {
 
-    void SerializedData::set(char* _data)
+    void SerializedData::set(char* _data, size_t _size)
     {
-        if (m_data != nullptr)
-            delete[] m_data;
+        delete [] m_data;
         m_data = _data;
+        m_size = _size;
     }
 
-    extern "C" void release_stats(BlockStatistics*& _stats)
+    void SerializedData::set(size_t _size)
     {
-        if (!_stats)
-        {
-            return;
+        if (_size != 0)
+            set(new char[_size], _size);
+        else
+            set(nullptr, 0);
+    }
+
+    void SerializedData::extend(size_t _size)
+    {
+        auto olddata = m_data;
+        auto oldsize = m_size;
+
+        m_size = oldsize + _size;
+        m_data = new char[m_size];
+
+        if (olddata != nullptr) {
+            memcpy(m_data, olddata, oldsize);
+            delete [] olddata;
         }
+    }
+
+    extern "C" PROFILER_API void release_stats(BlockStatistics*& _stats)
+    {
+        if (_stats == nullptr)
+            return;
 
         if (--_stats->calls_number == 0)
-        {
             delete _stats;
-        }
 
         _stats = nullptr;
     }
@@ -159,14 +177,53 @@ void update_statistics_recursive(StatsMap& _stats_map, ::profiler::BlocksTree& _
 {
     _current.per_frame_stats = update_statistics(_stats_map, _current, _current_index, _parent_index);
     for (auto i : _current.children)
-    {
         update_statistics_recursive(_stats_map, _blocks[i], i, _parent_index, _blocks);
-    }
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progress, const char* filename, ::profiler::SerializedData& serialized_blocks, ::profiler::SerializedData& serialized_descriptors, ::profiler::descriptors_list_t& descriptors, ::profiler::blocks_t& blocks, ::profiler::thread_blocks_tree_t& threaded_trees, bool gather_statistics)
+/*void validate_pointers(::std::atomic<int>& _progress, const char* _oldbase, ::profiler::SerializedData& _serialized_blocks, ::profiler::blocks_t& _blocks, size_t _size)
+{
+    if (_oldbase == nullptr)
+    {
+        _progress.store(25, ::std::memory_order_release);
+        return;
+    }
+
+    for (size_t i = 0; i < _size; ++i)
+    {
+        auto& tree = _blocks[i];
+        auto dist = ::std::distance(_oldbase, reinterpret_cast<const char*>(tree.node));
+        tree.node = reinterpret_cast<::profiler::SerializedBlock*>(_serialized_blocks.data() + dist);
+        _progress.store(20 + static_cast<int>(5 * i / _size), ::std::memory_order_release);
+    }
+}
+
+void validate_pointers(::std::atomic<int>& _progress, const char* _oldbase, ::profiler::SerializedData& _serialized_descriptors, ::profiler::descriptors_list_t& _descriptors, size_t _size)
+{
+    if (_oldbase == nullptr)
+    {
+        _progress.store(5, ::std::memory_order_release);
+        return;
+    }
+
+    for (size_t i = 0; i < _size; ++i)
+    {
+        auto dist = ::std::distance(_oldbase, reinterpret_cast<const char*>(_descriptors[i]));
+        _descriptors[i] = reinterpret_cast<::profiler::SerializedBlockDescriptor*>(_serialized_descriptors.data() + dist);
+        _progress.store(static_cast<int>(5 * i / _size));
+    }
+}*/
+
+//////////////////////////////////////////////////////////////////////////
+
+extern "C" PROFILER_API::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progress, const char* filename,
+                                                                   ::profiler::SerializedData& serialized_blocks,
+                                                                   ::profiler::SerializedData& serialized_descriptors,
+                                                                   ::profiler::descriptors_list_t& descriptors,
+                                                                   ::profiler::blocks_t& blocks,
+                                                                   ::profiler::thread_blocks_tree_t& threaded_trees,
+                                                                   bool gather_statistics)
 {
     EASY_FUNCTION(::profiler::colors::Cyan);
 
@@ -189,10 +246,6 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
     if (memory_size == 0)
         return 0;
 
-    serialized_blocks.set(new char[memory_size]);
-    //memset(serialized_blocks[0], 0, memory_size);
-
-
     uint32_t total_descriptors_number = 0;
     inFile.read((char*)&total_descriptors_number, sizeof(decltype(total_descriptors_number)));
     if (total_descriptors_number == 0)
@@ -204,7 +257,9 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
         return 0;
 
     descriptors.reserve(total_descriptors_number);
-    serialized_descriptors.set(new char[descriptors_memory_size]);
+    //const char* olddata = append_regime ? serialized_descriptors.data() : nullptr;
+    serialized_descriptors.set(descriptors_memory_size);
+    //validate_pointers(progress, olddata, serialized_descriptors, descriptors, descriptors.size());
 
     uint64_t i = 0;
     while (!inFile.eof() && descriptors.size() < total_descriptors_number)
@@ -228,19 +283,25 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
         descriptors.push_back(descriptor);
 
         i += sz;
-        progress.store(static_cast<int>(10 * i / descriptors_memory_size));
+        progress.store(static_cast<int>(15 * i / descriptors_memory_size), ::std::memory_order_release);
     }
+
+    if (progress.load(::std::memory_order_acquire) < 0)
+        return 0; // Loading interrupted
 
     typedef ::std::unordered_map<::profiler::thread_id_t, StatsMap, ::profiler::passthrough_hash> PerThreadStats;
     PerThreadStats thread_statistics, parent_statistics, frame_statistics;
     IdMap identification_table;
 
-    ::std::vector<char> name;
+    blocks.reserve(total_blocks_number);
+    //olddata = append_regime ? serialized_blocks.data() : nullptr;
+    serialized_blocks.set(memory_size);
+    //validate_pointers(progress, olddata, serialized_blocks, blocks, blocks.size());
 
     i = 0;
     uint32_t read_number = 0;
     ::profiler::block_index_t blocks_counter = 0;
-    blocks.reserve(total_blocks_number);
+    ::std::vector<char> name;
     while (!inFile.eof() && read_number < total_blocks_number)
     {
         EASY_BLOCK("Read thread data", ::profiler::colors::DarkGreen);
@@ -297,14 +358,14 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
 
             root.sync.emplace_back(block_index);
 
-            if (progress.load() < 0)
-                break;
+            if (progress.load(::std::memory_order_acquire) < 0)
+                break; // Loading interrupted
 
-            progress.store(10 + static_cast<int>(80 * i / memory_size));
+            progress.store(20 + static_cast<int>(70 * i / memory_size), ::std::memory_order_release);
         }
 
-        if (progress.load() < 0 || inFile.eof())
-            break;
+        if (progress.load(::std::memory_order_acquire) < 0 || inFile.eof())
+            break; // Loading interrupted
 
         blocks_number_in_thread = 0;
         inFile.read((char*)&blocks_number_in_thread, sizeof(decltype(blocks_number_in_thread)));
@@ -434,19 +495,15 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
                 tree.per_thread_stats = update_statistics(per_thread_statistics, tree, block_index, thread_id);
             }
 
-            if (progress.load() < 0)
-                break;
-            progress.store(10 + static_cast<int>(80 * i / memory_size));
+            if (progress.load(::std::memory_order_acquire) < 0)
+                break; // Loading interrupted
+
+            progress.store(20 + static_cast<int>(70 * i / memory_size), ::std::memory_order_release);
         }
     }
 
-    if (progress.load() < 0)
-    {
-        serialized_blocks.clear();
-        threaded_trees.clear();
-        blocks.clear();
-        return 0;
-    }
+    if (progress.load(::std::memory_order_acquire) < 0)
+        return 0; // Loading interrupted
 
     EASY_BLOCK("Gather statistics for roots", ::profiler::colors::Purple);
     if (gather_statistics)
@@ -493,7 +550,7 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
         for (auto& t : statistics_threads)
         {
             t.join();
-            progress.store(90 + (10 * ++j) / n);
+            progress.store(90 + (10 * ++j) / n, ::std::memory_order_release);
         }
     }
     else
@@ -520,7 +577,7 @@ extern "C" ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progr
 
             ++root.depth;
 
-            progress.store(90 + (10 * ++j) / n);
+            progress.store(90 + (10 * ++j) / n, ::std::memory_order_release);
         }
     }
     // No need to delete BlockStatistics instances - they will be deleted inside BlocksTree destructors

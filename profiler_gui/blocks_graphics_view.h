@@ -141,7 +141,7 @@ public:
     qreal chronoTimeAux() const;
 
     void setScrollbar(EasyGraphicsScrollbar* _scrollbar);
-    void clearSilent();
+    void clear();
 
     void setTree(const ::profiler::thread_blocks_tree_t& _blocksTree);
 
@@ -246,6 +246,8 @@ public:
     void keyPressEvent(QKeyEvent* _event) override;
     void keyReleaseEvent(QKeyEvent* _event) override;
 
+    void clear();
+
     const EasyGraphicsView* view() const
     {
         return m_view;
@@ -278,6 +280,7 @@ public:
     virtual ~EasyGraphicsViewWidget();
 
     EasyGraphicsView* view();
+    void clear();
 
 private:
 

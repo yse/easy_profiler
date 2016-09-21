@@ -18,5 +18,6 @@
         <file alias="Connection">icons/lan.svg</file>
         <file alias="Connection-on">icons/lan_on.svg</file>
         <file alias="Start">icons/play.svg</file>
+        <file alias="Delete">icons/delete.svg</file>
     </qresource>
 </RCC>

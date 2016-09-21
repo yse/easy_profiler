@@ -349,6 +349,17 @@ EasyGraphicsScrollbar::~EasyGraphicsScrollbar()
 
 //////////////////////////////////////////////////////////////////////////
 
+void EasyGraphicsScrollbar::clear()
+{
+    setMinimapFrom(0, nullptr);
+    hideChrono();
+    setRange(0, 100);
+    setSliderWidth(2);
+    setValue(0);
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 qreal EasyGraphicsScrollbar::getWindowScale() const
 {
     return m_windowScale;

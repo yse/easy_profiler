@@ -307,7 +307,7 @@ EasyChronometerItem* EasyGraphicsView::createChronometer(bool _main)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::clearSilent()
+void EasyGraphicsView::clear()
 {
     const QSignalBlocker blocker(this), sceneBlocker(scene()); // block all scene signals (otherwise clear() would be extremely slow!)
 
@@ -341,7 +341,6 @@ void EasyGraphicsView::clearSilent()
     m_idleTime = 0;
 
     // Reset necessary flags
-    //m_bTest = false;
     m_bEmpty = true;
 
     // notify ProfTreeWidget that selection was reset
@@ -351,7 +350,7 @@ void EasyGraphicsView::clearSilent()
 void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTree)
 {
     // clear scene
-    clearSilent();
+    clear();
 
     if (_blocksTree.empty())
     {
@@ -450,7 +449,7 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
 
     // Calculating scene rect
     const qreal endX = time2position(finish) + 1500.0;
-    scene()->setSceneRect(0, 0, endX, y + TIMELINE_ROW_SIZE);
+    setSceneRect(0, 0, endX, y + TIMELINE_ROW_SIZE);
 
     // Center view on the beginning of the scene
     updateVisibleSceneRect();
@@ -602,11 +601,9 @@ void EasyGraphicsView::setScrollbar(EasyGraphicsScrollbar* _scrollbar)
     }
 
     m_pScrollbar = _scrollbar;
-    m_pScrollbar->setMinimapFrom(0, nullptr);
-    m_pScrollbar->hideChrono();
+    m_pScrollbar->clear();
     m_pScrollbar->setRange(0, scene()->width());
     m_pScrollbar->setSliderWidth(m_visibleSceneRect.width());
-    m_pScrollbar->setValue(0);
 
     if (makeConnect)
     {
@@ -1444,6 +1441,14 @@ EasyGraphicsView* EasyGraphicsViewWidget::view()
     return m_view;
 }
 
+void EasyGraphicsViewWidget::clear()
+{
+    m_scrollbar->clear();
+    m_threadNamesWidget->clear();
+    m_view->clear();
+    m_view->setSceneRect(0, 0, 10, 10);
+}
+
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
@@ -1506,6 +1511,17 @@ void EasyThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
         _painter->drawText(rect, Qt::AlignRight | Qt::AlignVCenter, item->threadName());
     }
 
+    const auto rect_bottom = rect.bottom();
+    if (rect_bottom < h)
+    {
+        ++i;
+        rect.translate(5, rect.height());
+        rect.setHeight(h - rect_bottom);
+        _painter->setBrush(brushes[i & 1]);
+        _painter->setPen(Qt::NoPen);
+        _painter->drawRect(rect);
+    }
+
     // Draw separator between thread names area and information area
     _painter->setPen(Qt::darkGray);
     _painter->drawLine(QLineF(0, h, w, h));
@@ -1565,6 +1581,13 @@ EasyThreadNamesWidget::EasyThreadNamesWidget(EasyGraphicsView* _view, int _addit
 EasyThreadNamesWidget::~EasyThreadNamesWidget()
 {
 
+}
+
+void EasyThreadNamesWidget::clear()
+{
+    const QSignalBlocker b(this);
+    scene()->clear();
+    setFixedWidth(100);
 }
 
 void EasyThreadNamesWidget::setVerticalScrollbarRange(int _minValue, int _maxValue)

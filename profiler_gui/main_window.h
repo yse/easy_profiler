@@ -153,6 +153,7 @@ protected slots:
 
     void onOpenFileClicked(bool);
     void onReloadFileClicked(bool);
+    void onDeleteClicked(bool);
     void onExitClicked(bool);
     void onEncodingChanged(bool);
     void onChronoTextPosChanged(bool);

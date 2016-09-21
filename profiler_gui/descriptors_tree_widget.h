@@ -152,6 +152,7 @@ public:
     // Public non-virtual methods
 
     void build();
+    void clear();
 
 private slots:
 

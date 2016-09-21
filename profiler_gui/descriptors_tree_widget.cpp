@@ -733,6 +733,11 @@ void EasyDescWidget::build()
     m_tree->build();
 }
 
+void EasyDescWidget::clear()
+{
+    m_tree->clearSilent(true);
+}
+
 void EasyDescWidget::onSeachBoxReturnPressed()
 {
     auto matches = m_tree->findNext(m_searchBox->text());
