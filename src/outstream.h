@@ -39,7 +39,7 @@
 
 namespace profiler {
 
-    class OStream final
+    class OStream
     {
         ::std::stringstream m_stream;
 

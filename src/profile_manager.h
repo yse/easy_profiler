@@ -81,8 +81,13 @@ namespace profiler {
 
 //////////////////////////////////////////////////////////////////////////
 
-#define EASY_ENABLE_BLOCK_STATUS 1
-#define EASY_ENABLE_ALIGNMENT 0
+#ifndef EASY_ENABLE_BLOCK_STATUS
+# define EASY_ENABLE_BLOCK_STATUS 1
+#endif
+
+#ifndef EASY_ENABLE_ALIGNMENT
+# define EASY_ENABLE_ALIGNMENT 0
+#endif
 
 #if EASY_ENABLE_ALIGNMENT == 0
 # define EASY_ALIGNED(TYPE, VAR, A) TYPE VAR
@@ -101,7 +106,7 @@ namespace profiler {
 #endif
 
 template <const uint16_t N>
-class chunk_allocator final
+class chunk_allocator
 {
     struct chunk { EASY_ALIGNED(int8_t, data[N], 64); chunk* prev = nullptr; };
 
@@ -248,11 +253,11 @@ const uint16_t SIZEOF_CSWITCH = sizeof(profiler::BaseBlockData) + 1 + sizeof(uin
 typedef std::vector<profiler::SerializedBlock*> serialized_list_t;
 
 template <class T, const uint16_t N>
-struct BlocksList final
+struct BlocksList
 {
     BlocksList() = default;
 
-    class Stack final {
+    class Stack {
         //std::stack<T> m_stack;
         std::vector<T> m_stack;
 
@@ -298,7 +303,7 @@ struct BlocksList final
 };
 
 
-struct ThreadStorage final
+struct ThreadStorage
 {
     BlocksList<std::reference_wrapper<profiler::Block>, SIZEOF_CSWITCH * (uint16_t)128U> blocks;
     BlocksList<profiler::Block, SIZEOF_CSWITCH * (uint16_t)128U>                           sync;
@@ -320,9 +325,13 @@ struct ThreadStorage final
 
 //////////////////////////////////////////////////////////////////////////
 
-class ProfileManager final
+class BlockDescriptor;
+
+class ProfileManager
 {
-    friend profiler::BlockDescRef;
+#ifndef EASY_MAGIC_STATIC_CPP11
+    friend class ProfileManagerInstance;
+#endif
 
     ProfileManager();
     ProfileManager(const ProfileManager& p) = delete;
@@ -330,21 +339,22 @@ class ProfileManager final
 
     typedef profiler::guard_lock<profiler::spin_lock> guard_lock_t;
     typedef std::map<profiler::thread_id_t, ThreadStorage> map_of_threads_stacks;
-    typedef std::vector<profiler::BlockDescriptor*> block_descriptors_t;
+    typedef std::vector<BlockDescriptor*> block_descriptors_t;
 
 #ifdef _WIN32
-    typedef std::unordered_map<profiler::hashed_cstr, profiler::EasyBlockStatus> blocks_enable_status_t;
+    typedef std::unordered_map<profiler::hashed_cstr, profiler::block_id_t> descriptors_map_t;
 #else
-    typedef std::unordered_map<profiler::hashed_stdstring, profiler::EasyBlockStatus> blocks_enable_status_t;
+    typedef std::unordered_map<profiler::hashed_stdstring, profiler::block_id_t> descriptors_map_t;
 #endif
 
     map_of_threads_stacks             m_threads;
     block_descriptors_t           m_descriptors;
-    blocks_enable_status_t m_blocksEnableStatus;
+    descriptors_map_t          m_descriptorsMap;
     uint64_t               m_usedMemorySize = 0;
+    profiler::timestamp_t       m_beginTime = 0;
+    profiler::timestamp_t         m_endTime = 0;
     profiler::spin_lock                  m_spin;
     profiler::spin_lock            m_storedSpin;
-    profiler::block_id_t        m_idCounter = 0;
     std::atomic_bool                m_isEnabled;
     std::atomic_bool    m_isEventTracingEnabled;
 
@@ -353,7 +363,7 @@ class ProfileManager final
 #endif
 
     uint32_t dumpBlocksToStream(profiler::OStream& _outputStream);
-    void setBlockStatus(profiler::block_id_t _id, const profiler::hashed_stdstring& _key, profiler::EasyBlockStatus _status);
+    void setBlockStatus(profiler::block_id_t _id, profiler::EasyBlockStatus _status);
 
     std::thread m_listenThread;
     bool m_isAlreadyListened = false;
@@ -367,32 +377,15 @@ public:
     static ProfileManager& instance();
     ~ProfileManager();
 
-    template <class ... TArgs>
-    const profiler::BaseBlockDescriptor* addBlockDescriptor(profiler::EasyBlockStatus _defaultStatus, const char* _autogenUniqueId, TArgs ... _args)
-    {
-        auto desc = new profiler::BlockDescriptor(_defaultStatus, _args...);
+    const profiler::BaseBlockDescriptor* addBlockDescriptor(profiler::EasyBlockStatus _defaultStatus,
+                                                            const char* _autogenUniqueId,
+                                                            const char* _name,
+                                                            const char* _filename,
+                                                            int _line,
+                                                            profiler::block_type_t _block_type,
+                                                            profiler::color_t _color);
 
-        guard_lock_t lock(m_storedSpin);
-        m_usedMemorySize += desc->m_size;
-        desc->m_id = m_idCounter++;
-        m_descriptors.emplace_back(desc);
-
-        blocks_enable_status_t::key_type key(_autogenUniqueId);
-        auto it = m_blocksEnableStatus.find(key);
-        if (it != m_blocksEnableStatus.end())
-        {
-            desc->m_status = it->second;
-            desc->m_pStatus = &it->second;
-        }
-        else
-        {
-            desc->m_pStatus = &m_blocksEnableStatus.emplace(key, desc->status()).first->second;
-        }
-
-        return desc;
-    }
-
-    void storeBlock(const profiler::BaseBlockDescriptor& _desc, const char* _runtimeName);
+    void storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName);
     void beginBlock(profiler::Block& _block);
     void endBlock();
     void setEnabled(bool isEnable);
@@ -419,7 +412,6 @@ public:
     void stopListenSignalToCapture();
 private:
 
-    void markExpired(profiler::block_id_t _id);
     ThreadStorage& threadStorage(profiler::thread_id_t _thread_id);
     ThreadStorage* _findThreadStorage(profiler::thread_id_t _thread_id);
 

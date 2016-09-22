@@ -49,7 +49,7 @@ typedef ::std::unordered_map<::profiler::thread_id_t, EasyTreeWidgetItem*, ::pro
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyTreeWidgetLoader final
+class EasyTreeWidgetLoader Q_DECL_FINAL
 {
     ThreadedItems   m_topLevelItems; ///< 
     Items                   m_items; ///< 
@@ -82,7 +82,7 @@ public:
 //////////////////////////////////////////////////////////////////////////
 
 template <class T>
-struct FillTreeClass final
+struct FillTreeClass Q_DECL_FINAL
 {
     static void setTreeInternal1(T& _safelocker, Items& _items, ThreadedItems& _topLevelItems, ::profiler::timestamp_t& _beginTime, const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, bool _colorizeRows);
     static void setTreeInternal2(T& _safelocker, Items& _items, ThreadedItems& _topLevelItems, const ::profiler::timestamp_t& _beginTime, const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, bool _colorizeRows);
@@ -91,7 +91,7 @@ struct FillTreeClass final
 
 //////////////////////////////////////////////////////////////////////////
 
-struct StubLocker final
+struct StubLocker Q_DECL_FINAL
 {
     void setDone() {}
     bool interrupted() const { return false; }

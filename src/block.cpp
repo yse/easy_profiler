@@ -44,10 +44,10 @@ Block::Block(Block&& that)
     m_end = that.m_end;
 }
 
-Block::Block(const BaseBlockDescriptor& _descriptor, const char* _runtimeName)
-    : BaseBlockData(1ULL, _descriptor.id())
+Block::Block(const BaseBlockDescriptor* _descriptor, const char* _runtimeName)
+    : BaseBlockData(1ULL, _descriptor->id())
     , m_name(_runtimeName)
-    , m_status(_descriptor.status())
+    , m_status(_descriptor->status())
 {
 
 }

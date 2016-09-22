@@ -32,7 +32,7 @@ namespace profiler {
 #if defined(_WIN32) && defined(EASY_USE_CRITICAL_SECTION)
     // std::atomic_flag on Windows works slower than critical section, so we will use it instead of std::atomic_flag...
     // By the way, Windows critical sections are slower than std::atomic_flag on Unix.
-    class spin_lock final { CRITICAL_SECTION m_lock; public:
+    class spin_lock { CRITICAL_SECTION m_lock; public:
 
         void lock() {
             EnterCriticalSection(&m_lock);
@@ -52,7 +52,7 @@ namespace profiler {
     };
 #else
     // std::atomic_flag on Unix works fine and very fast (almost instant!)
-    class spin_lock final { ::std::atomic_flag m_lock; public:
+    class spin_lock { ::std::atomic_flag m_lock; public:
 
         void lock() {
             while (m_lock.test_and_set(::std::memory_order_acquire));
@@ -69,7 +69,7 @@ namespace profiler {
 #endif
 
     template <class T>
-    class guard_lock final
+    class guard_lock
     {
         T& m_lock;
         bool m_isLocked = false;

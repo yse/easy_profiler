@@ -36,7 +36,7 @@
 
 namespace profiler_gui {
 
-    class EasyGlobalSignals final : public QObject
+    class EasyGlobalSignals Q_DECL_FINAL : public QObject
     {
         Q_OBJECT
 

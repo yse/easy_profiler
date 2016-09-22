@@ -67,7 +67,7 @@ extern "C" {
         MANAGER.setEnabled(isEnable);
     }
 
-    PROFILER_API void storeEvent(const BaseBlockDescriptor& _desc, const char* _runtimeName)
+    PROFILER_API void storeEvent(const BaseBlockDescriptor* _desc, const char* _runtimeName)
     {
         MANAGER.storeBlock(_desc, _runtimeName);
     }
@@ -145,37 +145,69 @@ BaseBlockDescriptor::BaseBlockDescriptor(block_id_t _id, EasyBlockStatus _status
 
 }
 
-BlockDescriptor::BlockDescriptor(block_id_t _id, EasyBlockStatus _status, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
-    : BaseBlockDescriptor(_id, _status, _line, _block_type, _color)
-    , m_name(_name)
-    , m_filename(_filename)
-    , m_pStatus(nullptr)
-    , m_size(static_cast<uint16_t>(sizeof(profiler::SerializedBlockDescriptor) + strlen(_name) + strlen(_filename) + 2))
-    , m_expired(false)
-{
-}
+//////////////////////////////////////////////////////////////////////////
 
-BlockDescriptor::BlockDescriptor(EasyBlockStatus _status, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
-    : BaseBlockDescriptor(0, _status, _line, _block_type, _color)
-    , m_name(_name)
-    , m_filename(_filename)
-    , m_pStatus(nullptr)
-    , m_size(static_cast<uint16_t>(sizeof(profiler::SerializedBlockDescriptor) + strlen(_name) + strlen(_filename) + 2))
-    , m_expired(false)
-{
-}
+#ifndef EASY_BLOCK_DESC_FULL_COPY
+# define EASY_BLOCK_DESC_FULL_COPY 0
+#endif
 
-BlockDescRef::~BlockDescRef()
+#if EASY_BLOCK_DESC_FULL_COPY == 0
+# define EASY_BLOCK_DESC_STRING const char*
+# define EASY_BLOCK_DESC_STRING_LEN(s) static_cast<uint16_t>(strlen(s) + 1)
+# define EASY_BLOCK_DESC_STRING_VAL(s) s
+#else
+# define EASY_BLOCK_DESC_STRING std::string
+# define EASY_BLOCK_DESC_STRING_LEN(s) static_cast<uint16_t>(s.size() + 1)
+# define EASY_BLOCK_DESC_STRING_VAL(s) s.c_str()
+#endif
+
+class BlockDescriptor : public BaseBlockDescriptor
 {
-    MANAGER.markExpired(m_desc.id());
-}
+    friend ProfileManager;
+
+    EASY_BLOCK_DESC_STRING     m_name; ///< Static name of all blocks of the same type (blocks can have dynamic name) which is, in pair with descriptor id, a unique block identifier
+    EASY_BLOCK_DESC_STRING m_filename; ///< Source file name where this block is declared
+    uint16_t                   m_size; ///< Used memory size
+
+public:
+
+    BlockDescriptor(block_id_t _id, EasyBlockStatus _status, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
+        : BaseBlockDescriptor(_id, _status, _line, _block_type, _color)
+        , m_name(_name)
+        , m_filename(_filename)
+        , m_size(static_cast<uint16_t>(sizeof(profiler::SerializedBlockDescriptor) + strlen(_name) + strlen(_filename) + 2))
+    {
+    }
+
+    const char* name() const {
+        return EASY_BLOCK_DESC_STRING_VAL(m_name);
+    }
+
+    const char* filename() const {
+        return EASY_BLOCK_DESC_STRING_VAL(m_filename);
+    }
+
+    uint16_t nameSize() const {
+        return EASY_BLOCK_DESC_STRING_LEN(m_name);
+    }
+
+    uint16_t filenameSize() const {
+        return EASY_BLOCK_DESC_STRING_LEN(m_filename);
+    }
+
+}; // END of class BlockDescriptor.
 
 //////////////////////////////////////////////////////////////////////////
 
 void ThreadStorage::storeBlock(const profiler::Block& block)
 {
 #if EASY_MEASURE_STORAGE_EXPAND != 0
-    static const auto desc = MANAGER.addBlockDescriptor(EASY_STORAGE_EXPAND_ENABLED ? profiler::ON : profiler::OFF, EASY_UNIQUE_LINE_ID, "EasyProfiler.ExpandStorage", __FILE__, __LINE__, profiler::BLOCK_TYPE_BLOCK, profiler::colors::White);
+    EASY_LOCAL_STATIC_PTR(const BaseBlockDescriptor*, desc,\
+        MANAGER.addBlockDescriptor(EASY_STORAGE_EXPAND_ENABLED ? profiler::ON : profiler::OFF, EASY_UNIQUE_LINE_ID, "EasyProfiler.ExpandStorage",\
+            __FILE__, __LINE__, profiler::BLOCK_TYPE_BLOCK, profiler::colors::White));
+
+    EASY_THREAD_LOCAL static profiler::timestamp_t beginTime = 0ULL;
+    EASY_THREAD_LOCAL static profiler::timestamp_t endTime = 0ULL;
 #endif
 
     auto name_length = static_cast<uint16_t>(strlen(block.name()));
@@ -183,14 +215,13 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
 
 #if EASY_MEASURE_STORAGE_EXPAND != 0
     const bool expanded = (desc->m_status & profiler::ON) && blocks.closedList.need_expand(size);
-    profiler::Block b(0ULL, desc->id(), "");
-    if (expanded) b.start();
+    if (expanded) beginTime = getCurrentTime();
 #endif
 
     auto data = blocks.closedList.allocate(size);
 
 #if EASY_MEASURE_STORAGE_EXPAND != 0
-    if (expanded) b.finish();
+    if (expanded) endTime = getCurrentTime();
 #endif
 
     ::new (data) SerializedBlock(block, name_length);
@@ -199,10 +230,12 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
 #if EASY_MEASURE_STORAGE_EXPAND != 0
     if (expanded)
     {
-        name_length = 0;
+        profiler::Block b(beginTime, desc->id(), "");
+        b.finish(endTime);
+
         size = static_cast<uint16_t>(sizeof(BaseBlockData) + 1);
         data = blocks.closedList.allocate(size);
-        ::new (data) SerializedBlock(b, name_length);
+        ::new (data) SerializedBlock(b, 0);
         blocks.usedMemorySize += size;
     }
 #endif
@@ -258,21 +291,23 @@ ProfileManager::~ProfileManager()
     }
 }
 
+#ifndef EASY_MAGIC_STATIC_CPP11
+class ProfileManagerInstance {
+    friend ProfileManager;
+    ProfileManager instance;
+} PROFILE_MANAGER;
+#endif
+
 ProfileManager& ProfileManager::instance()
 {
+#ifndef EASY_MAGIC_STATIC_CPP11
+    return PROFILE_MANAGER.instance;
+#else
     ///C++11 makes possible to create Singleton without any warry about thread-safeness
     ///http://preshing.com/20130930/double-checked-locking-is-fixed-in-cpp11/
-    static ProfileManager m_profileManager;
-    return m_profileManager;
-}
-
-void ProfileManager::markExpired(profiler::block_id_t _id)
-{
-    // Mark block descriptor as expired (descriptor may become expired if it's .dll/.so have been unloaded during application execution).
-    // We can not delete this descriptor now, because we need to send/write all collected data first.
-
-    guard_lock_t lock(m_storedSpin);
-    m_descriptors[_id]->m_expired = true;
+    static ProfileManager profileManager;
+    return profileManager;
+#endif
 }
 
 ThreadStorage& ProfileManager::threadStorage(profiler::thread_id_t _thread_id)
@@ -287,9 +322,32 @@ ThreadStorage* ProfileManager::_findThreadStorage(profiler::thread_id_t _thread_
     return it != m_threads.end() ? &it->second : nullptr;
 }
 
-void ProfileManager::storeBlock(const profiler::BaseBlockDescriptor& _desc, const char* _runtimeName)
+const BaseBlockDescriptor* ProfileManager::addBlockDescriptor(EasyBlockStatus _defaultStatus,
+                                                        const char* _autogenUniqueId,
+                                                        const char* _name,
+                                                        const char* _filename,
+                                                        int _line,
+                                                        block_type_t _block_type,
+                                                        color_t _color)
 {
-    if (!m_isEnabled.load(std::memory_order_acquire) || !(_desc.m_status & profiler::ON))
+    guard_lock_t lock(m_storedSpin);
+
+    descriptors_map_t::key_type key(_autogenUniqueId);
+    auto it = m_descriptorsMap.find(key);
+    if (it != m_descriptorsMap.end())
+        return m_descriptors[it->second];
+
+    auto desc = new BlockDescriptor(static_cast<block_id_t>(m_descriptors.size()), _defaultStatus, _name, _filename, _line, _block_type, _color);
+    m_usedMemorySize += desc->m_size;
+    m_descriptors.emplace_back(desc);
+    m_descriptorsMap.emplace(key, desc->id());
+
+    return desc;
+}
+
+void ProfileManager::storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName)
+{
+    if (!m_isEnabled.load(std::memory_order_acquire) || !(_desc->m_status & profiler::ON))
         return;
 
     if (THREAD_STORAGE == nullptr)
@@ -400,13 +458,21 @@ void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, profiler
 
 void ProfileManager::setEnabled(bool isEnable)
 {
-    m_isEnabled.store(isEnable, std::memory_order_release);
+    auto time = getCurrentTime();
+    const bool prev = m_isEnabled.exchange(isEnable, std::memory_order_release);
+    if (prev == isEnable)
+        return;
 
 #ifdef _WIN32
-    if (isEnable) {
+    if (isEnable)
+    {
+        m_beginTime = time;
         if (m_isEventTracingEnabled.load(std::memory_order_acquire))
             EasyEventTracer::instance().enable(true);
-    } else {
+    }
+    else
+    {
+        m_endTime = time;
         EasyEventTracer::instance().disable();
     }
 #endif
@@ -489,6 +555,10 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
     _outputStream.write(0LL);
 #endif
 
+    // Write begin and end time
+    _outputStream.write(m_beginTime);
+    _outputStream.write(m_endTime);
+
     // Write blocks number and used memory size
     _outputStream.write(blocks_number);
     _outputStream.write(usedMemorySize);
@@ -498,21 +568,15 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
     // Write block descriptors
     for (const auto descriptor : m_descriptors)
     {
-        if (descriptor == nullptr)
-        {
-            _outputStream.write<uint16_t>(0U);
-            continue;
-        }
-
-        const auto name_size = static_cast<uint16_t>(strlen(descriptor->name()) + 1);
-        const auto filename_size = static_cast<uint16_t>(strlen(descriptor->file()) + 1);
+        const auto name_size = descriptor->nameSize();
+        const auto filename_size = descriptor->filenameSize();
         const auto size = static_cast<uint16_t>(sizeof(profiler::SerializedBlockDescriptor) + name_size + filename_size);
 
         _outputStream.write(size);
         _outputStream.write<profiler::BaseBlockDescriptor>(*descriptor);
         _outputStream.write(name_size);
         _outputStream.write(descriptor->name(), name_size);
-        _outputStream.write(descriptor->file(), filename_size);
+        _outputStream.write(descriptor->filename(), filename_size);
     }
 
     // Write blocks and context switch events for each thread
@@ -542,17 +606,6 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
             m_threads.erase(it++); // Remove expired thread after writing all profiled information
         else
             ++it;
-    }
-
-    // Remove all expired block descriptors (descriptor may become expired if it's .dll/.so have been unloaded during application execution)
-    for (auto& desc : m_descriptors)
-    {
-        if (desc == nullptr || !desc->m_expired)
-            continue;
-
-        m_usedMemorySize -= desc->m_size;
-        delete desc;
-        desc = nullptr;
     }
 
     //if (wasEnabled)
@@ -595,26 +648,17 @@ const char* ProfileManager::registerThread(const char* name, ThreadGuard& thread
     return THREAD_STORAGE->name.c_str();
 }
 
-void ProfileManager::setBlockStatus(block_id_t _id, const hashed_stdstring& _key, EasyBlockStatus _status)
+void ProfileManager::setBlockStatus(block_id_t _id, EasyBlockStatus _status)
 {
+    if (m_isEnabled.load(std::memory_order_acquire))
+        return; // Changing blocks statuses is restricted while profile session is active
+
     guard_lock_t lock(m_storedSpin);
-
-    auto desc = m_descriptors[_id];
-    if (desc != nullptr)
+    if (_id < m_descriptors.size())
     {
+        auto desc = m_descriptors[_id];
         lock.unlock();
-
-        *desc->m_pStatus = _status;
-        desc->m_status = _status; // TODO: possible concurrent access, atomic may be needed
-    }
-    else
-    {
-#ifdef _WIN32
-        blocks_enable_status_t::key_type key(_key.c_str(), _key.size(), _key.hcode());
-        m_blocksEnableStatus[key] = _status;
-#else
-        m_blocksEnableStatus[_key] = _status;
-#endif
+        desc->m_status = _status;
     }
 }
 

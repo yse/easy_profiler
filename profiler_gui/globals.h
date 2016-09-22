@@ -86,7 +86,7 @@ namespace profiler_gui {
 
     //////////////////////////////////////////////////////////////////////////
 
-    struct EasyGlobals final
+    struct EasyGlobals Q_DECL_FINAL
     {
         static EasyGlobals& instance();
 

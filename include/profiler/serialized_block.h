@@ -25,7 +25,7 @@ namespace profiler {
 
     //////////////////////////////////////////////////////////////////////////
 
-    class PROFILER_API SerializedBlock final : public BaseBlockData
+    class PROFILER_API SerializedBlock EASY_FINAL : public BaseBlockData
     {
         friend ::ProfileManager;
         friend ::ThreadStorage;
@@ -48,7 +48,7 @@ namespace profiler {
     //////////////////////////////////////////////////////////////////////////
 
 #pragma pack(push, 1)
-    class PROFILER_API SerializedBlockDescriptor final : public BaseBlockDescriptor
+    class PROFILER_API SerializedBlockDescriptor EASY_FINAL : public BaseBlockDescriptor
     {
         uint16_t m_nameLength;
 

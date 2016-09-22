@@ -217,6 +217,8 @@ void validate_pointers(::std::atomic<int>& _progress, const char* _oldbase, ::pr
 
 //////////////////////////////////////////////////////////////////////////
 
+const int64_t TIME_FACTOR = 1000000000LL;
+
 extern "C" PROFILER_API::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progress, const char* filename,
                                                                    ::profiler::SerializedData& serialized_blocks,
                                                                    ::profiler::SerializedData& serialized_descriptors,
@@ -235,6 +237,17 @@ extern "C" PROFILER_API::profiler::block_index_t fillTreesFromFile(::std::atomic
 
     int64_t cpu_frequency = 0LL;
     inFile.read((char*)&cpu_frequency, sizeof(int64_t));
+
+    ::profiler::timestamp_t begin_time = 0, end_time = 0;
+    inFile.read((char*)&begin_time, sizeof(::profiler::timestamp_t));
+    inFile.read((char*)&end_time, sizeof(::profiler::timestamp_t));
+    if (cpu_frequency != 0)
+    {
+        begin_time *= TIME_FACTOR;
+        begin_time /= cpu_frequency;
+        end_time *= TIME_FACTOR;
+        end_time /= cpu_frequency;
+    }
 
     uint32_t total_blocks_number = 0;
     inFile.read((char*)&total_blocks_number, sizeof(decltype(total_blocks_number)));
@@ -338,25 +351,29 @@ extern "C" PROFILER_API::profiler::block_index_t fillTreesFromFile(::std::atomic
             inFile.read(data, sz);
             i += sz;
             auto baseData = reinterpret_cast<::profiler::SerializedBlock*>(data);
+            auto t_begin = reinterpret_cast<::profiler::timestamp_t*>(data);
+            auto t_end = t_begin + 1;
 
             if (cpu_frequency != 0)
             {
-                auto t_begin = reinterpret_cast<::profiler::timestamp_t*>(data);
-                auto t_end = t_begin + 1;
-
-                *t_begin *= 1000000000LL;
+                *t_begin *= TIME_FACTOR;
                 *t_begin /= cpu_frequency;
-
-                *t_end *= 1000000000LL;
+                *t_end *= TIME_FACTOR;
                 *t_end /= cpu_frequency;
             }
 
-            blocks.emplace_back();
-            ::profiler::BlocksTree& tree = blocks.back();
-            tree.node = baseData;
-            const auto block_index = blocks_counter++;
+            if (*t_end > begin_time)
+            {
+                if (*t_begin < begin_time)
+                    *t_begin = begin_time;
 
-            root.sync.emplace_back(block_index);
+                blocks.emplace_back();
+                ::profiler::BlocksTree& tree = blocks.back();
+                tree.node = baseData;
+                const auto block_index = blocks_counter++;
+
+                root.sync.emplace_back(block_index);
+            }
 
             if (progress.load(::std::memory_order_acquire) < 0)
                 break; // Loading interrupted
@@ -388,111 +405,116 @@ extern "C" PROFILER_API::profiler::block_index_t fillTreesFromFile(::std::atomic
             if (descriptors[baseData->id()] == nullptr)
                 return 0;
 
+            auto t_begin = reinterpret_cast<::profiler::timestamp_t*>(data);
+            auto t_end = t_begin + 1;
+
             if (cpu_frequency != 0)
             {
-                auto t_begin = reinterpret_cast<::profiler::timestamp_t*>(data);
-                auto t_end = t_begin + 1;
-
-                *t_begin *= 1000000000LL;
+                *t_begin *= TIME_FACTOR;
                 *t_begin /= cpu_frequency;
-
-                *t_end *= 1000000000LL;
+                *t_end *= TIME_FACTOR;
                 *t_end /= cpu_frequency;
             }
 
-            blocks.emplace_back();
-            ::profiler::BlocksTree& tree = blocks.back();
-            tree.node = baseData;
-            const auto block_index = blocks_counter++;
-
-            auto& per_parent_statistics = parent_statistics[thread_id];
-            auto& per_thread_statistics = thread_statistics[thread_id];
-
-            if (*tree.node->name() != 0)
+            if (*t_end >= begin_time)
             {
-                // If block has runtime name then generate new id for such block.
-                // Blocks with the same name will have same id.
+                if (*t_begin < begin_time)
+                    *t_begin = begin_time;
 
-                IdMap::key_type key(tree.node->name());
-                auto it = identification_table.find(key);
-                if (it != identification_table.end())
+                blocks.emplace_back();
+                ::profiler::BlocksTree& tree = blocks.back();
+                tree.node = baseData;
+                const auto block_index = blocks_counter++;
+
+                auto& per_parent_statistics = parent_statistics[thread_id];
+                auto& per_thread_statistics = thread_statistics[thread_id];
+
+                if (*tree.node->name() != 0)
                 {
-                    // There is already block with such name, use it's id
-                    baseData->setId(it->second);
-                }
-                else
-                {
-                    // There were no blocks with such name, generate new id and save it in the table for further usage.
-                    auto id = static_cast<::profiler::block_id_t>(descriptors.size());
-                    identification_table.emplace(key, id);
-                    if (descriptors.capacity() == descriptors.size())
-                        descriptors.reserve((descriptors.size() * 3) >> 1);
-                    descriptors.push_back(descriptors[baseData->id()]);
-                    baseData->setId(id);
-                }
-            }
+                    // If block has runtime name then generate new id for such block.
+                    // Blocks with the same name will have same id.
 
-            if (!root.children.empty())
-            {
-                auto& back = blocks[root.children.back()];
-                auto t1 = back.node->end();
-                auto mt0 = tree.node->begin();
-                if (mt0 < t1)//parent - starts earlier than last ends
-                {
-                    //auto lower = ::std::lower_bound(root.children.begin(), root.children.end(), tree);
-                    /**/
-                    EASY_BLOCK("Find children", ::profiler::colors::Blue);
-                    auto rlower1 = ++root.children.rbegin();
-                    for (; rlower1 != root.children.rend() && !(mt0 > blocks[*rlower1].node->begin()); ++rlower1);
-                    auto lower = rlower1.base();
-                    ::std::move(lower, root.children.end(), ::std::back_inserter(tree.children));
-
-                    root.children.erase(lower, root.children.end());
-                    EASY_END_BLOCK;
-
-                    ::profiler::timestamp_t children_duration = 0;
-                    if (gather_statistics)
+                    IdMap::key_type key(tree.node->name());
+                    auto it = identification_table.find(key);
+                    if (it != identification_table.end())
                     {
-                        EASY_BLOCK("Gather statistic within parent", ::profiler::colors::Magenta);
-                        per_parent_statistics.clear();
-
-                        //per_parent_statistics.reserve(tree.children.size());     // this gives slow-down on Windows
-                        //per_parent_statistics.reserve(tree.children.size() * 2); // this gives no speed-up on Windows
-                        // TODO: check this behavior on Linux
-
-                        for (auto i : tree.children)
-                        {
-                            auto& child = blocks[i];
-                            child.per_parent_stats = update_statistics(per_parent_statistics, child, i, block_index);
-
-                            children_duration += child.node->duration();
-                            if (tree.depth < child.depth)
-                                tree.depth = child.depth;
-                        }
+                        // There is already block with such name, use it's id
+                        baseData->setId(it->second);
                     }
                     else
                     {
-                        for (auto i : tree.children)
-                        {
-                            const auto& child = blocks[i];
-                            children_duration += child.node->duration();
-                            if (tree.depth < child.depth)
-                                tree.depth = child.depth;
-                        }
+                        // There were no blocks with such name, generate new id and save it in the table for further usage.
+                        auto id = static_cast<::profiler::block_id_t>(descriptors.size());
+                        identification_table.emplace(key, id);
+                        if (descriptors.capacity() == descriptors.size())
+                            descriptors.reserve((descriptors.size() * 3) >> 1);
+                        descriptors.push_back(descriptors[baseData->id()]);
+                        baseData->setId(id);
                     }
-
-                    ++tree.depth;
                 }
-            }
 
-            root.children.emplace_back(block_index);// ::std::move(tree));
+                if (!root.children.empty())
+                {
+                    auto& back = blocks[root.children.back()];
+                    auto t1 = back.node->end();
+                    auto mt0 = tree.node->begin();
+                    if (mt0 < t1)//parent - starts earlier than last ends
+                    {
+                        //auto lower = ::std::lower_bound(root.children.begin(), root.children.end(), tree);
+                        /**/
+                        EASY_BLOCK("Find children", ::profiler::colors::Blue);
+                        auto rlower1 = ++root.children.rbegin();
+                        for (; rlower1 != root.children.rend() && !(mt0 > blocks[*rlower1].node->begin()); ++rlower1);
+                        auto lower = rlower1.base();
+                        ::std::move(lower, root.children.end(), ::std::back_inserter(tree.children));
+
+                        root.children.erase(lower, root.children.end());
+                        EASY_END_BLOCK;
+
+                        ::profiler::timestamp_t children_duration = 0;
+                        if (gather_statistics)
+                        {
+                            EASY_BLOCK("Gather statistic within parent", ::profiler::colors::Magenta);
+                            per_parent_statistics.clear();
+
+                            //per_parent_statistics.reserve(tree.children.size());     // this gives slow-down on Windows
+                            //per_parent_statistics.reserve(tree.children.size() * 2); // this gives no speed-up on Windows
+                            // TODO: check this behavior on Linux
+
+                            for (auto i : tree.children)
+                            {
+                                auto& child = blocks[i];
+                                child.per_parent_stats = update_statistics(per_parent_statistics, child, i, block_index);
+
+                                children_duration += child.node->duration();
+                                if (tree.depth < child.depth)
+                                    tree.depth = child.depth;
+                            }
+                        }
+                        else
+                        {
+                            for (auto i : tree.children)
+                            {
+                                const auto& child = blocks[i];
+                                children_duration += child.node->duration();
+                                if (tree.depth < child.depth)
+                                    tree.depth = child.depth;
+                            }
+                        }
+
+                        ++tree.depth;
+                    }
+                }
+
+                root.children.emplace_back(block_index);// ::std::move(tree));
 
 
 
-            if (gather_statistics)
-            {
-                EASY_BLOCK("Gather per thread statistics", ::profiler::colors::Coral);
-                tree.per_thread_stats = update_statistics(per_thread_statistics, tree, block_index, thread_id);
+                if (gather_statistics)
+                {
+                    EASY_BLOCK("Gather per thread statistics", ::profiler::colors::Coral);
+                    tree.per_thread_stats = update_statistics(per_thread_statistics, tree, block_index, thread_id);
+                }
             }
 
             if (progress.load(::std::memory_order_acquire) < 0)

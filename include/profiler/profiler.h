@@ -68,7 +68,7 @@ Block will be automatically completed by destructor.
 \ingroup profiler
 */
 # define EASY_BLOCK(name, ...)\
-    static const ::profiler::BlockDescRef EASY_UNIQUE_DESC(__LINE__)(::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__),\
+    EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), ::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__),\
         EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name), __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__)));\
     ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name));\
     ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
@@ -98,7 +98,7 @@ Name of the block automatically created with function name.
 \ingroup profiler
 */
 # define EASY_FUNCTION(...)\
-    static const ::profiler::BlockDescRef EASY_UNIQUE_DESC(__LINE__)(::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__),\
+    EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), ::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__),\
         EASY_UNIQUE_LINE_ID, __func__, __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__)));\
     ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(EASY_UNIQUE_DESC(__LINE__), "");\
     ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
@@ -138,8 +138,8 @@ will end previously opened EASY_BLOCK or EASY_FUNCTION.
 \ingroup profiler
 */
 # define EASY_EVENT(name, ...)\
-    static const ::profiler::BlockDescRef EASY_UNIQUE_DESC(__LINE__)(\
-        ::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
+    EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), ::profiler::registerDescription(\
+        ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
             __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__)));\
     ::profiler::storeEvent(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name));
 
@@ -162,9 +162,9 @@ will end previously opened EASY_BLOCK or EASY_FUNCTION.
 \ingroup profiler
 */
 # define EASY_THREAD(name)\
-    EASY_THREAD_LOCAL static const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = nullptr;\
+    EASY_THREAD_LOCAL static const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = 0;\
     ::profiler::ThreadGuard EASY_TOKEN_CONCATENATE(unique_profiler_thread_guard, __LINE__);\
-    if (EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) == nullptr)\
+    if (!EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__))\
         EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = ::profiler::registerThread(name,\
         EASY_TOKEN_CONCATENATE(unique_profiler_thread_guard, __LINE__));
 
@@ -385,35 +385,7 @@ namespace profiler {
 
     //***********************************************
 
-    class PROFILER_API BlockDescriptor final : public BaseBlockDescriptor
-    {
-        friend ::ProfileManager;
-
-        const char*         m_name; ///< Static name of all blocks of the same type (blocks can have dynamic name) which is, in pair with descriptor id, a unique block identifier
-        const char*     m_filename; ///< Source file name where this block is declared
-        EasyBlockStatus* m_pStatus; ///< Pointer to the enable flag in unordered_map
-        uint16_t            m_size; ///< Used memory size
-        bool             m_expired; ///< Is this descriptor expired
-
-        BlockDescriptor(EasyBlockStatus _status, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color);
-
-    public:
-
-        BlockDescriptor(block_id_t _id, EasyBlockStatus _status, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color);
-
-        inline const char* name() const {
-            return m_name;
-        }
-
-        inline const char* file() const {
-            return m_filename;
-        }
-
-    }; // END of class BlockDescriptor.
-
-    //***********************************************
-
-    class PROFILER_API Block final : public BaseBlockData
+    class PROFILER_API Block EASY_FINAL : public BaseBlockData
     {
         friend ::ProfileManager;
         friend ::ThreadStorage;
@@ -434,7 +406,7 @@ namespace profiler {
     public:
 
         Block(Block&& that);
-        Block(const BaseBlockDescriptor& _desc, const char* _runtimeName);
+        Block(const BaseBlockDescriptor* _desc, const char* _runtimeName);
         Block(timestamp_t _begin_time, block_id_t _id, const char* _runtimeName);
         ~Block();
 
@@ -449,26 +421,7 @@ namespace profiler {
 
     //***********************************************
 
-    class PROFILER_API BlockDescRef final
-    {
-        const BaseBlockDescriptor& m_desc;
-
-    public:
-
-        explicit BlockDescRef(const BaseBlockDescriptor& _desc) : m_desc(_desc) { }
-        explicit BlockDescRef(const BaseBlockDescriptor* _desc) : m_desc(*_desc) { }
-        inline operator const BaseBlockDescriptor& () const { return m_desc; }
-        ~BlockDescRef();
-
-    private:
-
-        BlockDescRef() = delete;
-        BlockDescRef(const BlockDescRef&) = delete;
-        BlockDescRef& operator = (const BlockDescRef&) = delete;
-
-    }; // END of class BlockDescRef.
-
-    class PROFILER_API ThreadGuard final {
+    class PROFILER_API ThreadGuard EASY_FINAL {
         friend ::ProfileManager;
         thread_id_t m_id = 0;
     public:
@@ -499,7 +452,7 @@ namespace profiler {
         
         \ingroup profiler
         */
-        PROFILER_API void storeEvent(const BaseBlockDescriptor& _desc, const char* _runtimeName);
+        PROFILER_API void storeEvent(const BaseBlockDescriptor* _desc, const char* _runtimeName);
 
         /** Begins block.
 

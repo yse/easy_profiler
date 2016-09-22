@@ -148,7 +148,7 @@ inline ::profiler::color_t textColorForRgb(::profiler::color_t _color)
 //////////////////////////////////////////////////////////////////////////
 
 #pragma pack(push, 1)
-struct EasyBlockItem final
+struct EasyBlockItem Q_DECL_FINAL
 {
     //const ::profiler::BlocksTree* block; ///< Pointer to profiler block
     qreal                             x; ///< x coordinate of the item (this is made qreal=double to avoid mistakes on very wide scene)
@@ -170,7 +170,7 @@ struct EasyBlockItem final
 
 }; // END of struct EasyBlockItem.
 
-struct EasyBlock final
+struct EasyBlock Q_DECL_FINAL
 {
     ::profiler::BlocksTree       tree;
     uint32_t                tree_item;
@@ -202,7 +202,7 @@ typedef ::std::vector<EasyBlock> EasyBlocks;
 
 //////////////////////////////////////////////////////////////////////////
 
-struct EasySelectedBlock final
+struct EasySelectedBlock Q_DECL_FINAL
 {
     const ::profiler::BlocksTreeRoot* root;
     ::profiler::block_index_t         tree;

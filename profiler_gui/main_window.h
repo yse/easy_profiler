@@ -58,7 +58,7 @@ class QDockWidget;
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyFileReader final
+class EasyFileReader Q_DECL_FINAL
 {
     ::profiler::SerializedData      m_serializedBlocks; ///< 
     ::profiler::SerializedData m_serializedDescriptors; ///< 

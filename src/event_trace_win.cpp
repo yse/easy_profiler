@@ -54,9 +54,12 @@
 
 namespace profiler {
 
+    const decltype(EVENT_DESCRIPTOR::Opcode) SWITCH_CONTEXT_OPCODE = 36;
+    const int RAW_TIMESTAMP_TIME_TYPE = 1;
+
     //////////////////////////////////////////////////////////////////////////
 
-    struct ProcessInfo final {
+    struct ProcessInfo {
         std::string    name;
         uint32_t     id = 0;
         int8_t    valid = 0;
@@ -67,7 +70,7 @@ namespace profiler {
     // CSwitch class
     // See https://msdn.microsoft.com/en-us/library/windows/desktop/aa964744(v=vs.85).aspx
     // EventType = 36
-    struct CSwitch final
+    struct CSwitch
     {
         uint32_t                 NewThreadId;
         uint32_t                 OldThreadId;
@@ -89,14 +92,13 @@ namespace profiler {
     typedef ::std::unordered_map<uint32_t, ProcessInfo, ::profiler::do_not_calc_hash> process_info_map;
 
     // Using static is safe because processTraceEvent() is called from one thread
-    static process_info_map PROCESS_INFO_TABLE;
-    static thread_process_info_map THREAD_PROCESS_INFO_TABLE = ([](){ thread_process_info_map initial; initial[0U] = nullptr; return ::std::move(initial); })();
+    process_info_map PROCESS_INFO_TABLE;
+    thread_process_info_map THREAD_PROCESS_INFO_TABLE = ([](){ thread_process_info_map initial; initial[0U] = nullptr; return ::std::move(initial); })();
 
     //////////////////////////////////////////////////////////////////////////
 
     void WINAPI processTraceEvent(PEVENT_RECORD _traceEvent)
     {
-        static const decltype(_traceEvent->EventHeader.EventDescriptor.Opcode) SWITCH_CONTEXT_OPCODE = 36;
         if (_traceEvent->EventHeader.EventDescriptor.Opcode != SWITCH_CONTEXT_OPCODE)
             return;
 
@@ -188,10 +190,21 @@ namespace profiler {
 
     //////////////////////////////////////////////////////////////////////////
 
+#ifndef EASY_MAGIC_STATIC_CPP11
+    class EasyEventTracerInstance {
+        friend EasyEventTracer;
+        EasyEventTracer instance;
+    } EASY_EVENT_TRACER;
+#endif
+
     EasyEventTracer& EasyEventTracer::instance()
     {
+#ifndef EASY_MAGIC_STATIC_CPP11
+        return EASY_EVENT_TRACER.instance;
+#else
         static EasyEventTracer tracer;
         return tracer;
+#endif
     }
 
     EasyEventTracer::EasyEventTracer()
@@ -231,7 +244,7 @@ namespace profiler {
 
 #if EASY_LOG_ENABLED != 0
         if (!success)
-            ::std::cerr << "Warning: EasyProfiler failed to set Debug privelege for the application. Some context switch events could not get process name.";
+            ::std::cerr << "Warning: EasyProfiler failed to set Debug privelege for the application. Some context switch events could not get process name.\n";
 #endif
 
         return success;
@@ -282,40 +295,43 @@ namespace profiler {
                 }
 
 #if EASY_LOG_ENABLED != 0
-                ::std::cerr << "Error: EasyProfiler.ETW not launched: ERROR_ALREADY_EXISTS. To stop another session execute cmd: logman stop \"" << KERNEL_LOGGER_NAME << "\" -ets";
+                ::std::cerr << "Error: EasyProfiler.ETW not launched: ERROR_ALREADY_EXISTS. To stop another session execute cmd: logman stop \"" << KERNEL_LOGGER_NAME << "\" -ets\n";
 #endif
                 return EVENT_TRACING_WAS_LAUNCHED_BY_SOMEBODY_ELSE;
             }
 
             case ERROR_ACCESS_DENIED:
 #if EASY_LOG_ENABLED != 0
-                ::std::cerr << "Error: EasyProfiler.ETW not launched: ERROR_ACCESS_DENIED. Try to launch your application as Administrator.";
+                ::std::cerr << "Error: EasyProfiler.ETW not launched: ERROR_ACCESS_DENIED. Try to launch your application as Administrator.\n";
 #endif
                 return EVENT_TRACING_NOT_ENOUGH_ACCESS_RIGHTS;
 
             case ERROR_BAD_LENGTH:
 #if EASY_LOG_ENABLED != 0
-                ::std::cerr << "Error: EasyProfiler.ETW not launched: ERROR_BAD_LENGTH. It seems that your KERNEL_LOGGER_NAME differs from \"" << m_properties.sessionName << "\". Try to re-compile easy_profiler or contact EasyProfiler developers.";
+                ::std::cerr << "Error: EasyProfiler.ETW not launched: ERROR_BAD_LENGTH. It seems that your KERNEL_LOGGER_NAME differs from \"" << m_properties.sessionName << "\". Try to re-compile easy_profiler or contact EasyProfiler developers.\n";
 #endif
                 return EVENT_TRACING_BAD_PROPERTIES_SIZE;
         }
 
 #if EASY_LOG_ENABLED != 0
-        ::std::cerr << "Error: EasyProfiler.ETW not launched: StartTrace() returned " << startTraceResult;
+        ::std::cerr << "Error: EasyProfiler.ETW not launched: StartTrace() returned " << startTraceResult << ::std::endl;
 #endif
         return EVENT_TRACING_MISTERIOUS_ERROR;
     }
 
     ::profiler::EventTracingEnableStatus EasyEventTracer::enable(bool _force)
     {
-        static const decltype(m_properties.base.Wnode.ClientContext) RAW_TIMESTAMP_TIME_TYPE = 1;
-
         ::profiler::guard_lock<::profiler::spin_lock> lock(m_spin);
         if (m_bEnabled)
             return EVENT_TRACING_LAUNCHED_SUCCESSFULLY;
 
-        // Trying to set debug privilege for current process
-        // to be able to get other process information (process name)
+        /*
+        Trying to set debug privilege for current process
+        to be able to get other process information (process name).
+
+        Also it seems that debug privelege lets you to launch
+        event tracing without Administrator access rights.
+        */
         if (!m_bPrivilegeSet)
             m_bPrivilegeSet = setDebugPrivilege();
 
@@ -329,6 +345,7 @@ namespace profiler {
         m_properties.base.EnableFlags = EVENT_TRACE_FLAG_CSWITCH;
         m_properties.base.LogFileMode = EVENT_TRACE_REAL_TIME_MODE;
 
+        // Start event tracing
         auto res = startTrace(_force);
         if (res != EVENT_TRACING_LAUNCHED_SUCCESSFULLY)
             return res;
@@ -342,7 +359,7 @@ namespace profiler {
         if (m_openedHandle == INVALID_PROCESSTRACE_HANDLE)
         {
 #if EASY_LOG_ENABLED != 0
-            ::std::cerr << "Error: EasyProfiler.ETW not launched: OpenTrace() returned invalid handle.";
+            ::std::cerr << "Error: EasyProfiler.ETW not launched: OpenTrace() returned invalid handle.\n";
 #endif
             return EVENT_TRACING_OPEN_TRACE_ERROR;
         }

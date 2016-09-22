@@ -50,11 +50,14 @@
 
 namespace profiler {
 
-    class EasyEventTracer final
+    class EasyEventTracer EASY_FINAL
     {
+#ifndef EASY_MAGIC_STATIC_CPP11
+        friend class EasyEventTracerInstance;
+#endif
 
 #pragma pack(push, 1)
-        struct Properties final {
+        struct Properties {
             EVENT_TRACE_PROPERTIES base;
             char sessionName[sizeof(KERNEL_LOGGER_NAME)];
         };

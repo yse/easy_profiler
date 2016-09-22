@@ -36,7 +36,7 @@ namespace profiler {
     typedef uint32_t block_index_t;
 
 #pragma pack(push, 1)
-    struct BlockStatistics final
+    struct BlockStatistics EASY_FINAL
     {
         ::profiler::timestamp_t        total_duration; ///< Summary duration of all block calls
         ::profiler::timestamp_t          min_duration; ///< Cached block->duration() value. TODO: Remove this if memory consumption will be too high
@@ -71,7 +71,7 @@ namespace profiler {
 
     //////////////////////////////////////////////////////////////////////////
 
-    class BlocksTree final
+    class BlocksTree EASY_FINAL
     {
         typedef BlocksTree This;
 
@@ -80,12 +80,12 @@ namespace profiler {
         typedef ::std::vector<This> blocks_t;
         typedef ::std::vector<::profiler::block_index_t> children_t;
 
-        children_t                                children; ///< List of children blocks. May be empty.
-        ::profiler::SerializedBlock*                  node; ///< Pointer to serilized data (type, name, begin, end etc.)
-        ::profiler::BlockStatistics*      per_parent_stats; ///< Pointer to statistics for this block within the parent (may be nullptr for top-level blocks)
-        ::profiler::BlockStatistics*       per_frame_stats; ///< Pointer to statistics for this block within the frame (may be nullptr for top-level blocks)
-        ::profiler::BlockStatistics*      per_thread_stats; ///< Pointer to statistics for this block within the bounds of all frames per current thread
-        uint16_t                                     depth; ///< Maximum number of sublevels (maximum children depth)
+        children_t                           children; ///< List of children blocks. May be empty.
+        ::profiler::SerializedBlock*             node; ///< Pointer to serilized data (type, name, begin, end etc.)
+        ::profiler::BlockStatistics* per_parent_stats; ///< Pointer to statistics for this block within the parent (may be nullptr for top-level blocks)
+        ::profiler::BlockStatistics*  per_frame_stats; ///< Pointer to statistics for this block within the frame (may be nullptr for top-level blocks)
+        ::profiler::BlockStatistics* per_thread_stats; ///< Pointer to statistics for this block within the bounds of all frames per current thread
+        uint16_t                                depth; ///< Maximum number of sublevels (maximum children depth)
 
         BlocksTree()
             : node(nullptr)
@@ -170,7 +170,7 @@ namespace profiler {
 
     //////////////////////////////////////////////////////////////////////////
 
-    class BlocksTreeRoot final
+    class BlocksTreeRoot EASY_FINAL
     {
         typedef BlocksTreeRoot This;
 
@@ -235,7 +235,7 @@ namespace profiler {
 
     //////////////////////////////////////////////////////////////////////////
 
-    class PROFILER_API SerializedData final
+    class PROFILER_API SerializedData EASY_FINAL
     {
         char*  m_data;
         size_t m_size;

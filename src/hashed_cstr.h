@@ -116,7 +116,7 @@ namespace profiler {
 
     \ingroup profiler
     */
-    class hashed_cstr final : public cstring
+    class hashed_cstr : public cstring
     {
         typedef cstring Parent;
 
@@ -180,7 +180,7 @@ namespace std {
 
 namespace profiler {
 
-    class hashed_stdstring final
+    class hashed_stdstring
     {
         ::std::string m_str;
         size_t       m_hash;
