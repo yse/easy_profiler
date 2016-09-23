@@ -226,7 +226,7 @@ EasyMainWindow::EasyMainWindow() : Parent()
     action->setChecked(EASY_GLOBALS.bind_scene_and_tree_expand_status);
     connect(action, &QAction::triggered, this, &This::onBindExpandStatusChange);
 
-    action = menu->addAction("Paint event indicators");
+    action = menu->addAction("Draw event indicators");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.enable_event_indicators);
     connect(action, &QAction::triggered, this, &This::onEventIndicatorsChange);
@@ -581,7 +581,7 @@ void EasyMainWindow::onChronoTextPosChanged(bool)
 {
     auto _sender = qobject_cast<QAction*>(sender());
     EASY_GLOBALS.chrono_text_position = static_cast<::profiler_gui::ChronometerTextPosition>(_sender->data().toInt());
-    emit EASY_GLOBALS.events.chronoPositionChanged();
+    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->scene()->update();
 }
 
 void EasyMainWindow::onEventIndicatorsChange(bool _checked)
@@ -617,7 +617,7 @@ void EasyMainWindow::onEnableDisableStatistics(bool _checked)
 void EasyMainWindow::onDrawBordersChanged(bool _checked)
 {
     EASY_GLOBALS.draw_graphics_items_borders = _checked;
-    emit EASY_GLOBALS.events.drawBordersChanged();
+    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->scene()->update();
 }
 
 void EasyMainWindow::onCollapseItemsAfterCloseChanged(bool _checked)

@@ -1153,8 +1153,6 @@ void EasyGraphicsView::initMode()
     connect(globalSignals, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
     connect(globalSignals, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
     connect(globalSignals, &::profiler_gui::EasyGlobalSignals::itemsExpandStateChanged, this, &This::onItemsEspandStateChange);
-    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::drawBordersChanged, this, &This::repaintScene);
-    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::chronoPositionChanged, this, &This::repaintScene);
 }
 
 //////////////////////////////////////////////////////////////////////////
