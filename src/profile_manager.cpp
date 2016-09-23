@@ -262,7 +262,7 @@ ThreadGuard::~ThreadGuard()
 {
     if (m_id != 0 && THREAD_STORAGE != nullptr && THREAD_STORAGE->id == m_id)
     {
-        //printf("%s Thread expired!\n", THREAD_STORAGE->name.c_str());
+        EASY_EVENT("ThreadFinished", profiler::colors::Dark);
         THREAD_STORAGE->expired.store(true, std::memory_order_release);
         THREAD_STORAGE = nullptr;
     }
