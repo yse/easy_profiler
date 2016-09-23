@@ -463,19 +463,23 @@ void ProfileManager::setEnabled(bool isEnable)
     if (prev == isEnable)
         return;
 
-#ifdef _WIN32
     if (isEnable)
     {
         m_beginTime = time;
+
+#ifdef _WIN32
         if (m_isEventTracingEnabled.load(std::memory_order_acquire))
             EasyEventTracer::instance().enable(true);
+#endif
     }
     else
     {
         m_endTime = time;
+
+#ifdef _WIN32
         EasyEventTracer::instance().disable();
-    }
 #endif
+    }
 }
 
 void ProfileManager::setEventTracingEnabled(bool _isEnable)
