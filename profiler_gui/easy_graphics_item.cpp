@@ -522,6 +522,72 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     }
 
 
+
+    if (EASY_GLOBALS.enable_event_indicators && !m_pRoot->events.empty())
+    {
+        auto first = ::std::lower_bound(m_pRoot->events.begin(), m_pRoot->events.end(), offset, [&sceneView](::profiler::block_index_t _index, qreal _value)
+        {
+            return sceneView->time2position(blocksTree(_index).node->begin()) < _value;
+        });
+
+        if (first != m_pRoot->events.end())
+        {
+            if (first != m_pRoot->events.begin())
+                --first;
+        }
+        else if (!m_pRoot->events.empty())
+        {
+            first = m_pRoot->events.begin() + m_pRoot->events.size() - 1;
+        }
+
+        previousColor = 0;
+        qreal prevRight = -1e100, top = y() + boundingRect().height() - 1, h = 3;
+        if (top + h < visibleBottom)
+        {
+            for (auto it = first, end = m_pRoot->events.end(); it != end; ++it)
+            {
+                const auto& item = blocksTree(*it);
+                auto left = sceneView->time2position(item.node->begin());
+
+                if (left > sceneRight)
+                    break; // This is first totally invisible item. No need to check other items.
+
+                decltype(left) width = 0.25;
+                if (left + width < sceneLeft) // This item is not visible
+                    continue;
+
+                left *= currentScale;
+                left -= dx;
+                width *= currentScale;
+                if (left + width <= prevRight) // This item is not visible
+                    continue;
+
+                if (left < prevRight)
+                {
+                    width -= prevRight - left;
+                    left = prevRight;
+                }
+
+                if (width < 2)
+                    width = 2;
+
+                ::profiler::color_t color = easyDescriptor(item.node->id()).color();
+                if (previousColor != color)
+                {
+                    previousColor = color;
+                    _painter->setBrush(QColor::fromRgb(color));
+                    _painter->setPen(QColor::fromRgb(BORDERS_COLOR & (0xffffffff - color)));
+                }
+
+                rect.setRect(left, top, width, h);
+                _painter->drawRect(rect);
+                prevRight = left + width;
+            }
+        }
+    }
+
+
+
     _painter->restore();
 }
 

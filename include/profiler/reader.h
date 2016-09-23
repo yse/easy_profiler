@@ -178,6 +178,7 @@ namespace profiler {
 
         BlocksTree::children_t     children; ///< List of children indexes
         BlocksTree::children_t         sync; ///< List of context-switch events
+        BlocksTree::children_t       events; ///< List of events indexes
         std::string             thread_name; ///< Name of this thread
         ::profiler::timestamp_t active_time; ///< Active time of this thread (sum of all children duration)
         ::profiler::thread_id_t   thread_id; ///< System Id of this thread
@@ -190,6 +191,7 @@ namespace profiler {
         BlocksTreeRoot(This&& that)
             : children(::std::move(that.children))
             , sync(::std::move(that.sync))
+            , events(::std::move(that.events))
             , thread_name(::std::move(that.thread_name))
             , active_time(that.active_time)
             , thread_id(that.thread_id)
@@ -201,6 +203,7 @@ namespace profiler {
         {
             children = ::std::move(that.children);
             sync = ::std::move(that.sync);
+            events = ::std::move(that.events);
             thread_name = ::std::move(that.thread_name);
             active_time = that.active_time;
             thread_id = that.thread_id;

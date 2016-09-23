@@ -402,7 +402,8 @@ extern "C" PROFILER_API::profiler::block_index_t fillTreesFromFile(::std::atomic
             inFile.read(data, sz);
             i += sz;
             auto baseData = reinterpret_cast<::profiler::SerializedBlock*>(data);
-            if (descriptors[baseData->id()] == nullptr)
+            auto desc = descriptors[baseData->id()];
+            if (desc == nullptr)
                 return 0;
 
             auto t_begin = reinterpret_cast<::profiler::timestamp_t*>(data);
@@ -507,7 +508,8 @@ extern "C" PROFILER_API::profiler::block_index_t fillTreesFromFile(::std::atomic
                 }
 
                 root.children.emplace_back(block_index);// ::std::move(tree));
-
+                if (desc->type() == ::profiler::BLOCK_TYPE_EVENT)
+                    root.events.emplace_back(block_index);
 
 
                 if (gather_statistics)

@@ -226,6 +226,11 @@ EasyMainWindow::EasyMainWindow() : Parent()
     action->setChecked(EASY_GLOBALS.bind_scene_and_tree_expand_status);
     connect(action, &QAction::triggered, this, &This::onBindExpandStatusChange);
 
+    action = menu->addAction("Paint event indicators");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.enable_event_indicators);
+    connect(action, &QAction::triggered, this, &This::onEventIndicatorsChange);
+
     menu->addSeparator();
     auto submenu = menu->addMenu("Chronometer text");
     auto actionGroup = new QActionGroup(this);
@@ -579,6 +584,12 @@ void EasyMainWindow::onChronoTextPosChanged(bool)
     emit EASY_GLOBALS.events.chronoPositionChanged();
 }
 
+void EasyMainWindow::onEventIndicatorsChange(bool _checked)
+{
+    EASY_GLOBALS.enable_event_indicators = _checked;
+    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->scene()->update();
+}
+
 void EasyMainWindow::onEnableDisableStatistics(bool _checked)
 {
     EASY_GLOBALS.enable_statistics = _checked;
@@ -700,47 +711,37 @@ void EasyMainWindow::loadSettings()
 
     auto last_file = settings.value("last_file");
     if (!last_file.isNull())
-    {
         m_lastFile = last_file.toString();
-    }
 
 
     auto val = settings.value("chrono_text_position");
     if (!val.isNull())
-    {
         EASY_GLOBALS.chrono_text_position = static_cast<::profiler_gui::ChronometerTextPosition>(val.toInt());
-    }
 
 
     auto flag = settings.value("draw_graphics_items_borders");
     if (!flag.isNull())
-    {
         EASY_GLOBALS.draw_graphics_items_borders = flag.toBool();
-    }
 
     flag = settings.value("collapse_items_on_tree_close");
     if (!flag.isNull())
-    {
         EASY_GLOBALS.collapse_items_on_tree_close = flag.toBool();
-    }
 
     flag = settings.value("all_items_expanded_by_default");
     if (!flag.isNull())
-    {
         EASY_GLOBALS.all_items_expanded_by_default = flag.toBool();
-    }
 
     flag = settings.value("bind_scene_and_tree_expand_status");
     if (!flag.isNull())
-    {
         EASY_GLOBALS.bind_scene_and_tree_expand_status = flag.toBool();
-    }
+
+    flag = settings.value("enable_event_indicators");
+    if (!flag.isNull())
+        EASY_GLOBALS.enable_event_indicators = flag.toBool();
 
     flag = settings.value("enable_statistics");
     if (!flag.isNull())
-    {
         EASY_GLOBALS.enable_statistics = flag.toBool();
-    }
 
     QString encoding = settings.value("encoding", "UTF-8").toString();
     auto default_codec_mib = QTextCodec::codecForName(encoding.toStdString().c_str())->mibEnum();
@@ -779,6 +780,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("collapse_items_on_tree_close", EASY_GLOBALS.collapse_items_on_tree_close);
     settings.setValue("all_items_expanded_by_default", EASY_GLOBALS.all_items_expanded_by_default);
     settings.setValue("bind_scene_and_tree_expand_status", EASY_GLOBALS.bind_scene_and_tree_expand_status);
+    settings.setValue("enable_event_indicators", EASY_GLOBALS.enable_event_indicators);
     settings.setValue("enable_statistics", EASY_GLOBALS.enable_statistics);
     settings.setValue("encoding", QTextCodec::codecForLocale()->name());
 
