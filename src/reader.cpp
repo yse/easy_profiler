@@ -296,11 +296,10 @@ extern "C" PROFILER_API::profiler::block_index_t fillTreesFromFile(::std::atomic
         descriptors.push_back(descriptor);
 
         i += sz;
-        progress.store(static_cast<int>(15 * i / descriptors_memory_size), ::std::memory_order_release);
+        auto oldprogress = progress.exchange(static_cast<int>(15 * i / descriptors_memory_size), ::std::memory_order_release);
+        if (oldprogress < 0)
+            return 0; // Loading interrupted
     }
-
-    if (progress.load(::std::memory_order_acquire) < 0)
-        return 0; // Loading interrupted
 
     typedef ::std::unordered_map<::profiler::thread_id_t, StatsMap, ::profiler::passthrough_hash> PerThreadStats;
     PerThreadStats thread_statistics, parent_statistics, frame_statistics;
@@ -375,14 +374,13 @@ extern "C" PROFILER_API::profiler::block_index_t fillTreesFromFile(::std::atomic
                 root.sync.emplace_back(block_index);
             }
 
-            if (progress.load(::std::memory_order_acquire) < 0)
-                break; // Loading interrupted
-
-            progress.store(20 + static_cast<int>(70 * i / memory_size), ::std::memory_order_release);
+            auto oldprogress = progress.exchange(20 + static_cast<int>(70 * i / memory_size), ::std::memory_order_release);
+            if (oldprogress < 0)
+                return 0; // Loading interrupted
         }
 
-        if (progress.load(::std::memory_order_acquire) < 0 || inFile.eof())
-            break; // Loading interrupted
+        if (inFile.eof())
+            break;
 
         blocks_number_in_thread = 0;
         inFile.read((char*)&blocks_number_in_thread, sizeof(decltype(blocks_number_in_thread)));
@@ -519,10 +517,9 @@ extern "C" PROFILER_API::profiler::block_index_t fillTreesFromFile(::std::atomic
                 }
             }
 
-            if (progress.load(::std::memory_order_acquire) < 0)
-                break; // Loading interrupted
-
-            progress.store(20 + static_cast<int>(70 * i / memory_size), ::std::memory_order_release);
+            auto oldprogress = progress.exchange(20 + static_cast<int>(70 * i / memory_size), ::std::memory_order_release);
+            if (oldprogress < 0)
+                return 0; // Loading interrupted
         }
     }
 
