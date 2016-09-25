@@ -363,6 +363,7 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     const auto col = currentColumn();
     auto item = static_cast<EasyTreeWidgetItem*>(currentItem());
     QMenu menu;
+    menu.setToolTipsVisible(true);
     QAction* action = nullptr;
 
     if (!m_items.empty())
@@ -445,22 +446,27 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 
         const auto& desc = easyDescriptor(item->block().node->id());
         auto submenu = menu.addMenu("Block status");
+        submenu->setToolTipsVisible(true);
 
-#define ADD_STATUS_ACTION(NameValue, StatusValue)\
+#define ADD_STATUS_ACTION(NameValue, StatusValue, ToolTipValue)\
         action = submenu->addAction(NameValue);\
         action->setCheckable(true);\
         action->setChecked(desc.status() == StatusValue);\
         action->setData(static_cast<quint32>(StatusValue));\
+        action->setToolTip(ToolTipValue);\
         connect(action, &QAction::triggered, this, &This::onBlockStatusChangeClicked)
 
-        ADD_STATUS_ACTION("Off", ::profiler::OFF);
-        ADD_STATUS_ACTION("On", ::profiler::ON);
-        ADD_STATUS_ACTION("Force-On", ::profiler::FORCE_ON);
-        ADD_STATUS_ACTION("Off-recursive", ::profiler::OFF_RECURSIVE);
-        ADD_STATUS_ACTION("On-without-children", ::profiler::ON_WITHOUT_CHILDREN);
-        ADD_STATUS_ACTION("Force-On-without-children", ::profiler::FORCE_ON_WITHOUT_CHILDREN);
-
+        ADD_STATUS_ACTION("Off", ::profiler::OFF, "Do not profile this block.");
+        ADD_STATUS_ACTION("On", ::profiler::ON, "Profile this block\nif parent enabled children.");
+        ADD_STATUS_ACTION("Force-On", ::profiler::FORCE_ON, "Always profile this block even\nif it's parent disabled children.");
+        ADD_STATUS_ACTION("Off-recursive", ::profiler::OFF_RECURSIVE, "Do not profile neither this block\nnor it's children.");
+        ADD_STATUS_ACTION("On-without-children", ::profiler::ON_WITHOUT_CHILDREN, "Profile this block, but\ndo not profile it's children.");
+        ADD_STATUS_ACTION("Force-On-without-children", ::profiler::FORCE_ON_WITHOUT_CHILDREN, "Always profile this block, but\ndo not profile it's children.");
 #undef ADD_STATUS_ACTION
+
+        submenu->setEnabled(EASY_GLOBALS.connected);
+        if (!EASY_GLOBALS.connected)
+            submenu->setTitle(QString("%1 (connection needed)").arg(submenu->title()));
     }
 
     menu.addSeparator();
