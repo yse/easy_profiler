@@ -52,6 +52,8 @@
 //extern ProfileManager& MANAGER;
 #define MANAGER ProfileManager::instance()
 
+::std::atomic_uint64_t TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
+
 namespace profiler {
 
     const decltype(EVENT_DESCRIPTOR::Opcode) SWITCH_CONTEXT_OPCODE = 36;
@@ -109,6 +111,8 @@ namespace profiler {
 
         auto _contextSwitchEvent = reinterpret_cast<CSwitch*>(_traceEvent->UserData);
         const auto time = static_cast<::profiler::timestamp_t>(_traceEvent->EventHeader.TimeStamp.QuadPart);
+        if (time > TRACING_END_TIME.load(::std::memory_order_acquire))
+            return;
 
         const char* process_name = "";
 
@@ -277,8 +281,11 @@ namespace profiler {
                         but if that would not work, return to using shell command "logman stop".
                         */
 
-                        static Properties p; // static is safe because we are guarded by spin-lock m_spin
-                        p = m_properties; // Use copy of m_properties to make sure m_properties will not be changed
+                        // static is safe because we are guarded by spin-lock m_spin
+                        static Properties p = ([]{ Properties prp; strncpy(prp.sessionName, KERNEL_LOGGER_NAME, sizeof(prp.sessionName)); return prp; })();
+                        p.base = m_properties.base; // Use copy of m_properties to make sure m_properties will not be changed
+
+                        // Stop another session
                         ControlTrace(NULL, KERNEL_LOGGER_NAME, reinterpret_cast<EVENT_TRACE_PROPERTIES*>(&p), EVENT_TRACE_CONTROL_STOP);
 
                         // Console window variant:
@@ -394,6 +401,8 @@ namespace profiler {
         if (!m_bEnabled)
             return;
 
+        TRACING_END_TIME.store(getCurrentTime(), ::std::memory_order_release);
+
         ControlTrace(m_openedHandle, KERNEL_LOGGER_NAME, props(), EVENT_TRACE_CONTROL_STOP);
         CloseTrace(m_openedHandle);
 
@@ -407,6 +416,8 @@ namespace profiler {
         PROCESS_INFO_TABLE.clear();
         THREAD_PROCESS_INFO_TABLE.clear();
         THREAD_PROCESS_INFO_TABLE[0U] = nullptr;
+
+        TRACING_END_TIME.store(~0ULL, ::std::memory_order_release);
     }
 
 } // END of namespace profiler.

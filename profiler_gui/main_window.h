@@ -37,7 +37,6 @@
 
 #include <QMainWindow>
 #include <QTimer>
-#include <QTcpSocket>
 
 #include "profiler/easy_socket.h"
 #include "profiler/reader.h"
@@ -65,29 +64,79 @@ class EasyFileReader Q_DECL_FINAL
     ::profiler::descriptors_list_t       m_descriptors; ///< 
     ::profiler::blocks_t                      m_blocks; ///< 
     ::profiler::thread_blocks_tree_t      m_blocksTree; ///< 
+    ::std::stringstream                       m_stream; ///< 
     QString                                 m_filename; ///< 
     ::std::thread                             m_thread; ///< 
     ::std::atomic_bool                         m_bDone; ///< 
     ::std::atomic<int>                      m_progress; ///< 
     ::std::atomic<unsigned int>                 m_size; ///< 
+    bool                              m_isFile = false; ///< 
 
 public:
 
     EasyFileReader();
     ~EasyFileReader();
 
+    const bool isFile() const;
     bool done() const;
     int progress() const;
     unsigned int size() const;
     const QString& filename() const;
 
     void load(const QString& _filename);
+    void load(::std::stringstream& _stream);
     void interrupt();
     void get(::profiler::SerializedData& _serializedBlocks, ::profiler::SerializedData& _serializedDescriptors,
              ::profiler::descriptors_list_t& _descriptors, ::profiler::blocks_t& _blocks, ::profiler::thread_blocks_tree_t& _tree,
              QString& _filename);
 
 }; // END of class EasyFileReader.
+
+//////////////////////////////////////////////////////////////////////////
+
+enum EasyListenerRegime : uint8_t
+{
+    LISTENER_IDLE = 0,
+    LISTENER_CAPTURE,
+    LISTENER_DESCRIBE
+};
+
+class EasySocketListener Q_DECL_FINAL
+{
+    EasySocket            m_easySocket; ///< 
+    ::std::stringstream m_receivedData; ///< 
+    ::std::thread             m_thread; ///< 
+    uint64_t            m_receivedSize; ///< 
+    ::std::atomic_bool    m_bInterrupt; ///< 
+    ::std::atomic_bool    m_bConnected; ///< 
+    EasyListenerRegime        m_regime; ///< 
+
+public:
+
+    EasySocketListener();
+    ~EasySocketListener();
+
+    bool connected() const;
+    EasyListenerRegime regime() const;
+    uint64_t size() const;
+
+    ::std::stringstream& data();
+    void clearData();
+
+    bool connect(const char* _ipaddress, uint16_t _port);
+
+    void startCapture();
+    void stopCapture();
+    void requestBlocksDescription();
+
+    void sendBlockStatus(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status);
+
+private:
+
+    void listenCapture();
+    void listenDescription();
+
+}; // END of class EasySocketListener.
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -103,37 +152,24 @@ protected:
     QString                                 m_lastFile;
     QDockWidget*                          m_treeWidget = nullptr;
     QDockWidget*                        m_graphicsView = nullptr;
-    class QProgressDialog*       m_downloadingProgress = nullptr;
 
 #if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
     QDockWidget*                      m_descTreeWidget = nullptr;
 #endif
 
     class QProgressDialog*                  m_progress = nullptr;
-    class QAction*                  m_editBlocksAction = nullptr;
     class QDialog*                    m_descTreeDialog = nullptr;
     class EasyDescWidget*             m_dialogDescTree = nullptr;
+    class QMessageBox*                m_listenerDialog = nullptr;
     QTimer                               m_readerTimer;
-    QTimer                           m_downloadedTimer;
+    QTimer                             m_listenerTimer;
     ::profiler::SerializedData      m_serializedBlocks;
     ::profiler::SerializedData m_serializedDescriptors;
     EasyFileReader                            m_reader;
-
-    QTcpSocket* m_server = nullptr;
-
-    std::stringstream m_receivedProfileData;
-    bool m_recFrames = false;
+    EasySocketListener                      m_listener;
 
     class QLineEdit* m_ipEdit = nullptr;
     class QLineEdit* m_portEdit = nullptr;
-    bool m_isConnected = false;
-
-    std::thread m_thread;
-
-    EasySocket m_easySocket;
-
-    bool               m_downloading = false;
-    ::std::atomic<int>     m_downloadedBytes;
 
     class QAction* m_captureAction = nullptr;
     class QAction* m_connectAction = nullptr;
@@ -146,8 +182,6 @@ public:
     // Public virtual methods
 
     void closeEvent(QCloseEvent* close_event) override;
-
-    void listen();
 
 protected slots:
 
@@ -166,33 +200,27 @@ protected slots:
     void onExpandAllClicked(bool);
     void onCollapseAllClicked(bool);
     void onFileReaderTimeout();
-    void onDownloadTimeout();
+    void onListenerTimerTimeout();
     void onFileReaderCancel();
     void onEditBlocksClicked(bool);
     void onDescTreeDialogClose(int);
+    void onListenerDialogClose(int);
     void onCaptureClicked(bool);
-
-    void readTcpData();
-    void onNewConnection();
-    void onDisconnection();
-    void onConnected();
-    void onErrorConnection(QAbstractSocket::SocketError socketError);
-    void onDisconnect();
+    void onGetBlockDescriptionsClicked(bool);
     void onConnectClicked(bool);
 
-    void handleResults(const QString &s);
+    void onBlockStatusChange(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status);
+
 private:
 
     // Private non-virtual methods
 
     void loadFile(const QString& filename);
+    void readStream(::std::stringstream& data);
 
     void loadSettings();
     void loadGeometry();
     void saveSettingsAndGeometry();
-
-    bool m_isClientPreparedBlocks = false;
-    bool m_isClientCaptured = false;
 
 }; // END of class EasyMainWindow.
 

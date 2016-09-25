@@ -40,7 +40,7 @@
 #include <QSettings>
 #include <QLabel>
 #include <QLineEdit>
-#include <QPushButton>
+#include <QToolBar>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <thread>
@@ -222,6 +222,7 @@ void EasyDescTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     _event->accept();
 
     QMenu menu;
+    menu.setToolTipsVisible(true);
     auto action = menu.addAction("Expand all");
     SET_ICON(action, ":/Expand");
     connect(action, &QAction::triggered, this, &This::expandAll);
@@ -253,22 +254,27 @@ void EasyDescTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 
         menu.addSeparator();
         auto submenu = menu.addMenu("Change status");
+        submenu->setToolTipsVisible(true);
 
-#define ADD_STATUS_ACTION(NameValue, StatusValue)\
+#define ADD_STATUS_ACTION(NameValue, StatusValue, ToolTipValue)\
         action = submenu->addAction(NameValue);\
         action->setCheckable(true);\
         action->setChecked(desc.status() == StatusValue);\
         action->setData(static_cast<quint32>(StatusValue));\
+        action->setToolTip(ToolTipValue);\
         connect(action, &QAction::triggered, this, &This::onBlockStatusChangeClicked)
 
-        ADD_STATUS_ACTION("Off", ::profiler::OFF);
-        ADD_STATUS_ACTION("On", ::profiler::ON);
-        ADD_STATUS_ACTION("Force-On", ::profiler::FORCE_ON);
-        ADD_STATUS_ACTION("Off-recursive", ::profiler::OFF_RECURSIVE);
-        ADD_STATUS_ACTION("On-without-children", ::profiler::ON_WITHOUT_CHILDREN);
-        ADD_STATUS_ACTION("Force-On-without-children", ::profiler::FORCE_ON_WITHOUT_CHILDREN);
-
+        ADD_STATUS_ACTION("Off", ::profiler::OFF, "Do not profile this block.");
+        ADD_STATUS_ACTION("On", ::profiler::ON, "Profile this block\nif parent enabled children.");
+        ADD_STATUS_ACTION("Force-On", ::profiler::FORCE_ON, "Always profile this block even\nif it's parent disabled children.");
+        ADD_STATUS_ACTION("Off-recursive", ::profiler::OFF_RECURSIVE, "Do not profile neither this block\nnor it's children.");
+        ADD_STATUS_ACTION("On-without-children", ::profiler::ON_WITHOUT_CHILDREN, "Profile this block, but\ndo not profile it's children.");
+        ADD_STATUS_ACTION("Force-On-without-children", ::profiler::FORCE_ON_WITHOUT_CHILDREN, "Always profile this block, but\ndo not profile it's children.");
 #undef ADD_STATUS_ACTION
+
+        submenu->setEnabled(EASY_GLOBALS.connected);
+        if (!EASY_GLOBALS.connected)
+            submenu->setTitle(QString("%1 (connection needed)").arg(submenu->title()));
     }
 
     menu.exec(QCursor::pos());
@@ -340,8 +346,6 @@ struct FileItems
 
 void EasyDescTreeWidget::build()
 {
-    clearSilent(false);
-
     auto f = font();
     f.setBold(true);
 
@@ -421,6 +425,9 @@ void EasyDescTreeWidget::onItemExpand(QTreeWidgetItem*)
 
 void EasyDescTreeWidget::onDoubleClick(QTreeWidgetItem* _item, int _column)
 {
+    if (!EASY_GLOBALS.connected)
+        return;
+
     if (_column >= DESC_COL_TYPE && _item->parent() != nullptr)
     {
         auto item = static_cast<EasyDescWidgetItem*>(_item);
@@ -460,7 +467,7 @@ void EasyDescTreeWidget::onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidget
 
 void EasyDescTreeWidget::onBlockStatusChangeClicked(bool _checked)
 {
-    if (!_checked)
+    if (!_checked || !EASY_GLOBALS.connected)
         return;
 
     auto item = currentItem();
@@ -686,14 +693,41 @@ EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
     , m_tree(new EasyDescTreeWidget())
     , m_searchBox(new QLineEdit())
     , m_foundNumber(new QLabel("Found 0 matches"))
+    , m_searchButton(nullptr)
 {
-    m_searchBox->setMinimumWidth(64);
+    m_searchBox->setFixedWidth(200);
+
+    auto tb = new QToolBar();
+    auto refreshButton = tb->addAction(QIcon(":/Reload"), tr("Refresh blocks list"));
+    refreshButton->setEnabled(EASY_GLOBALS.connected);
+    refreshButton->setToolTip(tr("Refresh blocks list.\nConnection needed."));
+    connect(refreshButton, &QAction::triggered, &EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::blocksRefreshRequired);
+
+    tb->addSeparator();
+    m_searchButton = tb->addAction(QIcon(":/Search-next"), tr("Find next"), this, SLOT(findNext(bool)));
+    tb->addWidget(m_searchBox);
+
+    m_searchButton->setData(true);
+    m_searchButton->setMenu(new QMenu(this));
+
+    auto actionGroup = new QActionGroup(this);
+    actionGroup->setExclusive(true);
+
+    auto a = new QAction(tr("Find next"), actionGroup);
+    a->setCheckable(true);
+    a->setChecked(true);
+    connect(a, &QAction::triggered, this, &This::findNextFromMenu);
+    m_searchButton->menu()->addAction(a);
+
+    a = new QAction(tr("Find previous"), actionGroup);
+    a->setCheckable(true);
+    connect(a, &QAction::triggered, this, &This::findPrevFromMenu);
+    m_searchButton->menu()->addAction(a);
 
     auto searchbox = new QHBoxLayout();
     searchbox->setContentsMargins(0, 0, 0, 0);
-    searchbox->addWidget(new QLabel("Search:"));
-    searchbox->addWidget(m_searchBox);
-    searchbox->addStretch(50);
+    searchbox->addWidget(tb);
+    searchbox->addStretch(100);
     searchbox->addWidget(m_foundNumber, Qt::AlignRight);
 
     auto lay = new QVBoxLayout(this);
@@ -702,6 +736,7 @@ EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
     lay->addWidget(m_tree);
 
     connect(m_searchBox, &QLineEdit::returnPressed, this, &This::onSeachBoxReturnPressed);
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::connectionChanged, refreshButton, &QAction::setEnabled);
 }
 
 EasyDescWidget::~EasyDescWidget()
@@ -713,16 +748,10 @@ void EasyDescWidget::keyPressEvent(QKeyEvent* _event)
 {
     if (_event->key() == Qt::Key_F3)
     {
-        int matches = 0;
         if (_event->modifiers() & Qt::ShiftModifier)
-            matches = m_tree->findPrev(m_searchBox->text());
+            findPrev(true);
         else
-            matches = m_tree->findNext(m_searchBox->text());
-
-        if (matches == 1)
-            m_foundNumber->setText(QString("Found 1 match"));
-        else
-            m_foundNumber->setText(QString("Found %1 matches").arg(matches));
+            findNext(true);
     }
 
     _event->accept();
@@ -730,12 +759,14 @@ void EasyDescWidget::keyPressEvent(QKeyEvent* _event)
 
 void EasyDescWidget::build()
 {
+    clear();
     m_tree->build();
 }
 
 void EasyDescWidget::clear()
 {
     m_tree->clearSilent(true);
+    m_foundNumber->setText(QString("Found 0 matches"));
 }
 
 void EasyDescWidget::onSeachBoxReturnPressed()
@@ -746,6 +777,60 @@ void EasyDescWidget::onSeachBoxReturnPressed()
         m_foundNumber->setText(QString("Found 1 match"));
     else
         m_foundNumber->setText(QString("Found %1 matches").arg(matches));
+}
+
+void EasyDescWidget::findNext(bool)
+{
+    auto matches = m_tree->findNext(m_searchBox->text());
+
+    if (matches == 1)
+        m_foundNumber->setText(QString("Found 1 match"));
+    else
+        m_foundNumber->setText(QString("Found %1 matches").arg(matches));
+}
+
+void EasyDescWidget::findPrev(bool)
+{
+    auto matches = m_tree->findPrev(m_searchBox->text());
+
+    if (matches == 1)
+        m_foundNumber->setText(QString("Found 1 match"));
+    else
+        m_foundNumber->setText(QString("Found %1 matches").arg(matches));
+}
+
+void EasyDescWidget::findNextFromMenu(bool _checked)
+{
+    if (!_checked)
+        return;
+
+    if (m_searchButton->data().toBool() == false)
+    {
+        m_searchButton->setData(true);
+        m_searchButton->setText(tr("Find next"));
+        m_searchButton->setIcon(QIcon(":/Search-next"));
+        disconnect(m_searchButton, &QAction::triggered, this, &This::findPrev);
+        connect(m_searchButton, &QAction::triggered, this, &This::findNext);
+    }
+
+    findNext(true);
+}
+
+void EasyDescWidget::findPrevFromMenu(bool _checked)
+{
+    if (!_checked)
+        return;
+
+    if (m_searchButton->data().toBool() == true)
+    {
+        m_searchButton->setData(false);
+        m_searchButton->setText(tr("Find prev"));
+        m_searchButton->setIcon(QIcon(":/Search-prev"));
+        disconnect(m_searchButton, &QAction::triggered, this, &This::findNext);
+        connect(m_searchButton, &QAction::triggered, this, &This::findPrev);
+    }
+
+    findPrev(true);
 }
 
 //////////////////////////////////////////////////////////////////////////

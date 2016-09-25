@@ -51,6 +51,8 @@ namespace profiler_gui {
         void selectedBlockChanged(uint32_t _block_index);
         void itemsExpandStateChanged();
         void blockStatusChanged(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status);
+        void connectionChanged(bool _connected);
+        void blocksRefreshRequired(bool);
 
     }; // END of class EasyGlobalSignals.
 

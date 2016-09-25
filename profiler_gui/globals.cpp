@@ -47,6 +47,7 @@ namespace profiler_gui {
         : selected_thread(0U)
         , selected_block(::profiler_gui::numeric_max<decltype(selected_block)>())
         , chrono_text_position(ChronoTextPosition_Center)
+        , connected(false)
         , enable_event_indicators(true)
         , enable_statistics(true)
         , draw_graphics_items_borders(true)

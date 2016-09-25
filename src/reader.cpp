@@ -45,6 +45,7 @@
 #include "profiler/reader.h"
 #include "hashed_cstr.h"
 #include <fstream>
+#include <sstream>
 #include <iterator>
 #include <algorithm>
 #include <unordered_map>
@@ -219,389 +220,467 @@ void validate_pointers(::std::atomic<int>& _progress, const char* _oldbase, ::pr
 
 const int64_t TIME_FACTOR = 1000000000LL;
 
-extern "C" PROFILER_API::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progress, const char* filename,
-                                                                   ::profiler::SerializedData& serialized_blocks,
-                                                                   ::profiler::SerializedData& serialized_descriptors,
-                                                                   ::profiler::descriptors_list_t& descriptors,
-                                                                   ::profiler::blocks_t& blocks,
-                                                                   ::profiler::thread_blocks_tree_t& threaded_trees,
-                                                                   bool gather_statistics)
-{
-    EASY_FUNCTION(::profiler::colors::Cyan);
+//////////////////////////////////////////////////////////////////////////
 
-    ::std::ifstream inFile(filename, ::std::fstream::binary);
-    progress.store(0);
+extern "C" {
 
-    if (!inFile.is_open())
-        return 0;
-
-    int64_t cpu_frequency = 0LL;
-    inFile.read((char*)&cpu_frequency, sizeof(int64_t));
-
-    ::profiler::timestamp_t begin_time = 0, end_time = 0;
-    inFile.read((char*)&begin_time, sizeof(::profiler::timestamp_t));
-    inFile.read((char*)&end_time, sizeof(::profiler::timestamp_t));
-    if (cpu_frequency != 0)
+    PROFILER_API ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progress, const char* filename,
+                                                            ::profiler::SerializedData& serialized_blocks,
+                                                            ::profiler::SerializedData& serialized_descriptors,
+                                                            ::profiler::descriptors_list_t& descriptors,
+                                                            ::profiler::blocks_t& blocks,
+                                                            ::profiler::thread_blocks_tree_t& threaded_trees,
+                                                            bool gather_statistics)
     {
-        begin_time *= TIME_FACTOR;
-        begin_time /= cpu_frequency;
-        end_time *= TIME_FACTOR;
-        end_time /= cpu_frequency;
+        ::std::ifstream inFile(filename, ::std::fstream::binary);
+        progress.store(0);
+        if (!inFile.is_open())
+            return 0;
+        ::std::stringstream str;
+        str.set_rdbuf(inFile.rdbuf());
+        return fillTreesFromStream(progress, str, serialized_blocks, serialized_descriptors, descriptors, blocks, threaded_trees, gather_statistics);
     }
 
-    uint32_t total_blocks_number = 0;
-    inFile.read((char*)&total_blocks_number, sizeof(decltype(total_blocks_number)));
-    if (total_blocks_number == 0)
-        return 0;
+    //////////////////////////////////////////////////////////////////////////
 
-    uint64_t memory_size = 0;
-    inFile.read((char*)&memory_size, sizeof(decltype(memory_size)));
-    if (memory_size == 0)
-        return 0;
-
-    uint32_t total_descriptors_number = 0;
-    inFile.read((char*)&total_descriptors_number, sizeof(decltype(total_descriptors_number)));
-    if (total_descriptors_number == 0)
-        return 0;
-
-    uint64_t descriptors_memory_size = 0;
-    inFile.read((char*)&descriptors_memory_size, sizeof(decltype(descriptors_memory_size)));
-    if (descriptors_memory_size == 0)
-        return 0;
-
-    descriptors.reserve(total_descriptors_number);
-    //const char* olddata = append_regime ? serialized_descriptors.data() : nullptr;
-    serialized_descriptors.set(descriptors_memory_size);
-    //validate_pointers(progress, olddata, serialized_descriptors, descriptors, descriptors.size());
-
-    uint64_t i = 0;
-    while (!inFile.eof() && descriptors.size() < total_descriptors_number)
+    PROFILER_API ::profiler::block_index_t fillTreesFromStream(::std::atomic<int>& progress, ::std::stringstream& inFile,
+                                                              ::profiler::SerializedData& serialized_blocks,
+                                                              ::profiler::SerializedData& serialized_descriptors,
+                                                              ::profiler::descriptors_list_t& descriptors,
+                                                              ::profiler::blocks_t& blocks,
+                                                              ::profiler::thread_blocks_tree_t& threaded_trees,
+                                                              bool gather_statistics)
     {
-        uint16_t sz = 0;
-        inFile.read((char*)&sz, sizeof(sz));
-        if (sz == 0)
+        EASY_FUNCTION(::profiler::colors::Cyan);
+
+        progress.store(0);
+
+        int64_t cpu_frequency = 0LL;
+        inFile.read((char*)&cpu_frequency, sizeof(int64_t));
+
+        ::profiler::timestamp_t begin_time = 0, end_time = 0;
+        inFile.read((char*)&begin_time, sizeof(::profiler::timestamp_t));
+        inFile.read((char*)&end_time, sizeof(::profiler::timestamp_t));
+        if (cpu_frequency != 0)
         {
-            descriptors.push_back(nullptr);
-            continue;
+            begin_time *= TIME_FACTOR;
+            begin_time /= cpu_frequency;
+            end_time *= TIME_FACTOR;
+            end_time /= cpu_frequency;
         }
 
-        //if (i + sz > descriptors_memory_size) {
-        //    printf("FILE CORRUPTED\n");
-        //    return 0;
-        //}
+        uint32_t total_blocks_number = 0;
+        inFile.read((char*)&total_blocks_number, sizeof(decltype(total_blocks_number)));
+        if (total_blocks_number == 0)
+            return 0;
 
-        char* data = serialized_descriptors[i];
-        inFile.read(data, sz);
-        auto descriptor = reinterpret_cast<::profiler::SerializedBlockDescriptor*>(data);
-        descriptors.push_back(descriptor);
+        uint64_t memory_size = 0;
+        inFile.read((char*)&memory_size, sizeof(decltype(memory_size)));
+        if (memory_size == 0)
+            return 0;
 
-        i += sz;
-        auto oldprogress = progress.exchange(static_cast<int>(15 * i / descriptors_memory_size), ::std::memory_order_release);
-        if (oldprogress < 0)
-            return 0; // Loading interrupted
-    }
+        uint32_t total_descriptors_number = 0;
+        inFile.read((char*)&total_descriptors_number, sizeof(decltype(total_descriptors_number)));
+        if (total_descriptors_number == 0)
+            return 0;
 
-    typedef ::std::unordered_map<::profiler::thread_id_t, StatsMap, ::profiler::passthrough_hash> PerThreadStats;
-    PerThreadStats thread_statistics, parent_statistics, frame_statistics;
-    IdMap identification_table;
+        uint64_t descriptors_memory_size = 0;
+        inFile.read((char*)&descriptors_memory_size, sizeof(decltype(descriptors_memory_size)));
+        if (descriptors_memory_size == 0)
+            return 0;
 
-    blocks.reserve(total_blocks_number);
-    //olddata = append_regime ? serialized_blocks.data() : nullptr;
-    serialized_blocks.set(memory_size);
-    //validate_pointers(progress, olddata, serialized_blocks, blocks, blocks.size());
+        descriptors.reserve(total_descriptors_number);
+        //const char* olddata = append_regime ? serialized_descriptors.data() : nullptr;
+        serialized_descriptors.set(descriptors_memory_size);
+        //validate_pointers(progress, olddata, serialized_descriptors, descriptors, descriptors.size());
 
-    i = 0;
-    uint32_t read_number = 0;
-    ::profiler::block_index_t blocks_counter = 0;
-    ::std::vector<char> name;
-    while (!inFile.eof() && read_number < total_blocks_number)
-    {
-        EASY_BLOCK("Read thread data", ::profiler::colors::DarkGreen);
-
-        ::profiler::thread_id_t thread_id = 0;
-        inFile.read((char*)&thread_id, sizeof(decltype(thread_id)));
-
-        auto& root = threaded_trees[thread_id];
-
-        uint16_t name_size = 0;
-        inFile.read((char*)&name_size, sizeof(uint16_t));
-        if (name_size != 0)
+        uint64_t i = 0;
+        while (!inFile.eof() && descriptors.size() < total_descriptors_number)
         {
-            name.resize(name_size);
-            inFile.read(name.data(), name_size);
-            root.thread_name = name.data();
-        }
-
-        uint32_t blocks_number_in_thread = 0;
-        inFile.read((char*)&blocks_number_in_thread, sizeof(decltype(blocks_number_in_thread)));
-        auto threshold = read_number + blocks_number_in_thread;
-        while (!inFile.eof() && read_number < threshold)
-        {
-            EASY_BLOCK("Read context switch", ::profiler::colors::Green);
-
-            ++read_number;
-
             uint16_t sz = 0;
             inFile.read((char*)&sz, sizeof(sz));
             if (sz == 0)
-                return 0;
+            {
+                descriptors.push_back(nullptr);
+                continue;
+            }
 
-            char* data = serialized_blocks[i];
+            //if (i + sz > descriptors_memory_size) {
+            //    printf("FILE CORRUPTED\n");
+            //    return 0;
+            //}
+
+            char* data = serialized_descriptors[i];
             inFile.read(data, sz);
+            auto descriptor = reinterpret_cast<::profiler::SerializedBlockDescriptor*>(data);
+            descriptors.push_back(descriptor);
+
             i += sz;
-            auto baseData = reinterpret_cast<::profiler::SerializedBlock*>(data);
-            auto t_begin = reinterpret_cast<::profiler::timestamp_t*>(data);
-            auto t_end = t_begin + 1;
-
-            if (cpu_frequency != 0)
-            {
-                *t_begin *= TIME_FACTOR;
-                *t_begin /= cpu_frequency;
-                *t_end *= TIME_FACTOR;
-                *t_end /= cpu_frequency;
-            }
-
-            if (*t_end > begin_time)
-            {
-                if (*t_begin < begin_time)
-                    *t_begin = begin_time;
-
-                blocks.emplace_back();
-                ::profiler::BlocksTree& tree = blocks.back();
-                tree.node = baseData;
-                const auto block_index = blocks_counter++;
-
-                root.sync.emplace_back(block_index);
-            }
-
-            auto oldprogress = progress.exchange(20 + static_cast<int>(70 * i / memory_size), ::std::memory_order_release);
+            auto oldprogress = progress.exchange(static_cast<int>(15 * i / descriptors_memory_size), ::std::memory_order_release);
             if (oldprogress < 0)
                 return 0; // Loading interrupted
         }
 
-        if (inFile.eof())
-            break;
+        typedef ::std::unordered_map<::profiler::thread_id_t, StatsMap, ::profiler::passthrough_hash> PerThreadStats;
+        PerThreadStats thread_statistics, parent_statistics, frame_statistics;
+        IdMap identification_table;
 
-        blocks_number_in_thread = 0;
-        inFile.read((char*)&blocks_number_in_thread, sizeof(decltype(blocks_number_in_thread)));
-        threshold = read_number + blocks_number_in_thread;
-        while (!inFile.eof() && read_number < threshold)
+        blocks.reserve(total_blocks_number);
+        //olddata = append_regime ? serialized_blocks.data() : nullptr;
+        serialized_blocks.set(memory_size);
+        //validate_pointers(progress, olddata, serialized_blocks, blocks, blocks.size());
+
+        i = 0;
+        uint32_t read_number = 0;
+        ::profiler::block_index_t blocks_counter = 0;
+        ::std::vector<char> name;
+        while (!inFile.eof() && read_number < total_blocks_number)
         {
-            EASY_BLOCK("Read block", ::profiler::colors::Green);
+            EASY_BLOCK("Read thread data", ::profiler::colors::DarkGreen);
 
-            ++read_number;
+            ::profiler::thread_id_t thread_id = 0;
+            inFile.read((char*)&thread_id, sizeof(decltype(thread_id)));
 
-            uint16_t sz = 0;
-            inFile.read((char*)&sz, sizeof(sz));
-            if (sz == 0)
-                return 0;
+            auto& root = threaded_trees[thread_id];
 
-            char* data = serialized_blocks[i];
-            inFile.read(data, sz);
-            i += sz;
-            auto baseData = reinterpret_cast<::profiler::SerializedBlock*>(data);
-            auto desc = descriptors[baseData->id()];
-            if (desc == nullptr)
-                return 0;
-
-            auto t_begin = reinterpret_cast<::profiler::timestamp_t*>(data);
-            auto t_end = t_begin + 1;
-
-            if (cpu_frequency != 0)
+            uint16_t name_size = 0;
+            inFile.read((char*)&name_size, sizeof(uint16_t));
+            if (name_size != 0)
             {
-                *t_begin *= TIME_FACTOR;
-                *t_begin /= cpu_frequency;
-                *t_end *= TIME_FACTOR;
-                *t_end /= cpu_frequency;
+                name.resize(name_size);
+                inFile.read(name.data(), name_size);
+                root.thread_name = name.data();
             }
 
-            if (*t_end >= begin_time)
+            uint32_t blocks_number_in_thread = 0;
+            inFile.read((char*)&blocks_number_in_thread, sizeof(decltype(blocks_number_in_thread)));
+            auto threshold = read_number + blocks_number_in_thread;
+            while (!inFile.eof() && read_number < threshold)
             {
-                if (*t_begin < begin_time)
-                    *t_begin = begin_time;
+                EASY_BLOCK("Read context switch", ::profiler::colors::Green);
 
-                blocks.emplace_back();
-                ::profiler::BlocksTree& tree = blocks.back();
-                tree.node = baseData;
-                const auto block_index = blocks_counter++;
+                ++read_number;
 
-                auto& per_parent_statistics = parent_statistics[thread_id];
-                auto& per_thread_statistics = thread_statistics[thread_id];
+                uint16_t sz = 0;
+                inFile.read((char*)&sz, sizeof(sz));
+                if (sz == 0)
+                    return 0;
 
-                if (*tree.node->name() != 0)
+                char* data = serialized_blocks[i];
+                inFile.read(data, sz);
+                i += sz;
+                auto baseData = reinterpret_cast<::profiler::SerializedBlock*>(data);
+                auto t_begin = reinterpret_cast<::profiler::timestamp_t*>(data);
+                auto t_end = t_begin + 1;
+
+                if (cpu_frequency != 0)
                 {
-                    // If block has runtime name then generate new id for such block.
-                    // Blocks with the same name will have same id.
-
-                    IdMap::key_type key(tree.node->name());
-                    auto it = identification_table.find(key);
-                    if (it != identification_table.end())
-                    {
-                        // There is already block with such name, use it's id
-                        baseData->setId(it->second);
-                    }
-                    else
-                    {
-                        // There were no blocks with such name, generate new id and save it in the table for further usage.
-                        auto id = static_cast<::profiler::block_id_t>(descriptors.size());
-                        identification_table.emplace(key, id);
-                        if (descriptors.capacity() == descriptors.size())
-                            descriptors.reserve((descriptors.size() * 3) >> 1);
-                        descriptors.push_back(descriptors[baseData->id()]);
-                        baseData->setId(id);
-                    }
+                    *t_begin *= TIME_FACTOR;
+                    *t_begin /= cpu_frequency;
+                    *t_end *= TIME_FACTOR;
+                    *t_end /= cpu_frequency;
                 }
 
-                if (!root.children.empty())
+                if (*t_end > begin_time)
                 {
-                    auto& back = blocks[root.children.back()];
-                    auto t1 = back.node->end();
-                    auto mt0 = tree.node->begin();
-                    if (mt0 < t1)//parent - starts earlier than last ends
+                    if (*t_begin < begin_time)
+                        *t_begin = begin_time;
+
+                    blocks.emplace_back();
+                    ::profiler::BlocksTree& tree = blocks.back();
+                    tree.node = baseData;
+                    const auto block_index = blocks_counter++;
+
+                    root.sync.emplace_back(block_index);
+                }
+
+                auto oldprogress = progress.exchange(20 + static_cast<int>(70 * i / memory_size), ::std::memory_order_release);
+                if (oldprogress < 0)
+                    return 0; // Loading interrupted
+            }
+
+            if (inFile.eof())
+                break;
+
+            blocks_number_in_thread = 0;
+            inFile.read((char*)&blocks_number_in_thread, sizeof(decltype(blocks_number_in_thread)));
+            threshold = read_number + blocks_number_in_thread;
+            while (!inFile.eof() && read_number < threshold)
+            {
+                EASY_BLOCK("Read block", ::profiler::colors::Green);
+
+                ++read_number;
+
+                uint16_t sz = 0;
+                inFile.read((char*)&sz, sizeof(sz));
+                if (sz == 0)
+                    return 0;
+
+                char* data = serialized_blocks[i];
+                inFile.read(data, sz);
+                i += sz;
+                auto baseData = reinterpret_cast<::profiler::SerializedBlock*>(data);
+                auto desc = descriptors[baseData->id()];
+                if (desc == nullptr)
+                    return 0;
+
+                auto t_begin = reinterpret_cast<::profiler::timestamp_t*>(data);
+                auto t_end = t_begin + 1;
+
+                if (cpu_frequency != 0)
+                {
+                    *t_begin *= TIME_FACTOR;
+                    *t_begin /= cpu_frequency;
+                    *t_end *= TIME_FACTOR;
+                    *t_end /= cpu_frequency;
+                }
+
+                if (*t_end >= begin_time)
+                {
+                    if (*t_begin < begin_time)
+                        *t_begin = begin_time;
+
+                    blocks.emplace_back();
+                    ::profiler::BlocksTree& tree = blocks.back();
+                    tree.node = baseData;
+                    const auto block_index = blocks_counter++;
+
+                    auto& per_parent_statistics = parent_statistics[thread_id];
+                    auto& per_thread_statistics = thread_statistics[thread_id];
+
+                    if (*tree.node->name() != 0)
                     {
-                        //auto lower = ::std::lower_bound(root.children.begin(), root.children.end(), tree);
-                        /**/
-                        EASY_BLOCK("Find children", ::profiler::colors::Blue);
-                        auto rlower1 = ++root.children.rbegin();
-                        for (; rlower1 != root.children.rend() && !(mt0 > blocks[*rlower1].node->begin()); ++rlower1);
-                        auto lower = rlower1.base();
-                        ::std::move(lower, root.children.end(), ::std::back_inserter(tree.children));
+                        // If block has runtime name then generate new id for such block.
+                        // Blocks with the same name will have same id.
 
-                        root.children.erase(lower, root.children.end());
-                        EASY_END_BLOCK;
-
-                        ::profiler::timestamp_t children_duration = 0;
-                        if (gather_statistics)
+                        IdMap::key_type key(tree.node->name());
+                        auto it = identification_table.find(key);
+                        if (it != identification_table.end())
                         {
-                            EASY_BLOCK("Gather statistic within parent", ::profiler::colors::Magenta);
-                            per_parent_statistics.clear();
-
-                            //per_parent_statistics.reserve(tree.children.size());     // this gives slow-down on Windows
-                            //per_parent_statistics.reserve(tree.children.size() * 2); // this gives no speed-up on Windows
-                            // TODO: check this behavior on Linux
-
-                            for (auto i : tree.children)
-                            {
-                                auto& child = blocks[i];
-                                child.per_parent_stats = update_statistics(per_parent_statistics, child, i, block_index);
-
-                                children_duration += child.node->duration();
-                                if (tree.depth < child.depth)
-                                    tree.depth = child.depth;
-                            }
+                            // There is already block with such name, use it's id
+                            baseData->setId(it->second);
                         }
                         else
                         {
-                            for (auto i : tree.children)
-                            {
-                                const auto& child = blocks[i];
-                                children_duration += child.node->duration();
-                                if (tree.depth < child.depth)
-                                    tree.depth = child.depth;
-                            }
+                            // There were no blocks with such name, generate new id and save it in the table for further usage.
+                            auto id = static_cast<::profiler::block_id_t>(descriptors.size());
+                            identification_table.emplace(key, id);
+                            if (descriptors.capacity() == descriptors.size())
+                                descriptors.reserve((descriptors.size() * 3) >> 1);
+                            descriptors.push_back(descriptors[baseData->id()]);
+                            baseData->setId(id);
                         }
+                    }
 
-                        ++tree.depth;
+                    if (!root.children.empty())
+                    {
+                        auto& back = blocks[root.children.back()];
+                        auto t1 = back.node->end();
+                        auto mt0 = tree.node->begin();
+                        if (mt0 < t1)//parent - starts earlier than last ends
+                        {
+                            //auto lower = ::std::lower_bound(root.children.begin(), root.children.end(), tree);
+                            /**/
+                            EASY_BLOCK("Find children", ::profiler::colors::Blue);
+                            auto rlower1 = ++root.children.rbegin();
+                            for (; rlower1 != root.children.rend() && !(mt0 > blocks[*rlower1].node->begin()); ++rlower1);
+                            auto lower = rlower1.base();
+                            ::std::move(lower, root.children.end(), ::std::back_inserter(tree.children));
+
+                            root.children.erase(lower, root.children.end());
+                            EASY_END_BLOCK;
+
+                            ::profiler::timestamp_t children_duration = 0;
+                            if (gather_statistics)
+                            {
+                                EASY_BLOCK("Gather statistic within parent", ::profiler::colors::Magenta);
+                                per_parent_statistics.clear();
+
+                                //per_parent_statistics.reserve(tree.children.size());     // this gives slow-down on Windows
+                                //per_parent_statistics.reserve(tree.children.size() * 2); // this gives no speed-up on Windows
+                                // TODO: check this behavior on Linux
+
+                                for (auto i : tree.children)
+                                {
+                                    auto& child = blocks[i];
+                                    child.per_parent_stats = update_statistics(per_parent_statistics, child, i, block_index);
+
+                                    children_duration += child.node->duration();
+                                    if (tree.depth < child.depth)
+                                        tree.depth = child.depth;
+                                }
+                            }
+                            else
+                            {
+                                for (auto i : tree.children)
+                                {
+                                    const auto& child = blocks[i];
+                                    children_duration += child.node->duration();
+                                    if (tree.depth < child.depth)
+                                        tree.depth = child.depth;
+                                }
+                            }
+
+                            ++tree.depth;
+                        }
+                    }
+
+                    root.children.emplace_back(block_index);// ::std::move(tree));
+                    if (desc->type() == ::profiler::BLOCK_TYPE_EVENT)
+                        root.events.emplace_back(block_index);
+
+
+                    if (gather_statistics)
+                    {
+                        EASY_BLOCK("Gather per thread statistics", ::profiler::colors::Coral);
+                        tree.per_thread_stats = update_statistics(per_thread_statistics, tree, block_index, thread_id);
                     }
                 }
 
-                root.children.emplace_back(block_index);// ::std::move(tree));
-                if (desc->type() == ::profiler::BLOCK_TYPE_EVENT)
-                    root.events.emplace_back(block_index);
+                auto oldprogress = progress.exchange(20 + static_cast<int>(70 * i / memory_size), ::std::memory_order_release);
+                if (oldprogress < 0)
+                    return 0; // Loading interrupted
+            }
+        }
 
+        if (progress.load(::std::memory_order_acquire) < 0)
+            return 0; // Loading interrupted
 
-                if (gather_statistics)
+        EASY_BLOCK("Gather statistics for roots", ::profiler::colors::Purple);
+        if (gather_statistics)
+        {
+            ::std::vector<::std::thread> statistics_threads;
+            statistics_threads.reserve(threaded_trees.size());
+
+            for (auto& it : threaded_trees)
+            {
+                auto& root = it.second;
+                root.thread_id = it.first;
+                //root.tree.shrink_to_fit();
+
+                auto& per_frame_statistics = frame_statistics[root.thread_id];
+                auto& per_parent_statistics = parent_statistics[it.first];
+                per_parent_statistics.clear();
+
+                statistics_threads.emplace_back(::std::thread([&per_parent_statistics, &per_frame_statistics, &blocks](::profiler::BlocksTreeRoot& root)
                 {
-                    EASY_BLOCK("Gather per thread statistics", ::profiler::colors::Coral);
-                    tree.per_thread_stats = update_statistics(per_thread_statistics, tree, block_index, thread_id);
-                }
+                    //::std::sort(root.sync.begin(), root.sync.end(), [&blocks](::profiler::block_index_t left, ::profiler::block_index_t right)
+                    //{
+                    //    return blocks[left].node->begin() < blocks[right].node->begin();
+                    //});
+
+                    for (auto i : root.children)
+                    {
+                        auto& frame = blocks[i];
+                        frame.per_parent_stats = update_statistics(per_parent_statistics, frame, i, root.thread_id);
+
+                        per_frame_statistics.clear();
+                        update_statistics_recursive(per_frame_statistics, frame, i, i, blocks);
+
+                        if (root.depth < frame.depth)
+                            root.depth = frame.depth;
+
+                        root.active_time += frame.node->duration();
+                    }
+
+                    ++root.depth;
+                }, ::std::ref(root)));
             }
 
-            auto oldprogress = progress.exchange(20 + static_cast<int>(70 * i / memory_size), ::std::memory_order_release);
-            if (oldprogress < 0)
-                return 0; // Loading interrupted
-        }
-    }
-
-    if (progress.load(::std::memory_order_acquire) < 0)
-        return 0; // Loading interrupted
-
-    EASY_BLOCK("Gather statistics for roots", ::profiler::colors::Purple);
-    if (gather_statistics)
-    {
-        ::std::vector<::std::thread> statistics_threads;
-        statistics_threads.reserve(threaded_trees.size());
-
-        for (auto& it : threaded_trees)
-        {
-            auto& root = it.second;
-            root.thread_id = it.first;
-            //root.tree.shrink_to_fit();
-
-            auto& per_frame_statistics = frame_statistics[root.thread_id];
-            auto& per_parent_statistics = parent_statistics[it.first];
-            per_parent_statistics.clear();
-
-            statistics_threads.emplace_back(::std::thread([&per_parent_statistics, &per_frame_statistics, &blocks](::profiler::BlocksTreeRoot& root)
+            int j = 0, n = static_cast<int>(statistics_threads.size());
+            for (auto& t : statistics_threads)
             {
+                t.join();
+                progress.store(90 + (10 * ++j) / n, ::std::memory_order_release);
+            }
+        }
+        else
+        {
+            int j = 0, n = static_cast<int>(threaded_trees.size());
+            for (auto& it : threaded_trees)
+            {
+                auto& root = it.second;
+                root.thread_id = it.first;
+
                 //::std::sort(root.sync.begin(), root.sync.end(), [&blocks](::profiler::block_index_t left, ::profiler::block_index_t right)
                 //{
                 //    return blocks[left].node->begin() < blocks[right].node->begin();
                 //});
 
+                //root.tree.shrink_to_fit();
                 for (auto i : root.children)
                 {
                     auto& frame = blocks[i];
-                    frame.per_parent_stats = update_statistics(per_parent_statistics, frame, i, root.thread_id);
-
-                    per_frame_statistics.clear();
-                    update_statistics_recursive(per_frame_statistics, frame, i, i, blocks);
-
                     if (root.depth < frame.depth)
                         root.depth = frame.depth;
-
                     root.active_time += frame.node->duration();
                 }
 
                 ++root.depth;
-            }, ::std::ref(root)));
-        }
 
-        int j = 0, n = static_cast<int>(statistics_threads.size());
-        for (auto& t : statistics_threads)
-        {
-            t.join();
-            progress.store(90 + (10 * ++j) / n, ::std::memory_order_release);
+                progress.store(90 + (10 * ++j) / n, ::std::memory_order_release);
+            }
         }
+        // No need to delete BlockStatistics instances - they will be deleted inside BlocksTree destructors
+
+        return blocks_counter;
     }
-    else
+
+    //////////////////////////////////////////////////////////////////////////
+
+    PROFILER_API bool readDescriptionsFromStream(::std::atomic<int>& progress, ::std::stringstream& inFile,
+                                                 ::profiler::SerializedData& serialized_descriptors,
+                                                 ::profiler::descriptors_list_t& descriptors)
     {
-        int j = 0, n = static_cast<int>(threaded_trees.size());
-        for (auto& it : threaded_trees)
+        EASY_FUNCTION(::profiler::colors::Cyan);
+
+        progress.store(0);
+
+        uint32_t total_descriptors_number = 0;
+        inFile.read((char*)&total_descriptors_number, sizeof(decltype(total_descriptors_number)));
+        if (total_descriptors_number == 0)
+            return false;
+
+        uint64_t descriptors_memory_size = 0;
+        inFile.read((char*)&descriptors_memory_size, sizeof(decltype(descriptors_memory_size)));
+        if (descriptors_memory_size == 0)
+            return false;
+
+        descriptors.reserve(total_descriptors_number);
+        //const char* olddata = append_regime ? serialized_descriptors.data() : nullptr;
+        serialized_descriptors.set(descriptors_memory_size);
+        //validate_pointers(progress, olddata, serialized_descriptors, descriptors, descriptors.size());
+
+        uint64_t i = 0;
+        while (!inFile.eof() && descriptors.size() < total_descriptors_number)
         {
-            auto& root = it.second;
-            root.thread_id = it.first;
-
-            //::std::sort(root.sync.begin(), root.sync.end(), [&blocks](::profiler::block_index_t left, ::profiler::block_index_t right)
-            //{
-            //    return blocks[left].node->begin() < blocks[right].node->begin();
-            //});
-
-            //root.tree.shrink_to_fit();
-            for (auto i : root.children)
+            uint16_t sz = 0;
+            inFile.read((char*)&sz, sizeof(sz));
+            if (sz == 0)
             {
-                auto& frame = blocks[i];
-                if (root.depth < frame.depth)
-                    root.depth = frame.depth;
-                root.active_time += frame.node->duration();
+                descriptors.push_back(nullptr);
+                continue;
             }
 
-            ++root.depth;
+            //if (i + sz > descriptors_memory_size) {
+            //    printf("FILE CORRUPTED\n");
+            //    return 0;
+            //}
 
-            progress.store(90 + (10 * ++j) / n, ::std::memory_order_release);
+            char* data = serialized_descriptors[i];
+            inFile.read(data, sz);
+            auto descriptor = reinterpret_cast<::profiler::SerializedBlockDescriptor*>(data);
+            descriptors.push_back(descriptor);
+
+            i += sz;
+            auto oldprogress = progress.exchange(static_cast<int>(100 * i / descriptors_memory_size), ::std::memory_order_release);
+            if (oldprogress < 0)
+                return false; // Loading interrupted
         }
-    }
-    // No need to delete BlockStatistics instances - they will be deleted inside BlocksTree destructors
 
-    return blocks_counter;
+        return !descriptors.empty();
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+
 }

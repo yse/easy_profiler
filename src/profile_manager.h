@@ -367,7 +367,7 @@ class ProfileManager
 
     std::thread m_listenThread;
     bool m_isAlreadyListened = false;
-    void startListen();
+    void listen();
 
     int m_socket = 0;//TODO crossplatform
 

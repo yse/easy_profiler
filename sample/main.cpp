@@ -18,6 +18,8 @@ int MODELLING_STEPS = 1500;
 int RENDER_STEPS = 1500;
 int RESOURCE_LOADING_COUNT = 50;
 
+//#define SAMPLE_NETWORK_TEST
+
 void localSleep(int magic=200000)
 {
     //PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
@@ -134,7 +136,11 @@ void loadingResourcesThread(){
     //std::unique_lock<std::mutex> lk(cv_m);
     //cv.wait(lk, []{return g_i == 1; });
     EASY_THREAD("Resource loading");
+#ifdef SAMPLE_NETWORK_TEST
+    while (true) {
+#else
     for(int i = 0; i < RESOURCE_LOADING_COUNT; i++){
+#endif
         loadingResources();
         EASY_EVENT("Resources Loading!", profiler::colors::Cyan);
         localSleep(1200000);
@@ -146,7 +152,11 @@ void modellingThread(){
     //std::unique_lock<std::mutex> lk(cv_m);
     //cv.wait(lk, []{return g_i == 1; });
     EASY_THREAD("Modelling");
+#ifdef SAMPLE_NETWORK_TEST
+    while (true) {
+#else
     for (int i = 0; i < MODELLING_STEPS; i++){
+#endif
         modellingStep();
         localSleep(1200000);
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));
@@ -157,7 +167,11 @@ void renderThread(){
     //std::unique_lock<std::mutex> lk(cv_m);
     //cv.wait(lk, []{return g_i == 1; });
     EASY_THREAD("Render");
+#ifdef SAMPLE_NETWORK_TEST
+    while (true) {
+#else
     for (int i = 0; i < RENDER_STEPS; i++){
+#endif
         frame();
         localSleep(1200000);
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));
@@ -187,15 +201,19 @@ int main(int argc, char* argv[])
     std::cout << "Resource loading count: " << RESOURCE_LOADING_COUNT << std::endl;
 
     auto start = std::chrono::system_clock::now();
+
+#ifndef SAMPLE_NETWORK_TEST
     EASY_PROFILER_ENABLE;
+#endif
+
     EASY_MAIN_THREAD;
     profiler::startListenSignalToCapture();
 
     std::vector<std::thread> threads;
     for (int i=0; i < 3; i++) {
-        threads.emplace_back(std::thread(loadingResourcesThread));
-        threads.emplace_back(std::thread(renderThread));
-        threads.emplace_back(std::thread(modellingThread));
+        threads.emplace_back(loadingResourcesThread);
+        threads.emplace_back(renderThread);
+        threads.emplace_back(modellingThread);
     }
 
     cv_m.lock();

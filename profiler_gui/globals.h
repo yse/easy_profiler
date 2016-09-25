@@ -97,6 +97,7 @@ namespace profiler_gui {
         ::profiler::thread_id_t          selected_thread; ///< Current selected thread id
         ::profiler::block_index_t         selected_block; ///< Current selected profiler block index
         ChronometerTextPosition     chrono_text_position; ///< Selected interval text position
+        bool                                   connected; ///< Is connected to source (to be able to capture profiling information)
         bool                     enable_event_indicators; ///< Enable event indicators painting (These are narrow rectangles at the bottom of each thread)
         bool                           enable_statistics; ///< Enable gathering and using statistics (Disable if you want to consume less memory)
         bool                 draw_graphics_items_borders; ///< Draw borders for graphics blocks or not

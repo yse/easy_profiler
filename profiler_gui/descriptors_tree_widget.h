@@ -135,9 +135,10 @@ class EasyDescWidget : public QWidget
 
 private:
 
-    EasyDescTreeWidget*   m_tree;
-    class QLineEdit* m_searchBox;
-    class QLabel*  m_foundNumber;
+    EasyDescTreeWidget*    m_tree;
+    class QLineEdit*  m_searchBox;
+    class QLabel*   m_foundNumber;
+    class QAction* m_searchButton;
 
 public:
 
@@ -157,6 +158,10 @@ public:
 private slots:
 
     void onSeachBoxReturnPressed();
+    void findNext(bool);
+    void findPrev(bool);
+    void findNextFromMenu(bool);
+    void findPrevFromMenu(bool);
 
 }; // END of class EasyDescWidget.
 

@@ -122,6 +122,7 @@ EasyMainWindow::EasyMainWindow() : Parent()
     toolbar->setObjectName("ProfilerGUI_MainToolBar");
     toolbar->addAction(QIcon(":/Delete"), tr("Clear all"), this, SLOT(onDeleteClicked(bool)));
 
+    toolbar->addAction(QIcon(":/List"), tr("Blocks"), this, SLOT(onEditBlocksClicked(bool)));
     m_captureAction = toolbar->addAction(QIcon(":/Start"), tr("Capture"), this, SLOT(onCaptureClicked(bool)));
     m_captureAction->setEnabled(false);
 
@@ -262,14 +263,6 @@ EasyMainWindow::EasyMainWindow() : Parent()
 
 
 
-    menu = menuBar()->addMenu("&Edit");
-    m_editBlocksAction = menu->addAction(tr("Edit blocks"), this, SLOT(onEditBlocksClicked(bool)));
-    m_editBlocksAction->setEnabled(false);
-    action = menu->addAction(tr("Clear all"), this, SLOT(onDeleteClicked(bool)));
-    SET_ICON(action, ":/Delete");
-
-
-
     menu = menuBar()->addMenu("&Settings");
     action = menu->addAction("Statistics enabled");
     action->setCheckable(true);
@@ -310,7 +303,7 @@ EasyMainWindow::EasyMainWindow() : Parent()
 
     connect(graphicsView->view(), &EasyGraphicsView::intervalChanged, treeWidget, &EasyTreeWidget::setTreeBlocks);
     connect(&m_readerTimer, &QTimer::timeout, this, &This::onFileReaderTimeout);
-    connect(&m_downloadedTimer, &QTimer::timeout, this, &This::onDownloadTimeout);
+    connect(&m_listenerTimer, &QTimer::timeout, this, &This::onListenerTimerTimeout);
     
 
     m_progress = new QProgressDialog("Loading file...", "Cancel", 0, 100, this);
@@ -321,14 +314,6 @@ EasyMainWindow::EasyMainWindow() : Parent()
     //m_progress->hide();
     connect(m_progress, &QProgressDialog::canceled, this, &This::onFileReaderCancel);
 
-
-    m_downloadingProgress = new QProgressDialog("Capturing frames...", "Stop", 0, 100, this);
-    m_downloadingProgress->setFixedWidth(300);
-    m_downloadingProgress->setWindowTitle("EasyProfiler");
-    m_downloadingProgress->setModal(true);
-    m_downloadingProgress->setValue(100);
-    //m_downloadedTimer.start(10);
-
     loadGeometry();
 
     if(QCoreApplication::arguments().size() > 1)
@@ -336,172 +321,14 @@ EasyMainWindow::EasyMainWindow() : Parent()
         auto opened_filename = QCoreApplication::arguments().at(1);
         loadFile(opened_filename);
     }
-}
 
-void EasyMainWindow::listen()
-{
-    profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE);
-
-  
-    //std::this_thread::sleep_for(std::chrono::seconds(2));
-    static const int buffer_size = 8 * 1024 * 1024;
-    char*buffer = new char[buffer_size];
-    int seek = 0;
-    int bytes = 0;
-
-    static auto timeBegin = std::chrono::system_clock::now();
-    bool isListen = true;
-    while (isListen)
-    {
-        if ((bytes - seek) == 0)
-        {
-            bytes = m_easySocket.receive(buffer, buffer_size);
-
-            if(bytes == -1)
-            {
-                if(m_easySocket.state() == EasySocket::CONNECTION_STATE_DISCONNECTED)
-                    isListen = false;
-
-                seek = 0;
-                bytes = 0;
-
-                continue;
-            }
-
-            seek = 0;
-        }
-            
-        char *buf = &buffer[seek];
-
-        if (bytes == 0){
-            isListen = false;
-            continue;
-        }
-
-        if (bytes > 0)
-        {
-            profiler::net::Message* message = (profiler::net::Message*)buf;
-            if (!message->isEasyNetMessage())
-                continue;
-
-            switch (message->type)
-            {
-                case profiler::net::MESSAGE_TYPE_ACCEPTED_CONNECTION:
-                {
-                    qInfo() << "Receive MESSAGE_TYPE_ACCEPTED_CONNECTION";
-                    //m_easySocket.send(&request, sizeof(request));
-                    seek += sizeof(profiler::net::Message);
-                    break;
-                }
-
-                case profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING:
-                {
-                    qInfo() << "Receive MESSAGE_TYPE_REPLY_START_CAPTURING";
-                    seek += sizeof(profiler::net::Message);
-                    break;
-                }
-
-                case profiler::net::MESSAGE_TYPE_REPLY_PREPARE_BLOCKS:
-                {
-                    qInfo() << "Receive MESSAGE_TYPE_REPLY_PREPARE_BLOCKS";
-                    m_isClientPreparedBlocks = true;
-                    seek += sizeof(profiler::net::Message);
-                    break;
-                }
-
-                case profiler::net::MESSAGE_TYPE_REPLY_END_SEND_BLOCKS:
-                {
-                    qInfo() << "Receive MESSAGE_TYPE_REPLY_END_SEND_BLOCKS";
-                    seek += sizeof(profiler::net::Message);
-
-                    auto timeEnd = std::chrono::system_clock::now();
-                    auto dT = std::chrono::duration_cast<std::chrono::milliseconds>(timeEnd - timeBegin);
-                    auto dTsec = std::chrono::duration_cast<std::chrono::seconds>(timeEnd - timeBegin);
-                    qInfo() << "recieve" << m_receivedProfileData.str().size() << dT.count() << "ms" << double(m_receivedProfileData.str().size())*1000.0 / double(dT.count()) / 1024.0 << "kBytes/sec";
-                    m_recFrames = false;
-
-
-                    qInfo() << "Write FILE";
-                    std::string tempfilename = "test_rec.prof";
-                    std::ofstream of(tempfilename, std::fstream::binary);
-                    of << m_receivedProfileData.str();
-                    of.close();
-
-                    m_receivedProfileData.str(std::string());
-                    m_receivedProfileData.clear();
-                    //loadFile(QString(tempfilename.c_str()));
-                    m_recFrames = false;
-                    isListen = false;
-
-                    continue;
-                }
-                break;
-
-                case profiler::net::MESSAGE_TYPE_REPLY_BLOCKS:
-                {
-                    qInfo() << "Receive MESSAGE_TYPE_REPLY_BLOCKS";
-
-                    seek += sizeof(profiler::net::DataMessage);
-                    profiler::net::DataMessage* dm = (profiler::net::DataMessage*)message;
-                    timeBegin = std::chrono::system_clock::now();
-
-                    int neededSize = dm->size;
-
-
-                    buf = &buffer[seek];
-                    m_receivedProfileData.write(buf, bytes - seek);
-                    neededSize -= bytes - seek;
-                    seek = 0;
-                    bytes = 0;
-
-                              
-                    int loaded = 0;
-                    while (neededSize > 0)
-                    {
-                        bytes = m_easySocket.receive(buffer, buffer_size);
-
-                        if (bytes == -1)
-                        {
-                            if(m_easySocket.state() == EasySocket::CONNECTION_STATE_DISCONNECTED)
-                            {
-                                isListen = false;
-                                neededSize = 0;
-                            }
-                            continue;
-                        }
-
-                        buf = &buffer[0];
-                        int toWrite = std::min(bytes, neededSize);
-                        m_receivedProfileData.write(buf, toWrite);
-                        neededSize -= toWrite;
-                        loaded += toWrite;
-                        seek = toWrite;
-
-                        m_downloadedBytes.store((100 * loaded / (neededSize + 1)), ::std::memory_order_release);
-                    }
-
-                    break;
-                }
-
-                default:
-                    //qInfo() << "Receive unknown " << message->type;
-                    break;
-            }
-        }
-    }
-
-    delete [] buffer;
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::blockStatusChanged, this, &This::onBlockStatusChange);
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::blocksRefreshRequired, this, &This::onGetBlockDescriptionsClicked);
 }
 
 EasyMainWindow::~EasyMainWindow()
 {
-    if (m_descTreeDialog != nullptr)
-        delete m_descTreeDialog;
-
     delete m_progress;
-
-    if (m_thread.joinable())
-        m_thread.join();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -527,6 +354,16 @@ void EasyMainWindow::loadFile(const QString& filename)
     m_reader.load(filename);
 }
 
+void EasyMainWindow::readStream(::std::stringstream& data)
+{
+    m_progress->setLabelText(tr("Reading from stream..."));
+
+    m_progress->setValue(0);
+    m_progress->show();
+    m_readerTimer.start(LOADER_TIMER_INTERVAL);
+    m_reader.load(data);
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 void EasyMainWindow::onReloadFileClicked(bool)
@@ -548,7 +385,6 @@ void EasyMainWindow::onDeleteClicked(bool)
 #endif
     if (m_dialogDescTree != nullptr)
         m_dialogDescTree->clear();
-    m_editBlocksAction->setEnabled(false);
 
     EASY_GLOBALS.selected_thread = 0;
     ::profiler_gui::set_max(EASY_GLOBALS.selected_block);
@@ -672,25 +508,24 @@ void EasyMainWindow::onEditBlocksClicked(bool)
     }
 
     m_descTreeDialog = new QDialog();
+    m_descTreeDialog->setAttribute(Qt::WA_DeleteOnClose, true);
     m_descTreeDialog->setWindowTitle("EasyProfiler");
     m_descTreeDialog->resize(800, 600);
     connect(m_descTreeDialog, &QDialog::finished, this, &This::onDescTreeDialogClose);
 
-    m_dialogDescTree = new EasyDescWidget();
-    m_dialogDescTree->build();
-
     auto l = new QVBoxLayout(m_descTreeDialog);
+    m_dialogDescTree = new EasyDescWidget(m_descTreeDialog);
     l->addWidget(m_dialogDescTree);
-
     m_descTreeDialog->setLayout(l);
+
+    m_dialogDescTree->build();
     m_descTreeDialog->show();
 }
 
 void EasyMainWindow::onDescTreeDialogClose(int)
 {
-    m_dialogDescTree = nullptr;
     disconnect(m_descTreeDialog, &QDialog::finished, this, &This::onDescTreeDialogClose);
-    delete m_descTreeDialog;
+    m_dialogDescTree = nullptr;
     m_descTreeDialog = nullptr;
 }
 
@@ -699,6 +534,14 @@ void EasyMainWindow::onDescTreeDialogClose(int)
 void EasyMainWindow::closeEvent(QCloseEvent* close_event)
 {
     saveSettingsAndGeometry();
+
+    if (m_descTreeDialog != nullptr)
+    {
+        m_descTreeDialog->reject();
+        m_descTreeDialog = nullptr;
+        m_dialogDescTree = nullptr;
+    }
+
     Parent::closeEvent(close_event);
 }
 
@@ -789,18 +632,61 @@ void EasyMainWindow::saveSettingsAndGeometry()
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::onDownloadTimeout()
+void EasyMainWindow::onListenerTimerTimeout()
 {
-    if (!m_downloading){
-        m_downloadingProgress->setValue(100);
-        //m_downloadingProgress->hide();
-        m_downloadedTimer.stop();
-    }
-    else{
-        m_downloadingProgress->setValue(m_downloadedBytes.load(::std::memory_order_acquire));
-    }
-    
+    if (!m_listener.connected())
+        m_listenerDialog->reject();
 }
+
+void EasyMainWindow::onListenerDialogClose(int)
+{
+    m_listenerTimer.stop();
+    disconnect(m_listenerDialog, &QDialog::finished, this, &This::onListenerDialogClose);
+    m_listenerDialog = nullptr;
+
+    switch (m_listener.regime())
+    {
+        case LISTENER_CAPTURE:
+        {
+            m_listenerDialog = new QMessageBox(QMessageBox::Information, "Receiving data...", "This process may take some time.", QMessageBox::NoButton, this);
+            m_listenerDialog->setAttribute(Qt::WA_DeleteOnClose, true);
+            m_listenerDialog->show();
+
+            m_listener.stopCapture();
+
+            m_listenerDialog->reject();
+            m_listenerDialog = nullptr;
+
+            if (m_listener.size() != 0)
+            {
+                readStream(m_listener.data());
+                m_listener.clearData();
+            }
+
+            break;
+        }
+
+        case LISTENER_DESCRIBE:
+        {
+            break;
+        }
+
+        default:
+            return;
+    }
+
+    if (!m_listener.connected())
+    {
+        QMessageBox::warning(this, "Warning", "Application was disconnected", QMessageBox::Close);
+        EASY_GLOBALS.connected = false;
+        m_captureAction->setEnabled(false);
+        SET_ICON(m_connectAction, ":/Connection");
+
+        emit EASY_GLOBALS.events.connectionChanged(false);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////
 
 void EasyMainWindow::onFileReaderTimeout()
 {
@@ -820,11 +706,15 @@ void EasyMainWindow::onFileReaderTimeout()
 
             if (threads_map.size() > 0xff)
             {
-                qWarning() << "Warning: file " << filename << " contains " << threads_map.size() << " threads!";
+                if (m_reader.isFile())
+                    qWarning() << "Warning: file " << filename << " contains " << threads_map.size() << " threads!";
+                else
+                    qWarning() << "Warning: input stream contains " << threads_map.size() << " threads!";
                 qWarning() << "Warning:    Currently, maximum number of displayed threads is 255! Some threads will not be displayed.";
             }
 
-            m_lastFile = ::std::move(filename);
+            if (m_reader.isFile())
+                m_lastFile = ::std::move(filename);
             m_serializedBlocks = ::std::move(serialized_blocks);
             m_serializedDescriptors = ::std::move(serialized_descriptors);
             EASY_GLOBALS.selected_thread = 0;
@@ -846,13 +736,16 @@ void EasyMainWindow::onFileReaderTimeout()
 #if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
             static_cast<EasyDescWidget*>(m_descTreeWidget->widget())->build();
 #endif
-            m_editBlocksAction->setEnabled(true);
             if (m_dialogDescTree != nullptr)
                 m_dialogDescTree->build();
         }
-        else
+        else if (m_reader.isFile())
         {
             qWarning() << "Warning: Can not open file " << m_reader.filename() << " or file is corrupted";
+        }
+        else
+        {
+            qWarning() << "Warning: Can not read from stream: bad data";
         }
 
         m_reader.interrupt();
@@ -892,6 +785,11 @@ EasyFileReader::~EasyFileReader()
     interrupt();
 }
 
+const bool EasyFileReader::isFile() const
+{
+    return m_isFile;
+}
+
 bool EasyFileReader::done() const
 {
     return m_bDone.load(::std::memory_order_acquire);
@@ -916,9 +814,24 @@ void EasyFileReader::load(const QString& _filename)
 {
     interrupt();
 
+    m_isFile = true;
     m_filename = _filename;
     m_thread = ::std::move(::std::thread([this](bool _enableStatistics) {
         m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_serializedBlocks, m_serializedDescriptors, m_descriptors, m_blocks, m_blocksTree, _enableStatistics), ::std::memory_order_release);
+        m_progress.store(100, ::std::memory_order_release);
+        m_bDone.store(true, ::std::memory_order_release);
+    }, EASY_GLOBALS.enable_statistics));
+}
+
+void EasyFileReader::load(::std::stringstream& _stream)
+{
+    interrupt();
+
+    m_isFile = false;
+    m_filename.clear();
+    m_stream.swap(_stream);
+    m_thread = ::std::move(::std::thread([this](bool _enableStatistics) {
+        m_size.store(fillTreesFromStream(m_progress, m_stream, m_serializedBlocks, m_serializedDescriptors, m_descriptors, m_blocks, m_blocksTree, _enableStatistics), ::std::memory_order_release);
         m_progress.store(100, ::std::memory_order_release);
         m_bDone.store(true, ::std::memory_order_release);
     }, EASY_GLOBALS.enable_statistics));
@@ -938,6 +851,9 @@ void EasyFileReader::interrupt()
     m_descriptors.clear();
     m_blocks.clear();
     m_blocksTree.clear();
+
+    decltype(m_stream) dummy;
+    dummy.swap(m_stream);
 }
 
 void EasyFileReader::get(::profiler::SerializedData& _serializedBlocks, ::profiler::SerializedData& _serializedDescriptors,
@@ -959,205 +875,508 @@ void EasyFileReader::get(::profiler::SerializedData& _serializedBlocks, ::profil
 
 void EasyMainWindow::onConnectClicked(bool)
 {
-    if(m_isConnected)
+    if(EASY_GLOBALS.connected)
         return;
 
-    m_easySocket.flush();
-    m_easySocket.init();
-    int res = m_easySocket.setAddress(m_ipEdit->text().toStdString().c_str(), m_portEdit->text().toUShort());
-
-    //TODO: flush socket after disconenct
-    res = m_easySocket.connect();
-    if (res == -1)
+    if (!m_listener.connect(m_ipEdit->text().toStdString().c_str(), m_portEdit->text().toUShort()))
     {
         QMessageBox::warning(this, "Warning", "Cannot connect with application", QMessageBox::Close);
         return;
     }
 
     qInfo() << "Connected successfully";
-    m_isConnected = true;
+    EASY_GLOBALS.connected = true;
     m_captureAction->setEnabled(true);
     SET_ICON(m_connectAction, ":/Connection-on");
+
+    emit EASY_GLOBALS.events.connectionChanged(true);
 }
 
 void EasyMainWindow::onCaptureClicked(bool)
 {
-    if (!m_isConnected)
+    if (!EASY_GLOBALS.connected)
     {
         QMessageBox::warning(this, "Warning", "No connection with profiling app", QMessageBox::Close);
         return;
     }
 
+    if (m_listener.regime() != LISTENER_IDLE)
+    {
+        if (m_listener.regime() == LISTENER_CAPTURE)
+            QMessageBox::warning(this, "Warning", "Already capturing frames.\nFinish old capturing session first.", QMessageBox::Close);
+        else
+            QMessageBox::warning(this, "Warning", "Capturing blocks description.\nFinish old capturing session first.", QMessageBox::Close);
+        return;
+    }
+
+    m_listener.startCapture();
+    m_listenerTimer.start(250);
+
+    m_listenerDialog = new QMessageBox(QMessageBox::Information, "Capturing frames...", "Close this dialog to stop capturing.", QMessageBox::Close, this);
+    m_listenerDialog->setAttribute(Qt::WA_DeleteOnClose, true);
+    connect(m_listenerDialog, &QDialog::finished, this, &This::onListenerDialogClose);
+    m_listenerDialog->show();
+}
+
+void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
+{
+    if (!EASY_GLOBALS.connected)
+    {
+        QMessageBox::warning(this, "Warning", "No connection with profiling app", QMessageBox::Close);
+        return;
+    }
+
+    if (m_listener.regime() != LISTENER_IDLE)
+    {
+        if (m_listener.regime() == LISTENER_DESCRIBE)
+            QMessageBox::warning(this, "Warning", "Already capturing blocks description.\nFinish old capturing session first.", QMessageBox::Close);
+        else
+            QMessageBox::warning(this, "Warning", "Capturing capturing frames.\nFinish old capturing session first.", QMessageBox::Close);
+        return;
+    }
+
+    m_listenerDialog = new QMessageBox(QMessageBox::Information, "Waiting for blocks...", "This may take some time.", QMessageBox::NoButton, this);
+    m_listenerDialog->setAttribute(Qt::WA_DeleteOnClose, true);
+    m_listenerDialog->show();
+
+    m_listener.requestBlocksDescription();
+
+    m_listenerDialog->reject();
+    m_listenerDialog = nullptr;
+
+    if (m_listener.size() != 0)
+    {
+        // Read descriptions from stream
+        decltype(EASY_GLOBALS.descriptors) descriptors;
+        decltype(m_serializedDescriptors) serializedDescriptors;
+        if (readDescriptionsFromStream(m_listener.data(), serializedDescriptors, descriptors))
+        {
+            if (EASY_GLOBALS.descriptors.size() > descriptors.size())
+                onDeleteClicked(true); // Clear all contents because new descriptors list conflicts with old one
+
+            EASY_GLOBALS.descriptors.swap(descriptors);
+            m_serializedDescriptors.swap(serializedDescriptors);
+
+            if (m_descTreeDialog != nullptr)
+            {
+#if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
+                static_cast<EasyDescWidget*>(m_descTreeWidget->widget())->build();
+#endif
+                m_dialogDescTree->build();
+                m_descTreeDialog->raise();
+            }
+            else
+            {
+                onEditBlocksClicked(true);
+            }
+        }
+
+        m_listener.clearData();
+    }
+
+    if (!m_listener.connected())
+    {
+        QMessageBox::warning(this, "Warning", "Application was disconnected", QMessageBox::Close);
+        EASY_GLOBALS.connected = false;
+        m_captureAction->setEnabled(false);
+        SET_ICON(m_connectAction, ":/Connection");
+
+        emit EASY_GLOBALS.events.connectionChanged(false);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void EasyMainWindow::onBlockStatusChange(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status)
+{
+    if (EASY_GLOBALS.connected)
+        m_listener.sendBlockStatus(_id, _status);
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+EasySocketListener::EasySocketListener() : m_receivedSize(0), m_regime(LISTENER_IDLE)
+{
+    m_bInterrupt = ATOMIC_VAR_INIT(false);
+    m_bConnected = ATOMIC_VAR_INIT(false);
+}
+
+EasySocketListener::~EasySocketListener()
+{
+    m_bInterrupt.store(true, ::std::memory_order_release);
+    if (m_thread.joinable())
+        m_thread.join();
+}
+
+bool EasySocketListener::connected() const
+{
+    return m_bConnected.load(::std::memory_order_acquire);
+}
+
+EasyListenerRegime EasySocketListener::regime() const
+{
+    return m_regime;
+}
+
+uint64_t EasySocketListener::size() const
+{
+    return m_receivedSize;
+}
+
+::std::stringstream& EasySocketListener::data()
+{
+    return m_receivedData;
+}
+
+void EasySocketListener::clearData()
+{
+    decltype(m_receivedData) dummy;
+    dummy.swap(m_receivedData);
+    m_receivedSize = 0;
+}
+
+bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port)
+{
+    if (connected())
+        return true;
+
+    m_easySocket.flush();
+    m_easySocket.init();
+    int res = m_easySocket.setAddress(_ipaddress, _port);
+    res = m_easySocket.connect();
+
+    bool isConnected = res == 0;
+    m_bConnected.store(isConnected, ::std::memory_order_release);
+
+    return isConnected;
+}
+
+void EasySocketListener::startCapture()
+{
+    clearData();
+
     profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE);
     m_easySocket.send(&request, sizeof(request));
 
-    m_thread = std::thread(&This::listen, this);
+    m_regime = LISTENER_CAPTURE;
+    m_thread = ::std::move(::std::thread(&EasySocketListener::listenCapture, this));
+}
 
-    QMessageBox::information(this, "Capturing frames...", "Close this window to stop capturing.", QMessageBox::Close);
+void EasySocketListener::stopCapture()
+{
+    if (!m_thread.joinable() || m_regime != LISTENER_CAPTURE)
+        return;
 
-    request.type = profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE;
+    profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE);
     m_easySocket.send(&request, sizeof(request));
 
     m_thread.join();
 
-    m_downloading = false;
-
-    if(m_easySocket.state() == EasySocket::CONNECTION_STATE_DISCONNECTED)
-    {
-        QMessageBox::warning(this,"Warning" ,"Application was disconnected",QMessageBox::Close);
-        m_isConnected = false;
-        m_captureAction->setEnabled(false);
-        SET_ICON(m_connectAction, ":/Connection");
-        return;
-    }
-
-    std::string tempfilename = "test_rec.prof";
-    loadFile(QString(tempfilename.c_str()));
+    m_regime = LISTENER_IDLE;
 }
 
-void EasyMainWindow::handleResults(const QString &s)
+void EasySocketListener::requestBlocksDescription()
 {
+    clearData();
 
+    profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_BLOCKS_DESCRIPTION);
+    m_easySocket.send(&request, sizeof(request));
+
+    m_regime = LISTENER_DESCRIBE;
+    listenDescription();
+    m_regime = LISTENER_IDLE;
 }
 
-void EasyMainWindow::readTcpData()
+void EasySocketListener::sendBlockStatus(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status)
 {
-    static qint64 necessarySize = 0;
-    static qint64 loadedSize = 0;
-    static auto timeBegin = std::chrono::system_clock::now();
-    while(m_server->bytesAvailable())
+    profiler::net::BlockStatusMessage message(_id, static_cast<uint8_t>(_status));
+    m_easySocket.send(&message, sizeof(message));
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void EasySocketListener::listenCapture()
+{
+    // TODO: Merge functions listenCapture() and listenDescription()
+
+    static const int buffer_size = 8 * 1024 * 1024;
+    char* buffer = new char[buffer_size];
+    int seek = 0, bytes = 0;
+    auto timeBegin = ::std::chrono::system_clock::now();
+
+    bool isListen = true, disconnected = false;
+    while (isListen && !m_bInterrupt.load(::std::memory_order_acquire))
     {
-        auto bytesExpected = necessarySize - loadedSize;
-        QByteArray data;
-        if (m_recFrames){
-            data = m_server->read(qMin(bytesExpected, m_server->bytesAvailable()));
-        }
-        else
+        if ((bytes - seek) == 0)
         {
-            data = m_server->readAll();
-        }
+            bytes = m_easySocket.receive(buffer, buffer_size);
 
-
-        profiler::net::Message* message = (profiler::net::Message*)data.data();
-        //qInfo() << "rec size: " << data.size() << " " << QString(data);;
-        if(!m_recFrames && !message->isEasyNetMessage()){
-            return;
-        }
-        else if (m_recFrames){
-
-            if (m_receivedProfileData.str().size() == necessarySize)
+            if (bytes == -1)
             {
-                m_recFrames = false;
+                if (m_easySocket.state() == EasySocket::CONNECTION_STATE_DISCONNECTED)
+                {
+                    m_bConnected.store(false, ::std::memory_order_release);
+                    isListen = false;
+                    disconnected = true;
+                }
 
-                auto timeEnd = std::chrono::system_clock::now();
-                auto dT = std::chrono::duration_cast<std::chrono::milliseconds>(timeEnd - timeBegin);
-                auto dTsec = std::chrono::duration_cast<std::chrono::seconds>(timeEnd - timeBegin);
-                qInfo() << "recieve" << m_receivedProfileData.str().size() << dT.count() << "ms" << double(m_receivedProfileData.str().size())*1000.0 / double(dT.count()) / 1024.0 << "kBytes/sec";
-                m_recFrames = false;
+                seek = 0;
+                bytes = 0;
 
-
-                qInfo() << "Write FILE";
-                std::string tempfilename = "test_rec.prof";
-                std::ofstream of(tempfilename, std::fstream::binary);
-                of << m_receivedProfileData.str();
-                of.close();
-
-                m_receivedProfileData.str(std::string());
-                m_receivedProfileData.clear();
-                loadFile(QString(tempfilename.c_str()));
-                m_recFrames = false;
-
-                
-            }
-
-            if (m_recFrames)
-            {
-                m_receivedProfileData.write(data.data(), data.size());
-                loadedSize += data.size();
                 continue;
             }
-                
+
+            seek = 0;
         }
 
-        switch (message->type) {
-            case profiler::net::MESSAGE_TYPE_ACCEPTED_CONNECTION:
+        if (bytes == 0)
+        {
+            isListen = false;
+            break;
+        }
+
+        char* buf = buffer + seek;
+
+        if (bytes > 0)
+        {
+            auto message = reinterpret_cast<const ::profiler::net::Message*>(buf);
+            if (!message->isEasyNetMessage())
+                continue;
+
+            switch (message->type)
             {
-                qInfo() << "Receive MESSAGE_TYPE_ACCEPTED_CONNECTION";
+                case profiler::net::MESSAGE_TYPE_ACCEPTED_CONNECTION:
+                {
+                    qInfo() << "Receive MESSAGE_TYPE_ACCEPTED_CONNECTION";
+                    //m_easySocket.send(&request, sizeof(request));
+                    seek += sizeof(profiler::net::Message);
+                    break;
+                }
+
+                case profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING:
+                {
+                    qInfo() << "Receive MESSAGE_TYPE_REPLY_START_CAPTURING";
+                    seek += sizeof(profiler::net::Message);
+                    break;
+                }
+
+                case profiler::net::MESSAGE_TYPE_REPLY_BLOCKS_END:
+                {
+                    qInfo() << "Receive MESSAGE_TYPE_REPLY_BLOCKS_END";
+                    seek += sizeof(profiler::net::Message);
+
+                    const auto dt = ::std::chrono::duration_cast<std::chrono::milliseconds>(::std::chrono::system_clock::now() - timeBegin);
+                    const auto bytesNumber = m_receivedData.str().size();
+                    qInfo() << "recieved " << bytesNumber << " bytes, " << dt.count() << " ms, average speed = " << double(bytesNumber) * 1e3 / double(dt.count()) / 1024. << " kBytes/sec";
+
+                    seek = 0;
+                    bytes = 0;
+
+                    isListen = false;
+
+                    break;
+                }
+
+                case profiler::net::MESSAGE_TYPE_REPLY_BLOCKS:
+                {
+                    qInfo() << "Receive MESSAGE_TYPE_REPLY_BLOCKS";
+
+                    seek += sizeof(profiler::net::DataMessage);
+                    profiler::net::DataMessage* dm = (profiler::net::DataMessage*)message;
+                    timeBegin = std::chrono::system_clock::now();
+
+                    int neededSize = dm->size;
+
+
+                    buf = buffer + seek;
+                    auto bytesNumber = ::std::min((int)dm->size, bytes - seek);
+                    m_receivedSize += bytesNumber;
+                    m_receivedData.write(buf, bytesNumber);
+                    neededSize -= bytesNumber;
+
+                    if (neededSize == 0)
+                        seek += bytesNumber;
+                    else
+                    {
+                        seek = 0;
+                        bytes = 0;
+                    }
+
+
+                    int loaded = 0;
+                    while (neededSize > 0)
+                    {
+                        bytes = m_easySocket.receive(buffer, buffer_size);
+
+                        if (bytes == -1)
+                        {
+                            if (m_easySocket.state() == EasySocket::CONNECTION_STATE_DISCONNECTED)
+                            {
+                                m_bConnected.store(false, ::std::memory_order_release);
+                                isListen = false;
+                                disconnected = true;
+                                neededSize = 0;
+                            }
+
+                            break;
+                        }
+
+                        buf = buffer;
+                        int toWrite = ::std::min(bytes, neededSize);
+                        m_receivedSize += toWrite;
+                        m_receivedData.write(buf, toWrite);
+                        neededSize -= toWrite;
+                        loaded += toWrite;
+                        seek = toWrite;
+                    }
+
+                    break;
+                }
+
+                default:
+                    //qInfo() << "Receive unknown " << message->type;
+                    break;
             }
-                break;
-            case profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING:
-            {
-                qInfo() << "Receive MESSAGE_TYPE_REPLY_START_CAPTURING";
-
-                m_isClientCaptured = true;
-            }
-                break;
-            case profiler::net::MESSAGE_TYPE_REPLY_PREPARE_BLOCKS:
-            {
-                qInfo() << "Receive MESSAGE_TYPE_REPLY_PREPARE_BLOCKS";
-                m_isClientPreparedBlocks = true;
-            }
-                break;
-            case profiler::net::MESSAGE_TYPE_REPLY_END_SEND_BLOCKS:
-            {
-                qInfo() << "Receive MESSAGE_TYPE_REPLY_END_SEND_BLOCKS";
-
-            }
-                break;
-            case profiler::net::MESSAGE_TYPE_REPLY_BLOCKS:
-            {
-                qInfo() << "Receive MESSAGE_TYPE_REPLY_BLOCKS";
-                m_recFrames = true;
-                profiler::net::DataMessage* dm = (profiler::net::DataMessage*)message;
-                necessarySize = dm->size;
-                loadedSize = 0;
-                m_receivedProfileData.write(data.data()+sizeof(profiler::net::DataMessage),data.size() - sizeof(profiler::net::DataMessage));
-                loadedSize += data.size() - sizeof(profiler::net::DataMessage);
-                //std::this_thread::sleep_for(std::chrono::seconds(2));
-
-                timeBegin = std::chrono::system_clock::now();
-            }   break;
-
-            default:
-                //qInfo() << "Receive unknown " << message->type;
-                break;
-
         }
     }
 
+    if (disconnected)
+        clearData();
 
+    delete [] buffer;
 }
 
-void EasyMainWindow::onConnected()
+void EasySocketListener::listenDescription()
 {
-    qInfo() << "onConnected()";
+    // TODO: Merge functions listenDescription() and listenCapture()
 
-    m_isConnected = true;
-    m_captureAction->setEnabled(true);
-}
-void EasyMainWindow::onErrorConnection(QAbstractSocket::SocketError socketError)
-{
-    qInfo() << m_server->error();
+    static const int buffer_size = 8 * 1024 * 1024;
+    char* buffer = new char[buffer_size];
+    int seek = 0, bytes = 0;
+
+    bool isListen = true, disconnected = false;
+    while (isListen && !m_bInterrupt.load(::std::memory_order_acquire))
+    {
+        if ((bytes - seek) == 0)
+        {
+            bytes = m_easySocket.receive(buffer, buffer_size);
+
+            if (bytes == -1)
+            {
+                if (m_easySocket.state() == EasySocket::CONNECTION_STATE_DISCONNECTED)
+                {
+                    m_bConnected.store(false, ::std::memory_order_release);
+                    isListen = false;
+                    disconnected = true;
+                }
+
+                seek = 0;
+                bytes = 0;
+
+                continue;
+            }
+
+            seek = 0;
+        }
+
+        if (bytes == 0)
+        {
+            isListen = false;
+            break;
+        }
+
+        char* buf = buffer + seek;
+
+        if (bytes > 0)
+        {
+            auto message = reinterpret_cast<const ::profiler::net::Message*>(buf);
+            if (!message->isEasyNetMessage())
+                continue;
+
+            switch (message->type)
+            {
+                case profiler::net::MESSAGE_TYPE_ACCEPTED_CONNECTION:
+                {
+                    qInfo() << "Receive MESSAGE_TYPE_ACCEPTED_CONNECTION";
+                    seek += sizeof(profiler::net::Message);
+                    break;
+                }
+
+                case profiler::net::MESSAGE_TYPE_REPLY_BLOCKS_DESCRIPTION_END:
+                {
+                    qInfo() << "Receive MESSAGE_TYPE_REPLY_BLOCKS_DESCRIPTION_END";
+                    seek += sizeof(profiler::net::Message);
+
+                    seek = 0;
+                    bytes = 0;
+
+                    isListen = false;
+
+                    break;
+                }
+
+                case profiler::net::MESSAGE_TYPE_REPLY_BLOCKS_DESCRIPTION:
+                {
+                    qInfo() << "Receive MESSAGE_TYPE_REPLY_BLOCKS";
+
+                    seek += sizeof(profiler::net::DataMessage);
+                    profiler::net::DataMessage* dm = (profiler::net::DataMessage*)message;
+                    int neededSize = dm->size;
+
+                    buf = buffer + seek;
+                    auto bytesNumber = ::std::min((int)dm->size, bytes - seek);
+                    m_receivedSize += bytesNumber;
+                    m_receivedData.write(buf, bytesNumber);
+                    neededSize -= bytesNumber;
+                    
+                    if (neededSize == 0)
+                        seek += bytesNumber;
+                    else{
+                        seek = 0;
+                        bytes = 0;
+                    }
+
+                    int loaded = 0;
+                    while (neededSize > 0)
+                    {
+                        bytes = m_easySocket.receive(buffer, buffer_size);
+
+                        if (bytes == -1)
+                        {
+                            if (m_easySocket.state() == EasySocket::CONNECTION_STATE_DISCONNECTED)
+                            {
+                                m_bConnected.store(false, ::std::memory_order_release);
+                                isListen = false;
+                                disconnected = true;
+                                neededSize = 0;
+                            }
+
+                            break;
+                        }
+
+                        buf = buffer;
+                        int toWrite = ::std::min(bytes, neededSize);
+                        m_receivedSize += toWrite;
+                        m_receivedData.write(buf, toWrite);
+                        neededSize -= toWrite;
+                        loaded += toWrite;
+                        seek = toWrite;
+                    }
+
+                    break;
+                }
+
+                default:
+                    break;
+            }
+        }
+    }
+
+    if (disconnected)
+        clearData();
+
+    delete[] buffer;
 }
 
-void EasyMainWindow::onDisconnect()
-{
-    qInfo() << "onDisconnect()";
-    m_isConnected = false;
-    m_captureAction->setEnabled(false);
-}
+//////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::onNewConnection()
-{
-    //m_client = m_server->nextPendingConnection();
-
-    //qInfo() << "New connection!" << m_client;
-    
-    //connect(m_client, SIGNAL(disconnected()), this, SLOT(onDisconnection())) ;
-    //connect(m_client, SIGNAL(readyRead()), this, SLOT(readTcpData())   );
-}
-
-void EasyMainWindow::onDisconnection()
-{
-    //m_client = nullptr;
-}

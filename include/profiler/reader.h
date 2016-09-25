@@ -323,13 +323,28 @@ namespace profiler {
 
 } // END of namespace profiler.
 
-extern "C" PROFILER_API ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progress, const char* filename,
-                                                                    ::profiler::SerializedData& serialized_blocks,
-                                                                    ::profiler::SerializedData& serialized_descriptors,
-                                                                    ::profiler::descriptors_list_t& descriptors,
-                                                                    ::profiler::blocks_t& _blocks,
-                                                                    ::profiler::thread_blocks_tree_t& threaded_trees,
-                                                                    bool gather_statistics);
+extern "C" {
+
+    PROFILER_API ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progress, const char* filename,
+                                                            ::profiler::SerializedData& serialized_blocks,
+                                                            ::profiler::SerializedData& serialized_descriptors,
+                                                            ::profiler::descriptors_list_t& descriptors,
+                                                            ::profiler::blocks_t& _blocks,
+                                                            ::profiler::thread_blocks_tree_t& threaded_trees,
+                                                            bool gather_statistics);
+
+    PROFILER_API ::profiler::block_index_t fillTreesFromStream(::std::atomic<int>& progress, ::std::stringstream& str,
+                                                              ::profiler::SerializedData& serialized_blocks,
+                                                              ::profiler::SerializedData& serialized_descriptors,
+                                                              ::profiler::descriptors_list_t& descriptors,
+                                                              ::profiler::blocks_t& _blocks,
+                                                              ::profiler::thread_blocks_tree_t& threaded_trees,
+                                                              bool gather_statistics);
+
+    PROFILER_API bool readDescriptionsFromStream(::std::atomic<int>& progress, ::std::stringstream& str,
+                                                 ::profiler::SerializedData& serialized_descriptors,
+                                                 ::profiler::descriptors_list_t& descriptors);
+}
 
 inline ::profiler::block_index_t fillTreesFromFile(const char* filename, ::profiler::SerializedData& serialized_blocks,
                                                    ::profiler::SerializedData& serialized_descriptors, ::profiler::descriptors_list_t& descriptors,
@@ -338,6 +353,12 @@ inline ::profiler::block_index_t fillTreesFromFile(const char* filename, ::profi
 {
     ::std::atomic<int> progress = ATOMIC_VAR_INIT(0);
     return fillTreesFromFile(progress, filename, serialized_blocks, serialized_descriptors, descriptors, _blocks, threaded_trees, gather_statistics);
+}
+
+inline bool readDescriptionsFromStream(::std::stringstream& str, ::profiler::SerializedData& serialized_descriptors, ::profiler::descriptors_list_t& descriptors)
+{
+    ::std::atomic<int> progress = ATOMIC_VAR_INIT(0);
+    return readDescriptionsFromStream(progress, str, serialized_descriptors, descriptors);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
