@@ -98,6 +98,7 @@ private:
     QTimer                          m_idleTimer; ///< 
     QRectF                   m_visibleSceneRect; ///< Visible scene rectangle
     ::profiler::timestamp_t         m_beginTime; ///< Begin time of profiler session. Used to reduce values of all begin and end times of profiler blocks.
+    qreal                          m_sceneWidth; ///< 
     qreal                               m_scale; ///< Current scale
     qreal                              m_offset; ///< Have to use manual offset for all scene content instead of using scrollbars because QScrollBar::value is 32-bit integer :(
     qreal                        m_timelineStep; ///< 
@@ -137,6 +138,7 @@ public:
 
     // Public non-virtual methods
 
+    qreal sceneWidth() const;
     qreal chronoTime() const;
     qreal chronoTimeAux() const;
 

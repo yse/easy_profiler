@@ -80,6 +80,8 @@ const qreal FLICKER_FACTOR = 16.0 / FLICKER_INTERVAL;
 const auto BG_FONT = ::profiler_gui::EFont("Helvetica", 10, QFont::Bold);
 const auto CHRONOMETER_FONT = ::profiler_gui::EFont("Helvetica", 16, QFont::Bold);
 
+const uint64_t ADDITIONAL_OFFSET = 50000000ULL; // Additional 50 ms before first block and after last block
+
 #ifdef max
 #undef max
 #endif
@@ -254,6 +256,7 @@ void EasyTimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGrap
 EasyGraphicsView::EasyGraphicsView(QWidget* _parent)
     : Parent(_parent)
     , m_beginTime(::std::numeric_limits<decltype(m_beginTime)>::max())
+    , m_sceneWidth(0)
     , m_scale(1)
     , m_offset(0)
     , m_timelineStep(0)
@@ -282,6 +285,11 @@ EasyGraphicsView::~EasyGraphicsView()
 
 //////////////////////////////////////////////////////////////////////////
 
+qreal EasyGraphicsView::sceneWidth() const
+{
+    return m_sceneWidth;
+}
+
 qreal EasyGraphicsView::chronoTime() const
 {
     return m_chronometerItem->width();
@@ -298,7 +306,7 @@ EasyChronometerItem* EasyGraphicsView::createChronometer(bool _main)
 {
     auto chronoItem = new EasyChronometerItem(_main);
     chronoItem->setColor(_main ? ::profiler_gui::CHRONOMETER_COLOR : ::profiler_gui::CHRONOMETER_COLOR2);
-    chronoItem->setBoundingRect(scene()->sceneRect());
+    chronoItem->setBoundingRect(sceneRect());
     chronoItem->hide();
     scene()->addItem(chronoItem);
 
@@ -342,6 +350,9 @@ void EasyGraphicsView::clear()
 
     // Reset necessary flags
     m_bEmpty = true;
+
+    m_sceneWidth = 10;
+    setSceneRect(0, 0, 10, 10);
 
     // notify ProfTreeWidget that selection was reset
     emit intervalChanged(m_selectedBlocks, m_beginTime, 0, 0, false);
@@ -394,6 +405,9 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         if (mainTree == 0 && !strcmp(t.name(), "Main"))
             mainTree = threadTree.first;
     }
+
+    finish += ADDITIONAL_OFFSET << 1;
+    m_beginTime -= ::std::min(m_beginTime, ADDITIONAL_OFFSET);
 
     // Filling scene with items
     m_items.reserve(_blocksTree.size());
@@ -448,8 +462,8 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     }
 
     // Calculating scene rect
-    const qreal endX = time2position(finish) + 1500.0;
-    setSceneRect(0, 0, endX, y + TIMELINE_ROW_SIZE);
+    m_sceneWidth = time2position(finish);
+    setSceneRect(0, 0, m_sceneWidth, y + TIMELINE_ROW_SIZE);
 
     // Center view on the beginning of the scene
     updateVisibleSceneRect();
@@ -460,9 +474,9 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     m_chronometerItemAux = createChronometer(false);
     m_chronometerItem = createChronometer(true);
 
-    bgItem->setBoundingRect(0, 0, endX, y);
+    bgItem->setBoundingRect(0, 0, m_sceneWidth, y);
     auto indicator = new EasyTimelineIndicatorItem();
-    indicator->setBoundingRect(0, 0, endX, y);
+    indicator->setBoundingRect(0, 0, m_sceneWidth, y);
     scene()->addItem(indicator);
 
     // Setting flags
@@ -602,7 +616,7 @@ void EasyGraphicsView::setScrollbar(EasyGraphicsScrollbar* _scrollbar)
 
     m_pScrollbar = _scrollbar;
     m_pScrollbar->clear();
-    m_pScrollbar->setRange(0, scene()->width());
+    m_pScrollbar->setRange(0, m_sceneWidth);
     m_pScrollbar->setSliderWidth(m_visibleSceneRect.width());
 
     if (makeConnect)
@@ -710,7 +724,7 @@ void EasyGraphicsView::onWheel(qreal _mouseX, int _wheelDelta)
     const decltype(m_scale) scaleCoeff = _wheelDelta > 0 ? ::profiler_gui::SCALING_COEFFICIENT : ::profiler_gui::SCALING_COEFFICIENT_INV;
 
     // Remember current mouse position
-    _mouseX = clamp(0., _mouseX, scene()->width());
+    _mouseX = clamp(0., _mouseX, m_sceneWidth);
     const auto mousePosition = m_offset + _mouseX / m_scale;
 
     // have to limit scale because of Qt's QPainter feature: it doesn't draw text
@@ -724,7 +738,7 @@ void EasyGraphicsView::onWheel(qreal _mouseX, int _wheelDelta)
     m_pScrollbar->setSliderWidth(windowWidth);
 
     // Calculate new offset to simulate QGraphicsView::AnchorUnderMouse scaling behavior
-    m_offset = clamp(0., mousePosition - _mouseX / m_scale, scene()->width() - windowWidth);
+    m_offset = clamp(0., mousePosition - _mouseX / m_scale, m_sceneWidth - windowWidth);
 
     // Update slider position
     m_bUpdatingRect = true; // To be sure that updateVisibleSceneRect will not be called by scrollbar change
@@ -977,7 +991,7 @@ void EasyGraphicsView::mouseMoveEvent(QMouseEvent* _event)
 
     auto mouseScenePos = mapToScene(m_mousePressPos);
     mouseScenePos.setX(m_offset + mouseScenePos.x() / m_scale);
-    const auto x = clamp(0., mouseScenePos.x(), scene()->width());
+    const auto x = clamp(0., mouseScenePos.x(), m_sceneWidth);
 
     if (m_mouseButtons & Qt::RightButton)
     {
@@ -1122,7 +1136,7 @@ void EasyGraphicsView::resizeEvent(QResizeEvent* _event)
 
     // Calculate new offset to save old screen center
     const auto deltaWidth = m_visibleSceneRect.width() - previousRect.width();
-    m_offset = clamp(0., m_offset - deltaWidth * 0.5 / m_scale, scene()->width() - windowWidth);
+    m_offset = clamp(0., m_offset - deltaWidth * 0.5 / m_scale, m_sceneWidth - windowWidth);
 
     // Update slider position
     m_bUpdatingRect = true; // To be sure that updateVisibleSceneRect will not be called by scrollbar change
@@ -1444,7 +1458,6 @@ void EasyGraphicsViewWidget::clear()
     m_scrollbar->clear();
     m_threadNamesWidget->clear();
     m_view->clear();
-    m_view->setSceneRect(0, 0, 10, 10);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1460,7 +1473,7 @@ void EasyThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
 
     const auto visibleSceneRect = view->visibleSceneRect();
     const auto h = visibleSceneRect.height() + TIMELINE_ROW_SIZE - 2;
-    const auto w = scene()->sceneRect().width();
+    const auto w = parentView->sceneRect().width();
 
     static const uint16_t OVERLAP = ::profiler_gui::THREADS_ROW_SPACING >> 1;
     static const QBrush brushes[2] = {QColor::fromRgb(BACKGROUND_1), QColor::fromRgb(BACKGROUND_2)};
