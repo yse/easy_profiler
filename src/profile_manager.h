@@ -40,6 +40,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <chrono>
+#include <time.h>
 #endif
 
 inline uint32_t getCurrentThreadId()
@@ -50,20 +51,6 @@ inline uint32_t getCurrentThreadId()
     EASY_THREAD_LOCAL static const pid_t x = syscall(__NR_gettid);
     EASY_THREAD_LOCAL static const uint32_t _id = (uint32_t)x;//std::hash<std::thread::id>()(std::this_thread::get_id());
     return _id;
-#endif
-}
-
-inline profiler::timestamp_t getCurrentTime()
-{
-#ifdef _WIN32
-    //see https://msdn.microsoft.com/library/windows/desktop/dn553408(v=vs.85).aspx
-    LARGE_INTEGER elapsedMicroseconds;
-    if (!QueryPerformanceCounter(&elapsedMicroseconds))
-        return 0;
-    return (profiler::timestamp_t)elapsedMicroseconds.QuadPart;
-#else
-    //std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds> time_point;
-    return std::chrono::time_point_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now()).time_since_epoch().count();
 #endif
 }
 

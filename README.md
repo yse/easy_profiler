@@ -1,14 +1,13 @@
 # easy_profiler [![License](https://img.shields.io/badge/license-GPL3-blue.svg)](https://github.com/yse/easy_profiler/blob/develop/COPYING)[![Build Status](https://travis-ci.org/yse/easy_profiler.svg?branch=develop)](https://travis-ci.org/yse/easy_profiler)
 
 1. [About](#about)
-2. [Build](#build)
+2. [Usage](#usage)
+3. [Build](#build)
     - [Linux](#linux)
     - [Windows](#windows)
-3. [Usage](#usage)
-
 
 # About
-Lightweight profiler library for c++
+Lightweight cross-platform profiler library for c++
 
 You can profile any function in you code. Furthermore this library provide measuring time of any block of code.
 For example, information for 12 millions of blocks is using less than 300Mb of memory.
@@ -21,50 +20,6 @@ Also the library can capture system's context switch events between threads. Con
 duration, target thread id, thread owner process id, thread owner process name.
 
 You can see the results of measuring in simple GUI application which provides full statistics and renders beautiful time-line.
-
-# Build
-
-## Prerequisites
-
-For core:
-* compiler with c++11 support
-* cmake 3.0 or later
-
-For GUI:
-* Qt 5.3.0 or later
-
-## Linux
-
-```bash
-$ mkdir build
-$ cd build
-$ cmake ..
-$ make
-```
-
-## Windows
-
-If you are using QtCreator IDE you can just open `CMakeLists.txt` file in root directory.
-If you are using Visual Studio you can generate solution by cmake generator command.
-
-### Way 1
-Specify path to cmake scripts in Qt5 dir (usually in lib/cmake subdir) and execute cmake generator command,
-for example:
-```batch
-$ mkdir build
-$ cd build
-$ cmake -DCMAKE_PREFIX_PATH="C:\Qt\5.3\msvc2013_64\lib\cmake" .. -G "Visual Studio 12 2013 Win64"
-```
-
-### Way 2
-Create system variable "Qt5Widgets_DIR" and set it's value to "[path-to-Qt5-binaries]\lib\cmake\Qt5Widgets".
-For example, "C:\Qt\5.3\msvc2013_64\lib\cmake\Qt5Widgets".
-And then run cmake generator as follows:
-```batch
-$ mkdir build
-$ cd build
-$ cmake .. -G "Visual Studio 12 2013 Win64"
-```
 
 # Usage
 
@@ -116,5 +71,51 @@ void foo() {
     // some code
 }
 ```
+
+# Build
+
+## Prerequisites
+
+For core:
+* compiler with c++11 support
+* cmake 3.0 or later
+
+For GUI:
+* Qt 5.3.0 or later
+
+## Linux
+
+```bash
+$ mkdir build
+$ cd build
+$ cmake ..
+$ make
+```
+
+## Windows
+
+If you are using QtCreator IDE you can just open `CMakeLists.txt` file in root directory.
+If you are using Visual Studio you can generate solution by cmake generator command.
+
+### Way 1
+Specify path to cmake scripts in Qt5 dir (usually in lib/cmake subdir) and execute cmake generator command,
+for example:
+```batch
+$ mkdir build
+$ cd build
+$ cmake -DCMAKE_PREFIX_PATH="C:\Qt\5.3\msvc2013_64\lib\cmake" .. -G "Visual Studio 12 2013 Win64"
+```
+
+### Way 2
+Create system variable "Qt5Widgets_DIR" and set it's value to "[path-to-Qt5-binaries]\lib\cmake\Qt5Widgets".
+For example, "C:\Qt\5.3\msvc2013_64\lib\cmake\Qt5Widgets".
+And then run cmake generator as follows:
+```batch
+$ mkdir build
+$ cd build
+$ cmake .. -G "Visual Studio 12 2013 Win64"
+```
+
+
 
 [![Analytics](https://ga-beacon.appspot.com/UA-82899176-1/easy_profiler/readme)](https://github.com/yse/easy_profiler)
