@@ -25,6 +25,7 @@
 ************************************************************************/
 
 #include "profile_manager.h"
+#include "current_time.h"
 
 using namespace profiler;
 

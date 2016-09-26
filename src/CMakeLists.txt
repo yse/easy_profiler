@@ -16,6 +16,7 @@ set(H_FILES
     profile_manager.h
     spin_lock.h
     event_trace_win.h
+    current_time.h
 )
 
 set(SOURCES
