@@ -239,16 +239,15 @@ extern "C" {
             return 0;
 
         ::std::stringstream str;
-
+        
 #ifdef _WIN32
         str.set_rdbuf(inFile.rdbuf());
-        return fillTreesFromStream(progress, str, serialized_blocks, serialized_descriptors, descriptors, blocks, threaded_trees, gather_statistics);
 #else
-        auto oldbuf = str.rdbuf(inFile.rdbuf());
-        auto result = fillTreesFromStream(progress, str, serialized_blocks, serialized_descriptors, descriptors, blocks, threaded_trees, gather_statistics);
-        str.rdbuf(oldbuf);
-        return result;
+        str << inFile.rdbuf();
+        inFile.close();
 #endif
+
+        return fillTreesFromStream(progress, str, serialized_blocks, serialized_descriptors, descriptors, blocks, threaded_trees, gather_statistics);
     }
 
     //////////////////////////////////////////////////////////////////////////
