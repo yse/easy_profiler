@@ -38,6 +38,7 @@
 #include <unordered_map>
 #include "profiler/profiler.h"
 #include "profile_manager.h"
+#include "current_time.h"
 
 #include "event_trace_win.h"
 #include <Psapi.h>
