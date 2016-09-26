@@ -40,6 +40,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <chrono>
+#include <time.h>
 #endif
 
 inline uint32_t getCurrentThreadId()
@@ -53,7 +54,7 @@ inline uint32_t getCurrentThreadId()
 #endif
 }
 
-inline profiler::timestamp_t getCurrentTime()
+static inline profiler::timestamp_t getCurrentTime()
 {
 #ifdef _WIN32
     //see https://msdn.microsoft.com/library/windows/desktop/dn553408(v=vs.85).aspx
@@ -62,8 +63,24 @@ inline profiler::timestamp_t getCurrentTime()
         return 0;
     return (profiler::timestamp_t)elapsedMicroseconds.QuadPart;
 #else
-    //std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds> time_point;
+
+#if (defined(__GNUC__) || defined(__ICC))
+
+    #if defined(__i386__)
+        unsigned long long t;
+        __asm__ __volatile__("rdtsc" : "=A"(t));
+        return t;
+    #elif defined(__x86_64__)
+        unsigned int hi, lo;
+        __asm__ __volatile__("rdtsc" : "=a" (lo), "=d" (hi));
+        return ((uint64_t)hi << 32) | lo;
+    #endif
+
+#else
     return std::chrono::time_point_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now()).time_since_epoch().count();
+#define USE_STD_CHRONO
+#endif
+
 #endif
 }
 

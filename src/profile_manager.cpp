@@ -556,7 +556,36 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
 #ifdef _WIN32
     _outputStream.write(CPU_FREQUENCY);
 #else
+
+#if !defined(USE_STD_CHRONO)
+    double g_TicksPerNanoSec;
+    struct timespec begints, endts;
+    uint64_t begin = 0, end = 0;
+    clock_gettime(CLOCK_MONOTONIC, &begints);
+    begin = getCurrentTime();
+    volatile uint64_t i;
+    for (i = 0; i < 100000000; i++); /* must be CPU intensive */
+    end = getCurrentTime();
+    clock_gettime(CLOCK_MONOTONIC, &endts);
+    struct timespec tmpts;
+    const int NANO_SECONDS_IN_SEC = 1000000000;
+    tmpts.tv_sec = endts.tv_sec - begints.tv_sec;
+    tmpts.tv_nsec = endts.tv_nsec - begints.tv_nsec;
+    if (tmpts.tv_nsec < 0) {
+        tmpts.tv_sec--;
+        tmpts.tv_nsec += NANO_SECONDS_IN_SEC;
+    }
+
+    uint64_t nsecElapsed = tmpts.tv_sec * 1000000000LL + tmpts.tv_nsec;
+    g_TicksPerNanoSec = (double)(end - begin)/(double)nsecElapsed;
+
+
+
+    int64_t cpu_frequency = int(g_TicksPerNanoSec*1000000);
+     _outputStream.write(cpu_frequency*1000LL);
+#else
     _outputStream.write(0LL);
+#endif
 #endif
 
     // Write begin and end time
