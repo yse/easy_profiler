@@ -131,18 +131,17 @@ EasyMainWindow::EasyMainWindow() : Parent()
 
     toolbar->addWidget(new QLabel(" IP:"));
     m_ipEdit = new QLineEdit();
-    m_ipEdit->setMaximumWidth(100);
-    QRegExp rx("[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}");
-    m_ipEdit->setInputMask("000.000.000.000;");
+    QRegExp rx("^0*(2(5[0-5]|[0-4]\\d)|1?\\d{1,2})(\\.0*(2(5[0-5]|[0-4]\\d)|1?\\d{1,2})){3}$");
     m_ipEdit->setValidator(new QRegExpValidator(rx, m_ipEdit));
     m_ipEdit->setText("127.0.0.1");
+    m_ipEdit->setFixedWidth(m_ipEdit->fontMetrics().width(QString("255.255.255.255")) + 10);
     toolbar->addWidget(m_ipEdit);
 
     toolbar->addWidget(new QLabel(" Port:"));
     m_portEdit = new QLineEdit();
-    m_portEdit->setMaximumWidth(80);
-    m_portEdit->setValidator(new QIntValidator(1024, 65536, m_portEdit));
+    m_portEdit->setValidator(new QIntValidator(1, 65535, m_portEdit));
     m_portEdit->setText(QString::number(::profiler::DEFAULT_PORT));
+    m_portEdit->setFixedWidth(m_portEdit->fontMetrics().width(QString("000000")) + 10);
     toolbar->addWidget(m_portEdit);
 
 
@@ -850,7 +849,14 @@ void EasyMainWindow::onConnectClicked(bool)
     if(EASY_GLOBALS.connected)
         return;
 
-    m_lastAddress = m_ipEdit->text();
+    auto text = m_ipEdit->text();
+    if (text.split(QChar('.')).size() != 4)
+    {
+        QMessageBox::warning(this, "Warning", "Invalid IP-Address", QMessageBox::Close);
+        return;
+    }
+
+    m_lastAddress = text;
     m_lastPort = m_portEdit->text().toUShort();
     if (!m_listener.connect(m_lastAddress.toStdString().c_str(), m_lastPort))
     {
