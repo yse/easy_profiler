@@ -222,6 +222,11 @@ namespace profiler {
         disable();
     }
 
+    bool EasyEventTracer::isLowPriority() const
+    {
+        return m_lowPriority.load(::std::memory_order_acquire);
+    }
+
     void EasyEventTracer::setLowPriority(bool _value)
     {
         m_lowPriority.store(_value, ::std::memory_order_release);

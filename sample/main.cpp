@@ -236,7 +236,5 @@ int main(int argc, char* argv[])
 
     std::cout << "Blocks count: " << blocks_count << std::endl;
 
-
-    profiler::stopListenSignalToCapture();
     return 0;
 }

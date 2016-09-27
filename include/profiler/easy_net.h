@@ -13,7 +13,7 @@ const uint32_t EASY_MESSAGE_SIGN = 20160909;
 
 enum MessageType : uint8_t
 {
-    MESSAGE_TYPE_ZERO,
+    MESSAGE_TYPE_ZERO = 0,
 
     MESSAGE_TYPE_REQUEST_START_CAPTURE,
     MESSAGE_TYPE_REPLY_START_CAPTURING,
@@ -29,6 +29,9 @@ enum MessageType : uint8_t
     MESSAGE_TYPE_REPLY_BLOCKS_DESCRIPTION_END,
 
     MESSAGE_TYPE_EDIT_BLOCK_STATUS,
+
+    MESSAGE_TYPE_EVENT_TRACING_STATUS,
+    MESSAGE_TYPE_EVENT_TRACING_PRIORITY,
 };
 
 struct Message
@@ -45,40 +48,44 @@ struct Message
     Message(MessageType _t):type(_t){}
 };
 
-struct DataMessage : public Message
-{
-    uint32_t size = 0;//bytes
-
-    DataMessage(MessageType _t = MESSAGE_TYPE_REPLY_BLOCKS) :
-        Message(_t)
-    {}
-
-    DataMessage(uint32_t _s, MessageType _t = MESSAGE_TYPE_REPLY_BLOCKS) :
-        Message(_t)
-      , size(_s)
-    {}
-
-    const char* data() const
-    {
-        return reinterpret_cast<const char*>(this) + sizeof(DataMessage);
-    }
+struct DataMessage : public Message {
+    uint32_t size = 0; // bytes
+    DataMessage(MessageType _t = MESSAGE_TYPE_REPLY_BLOCKS) : Message(_t) {}
+    DataMessage(uint32_t _s, MessageType _t = MESSAGE_TYPE_REPLY_BLOCKS) : Message(_t), size(_s) {}
+    const char* data() const { return reinterpret_cast<const char*>(this) + sizeof(DataMessage); }
 };
 
-struct BlockStatusMessage : public Message
-{
+struct BlockStatusMessage : public Message {
     uint32_t    id;
     uint8_t status;
+    BlockStatusMessage(uint32_t _id, uint8_t _status) : Message(MESSAGE_TYPE_EDIT_BLOCK_STATUS), id(_id), status(_status) { }
+private:
+    BlockStatusMessage() = delete;
+};
 
-    BlockStatusMessage(uint32_t _id, uint8_t _status)
-        : Message(MESSAGE_TYPE_EDIT_BLOCK_STATUS)
-        , id(_id)
-        , status(_status)
+struct EasyProfilerStatus : public Message
+{
+    bool         isProfilerEnabled;
+    bool     isEventTracingEnabled;
+    bool isLowPriorityEventTracing;
+
+    EasyProfilerStatus(bool _enabled, bool _ETenabled, bool _ETlowp)
+        : Message(MESSAGE_TYPE_ACCEPTED_CONNECTION)
+        , isProfilerEnabled(_enabled)
+        , isEventTracingEnabled(_ETenabled)
+        , isLowPriorityEventTracing(_ETlowp)
     {
     }
 
 private:
 
-    BlockStatusMessage() = delete;
+    EasyProfilerStatus() = delete;
+};
+
+struct BoolMessage : public Message {
+    bool flag = false;
+    BoolMessage(MessageType _t, bool _flag = false) : Message(_t), flag(_flag) { }
+    BoolMessage() = default;
 };
 
 #pragma pack(pop)

@@ -359,6 +359,7 @@ class ProfileManager
     int m_socket = 0;//TODO crossplatform
 
     std::atomic_bool m_stopListen;
+
 public:
 
     static ProfileManager& instance();
@@ -375,7 +376,7 @@ public:
     void storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName);
     void beginBlock(profiler::Block& _block);
     void endBlock();
-    void setEnabled(bool isEnable);
+    void setEnabled(bool isEnable, bool _setTime = true);
     void setEventTracingEnabled(bool _isEnable);
     uint32_t dumpBlocksToFile(const char* filename);
     const char* registerThread(const char* name, profiler::ThreadGuard& threadGuard);
@@ -397,7 +398,11 @@ public:
     void endContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime, bool _lockSpin = true);
     void startListenSignalToCapture();
     void stopListenSignalToCapture();
+
 private:
+
+    void storeBlockForce(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t& _timestamp);
+    void storeBlockForce2(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t _timestamp);
 
     ThreadStorage& threadStorage(profiler::thread_id_t _thread_id);
     ThreadStorage* _findThreadStorage(profiler::thread_id_t _thread_id);

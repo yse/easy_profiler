@@ -442,9 +442,10 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         {
             children_duration = setTree(item, t.children, h, y, 0);
         }
-        else if (!t.sync.empty())
+        else
         {
-            children_duration = time2position(blocksTree(t.sync.back()).node->end()) - x;
+            if (!t.sync.empty())
+                children_duration = time2position(blocksTree(t.sync.back()).node->end()) - x;
             h = ::profiler_gui::GRAPHICS_ROW_SIZE;
         }
 

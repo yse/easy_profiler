@@ -293,11 +293,11 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
         item->setTimeMs(COL_BEGIN, startTime - _beginTime);
         item->setTimeMs(COL_END, endTime - _beginTime);
 
-        item->setData(COL_PERCENT_PER_PARENT, Qt::UserRole, 0);
-        item->setText(COL_PERCENT_PER_PARENT, "");
-
         item->setData(COL_PERCENT_PER_FRAME, Qt::UserRole, 0);
-        item->setText(COL_PERCENT_PER_FRAME, "");
+
+        auto percentage_per_thread = ::profiler_gui::percent(duration, block.root->active_time);
+        item->setData(COL_PERCENT_PER_PARENT, Qt::UserRole, percentage_per_thread);
+        item->setText(COL_PERCENT_PER_PARENT, QString::number(percentage_per_thread));
 
         if (gui_block.tree.per_thread_stats != nullptr) // if there is per_thread_stats then there are other stats also
         {
@@ -317,7 +317,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
             item->setData(COL_NCALLS_PER_THREAD, Qt::UserRole, per_thread_stats->calls_number);
             item->setText(COL_NCALLS_PER_THREAD, QString::number(per_thread_stats->calls_number));
 
-            auto percentage_per_thread = ::profiler_gui::percent(per_thread_stats->total_duration, block.root->active_time);
+            percentage_per_thread = ::profiler_gui::percent(per_thread_stats->total_duration, block.root->active_time);
             item->setData(COL_PERCENT_SUM_PER_THREAD, Qt::UserRole, percentage_per_thread);
             item->setText(COL_PERCENT_SUM_PER_THREAD, QString::number(percentage_per_thread));
 
@@ -488,9 +488,18 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
             else
             {
                 item->setData(COL_PERCENT_PER_FRAME, Qt::UserRole, 0);
-                item->setText(COL_PERCENT_PER_FRAME, "");
                 item->setData(COL_PERCENT_SUM_PER_FRAME, Qt::UserRole, 0);
-                item->setText(COL_PERCENT_SUM_PER_FRAME, "");
+
+                if (_thread)
+                {
+                    auto percentage_per_thread = ::profiler_gui::percent(duration, _thread->selfDuration());
+                    item->setData(COL_PERCENT_PER_PARENT, Qt::UserRole, percentage_per_thread);
+                    item->setText(COL_PERCENT_PER_PARENT, QString::number(percentage_per_thread));
+                }
+                else
+                {
+                    item->setData(COL_PERCENT_PER_PARENT, Qt::UserRole, 0);
+                }
             }
 
 
@@ -538,12 +547,19 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
         }
         else
         {
-            item->setData(COL_PERCENT_PER_PARENT, Qt::UserRole, 0);
-            item->setText(COL_PERCENT_PER_PARENT, "");
+            if (_frame == nullptr && _thread != nullptr)
+            {
+                auto percentage_per_thread = ::profiler_gui::percent(duration, _thread->selfDuration());
+                item->setData(COL_PERCENT_PER_PARENT, Qt::UserRole, percentage_per_thread);
+                item->setText(COL_PERCENT_PER_PARENT, QString::number(percentage_per_thread));
+            }
+            else
+            {
+                item->setData(COL_PERCENT_PER_PARENT, Qt::UserRole, 0);
+            }
+
             item->setData(COL_PERCENT_SUM_PER_PARENT, Qt::UserRole, 0);
-            item->setText(COL_PERCENT_SUM_PER_PARENT, "");
             item->setData(COL_PERCENT_SUM_PER_THREAD, Qt::UserRole, 0);
-            item->setText(COL_PERCENT_SUM_PER_THREAD, "");
         }
 
         const auto color = easyDescriptor(child.node->id()).color();

@@ -52,6 +52,20 @@ decltype(LARGE_INTEGER::QuadPart) CPU_FREQUENCY = ([](){ LARGE_INTEGER freq; Que
 
 //////////////////////////////////////////////////////////////////////////
 
+#define EASY_FORCE_EVENT(timestamp, name, ...)\
+    EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), addBlockDescriptor(\
+        ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
+            __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__)));\
+    storeBlockForce(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name), timestamp);
+
+#define EASY_FORCE_EVENT2(timestamp, name, ...)\
+    EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), addBlockDescriptor(\
+        ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
+            __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__)));\
+    storeBlockForce2(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name), timestamp);
+
+//////////////////////////////////////////////////////////////////////////
+
 extern "C" {
 
     PROFILER_API const BaseBlockDescriptor* registerDescription(EasyBlockStatus _status, const char* _autogenUniqueId, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
@@ -283,9 +297,6 @@ ProfileManager::~ProfileManager()
 {
     stopListenSignalToCapture();
 
-    if (m_listenThread.joinable())
-        m_listenThread.join();
-
     for (auto desc : m_descriptors)
     {
         if (desc != nullptr)
@@ -363,6 +374,46 @@ void ProfileManager::storeBlock(const profiler::BaseBlockDescriptor* _desc, cons
     profiler::Block b(_desc, _runtimeName);
     b.start();
     b.m_end = b.m_begin;
+
+    THREAD_STORAGE->storeBlock(b);
+}
+
+void ProfileManager::storeBlockForce(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t& _timestamp)
+{
+    if (!(_desc->m_status & profiler::ON))
+        return;
+
+    if (THREAD_STORAGE == nullptr)
+        THREAD_STORAGE = &threadStorage(getCurrentThreadId());
+
+#if EASY_ENABLE_BLOCK_STATUS != 0
+    if (!THREAD_STORAGE->allowChildren)
+        return;
+#endif
+
+    profiler::Block b(_desc, _runtimeName);
+    b.start();
+    b.m_end = b.m_begin;
+
+    _timestamp = b.m_begin;
+    THREAD_STORAGE->storeBlock(b);
+}
+
+void ProfileManager::storeBlockForce2(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t _timestamp)
+{
+    if (!(_desc->m_status & profiler::ON))
+        return;
+
+    if (THREAD_STORAGE == nullptr)
+        THREAD_STORAGE = &threadStorage(getCurrentThreadId());
+
+#if EASY_ENABLE_BLOCK_STATUS != 0
+    if (!THREAD_STORAGE->allowChildren)
+        return;
+#endif
+
+    profiler::Block b(_desc, _runtimeName);
+    b.m_end = b.m_begin = _timestamp;
 
     THREAD_STORAGE->storeBlock(b);
 }
@@ -458,7 +509,7 @@ void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, profiler
     ts->sync.openedList.pop();
 }
 
-void ProfileManager::setEnabled(bool isEnable)
+void ProfileManager::setEnabled(bool isEnable, bool _setTime)
 {
     auto time = getCurrentTime();
     const bool prev = m_isEnabled.exchange(isEnable, std::memory_order_release);
@@ -467,20 +518,28 @@ void ProfileManager::setEnabled(bool isEnable)
 
     if (isEnable)
     {
-        m_beginTime = time;
-
 #ifdef _WIN32
         if (m_isEventTracingEnabled.load(std::memory_order_acquire))
             EasyEventTracer::instance().enable(true);
 #endif
+
+        if (_setTime)
+        {
+            guard_lock_t lk(m_spin);
+            m_beginTime = time;
+        }
     }
     else
     {
-        m_endTime = time;
-
 #ifdef _WIN32
         EasyEventTracer::instance().disable();
 #endif
+
+        if (_setTime)
+        {
+            guard_lock_t lk(m_spin);
+            m_endTime = time;
+        }
     }
 }
 
@@ -706,7 +765,7 @@ void ProfileManager::startListenSignalToCapture()
     if (!m_isAlreadyListened)
     {
         m_stopListen.store(false, std::memory_order_release);
-        m_listenThread = std::thread(&ProfileManager::listen, this);
+        m_listenThread = std::move(std::thread(&ProfileManager::listen, this));
         m_isAlreadyListened = true;
     }
 }
@@ -714,6 +773,8 @@ void ProfileManager::startListenSignalToCapture()
 void ProfileManager::stopListenSignalToCapture()
 {
     m_stopListen.store(true, std::memory_order_release);
+    if (m_listenThread.joinable())
+        m_listenThread.join();
     m_isAlreadyListened = false;
 }
 
@@ -741,13 +802,21 @@ void ProfileManager::listen()
         hasConnect = true;
 
 #ifdef EASY_DEBUG_NET_PRINT
-        printf("Client Accepted!\n");
+        printf("GUI-client connected\n");
 #endif
 
-        replyMessage.type = profiler::net::MESSAGE_TYPE_ACCEPTED_CONNECTION;
-        bytes = socket.send(&replyMessage, sizeof(replyMessage));
-
-        hasConnect = bytes > 0;
+        // Send reply
+        {
+            const bool wasLowPriorityET =
+#ifdef _WIN32
+                EasyEventTracer::instance().isLowPriority();
+#else
+                false;
+#endif
+            profiler::net::EasyProfilerStatus connectionReply(m_isEnabled.load(std::memory_order_acquire), m_isEventTracingEnabled.load(std::memory_order_acquire), wasLowPriorityET);
+            bytes = socket.send(&connectionReply, sizeof(connectionReply));
+            hasConnect = bytes > 0;
+        }
 
         while (hasConnect && !m_stopListen.load(std::memory_order_acquire))
         {
@@ -771,11 +840,15 @@ void ProfileManager::listen()
                     case profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE:
                     {
 #ifdef EASY_DEBUG_NET_PRINT
-                        printf("RECEIVED MESSAGE_TYPE_REQUEST_START_CAPTURE\n");
+                        printf("receive REQUEST_START_CAPTURE\n");
 #endif
+                        ::profiler::timestamp_t t = 0;
+                        EASY_FORCE_EVENT(t, "StartCapture", profiler::colors::Green, profiler::OFF);
+                        ProfileManager::setEnabled(true, false);
 
-                        ProfileManager::setEnabled(true);
-                        EASY_EVENT("StartCapture", profiler::colors::Green, profiler::OFF);
+                        m_spin.lock();
+                        m_beginTime = t;
+                        m_spin.unlock();
 
                         replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING;
                         bytes = socket.send(&replyMessage, sizeof(replyMessage));
@@ -787,11 +860,14 @@ void ProfileManager::listen()
                     case profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE:
                     {
 #ifdef EASY_DEBUG_NET_PRINT
-                        printf("RECEIVED MESSAGE_TYPE_REQUEST_STOP_CAPTURE\n");
+                        printf("receive REQUEST_STOP_CAPTURE\n");
 #endif
-
-                        EASY_EVENT("StopCapture", profiler::colors::Red, profiler::OFF);
                         ProfileManager::setEnabled(false);
+
+                        m_spin.lock();
+                        ::profiler::timestamp_t t = m_endTime;
+                        m_spin.unlock();
+                        EASY_FORCE_EVENT2(t, "StopCapture", profiler::colors::Red, profiler::OFF);
 
                         //TODO
                         //if connection aborted - ignore this part
@@ -829,7 +905,7 @@ void ProfileManager::listen()
                     case profiler::net::MESSAGE_TYPE_REQUEST_BLOCKS_DESCRIPTION:
                     {
 #ifdef EASY_DEBUG_NET_PRINT
-                        printf("RECEIVED MESSAGE_TYPE_REQUEST_BLOCKS_DESCRIPTION\n");
+                        printf("receive REQUEST_BLOCKS_DESCRIPTION\n");
 #endif
 
                         profiler::OStream os;
@@ -880,13 +956,40 @@ void ProfileManager::listen()
 
                     case profiler::net::MESSAGE_TYPE_EDIT_BLOCK_STATUS:
                     {
+                        auto data = reinterpret_cast<const profiler::net::BlockStatusMessage*>(message);
+
 #ifdef EASY_DEBUG_NET_PRINT
-                        printf("RECEIVED MESSAGE_TYPE_EDIT_BLOCK_STATUS\n");
+                        printf("receive EDIT_BLOCK_STATUS id=%u status=%u\n", data->id, data->status);
 #endif
 
-                        auto data = reinterpret_cast<const profiler::net::BlockStatusMessage*>(message);
                         setBlockStatus(data->id, static_cast<::profiler::EasyBlockStatus>(data->status));
 
+                        break;
+                    }
+
+                    case profiler::net::MESSAGE_TYPE_EVENT_TRACING_STATUS:
+                    {
+                        auto data = reinterpret_cast<const profiler::net::BoolMessage*>(message);
+
+#ifdef EASY_DEBUG_NET_PRINT
+                        printf("receive EVENT_TRACING_STATUS on=%d\n", data->flag ? 1 : 0);
+#endif
+
+                        m_isEventTracingEnabled.store(data->flag, std::memory_order_release);
+                        break;
+                    }
+
+                    case profiler::net::MESSAGE_TYPE_EVENT_TRACING_PRIORITY:
+                    {
+                        auto data = reinterpret_cast<const profiler::net::BoolMessage*>(message);
+
+#ifdef EASY_DEBUG_NET_PRINT
+                        printf("receive EVENT_TRACING_PRIORITY low=%d\n", data->flag ? 1 : 0);
+#endif
+
+#ifdef _WIN32
+                        EasyEventTracer::instance().setLowPriority(data->flag);
+#endif
                         break;
                     }
 

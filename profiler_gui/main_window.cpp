@@ -244,6 +244,20 @@ EasyMainWindow::EasyMainWindow() : Parent()
         SET_ICON(action, ":/Stats-off");
     }
 
+    menu->addSeparator();
+    submenu = menu->addMenu("&Remote");
+    m_eventTracingEnableAction = submenu->addAction("Event tracing enabled");
+    m_eventTracingEnableAction->setCheckable(true);
+    m_eventTracingEnableAction->setEnabled(false);
+    connect(m_eventTracingEnableAction, &QAction::triggered, this, &This::onEventTracingEnableChange);
+
+    m_eventTracingPriorityAction = submenu->addAction("Low priority event tracing");
+    m_eventTracingPriorityAction->setCheckable(true);
+    m_eventTracingPriorityAction->setChecked(EASY_LOW_PRIORITY_EVENT_TRACING);
+    m_eventTracingPriorityAction->setEnabled(false);
+    connect(m_eventTracingPriorityAction, &QAction::triggered, this, &This::onEventTracingPriorityChange);
+
+    menu->addSeparator();
     submenu = menu->addMenu("&Encoding");
     actionGroup = new QActionGroup(this);
     actionGroup->setExclusive(true);
@@ -655,6 +669,9 @@ void EasyMainWindow::onListenerDialogClose(int)
         m_captureAction->setEnabled(false);
         SET_ICON(m_connectAction, ":/Connection");
 
+        m_eventTracingEnableAction->setEnabled(false);
+        m_eventTracingPriorityAction->setEnabled(false);
+
         emit EASY_GLOBALS.events.connectionChanged(false);
     }
 }
@@ -847,6 +864,20 @@ QString EasyFileReader::getError()
 
 //////////////////////////////////////////////////////////////////////////
 
+void EasyMainWindow::onEventTracingPriorityChange(bool _checked)
+{
+    if (EASY_GLOBALS.connected)
+        m_listener.send(profiler::net::BoolMessage(profiler::net::MESSAGE_TYPE_EVENT_TRACING_PRIORITY, _checked));
+}
+
+void EasyMainWindow::onEventTracingEnableChange(bool _checked)
+{
+    if (EASY_GLOBALS.connected)
+        m_listener.send(profiler::net::BoolMessage(profiler::net::MESSAGE_TYPE_EVENT_TRACING_STATUS, _checked));
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 void EasyMainWindow::onConnectClicked(bool)
 {
     if(EASY_GLOBALS.connected)
@@ -878,7 +909,9 @@ void EasyMainWindow::onConnectClicked(bool)
     m_lastAddress = parts.join(QChar('.'));
     m_lastPort = m_portEdit->text().toUShort();
     m_ipEdit->setText(m_lastAddress);
-    if (!m_listener.connect(m_lastAddress.toStdString().c_str(), m_lastPort))
+
+    profiler::net::EasyProfilerStatus reply(false, false, false);
+    if (!m_listener.connect(m_lastAddress.toStdString().c_str(), m_lastPort, reply))
     {
         QMessageBox::warning(this, "Warning", "Cannot connect with application", QMessageBox::Close);
         return;
@@ -888,6 +921,18 @@ void EasyMainWindow::onConnectClicked(bool)
     EASY_GLOBALS.connected = true;
     m_captureAction->setEnabled(true);
     SET_ICON(m_connectAction, ":/Connection-on");
+
+    disconnect(m_eventTracingEnableAction, &QAction::triggered, this, &This::onEventTracingEnableChange);
+    disconnect(m_eventTracingPriorityAction, &QAction::triggered, this, &This::onEventTracingPriorityChange);
+
+    m_eventTracingEnableAction->setEnabled(true);
+    m_eventTracingPriorityAction->setEnabled(true);
+
+    m_eventTracingEnableAction->setChecked(reply.isEventTracingEnabled);
+    m_eventTracingPriorityAction->setChecked(reply.isLowPriorityEventTracing);
+
+    connect(m_eventTracingEnableAction, &QAction::triggered, this, &This::onEventTracingEnableChange);
+    connect(m_eventTracingPriorityAction, &QAction::triggered, this, &This::onEventTracingPriorityChange);
 
     emit EASY_GLOBALS.events.connectionChanged(true);
 }
@@ -986,6 +1031,9 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
         m_captureAction->setEnabled(false);
         SET_ICON(m_connectAction, ":/Connection");
 
+        m_eventTracingEnableAction->setEnabled(false);
+        m_eventTracingPriorityAction->setEnabled(false);
+
         emit EASY_GLOBALS.events.connectionChanged(false);
     }
 }
@@ -995,7 +1043,7 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
 void EasyMainWindow::onBlockStatusChange(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status)
 {
     if (EASY_GLOBALS.connected)
-        m_listener.sendBlockStatus(_id, _status);
+        m_listener.send(profiler::net::BlockStatusMessage(_id, static_cast<uint8_t>(_status)));
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1040,7 +1088,7 @@ void EasySocketListener::clearData()
     m_receivedSize = 0;
 }
 
-bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port)
+bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profiler::net::EasyProfilerStatus& _reply)
 {
     if (connected())
         return true;
@@ -1050,9 +1098,55 @@ bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port)
     int res = m_easySocket.setAddress(_ipaddress, _port);
     res = m_easySocket.connect();
 
-    bool isConnected = res == 0;
-    m_bConnected.store(isConnected, ::std::memory_order_release);
+    const bool isConnected = res == 0;
+    if (isConnected)
+    {
+        static const size_t buffer_size = sizeof(profiler::net::EasyProfilerStatus) << 1;
+        char buffer[buffer_size] = {};
+        int bytes = 0;
+        
+        while (true)
+        {
+            bytes = m_easySocket.receive(buffer, buffer_size);
 
+            if (bytes == -1)
+            {
+                if (m_easySocket.state() == EasySocket::CONNECTION_STATE_DISCONNECTED)
+                    return false;
+                bytes = 0;
+                continue;
+            }
+
+            break;
+        }
+
+        if (bytes == 0)
+        {
+            m_bConnected.store(isConnected, ::std::memory_order_release);
+            return isConnected;
+        }
+
+        int seek = bytes;
+        while (seek < sizeof(profiler::net::EasyProfilerStatus))
+        {
+            bytes = m_easySocket.receive(buffer + seek, buffer_size - seek);
+
+            if (bytes == -1)
+            {
+                if (m_easySocket.state() == EasySocket::CONNECTION_STATE_DISCONNECTED)
+                    return false;
+                break;
+            }
+
+            seek += bytes;
+        }
+
+        auto message = reinterpret_cast<const ::profiler::net::EasyProfilerStatus*>(buffer);
+        if (message->isEasyNetMessage() && message->type == profiler::net::MESSAGE_TYPE_ACCEPTED_CONNECTION)
+            _reply = *message;
+    }
+
+    m_bConnected.store(isConnected, ::std::memory_order_release);
     return isConnected;
 }
 
@@ -1090,12 +1184,6 @@ void EasySocketListener::requestBlocksDescription()
     m_regime = LISTENER_DESCRIBE;
     listenDescription();
     m_regime = LISTENER_IDLE;
-}
-
-void EasySocketListener::sendBlockStatus(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status)
-{
-    profiler::net::BlockStatusMessage message(_id, static_cast<uint8_t>(_status));
-    m_easySocket.send(&message, sizeof(message));
 }
 
 //////////////////////////////////////////////////////////////////////////

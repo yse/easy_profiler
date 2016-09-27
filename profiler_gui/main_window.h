@@ -55,6 +55,8 @@
 
 class QDockWidget;
 
+namespace profiler { namespace net { struct EasyProfilerStatus; } }
+
 //////////////////////////////////////////////////////////////////////////
 
 class EasyFileReader Q_DECL_FINAL
@@ -126,13 +128,16 @@ public:
     ::std::stringstream& data();
     void clearData();
 
-    bool connect(const char* _ipaddress, uint16_t _port);
+    bool connect(const char* _ipaddress, uint16_t _port, ::profiler::net::EasyProfilerStatus& _reply);
 
     void startCapture();
     void stopCapture();
     void requestBlocksDescription();
 
-    void sendBlockStatus(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status);
+    template <class T>
+    inline void send(const T& _message) {
+        m_easySocket.send(&_message, sizeof(T));
+    }
 
 private:
 
@@ -177,6 +182,8 @@ protected:
 
     class QAction* m_captureAction = nullptr;
     class QAction* m_connectAction = nullptr;
+    class QAction* m_eventTracingEnableAction = nullptr;
+    class QAction* m_eventTracingPriorityAction = nullptr;
 
     uint16_t m_lastPort = 0;
 
@@ -214,6 +221,8 @@ protected slots:
     void onCaptureClicked(bool);
     void onGetBlockDescriptionsClicked(bool);
     void onConnectClicked(bool);
+    void onEventTracingPriorityChange(bool _checked);
+    void onEventTracingEnableChange(bool _checked);
 
     void onBlockStatusChange(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status);
 

@@ -78,6 +78,8 @@ namespace profiler {
         static EasyEventTracer& instance();
         ~EasyEventTracer();
 
+        bool isLowPriority() const;
+
         ::profiler::EventTracingEnableStatus enable(bool _force = false);
         void disable();
         void setLowPriority(bool _value);
