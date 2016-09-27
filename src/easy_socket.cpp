@@ -251,13 +251,16 @@ int EasySocket::connect()
         return -1;
         //fprintf(stderr,"ERROR, no such host\n");
     }
+    int res = 0;
+    //TODO: more intelligence
+#ifndef _WIN32
     setBlocking(m_socket,false);
 
     int counter = 0;
     int sleepMs = 20;
     int waitSec = 1;
     int waitMs = waitSec*1000/sleepMs;
-    int res = 0;
+    
     while(counter++ < waitMs)
     {
         res = ::connect(m_socket,(struct sockaddr *) &serv_addr,sizeof(serv_addr));
@@ -278,8 +281,11 @@ int EasySocket::connect()
             break;
     }
 
-
     setBlocking(m_socket,true);
+#else
+    res = ::connect(m_socket, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
+    checkResult(res);
+#endif
     if(res == 0){
 
         struct timeval tv;
