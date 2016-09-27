@@ -12,7 +12,7 @@
 #include <chrono>
 #include <iostream>
 #include <string>
-
+#include <sstream>
 
 class TreePrinter
 {
@@ -113,7 +113,10 @@ int main(int argc, char* argv[])
     ::profiler::SerializedData serialized_blocks, serialized_descriptors;
     ::profiler::descriptors_list_t descriptors;
     ::profiler::blocks_t blocks;
-    auto blocks_counter = fillTreesFromFile(filename.c_str(), serialized_blocks, serialized_descriptors, descriptors, blocks, threaded_trees, true);
+    ::std::stringstream errorMessage;
+    auto blocks_counter = fillTreesFromFile(filename.c_str(), serialized_blocks, serialized_descriptors, descriptors, blocks, threaded_trees, true, errorMessage);
+    if (blocks_counter == 0)
+        std::cout << "Can not read blocks from file " << filename.c_str() << "\nReason: " << errorMessage.str();
 
     auto end = std::chrono::system_clock::now();
 

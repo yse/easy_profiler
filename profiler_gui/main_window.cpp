@@ -710,13 +710,9 @@ void EasyMainWindow::onFileReaderTimeout()
             if (m_dialogDescTree != nullptr)
                 m_dialogDescTree->build();
         }
-        else if (m_reader.isFile())
-        {
-            qWarning() << "Warning: Can not open file " << m_reader.filename() << " or file is corrupted";
-        }
         else
         {
-            qWarning() << "Warning: Can not read from stream: bad data";
+            QMessageBox::warning(this, "Warning", QString("Can not read profiled blocks.\n\nReason:\n%1").arg(m_reader.getError()), QMessageBox::Close);
         }
 
         m_reader.interrupt();
@@ -788,7 +784,7 @@ void EasyFileReader::load(const QString& _filename)
     m_isFile = true;
     m_filename = _filename;
     m_thread = ::std::move(::std::thread([this](bool _enableStatistics) {
-        m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_serializedBlocks, m_serializedDescriptors, m_descriptors, m_blocks, m_blocksTree, _enableStatistics), ::std::memory_order_release);
+        m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_serializedBlocks, m_serializedDescriptors, m_descriptors, m_blocks, m_blocksTree, _enableStatistics, m_errorMessage), ::std::memory_order_release);
         m_progress.store(100, ::std::memory_order_release);
         m_bDone.store(true, ::std::memory_order_release);
     }, EASY_GLOBALS.enable_statistics));
@@ -802,7 +798,7 @@ void EasyFileReader::load(::std::stringstream& _stream)
     m_filename.clear();
     m_stream.swap(_stream);
     m_thread = ::std::move(::std::thread([this](bool _enableStatistics) {
-        m_size.store(fillTreesFromStream(m_progress, m_stream, m_serializedBlocks, m_serializedDescriptors, m_descriptors, m_blocks, m_blocksTree, _enableStatistics), ::std::memory_order_release);
+        m_size.store(fillTreesFromStream(m_progress, m_stream, m_serializedBlocks, m_serializedDescriptors, m_descriptors, m_blocks, m_blocksTree, _enableStatistics, m_errorMessage), ::std::memory_order_release);
         m_progress.store(100, ::std::memory_order_release);
         m_bDone.store(true, ::std::memory_order_release);
     }, EASY_GLOBALS.enable_statistics));
@@ -823,8 +819,8 @@ void EasyFileReader::interrupt()
     m_blocks.clear();
     m_blocksTree.clear();
 
-    decltype(m_stream) dummy;
-    dummy.swap(m_stream);
+    { decltype(m_stream) dummy; dummy.swap(m_stream); }
+    { decltype(m_errorMessage) dummy; dummy.swap(m_errorMessage); }
 }
 
 void EasyFileReader::get(::profiler::SerializedData& _serializedBlocks, ::profiler::SerializedData& _serializedDescriptors,
@@ -840,6 +836,11 @@ void EasyFileReader::get(::profiler::SerializedData& _serializedBlocks, ::profil
         m_blocksTree.swap(_tree);
         m_filename.swap(_filename);
     }
+}
+
+QString EasyFileReader::getError()
+{
+    return QString(m_errorMessage.str().c_str());
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -922,7 +923,8 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
         // Read descriptions from stream
         decltype(EASY_GLOBALS.descriptors) descriptors;
         decltype(m_serializedDescriptors) serializedDescriptors;
-        if (readDescriptionsFromStream(m_listener.data(), serializedDescriptors, descriptors))
+        ::std::stringstream errorMessage;
+        if (readDescriptionsFromStream(m_listener.data(), serializedDescriptors, descriptors, errorMessage))
         {
             if (EASY_GLOBALS.descriptors.size() > descriptors.size())
                 onDeleteClicked(true); // Clear all contents because new descriptors list conflicts with old one
@@ -942,6 +944,10 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
             {
                 onEditBlocksClicked(true);
             }
+        }
+        else
+        {
+            QMessageBox::warning(this, "Warning", QString("Can not read blocks description from stream.\n\nReason:\n%1").arg(errorMessage.str().c_str()), QMessageBox::Close);
         }
 
         m_listener.clearData();

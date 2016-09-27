@@ -331,7 +331,8 @@ extern "C" {
                                                             ::profiler::descriptors_list_t& descriptors,
                                                             ::profiler::blocks_t& _blocks,
                                                             ::profiler::thread_blocks_tree_t& threaded_trees,
-                                                            bool gather_statistics);
+                                                            bool gather_statistics,
+                                                            ::std::stringstream& _log);
 
     PROFILER_API ::profiler::block_index_t fillTreesFromStream(::std::atomic<int>& progress, ::std::stringstream& str,
                                                               ::profiler::SerializedData& serialized_blocks,
@@ -339,26 +340,32 @@ extern "C" {
                                                               ::profiler::descriptors_list_t& descriptors,
                                                               ::profiler::blocks_t& _blocks,
                                                               ::profiler::thread_blocks_tree_t& threaded_trees,
-                                                              bool gather_statistics);
+                                                              bool gather_statistics,
+                                                              ::std::stringstream& _log);
 
     PROFILER_API bool readDescriptionsFromStream(::std::atomic<int>& progress, ::std::stringstream& str,
                                                  ::profiler::SerializedData& serialized_descriptors,
-                                                 ::profiler::descriptors_list_t& descriptors);
+                                                 ::profiler::descriptors_list_t& descriptors,
+                                                 ::std::stringstream& _log);
 }
 
 inline ::profiler::block_index_t fillTreesFromFile(const char* filename, ::profiler::SerializedData& serialized_blocks,
                                                    ::profiler::SerializedData& serialized_descriptors, ::profiler::descriptors_list_t& descriptors,
                                                    ::profiler::blocks_t& _blocks, ::profiler::thread_blocks_tree_t& threaded_trees,
-                                                   bool gather_statistics)
+                                                   bool gather_statistics,
+                                                   ::std::stringstream& _log)
 {
     ::std::atomic<int> progress = ATOMIC_VAR_INIT(0);
-    return fillTreesFromFile(progress, filename, serialized_blocks, serialized_descriptors, descriptors, _blocks, threaded_trees, gather_statistics);
+    return fillTreesFromFile(progress, filename, serialized_blocks, serialized_descriptors, descriptors, _blocks, threaded_trees, gather_statistics, _log);
 }
 
-inline bool readDescriptionsFromStream(::std::stringstream& str, ::profiler::SerializedData& serialized_descriptors, ::profiler::descriptors_list_t& descriptors)
+inline bool readDescriptionsFromStream(::std::stringstream& str,
+                                       ::profiler::SerializedData& serialized_descriptors,
+                                       ::profiler::descriptors_list_t& descriptors,
+                                       ::std::stringstream& _log)
 {
     ::std::atomic<int> progress = ATOMIC_VAR_INIT(0);
-    return readDescriptionsFromStream(progress, str, serialized_descriptors, descriptors);
+    return readDescriptionsFromStream(progress, str, serialized_descriptors, descriptors, _log);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

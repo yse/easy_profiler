@@ -65,6 +65,7 @@ class EasyFileReader Q_DECL_FINAL
     ::profiler::blocks_t                      m_blocks; ///< 
     ::profiler::thread_blocks_tree_t      m_blocksTree; ///< 
     ::std::stringstream                       m_stream; ///< 
+    ::std::stringstream                 m_errorMessage; ///< 
     QString                                 m_filename; ///< 
     ::std::thread                             m_thread; ///< 
     ::std::atomic_bool                         m_bDone; ///< 
@@ -89,6 +90,8 @@ public:
     void get(::profiler::SerializedData& _serializedBlocks, ::profiler::SerializedData& _serializedDescriptors,
              ::profiler::descriptors_list_t& _descriptors, ::profiler::blocks_t& _blocks, ::profiler::thread_blocks_tree_t& _tree,
              QString& _filename);
+
+    QString getError();
 
 }; // END of class EasyFileReader.
 

@@ -38,6 +38,7 @@
 
 using namespace profiler;
 
+const uint32_t PROFILER_SIGNATURE = ('E' << 24) | ('a' << 16) | ('s' << 8) | 'y';
 const uint8_t FORCE_ON_FLAG = profiler::FORCE_ON & ~profiler::ON;
 
 //auto& MANAGER = ProfileManager::instance();
@@ -553,6 +554,10 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
         ++it;
     }
 
+    // Write profiler signature and version
+    _outputStream.write(PROFILER_SIGNATURE);
+    _outputStream.write(profiler::EASY_FULL_VERSION);
+
     // Write CPU frequency to let GUI calculate real time value from CPU clocks
 #ifdef _WIN32
     _outputStream.write(CPU_FREQUENCY);
@@ -828,6 +833,10 @@ void ProfileManager::listen()
 #endif
 
                         profiler::OStream os;
+
+                        // Write profiler signature and version
+                        os.write(PROFILER_SIGNATURE);
+                        os.write(profiler::EASY_FULL_VERSION);
 
                         // Write block descriptors
                         m_storedSpin.lock();

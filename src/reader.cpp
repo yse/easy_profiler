@@ -53,6 +53,22 @@
 
 //////////////////////////////////////////////////////////////////////////
 
+#define EASY_FULL_VER(Major, Minor, Rev) (((uint32_t)(Major) << 24) | ((uint32_t)(Minor) << 16) | (uint32_t)(Rev))
+
+const uint32_t COMPATIBLE_VERSIONS[] = {
+    ::profiler::EASY_FULL_VERSION
+};
+const uint16_t COMPATIBLE_VERSIONS_NUM = sizeof(COMPATIBLE_VERSIONS) / sizeof(uint32_t);
+
+bool isCompatibleVersion(uint32_t _version)
+{
+    if (_version == ::profiler::EASY_FULL_VERSION)
+        return true;
+    return COMPATIBLE_VERSIONS_NUM > 1 && ::std::binary_search(COMPATIBLE_VERSIONS + 1, COMPATIBLE_VERSIONS + COMPATIBLE_VERSIONS_NUM, _version);
+}
+
+#undef EASY_FULL_VER
+
 namespace profiler {
 
     void SerializedData::set(char* _data, size_t _size)
@@ -219,6 +235,7 @@ void validate_pointers(::std::atomic<int>& _progress, const char* _oldbase, ::pr
 //////////////////////////////////////////////////////////////////////////
 
 const int64_t TIME_FACTOR = 1000000000LL;
+const uint32_t PROFILER_SIGNATURE = ('E' << 24) | ('a' << 16) | ('s' << 8) | 'y';
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -230,13 +247,17 @@ extern "C" {
                                                             ::profiler::descriptors_list_t& descriptors,
                                                             ::profiler::blocks_t& blocks,
                                                             ::profiler::thread_blocks_tree_t& threaded_trees,
-                                                            bool gather_statistics)
+                                                            bool gather_statistics,
+                                                            ::std::stringstream& _log)
     {
         progress.store(0);
 
         ::std::ifstream inFile(filename, ::std::fstream::binary);
         if (!inFile.is_open())
+        {
+            _log << "Can not open file " << filename;
             return 0;
+        }
 
         ::std::stringstream str;
 
@@ -244,7 +265,7 @@ extern "C" {
         stringstream_parent& s = str;
         auto oldbuf = s.rdbuf(inFile.rdbuf());
         
-        auto result = fillTreesFromStream(progress, str, serialized_blocks, serialized_descriptors, descriptors, blocks, threaded_trees, gather_statistics);
+        auto result = fillTreesFromStream(progress, str, serialized_blocks, serialized_descriptors, descriptors, blocks, threaded_trees, gather_statistics, _log);
         s.rdbuf(oldbuf);
 
         return result;
@@ -258,11 +279,28 @@ extern "C" {
                                                               ::profiler::descriptors_list_t& descriptors,
                                                               ::profiler::blocks_t& blocks,
                                                               ::profiler::thread_blocks_tree_t& threaded_trees,
-                                                              bool gather_statistics)
+                                                              bool gather_statistics,
+                                                              ::std::stringstream& _log)
     {
         EASY_FUNCTION(::profiler::colors::Cyan);
 
         progress.store(0);
+
+        uint32_t signature = 0;
+        inFile.read((char*)&signature, sizeof(uint32_t));
+        if (signature != PROFILER_SIGNATURE)
+        {
+            _log << "Wrong signature " << signature << "\nThis is not EasyProfiler file/stream.";
+            return 0;
+        }
+
+        uint32_t version = 0;
+        inFile.read((char*)&version, sizeof(uint32_t));
+        if (!isCompatibleVersion(version))
+        {
+            _log << "Incompatible version: v" << (version >> 24) << "." << ((version & 0x00ff0000) >> 16) << "." << (version & 0x0000ffff);
+            return 0;
+        }
 
         int64_t cpu_frequency = 0LL;
         inFile.read((char*)&cpu_frequency, sizeof(int64_t));
@@ -281,22 +319,34 @@ extern "C" {
         uint32_t total_blocks_number = 0;
         inFile.read((char*)&total_blocks_number, sizeof(decltype(total_blocks_number)));
         if (total_blocks_number == 0)
+        {
+            _log << "Profiled blocks number == 0";
             return 0;
+        }
 
         uint64_t memory_size = 0;
         inFile.read((char*)&memory_size, sizeof(decltype(memory_size)));
         if (memory_size == 0)
+        {
+            _log << "Wrong memory size == 0 for " << total_blocks_number << " blocks";
             return 0;
+        }
 
         uint32_t total_descriptors_number = 0;
         inFile.read((char*)&total_descriptors_number, sizeof(decltype(total_descriptors_number)));
         if (total_descriptors_number == 0)
+        {
+            _log << "Blocks description number == 0";
             return 0;
+        }
 
         uint64_t descriptors_memory_size = 0;
         inFile.read((char*)&descriptors_memory_size, sizeof(decltype(descriptors_memory_size)));
         if (descriptors_memory_size == 0)
+        {
+            _log << "Wrong memory size == 0 for " << total_descriptors_number << " blocks descriptions";
             return 0;
+        }
 
         descriptors.reserve(total_descriptors_number);
         //const char* olddata = append_regime ? serialized_descriptors.data() : nullptr;
@@ -327,7 +377,10 @@ extern "C" {
             i += sz;
             auto oldprogress = progress.exchange(static_cast<int>(15 * i / descriptors_memory_size), ::std::memory_order_release);
             if (oldprogress < 0)
+            {
+                _log << "Reading was interrupted";
                 return 0; // Loading interrupted
+            }
         }
 
         typedef ::std::unordered_map<::profiler::thread_id_t, StatsMap, ::profiler::passthrough_hash> PerThreadStats;
@@ -373,7 +426,10 @@ extern "C" {
                 uint16_t sz = 0;
                 inFile.read((char*)&sz, sizeof(sz));
                 if (sz == 0)
+                {
+                    _log << "Bad CSwitch block size == 0";
                     return 0;
+                }
 
                 char* data = serialized_blocks[i];
                 inFile.read(data, sz);
@@ -405,7 +461,10 @@ extern "C" {
 
                 auto oldprogress = progress.exchange(20 + static_cast<int>(70 * i / memory_size), ::std::memory_order_release);
                 if (oldprogress < 0)
+                {
+                    _log << "Reading was interrupted";
                     return 0; // Loading interrupted
+                }
             }
 
             if (inFile.eof())
@@ -423,15 +482,27 @@ extern "C" {
                 uint16_t sz = 0;
                 inFile.read((char*)&sz, sizeof(sz));
                 if (sz == 0)
+                {
+                    _log << "Bad block size == 0";
                     return 0;
+                }
 
                 char* data = serialized_blocks[i];
                 inFile.read(data, sz);
                 i += sz;
                 auto baseData = reinterpret_cast<::profiler::SerializedBlock*>(data);
+                if (baseData->id() >= total_descriptors_number)
+                {
+                    _log << "Bad block id == " << baseData->id();
+                    return 0;
+                }
+
                 auto desc = descriptors[baseData->id()];
                 if (desc == nullptr)
+                {
+                    _log << "Bad block id == " << baseData->id() << ". Description is null.";
                     return 0;
+                }
 
                 auto t_begin = reinterpret_cast<::profiler::timestamp_t*>(data);
                 auto t_end = t_begin + 1;
@@ -548,12 +619,18 @@ extern "C" {
 
                 auto oldprogress = progress.exchange(20 + static_cast<int>(70 * i / memory_size), ::std::memory_order_release);
                 if (oldprogress < 0)
+                {
+                    _log << "Reading was interrupted";
                     return 0; // Loading interrupted
+                }
             }
         }
 
         if (progress.load(::std::memory_order_acquire) < 0)
+        {
+            _log << "Reading was interrupted";
             return 0; // Loading interrupted
+        }
 
         EASY_BLOCK("Gather statistics for roots", ::profiler::colors::Purple);
         if (gather_statistics)
@@ -639,21 +716,44 @@ extern "C" {
 
     PROFILER_API bool readDescriptionsFromStream(::std::atomic<int>& progress, ::std::stringstream& inFile,
                                                  ::profiler::SerializedData& serialized_descriptors,
-                                                 ::profiler::descriptors_list_t& descriptors)
+                                                 ::profiler::descriptors_list_t& descriptors,
+                                                 ::std::stringstream& _log)
     {
         EASY_FUNCTION(::profiler::colors::Cyan);
 
         progress.store(0);
 
+        uint32_t signature = 0;
+        inFile.read((char*)&signature, sizeof(uint32_t));
+        if (signature != PROFILER_SIGNATURE)
+        {
+            _log << "Wrong signature " << signature << "\nThis is not EasyProfiler file/stream.";
+            return false;
+        }
+
+        uint32_t version = 0;
+        inFile.read((char*)&version, sizeof(uint32_t));
+        if (!isCompatibleVersion(version))
+        {
+            _log << "Incompatible version: v" << (version >> 24) << "." << ((version & 0x00ff0000) >> 16) << "." << (version & 0x0000ffff);
+            return false;
+        }
+
         uint32_t total_descriptors_number = 0;
         inFile.read((char*)&total_descriptors_number, sizeof(decltype(total_descriptors_number)));
         if (total_descriptors_number == 0)
+        {
+            _log << "Blocks description number == 0";
             return false;
+        }
 
         uint64_t descriptors_memory_size = 0;
         inFile.read((char*)&descriptors_memory_size, sizeof(decltype(descriptors_memory_size)));
         if (descriptors_memory_size == 0)
+        {
+            _log << "Wrong memory size == 0 for " << total_descriptors_number << " blocks descriptions";
             return false;
+        }
 
         descriptors.reserve(total_descriptors_number);
         //const char* olddata = append_regime ? serialized_descriptors.data() : nullptr;
@@ -684,7 +784,10 @@ extern "C" {
             i += sz;
             auto oldprogress = progress.exchange(static_cast<int>(100 * i / descriptors_memory_size), ::std::memory_order_release);
             if (oldprogress < 0)
+            {
+                _log << "Reading was interrupted";
                 return false; // Loading interrupted
+            }
         }
 
         return !descriptors.empty();
