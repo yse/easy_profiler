@@ -150,6 +150,7 @@ protected:
     typedef QMainWindow  Parent;
 
     QString                                 m_lastFile;
+    QString                              m_lastAddress;
     QDockWidget*                          m_treeWidget = nullptr;
     QDockWidget*                        m_graphicsView = nullptr;
 
@@ -173,6 +174,8 @@ protected:
 
     class QAction* m_captureAction = nullptr;
     class QAction* m_connectAction = nullptr;
+
+    uint16_t m_lastPort = 0;
 
 public:
 

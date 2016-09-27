@@ -145,51 +145,12 @@ EasyMainWindow::EasyMainWindow() : Parent()
     m_portEdit->setText(QString::number(::profiler::DEFAULT_PORT));
     toolbar->addWidget(m_portEdit);
 
-    
 
-    /*m_server = new QTcpSocket( );
-    m_server->setSocketOption(QAbstractSocket::LowDelayOption, 0);
-    m_server->setReadBufferSize(16 * 1024);
-    
-    //connect(m_server, SIGNAL(readyRead()), SLOT(readTcpData()));
-    connect(m_server, SIGNAL(connected()), SLOT(onConnected()));
-    connect(m_server, SIGNAL(error(QAbstractSocket::SocketError)), SLOT(onErrorConnection(QAbstractSocket::SocketError)), Qt::UniqueConnection);
-    connect(m_server, SIGNAL(disconnected()), SLOT(onDisconnect()), Qt::UniqueConnection);
-    
-    m_receiver = new TcpReceiverThread(this, this);
-   
-    connect(m_receiver, &TcpReceiverThread::resultReady, this, &This::handleResults);
-    connect(m_receiver, &TcpReceiverThread::finished, m_receiver, &QObject::deleteLater);
-
-    m_receiver->start();
-    */
-
-    //m_thread = std::thread(&This::listen, this);
-
-    //connect(m_server, &QAbstractSocket::readyRead, m_receiver, &TcpReceiverThread::readTcpData);
-
-    //m_receiver->run();
-
-    //m_server->connectToHost(m_ipEdit->text(), m_portEdit->text().toUShort());
-    //TODO:
-    //connected
-    //error
-
-    /*if (!m_server->listen(QHostAddress(QHostAddress::Any), 28077)) {
-            QMessageBox::critical(0,
-                                  "Server Error",
-                                  "Unable to start the server:"
-                                  + m_server->errorString()
-                                 );
-            m_server->close();
-        }
-
-    connect(m_server, SIGNAL(newConnection()),
-               this,         SLOT(onNewConnection())
-               );
-    */
     loadSettings();
-
+    if (!m_lastAddress.isEmpty())
+        m_ipEdit->setText(m_lastAddress);
+    if (m_lastPort != 0)
+        m_portEdit->setText(QString::number(m_lastPort));
 
 
     auto menu = menuBar()->addMenu("&File");
@@ -556,6 +517,14 @@ void EasyMainWindow::loadSettings()
     if (!last_file.isNull())
         m_lastFile = last_file.toString();
 
+    auto last_addr = settings.value("ip_address");
+    if (!last_addr.isNull())
+        m_lastAddress = last_addr.toString();
+
+    auto last_port = settings.value("port");
+    if (!last_port.isNull())
+        m_lastPort = (uint16_t)last_port.toUInt();
+
 
     auto val = settings.value("chrono_text_position");
     if (!val.isNull())
@@ -618,6 +587,8 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("geometry", this->saveGeometry());
     settings.setValue("windowState", this->saveState());
     settings.setValue("last_file", m_lastFile);
+    settings.setValue("ip_address", m_lastAddress);
+    settings.setValue("port", (quint32)m_lastPort);
     settings.setValue("chrono_text_position", static_cast<int>(EASY_GLOBALS.chrono_text_position));
     settings.setValue("draw_graphics_items_borders", EASY_GLOBALS.draw_graphics_items_borders);
     settings.setValue("collapse_items_on_tree_close", EASY_GLOBALS.collapse_items_on_tree_close);
@@ -878,7 +849,9 @@ void EasyMainWindow::onConnectClicked(bool)
     if(EASY_GLOBALS.connected)
         return;
 
-    if (!m_listener.connect(m_ipEdit->text().toStdString().c_str(), m_portEdit->text().toUShort()))
+    m_lastAddress = m_ipEdit->text();
+    m_lastPort = m_portEdit->text().toUShort();
+    if (!m_listener.connect(m_lastAddress.toStdString().c_str(), m_lastPort))
     {
         QMessageBox::warning(this, "Warning", "Cannot connect with application", QMessageBox::Close);
         return;
