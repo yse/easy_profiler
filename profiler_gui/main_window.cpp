@@ -134,7 +134,7 @@ EasyMainWindow::EasyMainWindow() : Parent()
     QRegExp rx("^0*(2(5[0-5]|[0-4]\\d)|1?\\d{1,2})(\\.0*(2(5[0-5]|[0-4]\\d)|1?\\d{1,2})){3}$");
     m_ipEdit->setValidator(new QRegExpValidator(rx, m_ipEdit));
     m_ipEdit->setText("127.0.0.1");
-    m_ipEdit->setFixedWidth(m_ipEdit->fontMetrics().width(QString("255.255.255.255")) + 10);
+    m_ipEdit->setFixedWidth(m_ipEdit->fontMetrics().width(QString("255.255.255.255")) + 20);
     toolbar->addWidget(m_ipEdit);
 
     toolbar->addWidget(new QLabel(" Port:"));
@@ -143,6 +143,9 @@ EasyMainWindow::EasyMainWindow() : Parent()
     m_portEdit->setText(QString::number(::profiler::DEFAULT_PORT));
     m_portEdit->setFixedWidth(m_portEdit->fontMetrics().width(QString("000000")) + 10);
     toolbar->addWidget(m_portEdit);
+
+    connect(m_ipEdit, &QLineEdit::returnPressed, [this](){ onConnectClicked(true); });
+    connect(m_portEdit, &QLineEdit::returnPressed, [this](){ onConnectClicked(true); });
 
 
     loadSettings();
@@ -850,14 +853,31 @@ void EasyMainWindow::onConnectClicked(bool)
         return;
 
     auto text = m_ipEdit->text();
-    if (text.split(QChar('.')).size() != 4)
+    auto parts = text.split(QChar('.'));
+    if (parts.size() != 4)
     {
         QMessageBox::warning(this, "Warning", "Invalid IP-Address", QMessageBox::Close);
         return;
     }
 
-    m_lastAddress = text;
+    for (auto& part : parts)
+    {
+        int i = 0;
+        for (; i < part.size(); ++i)
+        {
+            if (part[i] != QChar('0'))
+                break;
+        }
+
+        if (i < part.size())
+            part = part.mid(i);
+        else
+            part = "0";
+    }
+
+    m_lastAddress = parts.join(QChar('.'));
     m_lastPort = m_portEdit->text().toUShort();
+    m_ipEdit->setText(m_lastAddress);
     if (!m_listener.connect(m_lastAddress.toStdString().c_str(), m_lastPort))
     {
         QMessageBox::warning(this, "Warning", "Cannot connect with application", QMessageBox::Close);
