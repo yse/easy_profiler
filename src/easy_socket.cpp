@@ -19,6 +19,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #include "profiler/easy_socket.h"
 
 #include <string.h>
+#include <thread>
 
 #ifdef _WIN32
 #pragma comment (lib, "Ws2_32.lib")
@@ -80,6 +81,8 @@ void EasySocket::flush()
 #ifdef _WIN32
     m_socket = 0;
     m_replySocket = 0;
+#else
+    wsaret = 0;
 #endif
 }
 
@@ -98,10 +101,12 @@ void EasySocket::checkResult(int result)
         error_code = WSAGetLastError();
         const int CONNECTION_ABORTED = WSAECONNABORTED;
         const int CONNECTION_RESET = WSAECONNRESET;
+        const int CONNECTION_IN_PROGRESS = WSAEINPROGRESS;
 #else
         error_code = errno;
         const int CONNECTION_ABORTED = ECONNABORTED;
         const int CONNECTION_RESET = ECONNRESET;
+        const int CONNECTION_IN_PROGRESS = EINPROGRESS;
 #endif
 
         switch(error_code)
@@ -110,6 +115,10 @@ void EasySocket::checkResult(int result)
         case CONNECTION_RESET:
             m_state = CONNECTION_STATE_DISCONNECTED;
             break;
+        case CONNECTION_IN_PROGRESS:
+            m_state = CONNECTION_STATE_IN_PROGRESS;
+            break;
+
         default:
             break;
         }
@@ -132,7 +141,9 @@ void EasySocket::init()
         return;
 
     setBlocking(m_socket,true);
-
+#ifndef _WIN32
+        wsaret = 1;
+#endif
     int opt = 1;
     setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt));
 }
@@ -240,8 +251,41 @@ int EasySocket::connect()
         return -1;
         //fprintf(stderr,"ERROR, no such host\n");
     }
-    int res = ::connect(m_socket,(struct sockaddr *) &serv_addr,sizeof(serv_addr));
+    int res = 0;
+    //TODO: more intelligence
+#ifndef _WIN32
+    setBlocking(m_socket,false);
+
+    int counter = 0;
+    int sleepMs = 20;
+    int waitSec = 1;
+    int waitMs = waitSec*1000/sleepMs;
+    
+    while(counter++ < waitMs)
+    {
+        res = ::connect(m_socket,(struct sockaddr *) &serv_addr,sizeof(serv_addr));
+
+        checkResult(res);
+
+        if (res == 0)
+            break;
+
+        if (m_state == CONNECTION_STATE_IN_PROGRESS)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(sleepMs));
+            continue;
+        }
+
+
+        if(m_state != CONNECTION_STATE_IN_PROGRESS && m_state != CONNECTION_STATE_SUCCESS )
+            break;
+    }
+
+    setBlocking(m_socket,true);
+#else
+    res = ::connect(m_socket, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
     checkResult(res);
+#endif
     if(res == 0){
 
         struct timeval tv;
