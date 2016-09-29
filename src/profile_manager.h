@@ -345,9 +345,7 @@ class ProfileManager
     std::atomic_bool                m_isEnabled;
     std::atomic_bool    m_isEventTracingEnabled;
 
-#ifndef _WIN32
     std::string m_csInfoFilename = "/tmp/cs_profiling_info.log";
-#endif
 
     uint32_t dumpBlocksToStream(profiler::OStream& _outputStream);
     void setBlockStatus(profiler::block_id_t _id, profiler::EasyBlockStatus _status);
@@ -381,7 +379,6 @@ public:
     uint32_t dumpBlocksToFile(const char* filename);
     const char* registerThread(const char* name, profiler::ThreadGuard& threadGuard);
 
-#ifndef _WIN32
     void setContextSwitchLogFilename(const char* name)
     {
         m_csInfoFilename = name;
@@ -391,7 +388,6 @@ public:
     {
         return m_csInfoFilename.c_str();
     }
-#endif
 
     void beginContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, const char* _target_process, bool _lockSpin = true);
     void storeContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, bool _lockSpin = true);

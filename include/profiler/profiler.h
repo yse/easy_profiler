@@ -212,7 +212,6 @@ breakdown, but if you care about that then you change set event tracing priority
 */
 # define EASY_SET_LOW_PRIORITY_EVENT_TRACING(isLowPriority) ::profiler::setLowPriorityEventTracing(isLowPriority);
 
-# ifndef _WIN32
 /** Macro for setting temporary log-file path for Unix event tracing system.
 
 \note Default value is "/tmp/cs_profiling_info.log".
@@ -226,9 +225,6 @@ breakdown, but if you care about that then you change set event tracing priority
 \ingroup profiler
 */
 #  define EASY_EVENT_TRACING_LOG ::profiler::getContextSwitchLogFilename();
-# endif
-
-
 
 // EasyProfiler settings:
 
@@ -515,7 +511,6 @@ namespace profiler {
         */
         PROFILER_API void setLowPriorityEventTracing(bool _isLowPriority);
 
-#ifndef _WIN32
         /** Set temporary log-file path for Unix event tracing system.
 
         \note Default value is "/tmp/cs_profiling_info.log".
@@ -529,7 +524,6 @@ namespace profiler {
         \ingroup profiler
         */
         PROFILER_API const char* getContextSwitchLogFilename();
-#endif
 
         PROFILER_API void startListenSignalToCapture();
         PROFILER_API void stopListenSignalToCapture();
