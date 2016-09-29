@@ -117,7 +117,6 @@ extern "C" {
     PROFILER_API void setLowPriorityEventTracing(bool) { }
 #endif
 
-#ifndef _WIN32
     PROFILER_API void setContextSwitchLogFilename(const char* name)
     {
         return MANAGER.setContextSwitchLogFilename(name);
@@ -127,7 +126,6 @@ extern "C" {
     {
         return MANAGER.getContextSwitchLogFilename();
     }
-#endif
 
     PROFILER_API void   startListenSignalToCapture()
     {

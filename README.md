@@ -23,7 +23,7 @@ You can see the results of measuring in simple GUI application which provides fu
 
 # Usage
 
-First of all you can specify path to include directory which contains `include/profiler` directory.
+First of all you can specify path to include directory which contains `include/profiler` directory and define macro `BUILD_WITH_EASY_PROFILER`.
 For linking with easy_profiler you can specify path to library.
 
 Example of usage.

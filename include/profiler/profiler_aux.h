@@ -58,8 +58,6 @@ namespace profiler {
 
 //////////////////////////////////////////////////////////////////////////
 
-#ifndef FULL_DISABLE_PROFILER
-
 #include <type_traits>
 
 # define EASY_STRINGIFY(a) #a
@@ -68,6 +66,8 @@ namespace profiler {
 # define EASY_TOKEN_CONCATENATE(x, y) EASY_TOKEN_JOIN(x, y)
 # define EASY_UNIQUE_BLOCK(x) EASY_TOKEN_CONCATENATE(unique_profiler_mark_name_, x)
 # define EASY_UNIQUE_DESC(x) EASY_TOKEN_CONCATENATE(unique_profiler_descriptor_, x)
+
+#ifdef BUILD_WITH_EASY_PROFILER
 
 namespace profiler {
 
@@ -138,7 +138,7 @@ namespace profiler {
 # define EASY_COMPILETIME_NAME(name) ::profiler::NameSwitch<::std::is_reference<decltype(name)>::value>::compiletime_name(name, EASY_UNIQUE_LINE_ID)
 # define EASY_RUNTIME_NAME(name) ::profiler::NameSwitch<::std::is_reference<decltype(name)>::value>::runtime_name(name)
 
-#endif // FULL_DISABLE_PROFILER
+#endif // BUILD_WITH_EASY_PROFILER
 
 //////////////////////////////////////////////////////////////////////////
 
