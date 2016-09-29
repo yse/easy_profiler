@@ -33,7 +33,7 @@ namespace profiler {
     const uint32_t EASY_FULL_VERSION = ((uint32_t)EASY_VERSION_MAJOR << 24) | ((uint32_t)EASY_VERSION_MINOR << 16) | (uint32_t)EASY_VERSION_REV;
 }
 
-#ifndef FULL_DISABLE_PROFILER
+#ifdef BUILD_WITH_EASY_PROFILER
 
 /**
 \defgroup profiler EasyProfiler
@@ -275,7 +275,7 @@ Otherwise, no log messages will be printed.
 # define EASY_LOG_ENABLED 1
 
 
-#else // #ifndef FULL_DISABLE_PROFILER
+#else // #ifdef BUILD_WITH_EASY_PROFILER
 
 # define EASY_BLOCK(...)
 # define EASY_FUNCTION(...)
@@ -299,7 +299,7 @@ Otherwise, no log messages will be printed.
 # define EASY_LOW_PRIORITY_EVENT_TRACING true
 # define EASY_LOG_ENABLED 0
 
-#endif // #ifndef FULL_DISABLE_PROFILER
+#endif // #ifndef BUILD_WITH_EASY_PROFILER
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
