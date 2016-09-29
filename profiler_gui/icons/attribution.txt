@@ -18,3 +18,4 @@ delete.svg       - Icon made by Freepik from www.flaticon.com
 list.svg         - Icon made by Freepik from www.flaticon.com
 search-prev.svg  - Icon made by Freepik from www.flaticon.com
 search-next.svg  - Icon made by Freepik from www.flaticon.com
+settings.svg     - Icon made by Freepik from www.flaticon.com

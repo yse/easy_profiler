@@ -110,11 +110,11 @@ int main(int argc, char* argv[])
 
     auto start = std::chrono::system_clock::now();
 
-    ::profiler::SerializedData serialized_blocks, serialized_descriptors;
+    ::profiler::FileData fd;
     ::profiler::descriptors_list_t descriptors;
     ::profiler::blocks_t blocks;
     ::std::stringstream errorMessage;
-    auto blocks_counter = fillTreesFromFile(filename.c_str(), serialized_blocks, serialized_descriptors, descriptors, blocks, threaded_trees, true, errorMessage);
+    auto blocks_counter = fillTreesFromFile(filename.c_str(), fd, descriptors, blocks, threaded_trees, true, errorMessage);
     if (blocks_counter == 0)
         std::cout << "Can not read blocks from file " << filename.c_str() << "\nReason: " << errorMessage.str();
 

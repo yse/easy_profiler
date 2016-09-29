@@ -61,8 +61,7 @@ namespace profiler { namespace net { struct EasyProfilerStatus; } }
 
 class EasyFileReader Q_DECL_FINAL
 {
-    ::profiler::SerializedData      m_serializedBlocks; ///< 
-    ::profiler::SerializedData m_serializedDescriptors; ///< 
+    ::profiler::FileData                    m_filedata; ///< 
     ::profiler::descriptors_list_t       m_descriptors; ///< 
     ::profiler::blocks_t                      m_blocks; ///< 
     ::profiler::thread_blocks_tree_t      m_blocksTree; ///< 
@@ -89,8 +88,8 @@ public:
     void load(const QString& _filename);
     void load(::std::stringstream& _stream);
     void interrupt();
-    void get(::profiler::SerializedData& _serializedBlocks, ::profiler::SerializedData& _serializedDescriptors,
-             ::profiler::descriptors_list_t& _descriptors, ::profiler::blocks_t& _blocks, ::profiler::thread_blocks_tree_t& _tree,
+    void get(::profiler::FileData& _filedata, ::profiler::descriptors_list_t& _descriptors,
+             ::profiler::blocks_t& _blocks, ::profiler::thread_blocks_tree_t& _tree,
              QString& _filename);
 
     QString getError();
@@ -172,13 +171,15 @@ protected:
     class QMessageBox*                m_listenerDialog = nullptr;
     QTimer                               m_readerTimer;
     QTimer                             m_listenerTimer;
-    ::profiler::SerializedData      m_serializedBlocks;
-    ::profiler::SerializedData m_serializedDescriptors;
+    ::profiler::FileData                    m_filedata;
     EasyFileReader                            m_reader;
     EasySocketListener                      m_listener;
 
     class QLineEdit* m_ipEdit = nullptr;
     class QLineEdit* m_portEdit = nullptr;
+
+    class QAction* m_saveAction = nullptr;
+    class QAction* m_deleteAction = nullptr;
 
     class QAction* m_captureAction = nullptr;
     class QAction* m_connectAction = nullptr;
@@ -200,6 +201,7 @@ protected slots:
 
     void onOpenFileClicked(bool);
     void onReloadFileClicked(bool);
+    void onSaveFileClicked(bool);
     void onDeleteClicked(bool);
     void onExitClicked(bool);
     void onEncodingChanged(bool);
@@ -207,6 +209,7 @@ protected slots:
     void onEventIndicatorsChange(bool);
     void onEnableDisableStatistics(bool);
     void onDrawBordersChanged(bool);
+    void onHideNarrowChildrenChanged(bool);
     void onCollapseItemsAfterCloseChanged(bool);
     void onAllItemsExpandedByDefaultChange(bool);
     void onBindExpandStatusChange(bool);
