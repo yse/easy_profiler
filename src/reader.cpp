@@ -42,7 +42,7 @@
 *                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
-#include "profiler/reader.h"
+#include "easy/reader.h"
 #include "hashed_cstr.h"
 #include <fstream>
 #include <sstream>

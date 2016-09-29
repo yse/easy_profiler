@@ -64,7 +64,7 @@
 #include "blocks_graphics_view.h"
 #include "descriptors_tree_widget.h"
 #include "globals.h"
-#include "profiler/easy_net.h"
+#include "easy/easy_net.h"
 
 #ifdef max
 #undef max

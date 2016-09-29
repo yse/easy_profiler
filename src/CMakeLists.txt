@@ -9,10 +9,10 @@ set(CPP_FILES
 )
 
 set(H_FILES
-    ${ROOT}/include/profiler/profiler.h
-    ${ROOT}/include/profiler/reader.h
-    ${ROOT}/include/profiler/easy_net.h
-    ${ROOT}/include/profiler/easy_socket.h
+    ${ROOT}/include/easy/profiler.h
+    ${ROOT}/include/easy/reader.h
+    ${ROOT}/include/easy/easy_net.h
+    ${ROOT}/include/easy/easy_socket.h
     profile_manager.h
     spin_lock.h
     event_trace_win.h

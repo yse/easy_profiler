@@ -36,7 +36,7 @@
 #include <QGraphicsItem>
 #include <QRectF>
 #include <QString>
-#include "profiler/reader.h"
+#include "easy/reader.h"
 #include "common_types.h"
 
 //////////////////////////////////////////////////////////////////////////

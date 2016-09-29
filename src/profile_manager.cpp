@@ -27,9 +27,9 @@
 #include <algorithm>
 #include <fstream>
 #include "profile_manager.h"
-#include "profiler/serialized_block.h"
-#include "profiler/easy_net.h"
-#include "profiler/easy_socket.h"
+#include "easy/serialized_block.h"
+#include "easy/easy_net.h"
+#include "easy/easy_socket.h"
 #include "event_trace_win.h"
 #include "current_time.h"
 

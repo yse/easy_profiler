@@ -35,7 +35,7 @@
 #include <QTreeWidget>
 #include <QString>
 #include <vector>
-#include "profiler/profiler.h"
+#include "easy/profiler.h"
 
 //////////////////////////////////////////////////////////////////////////
 

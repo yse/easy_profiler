@@ -38,8 +38,8 @@
 #include <QMainWindow>
 #include <QTimer>
 
-#include "profiler/easy_socket.h"
-#include "profiler/reader.h"
+#include "easy/easy_socket.h"
+#include "easy/reader.h"
 
 #ifdef max
 #undef max

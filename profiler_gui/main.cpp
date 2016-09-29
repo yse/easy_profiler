@@ -30,7 +30,7 @@
 //#include <QFileSystemModel>
 //#include "treemodel.h"
 #include "main_window.h"
-#include "profiler/reader.h"
+#include "easy/reader.h"
 
 
 //#ifdef _WIN32

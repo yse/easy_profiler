@@ -19,7 +19,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #ifndef EASY_PROFILER_SERIALIZED_BLOCK__H_______
 #define EASY_PROFILER_SERIALIZED_BLOCK__H_______
 
-#include "profiler/profiler.h"
+#include "easy/profiler.h"
 
 namespace profiler {
 

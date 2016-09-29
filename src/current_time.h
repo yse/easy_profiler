@@ -19,7 +19,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #ifndef EASY_______CURRENT_TIME_H_____
 #define EASY_______CURRENT_TIME_H_____
 
-#include "profiler/profiler.h"
+#include "easy/profiler.h"
 
 #ifdef _WIN32
 #include <Windows.h>

@@ -42,7 +42,7 @@
 #include <QTreeWidget>
 #include <QTimer>
 #include "tree_widget_loader.h"
-#include "profiler/reader.h"
+#include "easy/reader.h"
 
 //////////////////////////////////////////////////////////////////////////
 

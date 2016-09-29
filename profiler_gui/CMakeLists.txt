@@ -11,8 +11,6 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 find_package(Qt5Widgets REQUIRED)
 find_package(Qt5Network REQUIRED)
 
-include_directories(${ROOT}/3rdparty/nanomsg/src)
-
 add_executable(${PROJECT_NAME}
     main.cpp
     blocks_graphics_view.h

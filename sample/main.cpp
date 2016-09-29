@@ -1,11 +1,11 @@
 //#define FULL_DISABLE_PROFILER
-#include "profiler/profiler.h"
+#include "easy/profiler.h"
 #include <chrono>
 #include <thread>
 #include <vector>
 #include <iostream>
 #include <condition_variable>
-#include "profiler/reader.h"
+#include "easy/reader.h"
 #include <cstdlib>
 #include <math.h>
 

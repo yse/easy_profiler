@@ -19,8 +19,8 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #ifndef EASY_PROFILER____MANAGER____H______
 #define EASY_PROFILER____MANAGER____H______
 
-#include "profiler/profiler.h"
-#include "profiler/easy_socket.h"
+#include "easy/profiler.h"
+#include "easy/easy_socket.h"
 #include "spin_lock.h"
 #include "outstream.h"
 #include "hashed_cstr.h"

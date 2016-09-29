@@ -46,7 +46,7 @@
 #include <QPoint>
 #include <QRectF>
 #include <QTimer>
-#include "profiler/reader.h"
+#include "easy/reader.h"
 #include "common_types.h"
 
 //////////////////////////////////////////////////////////////////////////

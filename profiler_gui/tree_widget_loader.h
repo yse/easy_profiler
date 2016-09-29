@@ -37,7 +37,7 @@
 #include <vector>
 #include <thread>
 #include <atomic>
-#include "profiler/reader.h"
+#include "easy/reader.h"
 #include "common_types.h"
 
 //////////////////////////////////////////////////////////////////////////

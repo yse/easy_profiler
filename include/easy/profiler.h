@@ -19,7 +19,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #ifndef EASY_PROFILER____H_______
 #define EASY_PROFILER____H_______
 
-#include "profiler/profiler_aux.h"
+#include "easy/profiler_aux.h"
 
 #if defined ( __clang__ )
 # pragma clang diagnostic push
@@ -44,7 +44,7 @@ namespace profiler {
 /** Macro for beginning of a block with custom name and color.
 
 \code
-    #include "profiler/profiler.h"
+    #include "easy/profiler.h"
     void foo()
     {
         // some code ...
@@ -83,7 +83,7 @@ Block will be automatically completed by destructor.
 /** Macro for beginning of a block with function name and custom color.
 
 \code
-    #include "profiler/profiler.h"
+    #include "easy/profiler.h"
     void foo(){
         EASY_FUNCTION(); // Block with name="foo" and default color
         //some code...
@@ -113,7 +113,7 @@ Name of the block automatically created with function name.
 /** Macro for completion of last opened block.
 
 \code
-#include "profiler/profiler.h"
+#include "easy/profiler.h"
 int foo()
 {
     // some code ...
