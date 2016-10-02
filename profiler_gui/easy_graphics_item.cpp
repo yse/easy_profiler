@@ -38,7 +38,7 @@
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-enum BlockItemState
+enum BlockItemState : int8_t
 {
     BLOCK_ITEM_DO_NOT_PAINT = -1,
     BLOCK_ITEM_UNCHANGED,
@@ -47,8 +47,9 @@ enum BlockItemState
 
 //////////////////////////////////////////////////////////////////////////
 
-const int MIN_ITEM_WIDTH = 2;
-const int MIN_ITEMS_SPACING = 2;
+const int MIN_ITEM_WIDTH = 3;
+const int MIN_ITEMS_SPACING = 3;
+const int MIN_SYNC_SPACING = 1;
 const int NARROW_ITEM_WIDTH = 20;
 const QRgb BORDERS_COLOR = ::profiler::colors::Grey700 & 0x00ffffff;// 0x00686868;
 
@@ -537,7 +538,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
                 rect.setRect(left, top, width, h);
                 _painter->drawRect(rect);
-                prevRight = left + width + MIN_ITEMS_SPACING;
+                prevRight = left + width + MIN_SYNC_SPACING;
             }
         }
     }

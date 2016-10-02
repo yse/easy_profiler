@@ -150,18 +150,17 @@ inline ::profiler::color_t textColorForRgb(::profiler::color_t _color)
 #pragma pack(push, 1)
 struct EasyBlockItem Q_DECL_FINAL
 {
-    //const ::profiler::BlocksTree* block; ///< Pointer to profiler block
     qreal                             x; ///< x coordinate of the item (this is made qreal=double to avoid mistakes on very wide scene)
     float                             w; ///< Width of the item
     ::profiler::block_index_t     block; ///< Index of profiler block
     uint32_t             children_begin; ///< Index of first child item on the next sublevel
     uint16_t                totalHeight; ///< Total height of the item including heights of all it's children
-    char                          state; ///< 0 = no change, 1 = paint, -1 = do not paint
+    int8_t                        state; ///< 0 = no change, 1 = paint, -1 = do not paint
 
     // Possible optimizations:
     // 1) We can save 1 more byte per block if we will use char instead of short + real time calculations for "totalHeight" var;
     // 2) We can save 12 bytes per block if "x" and "w" vars will be removed (all this information exist inside BlocksTree),
-    //      but this will make impossible to run graphics test without loading any .prof file.
+    //      but this requires runtime x-coodinate calculation because BlocksTree has x value in nanoseconds.
 
     inline void setPos(qreal _x, float _w) { x = _x; w = _w; }
     inline qreal left() const { return x; }
