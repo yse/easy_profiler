@@ -252,84 +252,15 @@ void validate_pointers(::std::atomic<int>& _progress, const char* _oldbase, ::pr
 
 //////////////////////////////////////////////////////////////////////////
 
-uint64_t write_block_recursive(float& _progress, float _prog_per_block, ::std::vector<char>& _buf, ::std::stringstream& _stream, const ::profiler::FileData& _filedata, const ::profiler::BlocksTree& _tree, const ::profiler::pblocks_t& _blocks, const ::profiler::descriptors_list_t& _descriptors)
-{
-    uint64_t total_size = 0;
-    for (const auto chld : _tree.children)
-        total_size += write_block_recursive(_progress, _prog_per_block, _buf, _stream, _filedata, *_blocks[chld], _blocks, _descriptors);
-
-    auto sz = static_cast<uint16_t>(sizeof(::profiler::SerializedBlock) + strlen(_tree.node->name()) + 1);
-
-    _buf.resize(sz);
-    memcpy(_buf.data(), _tree.node->data(), sz);
-
-    auto t_begin = reinterpret_cast<::profiler::timestamp_t*>(_buf.data());
-    auto t_end = t_begin + 1;
-
-    *t_begin *= _filedata.cpu_frequency;
-    *t_begin /= TIME_FACTOR;
-    *t_end *= _filedata.cpu_frequency;
-    *t_end /= TIME_FACTOR;
-
-    if (_tree.node->id() >= _filedata.total_descriptors_number)
-    {
-        auto desc = _descriptors[_tree.node->id()];
-        for (uint32_t i = 0; i < _filedata.total_descriptors_number; ++i)
-        {
-            if (_descriptors[i] == desc)
-            {
-                reinterpret_cast<::profiler::SerializedBlock*>(_buf.data())->setId(i);
-                break;
-            }
-        }
-    }
-
-    write(_stream, sz);
-    write(_stream, _buf.data(), sz);
-    total_size += sz;
-
-    _progress += _prog_per_block;
-
-    return total_size;
-}
-
-uint64_t write_block_recursive(float& _progress, float _prog_per_block, ::std::vector<char>& _buf, ::std::stringstream& _stream, const ::profiler::FileData& _filedata, const ::profiler::BlocksTree& _tree, const ::profiler::pblocks_t& _blocks)
-{
-    uint64_t total_size = 0;
-    for (const auto chld : _tree.children)
-        total_size += write_block_recursive(_progress, _prog_per_block, _buf, _stream, _filedata, *_blocks[chld], _blocks);
-
-    auto sz = static_cast<uint16_t>(sizeof(::profiler::SerializedBlock) + strlen(_tree.node->name()) + 1);
-
-    _buf.resize(sz);
-    memcpy(_buf.data(), _tree.node->data(), sz);
-
-    auto t_begin = reinterpret_cast<::profiler::timestamp_t*>(_buf.data());
-    auto t_end = t_begin + 1;
-
-    *t_begin *= _filedata.cpu_frequency;
-    *t_begin /= TIME_FACTOR;
-    *t_end *= _filedata.cpu_frequency;
-    *t_end /= TIME_FACTOR;
-
-    write(_stream, sz);
-    write(_stream, _buf.data(), sz);
-    total_size += sz;
-
-    _progress += _prog_per_block;
-
-    return total_size;
-}
-
-//////////////////////////////////////////////////////////////////////////
-
 extern "C" {
 
     PROFILER_API ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progress, const char* filename,
-                                                             ::profiler::FileData& filedata,
+                                                             ::profiler::SerializedData& serialized_blocks,
+                                                             ::profiler::SerializedData& serialized_descriptors,
                                                              ::profiler::descriptors_list_t& descriptors,
                                                              ::profiler::blocks_t& blocks,
                                                              ::profiler::thread_blocks_tree_t& threaded_trees,
+                                                             uint32_t& total_descriptors_number,
                                                              bool gather_statistics,
                                                              ::std::stringstream& _log)
     {
@@ -353,7 +284,8 @@ extern "C" {
         stringstream_parent& s = str;
         auto oldbuf = s.rdbuf(inFile.rdbuf());
         
-        auto result = fillTreesFromStream(progress, str, filedata, descriptors, blocks, threaded_trees, gather_statistics, _log);
+        auto result = fillTreesFromStream(progress, str, serialized_blocks, serialized_descriptors, descriptors, blocks,
+                                          threaded_trees, total_descriptors_number, gather_statistics, _log);
         s.rdbuf(oldbuf);
 
         return result;
@@ -362,10 +294,12 @@ extern "C" {
     //////////////////////////////////////////////////////////////////////////
 
     PROFILER_API ::profiler::block_index_t fillTreesFromStream(::std::atomic<int>& progress, ::std::stringstream& inFile,
-                                                               ::profiler::FileData& filedata,
+                                                               ::profiler::SerializedData& serialized_blocks,
+                                                               ::profiler::SerializedData& serialized_descriptors,
                                                                ::profiler::descriptors_list_t& descriptors,
                                                                ::profiler::blocks_t& blocks,
                                                                ::profiler::thread_blocks_tree_t& threaded_trees,
+                                                               uint32_t& total_descriptors_number,
                                                                bool gather_statistics,
                                                                ::std::stringstream& _log)
     {
@@ -394,24 +328,24 @@ extern "C" {
             return 0;
         }
 
-        filedata.cpu_frequency = 0LL;
-        inFile.read((char*)&filedata.cpu_frequency, sizeof(int64_t));
+        int64_t cpu_frequency = 0LL;
+        inFile.read((char*)&cpu_frequency, sizeof(int64_t));
 
-        filedata.begin_time = 0;
-        filedata.end_time = 0;
-        inFile.read((char*)&filedata.begin_time, sizeof(::profiler::timestamp_t));
-        inFile.read((char*)&filedata.end_time, sizeof(::profiler::timestamp_t));
-        if (filedata.cpu_frequency != 0)
+        ::profiler::timestamp_t begin_time = 0ULL;
+        ::profiler::timestamp_t end_time = 0ULL;
+        inFile.read((char*)&begin_time, sizeof(::profiler::timestamp_t));
+        inFile.read((char*)&end_time, sizeof(::profiler::timestamp_t));
+        if (cpu_frequency != 0)
         {
-            filedata.begin_time *= TIME_FACTOR;
-            filedata.begin_time /= filedata.cpu_frequency;
-            filedata.end_time *= TIME_FACTOR;
-            filedata.end_time /= filedata.cpu_frequency;
+            begin_time *= TIME_FACTOR;
+            begin_time /= cpu_frequency;
+            end_time *= TIME_FACTOR;
+            end_time /= cpu_frequency;
         }
 
-        filedata.total_blocks_number = 0;
-        inFile.read((char*)&filedata.total_blocks_number, sizeof(decltype(filedata.total_blocks_number)));
-        if (filedata.total_blocks_number == 0)
+        uint32_t total_blocks_number = 0;
+        inFile.read((char*)&total_blocks_number, sizeof(uint32_t));
+        if (total_blocks_number == 0)
         {
             _log << "Profiled blocks number == 0";
             return 0;
@@ -421,13 +355,13 @@ extern "C" {
         inFile.read((char*)&memory_size, sizeof(decltype(memory_size)));
         if (memory_size == 0)
         {
-            _log << "Wrong memory size == 0 for " << filedata.total_blocks_number << " blocks";
+            _log << "Wrong memory size == 0 for " << total_blocks_number << " blocks";
             return 0;
         }
 
-        filedata.total_descriptors_number = 0;
-        inFile.read((char*)&filedata.total_descriptors_number, sizeof(decltype(filedata.total_descriptors_number)));
-        if (filedata.total_descriptors_number == 0)
+        total_descriptors_number = 0;
+        inFile.read((char*)&total_descriptors_number, sizeof(uint32_t));
+        if (total_descriptors_number == 0)
         {
             _log << "Blocks description number == 0";
             return 0;
@@ -437,17 +371,17 @@ extern "C" {
         inFile.read((char*)&descriptors_memory_size, sizeof(decltype(descriptors_memory_size)));
         if (descriptors_memory_size == 0)
         {
-            _log << "Wrong memory size == 0 for " << filedata.total_descriptors_number << " blocks descriptions";
+            _log << "Wrong memory size == 0 for " << total_descriptors_number << " blocks descriptions";
             return 0;
         }
 
-        descriptors.reserve(filedata.total_descriptors_number);
-        //const char* olddata = append_regime ? filedata.serialized_descriptors.data() : nullptr;
-        filedata.serialized_descriptors.set(descriptors_memory_size);
-        //validate_pointers(progress, olddata, filedata.serialized_descriptors, descriptors, descriptors.size());
+        descriptors.reserve(total_descriptors_number);
+        //const char* olddata = append_regime ? serialized_descriptors.data() : nullptr;
+        serialized_descriptors.set(descriptors_memory_size);
+        //validate_pointers(progress, olddata, serialized_descriptors, descriptors, descriptors.size());
 
         uint64_t i = 0;
-        while (!inFile.eof() && descriptors.size() < filedata.total_descriptors_number)
+        while (!inFile.eof() && descriptors.size() < total_descriptors_number)
         {
             uint16_t sz = 0;
             inFile.read((char*)&sz, sizeof(sz));
@@ -462,7 +396,7 @@ extern "C" {
             //    return 0;
             //}
 
-            char* data = filedata.serialized_descriptors[i];
+            char* data = serialized_descriptors[i];
             inFile.read(data, sz);
             auto descriptor = reinterpret_cast<::profiler::SerializedBlockDescriptor*>(data);
             descriptors.push_back(descriptor);
@@ -480,16 +414,16 @@ extern "C" {
         PerThreadStats thread_statistics, parent_statistics, frame_statistics;
         IdMap identification_table;
 
-        blocks.reserve(filedata.total_blocks_number);
-        //olddata = append_regime ? filedata.serialized_blocks.data() : nullptr;
-        filedata.serialized_blocks.set(memory_size);
-        //validate_pointers(progress, olddata, filedata.serialized_blocks, blocks, blocks.size());
+        blocks.reserve(total_blocks_number);
+        //olddata = append_regime ? serialized_blocks.data() : nullptr;
+        serialized_blocks.set(memory_size);
+        //validate_pointers(progress, olddata, serialized_blocks, blocks, blocks.size());
 
         i = 0;
         uint32_t read_number = 0;
         ::profiler::block_index_t blocks_counter = 0;
         ::std::vector<char> name;
-        while (!inFile.eof() && read_number < filedata.total_blocks_number)
+        while (!inFile.eof() && read_number < total_blocks_number)
         {
             EASY_BLOCK("Read thread data", ::profiler::colors::DarkGreen);
 
@@ -497,7 +431,6 @@ extern "C" {
             inFile.read((char*)&thread_id, sizeof(decltype(thread_id)));
 
             auto& root = threaded_trees[thread_id];
-            filedata.threads_order.push_back(thread_id);
 
             uint16_t name_size = 0;
             inFile.read((char*)&name_size, sizeof(uint16_t));
@@ -525,25 +458,25 @@ extern "C" {
                     return 0;
                 }
 
-                char* data = filedata.serialized_blocks[i];
+                char* data = serialized_blocks[i];
                 inFile.read(data, sz);
                 i += sz;
                 auto baseData = reinterpret_cast<::profiler::SerializedBlock*>(data);
                 auto t_begin = reinterpret_cast<::profiler::timestamp_t*>(data);
                 auto t_end = t_begin + 1;
 
-                if (filedata.cpu_frequency != 0)
+                if (cpu_frequency != 0)
                 {
                     *t_begin *= TIME_FACTOR;
-                    *t_begin /= filedata.cpu_frequency;
+                    *t_begin /= cpu_frequency;
                     *t_end *= TIME_FACTOR;
-                    *t_end /= filedata.cpu_frequency;
+                    *t_end /= cpu_frequency;
                 }
 
-                if (*t_end > filedata.begin_time)
+                if (*t_end > begin_time)
                 {
-                    if (*t_begin < filedata.begin_time)
-                        *t_begin = filedata.begin_time;
+                    if (*t_begin < begin_time)
+                        *t_begin = begin_time;
 
                     blocks.emplace_back();
                     ::profiler::BlocksTree& tree = blocks.back();
@@ -581,11 +514,11 @@ extern "C" {
                     return 0;
                 }
 
-                char* data = filedata.serialized_blocks[i];
+                char* data = serialized_blocks[i];
                 inFile.read(data, sz);
                 i += sz;
                 auto baseData = reinterpret_cast<::profiler::SerializedBlock*>(data);
-                if (baseData->id() >= filedata.total_descriptors_number)
+                if (baseData->id() >= total_descriptors_number)
                 {
                     _log << "Bad block id == " << baseData->id();
                     return 0;
@@ -601,18 +534,18 @@ extern "C" {
                 auto t_begin = reinterpret_cast<::profiler::timestamp_t*>(data);
                 auto t_end = t_begin + 1;
 
-                if (filedata.cpu_frequency != 0)
+                if (cpu_frequency != 0)
                 {
                     *t_begin *= TIME_FACTOR;
-                    *t_begin /= filedata.cpu_frequency;
+                    *t_begin /= cpu_frequency;
                     *t_end *= TIME_FACTOR;
-                    *t_end /= filedata.cpu_frequency;
+                    *t_end /= cpu_frequency;
                 }
 
-                if (*t_end >= filedata.begin_time)
+                if (*t_end >= begin_time)
                 {
-                    if (*t_begin < filedata.begin_time)
-                        *t_begin = filedata.begin_time;
+                    if (*t_begin < begin_time)
+                        *t_begin = begin_time;
 
                     blocks.emplace_back();
                     ::profiler::BlocksTree& tree = blocks.back();
@@ -885,164 +818,6 @@ extern "C" {
         }
 
         return !descriptors.empty();
-    }
-
-    //////////////////////////////////////////////////////////////////////////
-
-    PROFILER_API bool writeTreesToFile(::std::atomic<int>& progress,
-                                       const char* filename,
-                                       const ::profiler::FileData& filedata,
-                                       const ::profiler::thread_blocks_tree_t& threaded_trees,
-                                       const ::profiler::descriptors_list_t& _descriptors,
-                                       const ::profiler::pblocks_t& _blocks,
-                                       ::std::stringstream& _log)
-    {
-        ::std::ofstream of(filename, std::fstream::binary);
-        if (!of.is_open())
-        {
-            _log << "Can not open file " << filename << " for writing";
-            return false;
-        }
-
-        ::std::stringstream str;
-        //typedef ::std::basic_iostream<::std::stringstream::char_type, ::std::stringstream::traits_type> stringstream_parent;
-        //stringstream_parent& s = str;
-        //auto oldbuf = s.rdbuf(of.rdbuf());
-
-        auto result = writeTreesToStream(progress, str, filedata, threaded_trees, _descriptors, _blocks, _log);
-
-        of << str.str();
-        //of.close();
-        //s.rdbuf(oldbuf);
-        return result;
-    }
-
-    PROFILER_API bool writeTreesToStream(::std::atomic<int>& progress,
-                                         ::std::stringstream& str,
-                                         const ::profiler::FileData& filedata,
-                                         const ::profiler::thread_blocks_tree_t& threaded_trees,
-                                         const ::profiler::descriptors_list_t& _descriptors,
-                                         const ::profiler::pblocks_t& _blocks,
-                                         ::std::stringstream& _log)
-    {
-        auto oldprogress = progress.exchange(0, ::std::memory_order_release);
-        if (oldprogress < 0)
-        {
-            _log << "Writing was interrupted";
-            return false; // Loading interrupted
-        }
-
-        write(str, PROFILER_SIGNATURE);
-        write(str, ::profiler::EASY_FULL_VERSION);
-        write(str, filedata.cpu_frequency);
-
-        decltype(filedata.begin_time) begin_time = filedata.begin_time;
-        begin_time *= filedata.cpu_frequency;
-        begin_time /= TIME_FACTOR;
-        write(str, begin_time);
-
-        decltype(filedata.end_time) end_time = filedata.end_time;
-        end_time *= filedata.cpu_frequency;
-        end_time /= TIME_FACTOR;
-        write(str, end_time);
-
-        write(str, filedata.total_blocks_number);
-        write(str, filedata.serialized_blocks.size());
-        write(str, filedata.total_descriptors_number);
-        write(str, filedata.serialized_descriptors.size());
-
-        decltype(filedata.total_descriptors_number) n = 0;
-        uint64_t i = 0, size = filedata.serialized_descriptors.size();
-        while (i < size)
-        {
-            const char* data = filedata.serialized_descriptors[i];
-            auto descriptor = reinterpret_cast<const ::profiler::SerializedBlockDescriptor*>(data);
-            auto sz = static_cast<uint16_t>(sizeof(::profiler::SerializedBlockDescriptor) + strlen(descriptor->name()) + strlen(descriptor->file()) + 2);
-
-            write(str, sz);
-            write(str, data, sz);
-            ++n;
-
-            i += sz;
-
-            auto oldprogress = progress.exchange(static_cast<int>(20 * i / filedata.serialized_descriptors.size()), ::std::memory_order_release);
-            if (oldprogress < 0)
-            {
-                _log << "Writing was interrupted";
-                return false; // Loading interrupted
-            }
-        }
-
-        if (n != filedata.total_descriptors_number || i != size)
-            printf("ERROR writing descriptors\n");
-
-        float prog = (float)progress.load(::std::memory_order_acquire);
-        if (prog < 0)
-        {
-            _log << "Writing was interrupted";
-            return false; // Loading interrupted
-        }
-
-        const float prog_per_thread = 80.f / (float)threaded_trees.size();
-
-        i = 0;
-        ::std::vector<char> buffer;
-        for (auto tid : filedata.threads_order)
-        {
-            auto it = threaded_trees.find(tid);
-            if (it == threaded_trees.end())
-            {
-                printf("Bad thread id = %u\n", tid);
-                continue;
-            }
-
-            const auto& root = it->second;
-
-            auto total = root.children.size() + root.sync.size();
-            const float prog_per_block = total > 0 ? prog_per_thread / total : 0.f;
-
-            write(str, root.thread_id);
-
-            auto name_size = static_cast<uint16_t>(strlen(root.name()) + 1);
-            const char* name = name_size > 1 ? root.name() : "";
-            write(str, name_size);
-            write(str, name, name_size);
-
-            auto blocks_number_in_thread = static_cast<uint32_t>(root.sync.size());
-            write(str, blocks_number_in_thread);
-            for (auto b : root.sync)
-            {
-                i += write_block_recursive(prog, prog_per_block, buffer, str, filedata, *_blocks[b], _blocks);
-
-                auto oldprogress = progress.exchange(static_cast<int>(prog), ::std::memory_order_release);
-                if (oldprogress < 0)
-                {
-                    _log << "Writing was interrupted";
-                    return false; // Loading interrupted
-                }
-            }
-
-            blocks_number_in_thread = static_cast<uint32_t>(root.children.size());
-            write(str, blocks_number_in_thread);
-            for (auto b : root.children)
-            {
-                i += write_block_recursive(prog, prog_per_block, buffer, str, filedata, *_blocks[b], _blocks, _descriptors);
-
-                auto oldprogress = progress.exchange(static_cast<int>(prog), ::std::memory_order_release);
-                if (oldprogress < 0)
-                {
-                    _log << "Writing was interrupted";
-                    return false; // Loading interrupted
-                }
-            }
-        }
-
-        if (i != filedata.serialized_blocks.size())
-            printf("ERROR writing blocks\n");
-
-        printf("Finished writing to file\n");
-        progress.store(100, ::std::memory_order_release);
-        return true;
     }
 
     //////////////////////////////////////////////////////////////////////////

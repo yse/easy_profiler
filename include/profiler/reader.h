@@ -78,7 +78,6 @@ namespace profiler {
     public:
 
         typedef ::std::vector<This> blocks_t;
-        typedef ::std::vector<This*> pblocks_t;
         typedef ::std::vector<::profiler::block_index_t> children_t;
 
         children_t                           children; ///< List of children blocks. May be empty.
@@ -235,7 +234,6 @@ namespace profiler {
     }; // END of class BlocksTreeRoot.
 
     typedef ::profiler::BlocksTree::blocks_t blocks_t;
-    typedef ::profiler::BlocksTree::pblocks_t pblocks_t;
     typedef ::std::unordered_map<::profiler::thread_id_t, ::profiler::BlocksTreeRoot, ::profiler::passthrough_hash> thread_blocks_tree_t;
 
     //////////////////////////////////////////////////////////////////////////
@@ -383,18 +381,22 @@ namespace profiler {
 extern "C" {
 
     PROFILER_API ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progress, const char* filename,
-                                                             ::profiler::FileData& filedata,
+                                                             ::profiler::SerializedData& serialized_blocks,
+                                                             ::profiler::SerializedData& serialized_descriptors,
                                                              ::profiler::descriptors_list_t& descriptors,
                                                              ::profiler::blocks_t& _blocks,
                                                              ::profiler::thread_blocks_tree_t& threaded_trees,
+                                                             uint32_t& total_descriptors_number,
                                                              bool gather_statistics,
                                                              ::std::stringstream& _log);
 
     PROFILER_API ::profiler::block_index_t fillTreesFromStream(::std::atomic<int>& progress, ::std::stringstream& str,
-                                                               ::profiler::FileData& filedata,
+                                                               ::profiler::SerializedData& serialized_blocks,
+                                                               ::profiler::SerializedData& serialized_descriptors,
                                                                ::profiler::descriptors_list_t& descriptors,
                                                                ::profiler::blocks_t& _blocks,
                                                                ::profiler::thread_blocks_tree_t& threaded_trees,
+                                                               uint32_t& total_descriptors_number,
                                                                bool gather_statistics,
                                                                ::std::stringstream& _log);
 
@@ -402,31 +404,18 @@ extern "C" {
                                                  ::profiler::SerializedData& serialized_descriptors,
                                                  ::profiler::descriptors_list_t& descriptors,
                                                  ::std::stringstream& _log);
-
-    PROFILER_API bool writeTreesToStream(::std::atomic<int>& progress,
-                                         ::std::stringstream& str,
-                                         const ::profiler::FileData& filedata,
-                                         const ::profiler::thread_blocks_tree_t& threaded_trees,
-                                         const ::profiler::descriptors_list_t& _descriptors,
-                                         const ::profiler::pblocks_t& _blocks,
-                                         ::std::stringstream& _log);
-
-    PROFILER_API bool writeTreesToFile(::std::atomic<int>& progress,
-                                         const char* filename,
-                                         const ::profiler::FileData& filedata,
-                                         const ::profiler::thread_blocks_tree_t& threaded_trees,
-                                         const ::profiler::descriptors_list_t& _descriptors,
-                                         const ::profiler::pblocks_t& _blocks,
-                                         ::std::stringstream& _log);
 }
 
-inline ::profiler::block_index_t fillTreesFromFile(const char* filename, ::profiler::FileData& filedata,
+inline ::profiler::block_index_t fillTreesFromFile(const char* filename, ::profiler::SerializedData& serialized_blocks,
+                                                   ::profiler::SerializedData& serialized_descriptors,
                                                    ::profiler::descriptors_list_t& descriptors, ::profiler::blocks_t& _blocks,
-                                                   ::profiler::thread_blocks_tree_t& threaded_trees, bool gather_statistics,
+                                                   ::profiler::thread_blocks_tree_t& threaded_trees,
+                                                   uint32_t& total_descriptors_number,
+                                                   bool gather_statistics,
                                                    ::std::stringstream& _log)
 {
     ::std::atomic<int> progress = ATOMIC_VAR_INIT(0);
-    return fillTreesFromFile(progress, filename, filedata, descriptors, _blocks, threaded_trees, gather_statistics, _log);
+    return fillTreesFromFile(progress, filename, serialized_blocks, serialized_descriptors, descriptors, _blocks, threaded_trees, total_descriptors_number, gather_statistics, _log);
 }
 
 inline bool readDescriptionsFromStream(::std::stringstream& str,
@@ -436,28 +425,6 @@ inline bool readDescriptionsFromStream(::std::stringstream& str,
 {
     ::std::atomic<int> progress = ATOMIC_VAR_INIT(0);
     return readDescriptionsFromStream(progress, str, serialized_descriptors, descriptors, _log);
-}
-
-inline bool writeTreesToStream(::std::stringstream& str,
-                               const ::profiler::FileData& filedata,
-                               const ::profiler::thread_blocks_tree_t& threaded_trees,
-                               const ::profiler::descriptors_list_t& _descriptors,
-                               const ::profiler::pblocks_t& _blocks,
-                               ::std::stringstream& _log)
-{
-    ::std::atomic<int> progress = ATOMIC_VAR_INIT(0);
-    return writeTreesToStream(progress, str, filedata, threaded_trees, _descriptors, _blocks, _log);
-}
-
-inline bool writeTreesToFile(const char* filename,
-                             const ::profiler::FileData& filedata,
-                             const ::profiler::thread_blocks_tree_t& threaded_trees,
-                             const ::profiler::descriptors_list_t& _descriptors,
-                             const ::profiler::pblocks_t& _blocks,
-                             ::std::stringstream& _log)
-{
-    ::std::atomic<int> progress = ATOMIC_VAR_INIT(0);
-    return writeTreesToFile(progress, filename, filedata, threaded_trees, _descriptors, _blocks, _log);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -61,13 +61,15 @@ namespace profiler { namespace net { struct EasyProfilerStatus; } }
 
 class EasyFileReader Q_DECL_FINAL
 {
-    ::profiler::FileData                    m_filedata; ///< 
+    ::profiler::SerializedData      m_serializedBlocks; ///< 
+    ::profiler::SerializedData m_serializedDescriptors; ///< 
     ::profiler::descriptors_list_t       m_descriptors; ///< 
     ::profiler::blocks_t                      m_blocks; ///< 
     ::profiler::thread_blocks_tree_t      m_blocksTree; ///< 
     ::std::stringstream                       m_stream; ///< 
     ::std::stringstream                 m_errorMessage; ///< 
     QString                                 m_filename; ///< 
+    uint32_t             m_descriptorsNumberInFile = 0; ///< 
     ::std::thread                             m_thread; ///< 
     ::std::atomic_bool                         m_bDone; ///< 
     ::std::atomic<int>                      m_progress; ///< 
@@ -88,9 +90,9 @@ public:
     void load(const QString& _filename);
     void load(::std::stringstream& _stream);
     void interrupt();
-    void get(::profiler::FileData& _filedata, ::profiler::descriptors_list_t& _descriptors,
-             ::profiler::blocks_t& _blocks, ::profiler::thread_blocks_tree_t& _tree,
-             QString& _filename);
+    void get(::profiler::SerializedData& _serializedBlocks, ::profiler::SerializedData& _serializedDescriptors,
+             ::profiler::descriptors_list_t& _descriptors, ::profiler::blocks_t& _blocks, ::profiler::thread_blocks_tree_t& _tree,
+             uint32_t& _descriptorsNumberInFile, QString& _filename);
 
     QString getError();
 
@@ -171,7 +173,8 @@ protected:
     class QMessageBox*                m_listenerDialog = nullptr;
     QTimer                               m_readerTimer;
     QTimer                             m_listenerTimer;
-    ::profiler::FileData                    m_filedata;
+    ::profiler::SerializedData      m_serializedBlocks;
+    ::profiler::SerializedData m_serializedDescriptors;
     EasyFileReader                            m_reader;
     EasySocketListener                      m_listener;
 
@@ -186,7 +189,9 @@ protected:
     class QAction* m_eventTracingEnableAction = nullptr;
     class QAction* m_eventTracingPriorityAction = nullptr;
 
+    uint32_t m_descriptorsNumberInFile = 0;
     uint16_t m_lastPort = 0;
+    bool m_bNetworkFileRegime = false;
 
 public:
 
@@ -232,6 +237,8 @@ protected slots:
 private:
 
     // Private non-virtual methods
+
+    void clear();
 
     void loadFile(const QString& filename);
     void readStream(::std::stringstream& data);

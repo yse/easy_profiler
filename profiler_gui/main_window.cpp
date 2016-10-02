@@ -60,6 +60,7 @@
 #include <QLabel>
 #include <QDialog>
 #include <QVBoxLayout>
+#include <QFile>
 
 #include "main_window.h"
 #include "blocks_tree_widget.h"
@@ -79,6 +80,7 @@
 //////////////////////////////////////////////////////////////////////////
 
 const int LOADER_TIMER_INTERVAL = 40;
+const auto NETWORK_CACHE_FILE = "easy_profiler_stream.cache";
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -376,7 +378,7 @@ void EasyMainWindow::onReloadFileClicked(bool)
 
 void EasyMainWindow::onSaveFileClicked(bool)
 {
-    if (m_filedata.serialized_blocks.empty())
+    if (m_serializedBlocks.empty())
         return;
 
     const auto i = m_lastFile.lastIndexOf(QChar('/'));
@@ -390,26 +392,30 @@ void EasyMainWindow::onSaveFileClicked(bool)
     auto filename = QFileDialog::getSaveFileName(this, "Save profiler log", dir, "Profiler Log File (*.prof);;All Files (*.*)");
     if (!filename.isEmpty())
     {
-        QMessageBox::warning(this, "Warning", "Saving is not working yet :)", QMessageBox::Close);
-
-        /*
-        ::std::stringstream errorMessage;
-
-        ::profiler::pblocks_t blocks(EASY_GLOBALS.gui_blocks.size());
-        for (size_t i = 0, size = EASY_GLOBALS.gui_blocks.size(); i < size; ++i)
-            blocks[i] = &EASY_GLOBALS.gui_blocks[i].tree;
-
-        if (writeTreesToFile(filename.toStdString().c_str(), m_filedata, EASY_GLOBALS.profiler_blocks, EASY_GLOBALS.descriptors, blocks, errorMessage))
+        auto result = QFile::copy(m_bNetworkFileRegime ? QString(NETWORK_CACHE_FILE) : m_lastFile, filename);
+        if (result)
+        {
             m_lastFile = filename;
+            if (m_bNetworkFileRegime)
+            {
+                m_bNetworkFileRegime = false;
+                QFile::remove(NETWORK_CACHE_FILE);
+            }
+        }
+        else if (m_bNetworkFileRegime)
+        {
+            QMessageBox::warning(this, "Warning", "Can not save network cahce to file.\nSaving incomplete.", QMessageBox::Close);
+        }
         else
-            QMessageBox::warning(this, "Warning", QString("Can not save blocks to file.\n\nReason:\n%1").arg(errorMessage.str().c_str()), QMessageBox::Close);
-        */
+        {
+            QMessageBox::warning(this, "Warning", "Can not copy last file.\nSaving incomplete.", QMessageBox::Close);
+        }
     }
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::onDeleteClicked(bool)
+void EasyMainWindow::clear()
 {
     static_cast<EasyTreeWidget*>(m_treeWidget->widget())->clearSilent(true);
     static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->clear();
@@ -426,11 +432,20 @@ void EasyMainWindow::onDeleteClicked(bool)
     EASY_GLOBALS.descriptors.clear();
     EASY_GLOBALS.gui_blocks.clear();
 
-    m_filedata.serialized_blocks.clear();
-    m_filedata.serialized_descriptors.clear();
+    m_serializedBlocks.clear();
+    m_serializedDescriptors.clear();
 
     m_saveAction->setEnabled(false);
     m_deleteAction->setEnabled(false);
+
+    m_bNetworkFileRegime = false;
+}
+
+void EasyMainWindow::onDeleteClicked(bool)
+{
+    auto button = QMessageBox::question(this, "Clear all profiled data", "All profiled data is going to be deleted!\nContinue?", QMessageBox::Yes, QMessageBox::No);
+    if (button == QMessageBox::Yes)
+        clear();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -758,12 +773,14 @@ void EasyMainWindow::onFileReaderTimeout()
         {
             static_cast<EasyTreeWidget*>(m_treeWidget->widget())->clearSilent(true);
 
-            ::profiler::FileData fd;
+            ::profiler::SerializedData serialized_blocks;
+            ::profiler::SerializedData serialized_descriptors;
             ::profiler::descriptors_list_t descriptors;
             ::profiler::blocks_t blocks;
             ::profiler::thread_blocks_tree_t threads_map;
             QString filename;
-            m_reader.get(fd, descriptors, blocks, threads_map, filename);
+            uint32_t descriptorsNumberInFile = 0;
+            m_reader.get(serialized_blocks, serialized_descriptors, descriptors, blocks, threads_map, descriptorsNumberInFile, filename);
 
             if (threads_map.size() > 0xff)
             {
@@ -774,9 +791,12 @@ void EasyMainWindow::onFileReaderTimeout()
                 qWarning() << "Warning:    Currently, maximum number of displayed threads is 255! Some threads will not be displayed.";
             }
 
-            if (m_reader.isFile())
+            m_bNetworkFileRegime = !m_reader.isFile();
+            if (!m_bNetworkFileRegime)
                 m_lastFile = ::std::move(filename);
-            m_filedata = ::std::move(fd);
+            m_serializedBlocks = ::std::move(serialized_blocks);
+            m_serializedDescriptors = ::std::move(serialized_descriptors);
+            m_descriptorsNumberInFile = descriptorsNumberInFile;
             EASY_GLOBALS.selected_thread = 0;
             ::profiler_gui::set_max(EASY_GLOBALS.selected_block);
             EASY_GLOBALS.profiler_blocks.swap(threads_map);
@@ -876,7 +896,8 @@ void EasyFileReader::load(const QString& _filename)
     m_isFile = true;
     m_filename = _filename;
     m_thread = ::std::move(::std::thread([this](bool _enableStatistics) {
-        m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_filedata, m_descriptors, m_blocks, m_blocksTree, _enableStatistics, m_errorMessage), ::std::memory_order_release);
+        m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_serializedBlocks, m_serializedDescriptors,
+            m_descriptors, m_blocks, m_blocksTree, m_descriptorsNumberInFile, _enableStatistics, m_errorMessage), ::std::memory_order_release);
         m_progress.store(100, ::std::memory_order_release);
         m_bDone.store(true, ::std::memory_order_release);
     }, EASY_GLOBALS.enable_statistics));
@@ -890,7 +911,13 @@ void EasyFileReader::load(::std::stringstream& _stream)
     m_filename.clear();
     m_stream.swap(_stream);
     m_thread = ::std::move(::std::thread([this](bool _enableStatistics) {
-        m_size.store(fillTreesFromStream(m_progress, m_stream, m_filedata, m_descriptors, m_blocks, m_blocksTree, _enableStatistics, m_errorMessage), ::std::memory_order_release);
+        ::std::ofstream cache_file(NETWORK_CACHE_FILE, ::std::fstream::binary);
+        if (cache_file.is_open()) {
+            cache_file << m_stream.str();
+            cache_file.close();
+        }
+        m_size.store(fillTreesFromStream(m_progress, m_stream, m_serializedBlocks, m_serializedDescriptors, m_descriptors,
+            m_blocks, m_blocksTree, m_descriptorsNumberInFile, _enableStatistics, m_errorMessage), ::std::memory_order_release);
         m_progress.store(100, ::std::memory_order_release);
         m_bDone.store(true, ::std::memory_order_release);
     }, EASY_GLOBALS.enable_statistics));
@@ -905,33 +932,30 @@ void EasyFileReader::interrupt()
     m_bDone.store(false, ::std::memory_order_release);
     m_progress.store(0, ::std::memory_order_release);
     m_size.store(0, ::std::memory_order_release);
-    m_filedata.serialized_blocks.clear();
-    m_filedata.serialized_descriptors.clear();
+    m_serializedBlocks.clear();
+    m_serializedDescriptors.clear();
     m_descriptors.clear();
     m_blocks.clear();
     m_blocksTree.clear();
+    m_descriptorsNumberInFile = 0;
 
     { decltype(m_stream) dummy; dummy.swap(m_stream); }
     { decltype(m_errorMessage) dummy; dummy.swap(m_errorMessage); }
 }
 
-void EasyFileReader::get(::profiler::FileData& _filedata, ::profiler::descriptors_list_t& _descriptors, ::profiler::blocks_t& _blocks,
-                         ::profiler::thread_blocks_tree_t& _tree, QString& _filename)
+void EasyFileReader::get(::profiler::SerializedData& _serializedBlocks, ::profiler::SerializedData& _serializedDescriptors,
+                         ::profiler::descriptors_list_t& _descriptors, ::profiler::blocks_t& _blocks,
+                         ::profiler::thread_blocks_tree_t& _tree, uint32_t& _descriptorsNumberInFile, QString& _filename)
 {
     if (done())
     {
-        m_filedata.serialized_blocks.swap(_filedata.serialized_blocks);
-        m_filedata.serialized_descriptors.swap(_filedata.serialized_descriptors);
-        m_filedata.threads_order.swap(_filedata.threads_order);
+        m_serializedBlocks.swap(_serializedBlocks);
+        m_serializedDescriptors.swap(_serializedDescriptors);
         ::profiler::descriptors_list_t(::std::move(m_descriptors)).swap(_descriptors);
         m_blocks.swap(_blocks);
         m_blocksTree.swap(_tree);
         m_filename.swap(_filename);
-        _filedata.cpu_frequency = m_filedata.cpu_frequency;
-        _filedata.begin_time = m_filedata.begin_time;
-        _filedata.end_time = m_filedata.end_time;
-        _filedata.total_blocks_number = m_filedata.total_blocks_number;
-        _filedata.total_descriptors_number = m_filedata.total_descriptors_number;
+        _descriptorsNumberInFile = m_descriptorsNumberInFile;
     }
 }
 
@@ -1071,34 +1095,34 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
     {
         // Read descriptions from stream
         decltype(EASY_GLOBALS.descriptors) descriptors;
-        decltype(m_filedata.serialized_descriptors) serializedDescriptors;
+        decltype(m_serializedDescriptors) serializedDescriptors;
         ::std::stringstream errorMessage;
         if (readDescriptionsFromStream(m_listener.data(), serializedDescriptors, descriptors, errorMessage))
         {
             bool cancel = false;
-            const bool doFlush = m_filedata.total_descriptors_number != descriptors.size();
-            if (doFlush && !m_filedata.serialized_blocks.empty())
+            const bool doFlush = m_descriptorsNumberInFile != descriptors.size();
+            if (doFlush && !m_serializedBlocks.empty())
             {
                 auto button = QMessageBox::question(this, "Information",
                     QString("New blocks description number = %1\ndiffers from the old one = %2.\nTo avoid possible conflicts\nall profiled data will be deleted.\nPress \"Yes\" to continue or \"No\" to cancel.")
                     .arg(descriptors.size())
-                    .arg(m_filedata.total_descriptors_number),
+                    .arg(m_descriptorsNumberInFile),
                     QMessageBox::Yes, QMessageBox::No);
 
                 if (button == QMessageBox::Yes)
-                    onDeleteClicked(true); // Clear all contents because new descriptors list conflicts with old one
+                    clear(); // Clear all contents because new descriptors list conflicts with old one
                 else
                     cancel = true;
             }
 
             if (!cancel)
             {
-                auto oldnumber = m_filedata.total_descriptors_number;
-                m_filedata.total_descriptors_number = static_cast<uint32_t>(descriptors.size());
+                auto oldnumber = m_descriptorsNumberInFile;
+                m_descriptorsNumberInFile = static_cast<uint32_t>(descriptors.size());
                 EASY_GLOBALS.descriptors.swap(descriptors);
-                m_filedata.serialized_descriptors.swap(serializedDescriptors);
+                m_serializedDescriptors.swap(serializedDescriptors);
 
-                if (!doFlush && !m_filedata.serialized_blocks.empty() && descriptors.size() > oldnumber)
+                if (!doFlush && !m_serializedBlocks.empty() && descriptors.size() > oldnumber)
                 {
                     // There are dynamically added descriptors, add them to the new list too
 
@@ -1120,7 +1144,7 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
                         if (desc != nullptr)
                         {
                             QMessageBox::warning(this, "Warning", "Conflict with dynamically added block descriptions.\nAll profiled data will be cleared.", QMessageBox::Close);
-                            onDeleteClicked(true);
+                            clear();
                             cancel = true;
                             break;
                         }
