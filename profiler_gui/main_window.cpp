@@ -131,7 +131,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
     toolbar->setContentsMargins(1, 0, 1, 0);
 
     toolbar->addAction(QIcon(":/Open"), tr("Open"), this, SLOT(onOpenFileClicked(bool)));
-    toolbar->addAction(QIcon(":/Reload"), tr("Reload"), this, SLOT(onReloadFileClicked(bool)));
+    toolbar->addAction(QIcon(":/Reopen"), tr("Reload last file"), this, SLOT(onReloadFileClicked(bool)));
     m_saveAction = toolbar->addAction(QIcon(":/Save"), tr("Save"), this, SLOT(onSaveFileClicked(bool)));
     m_deleteAction = toolbar->addAction(QIcon(":/Delete"), tr("Clear all"), this, SLOT(onDeleteClicked(bool)));
 
