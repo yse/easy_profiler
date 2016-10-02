@@ -392,23 +392,54 @@ void EasyMainWindow::onSaveFileClicked(bool)
     auto filename = QFileDialog::getSaveFileName(this, "Save profiler log", dir, "Profiler Log File (*.prof);;All Files (*.*)");
     if (!filename.isEmpty())
     {
-        auto result = QFile::copy(m_bNetworkFileRegime ? QString(NETWORK_CACHE_FILE) : m_lastFile, filename);
-        if (result)
+        bool inOk = false, outOk = false;
+        int8_t retry1 = -1;
+        while (++retry1 < 4)
         {
-            m_lastFile = filename;
-            if (m_bNetworkFileRegime)
+            ::std::ifstream inFile(m_bNetworkFileRegime ? NETWORK_CACHE_FILE : m_lastFile.toStdString().c_str(), ::std::fstream::binary);
+            if (!inFile.is_open())
             {
-                m_bNetworkFileRegime = false;
-                QFile::remove(NETWORK_CACHE_FILE);
+                ::std::this_thread::sleep_for(::std::chrono::milliseconds(500));
+                continue;
             }
+
+            inOk = true;
+
+            int8_t retry2 = -1;
+            while (++retry2 < 4)
+            {
+                ::std::ofstream outFile(filename.toStdString(), ::std::fstream::binary);
+                if (!outFile.is_open())
+                {
+                    ::std::this_thread::sleep_for(::std::chrono::milliseconds(500));
+                    continue;
+                }
+
+                outFile << inFile.rdbuf();
+                outOk = true;
+                break;
+            }
+
+            break;
         }
-        else if (m_bNetworkFileRegime)
+
+        if (outOk)
         {
-            QMessageBox::warning(this, "Warning", "Can not save network cahce to file.\nSaving incomplete.", QMessageBox::Close);
+            if (m_bNetworkFileRegime)
+                QFile::remove(QString(NETWORK_CACHE_FILE));
+            m_lastFile = filename;
+            m_bNetworkFileRegime = false;
+        }
+        else if (inOk)
+        {
+            QMessageBox::warning(this, "Warning", "Can not open destination file.\nSaving incomplete.", QMessageBox::Close);
         }
         else
         {
-            QMessageBox::warning(this, "Warning", "Can not copy last file.\nSaving incomplete.", QMessageBox::Close);
+            if (m_bNetworkFileRegime)
+                QMessageBox::warning(this, "Warning", "Can not open network cache file.\nSaving incomplete.", QMessageBox::Close);
+            else
+                QMessageBox::warning(this, "Warning", "Can not open source file.\nSaving incomplete.", QMessageBox::Close);
         }
     }
 }
@@ -1094,17 +1125,20 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
     if (m_listener.size() != 0)
     {
         // Read descriptions from stream
+
         decltype(EASY_GLOBALS.descriptors) descriptors;
         decltype(m_serializedDescriptors) serializedDescriptors;
         ::std::stringstream errorMessage;
         if (readDescriptionsFromStream(m_listener.data(), serializedDescriptors, descriptors, errorMessage))
         {
+            // Merge old and new descriptions
+
             bool cancel = false;
-            const bool doFlush = m_descriptorsNumberInFile != descriptors.size();
+            const bool doFlush = m_descriptorsNumberInFile > descriptors.size();
             if (doFlush && !m_serializedBlocks.empty())
             {
                 auto button = QMessageBox::question(this, "Information",
-                    QString("New blocks description number = %1\ndiffers from the old one = %2.\nTo avoid possible conflicts\nall profiled data will be deleted.\nPress \"Yes\" to continue or \"No\" to cancel.")
+                    QString("New blocks description number = %1\nis less than the old one = %2.\nTo avoid possible conflicts\nall profiled data will be deleted.\nContinue?")
                     .arg(descriptors.size())
                     .arg(m_descriptorsNumberInFile),
                     QMessageBox::Yes, QMessageBox::No);
@@ -1117,42 +1151,60 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
 
             if (!cancel)
             {
-                auto oldnumber = m_descriptorsNumberInFile;
-                m_descriptorsNumberInFile = static_cast<uint32_t>(descriptors.size());
-                EASY_GLOBALS.descriptors.swap(descriptors);
-                m_serializedDescriptors.swap(serializedDescriptors);
-
-                if (!doFlush && !m_serializedBlocks.empty() && descriptors.size() > oldnumber)
+                if (!doFlush && m_descriptorsNumberInFile < EASY_GLOBALS.descriptors.size())
                 {
                     // There are dynamically added descriptors, add them to the new list too
 
-                    auto diff = descriptors.size() - oldnumber;
-                    EASY_GLOBALS.descriptors.reserve(EASY_GLOBALS.descriptors.size() + diff);
-                    for (decltype(diff) i = 0; i < diff; ++i)
+                    auto newnumber = static_cast<decltype(m_descriptorsNumberInFile)>(descriptors.size());
+                    auto size = static_cast<decltype(m_descriptorsNumberInFile)>(EASY_GLOBALS.descriptors.size());
+                    auto diff = newnumber - size;
+                    decltype(newnumber) failnumber = 0;
+
+                    descriptors.reserve(descriptors.size() + EASY_GLOBALS.descriptors.size() - m_descriptorsNumberInFile);
+                    for (auto i = m_descriptorsNumberInFile; i < size; ++i)
                     {
-                        auto desc = descriptors[oldnumber + i];
-                        for (decltype(oldnumber) j = 0; j < oldnumber; ++j)
+                        auto id = EASY_GLOBALS.descriptors[i]->id();
+                        if (id < newnumber)
+                            descriptors.push_back(descriptors[id]);
+                        else
+                            ++failnumber;
+                    }
+
+                    if (failnumber != 0)
+                    {
+                        // There are some errors...
+
+                        // revert changes
+                        descriptors.resize(newnumber);
+
+                        // clear all profiled data to avoid conflicts
+                        auto button = QMessageBox::question(this, "Information",
+                            "There are errors while merging block descriptions lists.\nTo avoid possible conflicts\nall profiled data will be deleted.\nContinue?",
+                            QMessageBox::Yes, QMessageBox::No);
+
+                        if (button == QMessageBox::Yes)
+                            clear(); // Clear all contents because new descriptors list conflicts with old one
+                        else
+                            cancel = true;
+                    }
+
+                    if (!cancel && diff != 0)
+                    {
+                        for (auto& b : EASY_GLOBALS.gui_blocks)
                         {
-                            if (descriptors[j] == desc)
-                            {
-                                EASY_GLOBALS.descriptors.push_back(EASY_GLOBALS.descriptors[j]);
-                                desc = nullptr;
-                                break;
-                            }
+                            if (b.tree.node->id() >= m_descriptorsNumberInFile)
+                                b.tree.node->setId(b.tree.node->id() + diff);
                         }
 
-                        if (desc != nullptr)
-                        {
-                            QMessageBox::warning(this, "Warning", "Conflict with dynamically added block descriptions.\nAll profiled data will be cleared.", QMessageBox::Close);
-                            clear();
-                            cancel = true;
-                            break;
-                        }
+                        m_descriptorsNumberInFile = newnumber;
                     }
                 }
 
                 if (!cancel)
                 {
+                    EASY_GLOBALS.descriptors.swap(descriptors);
+                    m_serializedDescriptors.swap(serializedDescriptors);
+
                     if (m_descTreeDialog != nullptr)
                     {
 #if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
