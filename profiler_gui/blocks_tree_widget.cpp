@@ -614,7 +614,7 @@ void EasyTreeWidget::onBlockStatusChangeClicked(bool _checked)
 
 void EasyTreeWidget::onItemExpand(QTreeWidgetItem* _item)
 {
-    if (!EASY_GLOBALS.bind_scene_and_tree_expand_status)
+    if (!EASY_GLOBALS.bind_scene_and_tree_expand_status || _item->parent() == nullptr)
     {
         resizeColumnsToContents();
         return;
@@ -631,7 +631,7 @@ void EasyTreeWidget::onItemExpand(QTreeWidgetItem* _item)
 
 void EasyTreeWidget::onItemCollapse(QTreeWidgetItem* _item)
 {
-    if (!EASY_GLOBALS.bind_scene_and_tree_expand_status)
+    if (!EASY_GLOBALS.bind_scene_and_tree_expand_status || _item->parent() == nullptr)
         return;
 
     static_cast<EasyTreeWidgetItem*>(_item)->guiBlock().expanded = false;
