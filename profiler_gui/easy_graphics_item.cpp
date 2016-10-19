@@ -73,10 +73,22 @@ const auto SELECTED_ITEM_FONT = ::profiler_gui::EFont("Helvetica", 10, QFont::Bo
 
 EasyGraphicsItem::EasyGraphicsItem(uint8_t _index, const::profiler::BlocksTreeRoot& _root)
     : QGraphicsItem(nullptr)
-    , m_threadName(_root.got_name() ? QString("%1 Thread %2").arg(_root.name()).arg(_root.thread_id) : QString("Thread %1").arg(_root.thread_id))
     , m_pRoot(&_root)
     , m_index(_index)
 {
+    const auto u_thread = ::profiler_gui::toUnicode("thread");
+    if (_root.got_name())
+    {
+        QString rootname(::profiler_gui::toUnicode(_root.name()));
+        if (rootname.contains(u_thread, Qt::CaseInsensitive))
+            m_threadName = ::std::move(QString("%1 %2").arg(rootname).arg(_root.thread_id));
+        else
+            m_threadName = ::std::move(QString("%1 Thread %2").arg(rootname).arg(_root.thread_id));
+    }
+    else
+    {
+        m_threadName = ::std::move(QString("Thread %1").arg(_root.thread_id));
+    }
 }
 
 EasyGraphicsItem::~EasyGraphicsItem()
