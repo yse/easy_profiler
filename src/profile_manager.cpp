@@ -472,6 +472,9 @@ void ProfileManager::endBlock()
     if (!m_isEnabled.load(std::memory_order_acquire))
         return;
 
+    if (THREAD_STORAGE == nullptr)
+        THREAD_STORAGE = &threadStorage(getCurrentThreadId());
+
     if (THREAD_STORAGE->blocks.openedList.empty())
         return;
 
