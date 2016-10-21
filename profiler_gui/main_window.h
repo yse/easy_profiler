@@ -69,6 +69,7 @@ class EasyFileReader Q_DECL_FINAL
     ::std::stringstream                       m_stream; ///< 
     ::std::stringstream                 m_errorMessage; ///< 
     QString                                 m_filename; ///< 
+    uint32_t             m_descriptorsNumberInFile = 0; ///< 
     ::std::thread                             m_thread; ///< 
     ::std::atomic_bool                         m_bDone; ///< 
     ::std::atomic<int>                      m_progress; ///< 
@@ -91,7 +92,7 @@ public:
     void interrupt();
     void get(::profiler::SerializedData& _serializedBlocks, ::profiler::SerializedData& _serializedDescriptors,
              ::profiler::descriptors_list_t& _descriptors, ::profiler::blocks_t& _blocks, ::profiler::thread_blocks_tree_t& _tree,
-             QString& _filename);
+             uint32_t& _descriptorsNumberInFile, QString& _filename);
 
     QString getError();
 
@@ -180,12 +181,17 @@ protected:
     class QLineEdit* m_ipEdit = nullptr;
     class QLineEdit* m_portEdit = nullptr;
 
+    class QAction* m_saveAction = nullptr;
+    class QAction* m_deleteAction = nullptr;
+
     class QAction* m_captureAction = nullptr;
     class QAction* m_connectAction = nullptr;
     class QAction* m_eventTracingEnableAction = nullptr;
     class QAction* m_eventTracingPriorityAction = nullptr;
 
+    uint32_t m_descriptorsNumberInFile = 0;
     uint16_t m_lastPort = 0;
+    bool m_bNetworkFileRegime = false;
 
 public:
 
@@ -200,6 +206,7 @@ protected slots:
 
     void onOpenFileClicked(bool);
     void onReloadFileClicked(bool);
+    void onSaveFileClicked(bool);
     void onDeleteClicked(bool);
     void onExitClicked(bool);
     void onEncodingChanged(bool);
@@ -207,6 +214,7 @@ protected slots:
     void onEventIndicatorsChange(bool);
     void onEnableDisableStatistics(bool);
     void onDrawBordersChanged(bool);
+    void onHideNarrowChildrenChanged(bool);
     void onCollapseItemsAfterCloseChanged(bool);
     void onAllItemsExpandedByDefaultChange(bool);
     void onBindExpandStatusChange(bool);
@@ -229,6 +237,8 @@ protected slots:
 private:
 
     // Private non-virtual methods
+
+    void clear();
 
     void loadFile(const QString& filename);
     void readStream(::std::stringstream& data);

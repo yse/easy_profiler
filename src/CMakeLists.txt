@@ -25,6 +25,7 @@ set(SOURCES
 )
 add_definitions(
     -D_BUILD_PROFILER
+    -DBUILD_WITH_EASY_PROFILER
 )
 
 if(WIN32)

@@ -53,11 +53,14 @@
 #include <QSignalBlocker>
 #include <QDebug>
 #include <QToolBar>
+#include <QToolButton>
+#include <QWidgetAction>
 #include <QMessageBox>
 #include <QLineEdit>
 #include <QLabel>
 #include <QDialog>
 #include <QVBoxLayout>
+#include <QFile>
 
 #include "main_window.h"
 #include "blocks_tree_widget.h"
@@ -77,10 +80,11 @@
 //////////////////////////////////////////////////////////////////////////
 
 const int LOADER_TIMER_INTERVAL = 40;
+const auto NETWORK_CACHE_FILE = "easy_profiler_stream.cache";
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyMainWindow::EasyMainWindow() : Parent()
+EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastPort(::profiler::DEFAULT_PORT)
 {
     { QIcon icon(":/logo"); if (!icon.isNull()) QApplication::setWindowIcon(icon); }
 
@@ -118,9 +122,27 @@ EasyMainWindow::EasyMainWindow() : Parent()
     addDockWidget(Qt::BottomDockWidgetArea, m_descTreeWidget);
 #endif
 
-    auto toolbar = addToolBar("MainToolBar");
-    toolbar->setObjectName("ProfilerGUI_MainToolBar");
-    toolbar->addAction(QIcon(":/Delete"), tr("Clear all"), this, SLOT(onDeleteClicked(bool)));
+
+    loadSettings();
+
+
+    auto toolbar = addToolBar("FileToolbar");
+    toolbar->setObjectName("ProfilerGUI_FileToolbar");
+    toolbar->setContentsMargins(1, 0, 1, 0);
+
+    toolbar->addAction(QIcon(":/Open"), tr("Open"), this, SLOT(onOpenFileClicked(bool)));
+    toolbar->addAction(QIcon(":/Reopen"), tr("Reload last file"), this, SLOT(onReloadFileClicked(bool)));
+    m_saveAction = toolbar->addAction(QIcon(":/Save"), tr("Save"), this, SLOT(onSaveFileClicked(bool)));
+    m_deleteAction = toolbar->addAction(QIcon(":/Delete"), tr("Clear all"), this, SLOT(onDeleteClicked(bool)));
+
+    m_saveAction->setEnabled(false);
+    m_deleteAction->setEnabled(false);
+
+
+
+    toolbar = addToolBar("ProfileToolbar");
+    toolbar->setObjectName("ProfilerGUI_ProfileToolbar");
+    toolbar->setContentsMargins(1, 0, 1, 0);
 
     toolbar->addAction(QIcon(":/List"), tr("Blocks"), this, SLOT(onEditBlocksClicked(bool)));
     m_captureAction = toolbar->addAction(QIcon(":/Start"), tr("Capture"), this, SLOT(onCaptureClicked(bool)));
@@ -129,18 +151,22 @@ EasyMainWindow::EasyMainWindow() : Parent()
     toolbar->addSeparator();
     m_connectAction = toolbar->addAction(QIcon(":/Connection"), tr("Connect"), this, SLOT(onConnectClicked(bool)));
 
-    toolbar->addWidget(new QLabel(" IP:"));
+    auto lbl = new QLabel("IP:", toolbar);
+    lbl->setContentsMargins(5, 0, 1, 0);
+    toolbar->addWidget(lbl);
     m_ipEdit = new QLineEdit();
     QRegExp rx("^0*(2(5[0-5]|[0-4]\\d)|1?\\d{1,2})(\\.0*(2(5[0-5]|[0-4]\\d)|1?\\d{1,2})){3}$");
     m_ipEdit->setValidator(new QRegExpValidator(rx, m_ipEdit));
-    m_ipEdit->setText("127.0.0.1");
+    m_ipEdit->setText(m_lastAddress);
     m_ipEdit->setFixedWidth(m_ipEdit->fontMetrics().width(QString("255.255.255.255")) + 20);
     toolbar->addWidget(m_ipEdit);
 
-    toolbar->addWidget(new QLabel(" Port:"));
+    lbl = new QLabel("Port:", toolbar);
+    lbl->setContentsMargins(5, 0, 1, 0);
+    toolbar->addWidget(lbl);
     m_portEdit = new QLineEdit();
     m_portEdit->setValidator(new QIntValidator(1, 65535, m_portEdit));
-    m_portEdit->setText(QString::number(::profiler::DEFAULT_PORT));
+    m_portEdit->setText(QString::number(m_lastPort));
     m_portEdit->setFixedWidth(m_portEdit->fontMetrics().width(QString("000000")) + 10);
     toolbar->addWidget(m_portEdit);
 
@@ -148,86 +174,23 @@ EasyMainWindow::EasyMainWindow() : Parent()
     connect(m_portEdit, &QLineEdit::returnPressed, [this](){ onConnectClicked(true); });
 
 
-    loadSettings();
-    if (!m_lastAddress.isEmpty())
-        m_ipEdit->setText(m_lastAddress);
-    if (m_lastPort != 0)
-        m_portEdit->setText(QString::number(m_lastPort));
 
+    toolbar = addToolBar("SetupToolbar");
+    toolbar->setObjectName("ProfilerGUI_SetupToolbar");
+    toolbar->setContentsMargins(1, 0, 1, 0);
 
-    auto menu = menuBar()->addMenu("&File");
-    menu->addAction(QIcon(":/Open"), "&Open", this, SLOT(onOpenFileClicked(bool)));
-    menu->addAction(QIcon(":/Reload"), "&Reload", this, SLOT(onReloadFileClicked(bool)));
-    menu->addSeparator();
-    menu->addAction(QIcon(":/Exit"), "&Exit", this, SLOT(onExitClicked(bool)));
+    toolbar->addAction(QIcon(":/Expand"), "Expand all", this, SLOT(onExpandAllClicked(bool)));
+    toolbar->addAction(QIcon(":/Collapse"), "Collapse all", this, SLOT(onCollapseAllClicked(bool)));
 
+    toolbar->addSeparator();
+    auto menu = new QMenu("Settings", this);
+    QToolButton* toolButton = new QToolButton(toolbar);
+    toolButton->setIcon(QIcon(":/Settings"));
+    toolButton->setMenu(menu);
+    toolButton->setPopupMode(QToolButton::InstantPopup);
+    toolbar->addWidget(toolButton);
 
-
-    menu = menuBar()->addMenu("&View");
-
-    menu->addAction(QIcon(":/Expand"), "Expand all", this, SLOT(onExpandAllClicked(bool)));
-    menu->addAction(QIcon(":/Collapse"), "Collapse all", this,SLOT(onCollapseAllClicked(bool)));
-
-    menu->addSeparator();
-
-    auto action = menu->addAction("Draw items' borders");
-    action->setCheckable(true);
-    action->setChecked(EASY_GLOBALS.draw_graphics_items_borders);
-    connect(action, &QAction::triggered, this, &This::onDrawBordersChanged);
-
-    action = menu->addAction("Collapse items on tree reset");
-    action->setCheckable(true);
-    action->setChecked(EASY_GLOBALS.collapse_items_on_tree_close);
-    connect(action, &QAction::triggered, this, &This::onCollapseItemsAfterCloseChanged);
-
-    action = menu->addAction("Expand all on file open");
-    action->setCheckable(true);
-    action->setChecked(EASY_GLOBALS.all_items_expanded_by_default);
-    connect(action, &QAction::triggered, this, &This::onAllItemsExpandedByDefaultChange);
-
-    action = menu->addAction("Bind scene and tree expand");
-    action->setCheckable(true);
-    action->setChecked(EASY_GLOBALS.bind_scene_and_tree_expand_status);
-    connect(action, &QAction::triggered, this, &This::onBindExpandStatusChange);
-
-    action = menu->addAction("Draw event indicators");
-    action->setCheckable(true);
-    action->setChecked(EASY_GLOBALS.enable_event_indicators);
-    connect(action, &QAction::triggered, this, &This::onEventIndicatorsChange);
-
-    menu->addSeparator();
-    auto submenu = menu->addMenu("Chronometer text");
-    auto actionGroup = new QActionGroup(this);
-    actionGroup->setExclusive(true);
-
-    action = new QAction("At top", actionGroup);
-    action->setCheckable(true);
-    action->setData(static_cast<int>(::profiler_gui::ChronoTextPosition_Top));
-    if (EASY_GLOBALS.chrono_text_position == ::profiler_gui::ChronoTextPosition_Top)
-        action->setChecked(true);
-    submenu->addAction(action);
-    connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
-
-    action = new QAction("At center", actionGroup);
-    action->setCheckable(true);
-    action->setData(static_cast<int>(::profiler_gui::ChronoTextPosition_Center));
-    if (EASY_GLOBALS.chrono_text_position == ::profiler_gui::ChronoTextPosition_Center)
-        action->setChecked(true);
-    submenu->addAction(action);
-    connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
-
-    action = new QAction("At bottom", actionGroup);
-    action->setCheckable(true);
-    action->setData(static_cast<int>(::profiler_gui::ChronoTextPosition_Bottom));
-    if (EASY_GLOBALS.chrono_text_position == ::profiler_gui::ChronoTextPosition_Bottom)
-        action->setChecked(true);
-    submenu->addAction(action);
-    connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
-
-
-
-    menu = menuBar()->addMenu("&Settings");
-    action = menu->addAction("Statistics enabled");
+    auto action = menu->addAction("Statistics enabled");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.enable_statistics);
     connect(action, &QAction::triggered, this, &This::onEnableDisableStatistics);
@@ -244,8 +207,69 @@ EasyMainWindow::EasyMainWindow() : Parent()
         SET_ICON(action, ":/Stats-off");
     }
 
+
     menu->addSeparator();
-    submenu = menu->addMenu("&Remote");
+    auto submenu = menu->addMenu("View");
+    action = submenu->addAction("Draw items' borders");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.draw_graphics_items_borders);
+    connect(action, &QAction::triggered, this, &This::onDrawBordersChanged);
+
+    action = submenu->addAction("Hide narrow children");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.hide_narrow_children);
+    connect(action, &QAction::triggered, this, &This::onHideNarrowChildrenChanged);
+
+    action = submenu->addAction("Collapse items on tree reset");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.collapse_items_on_tree_close);
+    connect(action, &QAction::triggered, this, &This::onCollapseItemsAfterCloseChanged);
+
+    action = submenu->addAction("Expand all on file open");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.all_items_expanded_by_default);
+    connect(action, &QAction::triggered, this, &This::onAllItemsExpandedByDefaultChange);
+
+    action = submenu->addAction("Bind scene and tree expand");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.bind_scene_and_tree_expand_status);
+    connect(action, &QAction::triggered, this, &This::onBindExpandStatusChange);
+
+    action = submenu->addAction("Draw event indicators");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.enable_event_indicators);
+    connect(action, &QAction::triggered, this, &This::onEventIndicatorsChange);
+
+    submenu->addSeparator();
+    auto actionGroup = new QActionGroup(this);
+    actionGroup->setExclusive(true);
+
+    action = new QAction("Chrono text at top", actionGroup);
+    action->setCheckable(true);
+    action->setData(static_cast<int>(::profiler_gui::ChronoTextPosition_Top));
+    if (EASY_GLOBALS.chrono_text_position == ::profiler_gui::ChronoTextPosition_Top)
+        action->setChecked(true);
+    submenu->addAction(action);
+    connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
+
+    action = new QAction("Chrono text at center", actionGroup);
+    action->setCheckable(true);
+    action->setData(static_cast<int>(::profiler_gui::ChronoTextPosition_Center));
+    if (EASY_GLOBALS.chrono_text_position == ::profiler_gui::ChronoTextPosition_Center)
+        action->setChecked(true);
+    submenu->addAction(action);
+    connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
+
+    action = new QAction("Chrono text at bottom", actionGroup);
+    action->setCheckable(true);
+    action->setData(static_cast<int>(::profiler_gui::ChronoTextPosition_Bottom));
+    if (EASY_GLOBALS.chrono_text_position == ::profiler_gui::ChronoTextPosition_Bottom)
+        action->setChecked(true);
+    submenu->addAction(action);
+    connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
+
+
+    submenu = menu->addMenu("Remote");
     m_eventTracingEnableAction = submenu->addAction("Event tracing enabled");
     m_eventTracingEnableAction->setCheckable(true);
     m_eventTracingEnableAction->setEnabled(false);
@@ -257,13 +281,13 @@ EasyMainWindow::EasyMainWindow() : Parent()
     m_eventTracingPriorityAction->setEnabled(false);
     connect(m_eventTracingPriorityAction, &QAction::triggered, this, &This::onEventTracingPriorityChange);
 
-    menu->addSeparator();
-    submenu = menu->addMenu("&Encoding");
+
+    submenu = menu->addMenu("Encoding");
     actionGroup = new QActionGroup(this);
     actionGroup->setExclusive(true);
 
     auto default_codec_mib = QTextCodec::codecForLocale()->mibEnum();
-    foreach (int mib, QTextCodec::availableMibs())
+    foreach(int mib, QTextCodec::availableMibs())
     {
         auto codec = QTextCodec::codecForMib(mib)->name();
 
@@ -352,7 +376,77 @@ void EasyMainWindow::onReloadFileClicked(bool)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::onDeleteClicked(bool)
+void EasyMainWindow::onSaveFileClicked(bool)
+{
+    if (m_serializedBlocks.empty())
+        return;
+
+    const auto i = m_lastFile.lastIndexOf(QChar('/'));
+    const auto j = m_lastFile.lastIndexOf(QChar('\\'));
+    auto k = ::std::max(i, j);
+
+    QString dir;
+    if (k > 0)
+        dir = m_lastFile.mid(0, ++k);
+
+    auto filename = QFileDialog::getSaveFileName(this, "Save profiler log", dir, "Profiler Log File (*.prof);;All Files (*.*)");
+    if (!filename.isEmpty())
+    {
+        bool inOk = false, outOk = false;
+        int8_t retry1 = -1;
+        while (++retry1 < 4)
+        {
+            ::std::ifstream inFile(m_bNetworkFileRegime ? NETWORK_CACHE_FILE : m_lastFile.toStdString().c_str(), ::std::fstream::binary);
+            if (!inFile.is_open())
+            {
+                ::std::this_thread::sleep_for(::std::chrono::milliseconds(500));
+                continue;
+            }
+
+            inOk = true;
+
+            int8_t retry2 = -1;
+            while (++retry2 < 4)
+            {
+                ::std::ofstream outFile(filename.toStdString(), ::std::fstream::binary);
+                if (!outFile.is_open())
+                {
+                    ::std::this_thread::sleep_for(::std::chrono::milliseconds(500));
+                    continue;
+                }
+
+                outFile << inFile.rdbuf();
+                outOk = true;
+                break;
+            }
+
+            break;
+        }
+
+        if (outOk)
+        {
+            if (m_bNetworkFileRegime)
+                QFile::remove(QString(NETWORK_CACHE_FILE));
+            m_lastFile = filename;
+            m_bNetworkFileRegime = false;
+        }
+        else if (inOk)
+        {
+            QMessageBox::warning(this, "Warning", "Can not open destination file.\nSaving incomplete.", QMessageBox::Close);
+        }
+        else
+        {
+            if (m_bNetworkFileRegime)
+                QMessageBox::warning(this, "Warning", "Can not open network cache file.\nSaving incomplete.", QMessageBox::Close);
+            else
+                QMessageBox::warning(this, "Warning", "Can not open source file.\nSaving incomplete.", QMessageBox::Close);
+        }
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void EasyMainWindow::clear()
 {
     static_cast<EasyTreeWidget*>(m_treeWidget->widget())->clearSilent(true);
     static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->clear();
@@ -371,6 +465,18 @@ void EasyMainWindow::onDeleteClicked(bool)
 
     m_serializedBlocks.clear();
     m_serializedDescriptors.clear();
+
+    m_saveAction->setEnabled(false);
+    m_deleteAction->setEnabled(false);
+
+    m_bNetworkFileRegime = false;
+}
+
+void EasyMainWindow::onDeleteClicked(bool)
+{
+    auto button = QMessageBox::question(this, "Clear all profiled data", "All profiled data is going to be deleted!\nContinue?", QMessageBox::Yes, QMessageBox::No);
+    if (button == QMessageBox::Yes)
+        clear();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -430,6 +536,12 @@ void EasyMainWindow::onEnableDisableStatistics(bool _checked)
 void EasyMainWindow::onDrawBordersChanged(bool _checked)
 {
     EASY_GLOBALS.draw_graphics_items_borders = _checked;
+    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->scene()->update();
+}
+
+void EasyMainWindow::onHideNarrowChildrenChanged(bool _checked)
+{
+    EASY_GLOBALS.hide_narrow_children = _checked;
     static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->scene()->update();
 }
 
@@ -551,6 +663,10 @@ void EasyMainWindow::loadSettings()
     if (!flag.isNull())
         EASY_GLOBALS.draw_graphics_items_borders = flag.toBool();
 
+    flag = settings.value("hide_narrow_children");
+    if (!flag.isNull())
+        EASY_GLOBALS.hide_narrow_children = flag.toBool();
+
     flag = settings.value("collapse_items_on_tree_close");
     if (!flag.isNull())
         EASY_GLOBALS.collapse_items_on_tree_close = flag.toBool();
@@ -607,6 +723,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("port", (quint32)m_lastPort);
     settings.setValue("chrono_text_position", static_cast<int>(EASY_GLOBALS.chrono_text_position));
     settings.setValue("draw_graphics_items_borders", EASY_GLOBALS.draw_graphics_items_borders);
+    settings.setValue("hide_narrow_children", EASY_GLOBALS.hide_narrow_children);
     settings.setValue("collapse_items_on_tree_close", EASY_GLOBALS.collapse_items_on_tree_close);
     settings.setValue("all_items_expanded_by_default", EASY_GLOBALS.all_items_expanded_by_default);
     settings.setValue("bind_scene_and_tree_expand_status", EASY_GLOBALS.bind_scene_and_tree_expand_status);
@@ -687,12 +804,14 @@ void EasyMainWindow::onFileReaderTimeout()
         {
             static_cast<EasyTreeWidget*>(m_treeWidget->widget())->clearSilent(true);
 
-            ::profiler::SerializedData serialized_blocks, serialized_descriptors;
+            ::profiler::SerializedData serialized_blocks;
+            ::profiler::SerializedData serialized_descriptors;
             ::profiler::descriptors_list_t descriptors;
             ::profiler::blocks_t blocks;
             ::profiler::thread_blocks_tree_t threads_map;
             QString filename;
-            m_reader.get(serialized_blocks, serialized_descriptors, descriptors, blocks, threads_map, filename);
+            uint32_t descriptorsNumberInFile = 0;
+            m_reader.get(serialized_blocks, serialized_descriptors, descriptors, blocks, threads_map, descriptorsNumberInFile, filename);
 
             if (threads_map.size() > 0xff)
             {
@@ -703,10 +822,12 @@ void EasyMainWindow::onFileReaderTimeout()
                 qWarning() << "Warning:    Currently, maximum number of displayed threads is 255! Some threads will not be displayed.";
             }
 
-            if (m_reader.isFile())
+            m_bNetworkFileRegime = !m_reader.isFile();
+            if (!m_bNetworkFileRegime)
                 m_lastFile = ::std::move(filename);
             m_serializedBlocks = ::std::move(serialized_blocks);
             m_serializedDescriptors = ::std::move(serialized_descriptors);
+            m_descriptorsNumberInFile = descriptorsNumberInFile;
             EASY_GLOBALS.selected_thread = 0;
             ::profiler_gui::set_max(EASY_GLOBALS.selected_block);
             EASY_GLOBALS.profiler_blocks.swap(threads_map);
@@ -728,6 +849,9 @@ void EasyMainWindow::onFileReaderTimeout()
 #endif
             if (m_dialogDescTree != nullptr)
                 m_dialogDescTree->build();
+
+            m_saveAction->setEnabled(true);
+            m_deleteAction->setEnabled(true);
         }
         else
         {
@@ -803,7 +927,8 @@ void EasyFileReader::load(const QString& _filename)
     m_isFile = true;
     m_filename = _filename;
     m_thread = ::std::move(::std::thread([this](bool _enableStatistics) {
-        m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_serializedBlocks, m_serializedDescriptors, m_descriptors, m_blocks, m_blocksTree, _enableStatistics, m_errorMessage), ::std::memory_order_release);
+        m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_serializedBlocks, m_serializedDescriptors,
+            m_descriptors, m_blocks, m_blocksTree, m_descriptorsNumberInFile, _enableStatistics, m_errorMessage), ::std::memory_order_release);
         m_progress.store(100, ::std::memory_order_release);
         m_bDone.store(true, ::std::memory_order_release);
     }, EASY_GLOBALS.enable_statistics));
@@ -817,7 +942,13 @@ void EasyFileReader::load(::std::stringstream& _stream)
     m_filename.clear();
     m_stream.swap(_stream);
     m_thread = ::std::move(::std::thread([this](bool _enableStatistics) {
-        m_size.store(fillTreesFromStream(m_progress, m_stream, m_serializedBlocks, m_serializedDescriptors, m_descriptors, m_blocks, m_blocksTree, _enableStatistics, m_errorMessage), ::std::memory_order_release);
+        ::std::ofstream cache_file(NETWORK_CACHE_FILE, ::std::fstream::binary);
+        if (cache_file.is_open()) {
+            cache_file << m_stream.str();
+            cache_file.close();
+        }
+        m_size.store(fillTreesFromStream(m_progress, m_stream, m_serializedBlocks, m_serializedDescriptors, m_descriptors,
+            m_blocks, m_blocksTree, m_descriptorsNumberInFile, _enableStatistics, m_errorMessage), ::std::memory_order_release);
         m_progress.store(100, ::std::memory_order_release);
         m_bDone.store(true, ::std::memory_order_release);
     }, EASY_GLOBALS.enable_statistics));
@@ -837,14 +968,15 @@ void EasyFileReader::interrupt()
     m_descriptors.clear();
     m_blocks.clear();
     m_blocksTree.clear();
+    m_descriptorsNumberInFile = 0;
 
     { decltype(m_stream) dummy; dummy.swap(m_stream); }
     { decltype(m_errorMessage) dummy; dummy.swap(m_errorMessage); }
 }
 
 void EasyFileReader::get(::profiler::SerializedData& _serializedBlocks, ::profiler::SerializedData& _serializedDescriptors,
-                         ::profiler::descriptors_list_t& _descriptors, ::profiler::blocks_t& _blocks, ::profiler::thread_blocks_tree_t& _tree,
-                         QString& _filename)
+                         ::profiler::descriptors_list_t& _descriptors, ::profiler::blocks_t& _blocks,
+                         ::profiler::thread_blocks_tree_t& _tree, uint32_t& _descriptorsNumberInFile, QString& _filename)
 {
     if (done())
     {
@@ -854,6 +986,7 @@ void EasyFileReader::get(::profiler::SerializedData& _serializedBlocks, ::profil
         m_blocks.swap(_blocks);
         m_blocksTree.swap(_tree);
         m_filename.swap(_filename);
+        _descriptorsNumberInFile = m_descriptorsNumberInFile;
     }
 }
 
@@ -992,28 +1125,99 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
     if (m_listener.size() != 0)
     {
         // Read descriptions from stream
+
         decltype(EASY_GLOBALS.descriptors) descriptors;
         decltype(m_serializedDescriptors) serializedDescriptors;
         ::std::stringstream errorMessage;
         if (readDescriptionsFromStream(m_listener.data(), serializedDescriptors, descriptors, errorMessage))
         {
-            if (EASY_GLOBALS.descriptors.size() > descriptors.size())
-                onDeleteClicked(true); // Clear all contents because new descriptors list conflicts with old one
+            // Merge old and new descriptions
 
-            EASY_GLOBALS.descriptors.swap(descriptors);
-            m_serializedDescriptors.swap(serializedDescriptors);
-
-            if (m_descTreeDialog != nullptr)
+            bool cancel = false;
+            const bool doFlush = m_descriptorsNumberInFile > descriptors.size();
+            if (doFlush && !m_serializedBlocks.empty())
             {
-#if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
-                static_cast<EasyDescWidget*>(m_descTreeWidget->widget())->build();
-#endif
-                m_dialogDescTree->build();
-                m_descTreeDialog->raise();
+                auto button = QMessageBox::question(this, "Information",
+                    QString("New blocks description number = %1\nis less than the old one = %2.\nTo avoid possible conflicts\nall profiled data will be deleted.\nContinue?")
+                    .arg(descriptors.size())
+                    .arg(m_descriptorsNumberInFile),
+                    QMessageBox::Yes, QMessageBox::No);
+
+                if (button == QMessageBox::Yes)
+                    clear(); // Clear all contents because new descriptors list conflicts with old one
+                else
+                    cancel = true;
             }
-            else
+
+            if (!cancel)
             {
-                onEditBlocksClicked(true);
+                if (!doFlush && m_descriptorsNumberInFile < EASY_GLOBALS.descriptors.size())
+                {
+                    // There are dynamically added descriptors, add them to the new list too
+
+                    auto newnumber = static_cast<decltype(m_descriptorsNumberInFile)>(descriptors.size());
+                    auto size = static_cast<decltype(m_descriptorsNumberInFile)>(EASY_GLOBALS.descriptors.size());
+                    auto diff = newnumber - size;
+                    decltype(newnumber) failnumber = 0;
+
+                    descriptors.reserve(descriptors.size() + EASY_GLOBALS.descriptors.size() - m_descriptorsNumberInFile);
+                    for (auto i = m_descriptorsNumberInFile; i < size; ++i)
+                    {
+                        auto id = EASY_GLOBALS.descriptors[i]->id();
+                        if (id < newnumber)
+                            descriptors.push_back(descriptors[id]);
+                        else
+                            ++failnumber;
+                    }
+
+                    if (failnumber != 0)
+                    {
+                        // There are some errors...
+
+                        // revert changes
+                        descriptors.resize(newnumber);
+
+                        // clear all profiled data to avoid conflicts
+                        auto button = QMessageBox::question(this, "Information",
+                            "There are errors while merging block descriptions lists.\nTo avoid possible conflicts\nall profiled data will be deleted.\nContinue?",
+                            QMessageBox::Yes, QMessageBox::No);
+
+                        if (button == QMessageBox::Yes)
+                            clear(); // Clear all contents because new descriptors list conflicts with old one
+                        else
+                            cancel = true;
+                    }
+
+                    if (!cancel && diff != 0)
+                    {
+                        for (auto& b : EASY_GLOBALS.gui_blocks)
+                        {
+                            if (b.tree.node->id() >= m_descriptorsNumberInFile)
+                                b.tree.node->setId(b.tree.node->id() + diff);
+                        }
+
+                        m_descriptorsNumberInFile = newnumber;
+                    }
+                }
+
+                if (!cancel)
+                {
+                    EASY_GLOBALS.descriptors.swap(descriptors);
+                    m_serializedDescriptors.swap(serializedDescriptors);
+
+                    if (m_descTreeDialog != nullptr)
+                    {
+#if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
+                        static_cast<EasyDescWidget*>(m_descTreeWidget->widget())->build();
+#endif
+                        m_dialogDescTree->build();
+                        m_descTreeDialog->raise();
+                    }
+                    else
+                    {
+                        onEditBlocksClicked(true);
+                    }
+                }
             }
         }
         else

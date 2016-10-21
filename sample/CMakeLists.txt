@@ -22,4 +22,4 @@ endif(UNIX)
 target_link_libraries(${PROJECT_NAME} easy_profiler ${SPEC_LIB})
 target_link_libraries(${DISABLED_PROFILER_NAME} easy_profiler ${SPEC_LIB})
 
-target_compile_definitions(${DISABLED_PROFILER_NAME} PRIVATE FULL_DISABLE_PROFILER)
+target_compile_definitions(${PROJECT_NAME} PRIVATE BUILD_WITH_EASY_PROFILER)

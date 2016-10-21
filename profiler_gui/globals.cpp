@@ -51,6 +51,7 @@ namespace profiler_gui {
         , enable_event_indicators(true)
         , enable_statistics(true)
         , draw_graphics_items_borders(true)
+        , hide_narrow_children(true)
         , display_only_relevant_stats(true)
         , collapse_items_on_tree_close(false)
         , all_items_expanded_by_default(true)

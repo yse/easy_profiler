@@ -168,6 +168,7 @@ void FillTreeClass<T>::setTreeInternal1(T& _safelocker, Items& _items, ThreadedI
     }
 
     //const QSignalBlocker b(this);
+    const auto u_thread = ::profiler_gui::toUnicode("thread");
     int i = 0;
     const int total = static_cast<int>(_blocksTree.size());
     for (const auto& threadTree : _blocksTree)
@@ -178,10 +179,21 @@ void FillTreeClass<T>::setTreeInternal1(T& _safelocker, Items& _items, ThreadedI
         const auto& root = threadTree.second;
         auto item = new EasyTreeWidgetItem();
 
+        QString threadName;
         if (root.got_name())
-            item->setText(COL_NAME, QString("%1 Thread %2").arg(root.name()).arg(root.thread_id));
+        {
+            QString rootname(::profiler_gui::toUnicode(root.name()));
+            if (rootname.contains(u_thread, Qt::CaseInsensitive))
+                threadName = ::std::move(QString("%1 %2").arg(rootname).arg(root.thread_id));
+            else
+                threadName = ::std::move(QString("%1 Thread %2").arg(rootname).arg(root.thread_id));
+        }
         else
-            item->setText(COL_NAME, QString("Thread %1").arg(root.thread_id));
+        {
+            threadName = ::std::move(QString("Thread %1").arg(root.thread_id));
+        }
+
+        item->setText(COL_NAME, threadName);
 
         ::profiler::timestamp_t duration = 0;
         if (!root.children.empty())
@@ -239,6 +251,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
 
     RootsMap threadsMap;
 
+    const auto u_thread = ::profiler_gui::toUnicode("thread");
     int i = 0, total = static_cast<int>(_blocks.size());
     //const QSignalBlocker b(this);
     for (const auto& block : _blocks)
@@ -266,10 +279,21 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
         {
             thread_item = new EasyTreeWidgetItem();
 
+            QString threadName;
             if (block.root->got_name())
-                thread_item->setText(COL_NAME, QString("%1 Thread %2").arg(block.root->name()).arg(block.root->thread_id));
+            {
+                QString rootname(::profiler_gui::toUnicode(block.root->name()));
+                if (rootname.contains(u_thread, Qt::CaseInsensitive))
+                    threadName = ::std::move(QString("%1 %2").arg(rootname).arg(block.root->thread_id));
+                else
+                    threadName = ::std::move(QString("%1 Thread %2").arg(rootname).arg(block.root->thread_id));
+            }
             else
-                thread_item->setText(COL_NAME, QString("Thread %1").arg(block.root->thread_id));
+            {
+                threadName = ::std::move(QString("Thread %1").arg(block.root->thread_id));
+            }
+
+            thread_item->setText(COL_NAME, threadName);
 
             if (!block.root->children.empty())
                 duration = blocksTree(block.root->children.back()).node->end() - blocksTree(block.root->children.front()).node->begin();

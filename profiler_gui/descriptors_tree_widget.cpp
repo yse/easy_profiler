@@ -696,6 +696,7 @@ EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
     , m_searchButton(nullptr)
 {
     m_searchBox->setFixedWidth(200);
+    m_searchBox->setContentsMargins(5, 0, 0, 0);
 
     auto tb = new QToolBar();
     auto refreshButton = tb->addAction(QIcon(":/Reload"), tr("Refresh blocks list"));
@@ -703,12 +704,14 @@ EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
     refreshButton->setToolTip(tr("Refresh blocks list.\nConnection needed."));
     connect(refreshButton, &QAction::triggered, &EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::blocksRefreshRequired);
 
-    tb->addSeparator();
-    m_searchButton = tb->addAction(QIcon(":/Search-next"), tr("Find next"), this, SLOT(findNext(bool)));
-    tb->addWidget(m_searchBox);
 
+
+    QMenu* menu = new QMenu(this);
+    m_searchButton = menu->menuAction();
+    m_searchButton->setText("Find next");
+    m_searchButton->setIcon(QIcon(":/Search-next"));
     m_searchButton->setData(true);
-    m_searchButton->setMenu(new QMenu(this));
+    connect(m_searchButton, &QAction::triggered, this, &This::findNext);
 
     auto actionGroup = new QActionGroup(this);
     actionGroup->setExclusive(true);
@@ -717,12 +720,16 @@ EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
     a->setCheckable(true);
     a->setChecked(true);
     connect(a, &QAction::triggered, this, &This::findNextFromMenu);
-    m_searchButton->menu()->addAction(a);
+    menu->addAction(a);
 
     a = new QAction(tr("Find previous"), actionGroup);
     a->setCheckable(true);
     connect(a, &QAction::triggered, this, &This::findPrevFromMenu);
-    m_searchButton->menu()->addAction(a);
+    menu->addAction(a);
+
+    tb->addSeparator();
+    tb->addAction(m_searchButton);
+    tb->addWidget(m_searchBox);
 
     auto searchbox = new QHBoxLayout();
     searchbox->setContentsMargins(0, 0, 0, 0);
