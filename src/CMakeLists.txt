@@ -38,7 +38,23 @@ endif(WIN32)
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 
 if(UNIX)
-set(PLATFORM_LIBS pthread)
+    set(PLATFORM_LIBS pthread)
 endif(UNIX)
 
 target_link_libraries(${PROJECT_NAME} ${PLATFORM_LIBS})
+
+install(TARGETS easy_profiler
+        DESTINATION lib
+        COMPONENT sdk 
+)
+
+install(TARGETS easy_profiler
+        RUNTIME DESTINATION bin
+        COMPONENT sdk 
+)
+
+install(DIRECTORY ${ROOT}/include/easy 
+        DESTINATION include/
+        COMPONENT sdk
+        FILES_MATCHING PATTERN "*.h"
+)

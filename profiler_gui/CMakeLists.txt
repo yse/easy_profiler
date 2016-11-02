@@ -10,6 +10,7 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 find_package(Qt5Widgets REQUIRED)
 find_package(Qt5Network REQUIRED)
+find_package(Qt5Svg REQUIRED)
 
 add_executable(${PROJECT_NAME}
     main.cpp
@@ -47,3 +48,24 @@ if(UNIX)
 endif(UNIX)
 
 target_link_libraries(${PROJECT_NAME} Qt5::Widgets  Qt5::Network easy_profiler ${SPECIAL_LIB})
+
+install(TARGETS ${PROJECT_NAME}
+        DESTINATION bin
+        COMPONENT binaries 
+)
+
+get_target_property(QtCore_location    Qt5::Core    LOCATION)
+get_target_property(QtWidgets_location Qt5::Widgets LOCATION)
+get_target_property(QtNetwork_location Qt5::Network LOCATION)
+get_target_property(QtGui_location     Qt5::Gui     LOCATION)
+get_target_property(QtSvg_location     Qt5::Svg     LOCATION)
+
+install(FILES 
+    ${QtCore_location}
+    ${QtWidgets_location}
+    ${QtNetwork_location}
+    ${QtGui_location}
+    ${QtSvg_location}
+    DESTINATION bin
+    COMPONENT binaries 
+)

@@ -1,6 +1,8 @@
 project(profiling_tool)
 cmake_minimum_required(VERSION 2.8)
 
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
 set(
     ROOT
     ${CMAKE_CURRENT_LIST_DIR}
@@ -35,7 +37,27 @@ else()
     )
 endif(UNIX)
 
+set(CMAKE_INSTALL_PREFIX ${CMAKE_CURRENT_LIST_DIR}/sdk)
+
 add_subdirectory(src)
 add_subdirectory(sample)
 add_subdirectory(reader)
 add_subdirectory(profiler_gui)
+
+install(FILES
+COPYING
+DESTINATION .
+)
+
+set(CPACK_PACKAGE_NAME "easy_profiler")
+set(CPACK_PACKAGE_RELEASE 1)
+set(CPACK_PACKAGE_CONTACT "Easy Profiler Team")
+set(CPACK_PACKAGE_VENDOR "Easy Profiler Team")
+if(UNIX)
+	set(CPACK_GENERATOR "TGZ")
+else()
+	set(CPACK_GENERATOR "ZIP")
+endif(UNIX)
+
+set(CPACK_PACKAGE_VERSION "v1.0.0")
+include(CPack)
