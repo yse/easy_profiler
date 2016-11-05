@@ -21,6 +21,8 @@ duration, target thread id, thread owner process id, thread owner process name.
 
 You can see the results of measuring in simple GUI application which provides full statistics and renders beautiful time-line.
 
+![GUI screenshot](https://lh6.googleusercontent.com/QREJu1XjJVoyGQ3oYjvrwwfEzcHUQkSbcx9vQvo_Zzmpoya5sfIbCroU0dOUl3QXQhcdl98Y=w1521-h697)
+
 # Usage
 
 First of all you can specify path to include directory which contains `include/profiler` directory and define macro `BUILD_WITH_EASY_PROFILER`.
