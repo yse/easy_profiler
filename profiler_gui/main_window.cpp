@@ -84,12 +84,25 @@ const auto NETWORK_CACHE_FILE = "easy_profiler_stream.cache";
 
 //////////////////////////////////////////////////////////////////////////
 
+inline void clear_stream(std::stringstream& _stream)
+{
+#if defined(__GNUC__) && __GNUC__ < 5
+    // gcc 4 has a known bug which has been solved in gcc 5:
+    // std::stringstream has no swap() method :(
+    _stream.str(std::string());
+#else
+    std::stringstream().swap(_stream);
+#endif
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastPort(::profiler::DEFAULT_PORT)
 {
     { QIcon icon(":/logo"); if (!icon.isNull()) QApplication::setWindowIcon(icon); }
 
     setObjectName("ProfilerGUI_MainWindow");
-    setWindowTitle("EasyProfiler Reader beta");
+    setWindowTitle("EasyProfiler");
     setDockNestingEnabled(true);
     resize(800, 600);
     
@@ -940,7 +953,17 @@ void EasyFileReader::load(::std::stringstream& _stream)
 
     m_isFile = false;
     m_filename.clear();
+
+#if defined(__GNUC__) && __GNUC__ < 5
+    // gcc 4 has a known bug which has been solved in gcc 5:
+    // std::stringstream has no swap() method :(
+    // have to copy all contents... Use gcc 5 or higher!
+#pragma message "Warning: in gcc 4 and lower std::stringstream has no swap()! Memory consumption may increase! Better use gcc 5 or higher instead."
+    m_stream.str(_stream.str());
+#else
     m_stream.swap(_stream);
+#endif
+
     m_thread = ::std::move(::std::thread([this](bool _enableStatistics) {
         ::std::ofstream cache_file(NETWORK_CACHE_FILE, ::std::fstream::binary);
         if (cache_file.is_open()) {
@@ -970,8 +993,8 @@ void EasyFileReader::interrupt()
     m_blocksTree.clear();
     m_descriptorsNumberInFile = 0;
 
-    { decltype(m_stream) dummy; dummy.swap(m_stream); }
-    { decltype(m_errorMessage) dummy; dummy.swap(m_errorMessage); }
+    clear_stream(m_stream);
+    clear_stream(m_errorMessage);
 }
 
 void EasyFileReader::get(::profiler::SerializedData& _serializedBlocks, ::profiler::SerializedData& _serializedDescriptors,
@@ -1287,8 +1310,7 @@ uint64_t EasySocketListener::size() const
 
 void EasySocketListener::clearData()
 {
-    decltype(m_receivedData) dummy;
-    dummy.swap(m_receivedData);
+    clear_stream(m_receivedData);
     m_receivedSize = 0;
 }
 
