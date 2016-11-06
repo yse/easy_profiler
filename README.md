@@ -47,19 +47,21 @@ You can specify these blocks also with Google material design colors or just set
 ```cpp
 #include <easy/profiler.h>
 
-void frame() {
+void foo() {
     // some code
     EASY_BLOCK("Calculating sum"); // Block with default color
     int sum = 0;
-    for (int i = 0; i < 10; ++i)
+    for (int i = 0; i < 10; ++i) {
+        EASY_BLOCK("Addition", profiler::colors::Red); // Scoped red block (no EASY_END_BLOCK needed)
         sum += i;
-    EASY_END_BLOCK;
+    }
+    EASY_END_BLOCK; // This ends "Calculating sum" block
 
     EASY_BLOCK("Calculating multiplication", profiler::colors::Blue500); // Blue block
     int mul = 1;
     for (int i = 1; i < 11; ++i)
         mul *= i;
-    EASY_END_BLOCK;
+    //EASY_END_BLOCK; // This is not needed because all blocks are ended on destructor when closing braces met
 }
 ```
 
@@ -68,7 +70,7 @@ Example:
 ```cpp
 #include <easy/profiler.h>
 
-void foo() {
+void bar() {
     EASY_FUNCTION(0xfff080aa); // Function block with custom color
     // some code
 }
