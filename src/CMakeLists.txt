@@ -43,12 +43,8 @@ endif(UNIX)
 
 target_link_libraries(${PROJECT_NAME} ${PLATFORM_LIBS})
 
-install(TARGETS easy_profiler
-        DESTINATION lib
-        COMPONENT sdk 
-)
-
-install(TARGETS easy_profiler
+install(TARGETS ${PROJECT_NAME}
+        LIBRARY DESTINATION lib
         RUNTIME DESTINATION bin
         COMPONENT sdk 
 )
