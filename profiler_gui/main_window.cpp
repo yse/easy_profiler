@@ -179,7 +179,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
     m_connectAction = toolbar->addAction(QIcon(":/Connection"), tr("Connect"), this, SLOT(onConnectClicked(bool)));
 
     auto lbl = new QLabel("IP:", toolbar);
-    lbl->setContentsMargins(5, 0, 1, 0);
+    lbl->setContentsMargins(5, 0, 2, 0);
     toolbar->addWidget(lbl);
     m_ipEdit = new QLineEdit();
     QRegExp rx("^0*(2(5[0-5]|[0-4]\\d)|1?\\d{1,2})(\\.0*(2(5[0-5]|[0-4]\\d)|1?\\d{1,2})){3}$");
@@ -189,7 +189,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
     toolbar->addWidget(m_ipEdit);
 
     lbl = new QLabel("Port:", toolbar);
-    lbl->setContentsMargins(5, 0, 1, 0);
+    lbl->setContentsMargins(5, 0, 2, 0);
     toolbar->addWidget(lbl);
     m_portEdit = new QLineEdit();
     m_portEdit->setValidator(new QIntValidator(1, 65535, m_portEdit));
@@ -327,6 +327,29 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
         connect(action, &QAction::triggered, this, &This::onEncodingChanged);
     }
 
+    auto tb_height = toolbar->height() + 4;
+    toolbar = addToolBar("FrameToolbar");
+    toolbar->setObjectName("ProfilerGUI_FrameToolbar");
+    toolbar->setContentsMargins(1, 0, 1, 0);
+    toolbar->setMinimumHeight(tb_height);
+
+    lbl = new QLabel("Frame time:", toolbar);
+    lbl->setContentsMargins(5, 2, 2, 2);
+    toolbar->addWidget(lbl);
+
+    m_frameTimeEdit = new QLineEdit();
+    m_frameTimeEdit->setFixedWidth(70);
+    auto val = new QDoubleValidator(m_frameTimeEdit);
+    val->setLocale(QLocale::c());
+    val->setBottom(0);
+    m_frameTimeEdit->setValidator(val);
+    m_frameTimeEdit->setText(QString::number(EASY_GLOBALS.frame_time * 1e-3));
+    connect(m_frameTimeEdit, &QLineEdit::editingFinished, this, &This::onFrameTimeEditFinish);
+    toolbar->addWidget(m_frameTimeEdit);
+
+    lbl = new QLabel("ms", toolbar);
+    lbl->setContentsMargins(5, 2, 1, 1);
+    toolbar->addWidget(lbl);
 
 
     connect(graphicsView->view(), &EasyGraphicsView::intervalChanged, treeWidget, &EasyTreeWidget::setTreeBlocks);
@@ -686,6 +709,11 @@ void EasyMainWindow::loadSettings()
         EASY_GLOBALS.chrono_text_position = static_cast<::profiler_gui::ChronometerTextPosition>(val.toInt());
 
 
+    val = settings.value("frame_time");
+    if (!val.isNull())
+        EASY_GLOBALS.frame_time = val.toFloat();
+
+
     auto flag = settings.value("draw_graphics_items_borders");
     if (!flag.isNull())
         EASY_GLOBALS.draw_graphics_items_borders = flag.toBool();
@@ -749,6 +777,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("ip_address", m_lastAddress);
     settings.setValue("port", (quint32)m_lastPort);
     settings.setValue("chrono_text_position", static_cast<int>(EASY_GLOBALS.chrono_text_position));
+    settings.setValue("frame_time", EASY_GLOBALS.frame_time);
     settings.setValue("draw_graphics_items_borders", EASY_GLOBALS.draw_graphics_items_borders);
     settings.setValue("hide_narrow_children", EASY_GLOBALS.hide_narrow_children);
     settings.setValue("collapse_items_on_tree_close", EASY_GLOBALS.collapse_items_on_tree_close);
@@ -1044,6 +1073,21 @@ void EasyMainWindow::onEventTracingEnableChange(bool _checked)
 {
     if (EASY_GLOBALS.connected)
         m_listener.send(profiler::net::BoolMessage(profiler::net::MESSAGE_TYPE_EVENT_TRACING_STATUS, _checked));
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void EasyMainWindow::onFrameTimeEditFinish()
+{
+    auto text = m_frameTimeEdit->text();
+    if (text.contains(QChar(',')))
+    {
+        text.remove(QChar('.')).replace(QChar(','), QChar('.'));
+        m_frameTimeEdit->setText(text);
+    }
+
+    EASY_GLOBALS.frame_time = text.toFloat() * 1e3f;
+    emit EASY_GLOBALS.events.timelineMarkerChanged();
 }
 
 //////////////////////////////////////////////////////////////////////////

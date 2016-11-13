@@ -194,6 +194,7 @@ protected:
 
     class QLineEdit* m_ipEdit = nullptr;
     class QLineEdit* m_portEdit = nullptr;
+    class QLineEdit* m_frameTimeEdit = nullptr;
 
     class QAction* m_saveAction = nullptr;
     class QAction* m_deleteAction = nullptr;
@@ -245,6 +246,7 @@ protected slots:
     void onConnectClicked(bool);
     void onEventTracingPriorityChange(bool _checked);
     void onEventTracingEnableChange(bool _checked);
+    void onFrameTimeEditFinish();
 
     void onBlockStatusChange(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status);
 

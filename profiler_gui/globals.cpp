@@ -61,6 +61,7 @@ namespace profiler_gui {
         : selected_thread(0U)
         , selected_block(::profiler_gui::numeric_max<decltype(selected_block)>())
         , chrono_text_position(ChronoTextPosition_Center)
+        , frame_time(4e4f)
         , connected(false)
         , enable_event_indicators(true)
         , enable_statistics(true)

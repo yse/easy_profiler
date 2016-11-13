@@ -63,6 +63,7 @@ namespace profiler_gui {
 
     const QColor CHRONOMETER_COLOR = QColor::fromRgba(0x40000000 | (::profiler::colors::RichBlue & 0x00ffffff));// 0x402020c0);
     const QColor CHRONOMETER_COLOR2 = QColor::fromRgba(0x40000000 | (::profiler::colors::Dark & 0x00ffffff));// 0x40408040);
+    const QRgb TIMELINE_MARKER_COLOR = ::profiler::colors::Purple;
     const QRgb SELECTED_THREAD_BACKGROUND = 0x00e0e060;
     const QRgb SELECTED_THREAD_FOREGROUND = 0x00ffffff - SELECTED_THREAD_BACKGROUND;
 
@@ -111,6 +112,7 @@ namespace profiler_gui {
         ::profiler::thread_id_t          selected_thread; ///< Current selected thread id
         ::profiler::block_index_t         selected_block; ///< Current selected profiler block index
         ChronometerTextPosition     chrono_text_position; ///< Selected interval text position
+        float                                 frame_time; ///< Value in microseconds to be displayed at minimap on graphics scrollbar
         bool                                   connected; ///< Is connected to source (to be able to capture profiling information)
         bool                     enable_event_indicators; ///< Enable event indicators painting (These are narrow rectangles at the bottom of each thread)
         bool                           enable_statistics; ///< Enable gathering and using statistics (Disable if you want to consume less memory)

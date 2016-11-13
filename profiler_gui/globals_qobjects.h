@@ -53,6 +53,7 @@ namespace profiler_gui {
         void blockStatusChanged(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status);
         void connectionChanged(bool _connected);
         void blocksRefreshRequired(bool);
+        void timelineMarkerChanged();
 
     }; // END of class EasyGlobalSignals.
 

@@ -219,15 +219,24 @@ void EasyMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* 
     //_painter->setBrush(brush);
     _painter->setTransform(QTransform::fromScale(1.0 / currentScale, 1), true);
 
+    qreal frameCoeff = 1;
+    if (EASY_GLOBALS.frame_time > 1e-6f)
+    {
+        if (EASY_GLOBALS.frame_time <= m_minDuration)
+            frameCoeff = 0;
+        else
+            frameCoeff = (m_maxDuration - m_minDuration) / (EASY_GLOBALS.frame_time - m_minDuration);
+    }
+
     auto& items = *m_pSource;
     for (const auto& item : items)
     {
         // Draw rectangle
 
         const auto h = ::std::max((item.width() - m_minDuration) * coeff, 5.0);
-        const auto col = ::std::min(h * heightRevert, 0.9999999);
+        const auto col = ::std::min(h * heightRevert * frameCoeff, 0.9999999);
         //const auto color = ::profiler_gui::toRgb(col * 255, (1.0 - col) * 255, 0); // item.color;
-        const auto color = 0x00ffffff & QColor::fromHsvF((1.0 - col) * 0.35, 0.85, 0.85).rgb();
+        const auto color = 0x00ffffff & QColor::fromHsvF((1.0 - col) * 0.375, 0.85, 0.85).rgb();
 
         if (previousColor != color)
         {
@@ -242,8 +251,19 @@ void EasyMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* 
     }
 
     _painter->setPen(Qt::darkGray);
-    _painter->drawLine(0, bottom, m_boundingRect.width(), bottom);
-    _painter->drawLine(0, m_boundingRect.top(), m_boundingRect.width(), m_boundingRect.top());
+    _painter->drawLine(QLineF(0, bottom, m_boundingRect.width(), bottom));
+    _painter->drawLine(QLineF(0, m_boundingRect.top(), m_boundingRect.width(), m_boundingRect.top()));
+
+    if (m_minDuration < EASY_GLOBALS.frame_time && EASY_GLOBALS.frame_time < m_maxDuration)
+    {
+        // Draw marker displaying required frame_time step
+        QPen p(Qt::DashLine);
+        p.setColor(::profiler_gui::TIMELINE_MARKER_COLOR);
+        _painter->setPen(p);
+
+        const auto h = bottom - (EASY_GLOBALS.frame_time - m_minDuration) * coeff;
+        _painter->drawLine(QLineF(0, h, m_boundingRect.width(), h));
+    }
 
     _painter->restore();
 }
@@ -352,6 +372,8 @@ EasyGraphicsScrollbar::EasyGraphicsScrollbar(QWidget* _parent)
     m_slider->setColor(0x40c0c0c0);
     selfScene->addItem(m_slider);
     m_slider->hide();
+
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::timelineMarkerChanged, [this](){ scene()->update(); });
 
     centerOn(0, 0);
 }
