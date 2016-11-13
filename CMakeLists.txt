@@ -45,7 +45,8 @@ add_subdirectory(reader)
 add_subdirectory(profiler_gui)
 
 install(FILES
-COPYING
+LICENSE.APACHE
+LICENSE.GPL3
 DESTINATION .
 )
 

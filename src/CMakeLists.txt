@@ -44,8 +44,7 @@ endif(UNIX)
 target_link_libraries(${PROJECT_NAME} ${PLATFORM_LIBS})
 
 install(TARGETS ${PROJECT_NAME}
-        LIBRARY DESTINATION lib
-        RUNTIME DESTINATION bin
+        DESTINATION bin
         COMPONENT sdk 
 )
 
