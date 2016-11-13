@@ -1352,7 +1352,7 @@ bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profile
             return isConnected;
         }
 
-        int seek = bytes;
+        size_t seek = bytes;
         while (seek < sizeof(profiler::net::EasyProfilerStatus))
         {
             bytes = m_easySocket.receive(buffer + seek, buffer_size - seek);

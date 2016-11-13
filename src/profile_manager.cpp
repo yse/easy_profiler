@@ -982,7 +982,9 @@ void ProfileManager::listen()
 
                     case profiler::net::MESSAGE_TYPE_EVENT_TRACING_PRIORITY:
                     {
+#if defined(_WIN32) || defined(EASY_DEBUG_NET_PRINT)
                         auto data = reinterpret_cast<const profiler::net::BoolMessage*>(message);
+#endif
 
 #ifdef EASY_DEBUG_NET_PRINT
                         printf("receive EVENT_TRACING_PRIORITY low=%d\n", data->flag ? 1 : 0);

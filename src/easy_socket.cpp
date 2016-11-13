@@ -42,6 +42,7 @@ int EasySocket::_close(EasySocket::socket_t s)
 #else
     //TODO
     //return close(s);
+    return 0;
 #endif
 }
 
