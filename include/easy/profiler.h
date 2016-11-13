@@ -41,8 +41,8 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #endif
 
 namespace profiler {
-    const uint8_t EASY_VERSION_MAJOR = 0;
-    const uint8_t EASY_VERSION_MINOR = 1;
+    const uint8_t EASY_VERSION_MAJOR = 1;
+    const uint8_t EASY_VERSION_MINOR = 0;
     const uint16_t  EASY_VERSION_REV = 0;
     const uint32_t EASY_FULL_VERSION = ((uint32_t)EASY_VERSION_MAJOR << 24) | ((uint32_t)EASY_VERSION_MINOR << 16) | (uint32_t)EASY_VERSION_REV;
 }

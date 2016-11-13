@@ -70,7 +70,8 @@
 #define EASY_FULL_VER(Major, Minor, Rev) (((uint32_t)(Major) << 24) | ((uint32_t)(Minor) << 16) | (uint32_t)(Rev))
 
 const uint32_t COMPATIBLE_VERSIONS[] = {
-    ::profiler::EASY_FULL_VERSION
+    ::profiler::EASY_FULL_VERSION,
+    EASY_FULL_VER(0, 1, 0)
 };
 const uint16_t COMPATIBLE_VERSIONS_NUM = sizeof(COMPATIBLE_VERSIONS) / sizeof(uint32_t);
 
