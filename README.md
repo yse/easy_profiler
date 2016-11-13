@@ -14,7 +14,7 @@ For example, information for 12 millions of blocks is using less than 300Mb of m
 Working profiler slows your application execution for only 1-2%.
 
 Disabled profiler will not affect your application execution in any way. You can leave it in your Release build
-and enable it in run-time at any moment during application launch to see what is happening at the moment.
+and enable it at run-time at any moment during application launch to see what is happening at the moment.
 
 Also the library can capture system's context switch events between threads. Context switch information includes
 duration, target thread id, thread owner process id, thread owner process name.
@@ -82,10 +82,10 @@ void bar() {
 
 For core:
 * compiler with c++11 support
-* cmake 3.0 or later
+* cmake 3.0 or higher
 
 For GUI:
-* Qt 5.3.0 or later
+* Qt 5.3.0 or higher
 
 ## Linux
 
@@ -100,6 +100,7 @@ $ make
 
 If you are using QtCreator IDE you can just open `CMakeLists.txt` file in root directory.
 If you are using Visual Studio you can generate solution by cmake generator command.
+Examples shows how to generate Win64 solution for Visual Studio 2013. To generate for another version use proper cmake generator (-G "name of generator").
 
 ### Way 1
 Specify path to cmake scripts in Qt5 dir (usually in lib/cmake subdir) and execute cmake generator command,
