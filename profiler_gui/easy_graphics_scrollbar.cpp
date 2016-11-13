@@ -60,10 +60,15 @@ const int INDICATOR_SIZE = 8;
 
 //////////////////////////////////////////////////////////////////////////
 
-auto const clamp = [](qreal _minValue, qreal _value, qreal _maxValue)
+inline qreal clamp(qreal _minValue, qreal _value, qreal _maxValue)
 {
     return (_value < _minValue ? _minValue : (_value > _maxValue ? _maxValue : _value));
-};
+}
+
+inline qreal sqr(qreal _value)
+{
+    return _value * _value;
+}
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -225,17 +230,18 @@ void EasyMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* 
         if (EASY_GLOBALS.frame_time <= m_minDuration)
             frameCoeff = 0;
         else
-            frameCoeff = (m_maxDuration - m_minDuration) / (EASY_GLOBALS.frame_time - m_minDuration);
+            frameCoeff = 0.9 * (m_maxDuration - m_minDuration) / (EASY_GLOBALS.frame_time - m_minDuration);
     }
+
+    const auto k = sqr(sqr(heightRevert * frameCoeff));
 
     auto& items = *m_pSource;
     for (const auto& item : items)
     {
         // Draw rectangle
 
-        const auto h = ::std::max((item.width() - m_minDuration) * coeff, 5.0);
-        const auto col = ::std::min(h * heightRevert * frameCoeff, 0.9999999);
-        //const auto color = ::profiler_gui::toRgb(col * 255, (1.0 - col) * 255, 0); // item.color;
+        const auto h = ::std::max((item.width() - m_minDuration) * coeff, 2.0);
+        const auto col = ::std::min(sqr(sqr(h)) * k, 0.9999999);
         const auto color = 0x00ffffff & QColor::fromHsvF((1.0 - col) * 0.375, 0.85, 0.85).rgb();
 
         if (previousColor != color)
