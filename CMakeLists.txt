@@ -54,9 +54,37 @@ set(CPACK_PACKAGE_NAME "easy_profiler")
 set(CPACK_PACKAGE_RELEASE 1)
 set(CPACK_PACKAGE_CONTACT "Easy Profiler Team")
 set(CPACK_PACKAGE_VENDOR "Easy Profiler Team")
+
+if(${CMAKE_SIZEOF_VOID_P} EQUAL 8)
+        set(PLATFORM_SUFFIX x64) 
+else()
+        set(PLATFORM_SUFFIX x86) 
+endif(${CMAKE_SIZEOF_VOID_P} EQUAL 8)
+
 if(UNIX)
+                                                                                                                                                                                
+    execute_process( COMMAND ldd --version                                                                                                                                               
+            OUTPUT_VARIABLE LDD_OUT )                                                                                                                                                    
+                                                                                                                                                                                            
+    if(LDD_OUT)                                                                                                                                                                          
+        string( REGEX MATCH "^ldd.*[0-9][.][0-9][0-9]?" LDD_VERSION_STRING ${LDD_OUT} )
+    endif(LDD_OUT)
+
+    if( LDD_VERSION_STRING )
+            string( REGEX MATCH "[0-9][.][0-9][0-9]?" LIBC_VERSION ${LDD_VERSION_STRING} )
+    endif( LDD_VERSION_STRING )
+
+    
+    if(LIBC_VERSION)
+        set(CPACK_SYSTEM_NAME "linux_${PLATFORM_SUFFIX}-libc_${LIBC_VERSION}")
+    endif(LIBC_VERSION)
+
+
 	set(CPACK_GENERATOR "TGZ")
 else()
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP "TRUE")
+    include(InstallRequiredSystemLibraries)
+
 	set(CPACK_GENERATOR "ZIP")
 endif(UNIX)
 
