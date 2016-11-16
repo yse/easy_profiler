@@ -1,13 +1,5 @@
 project(easy_profiler)
 
-# EasyProfiler version
-add_definitions(
-    -DEASY_VERSION_MAJOR=1
-    -DEASY_VERSION_MINOR=0
-    -DEASY_VERSION_REV=0
-)
-# EasyProfiler version
-
 set(CPP_FILES
     block.cpp
     profile_manager.cpp
@@ -42,22 +34,10 @@ add_definitions(
 )
 endif(WIN32)
 
-
-add_library(${PROJECT_NAME} SHARED ${SOURCES})
+add_library(${PROJECT_NAME} SHARED ${SOURCES} resources.rc)
 
 if(UNIX)
     set(PLATFORM_LIBS pthread)
 endif(UNIX)
 
 target_link_libraries(${PROJECT_NAME} ${PLATFORM_LIBS})
-
-install(TARGETS ${PROJECT_NAME}
-        DESTINATION bin
-        COMPONENT sdk 
-)
-
-install(DIRECTORY ${ROOT}/include/easy 
-        DESTINATION include/
-        COMPONENT sdk
-        FILES_MATCHING PATTERN "*.h"
-)

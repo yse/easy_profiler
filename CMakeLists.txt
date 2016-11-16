@@ -8,6 +8,27 @@ set(
     ${CMAKE_CURRENT_LIST_DIR}
 )
 
+
+file (STRINGS ${ROOT}/version.info PRODUCT_VERSION_STRING)
+string(REPLACE "." ";" VERSION_LIST ${PRODUCT_VERSION_STRING})
+
+list(GET VERSION_LIST 0 PROGRAM_VERSION_MAJOR)
+list(GET VERSION_LIST 1 PROGRAM_VERSION_MINOR)
+list(GET VERSION_LIST 2 PROGRAM_VERSION_PATCH)
+
+message(STATUS "PROGRAM_VERSION_MAJOR: ${PROGRAM_VERSION_MAJOR}")
+message(STATUS "PROGRAM_VERSION_MINOR: ${PROGRAM_VERSION_MINOR}")
+message(STATUS "PROGRAM_VERSION_PATCH: ${PROGRAM_VERSION_PATCH}")
+
+# EasyProfiler version
+add_definitions(
+    -DEASY_VERSION_MAJOR=${PROGRAM_VERSION_MAJOR}
+    -DEASY_VERSION_MINOR=${PROGRAM_VERSION_MINOR}
+    -DEASY_VERSION_REV=${PROGRAM_VERSION_PATCH}
+    -DPRODUCT_VERSION=\"v${PRODUCT_VERSION_STRING}\"
+)
+# EasyProfiler version
+
 set(OUTPUT_DIR
     ${ROOT}/bin
 )
@@ -43,50 +64,3 @@ add_subdirectory(src)
 add_subdirectory(sample)
 add_subdirectory(reader)
 add_subdirectory(profiler_gui)
-
-install(FILES
-LICENSE.APACHE
-LICENSE.GPL3
-DESTINATION .
-)
-
-set(CPACK_PACKAGE_NAME "easy_profiler")
-set(CPACK_PACKAGE_RELEASE 1)
-set(CPACK_PACKAGE_CONTACT "Easy Profiler Team")
-set(CPACK_PACKAGE_VENDOR "Easy Profiler Team")
-
-if(${CMAKE_SIZEOF_VOID_P} EQUAL 8)
-        set(PLATFORM_SUFFIX x64) 
-else()
-        set(PLATFORM_SUFFIX x86) 
-endif(${CMAKE_SIZEOF_VOID_P} EQUAL 8)
-
-if(UNIX)
-                                                                                                                                                                                
-    execute_process( COMMAND ldd --version                                                                                                                                               
-            OUTPUT_VARIABLE LDD_OUT )                                                                                                                                                    
-                                                                                                                                                                                            
-    if(LDD_OUT)                                                                                                                                                                          
-        string( REGEX MATCH "^ldd.*[0-9][.][0-9][0-9]?" LDD_VERSION_STRING ${LDD_OUT} )
-    endif(LDD_OUT)
-
-    if( LDD_VERSION_STRING )
-            string( REGEX MATCH "[0-9][.][0-9][0-9]?" LIBC_VERSION ${LDD_VERSION_STRING} )
-    endif( LDD_VERSION_STRING )
-
-    
-    if(LIBC_VERSION)
-        set(CPACK_SYSTEM_NAME "linux_${PLATFORM_SUFFIX}-libc_${LIBC_VERSION}")
-    endif(LIBC_VERSION)
-
-
-	set(CPACK_GENERATOR "TGZ")
-else()
-    set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP "TRUE")
-    include(InstallRequiredSystemLibraries)
-
-	set(CPACK_GENERATOR "ZIP")
-endif(UNIX)
-
-set(CPACK_PACKAGE_VERSION "v1.0.0")
-include(CPack)
