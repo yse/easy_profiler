@@ -70,6 +70,16 @@ inline qreal sqr(qreal _value)
     return _value * _value;
 }
 
+inline qreal calculate_color1(qreal h, qreal k)
+{
+    return ::std::min(h * k, 0.9999999);
+}
+
+inline qreal calculate_color2(qreal h, qreal k)
+{
+    return ::std::min(sqr(sqr(h)) * k, 0.9999999);
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 EasyGraphicsSliderItem::EasyGraphicsSliderItem(bool _main) : Parent(), m_halfwidth(0), m_bMain(_main)
@@ -224,8 +234,9 @@ void EasyMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* 
     //_painter->setBrush(brush);
     _painter->setTransform(QTransform::fromScale(1.0 / currentScale, 1), true);
 
+    const bool gotFrame = EASY_GLOBALS.frame_time > 1e-6f;
     qreal frameCoeff = 1;
-    if (EASY_GLOBALS.frame_time > 1e-6f)
+    if (gotFrame)
     {
         if (EASY_GLOBALS.frame_time <= m_minDuration)
             frameCoeff = 0;
@@ -233,7 +244,8 @@ void EasyMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* 
             frameCoeff = 0.9 * (m_maxDuration - m_minDuration) / (EASY_GLOBALS.frame_time - m_minDuration);
     }
 
-    const auto k = sqr(sqr(heightRevert * frameCoeff));
+    auto const calculate_color = gotFrame ? calculate_color2 : calculate_color1;
+    auto const k = gotFrame ? sqr(sqr(heightRevert * frameCoeff)) : heightRevert;
 
     auto& items = *m_pSource;
     for (const auto& item : items)
@@ -241,7 +253,7 @@ void EasyMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* 
         // Draw rectangle
 
         const auto h = ::std::max((item.width() - m_minDuration) * coeff, 2.0);
-        const auto col = ::std::min(sqr(sqr(h)) * k, 0.9999999);
+        const auto col = calculate_color(h, k);
         const auto color = 0x00ffffff & QColor::fromHsvF((1.0 - col) * 0.375, 0.85, 0.85).rgb();
 
         if (previousColor != color)

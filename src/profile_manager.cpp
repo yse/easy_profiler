@@ -52,7 +52,24 @@
 
 using namespace profiler;
 
+#if !defined(EASY_VERSION_MAJOR) || !defined(EASY_VERSION_MINOR) || !defined(EASY_VERSION_REV)
+# ifdef _WIN32
+#  error EASY_VERSION_MAJOR and EASY_VERSION_MINOR and EASY_VERSION_REV macros must be defined
+# else
+#  error "EASY_VERSION_MAJOR and EASY_VERSION_MINOR and EASY_VERSION_REV macros must be defined"
+# endif
+#endif
+
 const uint32_t PROFILER_SIGNATURE = ('E' << 24) | ('a' << 16) | ('s' << 8) | 'y';
+const uint32_t EASY_CURRENT_VERSION = EASY_VERSION_INT(EASY_VERSION_MAJOR, EASY_VERSION_MINOR, EASY_VERSION_REV);
+const std::string EASY_VERSION_NAME = ([](){
+    std::ostringstream s;
+    s << EASY_VERSION_MAJOR << '.' << EASY_VERSION_MINOR << '.' << EASY_VERSION_REV;
+    //char strbuffer[32] = {};
+    //sprintf(strbuffer, "%u.%u.%u", EASY_VERSION_MAJOR, EASY_VERSION_MINOR, EASY_VERSION_REV);
+    return s.str();
+})();
+
 const uint8_t FORCE_ON_FLAG = profiler::FORCE_ON & ~profiler::ON;
 
 //auto& MANAGER = ProfileManager::instance();
@@ -149,6 +166,34 @@ extern "C" {
     PROFILER_API void   stopListenSignalToCapture()
     {
         return MANAGER.stopListenSignalToCapture();
+    }
+
+    PROFILER_API uint8_t versionMajor()
+    {
+        static_assert(EASY_VERSION_MAJOR >= 0 && EASY_VERSION_MAJOR < 256, "EASY_VERSION_MAJOR must be defined in range [0, 255]");
+        return EASY_VERSION_MAJOR;
+    }
+
+    PROFILER_API uint8_t versionMinor()
+    {
+        static_assert(EASY_VERSION_MINOR >= 0 && EASY_VERSION_MINOR < 256, "EASY_VERSION_MINOR must be defined in range [0, 255]");
+        return EASY_VERSION_MINOR;
+    }
+
+    PROFILER_API uint16_t versionRev()
+    {
+        static_assert(EASY_VERSION_REV >= 0 && EASY_VERSION_REV < 65536, "EASY_VERSION_REV must be defined in range [0, 65535]");
+        return EASY_VERSION_REV;
+    }
+
+    PROFILER_API uint32_t version()
+    {
+        return EASY_CURRENT_VERSION;
+    }
+
+    PROFILER_API const char* versionName()
+    {
+        return EASY_VERSION_NAME.c_str();
     }
 
 }
@@ -630,7 +675,7 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
 
     // Write profiler signature and version
     _outputStream.write(PROFILER_SIGNATURE);
-    _outputStream.write(profiler::EASY_FULL_VERSION);
+    _outputStream.write(EASY_CURRENT_VERSION);
 
     // Write CPU frequency to let GUI calculate real time value from CPU clocks
 #ifdef _WIN32
@@ -927,7 +972,7 @@ void ProfileManager::listen()
 
                         // Write profiler signature and version
                         os.write(PROFILER_SIGNATURE);
-                        os.write(profiler::EASY_FULL_VERSION);
+                        os.write(EASY_CURRENT_VERSION);
 
                         // Write block descriptors
                         m_storedSpin.lock();

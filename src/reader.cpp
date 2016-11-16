@@ -67,15 +67,12 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-#define EASY_FULL_VER(Major, Minor, Rev) (((uint32_t)(Major) << 24) | ((uint32_t)(Minor) << 16) | (uint32_t)(Rev))
-
+const uint32_t EASY_CURRENT_VERSION = EASY_VERSION_INT(EASY_VERSION_MAJOR, EASY_VERSION_MINOR, EASY_VERSION_REV);
 const uint32_t COMPATIBLE_VERSIONS[] = {
-    ::profiler::EASY_FULL_VERSION,
-    EASY_FULL_VER(0, 1, 0)
+    EASY_CURRENT_VERSION,
+    EASY_VERSION_INT(0, 1, 0)
 };
 const uint16_t COMPATIBLE_VERSIONS_NUM = sizeof(COMPATIBLE_VERSIONS) / sizeof(uint32_t);
-
-#undef EASY_FULL_VER
 
 const int64_t TIME_FACTOR = 1000000000LL;
 const uint32_t PROFILER_SIGNATURE = ('E' << 24) | ('a' << 16) | ('s' << 8) | 'y';
@@ -84,7 +81,7 @@ const uint32_t PROFILER_SIGNATURE = ('E' << 24) | ('a' << 16) | ('s' << 8) | 'y'
 
 bool isCompatibleVersion(uint32_t _version)
 {
-    if (_version == ::profiler::EASY_FULL_VERSION)
+    if (_version == EASY_CURRENT_VERSION)
         return true;
     return COMPATIBLE_VERSIONS_NUM > 1 && ::std::binary_search(COMPATIBLE_VERSIONS + 1, COMPATIBLE_VERSIONS + COMPATIBLE_VERSIONS_NUM, _version);
 }

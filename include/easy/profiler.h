@@ -40,13 +40,6 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 # pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
 #endif
 
-namespace profiler {
-    const uint8_t EASY_VERSION_MAJOR = 1;
-    const uint8_t EASY_VERSION_MINOR = 0;
-    const uint16_t  EASY_VERSION_REV = 0;
-    const uint32_t EASY_FULL_VERSION = ((uint32_t)EASY_VERSION_MAJOR << 24) | ((uint32_t)EASY_VERSION_MINOR << 16) | (uint32_t)EASY_VERSION_REV;
-}
-
 #ifdef BUILD_WITH_EASY_PROFILER
 
 /**
@@ -541,6 +534,36 @@ namespace profiler {
 
         PROFILER_API void startListenSignalToCapture();
         PROFILER_API void stopListenSignalToCapture();
+
+        /** Returns current major version.
+        
+        \ingroup profiler
+        */
+        PROFILER_API uint8_t versionMajor();
+
+        /** Returns current minor version.
+
+        \ingroup profiler
+        */
+        PROFILER_API uint8_t versionMinor();
+
+        /** Returns current version revision.
+
+        \ingroup profiler
+        */
+        PROFILER_API uint16_t versionRev();
+
+        /** Returns current version in 32-bit integer format.
+
+        \ingroup profiler
+        */
+        PROFILER_API uint32_t version();
+
+        /** Returns current version in 32-bit integer format.
+
+        \ingroup profiler
+        */
+        PROFILER_API const char* versionName();
 
     }
 

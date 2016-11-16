@@ -1,5 +1,13 @@
 project(easy_profiler)
 
+# EasyProfiler version
+add_definitions(
+    -DEASY_VERSION_MAJOR=1
+    -DEASY_VERSION_MINOR=0
+    -DEASY_VERSION_REV=0
+)
+# EasyProfiler version
+
 set(CPP_FILES
     block.cpp
     profile_manager.cpp

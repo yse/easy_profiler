@@ -61,6 +61,7 @@ namespace profiler {
 #include <type_traits>
 #include <string>
 
+# define EASY_VERSION_INT(v_major, v_minor, v_rev) ((static_cast<uint32_t>(v_major) << 24) | (static_cast<uint32_t>(v_minor) << 16) | static_cast<uint32_t>(v_rev))
 # define EASY_STRINGIFY(a) #a
 # define EASY_STRINGIFICATION(a) EASY_STRINGIFY(a)
 # define EASY_TOKEN_JOIN(x, y) x ## y
