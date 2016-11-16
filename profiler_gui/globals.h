@@ -63,7 +63,6 @@ namespace profiler_gui {
 
     const QColor CHRONOMETER_COLOR = QColor::fromRgba(0x40000000 | (::profiler::colors::RichBlue & 0x00ffffff));// 0x402020c0);
     const QColor CHRONOMETER_COLOR2 = QColor::fromRgba(0x40000000 | (::profiler::colors::Dark & 0x00ffffff));// 0x40408040);
-    const QRgb TIMELINE_MARKER_COLOR = ::profiler::colors::Purple;
     const QRgb SELECTED_THREAD_BACKGROUND = 0x00e0e060;
     const QRgb SELECTED_THREAD_FOREGROUND = 0x00ffffff - SELECTED_THREAD_BACKGROUND;
 

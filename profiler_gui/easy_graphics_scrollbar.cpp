@@ -286,11 +286,8 @@ void EasyMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* 
     if (m_minDuration < EASY_GLOBALS.frame_time && EASY_GLOBALS.frame_time < m_maxDuration)
     {
         // Draw marker displaying required frame_time step
-        QPen p(Qt::DashLine);
-        p.setColor(::profiler_gui::TIMELINE_MARKER_COLOR);
-        _painter->setPen(p);
-
         const auto h = bottom - (EASY_GLOBALS.frame_time - m_minDuration) * coeff;
+        _painter->setPen(Qt::DashLine);
         _painter->drawLine(QLineF(0, h, m_boundingRect.width(), h));
     }
 
