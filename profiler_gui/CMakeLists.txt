@@ -47,4 +47,4 @@ if(UNIX)
     set(SPECIAL_LIB pthread)
 endif(UNIX)
 
-target_link_libraries(${PROJECT_NAME} Qt5::Widgets  Qt5::Network easy_profiler ${SPECIAL_LIB})
+target_link_libraries(${PROJECT_NAME} Qt5::Widgets  easy_profiler ${SPECIAL_LIB})
