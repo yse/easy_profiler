@@ -247,12 +247,20 @@ void EasyMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* 
     auto const calculate_color = gotFrame ? calculate_color2 : calculate_color1;
     auto const k = gotFrame ? sqr(sqr(heightRevert * frameCoeff)) : heightRevert;
 
+    qreal previous_x = -1e30, previous_h = -1e30;
     auto& items = *m_pSource;
     for (const auto& item : items)
     {
         // Draw rectangle
 
+        qreal item_x = item.left() * currentScale;
+        qreal item_w = ::std::max(item.width() * currentScale, 1.0);
+        qreal item_r = item_x + item_w;
         const auto h = ::std::max((item.width() - m_minDuration) * coeff, 2.0);
+
+        if (h < previous_h && item_r < previous_x)
+            continue;
+
         const auto col = calculate_color(h, k);
         const auto color = 0x00ffffff & QColor::fromHsvF((1.0 - col) * 0.375, 0.85, 0.85).rgb();
 
@@ -264,8 +272,11 @@ void EasyMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* 
             _painter->setBrush(brush);
         }
 
-        rect.setRect(item.left() * currentScale, bottom - h, ::std::max(item.width() * currentScale, 1.0), h);
+        rect.setRect(item_x, bottom - h, item_w, h);
         _painter->drawRect(rect);
+
+        previous_x = item_r;
+        previous_h = h;
     }
 
     _painter->setPen(Qt::darkGray);
