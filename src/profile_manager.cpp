@@ -65,8 +65,6 @@ const uint32_t EASY_CURRENT_VERSION = EASY_VERSION_INT(EASY_VERSION_MAJOR, EASY_
 const std::string EASY_VERSION_NAME = ([](){
     std::ostringstream s;
     s << EASY_VERSION_MAJOR << '.' << EASY_VERSION_MINOR << '.' << EASY_VERSION_REV;
-    //char strbuffer[32] = {};
-    //sprintf(strbuffer, "%u.%u.%u", EASY_VERSION_MAJOR, EASY_VERSION_MINOR, EASY_VERSION_REV);
     return s.str();
 })();
 
