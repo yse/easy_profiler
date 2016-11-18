@@ -124,6 +124,7 @@ void EasySocket::checkResult(int result)
         const int CONNECTION_RESET = ECONNRESET;
         const int CONNECTION_IN_PROGRESS = EINPROGRESS;
         const int CONNECTION_BROKEN_PIPE = EPIPE;
+        const int CONNECTION_ENOENT = ENOENT;
 #endif
 
         switch(error_code)
@@ -131,6 +132,9 @@ void EasySocket::checkResult(int result)
         case CONNECTION_ABORTED:
         case CONNECTION_RESET:
         case CONNECTION_BROKEN_PIPE:
+#ifndef _WIN32
+        case CONNECTION_ENOENT:
+#endif
             m_state = CONNECTION_STATE_DISCONNECTED;
             break;
         case CONNECTION_IN_PROGRESS:
