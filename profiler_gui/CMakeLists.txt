@@ -9,8 +9,6 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 find_package(Qt5Widgets REQUIRED)
-find_package(Qt5Network REQUIRED)
-find_package(Qt5Svg REQUIRED)
 
 add_executable(${PROJECT_NAME}
     main.cpp
