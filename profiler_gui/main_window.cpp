@@ -790,6 +790,20 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.endGroup();
 }
 
+void EasyMainWindow::setDisconnected()
+{
+    QMessageBox::warning(this, "Warning", "Application was disconnected", QMessageBox::Close);
+    EASY_GLOBALS.connected = false;
+    m_captureAction->setEnabled(false);
+    SET_ICON(m_connectAction, ":/Connection");
+
+    m_eventTracingEnableAction->setEnabled(false);
+    m_eventTracingPriorityAction->setEnabled(false);
+
+    emit EASY_GLOBALS.events.connectionChanged(false);
+
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 void EasyMainWindow::onListenerTimerTimeout()
@@ -837,17 +851,10 @@ void EasyMainWindow::onListenerDialogClose(int)
 
     if (!m_listener.connected())
     {
-        QMessageBox::warning(this, "Warning", "Application was disconnected", QMessageBox::Close);
-        EASY_GLOBALS.connected = false;
-        m_captureAction->setEnabled(false);
-        SET_ICON(m_connectAction, ":/Connection");
-
-        m_eventTracingEnableAction->setEnabled(false);
-        m_eventTracingPriorityAction->setEnabled(false);
-
-        emit EASY_GLOBALS.events.connectionChanged(false);
+        setDisconnected();
     }
 }
+
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -1311,15 +1318,7 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
 
     if (!m_listener.connected())
     {
-        QMessageBox::warning(this, "Warning", "Application was disconnected", QMessageBox::Close);
-        EASY_GLOBALS.connected = false;
-        m_captureAction->setEnabled(false);
-        SET_ICON(m_connectAction, ":/Connection");
-
-        m_eventTracingEnableAction->setEnabled(false);
-        m_eventTracingPriorityAction->setEnabled(false);
-
-        emit EASY_GLOBALS.events.connectionChanged(false);
+        setDisconnected();
     }
 }
 
@@ -1395,7 +1394,7 @@ bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profile
 
             if (bytes == -1)
             {
-                if (m_easySocket.state() == EasySocket::CONNECTION_STATE_DISCONNECTED)
+                if (m_easySocket.isDisconnected())
                     return false;
                 bytes = 0;
                 continue;
@@ -1417,7 +1416,7 @@ bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profile
 
             if (bytes == -1)
             {
-                if (m_easySocket.state() == EasySocket::CONNECTION_STATE_DISCONNECTED)
+                if (m_easySocket.isDisconnected())
                     return false;
                 break;
             }
@@ -1441,6 +1440,10 @@ void EasySocketListener::startCapture()
     profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE);
     m_easySocket.send(&request, sizeof(request));
 
+    if(m_easySocket.isDisconnected() ){
+        m_bConnected.store(false, ::std::memory_order_release);
+    }
+
     m_regime = LISTENER_CAPTURE;
     m_thread = ::std::move(::std::thread(&EasySocketListener::listenCapture, this));
 }
@@ -1453,6 +1456,10 @@ void EasySocketListener::stopCapture()
     profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE);
     m_easySocket.send(&request, sizeof(request));
 
+    if(m_easySocket.isDisconnected() ){
+        m_bConnected.store(false, ::std::memory_order_release);
+    }
+
     m_thread.join();
 
     m_regime = LISTENER_IDLE;
@@ -1464,6 +1471,10 @@ void EasySocketListener::requestBlocksDescription()
 
     profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_BLOCKS_DESCRIPTION);
     m_easySocket.send(&request, sizeof(request));
+
+    if(m_easySocket.isDisconnected()  ){
+        m_bConnected.store(false, ::std::memory_order_release);
+    }
 
     m_regime = LISTENER_DESCRIBE;
     listenDescription();
@@ -1490,7 +1501,7 @@ void EasySocketListener::listenCapture()
 
             if (bytes == -1)
             {
-                if (m_easySocket.state() == EasySocket::CONNECTION_STATE_DISCONNECTED)
+                if (m_easySocket.isDisconnected())
                 {
                     m_bConnected.store(false, ::std::memory_order_release);
                     isListen = false;
@@ -1587,7 +1598,7 @@ void EasySocketListener::listenCapture()
 
                         if (bytes == -1)
                         {
-                            if (m_easySocket.state() == EasySocket::CONNECTION_STATE_DISCONNECTED)
+                            if (m_easySocket.isDisconnected())
                             {
                                 m_bConnected.store(false, ::std::memory_order_release);
                                 isListen = false;
@@ -1640,7 +1651,7 @@ void EasySocketListener::listenDescription()
 
             if (bytes == -1)
             {
-                if (m_easySocket.state() == EasySocket::CONNECTION_STATE_DISCONNECTED)
+                if (m_easySocket.isDisconnected())
                 {
                     m_bConnected.store(false, ::std::memory_order_release);
                     isListen = false;
@@ -1720,7 +1731,7 @@ void EasySocketListener::listenDescription()
 
                         if (bytes == -1)
                         {
-                            if (m_easySocket.state() == EasySocket::CONNECTION_STATE_DISCONNECTED)
+                            if (m_easySocket.isDisconnected())
                             {
                                 m_bConnected.store(false, ::std::memory_order_release);
                                 isListen = false;

@@ -263,6 +263,8 @@ private:
     void loadGeometry();
     void saveSettingsAndGeometry();
 
+    void setDisconnected();
+
 }; // END of class EasyMainWindow.
 
 //////////////////////////////////////////////////////////////////////////

@@ -107,6 +107,12 @@ public:
 
     void setState(ConnectionState state){m_state=state;}
     ConnectionState state() const{return m_state;}
+
+    bool isDisconnected() const
+    {
+        return  m_state == CONNECTION_STATE_UNKNOWN ||
+                m_state == CONNECTION_STATE_DISCONNECTED;
+    }
 };
 
 #endif // EASY________SOCKET_________H
