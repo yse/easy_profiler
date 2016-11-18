@@ -234,6 +234,9 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
             char state = BLOCK_ITEM_DO_PAINT;
 
             const auto top = levelY(l);
+            if (top > visibleBottom)
+                break;
+
             qreal prevRight = -1e100;
             for (unsigned int i = m_levelsIndexes[l], end = static_cast<unsigned int>(level.size()); i < end; ++i)
             {
@@ -247,7 +250,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     state = item.state;
                 }
 
-                if (item.right() < sceneLeft || state == BLOCK_ITEM_DO_NOT_PAINT || top > visibleBottom || (top + item.totalHeight) < visibleSceneRect.top())
+                if (item.right() < sceneLeft || state == BLOCK_ITEM_DO_NOT_PAINT || (top + item.totalHeight) < visibleSceneRect.top())
                 {
                     // This item is not visible
                     skip_children(next_level, item.children_begin);
