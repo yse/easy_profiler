@@ -117,7 +117,9 @@ void EasySocket::checkResult(int result)
         const int CONNECTION_ABORTED = WSAECONNABORTED;
         const int CONNECTION_RESET = WSAECONNRESET;
         const int CONNECTION_IN_PROGRESS = WSAEINPROGRESS;
-        const int CONNECTION_BROKEN_PIPE = WSAECONNABORTED;
+
+        // TODO: check for proper WSAE code. WSAECONNABORTED already used by CONNECTION_ABORTED. Replaced by WSAENETRESET. // by Victor Zarubkin on 2016/11/19
+        const int CONNECTION_BROKEN_PIPE = WSAENETRESET;// WSAECONNABORTED;
 #else
         error_code = errno;
         const int CONNECTION_ABORTED = ECONNABORTED;
