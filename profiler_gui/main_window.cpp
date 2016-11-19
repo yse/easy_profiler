@@ -69,6 +69,7 @@
 #include <QToolBar>
 #include <QToolButton>
 #include <QWidgetAction>
+#include <QSpinBox>
 #include <QMessageBox>
 #include <QLineEdit>
 #include <QLabel>
@@ -294,6 +295,52 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
         action->setChecked(true);
     submenu->addAction(action);
     connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
+
+    submenu->addSeparator();
+    auto w = new QWidget(submenu);
+    auto l = new QHBoxLayout(w);
+    l->setContentsMargins(33, 1, 1, 1);
+    l->addWidget(new QLabel("Blocks spacing", w), 0, Qt::AlignLeft);
+    auto spinbox = new QSpinBox(w);
+    spinbox->setMinimum(0);
+    spinbox->setValue(EASY_GLOBALS.blocks_spacing);
+    spinbox->setFixedWidth(50);
+    connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onSpacingChange(int)));
+    l->addWidget(spinbox);
+    w->setLayout(l);
+    auto waction = new QWidgetAction(submenu);
+    waction->setDefaultWidget(w);
+    submenu->addAction(waction);
+
+    w = new QWidget(submenu);
+    l = new QHBoxLayout(w);
+    l->setContentsMargins(33, 1, 1, 1);
+    l->addWidget(new QLabel("Blocks size min", w), 0, Qt::AlignLeft);
+    spinbox = new QSpinBox(w);
+    spinbox->setMinimum(1);
+    spinbox->setValue(EASY_GLOBALS.blocks_size_min);
+    spinbox->setFixedWidth(50);
+    connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onMinSizeChange(int)));
+    l->addWidget(spinbox);
+    w->setLayout(l);
+    waction = new QWidgetAction(submenu);
+    waction->setDefaultWidget(w);
+    submenu->addAction(waction);
+
+    w = new QWidget(submenu);
+    l = new QHBoxLayout(w);
+    l->setContentsMargins(33, 1, 1, 1);
+    l->addWidget(new QLabel("Blocks narrow size", w), 0, Qt::AlignLeft);
+    spinbox = new QSpinBox(w);
+    spinbox->setMinimum(1);
+    spinbox->setValue(EASY_GLOBALS.blocks_narrow_size);
+    spinbox->setFixedWidth(50);
+    connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onNarrowSizeChange(int)));
+    l->addWidget(spinbox);
+    w->setLayout(l);
+    waction = new QWidgetAction(submenu);
+    waction->setDefaultWidget(w);
+    submenu->addAction(waction);
 
 
     submenu = menu->addMenu("Remote");
@@ -638,6 +685,26 @@ void EasyMainWindow::onCollapseAllClicked(bool)
 
 //////////////////////////////////////////////////////////////////////////
 
+void EasyMainWindow::onSpacingChange(int _value)
+{
+    EASY_GLOBALS.blocks_spacing = _value;
+    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->scene()->update();
+}
+
+void EasyMainWindow::onMinSizeChange(int _value)
+{
+    EASY_GLOBALS.blocks_size_min = _value;
+    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->scene()->update();
+}
+
+void EasyMainWindow::onNarrowSizeChange(int _value)
+{
+    EASY_GLOBALS.blocks_narrow_size = _value;
+    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->scene()->update();
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 void EasyMainWindow::onEditBlocksClicked(bool)
 {
     if (m_descTreeDialog != nullptr)
@@ -713,6 +780,18 @@ void EasyMainWindow::loadSettings()
     if (!val.isNull())
         EASY_GLOBALS.frame_time = val.toFloat();
 
+    val = settings.value("blocks_spacing");
+    if (!val.isNull())
+        EASY_GLOBALS.blocks_spacing = val.toInt();
+
+    val = settings.value("blocks_size_min");
+    if (!val.isNull())
+        EASY_GLOBALS.blocks_size_min = val.toInt();
+
+    val = settings.value("blocks_narrow_size");
+    if (!val.isNull())
+        EASY_GLOBALS.blocks_narrow_size = val.toInt();
+
 
     auto flag = settings.value("draw_graphics_items_borders");
     if (!flag.isNull())
@@ -778,6 +857,9 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("port", (quint32)m_lastPort);
     settings.setValue("chrono_text_position", static_cast<int>(EASY_GLOBALS.chrono_text_position));
     settings.setValue("frame_time", EASY_GLOBALS.frame_time);
+    settings.setValue("blocks_spacing", EASY_GLOBALS.blocks_spacing);
+    settings.setValue("blocks_size_min", EASY_GLOBALS.blocks_size_min);
+    settings.setValue("blocks_narrow_size", EASY_GLOBALS.blocks_narrow_size);
     settings.setValue("draw_graphics_items_borders", EASY_GLOBALS.draw_graphics_items_borders);
     settings.setValue("hide_narrow_children", EASY_GLOBALS.hide_narrow_children);
     settings.setValue("collapse_items_on_tree_close", EASY_GLOBALS.collapse_items_on_tree_close);

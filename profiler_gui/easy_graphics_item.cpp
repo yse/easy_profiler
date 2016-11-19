@@ -62,10 +62,7 @@ enum BlockItemState : int8_t
 
 //////////////////////////////////////////////////////////////////////////
 
-const int MIN_ITEM_WIDTH = 3;
-const int MIN_ITEMS_SPACING = 2;
 const int MIN_SYNC_SPACING = 1;
-const int NARROW_ITEM_WIDTH = 20;
 const QRgb BORDERS_COLOR = ::profiler::colors::Grey700 & 0x00ffffff;// 0x00686868;
 
 inline QRgb selectedItemBorderColor(::profiler::color_t _color) {
@@ -307,7 +304,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 if (x + w <= prevRight)
                 {
                     // This item is not visible
-                    if (!(EASY_GLOBALS.hide_narrow_children && w < NARROW_ITEM_WIDTH) && l > 0)
+                    if (!(EASY_GLOBALS.hide_narrow_children && w < EASY_GLOBALS.blocks_narrow_size) && l > 0)
                         dont_skip_children(next_level, item.children_begin, BLOCK_ITEM_DO_PAINT_FIRST);
                     //else
                     //    skip_children(next_level, item.children_begin);
@@ -323,7 +320,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 const auto& itemDesc = easyDescriptor(itemBlock.tree.node->id());
 
                 int h = 0, flags = 0;
-                if ((EASY_GLOBALS.hide_narrow_children && w < NARROW_ITEM_WIDTH) || !itemBlock.expanded)
+                if ((EASY_GLOBALS.hide_narrow_children && w < EASY_GLOBALS.blocks_narrow_size) || !itemBlock.expanded)
                 {
                     // Items which width is less than 20 will be painted as big rectangles which are hiding it's children
 
@@ -354,16 +351,16 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         _painter->setPen(BORDERS_COLOR & inverseColor);// BORDERS_COLOR);
                     }
 
-                    if (w < MIN_ITEM_WIDTH)
-                        w = MIN_ITEM_WIDTH;
+                    if (w < EASY_GLOBALS.blocks_size_min)
+                        w = EASY_GLOBALS.blocks_size_min;
 
                     // Draw rectangle
                     rect.setRect(x, top, w, h);
                     _painter->drawRect(rect);
 
-                    prevRight = rect.right() + MIN_ITEMS_SPACING;
+                    prevRight = rect.right() + EASY_GLOBALS.blocks_spacing;
                     //skip_children(next_level, item.children_begin);
-                    if (w < NARROW_ITEM_WIDTH)
+                    if (w < EASY_GLOBALS.blocks_narrow_size)
                         continue;
 
                     if (totalHeight > ::profiler_gui::GRAPHICS_ROW_SIZE)
@@ -401,14 +398,14 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     if (dh > 0)
                         h -= dh;
 
-                    if (w < MIN_ITEM_WIDTH)
-                        w = MIN_ITEM_WIDTH;
+                    if (w < EASY_GLOBALS.blocks_size_min)
+                        w = EASY_GLOBALS.blocks_size_min;
 
                     rect.setRect(x, top, w, h);
                     _painter->drawRect(rect);
 
-                    prevRight = rect.right() + MIN_ITEMS_SPACING;
-                    if (w < NARROW_ITEM_WIDTH)
+                    prevRight = rect.right() + EASY_GLOBALS.blocks_spacing;
+                    if (w < EASY_GLOBALS.blocks_narrow_size)
                     {
                         dont_skip_children(next_level, item.children_begin, BLOCK_ITEM_DO_PAINT_FIRST);
                         continue;
@@ -473,7 +470,10 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     const auto& itemBlock = easyBlock(item.block);
                     auto top = levelY(guiblock.graphics_item_level);
                     auto w = ::std::max(item.width() * currentScale, 1.0);
-                    decltype(top) h = (!itemBlock.expanded || (w < NARROW_ITEM_WIDTH && EASY_GLOBALS.hide_narrow_children)) ? (itemBlock.tree.depth * ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + ::profiler_gui::GRAPHICS_ROW_SIZE) : ::profiler_gui::GRAPHICS_ROW_SIZE;
+                    decltype(top) h = (!itemBlock.expanded ||
+                                       (w < EASY_GLOBALS.blocks_narrow_size && EASY_GLOBALS.hide_narrow_children))
+                                       ? (itemBlock.tree.depth * ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + ::profiler_gui::GRAPHICS_ROW_SIZE)
+                                       : ::profiler_gui::GRAPHICS_ROW_SIZE;
 
                     auto dh = top + h - visibleBottom;
                     if (dh < h)
@@ -503,7 +503,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         rect.setRect(x, top, w, h);
                         _painter->drawRect(rect);
 
-                        if (!selectedItemsWasPainted && w > NARROW_ITEM_WIDTH)
+                        if (!selectedItemsWasPainted && w > EASY_GLOBALS.blocks_narrow_size)
                         {
                             // Draw text-----------------------------------
                             // calculating text coordinates
@@ -592,8 +592,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     left = prevRight;
                 }
 
-                if (width < MIN_ITEM_WIDTH)
-                    width = MIN_ITEM_WIDTH;
+                if (width < EASY_GLOBALS.blocks_size_min)
+                    width = EASY_GLOBALS.blocks_size_min;
 
                 const bool self_thread = item.node->id() != 0 && EASY_GLOBALS.profiler_blocks.find(item.node->id()) != EASY_GLOBALS.profiler_blocks.end();
                 ::profiler::color_t color = 0;
@@ -825,7 +825,7 @@ const ::profiler_gui::EasyBlockItem* EasyGraphicsItem::intersect(const QPointF& 
             }
 
             const auto w = item.width() * currentScale;
-            if (i == levelIndex || (w < NARROW_ITEM_WIDTH && EASY_GLOBALS.hide_narrow_children) || !easyBlock(item.block).expanded)
+            if (i == levelIndex || (w < EASY_GLOBALS.blocks_narrow_size && EASY_GLOBALS.hide_narrow_children) || !easyBlock(item.block).expanded)
             {
                 return &item;
             }

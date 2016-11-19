@@ -235,6 +235,9 @@ protected slots:
     void onBindExpandStatusChange(bool);
     void onExpandAllClicked(bool);
     void onCollapseAllClicked(bool);
+    void onSpacingChange(int _value);
+    void onMinSizeChange(int _value);
+    void onNarrowSizeChange(int _value);
     void onFileReaderTimeout();
     void onListenerTimerTimeout();
     void onFileReaderCancel();

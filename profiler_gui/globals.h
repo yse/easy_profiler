@@ -112,6 +112,9 @@ namespace profiler_gui {
         ::profiler::block_index_t         selected_block; ///< Current selected profiler block index
         ChronometerTextPosition     chrono_text_position; ///< Selected interval text position
         float                                 frame_time; ///< Value in microseconds to be displayed at minimap on graphics scrollbar
+        int                               blocks_spacing; ///< Minimum blocks spacing on diagram
+        int                              blocks_size_min; ///< Minimum blocks size on diagram
+        int                           blocks_narrow_size; ///< Width indicating narrow blocks
         bool                                   connected; ///< Is connected to source (to be able to capture profiling information)
         bool                     enable_event_indicators; ///< Enable event indicators painting (These are narrow rectangles at the bottom of each thread)
         bool                           enable_statistics; ///< Enable gathering and using statistics (Disable if you want to consume less memory)
