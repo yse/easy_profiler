@@ -15,7 +15,7 @@ BEGIN
             VALUE "LegalTrademarks2", "All Rights Reserved"
             VALUE "OriginalFilename", "profiler_gui.exe"
             VALUE "ProductName", "easy_profiler gui application"
-            VALUE "ProductVersion", PRODUCT_VERSION
+            VALUE "ProductVersion", EASY_PROFILER_PRODUCT_VERSION
         END
     END
     BLOCK "VarFileInfo"

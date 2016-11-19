@@ -12,7 +12,7 @@ BEGIN
             VALUE "LegalTrademarks1", "All Rights Reserved"
             VALUE "LegalTrademarks2", "All Rights Reserved"
             VALUE "ProductName", "easy_profiler lib"
-            VALUE "ProductVersion", PRODUCT_VERSION
+            VALUE "ProductVersion", EASY_PROFILER_PRODUCT_VERSION
         END
     END
     BLOCK "VarFileInfo"
