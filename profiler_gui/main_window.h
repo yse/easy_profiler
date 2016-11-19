@@ -216,6 +216,10 @@ public:
     // Public virtual methods
 
     void closeEvent(QCloseEvent* close_event) override;
+    void dragEnterEvent(QDragEnterEvent* drag_event) override;
+    void dragMoveEvent(QDragMoveEvent* drag_event) override;
+    void dragLeaveEvent(QDragLeaveEvent* drag_event) override;
+    void dropEvent(QDropEvent* drop_event) override;
 
 protected slots:
 

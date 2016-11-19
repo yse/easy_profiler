@@ -76,6 +76,11 @@
 #include <QDialog>
 #include <QVBoxLayout>
 #include <QFile>
+#include <QDragEnterEvent>
+#include <QDragMoveEvent>
+#include <QDragLeaveEvent>
+#include <QDropEvent>
+#include <QMimeData>
 
 #include "main_window.h"
 #include "blocks_tree_widget.h"
@@ -119,6 +124,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
     setObjectName("ProfilerGUI_MainWindow");
     setWindowTitle("EasyProfiler");
     setDockNestingEnabled(true);
+    setAcceptDrops(true);
     resize(800, 600);
     
     setStatusBar(new QStatusBar());
@@ -427,6 +433,32 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
 EasyMainWindow::~EasyMainWindow()
 {
     delete m_progress;
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void EasyMainWindow::dragEnterEvent(QDragEnterEvent* drag_event)
+{
+    if (drag_event->mimeData()->hasUrls())
+        drag_event->acceptProposedAction();
+}
+
+void EasyMainWindow::dragMoveEvent(QDragMoveEvent* drag_event)
+{
+    if (drag_event->mimeData()->hasUrls())
+        drag_event->acceptProposedAction();
+}
+
+void EasyMainWindow::dragLeaveEvent(QDragLeaveEvent* drag_event)
+{
+    drag_event->accept();
+}
+
+void EasyMainWindow::dropEvent(QDropEvent* drop_event)
+{
+    const auto& urls = drop_event->mimeData()->urls();
+    if (!urls.empty())
+        loadFile(urls.front().toLocalFile());
 }
 
 //////////////////////////////////////////////////////////////////////////

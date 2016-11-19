@@ -155,6 +155,8 @@ public:
     void resizeEvent(QResizeEvent* _event) override;
     void contextMenuEvent(QContextMenuEvent* _event) override;
 
+    void dragEnterEvent(QDragEnterEvent*) override {}
+
 public:
 
     // Public non-virtual methods

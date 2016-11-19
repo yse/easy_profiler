@@ -148,6 +148,8 @@ public:
     void keyReleaseEvent(QKeyEvent* _event) override;
     void resizeEvent(QResizeEvent* _event) override;
 
+    void dragEnterEvent(QDragEnterEvent*) override {}
+
 public:
 
     // Public non-virtual methods
@@ -261,6 +263,8 @@ public:
     void mouseMoveEvent(QMouseEvent* _event) override;
     void keyPressEvent(QKeyEvent* _event) override;
     void keyReleaseEvent(QKeyEvent* _event) override;
+
+    void dragEnterEvent(QDragEnterEvent*) override {}
 
     void clear();
 
