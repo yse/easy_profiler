@@ -54,6 +54,7 @@
 
 enum BlockItemState : int8_t
 {
+    BLOCK_ITEM_DO_PAINT_FIRST = -2,
     BLOCK_ITEM_DO_NOT_PAINT = -1,
     BLOCK_ITEM_UNCHANGED,
     BLOCK_ITEM_DO_PAINT
@@ -62,7 +63,7 @@ enum BlockItemState : int8_t
 //////////////////////////////////////////////////////////////////////////
 
 const int MIN_ITEM_WIDTH = 3;
-const int MIN_ITEMS_SPACING = 3;
+const int MIN_ITEMS_SPACING = 2;
 const int MIN_SYNC_SPACING = 1;
 const int NARROW_ITEM_WIDTH = 20;
 const QRgb BORDERS_COLOR = ::profiler::colors::Grey700 & 0x00ffffff;// 0x00686868;
@@ -211,7 +212,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 m_levels[next_level][children_begin].state = BLOCK_ITEM_DO_NOT_PAINT;
         };
 
-        auto const dont_skip_children = [this, &levelsNumber](short next_level, decltype(::profiler_gui::EasyBlockItem::children_begin) children_begin)
+        auto const dont_skip_children = [this, &levelsNumber](short next_level, decltype(::profiler_gui::EasyBlockItem::children_begin) children_begin, int8_t _state)
         {
             if (next_level < levelsNumber && children_begin != MAX_CHILD_INDEX)
             {
@@ -222,10 +223,11 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 }
 
                 // Mark children items that we want to draw them
-                m_levels[next_level][children_begin].state = BLOCK_ITEM_DO_PAINT;
+                m_levels[next_level][children_begin].state = _state;
             }
         };
 
+        //size_t iterations = 0;
         bool selectedItemsWasPainted = false;
         for (uint8_t l = 0; l < levelsNumber; ++l)
         {
@@ -237,9 +239,13 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
             if (top > visibleBottom)
                 break;
 
+            int j = 1;
+            uint32_t par = ~0U;
             qreal prevRight = -1e100;
-            for (unsigned int i = m_levelsIndexes[l], end = static_cast<unsigned int>(level.size()); i < end; ++i)
+            for (uint32_t i = m_levelsIndexes[l], end = static_cast<uint32_t>(level.size()); i < end; ++i)
             {
+                //++iterations;
+
                 auto& item = level[i];
 
                 if (item.left() > sceneRight)
@@ -248,12 +254,51 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 if (item.state != BLOCK_ITEM_UNCHANGED)
                 {
                     state = item.state;
+                    item.state = BLOCK_ITEM_DO_NOT_PAINT;
                 }
 
-                if (item.right() < sceneLeft || state == BLOCK_ITEM_DO_NOT_PAINT || (top + item.totalHeight) < visibleSceneRect.top())
+                if (item.right() < sceneLeft)
                 {
                     // This item is not visible
-                    skip_children(next_level, item.children_begin);
+                    //skip_children(next_level, item.children_begin);
+                    continue;
+                } 
+
+                if (state == BLOCK_ITEM_DO_NOT_PAINT)
+                {
+                    // This item is not visible
+                    //skip_children(next_level, item.children_begin);
+                    if (item.parent != ~0U)
+                        i += static_cast<uint32_t>(easyBlock(item.parent).tree.children.size()) - 1; // Skip all neighbours
+                    continue;
+                }
+
+                if (state == BLOCK_ITEM_DO_PAINT_FIRST)
+                {
+                    // Paint only first child which has own children
+
+                    if (par != item.parent)
+                        j = 1;
+
+                    par = item.parent;
+
+                    if (item.children_begin == MAX_CHILD_INDEX && next_level < levelsNumber)
+                    {
+                        // This item has no children and would not be painted
+                        ++j;
+                        continue;
+                    }
+
+                    if (item.parent != ~0U)
+                        i += static_cast<uint32_t>(easyBlock(item.parent).tree.children.size()) - j; // Skip all neighbours
+                }
+
+                const auto& itemBlock = easyBlock(item.block);
+                const uint16_t totalHeight = itemBlock.tree.depth * ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + ::profiler_gui::GRAPHICS_ROW_SIZE;
+                if ((top + totalHeight) < visibleSceneRect.top())
+                {
+                    // This item is not visible
+                    //skip_children(next_level, item.children_begin);
                     continue;
                 }
 
@@ -262,10 +307,10 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 if (x + w <= prevRight)
                 {
                     // This item is not visible
-                    if (EASY_GLOBALS.hide_narrow_children && w < NARROW_ITEM_WIDTH)
-                        skip_children(next_level, item.children_begin);
-                    else
-                        dont_skip_children(next_level, item.children_begin);
+                    if (!(EASY_GLOBALS.hide_narrow_children && w < NARROW_ITEM_WIDTH) && l > 0)
+                        dont_skip_children(next_level, item.children_begin, BLOCK_ITEM_DO_PAINT_FIRST);
+                    //else
+                    //    skip_children(next_level, item.children_begin);
                     continue;
                 }
 
@@ -275,7 +320,6 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     x = prevRight;
                 }
 
-                const auto& itemBlock = easyBlock(item.block);
                 const auto& itemDesc = easyDescriptor(itemBlock.tree.node->id());
 
                 int h = 0, flags = 0;
@@ -284,7 +328,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     // Items which width is less than 20 will be painted as big rectangles which are hiding it's children
 
                     //x = item.left() * currentScale - dx;
-                    h = item.totalHeight;
+                    h = totalHeight;
                     const auto dh = top + h - visibleBottom;
                     if (dh > 0)
                         h -= dh;
@@ -318,11 +362,11 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     _painter->drawRect(rect);
 
                     prevRight = rect.right() + MIN_ITEMS_SPACING;
-                    skip_children(next_level, item.children_begin);
+                    //skip_children(next_level, item.children_begin);
                     if (w < NARROW_ITEM_WIDTH)
                         continue;
 
-                    if (item.totalHeight > ::profiler_gui::GRAPHICS_ROW_SIZE)
+                    if (totalHeight > ::profiler_gui::GRAPHICS_ROW_SIZE)
                         flags = Qt::AlignCenter;
                     else if (!(item.width() < 1))
                         flags = Qt::AlignHCenter;
@@ -364,10 +408,13 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     _painter->drawRect(rect);
 
                     prevRight = rect.right() + MIN_ITEMS_SPACING;
-                    dont_skip_children(next_level, item.children_begin);
                     if (w < NARROW_ITEM_WIDTH)
+                    {
+                        dont_skip_children(next_level, item.children_begin, BLOCK_ITEM_DO_PAINT_FIRST);
                         continue;
+                    }
 
+                    dont_skip_children(next_level, item.children_begin, BLOCK_ITEM_DO_PAINT);
                     if (!(item.width() < 1))
                         flags = Qt::AlignHCenter;
                 }
@@ -426,7 +473,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     const auto& itemBlock = easyBlock(item.block);
                     auto top = levelY(guiblock.graphics_item_level);
                     auto w = ::std::max(item.width() * currentScale, 1.0);
-                    decltype(top) h = (!itemBlock.expanded || (w < NARROW_ITEM_WIDTH && EASY_GLOBALS.hide_narrow_children)) ? item.totalHeight : ::profiler_gui::GRAPHICS_ROW_SIZE;
+                    decltype(top) h = (!itemBlock.expanded || (w < NARROW_ITEM_WIDTH && EASY_GLOBALS.hide_narrow_children)) ? (itemBlock.tree.depth * ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + ::profiler_gui::GRAPHICS_ROW_SIZE) : ::profiler_gui::GRAPHICS_ROW_SIZE;
 
                     auto dh = top + h - visibleBottom;
                     if (dh < h)
@@ -493,6 +540,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 }
             }
         }
+
+        //printf("%u: %llu\n", m_index, iterations);
     }
 
 

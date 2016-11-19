@@ -153,8 +153,9 @@ struct EasyBlockItem Q_DECL_FINAL
     qreal                             x; ///< x coordinate of the item (this is made qreal=double to avoid mistakes on very wide scene)
     float                             w; ///< Width of the item
     ::profiler::block_index_t     block; ///< Index of profiler block
+    ::profiler::block_index_t    parent; ///< Index of parent profiler block
     uint32_t             children_begin; ///< Index of first child item on the next sublevel
-    uint16_t                totalHeight; ///< Total height of the item including heights of all it's children
+    //uint16_t                totalHeight; ///< Total height of the item including heights of all it's children
     int8_t                        state; ///< 0 = no change, 1 = paint, -1 = do not paint
 
     // Possible optimizations:

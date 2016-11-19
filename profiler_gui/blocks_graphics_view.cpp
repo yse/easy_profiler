@@ -454,7 +454,7 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
 
         if (!t.children.empty())
         {
-            children_duration = setTree(item, t.children, h, y, 0);
+            children_duration = setTree(item, ~0U, t.children, h, y, 0);
         }
         else
         {
@@ -522,7 +522,7 @@ const EasyGraphicsView::Items &EasyGraphicsView::getItems() const
     return m_items;
 }
 
-qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, qreal _y, short _level)
+qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, ::profiler::block_index_t _parent, const ::profiler::BlocksTree::children_t& _children, qreal& _height, qreal _y, short _level)
 {
     static const qreal MIN_DURATION = 0.25;
 
@@ -538,6 +538,7 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
     bool warned = false;
     qreal total_duration = 0, prev_end = 0, maxh = 0;
     qreal start_time = -1;
+    uint32_t i = 0;
     for (auto child_index : _children)
     {
         auto& gui_block = easyBlock(child_index);
@@ -584,7 +585,7 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
 
         if (next_level < 256)
         {
-            children_duration = setTree(_item, child.children, h, _y + ::profiler_gui::GRAPHICS_ROW_SIZE_FULL, next_level);
+            children_duration = setTree(_item, child_index, child.children, h, _y + ::profiler_gui::GRAPHICS_ROW_SIZE_FULL, next_level);
         }
         else if (!child.children.empty() && !warned)
         {
@@ -603,12 +604,15 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
         }
 
         b.block = child_index;// &child;
+        b.parent = _parent;
         b.setPos(xbegin, duration);
-        b.totalHeight = ::profiler_gui::GRAPHICS_ROW_SIZE + h;
-        b.state = 0;
+        //b.totalHeight = ::profiler_gui::GRAPHICS_ROW_SIZE + h;
+        b.state = i > 0 || level == 0 ? 0 : -1;
 
         prev_end = xbegin + duration;
         total_duration = prev_end - start_time;
+
+        ++i;
     }
 
     _height += ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + maxh;
