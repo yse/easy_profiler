@@ -49,6 +49,7 @@
 #include <QTreeWidget>
 #include <QString>
 #include <vector>
+#include <unordered_set>
 #include "easy/profiler.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -88,14 +89,16 @@ class EasyDescTreeWidget : public QTreeWidget
     typedef EasyDescTreeWidget   This;
 
     typedef ::std::vector<EasyDescWidgetItem*> Items;
+    typedef ::std::unordered_set<::std::string> ExpandedFiles;
 
 protected:
 
-    Items                 m_items;
-    QString          m_lastSearch;
-    QTreeWidgetItem*  m_lastFound;
-    int            m_searchColumn;
-    bool                m_bLocked;
+    ExpandedFiles    m_expandedFilesTemp;
+    Items                        m_items;
+    QString                 m_lastSearch;
+    QTreeWidgetItem*         m_lastFound;
+    int                   m_searchColumn;
+    bool                       m_bLocked;
 
 public:
 

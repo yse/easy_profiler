@@ -320,7 +320,7 @@ void EasyDescTreeWidget::keyPressEvent(QKeyEvent* _event)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyDescTreeWidget::clearSilent(bool)
+void EasyDescTreeWidget::clearSilent(bool _global)
 {
     const QSignalBlocker b(this);
 
@@ -333,7 +333,13 @@ void EasyDescTreeWidget::clearSilent(bool)
     ::std::vector<QTreeWidgetItem*> topLevelItems;
     topLevelItems.reserve(topLevelItemCount());
     for (int i = topLevelItemCount() - 1; i >= 0; --i)
-        topLevelItems.push_back(takeTopLevelItem(i));
+    {
+        const bool expanded = !_global && topLevelItem(i)->isExpanded();
+        auto item = takeTopLevelItem(i);
+        if (expanded)
+            m_expandedFilesTemp.insert(item->text(DESC_COL_FILE_LINE).toStdString());
+        topLevelItems.push_back(item);
+    }
 
     auto deleter_thread = ::std::thread([](decltype(topLevelItems) _items) {
         for (auto item : _items)
@@ -364,7 +370,7 @@ void EasyDescTreeWidget::build()
     f.setBold(true);
 
     typedef ::std::unordered_map<::std::string, FileItems> Files;
-    Files m_files;
+    Files fileItems;
 
     m_items.resize(EASY_GLOBALS.descriptors.size());
     memset(m_items.data(), 0, sizeof(void*) * m_items.size());
@@ -375,7 +381,7 @@ void EasyDescTreeWidget::build()
     {
         if (desc != nullptr)
         {
-            auto& p = m_files[desc->file()];
+            auto& p = fileItems[desc->file()];
             if (p.item == nullptr)
             {
                 p.item = new QTreeWidgetItem();
@@ -418,11 +424,14 @@ void EasyDescTreeWidget::build()
         ++id;
     }
 
-    for (auto& p : m_files)
+    for (auto& p : fileItems)
     {
         addTopLevelItem(p.second.item);
+        if (m_expandedFilesTemp.find(p.first) != m_expandedFilesTemp.end())
+            p.second.item->setExpanded(true);
     }
 
+    m_expandedFilesTemp.clear();
     setSortingEnabled(true);
     sortByColumn(DESC_COL_FILE_LINE, Qt::AscendingOrder);
     resizeColumnsToContents();
@@ -780,7 +789,8 @@ void EasyDescWidget::keyPressEvent(QKeyEvent* _event)
 
 void EasyDescWidget::build()
 {
-    clear();
+    m_tree->clearSilent(false);
+    m_foundNumber->setText(QString("Found 0 matches"));
     m_tree->build();
 }
 
