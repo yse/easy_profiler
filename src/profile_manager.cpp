@@ -580,7 +580,7 @@ void ProfileManager::endBlock()
     THREAD_STORAGE->blocks.openedList.pop();
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
-    THREAD_STORAGE->allowChildren = THREAD_STORAGE->blocks.openedList.empty() || !(lastBlock.m_status & profiler::OFF_RECURSIVE);
+    THREAD_STORAGE->allowChildren = THREAD_STORAGE->blocks.openedList.empty() || !(THREAD_STORAGE->blocks.openedList.top().get().m_status & profiler::OFF_RECURSIVE);
 #endif
 }
 
