@@ -135,9 +135,14 @@ extern "C" {
         return MANAGER.dumpBlocksToFile(filename);
     }
 
-    PROFILER_API const char* registerThread(const char* name, ThreadGuard& threadGuard)
+    PROFILER_API const char* registerThreadScoped(const char* name, ThreadGuard& threadGuard)
     {
         return MANAGER.registerThread(name, threadGuard);
+    }
+
+    PROFILER_API const char* registerThread(const char* name)
+    {
+        return MANAGER.registerThread(name);
     }
 
     PROFILER_API void setEventTracingEnabled(bool _isEnable)
@@ -180,7 +185,8 @@ extern "C" {
     PROFILER_API void storeEvent(const BaseBlockDescriptor*, const char*) { }
     PROFILER_API void beginBlock(Block&) { }
     PROFILER_API uint32_t dumpBlocksToFile(const char*) { return 0; }
-    PROFILER_API const char* registerThread(const char*, ThreadGuard&) { return ""; }
+    PROFILER_API const char* registerThreadScoped(const char*, ThreadGuard&) { return ""; }
+    PROFILER_API const char* registerThread(const char*) { return ""; }
     PROFILER_API void setEventTracingEnabled(bool) { }
     PROFILER_API void setLowPriorityEventTracing(bool) { }
     PROFILER_API void setContextSwitchLogFilename(const char*) { }
@@ -298,6 +304,11 @@ public:
 }; // END of class BlockDescriptor.
 
 //////////////////////////////////////////////////////////////////////////
+
+ThreadStorage::ThreadStorage() : id(getCurrentThreadId()), allowChildren(true), named(false)
+{
+    expired = ATOMIC_VAR_INIT(false);
+}
 
 void ThreadStorage::storeBlock(const profiler::Block& block)
 {
@@ -638,6 +649,40 @@ void ProfileManager::setEventTracingEnabled(bool _isEnable)
 
 //////////////////////////////////////////////////////////////////////////
 
+bool ProfileManager::checkThreadExpired(ThreadStorage& _registeredThread)
+{
+    if (_registeredThread.expired.load(std::memory_order_acquire))
+        return true;
+
+#ifdef _WIN32
+
+    // Check thread for Windows
+
+    DWORD exitCode = 0;
+    auto hThread = OpenThread(THREAD_QUERY_LIMITED_INFORMATION, FALSE, _registeredThread.id);
+    if (hThread == nullptr || GetExitCodeThread(hThread, &exitCode) == FALSE || exitCode != STILL_ACTIVE)
+    {
+        // Thread has been expired
+        _registeredThread.expired.store(true, std::memory_order_release);
+        if (hThread != nullptr)
+            CloseHandle(hThread);
+        return true;
+    }
+
+    if (hThread != nullptr)
+        CloseHandle(hThread);
+
+#else
+
+    // TODO: Check thread for Linux
+
+#endif
+
+    return false;
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
 {
     const bool wasEnabled = m_isEnabled.load(std::memory_order_acquire);
@@ -686,10 +731,11 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
     uint32_t blocks_number = 0;
     for (auto it = m_threads.begin(), end = m_threads.end(); it != end;)
     {
-        const auto& t = it->second;
+        auto& t = it->second;
         const uint32_t num = static_cast<uint32_t>(t.blocks.closedList.size()) + static_cast<uint32_t>(t.sync.closedList.size());
 
-        if (t.expired.load(std::memory_order_acquire) && num == 0) {
+        const bool expired = checkThreadExpired(t) || t.expired.load(std::memory_order_acquire);
+        if (expired && num == 0) {
             // Thread has been finished and contains no profiled information.
             // Remove it now.
             m_threads.erase(it++);
@@ -813,20 +859,25 @@ uint32_t ProfileManager::dumpBlocksToFile(const char* _filename)
 
 const char* ProfileManager::registerThread(const char* name, ThreadGuard& threadGuard)
 {
-    const bool isNewThread = THREAD_STORAGE == nullptr;
-    if (isNewThread)
-    {
-        const auto id = getCurrentThreadId();
-        THREAD_STORAGE = &threadStorage(id);
-        threadGuard.m_id = THREAD_STORAGE->id = id;
+    if (THREAD_STORAGE == nullptr)
+        THREAD_STORAGE = &threadStorage(getCurrentThreadId());
+
+    if (!THREAD_STORAGE->named) {
+        THREAD_STORAGE->named = true;
+        THREAD_STORAGE->name = name;
     }
 
-    if (!THREAD_STORAGE->named)
-    {
-        if (!isNewThread) {
-            threadGuard.m_id = THREAD_STORAGE->id = getCurrentThreadId();
-        }
+    threadGuard.m_id = THREAD_STORAGE->id;
 
+    return THREAD_STORAGE->name.c_str();
+}
+
+const char* ProfileManager::registerThread(const char* name)
+{
+    if (THREAD_STORAGE == nullptr)
+        THREAD_STORAGE = &threadStorage(getCurrentThreadId());
+
+    if (!THREAD_STORAGE->named) {
         THREAD_STORAGE->named = true;
         THREAD_STORAGE->name = name;
     }
@@ -872,7 +923,7 @@ void ProfileManager::stopListenSignalToCapture()
 
 void ProfileManager::listen()
 {
-    EASY_THREAD("EasyProfiler.Listen");
+    EASY_THREAD_SCOPE("EasyProfiler.Listen");
 
     EasySocket socket;
     profiler::net::Message replyMessage(profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING);

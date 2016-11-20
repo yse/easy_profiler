@@ -402,7 +402,7 @@ namespace profiler {
         */
         m_processThread = ::std::move(::std::thread([this]()
         {
-            EASY_THREAD("EasyProfiler.ETW");
+            EASY_THREAD_SCOPE("EasyProfiler.ETW");
             ProcessTrace(&m_openedHandle, 1, 0, 0);
         }));
 

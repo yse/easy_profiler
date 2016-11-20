@@ -177,9 +177,23 @@ will end previously opened EASY_BLOCK or EASY_FUNCTION.
 */
 # define EASY_THREAD(name)\
     EASY_THREAD_LOCAL static const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = 0;\
+    if (!EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__))\
+        EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = ::profiler::registerThread(name);
+
+/** Macro for current thread registration and creating a thread guard object.
+
+\note If this thread has been already registered then nothing happens.
+
+\note Also creates thread guard which marks thread as "expired" on it's destructor
+and creates "ThreadFinished" profiler event.
+
+\ingroup profiler
+*/
+# define EASY_THREAD_SCOPE(name)\
+    EASY_THREAD_LOCAL static const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = 0;\
     ::profiler::ThreadGuard EASY_TOKEN_CONCATENATE(unique_profiler_thread_guard, __LINE__);\
     if (!EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__))\
-        EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = ::profiler::registerThread(name,\
+        EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = ::profiler::registerThreadScoped(name,\
         EASY_TOKEN_CONCATENATE(unique_profiler_thread_guard, __LINE__));
 
 /** Macro for main thread registration.
@@ -291,6 +305,7 @@ Otherwise, no log messages will be printed.
 # define EASY_PROFILER_DISABLE 
 # define EASY_EVENT(...)
 # define EASY_THREAD(...)
+# define EASY_THREAD_SCOPE(...)
 # define EASY_MAIN_THREAD 
 # define EASY_SET_EVENT_TRACING_ENABLED(isEnabled) 
 # define EASY_SET_LOW_PRIORITY_EVENT_TRACING(isLowPriority) 
@@ -497,7 +512,15 @@ namespace profiler {
 
         \ingroup profiler
         */
-        PROFILER_API const char* registerThread(const char* _name, ThreadGuard&);
+        PROFILER_API const char* registerThreadScoped(const char* _name, ThreadGuard&);
+
+        /** Register current thread and give it a name.
+
+        \note Only first call of registerThread() for the current thread will have an effect.
+
+        \ingroup profiler
+        */
+        PROFILER_API const char* registerThread(const char* _name);
 
         /** Enable or disable event tracing.
 
@@ -575,7 +598,8 @@ namespace profiler {
     inline void storeEvent(const BaseBlockDescriptor*, const char*) { }
     inline void beginBlock(Block&) { }
     inline uint32_t dumpBlocksToFile(const char*) { return 0; }
-    inline const char* registerThread(const char*, ThreadGuard&) { return ""; }
+    inline const char* registerThreadScoped(const char*, ThreadGuard&) { return ""; }
+    inline const char* registerThread(const char*) { return ""; }
     inline void setEventTracingEnabled(bool) { }
     inline void setLowPriorityEventTracing(bool) { }
     inline void setContextSwitchLogFilename(const char*) { }

@@ -309,19 +309,16 @@ struct ThreadStorage
     BlocksList<std::reference_wrapper<profiler::Block>, SIZEOF_CSWITCH * (uint16_t)128U> blocks;
     BlocksList<profiler::Block, SIZEOF_CSWITCH * (uint16_t)128U>                           sync;
     std::string name;
-    profiler::thread_id_t id = 0;
+    const profiler::thread_id_t id;
     std::atomic_bool expired;
-    bool allowChildren = true;
-    bool named = false;
+    bool allowChildren;
+    bool named;
 
     void storeBlock(const profiler::Block& _block);
     void storeCSwitch(const profiler::Block& _block);
     void clearClosed();
 
-    ThreadStorage()
-    {
-        expired = ATOMIC_VAR_INIT(false);
-    }
+    ThreadStorage();
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -392,6 +389,7 @@ public:
     void setEventTracingEnabled(bool _isEnable);
     uint32_t dumpBlocksToFile(const char* filename);
     const char* registerThread(const char* name, profiler::ThreadGuard& threadGuard);
+    const char* registerThread(const char* name);
 
     void setContextSwitchLogFilename(const char* name)
     {
@@ -410,6 +408,8 @@ public:
     void stopListenSignalToCapture();
 
 private:
+
+    bool checkThreadExpired(ThreadStorage& _registeredThread);
 
     void storeBlockForce(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t& _timestamp);
     void storeBlockForce2(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t _timestamp);
