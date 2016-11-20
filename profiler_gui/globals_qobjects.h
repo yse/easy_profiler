@@ -54,6 +54,7 @@ namespace profiler_gui {
         void connectionChanged(bool _connected);
         void blocksRefreshRequired(bool);
         void timelineMarkerChanged();
+        void hierarchyFlagChanged(bool);
 
     }; // END of class EasyGlobalSignals.
 

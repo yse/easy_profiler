@@ -73,6 +73,7 @@ namespace profiler_gui {
         , display_only_relevant_stats(true)
         , collapse_items_on_tree_close(false)
         , all_items_expanded_by_default(true)
+        , only_current_thread_hierarchy(false)
         , bind_scene_and_tree_expand_status(true)
     {
 

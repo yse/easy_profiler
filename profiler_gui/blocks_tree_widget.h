@@ -74,6 +74,8 @@ protected:
     RootsMap                         m_roots;
     ::profiler_gui::TreeBlocks m_inputBlocks;
     QTimer                       m_fillTimer;
+    QString                     m_lastSearch;
+    QTreeWidgetItem*             m_lastFound;
     ::profiler::timestamp_t      m_beginTime;
     class QProgressDialog*        m_progress;
     bool                        m_bColorRows;
@@ -86,6 +88,8 @@ public:
     virtual ~EasyTreeWidget();
 
     void clearSilent(bool _global = false);
+    int findNext(const QString& _str);
+    int findPrev(const QString& _str);
 
 public slots:
 
@@ -136,6 +140,48 @@ protected:
     void alignProgressBar();
 
 }; // END of class EasyTreeWidget.
+
+//////////////////////////////////////////////////////////////////////////
+
+class EasyHierarchyWidget : public QWidget
+{
+    Q_OBJECT
+
+    typedef QWidget           Parent;
+    typedef EasyHierarchyWidget This;
+
+private:
+
+    EasyTreeWidget*        m_tree;
+    class QLineEdit*  m_searchBox;
+    class QLabel*   m_foundNumber;
+    class QAction* m_searchButton;
+
+public:
+
+    // Public virtual methods
+
+    explicit EasyHierarchyWidget(QWidget* _parent = nullptr);
+    virtual ~EasyHierarchyWidget();
+    void keyPressEvent(QKeyEvent* _event) override;
+
+public:
+
+    // Public non-virtual methods
+
+    EasyTreeWidget* tree();
+    void clear(bool _global = false);
+
+private slots:
+
+    void onSeachBoxReturnPressed();
+    void findNext(bool);
+    void findPrev(bool);
+    void findNextFromMenu(bool);
+    void findPrevFromMenu(bool);
+
+}; // END of class EasyHierarchyWidget.
+
 
 //////////////////////////////////////////////////////////////////////////
 

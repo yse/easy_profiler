@@ -60,6 +60,11 @@
 #include <QProgressDialog>
 #include <QResizeEvent>
 #include <QMoveEvent>
+#include <QLineEdit>
+#include <QLabel>
+#include <QToolBar>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
 #include <QDebug>
 #include "blocks_tree_widget.h"
 #include "tree_widget_item.h"
@@ -86,6 +91,7 @@ const int HIERARCHY_BUILDER_TIMER_INTERVAL = 40;
 EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
     : Parent(_parent)
     , m_beginTime(::std::numeric_limits<decltype(m_beginTime)>::max())
+    , m_lastFound(nullptr)
     , m_progress(nullptr)
     , m_bColorRows(true)
     , m_bLocked(false)
@@ -324,6 +330,8 @@ void EasyTreeWidget::clearSilent(bool _global)
     disconnect(this, &Parent::itemExpanded, this, &This::onItemExpand);
     disconnect(this, &Parent::itemCollapsed, this, &This::onItemCollapse);
     disconnect(this, &Parent::currentItemChanged, this, &This::onCurrentItemChange);
+    m_lastFound = nullptr;
+    m_lastSearch.clear();
 
     if (!_global)
     {
@@ -362,6 +370,104 @@ void EasyTreeWidget::clearSilent(bool _global)
 
     if (!_global)
         emit EASY_GLOBALS.events.itemsExpandStateChanged();
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+int EasyTreeWidget::findNext(const QString& _str)
+{
+    if (m_bLocked || _str.isEmpty())
+        return 0;
+
+    const bool isNewSearch = (m_lastSearch != _str);
+    auto itemsList = findItems(_str, Qt::MatchContains | Qt::MatchRecursive, COL_NAME);
+
+    if (!isNewSearch)
+    {
+        if (!itemsList.empty())
+        {
+            bool stop = false;
+            decltype(m_lastFound) next = nullptr;
+            for (auto item : itemsList)
+            {
+                if (item->parent() == nullptr)
+                    continue;
+
+                if (stop)
+                {
+                    next = item;
+                    break;
+                }
+
+                stop = item == m_lastFound;
+            }
+
+            m_lastFound = next == nullptr ? itemsList.front() : next;
+        }
+        else
+        {
+            m_lastFound = nullptr;
+        }
+    }
+    else
+    {
+        m_lastSearch = _str;
+        m_lastFound = !itemsList.empty() ? itemsList.front() : nullptr;
+    }
+
+    if (m_lastFound != nullptr)
+    {
+        scrollToItem(m_lastFound, QAbstractItemView::PositionAtCenter);
+        setCurrentItem(m_lastFound);
+    }
+
+    return itemsList.size();
+}
+
+int EasyTreeWidget::findPrev(const QString& _str)
+{
+    if (m_bLocked || _str.isEmpty())
+        return 0;
+
+    const bool isNewSearch = (m_lastSearch != _str);
+    auto itemsList = findItems(_str, Qt::MatchContains | Qt::MatchRecursive, COL_NAME);
+
+    if (!isNewSearch)
+    {
+        if (!itemsList.empty())
+        {
+            decltype(m_lastFound) prev = nullptr;
+            for (auto item : itemsList)
+            {
+                if (item->parent() == nullptr)
+                    continue;
+
+                if (item == m_lastFound)
+                    break;
+
+                prev = item;
+            }
+
+            m_lastFound = prev == nullptr ? itemsList.back() : prev;
+        }
+        else
+        {
+            m_lastFound = nullptr;
+        }
+    }
+    else
+    {
+        m_lastSearch = _str;
+        m_lastFound = !itemsList.empty() ? itemsList.front() : nullptr;
+    }
+
+    if (m_lastFound != nullptr)
+    {
+        scrollToItem(m_lastFound, QAbstractItemView::PositionAtCenter);
+        setCurrentItem(m_lastFound);
+    }
+
+    return itemsList.size();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -810,6 +916,150 @@ void EasyTreeWidget::saveSettings()
     }
 
     settings.endGroup();
+}
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+EasyHierarchyWidget::EasyHierarchyWidget(QWidget* _parent) : Parent(_parent)
+, m_tree(new EasyTreeWidget(this))
+, m_searchBox(new QLineEdit(this))
+, m_foundNumber(new QLabel("Found 0 matches", this))
+, m_searchButton(nullptr)
+{
+    m_searchBox->setFixedWidth(200);
+    m_searchBox->setContentsMargins(5, 0, 0, 0);
+
+    QMenu* menu = new QMenu(this);
+    m_searchButton = menu->menuAction();
+    m_searchButton->setText("Find next");
+    m_searchButton->setIcon(QIcon(":/Search-next"));
+    m_searchButton->setData(true);
+    connect(m_searchButton, &QAction::triggered, this, &This::findNext);
+
+    auto actionGroup = new QActionGroup(this);
+    actionGroup->setExclusive(true);
+
+    auto a = new QAction(tr("Find next"), actionGroup);
+    a->setCheckable(true);
+    a->setChecked(true);
+    connect(a, &QAction::triggered, this, &This::findNextFromMenu);
+    menu->addAction(a);
+
+    a = new QAction(tr("Find previous"), actionGroup);
+    a->setCheckable(true);
+    connect(a, &QAction::triggered, this, &This::findPrevFromMenu);
+    menu->addAction(a);
+
+    auto tb = new QToolBar(this);
+    tb->addAction(m_searchButton);
+    tb->addWidget(m_searchBox);
+
+    auto searchbox = new QHBoxLayout();
+    searchbox->setContentsMargins(0, 0, 5, 0);
+    searchbox->addWidget(tb);
+    searchbox->addStretch(100);
+    searchbox->addWidget(m_foundNumber, Qt::AlignRight);
+
+    auto lay = new QVBoxLayout(this);
+    lay->setContentsMargins(1, 1, 1, 1);
+    lay->addLayout(searchbox);
+    lay->addWidget(m_tree);
+
+    connect(m_searchBox, &QLineEdit::returnPressed, this, &This::onSeachBoxReturnPressed);
+}
+
+EasyHierarchyWidget::~EasyHierarchyWidget()
+{
+
+}
+
+void EasyHierarchyWidget::keyPressEvent(QKeyEvent* _event)
+{
+    if (_event->key() == Qt::Key_F3)
+    {
+        if (_event->modifiers() & Qt::ShiftModifier)
+            findPrev(true);
+        else
+            findNext(true);
+    }
+
+    _event->accept();
+}
+
+EasyTreeWidget* EasyHierarchyWidget::tree()
+{
+    return m_tree;
+}
+
+void EasyHierarchyWidget::clear(bool _global)
+{
+    m_tree->clearSilent(_global);
+    m_foundNumber->setText(QString("Found 0 matches"));
+}
+
+void EasyHierarchyWidget::onSeachBoxReturnPressed()
+{
+    auto matches = m_tree->findNext(m_searchBox->text());
+
+    if (matches == 1)
+        m_foundNumber->setText(QString("Found 1 match"));
+    else
+        m_foundNumber->setText(QString("Found %1 matches").arg(matches));
+}
+
+void EasyHierarchyWidget::findNext(bool)
+{
+    auto matches = m_tree->findNext(m_searchBox->text());
+
+    if (matches == 1)
+        m_foundNumber->setText(QString("Found 1 match"));
+    else
+        m_foundNumber->setText(QString("Found %1 matches").arg(matches));
+}
+
+void EasyHierarchyWidget::findPrev(bool)
+{
+    auto matches = m_tree->findPrev(m_searchBox->text());
+
+    if (matches == 1)
+        m_foundNumber->setText(QString("Found 1 match"));
+    else
+        m_foundNumber->setText(QString("Found %1 matches").arg(matches));
+}
+
+void EasyHierarchyWidget::findNextFromMenu(bool _checked)
+{
+    if (!_checked)
+        return;
+
+    if (m_searchButton->data().toBool() == false)
+    {
+        m_searchButton->setData(true);
+        m_searchButton->setText(tr("Find next"));
+        m_searchButton->setIcon(QIcon(":/Search-next"));
+        disconnect(m_searchButton, &QAction::triggered, this, &This::findPrev);
+        connect(m_searchButton, &QAction::triggered, this, &This::findNext);
+    }
+
+    findNext(true);
+}
+
+void EasyHierarchyWidget::findPrevFromMenu(bool _checked)
+{
+    if (!_checked)
+        return;
+
+    if (m_searchButton->data().toBool() == true)
+    {
+        m_searchButton->setData(false);
+        m_searchButton->setText(tr("Find prev"));
+        m_searchButton->setIcon(QIcon(":/Search-prev"));
+        disconnect(m_searchButton, &QAction::triggered, this, &This::findNext);
+        connect(m_searchButton, &QAction::triggered, this, &This::findPrev);
+    }
+
+    findPrev(true);
 }
 
 //////////////////////////////////////////////////////////////////////////

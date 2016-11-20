@@ -196,9 +196,10 @@ private slots:
     void onGraphicsScrollbarValueChange(qreal);
     void onFlickerTimeout();
     void onIdleTimeout();
+    void onHierarchyFlagChange(bool _value);
     void onSelectedThreadChange(::profiler::thread_id_t _id);
     void onSelectedBlockChange(unsigned int _block_index);
-    void onItemsEspandStateChange();
+    void onItemsExpandStateChange();
 
 public:
 

@@ -713,15 +713,15 @@ int EasyDescTreeWidget::findPrev(const QString& _str)
 //////////////////////////////////////////////////////////////////////////
 
 EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
-    , m_tree(new EasyDescTreeWidget())
-    , m_searchBox(new QLineEdit())
-    , m_foundNumber(new QLabel("Found 0 matches"))
+    , m_tree(new EasyDescTreeWidget(this))
+    , m_searchBox(new QLineEdit(this))
+    , m_foundNumber(new QLabel("Found 0 matches", this))
     , m_searchButton(nullptr)
 {
     m_searchBox->setFixedWidth(200);
     m_searchBox->setContentsMargins(5, 0, 0, 0);
 
-    auto tb = new QToolBar();
+    auto tb = new QToolBar(this);
     auto refreshButton = tb->addAction(QIcon(":/Reload"), tr("Refresh blocks list"));
     refreshButton->setEnabled(EASY_GLOBALS.connected);
     refreshButton->setToolTip(tr("Refresh blocks list.\nConnection needed."));
@@ -755,7 +755,7 @@ EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
     tb->addWidget(m_searchBox);
 
     auto searchbox = new QHBoxLayout();
-    searchbox->setContentsMargins(0, 0, 0, 0);
+    searchbox->setContentsMargins(0, 0, 5, 0);
     searchbox->addWidget(tb);
     searchbox->addStretch(100);
     searchbox->addWidget(m_foundNumber, Qt::AlignRight);

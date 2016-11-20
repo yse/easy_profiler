@@ -237,6 +237,7 @@ protected slots:
     void onCollapseItemsAfterCloseChanged(bool);
     void onAllItemsExpandedByDefaultChange(bool);
     void onBindExpandStatusChange(bool);
+    void onHierarchyFlagChange(bool);
     void onExpandAllClicked(bool);
     void onCollapseAllClicked(bool);
     void onSpacingChange(int _value);

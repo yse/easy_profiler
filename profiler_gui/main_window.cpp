@@ -129,18 +129,20 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
     
     setStatusBar(new QStatusBar());
 
-    auto graphicsView = new EasyGraphicsViewWidget();
-    m_graphicsView = new QDockWidget("Diagram");
+    m_graphicsView = new QDockWidget("Diagram", this);
     m_graphicsView->setObjectName("ProfilerGUI_Diagram");
     m_graphicsView->setMinimumHeight(50);
     m_graphicsView->setAllowedAreas(Qt::AllDockWidgetAreas);
+
+    auto graphicsView = new EasyGraphicsViewWidget(this);
     m_graphicsView->setWidget(graphicsView);
 
-    auto treeWidget = new EasyTreeWidget();
-    m_treeWidget = new QDockWidget("Hierarchy");
+    m_treeWidget = new QDockWidget("Hierarchy", this);
     m_treeWidget->setObjectName("ProfilerGUI_Hierarchy");
     m_treeWidget->setMinimumHeight(50);
     m_treeWidget->setAllowedAreas(Qt::AllDockWidgetAreas);
+
+    auto treeWidget = new EasyHierarchyWidget(this);
     m_treeWidget->setWidget(treeWidget);
 
     addDockWidget(Qt::TopDockWidgetArea, m_graphicsView);
@@ -253,6 +255,11 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.hide_narrow_children);
     connect(action, &QAction::triggered, this, &This::onHideNarrowChildrenChanged);
+
+    action = submenu->addAction("Build hierarchy only for current thread");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.only_current_thread_hierarchy);
+    connect(action, &QAction::triggered, this, &This::onHierarchyFlagChange);
 
     action = submenu->addAction("Collapse items on tree reset");
     action->setCheckable(true);
@@ -405,7 +412,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
     toolbar->addWidget(lbl);
 
 
-    connect(graphicsView->view(), &EasyGraphicsView::intervalChanged, treeWidget, &EasyTreeWidget::setTreeBlocks);
+    connect(graphicsView->view(), &EasyGraphicsView::intervalChanged, treeWidget->tree(), &EasyTreeWidget::setTreeBlocks);
     connect(&m_readerTimer, &QTimer::timeout, this, &This::onFileReaderTimeout);
     connect(&m_listenerTimer, &QTimer::timeout, this, &This::onListenerTimerTimeout);
     
@@ -577,7 +584,7 @@ void EasyMainWindow::onSaveFileClicked(bool)
 
 void EasyMainWindow::clear()
 {
-    static_cast<EasyTreeWidget*>(m_treeWidget->widget())->clearSilent(true);
+    static_cast<EasyHierarchyWidget*>(m_treeWidget->widget())->clear(true);
     static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->clear();
 
 #if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
@@ -689,6 +696,12 @@ void EasyMainWindow::onBindExpandStatusChange(bool _checked)
     EASY_GLOBALS.bind_scene_and_tree_expand_status = _checked;
 }
 
+void EasyMainWindow::onHierarchyFlagChange(bool _checked)
+{
+    EASY_GLOBALS.only_current_thread_hierarchy = _checked;
+    emit EASY_GLOBALS.events.hierarchyFlagChanged(_checked);
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 void EasyMainWindow::onExpandAllClicked(bool)
@@ -698,7 +711,7 @@ void EasyMainWindow::onExpandAllClicked(bool)
 
     emit EASY_GLOBALS.events.itemsExpandStateChanged();
 
-    auto tree = static_cast<EasyTreeWidget*>(m_treeWidget->widget());
+    auto tree = static_cast<EasyHierarchyWidget*>(m_treeWidget->widget())->tree();
     const QSignalBlocker b(tree);
     tree->expandAll();
 }
@@ -710,7 +723,7 @@ void EasyMainWindow::onCollapseAllClicked(bool)
 
     emit EASY_GLOBALS.events.itemsExpandStateChanged();
 
-    auto tree = static_cast<EasyTreeWidget*>(m_treeWidget->widget());
+    auto tree = static_cast<EasyHierarchyWidget*>(m_treeWidget->widget())->tree();
     const QSignalBlocker b(tree);
     tree->collapseAll();
 }
@@ -841,6 +854,10 @@ void EasyMainWindow::loadSettings()
     if (!flag.isNull())
         EASY_GLOBALS.all_items_expanded_by_default = flag.toBool();
 
+    flag = settings.value("only_current_thread_hierarchy");
+    if (!flag.isNull())
+        EASY_GLOBALS.only_current_thread_hierarchy = flag.toBool();
+
     flag = settings.value("bind_scene_and_tree_expand_status");
     if (!flag.isNull())
         EASY_GLOBALS.bind_scene_and_tree_expand_status = flag.toBool();
@@ -896,6 +913,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("hide_narrow_children", EASY_GLOBALS.hide_narrow_children);
     settings.setValue("collapse_items_on_tree_close", EASY_GLOBALS.collapse_items_on_tree_close);
     settings.setValue("all_items_expanded_by_default", EASY_GLOBALS.all_items_expanded_by_default);
+    settings.setValue("only_current_thread_hierarchy", EASY_GLOBALS.only_current_thread_hierarchy);
     settings.setValue("bind_scene_and_tree_expand_status", EASY_GLOBALS.bind_scene_and_tree_expand_status);
     settings.setValue("enable_event_indicators", EASY_GLOBALS.enable_event_indicators);
     settings.setValue("enable_statistics", EASY_GLOBALS.enable_statistics);
@@ -979,7 +997,7 @@ void EasyMainWindow::onFileReaderTimeout()
         auto nblocks = m_reader.size();
         if (nblocks != 0)
         {
-            static_cast<EasyTreeWidget*>(m_treeWidget->widget())->clearSilent(true);
+            static_cast<EasyHierarchyWidget*>(m_treeWidget->widget())->clear(true);
 
             ::profiler::SerializedData serialized_blocks;
             ::profiler::SerializedData serialized_descriptors;

@@ -857,7 +857,8 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
 
             for (auto item : m_items)
             {
-                item->getBlocks(m_chronometerItem->left(), m_chronometerItem->right(), m_selectedBlocks);
+                if (!EASY_GLOBALS.only_current_thread_hierarchy || item->threadId() == EASY_GLOBALS.selected_thread)
+                    item->getBlocks(m_chronometerItem->left(), m_chronometerItem->right(), m_selectedBlocks);
             }
 
             if (!m_selectedBlocks.empty())
@@ -1183,9 +1184,10 @@ void EasyGraphicsView::initMode()
     connect(&m_idleTimer, &QTimer::timeout, this, &This::onIdleTimeout);
 
     auto globalSignals = &EASY_GLOBALS.events;
+    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::hierarchyFlagChanged, this, &This::onHierarchyFlagChange);
     connect(globalSignals, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
     connect(globalSignals, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
-    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::itemsExpandStateChanged, this, &This::onItemsEspandStateChange);
+    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::itemsExpandStateChanged, this, &This::onItemsExpandStateChange);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1373,6 +1375,36 @@ void EasyGraphicsView::onIdleTimeout()
 
 //////////////////////////////////////////////////////////////////////////
 
+void EasyGraphicsView::onHierarchyFlagChange(bool)
+{
+    bool changedSelection = false;
+
+    if (!m_selectedBlocks.empty())
+    {
+        changedSelection = true;
+        m_selectedBlocks.clear();
+    }
+
+    if (m_chronometerItem->isVisible())
+    {
+        for (auto item : m_items)
+        {
+            if (!EASY_GLOBALS.only_current_thread_hierarchy || item->threadId() == EASY_GLOBALS.selected_thread)
+                item->getBlocks(m_chronometerItem->left(), m_chronometerItem->right(), m_selectedBlocks);
+        }
+
+        if (!m_selectedBlocks.empty())
+        {
+            changedSelection = true;
+        }
+    }
+
+    if (changedSelection)
+    {
+        emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_chronometerItem->left()), position2time(m_chronometerItem->right()), m_chronometerItem->reverse());
+    }
+}
+
 void EasyGraphicsView::onSelectedThreadChange(::profiler::thread_id_t _id)
 {
     if (m_pScrollbar == nullptr || m_pScrollbar->minimapThread() == _id)
@@ -1391,6 +1423,29 @@ void EasyGraphicsView::onSelectedThreadChange(::profiler::thread_id_t _id)
         if (item->threadId() == _id)
         {
             m_pScrollbar->setMinimapFrom(_id, item->items(0));
+
+            bool changedSelection = false;
+            if (EASY_GLOBALS.only_current_thread_hierarchy)
+            {
+                if (!m_selectedBlocks.empty())
+                {
+                    changedSelection = true;
+                    m_selectedBlocks.clear();
+                }
+
+                if (m_chronometerItem->isVisible())
+                {
+                    item->getBlocks(m_chronometerItem->left(), m_chronometerItem->right(), m_selectedBlocks);
+                    if (!m_selectedBlocks.empty())
+                        changedSelection = true;
+                }
+            }
+
+            if (changedSelection)
+            {
+                emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_chronometerItem->left()), position2time(m_chronometerItem->right()), m_chronometerItem->reverse());
+            }
+
             repaintScene();
             return;
         }
@@ -1429,7 +1484,7 @@ void EasyGraphicsView::onSelectedBlockChange(unsigned int _block_index)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::onItemsEspandStateChange()
+void EasyGraphicsView::onItemsExpandStateChange()
 {
     if (!m_bUpdatingRect)
     {
