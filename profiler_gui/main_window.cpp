@@ -1406,6 +1406,7 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
                 {
                     EASY_GLOBALS.descriptors.swap(descriptors);
                     m_serializedDescriptors.swap(serializedDescriptors);
+                    m_descriptorsNumberInFile = static_cast<uint32_t>(EASY_GLOBALS.descriptors.size());
 
                     if (m_descTreeDialog != nullptr)
                     {
