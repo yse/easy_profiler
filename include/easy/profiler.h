@@ -279,7 +279,7 @@ Otherwise, no log messages will be printed.
 
 \ingroup profiler
 */
-# define EASY_LOG_ENABLED 1
+# define EASY_LOG_ENABLED 0
 
 
 #else // #ifdef BUILD_WITH_EASY_PROFILER
@@ -442,6 +442,7 @@ namespace profiler {
     // Core API
     // Note: it is better to use macros defined above than a direct calls to API.
 
+#ifdef BUILD_WITH_EASY_PROFILER
     extern "C" {
 
         /** Registers static description of a block.
@@ -547,11 +548,11 @@ namespace profiler {
         */
         PROFILER_API uint8_t versionMinor();
 
-        /** Returns current version revision.
+        /** Returns current version patch.
 
         \ingroup profiler
         */
-        PROFILER_API uint16_t versionRev();
+        PROFILER_API uint16_t versionPatch();
 
         /** Returns current version in 32-bit integer format.
 
@@ -566,6 +567,27 @@ namespace profiler {
         PROFILER_API const char* versionName();
 
     }
+#else
+    inline const BaseBlockDescriptor* registerDescription(EasyBlockStatus, const char*, const char*, const char*, int, block_type_t, color_t)
+    { return reinterpret_cast<const BaseBlockDescriptor*>(0xbad); }
+    inline void endBlock() { }
+    inline void setEnabled(bool) { }
+    inline void storeEvent(const BaseBlockDescriptor*, const char*) { }
+    inline void beginBlock(Block&) { }
+    inline uint32_t dumpBlocksToFile(const char*) { return 0; }
+    inline const char* registerThread(const char*, ThreadGuard&) { return ""; }
+    inline void setEventTracingEnabled(bool) { }
+    inline void setLowPriorityEventTracing(bool) { }
+    inline void setContextSwitchLogFilename(const char*) { }
+    inline const char* getContextSwitchLogFilename() { return ""; }
+    inline void startListenSignalToCapture() { }
+    inline void stopListenSignalToCapture() { }
+    inline uint8_t versionMajor() { return 0; }
+    inline uint8_t versionMinor() { return 0; }
+    inline uint16_t versionPatch() { return 0; }
+    inline uint32_t version() { return 0; }
+    inline const char* versionName() { return "v0.0.0_disabled"; }
+#endif
 
     //////////////////////////////////////////////////////////////////////
 

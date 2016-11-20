@@ -67,15 +67,18 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-const uint32_t EASY_CURRENT_VERSION = EASY_VERSION_INT(EASY_VERSION_MAJOR, EASY_VERSION_MINOR, EASY_VERSION_REV);
+extern const uint32_t PROFILER_SIGNATURE;
+extern const uint32_t EASY_CURRENT_VERSION;
+
+# define EASY_VERSION_INT(v_major, v_minor, v_patch) ((static_cast<uint32_t>(v_major) << 24) | (static_cast<uint32_t>(v_minor) << 16) | static_cast<uint32_t>(v_patch))
 const uint32_t COMPATIBLE_VERSIONS[] = {
     EASY_CURRENT_VERSION,
     EASY_VERSION_INT(0, 1, 0)
 };
 const uint16_t COMPATIBLE_VERSIONS_NUM = sizeof(COMPATIBLE_VERSIONS) / sizeof(uint32_t);
+# undef EASY_VERSION_INT
 
 const int64_t TIME_FACTOR = 1000000000LL;
-const uint32_t PROFILER_SIGNATURE = ('E' << 24) | ('a' << 16) | ('s' << 8) | 'y';
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -766,7 +769,7 @@ extern "C" {
         inFile.read((char*)&signature, sizeof(uint32_t));
         if (signature != PROFILER_SIGNATURE)
         {
-            _log << "Wrong signature " << signature << "\nThis is not EasyProfiler file/stream.";
+            _log << "Wrong file signature.\nThis is not EasyProfiler file/stream.";
             return false;
         }
 

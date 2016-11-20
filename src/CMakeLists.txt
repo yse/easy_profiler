@@ -26,6 +26,7 @@ set(SOURCES
 add_definitions(
     -D_BUILD_PROFILER
     -DBUILD_WITH_EASY_PROFILER
+    #-DEASY_PROFILER_API_DISABLED # uncomment this to disable profiler api only (you will have to rebuild only easy_profiler)
 )
 
 if(WIN32)

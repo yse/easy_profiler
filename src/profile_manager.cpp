@@ -52,51 +52,59 @@
 
 using namespace profiler;
 
-#if !defined(EASY_VERSION_MAJOR) || !defined(EASY_VERSION_MINOR) || !defined(EASY_VERSION_REV)
+//////////////////////////////////////////////////////////////////////////
+
+#if !defined(EASY_PROFILER_VERSION_MAJOR) || !defined(EASY_PROFILER_VERSION_MINOR) || !defined(EASY_PROFILER_VERSION_PATCH)
 # ifdef _WIN32
-#  error EASY_VERSION_MAJOR and EASY_VERSION_MINOR and EASY_VERSION_REV macros must be defined
+#  error EASY_PROFILER_VERSION_MAJOR and EASY_PROFILER_VERSION_MINOR and EASY_PROFILER_VERSION_PATCH macros must be defined
 # else
-#  error "EASY_VERSION_MAJOR and EASY_VERSION_MINOR and EASY_VERSION_REV macros must be defined"
+#  error "EASY_PROFILER_VERSION_MAJOR and EASY_PROFILER_VERSION_MINOR and EASY_PROFILER_VERSION_PATCH macros must be defined"
 # endif
 #endif
 
-const uint32_t PROFILER_SIGNATURE = ('E' << 24) | ('a' << 16) | ('s' << 8) | 'y';
-const uint32_t EASY_CURRENT_VERSION = EASY_VERSION_INT(EASY_VERSION_MAJOR, EASY_VERSION_MINOR, EASY_VERSION_REV);
-const std::string EASY_VERSION_NAME = ([](){
-    std::ostringstream s;
-    s << EASY_VERSION_MAJOR << '.' << EASY_VERSION_MINOR << '.' << EASY_VERSION_REV;
-    return s.str();
-})();
+# define EASY_VERSION_INT(v_major, v_minor, v_patch) ((static_cast<uint32_t>(v_major) << 24) | (static_cast<uint32_t>(v_minor) << 16) | static_cast<uint32_t>(v_patch))
+extern const uint32_t PROFILER_SIGNATURE = ('E' << 24) | ('a' << 16) | ('s' << 8) | 'y';
+extern const uint32_t EASY_CURRENT_VERSION = EASY_VERSION_INT(EASY_PROFILER_VERSION_MAJOR, EASY_PROFILER_VERSION_MINOR, EASY_PROFILER_VERSION_PATCH);
+# undef EASY_VERSION_INT
 
-const uint8_t FORCE_ON_FLAG = profiler::FORCE_ON & ~profiler::ON;
+//////////////////////////////////////////////////////////////////////////
 
 //auto& MANAGER = ProfileManager::instance();
-#define MANAGER ProfileManager::instance()
-
-EASY_THREAD_LOCAL static ::ThreadStorage* THREAD_STORAGE = nullptr;
+# define MANAGER ProfileManager::instance()
+const uint8_t FORCE_ON_FLAG = profiler::FORCE_ON & ~profiler::ON;
 
 #ifdef _WIN32
-decltype(LARGE_INTEGER::QuadPart) CPU_FREQUENCY = ([](){ LARGE_INTEGER freq; QueryPerformanceFrequency(&freq); return freq.QuadPart; })();
+decltype(LARGE_INTEGER::QuadPart) const CPU_FREQUENCY = ([](){ LARGE_INTEGER freq; QueryPerformanceFrequency(&freq); return freq.QuadPart; })();
 #endif
 
 //////////////////////////////////////////////////////////////////////////
 
-#define EASY_FORCE_EVENT(timestamp, name, ...)\
+EASY_THREAD_LOCAL static ::ThreadStorage* THREAD_STORAGE = nullptr;
+
+//////////////////////////////////////////////////////////////////////////
+
+#ifdef BUILD_WITH_EASY_PROFILER
+# define EASY_FORCE_EVENT(timestamp, name, ...)\
     EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), addBlockDescriptor(\
         ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
             __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__)));\
     storeBlockForce(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name), timestamp);
 
-#define EASY_FORCE_EVENT2(timestamp, name, ...)\
+# define EASY_FORCE_EVENT2(timestamp, name, ...)\
     EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), addBlockDescriptor(\
         ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
             __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__)));\
     storeBlockForce2(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name), timestamp);
+#else
+# define EASY_FORCE_EVENT(timestamp, name, ...) 
+# define EASY_FORCE_EVENT2(timestamp, name, ...) 
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 
 extern "C" {
 
+#if !defined(EASY_PROFILER_API_DISABLED)
     PROFILER_API const BaseBlockDescriptor* registerDescription(EasyBlockStatus _status, const char* _autogenUniqueId, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
     {
         return MANAGER.addBlockDescriptor(_status, _autogenUniqueId, _name, _filename, _line, _block_type, _color);
@@ -137,14 +145,14 @@ extern "C" {
         MANAGER.setEventTracingEnabled(_isEnable);
     }
 
-#ifdef _WIN32
+# ifdef _WIN32
     PROFILER_API void setLowPriorityEventTracing(bool _isLowPriority)
     {
         EasyEventTracer::instance().setLowPriority(_isLowPriority);
     }
-#else
+# else
     PROFILER_API void setLowPriorityEventTracing(bool) { }
-#endif
+# endif
 
     PROFILER_API void setContextSwitchLogFilename(const char* name)
     {
@@ -165,23 +173,38 @@ extern "C" {
     {
         return MANAGER.stopListenSignalToCapture();
     }
+#else
+    PROFILER_API const BaseBlockDescriptor* registerDescription(EasyBlockStatus, const char*, const char*, const char*, int, block_type_t, color_t) { return reinterpret_cast<const BaseBlockDescriptor*>(0xbad); }
+    PROFILER_API void endBlock() { }
+    PROFILER_API void setEnabled(bool) { }
+    PROFILER_API void storeEvent(const BaseBlockDescriptor*, const char*) { }
+    PROFILER_API void beginBlock(Block&) { }
+    PROFILER_API uint32_t dumpBlocksToFile(const char*) { return 0; }
+    PROFILER_API const char* registerThread(const char*, ThreadGuard&) { return ""; }
+    PROFILER_API void setEventTracingEnabled(bool) { }
+    PROFILER_API void setLowPriorityEventTracing(bool) { }
+    PROFILER_API void setContextSwitchLogFilename(const char*) { }
+    PROFILER_API const char* getContextSwitchLogFilename() { return ""; }
+    PROFILER_API void   startListenSignalToCapture() { }
+    PROFILER_API void   stopListenSignalToCapture() { }
+#endif
 
     PROFILER_API uint8_t versionMajor()
     {
-        static_assert(EASY_VERSION_MAJOR >= 0 && EASY_VERSION_MAJOR < 256, "EASY_VERSION_MAJOR must be defined in range [0, 255]");
-        return EASY_VERSION_MAJOR;
+        static_assert(0 <= EASY_PROFILER_VERSION_MAJOR && EASY_PROFILER_VERSION_MAJOR <= 255, "EASY_PROFILER_VERSION_MAJOR must be defined in range [0, 255]");
+        return EASY_PROFILER_VERSION_MAJOR;
     }
 
     PROFILER_API uint8_t versionMinor()
     {
-        static_assert(EASY_VERSION_MINOR >= 0 && EASY_VERSION_MINOR < 256, "EASY_VERSION_MINOR must be defined in range [0, 255]");
-        return EASY_VERSION_MINOR;
+        static_assert(0 <= EASY_PROFILER_VERSION_MINOR && EASY_PROFILER_VERSION_MINOR <= 255, "EASY_PROFILER_VERSION_MINOR must be defined in range [0, 255]");
+        return EASY_PROFILER_VERSION_MINOR;
     }
 
-    PROFILER_API uint16_t versionRev()
+    PROFILER_API uint16_t versionPatch()
     {
-        static_assert(EASY_VERSION_REV >= 0 && EASY_VERSION_REV < 65536, "EASY_VERSION_REV must be defined in range [0, 65535]");
-        return EASY_VERSION_REV;
+        static_assert(0 <= EASY_PROFILER_VERSION_PATCH && EASY_PROFILER_VERSION_PATCH <= 65535, "EASY_PROFILER_VERSION_PATCH must be defined in range [0, 65535]");
+        return EASY_PROFILER_VERSION_PATCH;
     }
 
     PROFILER_API uint32_t version()
@@ -191,10 +214,16 @@ extern "C" {
 
     PROFILER_API const char* versionName()
     {
-        return EASY_VERSION_NAME.c_str();
+        return EASY_PROFILER_PRODUCT_VERSION
+#ifdef EASY_PROFILER_API_DISABLED
+            "_disabled"
+#endif
+            ;
     }
 
 }
+
+//////////////////////////////////////////////////////////////////////////
 
 SerializedBlock::SerializedBlock(const Block& block, uint16_t name_length)
     : BaseBlockData(block)
@@ -331,12 +360,14 @@ void ThreadStorage::clearClosed()
 
 ThreadGuard::~ThreadGuard()
 {
+#ifndef EASY_PROFILER_API_DISABLED
     if (m_id != 0 && THREAD_STORAGE != nullptr && THREAD_STORAGE->id == m_id)
     {
         EASY_EVENT("ThreadFinished", profiler::colors::Dark);
         THREAD_STORAGE->expired.store(true, std::memory_order_release);
         THREAD_STORAGE = nullptr;
     }
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -350,7 +381,9 @@ ProfileManager::ProfileManager()
 
 ProfileManager::~ProfileManager()
 {
+#ifndef EASY_PROFILER_API_DISABLED
     stopListenSignalToCapture();
+#endif
 
     for (auto desc : m_descriptors)
     {

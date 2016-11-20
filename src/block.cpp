@@ -43,6 +43,7 @@
 
 using namespace profiler;
 
+#ifndef EASY_PROFILER_API_DISABLED
 BaseBlockData::BaseBlockData(timestamp_t _begin_time, block_id_t _descriptor_id)
     : m_begin(_begin_time)
     , m_end(0)
@@ -59,18 +60,18 @@ Block::Block(Block&& that)
     m_end = that.m_end;
 }
 
-Block::Block(const BaseBlockDescriptor* _descriptor, const char* _runtimeName)
-    : BaseBlockData(1ULL, _descriptor->id())
-    , m_name(_runtimeName)
-    , m_status(_descriptor->status())
-{
-
-}
-
 Block::Block(timestamp_t _begin_time, block_id_t _descriptor_id, const char* _runtimeName)
     : BaseBlockData(_begin_time, _descriptor_id)
     , m_name(_runtimeName)
     , m_status(::profiler::ON)
+{
+
+}
+
+Block::Block(const BaseBlockDescriptor* _descriptor, const char* _runtimeName)
+    : BaseBlockData(1ULL, _descriptor->id())
+    , m_name(_runtimeName)
+    , m_status(_descriptor->status())
 {
 
 }
@@ -100,3 +101,55 @@ Block::~Block()
     if (!finished())
         ::profiler::endBlock();
 }
+#else
+BaseBlockData::BaseBlockData(timestamp_t, block_id_t)
+    : m_begin(0)
+    , m_end(0)
+    , m_id(~0U)
+{
+
+}
+
+Block::Block(Block&&)
+    : BaseBlockData(0, ~0U)
+    , m_name("")
+    , m_status(::profiler::OFF)
+{
+}
+
+Block::Block(timestamp_t, block_id_t, const char*)
+    : BaseBlockData(0, ~0U)
+    , m_name("")
+    , m_status(::profiler::OFF)
+{
+
+}
+
+Block::Block(const BaseBlockDescriptor*, const char*)
+    : BaseBlockData(0, ~0U)
+    , m_name("")
+    , m_status(::profiler::OFF)
+{
+
+}
+
+void Block::start()
+{
+}
+
+void Block::start(timestamp_t)
+{
+}
+
+void Block::finish()
+{
+}
+
+void Block::finish(timestamp_t)
+{
+}
+
+Block::~Block()
+{
+}
+#endif

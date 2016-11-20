@@ -1,6 +1,6 @@
 1 VERSIONINFO
-FILEVERSION     EASY_VERSION_MAJOR, EASY_VERSION_MINOR, EASY_VERSION_REV
-PRODUCTVERSION EASY_VERSION_MAJOR, EASY_VERSION_MINOR, EASY_VERSION_REV
+FILEVERSION    EASY_PROFILER_VERSION_MAJOR, EASY_PROFILER_VERSION_MINOR, EASY_PROFILER_VERSION_PATCH
+PRODUCTVERSION EASY_PROFILER_VERSION_MAJOR, EASY_PROFILER_VERSION_MINOR, EASY_PROFILER_VERSION_PATCH
 BEGIN
     BLOCK "StringFileInfo"
     BEGIN
@@ -8,7 +8,7 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "EasyProfiler Team"
             VALUE "FileDescription", "Lightweight profiler library for c++"
-            VALUE "LegalCopyright", "Copyright 2016 Victor Zarubkin, Sergey Yagovtsev"
+            VALUE "LegalCopyright", "Copyright (C) 2016 Victor Zarubkin, Sergey Yagovtsev"
             VALUE "LegalTrademarks1", "All Rights Reserved"
             VALUE "LegalTrademarks2", "All Rights Reserved"
             VALUE "ProductName", "easy_profiler lib"
