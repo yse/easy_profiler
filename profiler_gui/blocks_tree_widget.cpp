@@ -374,13 +374,13 @@ void EasyTreeWidget::clearSilent(bool _global)
 
 //////////////////////////////////////////////////////////////////////////
 
-int EasyTreeWidget::findNext(const QString& _str)
+int EasyTreeWidget::findNext(const QString& _str, Qt::MatchFlags _flags)
 {
     if (m_bLocked || _str.isEmpty())
         return 0;
 
     const bool isNewSearch = (m_lastSearch != _str);
-    auto itemsList = findItems(_str, Qt::MatchContains | Qt::MatchRecursive, COL_NAME);
+    auto itemsList = findItems(_str, Qt::MatchContains | Qt::MatchRecursive | _flags, COL_NAME);
 
     if (!isNewSearch)
     {
@@ -424,13 +424,13 @@ int EasyTreeWidget::findNext(const QString& _str)
     return itemsList.size();
 }
 
-int EasyTreeWidget::findPrev(const QString& _str)
+int EasyTreeWidget::findPrev(const QString& _str, Qt::MatchFlags _flags)
 {
     if (m_bLocked || _str.isEmpty())
         return 0;
 
     const bool isNewSearch = (m_lastSearch != _str);
-    auto itemsList = findItems(_str, Qt::MatchContains | Qt::MatchRecursive, COL_NAME);
+    auto itemsList = findItems(_str, Qt::MatchContains | Qt::MatchRecursive | _flags, COL_NAME);
 
     if (!isNewSearch)
     {
@@ -922,11 +922,14 @@ void EasyTreeWidget::saveSettings()
 //////////////////////////////////////////////////////////////////////////
 
 EasyHierarchyWidget::EasyHierarchyWidget(QWidget* _parent) : Parent(_parent)
-, m_tree(new EasyTreeWidget(this))
-, m_searchBox(new QLineEdit(this))
-, m_foundNumber(new QLabel("Found 0 matches", this))
-, m_searchButton(nullptr)
+    , m_tree(new EasyTreeWidget(this))
+    , m_searchBox(new QLineEdit(this))
+    , m_foundNumber(new QLabel("Found 0 matches", this))
+    , m_searchButton(nullptr)
+    , m_bCaseSensitiveSearch(false)
 {
+    loadSettings();
+
     m_searchBox->setFixedWidth(200);
     m_searchBox->setContentsMargins(5, 0, 0, 0);
 
@@ -951,7 +954,15 @@ EasyHierarchyWidget::EasyHierarchyWidget(QWidget* _parent) : Parent(_parent)
     connect(a, &QAction::triggered, this, &This::findPrevFromMenu);
     menu->addAction(a);
 
+    menu->addSeparator();
+    a = menu->addAction("Case sensitive");
+    a->setCheckable(true);
+    a->setChecked(m_bCaseSensitiveSearch);
+    connect(a, &QAction::triggered, [this](bool _checked){ m_bCaseSensitiveSearch = _checked; });
+    menu->addAction(a);
+
     auto tb = new QToolBar(this);
+    tb->setContentsMargins(0, 0, 0, 0);
     tb->addAction(m_searchButton);
     tb->addWidget(m_searchBox);
 
@@ -971,7 +982,27 @@ EasyHierarchyWidget::EasyHierarchyWidget(QWidget* _parent) : Parent(_parent)
 
 EasyHierarchyWidget::~EasyHierarchyWidget()
 {
+    saveSettings();
+}
 
+void EasyHierarchyWidget::loadSettings()
+{
+    QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
+    settings.beginGroup("EasyHierarchyWidget");
+
+    auto val = settings.value("case_sensitive");
+    if (!val.isNull())
+        m_bCaseSensitiveSearch = val.toBool();
+
+    settings.endGroup();
+}
+
+void EasyHierarchyWidget::saveSettings()
+{
+    QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
+    settings.beginGroup("EasyHierarchyWidget");
+    settings.setValue("case_sensitive", m_bCaseSensitiveSearch);
+    settings.endGroup();
 }
 
 void EasyHierarchyWidget::keyPressEvent(QKeyEvent* _event)
@@ -1000,17 +1031,15 @@ void EasyHierarchyWidget::clear(bool _global)
 
 void EasyHierarchyWidget::onSeachBoxReturnPressed()
 {
-    auto matches = m_tree->findNext(m_searchBox->text());
-
-    if (matches == 1)
-        m_foundNumber->setText(QString("Found 1 match"));
+    if (m_searchButton->data().toBool() == true)
+        findNext(true);
     else
-        m_foundNumber->setText(QString("Found %1 matches").arg(matches));
+        findPrev(true);
 }
 
 void EasyHierarchyWidget::findNext(bool)
 {
-    auto matches = m_tree->findNext(m_searchBox->text());
+    auto matches = m_tree->findNext(m_searchBox->text(), m_bCaseSensitiveSearch ? Qt::MatchCaseSensitive : Qt::MatchFlags());
 
     if (matches == 1)
         m_foundNumber->setText(QString("Found 1 match"));
@@ -1020,7 +1049,7 @@ void EasyHierarchyWidget::findNext(bool)
 
 void EasyHierarchyWidget::findPrev(bool)
 {
-    auto matches = m_tree->findPrev(m_searchBox->text());
+    auto matches = m_tree->findPrev(m_searchBox->text(), m_bCaseSensitiveSearch ? Qt::MatchCaseSensitive : Qt::MatchFlags());
 
     if (matches == 1)
         m_foundNumber->setText(QString("Found 1 match"));

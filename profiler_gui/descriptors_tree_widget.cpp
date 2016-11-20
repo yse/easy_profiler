@@ -303,23 +303,6 @@ void EasyDescTreeWidget::onSearchColumnChange(bool)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyDescTreeWidget::keyPressEvent(QKeyEvent* _event)
-{
-    Parent::keyPressEvent(_event);
-
-    if (_event->key() == Qt::Key_F3)
-    {
-        if (_event->modifiers() & Qt::ShiftModifier)
-            findPrev(m_lastSearch);
-        else
-            findNext(m_lastSearch);
-    }
-
-    _event->accept();
-}
-
-//////////////////////////////////////////////////////////////////////////
-
 void EasyDescTreeWidget::clearSilent(bool _global)
 {
     const QSignalBlocker b(this);
@@ -574,7 +557,7 @@ void EasyDescTreeWidget::saveSettings()
 
 //////////////////////////////////////////////////////////////////////////
 
-int EasyDescTreeWidget::findNext(const QString& _str)
+int EasyDescTreeWidget::findNext(const QString& _str, Qt::MatchFlags _flags)
 {
     if (_str.isEmpty())
     {
@@ -588,7 +571,7 @@ int EasyDescTreeWidget::findNext(const QString& _str)
     }
 
     const bool isNewSearch = (m_lastSearch != _str);
-    auto itemsList = findItems(_str, Qt::MatchContains | Qt::MatchRecursive, m_searchColumn);
+    auto itemsList = findItems(_str, Qt::MatchContains | Qt::MatchRecursive | _flags, m_searchColumn);
 
     if (!isNewSearch)
     {
@@ -644,7 +627,7 @@ int EasyDescTreeWidget::findNext(const QString& _str)
     return itemsList.size();
 }
 
-int EasyDescTreeWidget::findPrev(const QString& _str)
+int EasyDescTreeWidget::findPrev(const QString& _str, Qt::MatchFlags _flags)
 {
     if (_str.isEmpty())
     {
@@ -658,7 +641,7 @@ int EasyDescTreeWidget::findPrev(const QString& _str)
     }
 
     const bool isNewSearch = (m_lastSearch != _str);
-    auto itemsList = findItems(_str, Qt::MatchContains | Qt::MatchRecursive, m_searchColumn);
+    auto itemsList = findItems(_str, Qt::MatchContains | Qt::MatchRecursive | _flags, m_searchColumn);
 
     if (!isNewSearch)
     {
@@ -717,7 +700,10 @@ EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
     , m_searchBox(new QLineEdit(this))
     , m_foundNumber(new QLabel("Found 0 matches", this))
     , m_searchButton(nullptr)
+    , m_bCaseSensitiveSearch(false)
 {
+    loadSettings();
+
     m_searchBox->setFixedWidth(200);
     m_searchBox->setContentsMargins(5, 0, 0, 0);
 
@@ -750,6 +736,13 @@ EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
     connect(a, &QAction::triggered, this, &This::findPrevFromMenu);
     menu->addAction(a);
 
+    menu->addSeparator();
+    a = menu->addAction("Case sensitive");
+    a->setCheckable(true);
+    a->setChecked(m_bCaseSensitiveSearch);
+    connect(a, &QAction::triggered, [this](bool _checked){ m_bCaseSensitiveSearch = _checked; });
+    menu->addAction(a);
+
     tb->addSeparator();
     tb->addAction(m_searchButton);
     tb->addWidget(m_searchBox);
@@ -771,7 +764,27 @@ EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
 
 EasyDescWidget::~EasyDescWidget()
 {
+    saveSettings();
+}
 
+void EasyDescWidget::loadSettings()
+{
+    QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
+    settings.beginGroup("EasyDescWidget");
+
+    auto val = settings.value("case_sensitive");
+    if (!val.isNull())
+        m_bCaseSensitiveSearch = val.toBool();
+
+    settings.endGroup();
+}
+
+void EasyDescWidget::saveSettings()
+{
+    QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
+    settings.beginGroup("EasyDescWidget");
+    settings.setValue("case_sensitive", m_bCaseSensitiveSearch);
+    settings.endGroup();
 }
 
 void EasyDescWidget::keyPressEvent(QKeyEvent* _event)
@@ -802,17 +815,15 @@ void EasyDescWidget::clear()
 
 void EasyDescWidget::onSeachBoxReturnPressed()
 {
-    auto matches = m_tree->findNext(m_searchBox->text());
-
-    if (matches == 1)
-        m_foundNumber->setText(QString("Found 1 match"));
+    if (m_searchButton->data().toBool() == true)
+        findNext(true);
     else
-        m_foundNumber->setText(QString("Found %1 matches").arg(matches));
+        findPrev(true);
 }
 
 void EasyDescWidget::findNext(bool)
 {
-    auto matches = m_tree->findNext(m_searchBox->text());
+    auto matches = m_tree->findNext(m_searchBox->text(), m_bCaseSensitiveSearch ? Qt::MatchCaseSensitive : Qt::MatchFlags());
 
     if (matches == 1)
         m_foundNumber->setText(QString("Found 1 match"));
@@ -822,7 +833,7 @@ void EasyDescWidget::findNext(bool)
 
 void EasyDescWidget::findPrev(bool)
 {
-    auto matches = m_tree->findPrev(m_searchBox->text());
+    auto matches = m_tree->findPrev(m_searchBox->text(), m_bCaseSensitiveSearch ? Qt::MatchCaseSensitive : Qt::MatchFlags());
 
     if (matches == 1)
         m_foundNumber->setText(QString("Found 1 match"));

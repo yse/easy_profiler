@@ -107,14 +107,13 @@ public:
     explicit EasyDescTreeWidget(QWidget* _parent = nullptr);
     virtual ~EasyDescTreeWidget();
     void contextMenuEvent(QContextMenuEvent* _event) override;
-    void keyPressEvent(QKeyEvent* _event) override;
 
 public:
 
     // Public non-virtual methods
 
-    int findNext(const QString& _str);
-    int findPrev(const QString& _str);
+    int findNext(const QString& _str, Qt::MatchFlags _flags);
+    int findPrev(const QString& _str, Qt::MatchFlags _flags);
 
 public slots:
 
@@ -156,6 +155,7 @@ private:
     class QLineEdit*  m_searchBox;
     class QLabel*   m_foundNumber;
     class QAction* m_searchButton;
+    bool   m_bCaseSensitiveSearch;
 
 public:
 
@@ -179,6 +179,13 @@ private slots:
     void findPrev(bool);
     void findNextFromMenu(bool);
     void findPrevFromMenu(bool);
+
+private:
+
+    // Private non-virtual slots
+
+    void loadSettings();
+    void saveSettings();
 
 }; // END of class EasyDescWidget.
 

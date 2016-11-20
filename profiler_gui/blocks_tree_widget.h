@@ -88,8 +88,8 @@ public:
     virtual ~EasyTreeWidget();
 
     void clearSilent(bool _global = false);
-    int findNext(const QString& _str);
-    int findPrev(const QString& _str);
+    int findNext(const QString& _str, Qt::MatchFlags _flags);
+    int findPrev(const QString& _str, Qt::MatchFlags _flags);
 
 public slots:
 
@@ -152,10 +152,11 @@ class EasyHierarchyWidget : public QWidget
 
 private:
 
-    EasyTreeWidget*        m_tree;
-    class QLineEdit*  m_searchBox;
-    class QLabel*   m_foundNumber;
-    class QAction* m_searchButton;
+    EasyTreeWidget*                 m_tree;
+    class QLineEdit*           m_searchBox;
+    class QLabel*            m_foundNumber;
+    class QAction*          m_searchButton;
+    bool            m_bCaseSensitiveSearch;
 
 public:
 
@@ -174,11 +175,20 @@ public:
 
 private slots:
 
+    // Private slots
+
     void onSeachBoxReturnPressed();
     void findNext(bool);
     void findPrev(bool);
     void findNextFromMenu(bool);
     void findPrevFromMenu(bool);
+
+private:
+
+    // Private non-virtual methods
+
+    void loadSettings();
+    void saveSettings();
 
 }; // END of class EasyHierarchyWidget.
 
