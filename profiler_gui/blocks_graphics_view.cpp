@@ -106,9 +106,9 @@ const uint64_t ADDITIONAL_OFFSET = 50000000ULL; // Additional 50 ms before first
 
 //////////////////////////////////////////////////////////////////////////
 
-auto const sign = [](int _value) { return _value < 0 ? -1 : 1; };
-auto const absmin = [](int _a, int _b) { return abs(_a) < abs(_b) ? _a : _b; };
-auto const clamp = [](qreal _minValue, qreal _value, qreal _maxValue) { return _value < _minValue ? _minValue : (_value > _maxValue ? _maxValue : _value); };
+inline int sign(int _value) { return _value < 0 ? -1 : 1; }
+inline int absmin(int _a, int _b) { return abs(_a) < abs(_b) ? _a : _b; }
+inline qreal clamp(qreal _minValue, qreal _value, qreal _maxValue) { return _value < _minValue ? _minValue : (_value > _maxValue ? _maxValue : _value); }
 
 //////////////////////////////////////////////////////////////////////////
 
