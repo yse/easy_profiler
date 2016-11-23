@@ -227,7 +227,7 @@ namespace profiler {
 
         inline bool got_name() const
         {
-            return thread_name.front() != 0;
+            return !thread_name.empty();
         }
 
         inline const char* name() const
