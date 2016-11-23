@@ -166,6 +166,9 @@ void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
             if (dh > 0)
                 rect.setHeight(rect.height() - dh);
 
+            if (rect.top() < 0)
+                rect.setTop(0);
+
             _painter->drawRect(rect);
         }
     }
@@ -559,10 +562,10 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, ::profiler::block_index
         //    xbegin -= dt;
         //}
 
-        if (duration < MIN_DURATION)
-        {
-            duration = MIN_DURATION;
-        }
+        //if (duration < MIN_DURATION)
+        //{
+        //    duration = MIN_DURATION;
+        //}
 
         auto i = _item->addItem(level);
         auto& b = _item->getItem(level, i);
@@ -868,7 +871,7 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
         }
     }
 
-    const ::profiler_gui::EasyBlockItem* selectedBlock = nullptr;
+    const ::profiler_gui::EasyBlock* selectedBlock = nullptr;
     const auto previouslySelectedBlock = EASY_GLOBALS.selected_block;
     if (m_mouseButtons & Qt::LeftButton)
     {
@@ -900,12 +903,13 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
                 // Try to select one of item blocks
                 for (auto item : m_items)
                 {
-                    auto block = item->intersect(mouseClickPos);
+                    ::profiler::block_index_t i = ~0U;
+                    auto block = item->intersect(mouseClickPos, i);
                     if (block)
                     {
                         changedSelectedItem = true;
                         selectedBlock = block;
-                        EASY_GLOBALS.selected_block = block->block;
+                        EASY_GLOBALS.selected_block = i;
                         break;
                     }
                 }
@@ -934,7 +938,7 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
     if (changedSelectedItem)
     {
         m_bUpdatingRect = true;
-        if (selectedBlock != nullptr && previouslySelectedBlock == EASY_GLOBALS.selected_block && !blocksTree(selectedBlock->block).children.empty())
+        if (selectedBlock != nullptr && previouslySelectedBlock == EASY_GLOBALS.selected_block && !selectedBlock->tree.children.empty())
         {
             EASY_GLOBALS.gui_blocks[previouslySelectedBlock].expanded = !EASY_GLOBALS.gui_blocks[previouslySelectedBlock].expanded;
             emit EASY_GLOBALS.events.itemsExpandStateChanged();
@@ -1293,30 +1297,44 @@ void EasyGraphicsView::onIdleTimeout()
         // Try to select one of context switches or items
         for (auto item : m_items)
         {
-            auto block = item->intersect(pos);
+            ::profiler::block_index_t i = ~0U;
+            auto block = item->intersect(pos, i);
             if (block)
             {
-                const auto& itemBlock = blocksTree(block->block);
-                auto name = *itemBlock.node->name() != 0 ? itemBlock.node->name() : easyDescriptor(itemBlock.node->id()).name();
+                const auto& itemBlock = block->tree;
+                const auto& itemDesc = easyDescriptor(itemBlock.node->id());
+                auto name = *itemBlock.node->name() != 0 ? itemBlock.node->name() : itemDesc.name();
 
                 auto widget = new QWidget();
                 auto lay = new QFormLayout(widget);
                 lay->setLabelAlignment(Qt::AlignRight);
-                lay->addRow("Name:", new QLabel(name));
-                lay->addRow("Duration:", new QLabel(::profiler_gui::timeStringReal(PROF_MICROSECONDS(itemBlock.node->duration()), 3)));
+                if (itemDesc.type() == ::profiler::BLOCK_TYPE_BLOCK)
+                {
+                    lay->addRow("Block:", new QLabel(name));
+                    lay->addRow("Duration:", new QLabel(::profiler_gui::timeStringReal(PROF_MICROSECONDS(itemBlock.node->duration()), 3)));
+                }
+                else
+                {
+                    lay->addRow("Event:", new QLabel(name));
+                }
+
                 if (itemBlock.per_thread_stats)
                 {
-                    lay->addRow("%/Thread:", new QLabel(QString::number(::profiler_gui::percent(itemBlock.per_thread_stats->total_duration, item->root()->active_time))));
                     lay->addRow("N/Thread:", new QLabel(QString::number(itemBlock.per_thread_stats->calls_number)));
-                    if (itemBlock.per_parent_stats->parent_block == item->threadId())
+
+                    if (itemDesc.type() == ::profiler::BLOCK_TYPE_BLOCK)
                     {
-                        auto percent = ::profiler_gui::percentReal(itemBlock.node->duration(), item->root()->active_time);
-                        lay->addRow("%:", new QLabel(percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent))));
-                    }
-                    else
-                    {
-                        auto percent = ::profiler_gui::percentReal(itemBlock.node->duration(), blocksTree(itemBlock.per_parent_stats->parent_block).node->duration());
-                        lay->addRow("%:", new QLabel(percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent))));
+                        lay->addRow("%/Thread:", new QLabel(QString::number(::profiler_gui::percent(itemBlock.per_thread_stats->total_duration, item->root()->active_time))));
+                        if (itemBlock.per_parent_stats->parent_block == item->threadId())
+                        {
+                            auto percent = ::profiler_gui::percentReal(itemBlock.node->duration(), item->root()->active_time);
+                            lay->addRow("%:", new QLabel(percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent))));
+                        }
+                        else
+                        {
+                            auto percent = ::profiler_gui::percentReal(itemBlock.node->duration(), blocksTree(itemBlock.per_parent_stats->parent_block).node->duration());
+                            lay->addRow("%:", new QLabel(percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent))));
+                        }
                     }
                 }
 

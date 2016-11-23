@@ -148,7 +148,7 @@ public:
     \param _blocks Reference to the array of selected blocks */
     void getBlocks(qreal _left, qreal _right, ::profiler_gui::TreeBlocks& _blocks) const;
 
-    const ::profiler_gui::EasyBlockItem* intersect(const QPointF& _pos) const;
+    const ::profiler_gui::EasyBlock* intersect(const QPointF& _pos, ::profiler::block_index_t& _blockIndex) const;
     const ::profiler_gui::EasyBlock* intersectEvent(const QPointF& _pos) const;
 
 private:

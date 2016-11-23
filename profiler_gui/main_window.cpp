@@ -261,6 +261,11 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
     action->setChecked(EASY_GLOBALS.only_current_thread_hierarchy);
     connect(action, &QAction::triggered, this, &This::onHierarchyFlagChange);
 
+    action = submenu->addAction("Enable zero length blocks");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.enable_zero_length);
+    connect(action, &QAction::triggered, [this](bool _checked){ EASY_GLOBALS.enable_zero_length = _checked; refreshDiagram(); });
+
     action = submenu->addAction("Collapse items on tree reset");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.collapse_items_on_tree_close);
@@ -608,6 +613,15 @@ void EasyMainWindow::clear()
     m_bNetworkFileRegime = false;
 }
 
+//////////////////////////////////////////////////////////////////////////
+
+void EasyMainWindow::refreshDiagram()
+{
+    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->scene()->update();
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 void EasyMainWindow::onDeleteClicked(bool)
 {
     auto button = QMessageBox::question(this, "Clear all profiled data", "All profiled data is going to be deleted!\nContinue?", QMessageBox::Yes, QMessageBox::No);
@@ -636,13 +650,13 @@ void EasyMainWindow::onChronoTextPosChanged(bool)
 {
     auto _sender = qobject_cast<QAction*>(sender());
     EASY_GLOBALS.chrono_text_position = static_cast<::profiler_gui::ChronometerTextPosition>(_sender->data().toInt());
-    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->scene()->update();
+    refreshDiagram();
 }
 
 void EasyMainWindow::onEventIndicatorsChange(bool _checked)
 {
     EASY_GLOBALS.enable_event_indicators = _checked;
-    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->scene()->update();
+    refreshDiagram();
 }
 
 void EasyMainWindow::onEnableDisableStatistics(bool _checked)
@@ -672,13 +686,13 @@ void EasyMainWindow::onEnableDisableStatistics(bool _checked)
 void EasyMainWindow::onDrawBordersChanged(bool _checked)
 {
     EASY_GLOBALS.draw_graphics_items_borders = _checked;
-    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->scene()->update();
+    refreshDiagram();
 }
 
 void EasyMainWindow::onHideNarrowChildrenChanged(bool _checked)
 {
     EASY_GLOBALS.hide_narrow_children = _checked;
-    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->scene()->update();
+    refreshDiagram();
 }
 
 void EasyMainWindow::onCollapseItemsAfterCloseChanged(bool _checked)
@@ -733,19 +747,19 @@ void EasyMainWindow::onCollapseAllClicked(bool)
 void EasyMainWindow::onSpacingChange(int _value)
 {
     EASY_GLOBALS.blocks_spacing = _value;
-    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->scene()->update();
+    refreshDiagram();
 }
 
 void EasyMainWindow::onMinSizeChange(int _value)
 {
     EASY_GLOBALS.blocks_size_min = _value;
-    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->scene()->update();
+    refreshDiagram();
 }
 
 void EasyMainWindow::onNarrowSizeChange(int _value)
 {
     EASY_GLOBALS.blocks_narrow_size = _value;
-    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->scene()->update();
+    refreshDiagram();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -858,6 +872,10 @@ void EasyMainWindow::loadSettings()
     if (!flag.isNull())
         EASY_GLOBALS.only_current_thread_hierarchy = flag.toBool();
 
+    flag = settings.value("enable_zero_length");
+    if (!flag.isNull())
+        EASY_GLOBALS.enable_zero_length = flag.toBool();
+
     flag = settings.value("bind_scene_and_tree_expand_status");
     if (!flag.isNull())
         EASY_GLOBALS.bind_scene_and_tree_expand_status = flag.toBool();
@@ -914,6 +932,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("collapse_items_on_tree_close", EASY_GLOBALS.collapse_items_on_tree_close);
     settings.setValue("all_items_expanded_by_default", EASY_GLOBALS.all_items_expanded_by_default);
     settings.setValue("only_current_thread_hierarchy", EASY_GLOBALS.only_current_thread_hierarchy);
+    settings.setValue("enable_zero_length", EASY_GLOBALS.enable_zero_length);
     settings.setValue("bind_scene_and_tree_expand_status", EASY_GLOBALS.bind_scene_and_tree_expand_status);
     settings.setValue("enable_event_indicators", EASY_GLOBALS.enable_event_indicators);
     settings.setValue("enable_statistics", EASY_GLOBALS.enable_statistics);

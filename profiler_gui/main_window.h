@@ -264,6 +264,8 @@ private:
 
     void clear();
 
+    void refreshDiagram();
+
     void loadFile(const QString& filename);
     void readStream(::std::stringstream& data);
 

@@ -197,6 +197,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     }
 
 
+    const auto MIN_WIDTH = EASY_GLOBALS.enable_zero_length ? 0.f : 0.25f;
+
 
     // Iterate through layers and draw visible items
     if (gotItems)
@@ -299,8 +301,9 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     continue;
                 }
 
+                const auto item_width = ::std::max(item.width(), MIN_WIDTH);
                 auto x = item.left() * currentScale - dx;
-                auto w = item.width() * currentScale;
+                auto w = item_width * currentScale;
                 if (x + w <= prevRight)
                 {
                     // This item is not visible
@@ -468,8 +471,9 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 if (item.left() < sceneRight && item.right() > sceneLeft)
                 {
                     const auto& itemBlock = easyBlock(item.block);
+                    const auto item_width = ::std::max(item.width(), MIN_WIDTH);
                     auto top = levelY(guiblock.graphics_item_level);
-                    auto w = ::std::max(item.width() * currentScale, 1.0);
+                    auto w = ::std::max(item_width * currentScale, 1.0);
                     decltype(top) h = (!itemBlock.expanded ||
                                        (w < EASY_GLOBALS.blocks_narrow_size && EASY_GLOBALS.hide_narrow_children))
                                        ? (itemBlock.tree.depth * ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + ::profiler_gui::GRAPHICS_ROW_SIZE)
@@ -652,13 +656,15 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 if (left > sceneRight)
                     break; // This is first totally invisible item. No need to check other items.
 
-                decltype(left) width = 0.25;
+                decltype(left) width = MIN_WIDTH;
                 if (left + width < sceneLeft) // This item is not visible
                     continue;
 
                 left *= currentScale;
                 left -= dx;
                 width *= currentScale;
+                if (width < 2) width = 2;
+
                 if (left + width <= prevRight) // This item is not visible
                     continue;
 
@@ -757,7 +763,7 @@ void EasyGraphicsItem::getBlocks(qreal _left, qreal _right, ::profiler_gui::Tree
 
 //////////////////////////////////////////////////////////////////////////
 
-const ::profiler_gui::EasyBlockItem* EasyGraphicsItem::intersect(const QPointF& _pos) const
+const ::profiler_gui::EasyBlock* EasyGraphicsItem::intersect(const QPointF& _pos, ::profiler::block_index_t& _blockIndex) const
 {
     if (m_levels.empty() || m_levels.front().empty())
     {
@@ -772,7 +778,8 @@ const ::profiler_gui::EasyBlockItem* EasyGraphicsItem::intersect(const QPointF& 
         return nullptr;
     }
 
-    const auto bottom = top + m_levels.size() * ::profiler_gui::GRAPHICS_ROW_SIZE_FULL;
+    static const auto OVERLAP = ::profiler_gui::THREADS_ROW_SPACING >> 1;
+    const auto bottom = top + m_levels.size() * ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + OVERLAP;
     if (bottom < _pos.y())
     {
         return nullptr;
@@ -781,10 +788,58 @@ const ::profiler_gui::EasyBlockItem* EasyGraphicsItem::intersect(const QPointF& 
     const unsigned int levelIndex = static_cast<unsigned int>(_pos.y() - top) / ::profiler_gui::GRAPHICS_ROW_SIZE_FULL;
     if (levelIndex >= m_levels.size())
     {
+        // The Y position is out of blocks range
+
+        if (EASY_GLOBALS.enable_event_indicators && !m_pRoot->events.empty())
+        {
+            // If event indicators are enabled then try to intersect with one of event indicators
+
+            const auto& sceneView = view();
+            auto first = ::std::lower_bound(m_pRoot->events.begin(), m_pRoot->events.end(), _pos.x(), [&sceneView](::profiler::block_index_t _index, qreal _value)
+            {
+                return sceneView->time2position(blocksTree(_index).node->begin()) < _value;
+            });
+
+            if (first != m_pRoot->events.end())
+            {
+                if (first != m_pRoot->events.begin())
+                    --first;
+            }
+            else if (!m_pRoot->events.empty())
+            {
+                first = m_pRoot->events.begin() + m_pRoot->events.size() - 1;
+            }
+
+            const auto MIN_WIDTH = EASY_GLOBALS.enable_zero_length ? 0.f : 0.25f;
+            const auto currentScale = sceneView->scale();
+            const auto dw = 5. / currentScale;
+
+            for (auto it = first, end = m_pRoot->events.end(); it != end; ++it)
+            {
+                _blockIndex = *it;
+                const auto& item = easyBlock(_blockIndex);
+                auto left = sceneView->time2position(item.tree.node->begin());
+
+                if (left - dw > _pos.x())
+                    break; // This is first totally invisible item. No need to check other items.
+
+                decltype(left) width = MIN_WIDTH;
+                if (left + width + dw < _pos.x()) // This item is not visible
+                    continue;
+
+                return &item;
+            }
+        }
+
         return nullptr;
     }
 
+    // The Y position is inside blocks range
+
+    const auto MIN_WIDTH = EASY_GLOBALS.enable_zero_length ? 0.f : 0.25f;
+
     const auto currentScale = view()->scale();
+    const auto dw = 5. / currentScale;
     unsigned int i = 0;
     size_t itemIndex = ::std::numeric_limits<size_t>::max();
     size_t firstItem = 0, lastItem = static_cast<unsigned int>(level0.size());
@@ -814,20 +869,23 @@ const ::profiler_gui::EasyBlockItem* EasyGraphicsItem::intersect(const QPointF& 
             const auto& item = level[itemIndex];
             static const auto MAX_CHILD_INDEX = ::profiler_gui::numeric_max(item.children_begin);
 
-            if (item.left() > _pos.x())
+            if (item.left() - dw > _pos.x())
             {
                 return nullptr;
             }
 
-            if (item.right() < _pos.x())
+            const auto item_width = ::std::max(item.width(), MIN_WIDTH);
+            if (item.left() + item_width + dw < _pos.x())
             {
                 continue;
             }
 
-            const auto w = item.width() * currentScale;
-            if (i == levelIndex || (w < EASY_GLOBALS.blocks_narrow_size && EASY_GLOBALS.hide_narrow_children) || !easyBlock(item.block).expanded)
+            const auto w = item_width * currentScale;
+            const auto& guiItem = easyBlock(item.block);
+            if (i == levelIndex || (w < EASY_GLOBALS.blocks_narrow_size && EASY_GLOBALS.hide_narrow_children) || !guiItem.expanded)
             {
-                return &item;
+                _blockIndex = item.block;
+                return &guiItem;
             }
 
             if (item.children_begin == MAX_CHILD_INDEX)
@@ -909,15 +967,16 @@ const ::profiler_gui::EasyBlock* EasyGraphicsItem::intersectEvent(const QPointF&
     else if (firstSync != m_pRoot->sync.begin())
         --firstSync;
 
+    const auto dw = 4. / view()->scale();
     for (auto it = firstSync, end = m_pRoot->sync.end(); it != end; ++it)
     {
         const auto& item = easyBlock(*it);
 
-        const auto left = sceneView->time2position(item.tree.node->begin()) - 2;
+        const auto left = sceneView->time2position(item.tree.node->begin()) - dw;
         if (left > _pos.x())
             break;
         
-        const auto right = sceneView->time2position(item.tree.node->end()) + 2;
+        const auto right = sceneView->time2position(item.tree.node->end()) + dw;
         if (right < _pos.x())
             continue;
 
