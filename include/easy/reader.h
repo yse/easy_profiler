@@ -198,7 +198,7 @@ namespace profiler {
         ::profiler::thread_id_t   thread_id; ///< System Id of this thread
         uint16_t                      depth; ///< Maximum stack depth (number of levels)
 
-        BlocksTreeRoot() : thread_name(""), active_time(0), thread_id(0), depth(0)
+        BlocksTreeRoot() : active_time(0), thread_id(0), depth(0)
         {
         }
 
