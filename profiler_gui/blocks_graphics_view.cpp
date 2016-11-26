@@ -541,7 +541,7 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, ::profiler::block_index
     bool warned = false;
     qreal total_duration = 0, prev_end = 0, maxh = 0;
     qreal start_time = -1;
-    uint32_t i = 0;
+    uint32_t j = 0;
     for (auto child_index : _children)
     {
         auto& gui_block = easyBlock(child_index);
@@ -567,7 +567,7 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, ::profiler::block_index
         //    duration = MIN_DURATION;
         //}
 
-        auto i = _item->addItem(level);
+        const auto i = _item->addItem(level);
         auto& b = _item->getItem(level, i);
 
         gui_block.graphics_item = _item->index();
@@ -610,12 +610,12 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, ::profiler::block_index
         b.parent = _parent;
         b.setPos(xbegin, duration);
         //b.totalHeight = ::profiler_gui::GRAPHICS_ROW_SIZE + h;
-        b.state = i > 0 || level == 0 ? 0 : -1;
+        b.state = j > 0 || level == 0 ? 0 : -1;
 
         prev_end = xbegin + duration;
         total_duration = prev_end - start_time;
 
-        ++i;
+        ++j;
     }
 
     _height += ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + maxh;
