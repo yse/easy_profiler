@@ -119,6 +119,7 @@ namespace profiler_gui {
         bool                     enable_event_indicators; ///< Enable event indicators painting (These are narrow rectangles at the bottom of each thread)
         bool                           enable_statistics; ///< Enable gathering and using statistics (Disable if you want to consume less memory)
         bool                          enable_zero_length; ///< Enable zero length blocks (if true, then such blocks will have width == 1 pixel on each scale)
+        bool                add_zero_blocks_to_hierarchy; ///< Enable adding zero blocks into hierarchy tree
         bool                 draw_graphics_items_borders; ///< Draw borders for graphics blocks or not
         bool                        hide_narrow_children; ///< Hide children for narrow graphics blocks
         bool                 display_only_relevant_stats; ///< Display only relevant information in ProfTreeWidget (excludes min, max, average times if there are only 1 calls number)

@@ -261,6 +261,15 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
     action->setChecked(EASY_GLOBALS.only_current_thread_hierarchy);
     connect(action, &QAction::triggered, this, &This::onHierarchyFlagChange);
 
+    action = submenu->addAction("Add zero blocks to hierarchy");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.add_zero_blocks_to_hierarchy);
+    connect(action, &QAction::triggered, [this](bool _checked)
+    {
+        EASY_GLOBALS.add_zero_blocks_to_hierarchy = _checked;
+        emit EASY_GLOBALS.events.hierarchyFlagChanged(_checked);
+    });
+
     action = submenu->addAction("Enable zero length blocks");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.enable_zero_length);
@@ -876,6 +885,10 @@ void EasyMainWindow::loadSettings()
     if (!flag.isNull())
         EASY_GLOBALS.enable_zero_length = flag.toBool();
 
+    flag = settings.value("add_zero_blocks_to_hierarchy");
+    if (!flag.isNull())
+        EASY_GLOBALS.add_zero_blocks_to_hierarchy = flag.toBool();
+
     flag = settings.value("bind_scene_and_tree_expand_status");
     if (!flag.isNull())
         EASY_GLOBALS.bind_scene_and_tree_expand_status = flag.toBool();
@@ -933,6 +946,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("all_items_expanded_by_default", EASY_GLOBALS.all_items_expanded_by_default);
     settings.setValue("only_current_thread_hierarchy", EASY_GLOBALS.only_current_thread_hierarchy);
     settings.setValue("enable_zero_length", EASY_GLOBALS.enable_zero_length);
+    settings.setValue("add_zero_blocks_to_hierarchy", EASY_GLOBALS.add_zero_blocks_to_hierarchy);
     settings.setValue("bind_scene_and_tree_expand_status", EASY_GLOBALS.bind_scene_and_tree_expand_status);
     settings.setValue("enable_event_indicators", EASY_GLOBALS.enable_event_indicators);
     settings.setValue("enable_statistics", EASY_GLOBALS.enable_statistics);
