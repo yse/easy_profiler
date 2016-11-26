@@ -688,7 +688,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
                 rect.setRect(left, top, width, h);
                 _painter->drawRect(rect);
-                prevRight = left + width;
+                prevRight = left + width + 2;
             }
         }
     }
