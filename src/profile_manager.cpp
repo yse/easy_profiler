@@ -47,6 +47,10 @@
 #include "event_trace_win.h"
 #include "current_time.h"
 
+#ifndef _WIN32
+#include <signal.h>
+#endif
+
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
@@ -305,9 +309,10 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
-ThreadStorage::ThreadStorage() : id(getCurrentThreadId()), allowChildren(true), named(false)
+ThreadStorage::ThreadStorage() : id(getCurrentThreadId()), allowChildren(true), named(false), pthread_id(pthread_self())
 {
     expired = ATOMIC_VAR_INIT(false);
+
 }
 
 void ThreadStorage::storeBlock(const profiler::Block& block)
@@ -671,14 +676,14 @@ bool ProfileManager::checkThreadExpired(ThreadStorage& _registeredThread)
 
     if (hThread != nullptr)
         CloseHandle(hThread);
-
+    return false;
 #else
 
-    // TODO: Check thread for Linux
+    return pthread_kill(_registeredThread.pthread_id, 0) != 0;
 
 #endif
 
-    return false;
+
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -976,6 +981,13 @@ void ProfileManager::listen()
 
                 switch (message->type)
                 {
+                    case profiler::net::MESSAGE_TYPE_CHECK_CONNECTION:
+                    {
+#ifdef EASY_DEBUG_NET_PRINT
+                        printf("receive MESSAGE_TYPE_CHECK_CONNECTION\n");
+#endif
+                        break;
+                    }
                     case profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE:
                     {
 #ifdef EASY_DEBUG_NET_PRINT

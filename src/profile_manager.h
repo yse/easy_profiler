@@ -309,6 +309,11 @@ struct ThreadStorage
     BlocksList<std::reference_wrapper<profiler::Block>, SIZEOF_CSWITCH * (uint16_t)128U> blocks;
     BlocksList<profiler::Block, SIZEOF_CSWITCH * (uint16_t)128U>                           sync;
     std::string name;
+
+#ifndef _WIN32
+    const pthread_t pthread_id;
+#endif
+
     const profiler::thread_id_t id;
     std::atomic_bool expired;
     bool allowChildren;
