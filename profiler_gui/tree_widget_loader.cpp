@@ -151,19 +151,23 @@ void EasyTreeWidgetLoader::interrupt(bool _wait)
 void EasyTreeWidgetLoader::fillTree(::profiler::timestamp_t& _beginTime, const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, bool _colorizeRows)
 {
     interrupt();
-    m_thread = ::std::move(::std::thread(&FillTreeClass<EasyTreeWidgetLoader>::setTreeInternal1, ::std::ref(*this), ::std::ref(m_items), ::std::ref(m_topLevelItems), ::std::ref(_beginTime), _blocksNumber, ::std::ref(_blocksTree), _colorizeRows));
+    m_thread = ::std::move(::std::thread(&FillTreeClass<EasyTreeWidgetLoader>::setTreeInternal1,
+        ::std::ref(*this), ::std::ref(m_items), ::std::ref(m_topLevelItems), ::std::ref(_beginTime),
+        _blocksNumber, ::std::ref(_blocksTree), _colorizeRows, EASY_GLOBALS.add_zero_blocks_to_hierarchy));
 }
 
 void EasyTreeWidgetLoader::fillTreeBlocks(const::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _beginTime, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, bool _colorizeRows)
 {
     interrupt();
-    m_thread = ::std::move(::std::thread(&FillTreeClass<EasyTreeWidgetLoader>::setTreeInternal2, ::std::ref(*this), ::std::ref(m_items), ::std::ref(m_topLevelItems), _beginTime, ::std::ref(_blocks), _left, _right, _strict, _colorizeRows));
+    m_thread = ::std::move(::std::thread(&FillTreeClass<EasyTreeWidgetLoader>::setTreeInternal2,
+        ::std::ref(*this), ::std::ref(m_items), ::std::ref(m_topLevelItems), _beginTime, ::std::ref(_blocks),
+        _left, _right, _strict, _colorizeRows, EASY_GLOBALS.add_zero_blocks_to_hierarchy));
 }
 
 //////////////////////////////////////////////////////////////////////////
 
 template <class T>
-void FillTreeClass<T>::setTreeInternal1(T& _safelocker, Items& _items, ThreadedItems& _topLevelItems, ::profiler::timestamp_t& _beginTime, const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, bool _colorizeRows)
+void FillTreeClass<T>::setTreeInternal1(T& _safelocker, Items& _items, ThreadedItems& _topLevelItems, ::profiler::timestamp_t& _beginTime, const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, bool _colorizeRows, bool _addZeroBlocks)
 {
     _items.reserve(_blocksNumber + _blocksTree.size()); // _blocksNumber does not include Thread root blocks
 
@@ -222,7 +226,7 @@ void FillTreeClass<T>::setTreeInternal1(T& _safelocker, Items& _items, ThreadedI
         item->setTimeSmart(COL_SELF_DURATION, root.active_time);
 
         ::profiler::timestamp_t children_duration = 0;
-        const auto children_items_number = FillTreeClass<T>::setTreeInternal(_safelocker, _items, _beginTime, root.children, item, nullptr, item, _beginTime, finishtime + 1000000000ULL, false, children_duration, _colorizeRows);
+        const auto children_items_number = FillTreeClass<T>::setTreeInternal(_safelocker, _items, _beginTime, root.children, item, nullptr, item, _beginTime, finishtime + 1000000000ULL, false, children_duration, _colorizeRows, _addZeroBlocks);
 
         if (children_items_number > 0)
         {
@@ -255,7 +259,7 @@ auto calculateTotalChildrenNumber(const ::profiler::BlocksTree& _tree) -> declty
 }
 
 template <class T>
-void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedItems& _topLevelItems, const ::profiler::timestamp_t& _beginTime, const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, bool _colorizeRows)
+void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedItems& _topLevelItems, const ::profiler::timestamp_t& _beginTime, const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, bool _colorizeRows, bool _addZeroBlocks)
 {
     //size_t blocksNumber = 0;
     //for (const auto& block : _blocks)
@@ -402,7 +406,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
         ::profiler::timestamp_t children_duration = 0;
         if (!gui_block.tree.children.empty())
         {
-            children_items_number = FillTreeClass<T>::setTreeInternal(_safelocker, _items, _beginTime, gui_block.tree.children, item, item, thread_item, _left, _right, _strict, children_duration, _colorizeRows);
+            children_items_number = FillTreeClass<T>::setTreeInternal(_safelocker, _items, _beginTime, gui_block.tree.children, item, item, thread_item, _left, _right, _strict, children_duration, _colorizeRows, _addZeroBlocks);
             if (_safelocker.interrupted())
                 break;
         }
@@ -468,7 +472,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
 }
 
 template <class T>
-size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::profiler::timestamp_t& _beginTime, const ::profiler::BlocksTree::children_t& _children, EasyTreeWidgetItem* _parent, EasyTreeWidgetItem* _frame, EasyTreeWidgetItem* _thread, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration, bool _colorizeRows)
+size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::profiler::timestamp_t& _beginTime, const ::profiler::BlocksTree::children_t& _children, EasyTreeWidgetItem* _parent, EasyTreeWidgetItem* _frame, EasyTreeWidgetItem* _thread, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration, bool _colorizeRows, bool _addZeroBlocks)
 {
     size_t total_items = 0;
     for (auto child_index : _children)
@@ -481,12 +485,14 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
         const auto startTime = child.node->begin();
         const auto endTime = child.node->end();
         const auto duration = endTime - startTime;
+
+        if (duration == 0 && !_addZeroBlocks)
+            continue;
+
         _duration += duration;
 
         if (startTime > _right || endTime < _left)
-        {
             continue;
-        }
 
         auto item = new EasyTreeWidgetItem(child_index, _parent);
 
@@ -613,7 +619,7 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
         ::profiler::timestamp_t children_duration = 0;
         if (!child.children.empty())
         {
-            children_items_number = FillTreeClass<T>::setTreeInternal(_safelocker, _items, _beginTime, child.children, item, _frame ? _frame : item, _thread, _left, _right, _strict, children_duration, _colorizeRows);
+            children_items_number = FillTreeClass<T>::setTreeInternal(_safelocker, _items, _beginTime, child.children, item, _frame ? _frame : item, _thread, _left, _right, _strict, children_duration, _colorizeRows, _addZeroBlocks);
             if (_safelocker.interrupted())
                 break;
         }

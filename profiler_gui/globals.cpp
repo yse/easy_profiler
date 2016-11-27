@@ -69,6 +69,7 @@ namespace profiler_gui {
         , enable_event_indicators(true)
         , enable_statistics(true)
         , enable_zero_length(true)
+        , add_zero_blocks_to_hierarchy(false)
         , draw_graphics_items_borders(true)
         , hide_narrow_children(false)
         , display_only_relevant_stats(true)
