@@ -309,7 +309,11 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
-ThreadStorage::ThreadStorage() : id(getCurrentThreadId()), allowChildren(true), named(false), pthread_id(pthread_self())
+ThreadStorage::ThreadStorage() : id(getCurrentThreadId()), allowChildren(true), named(false)
+#ifndef _WIN32
+, pthread_id(pthread_self())
+#endif
+
 {
     expired = ATOMIC_VAR_INIT(false);
 
