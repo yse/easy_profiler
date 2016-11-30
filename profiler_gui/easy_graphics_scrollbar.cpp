@@ -110,7 +110,11 @@ EasyGraphicsSliderItem::~EasyGraphicsSliderItem()
 
 void EasyGraphicsSliderItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget)
 {
-    //Parent::paint(_painter, _option, _widget);
+    if (static_cast<const EasyGraphicsScrollbar*>(scene()->parent())->bindMode())
+    {
+        return;
+    }
+
     const auto currentScale = static_cast<const EasyGraphicsScrollbar*>(scene()->parent())->getWindowScale();
     const auto br = rect();
 
@@ -218,7 +222,9 @@ void EasyMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* 
         return;
     }
 
-    const auto currentScale = static_cast<const EasyGraphicsScrollbar*>(scene()->parent())->getWindowScale();
+    const auto widget = static_cast<const EasyGraphicsScrollbar*>(scene()->parent());
+    const bool bindMode = widget->bindMode();
+    const auto currentScale = widget->getWindowScale();
     const auto bottom = m_boundingRect.bottom();
     const auto coeff = m_boundingRect.height() / (m_maxDuration - m_minDuration);
     const auto heightRevert = 1.0 / m_boundingRect.height();
@@ -246,37 +252,75 @@ void EasyMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* 
 
     auto const calculate_color = gotFrame ? calculate_color2 : calculate_color1;
     auto const k = gotFrame ? sqr(sqr(heightRevert * frameCoeff)) : heightRevert;
-
-    qreal previous_x = -1e30, previous_h = -1e30;
     auto& items = *m_pSource;
-    for (const auto& item : items)
+
+    if (!items.empty())
     {
-        // Draw rectangle
+        qreal previous_x = -1e30, previous_h = -1e30, offset = 0.;
+        auto first = items.begin();
+        auto realScale = currentScale;
+        auto minimum = widget->minimum();
+        auto maximum = widget->maximum();
 
-        qreal item_x = item.left() * currentScale;
-        qreal item_w = ::std::max(item.width() * currentScale, 1.0);
-        qreal item_r = item_x + item_w;
-        const auto h = ::std::max((item.width() - m_minDuration) * coeff, 2.0);
-
-        if (h < previous_h && item_r < previous_x)
-            continue;
-
-        const auto col = calculate_color(h, k);
-        const auto color = 0x00ffffff & QColor::fromHsvF((1.0 - col) * 0.375, 0.85, 0.85).rgb();
-
-        if (previousColor != color)
+        if (bindMode)
         {
-            // Set background color brush for rectangle
-            previousColor = color;
-            brush.setColor(QColor::fromRgba(0xc0000000 | color));
-            _painter->setBrush(brush);
+            const auto range = widget->sliderWidth();
+            minimum = widget->value();
+            maximum = minimum + range;
+            realScale *= widget->range() / range;
+            offset = minimum * realScale;
+
+            auto first = ::std::lower_bound(items.begin(), items.end(), minimum, [](const ::profiler_gui::EasyBlockItem& _item, qreal _value)
+            {
+                return _item.left() < _value;
+            });
+
+            if (first != items.end())
+            {
+                if (first != items.begin())
+                    --first;
+            }
+            else
+            {
+                first = items.begin() + items.size() - 1;
+            }
         }
 
-        rect.setRect(item_x, bottom - h, item_w, h);
-        _painter->drawRect(rect);
+        for (auto it = first, end = items.end(); it != end; ++it)
+        {
+            // Draw rectangle
 
-        previous_x = item_r;
-        previous_h = h;
+            if (it->left() > maximum)
+                break;
+
+            if (it->right() < minimum)
+                continue;
+
+            const qreal item_x = it->left() * realScale - offset;
+            const qreal item_w = ::std::max(it->width() * realScale, 1.0);
+            const qreal item_r = item_x + item_w;
+            const auto h = ::std::max((it->width() - m_minDuration) * coeff, 2.0);
+
+            if (h < previous_h && item_r < previous_x)
+                continue;
+
+            const auto col = calculate_color(h, k);
+            const auto color = 0x00ffffff & QColor::fromHsvF((1.0 - col) * 0.375, 0.85, 0.85).rgb();
+
+            if (previousColor != color)
+            {
+                // Set background color brush for rectangle
+                previousColor = color;
+                brush.setColor(QColor::fromRgba(0xc0000000 | color));
+                _painter->setBrush(brush);
+            }
+
+            rect.setRect(item_x, bottom - h, item_w, h);
+            _painter->drawRect(rect);
+
+            previous_x = item_r;
+            previous_h = h;
+        }
     }
 
     _painter->setPen(Qt::darkGray);
@@ -364,6 +408,7 @@ EasyGraphicsScrollbar::EasyGraphicsScrollbar(QWidget* _parent)
     , m_chronometerIndicator(nullptr)
     , m_minimap(nullptr)
     , m_bScrolling(false)
+    , m_bBindMode(false)
 {
     setCacheMode(QGraphicsView::CacheNone);
     setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
@@ -421,6 +466,11 @@ void EasyGraphicsScrollbar::clear()
 }
 
 //////////////////////////////////////////////////////////////////////////
+
+bool EasyGraphicsScrollbar::bindMode() const
+{
+    return m_bBindMode;
+}
 
 qreal EasyGraphicsScrollbar::getWindowScale() const
 {
@@ -525,11 +575,18 @@ void EasyGraphicsScrollbar::mousePressEvent(QMouseEvent* _event)
 {
     m_mouseButtons = _event->buttons();
 
+    if (m_mouseButtons & Qt::RightButton)
+    {
+        m_bBindMode = !m_bBindMode;
+        scene()->update();
+    }
+
     if (m_mouseButtons & Qt::LeftButton)
     {
         m_bScrolling = true;
         m_mousePressPos = _event->pos();
-        setValue(mapToScene(m_mousePressPos).x() - m_minimumValue - m_slider->halfwidth());
+        if (!m_bBindMode)
+            setValue(mapToScene(m_mousePressPos).x() - m_minimumValue - m_slider->halfwidth());
     }
 
     _event->accept();
@@ -554,17 +611,29 @@ void EasyGraphicsScrollbar::mouseMoveEvent(QMouseEvent* _event)
 
         if (m_bScrolling)
         {
-            setValue(m_value + delta.x() / m_windowScale);
+            auto realScale = m_windowScale;
+            if (m_bBindMode)
+                realScale *= -range() / sliderWidth();
+            setValue(m_value + delta.x() / realScale);
         }
     }
 }
 
 void EasyGraphicsScrollbar::wheelEvent(QWheelEvent* _event)
 {
-    auto w = m_slider->halfwidth() * (_event->delta() < 0 ? ::profiler_gui::SCALING_COEFFICIENT : ::profiler_gui::SCALING_COEFFICIENT_INV);
-    setValue(mapToScene(_event->pos()).x() - m_minimumValue - w);
-    emit wheeled(w * m_windowScale, _event->delta());
     _event->accept();
+
+    if (!m_bBindMode)
+    {
+        const auto w = m_slider->halfwidth() * (_event->delta() < 0 ? ::profiler_gui::SCALING_COEFFICIENT : ::profiler_gui::SCALING_COEFFICIENT_INV);
+        setValue(mapToScene(_event->pos()).x() - m_minimumValue - w);
+        emit wheeled(w * m_windowScale, _event->delta());
+    }
+    else
+    {
+        const auto x = (mapToScene(_event->pos()).x() - m_minimumValue) * m_windowScale;
+        emit wheeled(x, _event->delta());
+    }
 }
 
 void EasyGraphicsScrollbar::resizeEvent(QResizeEvent* _event)
@@ -573,7 +642,7 @@ void EasyGraphicsScrollbar::resizeEvent(QResizeEvent* _event)
 }
 
 //////////////////////////////////////////////////////////////////////////
-
+/*
 void EasyGraphicsScrollbar::contextMenuEvent(QContextMenuEvent* _event)
 {
     if (EASY_GLOBALS.profiler_blocks.empty())
@@ -603,7 +672,7 @@ void EasyGraphicsScrollbar::contextMenuEvent(QContextMenuEvent* _event)
     menu.exec(QCursor::pos());
     _event->accept();
 }
-
+*/
 //////////////////////////////////////////////////////////////////////////
 
 void EasyGraphicsScrollbar::onThreadActionClicked(bool)

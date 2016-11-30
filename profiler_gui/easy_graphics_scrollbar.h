@@ -140,6 +140,7 @@ private:
     EasyGraphicsSliderItem* m_chronometerIndicator;
     EasyMinimapItem*                     m_minimap;
     bool                              m_bScrolling;
+    bool                               m_bBindMode;
 
 public:
 
@@ -153,7 +154,7 @@ public:
     void mouseMoveEvent(QMouseEvent* _event) override;
     void wheelEvent(QWheelEvent* _event) override;
     void resizeEvent(QResizeEvent* _event) override;
-    void contextMenuEvent(QContextMenuEvent* _event) override;
+    //void contextMenuEvent(QContextMenuEvent* _event) override;
 
     void dragEnterEvent(QDragEnterEvent*) override {}
 
@@ -163,6 +164,7 @@ public:
 
     void clear();
 
+    bool bindMode() const;
     qreal getWindowScale() const;
     ::profiler::thread_id_t minimapThread() const;
 
