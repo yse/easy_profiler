@@ -935,8 +935,6 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
         emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_chronometerItem->left()), position2time(m_chronometerItem->right()), m_chronometerItem->reverse());
     }
 
-    m_chronometerItem->setReverse(false);
-
     if (changedSelectedItem)
     {
         m_bUpdatingRect = true;
