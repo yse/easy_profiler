@@ -244,7 +244,7 @@ void EasyTimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGrap
     const auto sceneView = static_cast<const EasyGraphicsView*>(scene()->parent());
     const auto visibleSceneRect = sceneView->visibleSceneRect();
     const auto step = sceneView->timelineStep() * sceneView->scale();
-    const QString text = ::profiler_gui::timeStringInt(units2microseconds(sceneView->timelineStep())); // Displayed text
+    const QString text = ::profiler_gui::timeStringInt(EASY_GLOBALS.time_units, units2microseconds(sceneView->timelineStep())); // Displayed text
 
     // Draw scale indicator
     _painter->save();
@@ -910,6 +910,7 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
                         changedSelectedItem = true;
                         selectedBlock = block;
                         EASY_GLOBALS.selected_block = i;
+                        EASY_GLOBALS.selected_block_id = easyBlock(i).tree.node->id();
                         break;
                     }
                 }
@@ -918,6 +919,7 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
                 {
                     changedSelectedItem = true;
                     ::profiler_gui::set_max(EASY_GLOBALS.selected_block);
+                    ::profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
                 }
             }
         }
@@ -1191,7 +1193,8 @@ void EasyGraphicsView::initMode()
     connect(globalSignals, &::profiler_gui::EasyGlobalSignals::hierarchyFlagChanged, this, &This::onHierarchyFlagChange);
     connect(globalSignals, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
     connect(globalSignals, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
-    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::itemsExpandStateChanged, this, &This::onItemsExpandStateChange);
+    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::itemsExpandStateChanged, this, &This::onRefreshRequired);
+    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::refreshRequired, this, &This::onRefreshRequired);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1311,7 +1314,7 @@ void EasyGraphicsView::onIdleTimeout()
                 if (itemDesc.type() == ::profiler::BLOCK_TYPE_BLOCK)
                 {
                     lay->addRow("Block:", new QLabel(name));
-                    lay->addRow("Duration:", new QLabel(::profiler_gui::timeStringReal(PROF_MICROSECONDS(itemBlock.node->duration()), 3)));
+                    lay->addRow("Duration:", new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, itemBlock.node->duration(), 3)));
                 }
                 else
                 {
@@ -1357,7 +1360,7 @@ void EasyGraphicsView::onIdleTimeout()
                 else
                     lay->addRow("Thread:", new QLabel(QString::number(cse->tree.node->id())));
                 lay->addRow("Process:", new QLabel(cse->tree.node->name()));
-                lay->addRow("Duration:", new QLabel(::profiler_gui::timeStringReal(PROF_MICROSECONDS(cse->tree.node->duration()), 3)));
+                lay->addRow("Duration:", new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, cse->tree.node->duration(), 3)));
 
                 m_csInfoWidget = new QGraphicsProxyWidget();
                 m_csInfoWidget->setWidget(widget);
@@ -1502,7 +1505,7 @@ void EasyGraphicsView::onSelectedBlockChange(unsigned int _block_index)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::onItemsExpandStateChange()
+void EasyGraphicsView::onRefreshRequired()
 {
     if (!m_bUpdatingRect)
     {
@@ -1642,7 +1645,7 @@ void EasyThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
     {
         if (time > 0)
         {
-            const QString text = ::profiler_gui::timeStringReal(time); // Displayed text
+            const QString text = ::profiler_gui::autoTimeStringReal(time); // Displayed text
             const auto th = fm.height(); // Calculate displayed text height
             rect.setRect(0, y, w, th);
 

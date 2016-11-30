@@ -129,30 +129,39 @@ const ::profiler::BlocksTree& EasyTreeWidgetItem::block() const
     return data(COL_SELF_DURATION, Qt::UserRole).toULongLong();
 }
 
-void EasyTreeWidgetItem::setTimeSmart(int _column, const ::profiler::timestamp_t& _time, const QString& _prefix)
+void EasyTreeWidgetItem::setTimeSmart(int _column, ::profiler_gui::TimeUnits _units, const ::profiler::timestamp_t& _time, const QString& _prefix)
 {
     const ::profiler::timestamp_t nanosecondsTime = PROF_NANOSECONDS(_time);
 
     setData(_column, Qt::UserRole, (quint64)nanosecondsTime);
-
     setToolTip(_column, QString("%1 ns").arg(nanosecondsTime));
+    setText(_column, QString("%1%2").arg(_prefix).arg(::profiler_gui::timeStringRealNs(_units, nanosecondsTime, 3)));
 
-    if (_time < 1e3)
-    {
-        setText(_column, QString("%1%2 ns").arg(_prefix).arg(nanosecondsTime));
-    }
-    else if (_time < 1e6)
-    {
-        setText(_column, QString("%1%2 us").arg(_prefix).arg(double(nanosecondsTime) * 1e-3, 0, 'f', 3));
-    }
-    else if (_time < 1e9)
-    {
-        setText(_column, QString("%1%2 ms").arg(_prefix).arg(double(nanosecondsTime) * 1e-6, 0, 'f', 3));
-    }
-    else
-    {
-        setText(_column, QString("%1%2 s").arg(_prefix).arg(double(nanosecondsTime) * 1e-9, 0, 'f', 3));
-    }
+//     if (_time < 1e3)
+//     {
+//         setText(_column, QString("%1%2 ns").arg(_prefix).arg(nanosecondsTime));
+//     }
+//     else if (_time < 1e6)
+//     {
+//         setText(_column, QString("%1%2 us").arg(_prefix).arg(double(nanosecondsTime) * 1e-3, 0, 'f', 3));
+//     }
+//     else if (_time < 1e9)
+//     {
+//         setText(_column, QString("%1%2 ms").arg(_prefix).arg(double(nanosecondsTime) * 1e-6, 0, 'f', 3));
+//     }
+//     else
+//     {
+//         setText(_column, QString("%1%2 s").arg(_prefix).arg(double(nanosecondsTime) * 1e-9, 0, 'f', 3));
+//     }
+}
+
+void EasyTreeWidgetItem::setTimeSmart(int _column, ::profiler_gui::TimeUnits _units, const ::profiler::timestamp_t& _time)
+{
+    const ::profiler::timestamp_t nanosecondsTime = PROF_NANOSECONDS(_time);
+
+    setData(_column, Qt::UserRole, (quint64)nanosecondsTime);
+    setToolTip(_column, QString("%1 ns").arg(nanosecondsTime));
+    setText(_column, ::profiler_gui::timeStringRealNs(_units, nanosecondsTime, 3));
 }
 
 void EasyTreeWidgetItem::setTimeMs(int _column, const ::profiler::timestamp_t& _time)

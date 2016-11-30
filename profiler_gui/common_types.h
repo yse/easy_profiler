@@ -140,6 +140,11 @@ inline bool isLightColor(::profiler::color_t _color, qreal _maxSum)
     return sum < _maxSum || ((_color & 0xff000000) >> 24) < 0x80;
 }
 
+inline ::profiler::color_t textColorForFlag(bool _is_light)
+{
+    return _is_light ? ::profiler::colors::Dark : ::profiler::colors::CreamWhite;
+}
+
 inline ::profiler::color_t textColorForRgb(::profiler::color_t _color)
 {
     return isLightColor(_color) ? ::profiler::colors::Dark : ::profiler::colors::CreamWhite;
@@ -223,6 +228,15 @@ typedef ::std::vector<EasySelectedBlock> TreeBlocks;
 
 //////////////////////////////////////////////////////////////////////////
 
+enum TimeUnits : int8_t
+{
+    TimeUnits_ms = 0,
+    TimeUnits_us,
+    TimeUnits_ns,
+    TimeUnits_auto
+
+}; // END of enum TimeUnits.
+
 inline qreal timeFactor(qreal _interval)
 {
     if (_interval < 1) // interval in nanoseconds
@@ -238,10 +252,10 @@ inline qreal timeFactor(qreal _interval)
     return 1e-6;
 }
 
-inline QString timeStringReal(qreal _interval, int _precision = 1)
+inline QString autoTimeStringReal(qreal _interval, int _precision = 1)
 {
     if (_interval < 1) // interval in nanoseconds
-        return QString("%1 ns").arg(static_cast<quint32>(_interval * 1e3));
+        return QString("%1 ns").arg(static_cast<quint64>(_interval * 1e3));
 
     if (_interval < 1e3) // interval in microseconds
         return QString("%1 us").arg(_interval, 0, 'f', _precision);
@@ -250,22 +264,140 @@ inline QString timeStringReal(qreal _interval, int _precision = 1)
         return QString("%1 ms").arg(_interval * 1e-3, 0, 'f', _precision);
 
     // interval in seconds
-    return QString("%1 sec").arg(_interval * 1e-6, 0, 'f', _precision);
+    return QString("%1 s").arg(_interval * 1e-6, 0, 'f', _precision);
 }
 
-inline QString timeStringInt(qreal _interval)
+inline QString autoTimeStringInt(qreal _interval)
 {
     if (_interval < 1) // interval in nanoseconds
-        return QString("%1 ns").arg(static_cast<int>(_interval * 1e3));
+        return QString("%1 ns").arg(static_cast<quint64>(_interval * 1e3));
 
     if (_interval < 1e3) // interval in microseconds
-        return QString("%1 us").arg(static_cast<int>(_interval));
+        return QString("%1 us").arg(static_cast<quint32>(_interval));
 
     if (_interval < 1e6) // interval in milliseconds
-        return QString("%1 ms").arg(static_cast<int>(_interval * 1e-3));
+        return QString("%1 ms").arg(static_cast<quint32>(_interval * 1e-3));
 
     // interval in seconds
-    return QString("%1 sec").arg(static_cast<int>(_interval * 1e-6));
+    return QString("%1 s").arg(static_cast<quint32>(_interval * 1e-6));
+}
+
+inline QString autoTimeStringRealNs(::profiler::timestamp_t _interval, int _precision = 1)
+{
+    if (_interval < 1000) // interval in nanoseconds
+        return QString("%1 ns").arg(_interval);
+
+    if (_interval < 1000000) // interval in microseconds
+        return QString("%1 us").arg(_interval * 1e-3, 0, 'f', _precision);
+
+    if (_interval < 1000000000U) // interval in milliseconds
+        return QString("%1 ms").arg(_interval * 1e-6, 0, 'f', _precision);
+
+    // interval in seconds
+    return QString("%1 s").arg(_interval * 1e-9, 0, 'f', _precision);
+}
+
+inline QString autoTimeStringIntNs(::profiler::timestamp_t _interval)
+{
+    if (_interval < 1000) // interval in nanoseconds
+        return QString("%1 ns").arg(_interval);
+
+    if (_interval < 1000000) // interval in microseconds
+        return QString("%1 us").arg(static_cast<quint32>(_interval * 1e-3));
+
+    if (_interval < 1000000000U) // interval in milliseconds
+        return QString("%1 ms").arg(static_cast<quint32>(_interval * 1e-6));
+
+    // interval in seconds
+    return QString("%1 s").arg(static_cast<quint32>(_interval * 1e-9));
+}
+
+inline QString timeStringReal(TimeUnits _units, qreal _interval, int _precision = 1)
+{
+    switch (_units)
+    {
+        case TimeUnits_ms:{
+            const char fmt = _interval <= 1 ? 'g' : 'f';
+            return QString("%1 ms").arg(_interval * 1e-3, 0, fmt, _precision);
+        }
+
+        case TimeUnits_us:
+            return QString("%1 us").arg(_interval, 0, 'f', _precision);
+
+        case TimeUnits_ns:
+            return QString("%1 ns").arg(static_cast<quint64>(_interval * 1e3));
+
+        case TimeUnits_auto:
+        default:
+            return autoTimeStringReal(_interval, _precision);
+    }
+
+    return QString();
+}
+
+inline QString timeStringRealNs(TimeUnits _units, ::profiler::timestamp_t _interval, int _precision = 1)
+{
+    switch (_units)
+    {
+        case TimeUnits_ms:{
+            const char fmt = _interval <= 1000 ? 'g' : 'f';
+            return QString("%1 ms").arg(_interval * 1e-6, 0, fmt, _precision);
+        }
+
+        case TimeUnits_us:
+            return QString("%1 us").arg(_interval * 1e-3, 0, 'f', _precision);
+
+        case TimeUnits_ns:
+            return QString("%1 ns").arg(_interval);
+
+        case TimeUnits_auto:
+        default:
+            return autoTimeStringRealNs(_interval, _precision);
+    }
+
+    return QString();
+}
+
+inline QString timeStringInt(TimeUnits _units, qreal _interval)
+{
+    switch (_units)
+    {
+        case TimeUnits_ms:
+            return QString("%1 ms").arg(static_cast<quint32>(_interval * 1e-3));
+
+        case TimeUnits_us:
+            return QString("%1 us").arg(static_cast<quint32>(_interval));
+
+        case TimeUnits_ns:
+            return QString("%1 ns").arg(static_cast<quint64>(_interval * 1e3));
+
+        case TimeUnits_auto:
+        default:
+            return autoTimeStringInt(_interval);
+    }
+
+    return QString();
+}
+
+inline QString timeStringIntNs(TimeUnits _units, ::profiler::timestamp_t _interval)
+{
+    switch (_units)
+    {
+        case TimeUnits_ms:
+            return QString("%1 ms").arg(static_cast<quint32>(_interval * 1e-6));
+
+        case TimeUnits_us:
+            return QString("%1 us").arg(static_cast<quint32>(_interval * 1e-3));
+
+        case TimeUnits_ns:
+            return QString("%1 ns").arg(_interval);
+
+        case TimeUnits_auto:
+        default:
+            return autoTimeStringIntNs(_interval);
+    }
+
+    return QString();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -280,6 +412,10 @@ template <class T> inline T numeric_max(T) {
 
 template <class T> inline void set_max(T& _value) {
     _value = ::std::numeric_limits<T>::max();
+}
+
+template <class T> inline bool is_max(const T& _value) {
+    return _value == ::std::numeric_limits<T>::max();
 }
 
 //////////////////////////////////////////////////////////////////////////

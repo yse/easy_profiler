@@ -90,7 +90,7 @@ namespace profiler_gui {
 
     //////////////////////////////////////////////////////////////////////////
 
-    enum ChronometerTextPosition
+    enum ChronometerTextPosition : int8_t
     {
         ChronoTextPosition_Center = 0,
         ChronoTextPosition_Top,
@@ -110,11 +110,13 @@ namespace profiler_gui {
         EasyBlocks                            gui_blocks; ///< Profiler graphics blocks builded by GUI
         ::profiler::thread_id_t          selected_thread; ///< Current selected thread id
         ::profiler::block_index_t         selected_block; ///< Current selected profiler block index
-        ChronometerTextPosition     chrono_text_position; ///< Selected interval text position
+        ::profiler::block_id_t         selected_block_id; ///< Current selected profiler block id
         float                                 frame_time; ///< Value in microseconds to be displayed at minimap on graphics scrollbar
         int                               blocks_spacing; ///< Minimum blocks spacing on diagram
         int                              blocks_size_min; ///< Minimum blocks size on diagram
         int                           blocks_narrow_size; ///< Width indicating narrow blocks
+        ChronometerTextPosition     chrono_text_position; ///< Selected interval text position
+        TimeUnits                             time_units; ///< Units type for time (milliseconds, microseconds, nanoseconds or auto-definition)
         bool                                   connected; ///< Is connected to source (to be able to capture profiling information)
         bool                     enable_event_indicators; ///< Enable event indicators painting (These are narrow rectangles at the bottom of each thread)
         bool                           enable_statistics; ///< Enable gathering and using statistics (Disable if you want to consume less memory)
@@ -126,6 +128,7 @@ namespace profiler_gui {
         bool                collapse_items_on_tree_close; ///< Collapse all items which were displayed in the hierarchy tree after tree close/reset
         bool               all_items_expanded_by_default; ///< Expand all items after file is opened
         bool               only_current_thread_hierarchy; ///< Build hierarchy tree for current thread only
+        bool               highlight_blocks_with_same_id; ///< Highlight all blocks with same id on diagram
         bool           bind_scene_and_tree_expand_status; /** \brief If true then items on graphics scene and in the tree (blocks hierarchy) are binded on each other
                                                                 so expanding/collapsing items on scene also expands/collapse items in the tree. */
 

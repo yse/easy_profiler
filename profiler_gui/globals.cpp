@@ -60,11 +60,13 @@ namespace profiler_gui {
     EasyGlobals::EasyGlobals()
         : selected_thread(0U)
         , selected_block(::profiler_gui::numeric_max<decltype(selected_block)>())
-        , chrono_text_position(ChronoTextPosition_Center)
+        , selected_block_id(::profiler_gui::numeric_max<decltype(selected_block_id)>())
         , frame_time(4e4f)
         , blocks_spacing(2)
         , blocks_size_min(3)
         , blocks_narrow_size(20)
+        , chrono_text_position(ChronoTextPosition_Center)
+        , time_units(TimeUnits_auto)
         , connected(false)
         , enable_event_indicators(true)
         , enable_statistics(true)
@@ -76,6 +78,7 @@ namespace profiler_gui {
         , collapse_items_on_tree_close(false)
         , all_items_expanded_by_default(true)
         , only_current_thread_hierarchy(false)
+        , highlight_blocks_with_same_id(true)
         , bind_scene_and_tree_expand_status(true)
     {
 

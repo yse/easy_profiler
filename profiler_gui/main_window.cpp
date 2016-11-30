@@ -275,6 +275,11 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
     action->setChecked(EASY_GLOBALS.enable_zero_length);
     connect(action, &QAction::triggered, [this](bool _checked){ EASY_GLOBALS.enable_zero_length = _checked; refreshDiagram(); });
 
+    action = submenu->addAction("Highlight similar blocks");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.highlight_blocks_with_same_id);
+    connect(action, &QAction::triggered, [this](bool _checked){ EASY_GLOBALS.highlight_blocks_with_same_id = _checked; refreshDiagram(); });
+
     action = submenu->addAction("Collapse items on tree reset");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.collapse_items_on_tree_close);
@@ -368,6 +373,42 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
     waction = new QWidgetAction(submenu);
     waction->setDefaultWidget(w);
     submenu->addAction(waction);
+
+
+    submenu = menu->addMenu("Units");
+    actionGroup = new QActionGroup(this);
+    actionGroup->setExclusive(true);
+    action = new QAction("Auto", actionGroup);
+    action->setCheckable(true);
+    action->setData(static_cast<int>(::profiler_gui::TimeUnits_auto));
+    if (EASY_GLOBALS.time_units == ::profiler_gui::TimeUnits_auto)
+        action->setChecked(true);
+    submenu->addAction(action);
+    connect(action, &QAction::triggered, this, &This::onUnitsChanged);
+
+    action = new QAction("Milliseconds", actionGroup);
+    action->setCheckable(true);
+    action->setData(static_cast<int>(::profiler_gui::TimeUnits_ms));
+    if (EASY_GLOBALS.time_units == ::profiler_gui::TimeUnits_ms)
+        action->setChecked(true);
+    submenu->addAction(action);
+    connect(action, &QAction::triggered, this, &This::onUnitsChanged);
+
+    action = new QAction("Microseconds", actionGroup);
+    action->setCheckable(true);
+    action->setData(static_cast<int>(::profiler_gui::TimeUnits_us));
+    if (EASY_GLOBALS.time_units == ::profiler_gui::TimeUnits_us)
+        action->setChecked(true);
+    submenu->addAction(action);
+    connect(action, &QAction::triggered, this, &This::onUnitsChanged);
+
+    action = new QAction("Nanoseconds", actionGroup);
+    action->setCheckable(true);
+    action->setData(static_cast<int>(::profiler_gui::TimeUnits_ns));
+    if (EASY_GLOBALS.time_units == ::profiler_gui::TimeUnits_ns)
+        action->setChecked(true);
+    submenu->addAction(action);
+    connect(action, &QAction::triggered, this, &This::onUnitsChanged);
 
 
     submenu = menu->addMenu("Remote");
@@ -609,6 +650,7 @@ void EasyMainWindow::clear()
 
     EASY_GLOBALS.selected_thread = 0;
     ::profiler_gui::set_max(EASY_GLOBALS.selected_block);
+    ::profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
     EASY_GLOBALS.profiler_blocks.clear();
     EASY_GLOBALS.descriptors.clear();
     EASY_GLOBALS.gui_blocks.clear();
@@ -660,6 +702,12 @@ void EasyMainWindow::onChronoTextPosChanged(bool)
     auto _sender = qobject_cast<QAction*>(sender());
     EASY_GLOBALS.chrono_text_position = static_cast<::profiler_gui::ChronometerTextPosition>(_sender->data().toInt());
     refreshDiagram();
+}
+
+void EasyMainWindow::onUnitsChanged(bool)
+{
+    auto _sender = qobject_cast<QAction*>(sender());
+    EASY_GLOBALS.time_units = static_cast<::profiler_gui::TimeUnits>(_sender->data().toInt());
 }
 
 void EasyMainWindow::onEventIndicatorsChange(bool _checked)
@@ -843,6 +891,10 @@ void EasyMainWindow::loadSettings()
     if (!val.isNull())
         EASY_GLOBALS.chrono_text_position = static_cast<::profiler_gui::ChronometerTextPosition>(val.toInt());
 
+    val = settings.value("time_units");
+    if (!val.isNull())
+        EASY_GLOBALS.time_units = static_cast<::profiler_gui::TimeUnits>(val.toInt());
+
 
     val = settings.value("frame_time");
     if (!val.isNull())
@@ -888,6 +940,11 @@ void EasyMainWindow::loadSettings()
     flag = settings.value("add_zero_blocks_to_hierarchy");
     if (!flag.isNull())
         EASY_GLOBALS.add_zero_blocks_to_hierarchy = flag.toBool();
+
+
+    flag = settings.value("highlight_blocks_with_same_id");
+    if (!flag.isNull())
+        EASY_GLOBALS.highlight_blocks_with_same_id = flag.toBool();
 
     flag = settings.value("bind_scene_and_tree_expand_status");
     if (!flag.isNull())
@@ -936,6 +993,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("ip_address", m_lastAddress);
     settings.setValue("port", (quint32)m_lastPort);
     settings.setValue("chrono_text_position", static_cast<int>(EASY_GLOBALS.chrono_text_position));
+    settings.setValue("time_units", static_cast<int>(EASY_GLOBALS.time_units));
     settings.setValue("frame_time", EASY_GLOBALS.frame_time);
     settings.setValue("blocks_spacing", EASY_GLOBALS.blocks_spacing);
     settings.setValue("blocks_size_min", EASY_GLOBALS.blocks_size_min);
@@ -947,6 +1005,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("only_current_thread_hierarchy", EASY_GLOBALS.only_current_thread_hierarchy);
     settings.setValue("enable_zero_length", EASY_GLOBALS.enable_zero_length);
     settings.setValue("add_zero_blocks_to_hierarchy", EASY_GLOBALS.add_zero_blocks_to_hierarchy);
+    settings.setValue("highlight_blocks_with_same_id", EASY_GLOBALS.highlight_blocks_with_same_id);
     settings.setValue("bind_scene_and_tree_expand_status", EASY_GLOBALS.bind_scene_and_tree_expand_status);
     settings.setValue("enable_event_indicators", EASY_GLOBALS.enable_event_indicators);
     settings.setValue("enable_statistics", EASY_GLOBALS.enable_statistics);
@@ -1058,6 +1117,7 @@ void EasyMainWindow::onFileReaderTimeout()
             m_descriptorsNumberInFile = descriptorsNumberInFile;
             EASY_GLOBALS.selected_thread = 0;
             ::profiler_gui::set_max(EASY_GLOBALS.selected_block);
+            ::profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
             EASY_GLOBALS.profiler_blocks.swap(threads_map);
             EASY_GLOBALS.descriptors.swap(descriptors);
 

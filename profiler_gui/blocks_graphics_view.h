@@ -199,7 +199,7 @@ private slots:
     void onHierarchyFlagChange(bool _value);
     void onSelectedThreadChange(::profiler::thread_id_t _id);
     void onSelectedBlockChange(unsigned int _block_index);
-    void onItemsExpandStateChange();
+    void onRefreshRequired();
 
 public:
 

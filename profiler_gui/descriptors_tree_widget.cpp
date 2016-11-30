@@ -226,6 +226,12 @@ EasyDescTreeWidget::EasyDescTreeWidget(QWidget* _parent)
 
 EasyDescTreeWidget::~EasyDescTreeWidget()
 {
+    if (::profiler_gui::is_max(EASY_GLOBALS.selected_block) && !::profiler_gui::is_max(EASY_GLOBALS.selected_block_id))
+    {
+        ::profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
+        emit EASY_GLOBALS.events.refreshRequired();
+    }
+
     saveSettings();
 }
 
@@ -466,6 +472,21 @@ void EasyDescTreeWidget::onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidget
         f.setBold(true);
         for (int i = 0; i < DESC_COL_STATUS; ++i)
             _item->setFont(i, f);
+
+        if (::profiler_gui::is_max(EASY_GLOBALS.selected_block) && _item->parent() != nullptr)
+        {
+            const auto id = static_cast<EasyDescWidgetItem*>(_item)->desc();
+            if (EASY_GLOBALS.selected_block_id != id)
+            {
+                EASY_GLOBALS.selected_block_id = id;
+                emit EASY_GLOBALS.events.refreshRequired();
+            }
+        }
+    }
+    else if (::profiler_gui::is_max(EASY_GLOBALS.selected_block) && !::profiler_gui::is_max(EASY_GLOBALS.selected_block_id))
+    {
+        ::profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
+        emit EASY_GLOBALS.events.refreshRequired();
     }
 }
 

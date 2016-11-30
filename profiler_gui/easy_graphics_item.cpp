@@ -63,12 +63,18 @@ enum BlockItemState : int8_t
 //////////////////////////////////////////////////////////////////////////
 
 const int MIN_SYNC_SPACING = 1;
-const QRgb BORDERS_COLOR = ::profiler::colors::Grey700 & 0x00ffffff;// 0x00686868;
+const QRgb BORDERS_COLOR = ::profiler::colors::Grey600 & 0x00ffffff;// 0x00686868;
 
 inline QRgb selectedItemBorderColor(::profiler::color_t _color) {
     return ::profiler_gui::isLightColor(_color, 192) ? ::profiler::colors::Black : ::profiler::colors::RichRed;
-    //return ::profiler::colors::Black;
 }
+
+inline QRgb highlightItemColor(bool _is_light) {
+    return _is_light ? ::profiler::colors::RichRed : ::profiler::colors::White;
+}
+
+#define HIGHLIGHT_COLOR(_is_light) ::profiler::colors::White
+//#define HIGHLIGHT_COLOR(_is_light) highlightItemColor(_is_light)
 
 const auto ITEMS_FONT = ::profiler_gui::EFont("Helvetica", 10, QFont::Medium);
 const auto SELECTED_ITEM_FONT = ::profiler_gui::EFont("Helvetica", 10, QFont::Bold);
@@ -142,6 +148,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     QBrush brush;
     QRgb previousColor = 0, inverseColor = 0xffffffff, textColor = 0;
     Qt::PenStyle previousPenStyle = Qt::NoPen;
+    bool is_light = false;
     brush.setStyle(Qt::SolidPattern);
 
     _painter->save();
@@ -343,16 +350,33 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         // Set background color brush for rectangle
                         previousColor = itemDesc.color();
                         inverseColor = 0xffffffff - previousColor;
-                        textColor = ::profiler_gui::textColorForRgb(previousColor);
+                        is_light = ::profiler_gui::isLightColor(previousColor);
+                        textColor = ::profiler_gui::textColorForFlag(is_light);
                         brush.setColor(previousColor);
                         _painter->setBrush(brush);
                     }
 
-                    if (EASY_GLOBALS.draw_graphics_items_borders && (previousPenStyle != Qt::SolidLine || colorChange))
+                    if (EASY_GLOBALS.highlight_blocks_with_same_id && EASY_GLOBALS.selected_block_id == itemDesc.id())
                     {
-                        // Restore pen for item which is wide enough to paint borders
-                        previousPenStyle = Qt::SolidLine;
-                        _painter->setPen(BORDERS_COLOR & inverseColor);// BORDERS_COLOR);
+                        if (previousPenStyle != Qt::DotLine)
+                        {
+                            previousPenStyle = Qt::DotLine;
+                            _painter->setPen(HIGHLIGHT_COLOR(is_light));
+                        }
+                    }
+                    else if (EASY_GLOBALS.draw_graphics_items_borders)
+                    {
+                        if (previousPenStyle != Qt::SolidLine)// || colorChange)
+                        {
+                            // Restore pen for item which is wide enough to paint borders
+                            previousPenStyle = Qt::SolidLine;
+                            _painter->setPen(BORDERS_COLOR);//BORDERS_COLOR & inverseColor);
+                        }
+                    }
+                    else if (previousPenStyle != Qt::NoPen)
+                    {
+                        previousPenStyle = Qt::NoPen;
+                        _painter->setPen(Qt::NoPen);
                     }
 
                     if (w < EASY_GLOBALS.blocks_size_min)
@@ -383,16 +407,33 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         // Set background color brush for rectangle
                         previousColor = itemDesc.color();
                         inverseColor = 0xffffffff - previousColor;
-                        textColor = ::profiler_gui::textColorForRgb(previousColor);
+                        is_light = ::profiler_gui::isLightColor(previousColor);
+                        textColor = ::profiler_gui::textColorForFlag(is_light);
                         brush.setColor(previousColor);
                         _painter->setBrush(brush);
                     }
 
-                    if (EASY_GLOBALS.draw_graphics_items_borders && (previousPenStyle != Qt::SolidLine || colorChange))
+                    if (EASY_GLOBALS.highlight_blocks_with_same_id && EASY_GLOBALS.selected_block_id == itemDesc.id())
                     {
-                        // Restore pen for item which is wide enough to paint borders
-                        previousPenStyle = Qt::SolidLine;
-                        _painter->setPen(BORDERS_COLOR & inverseColor);// BORDERS_COLOR);
+                        if (previousPenStyle != Qt::DotLine)
+                        {
+                            previousPenStyle = Qt::DotLine;
+                            _painter->setPen(HIGHLIGHT_COLOR(is_light));
+                        }
+                    }
+                    else if (EASY_GLOBALS.draw_graphics_items_borders)
+                    {
+                        if (previousPenStyle != Qt::SolidLine)// || colorChange)
+                        {
+                            // Restore pen for item which is wide enough to paint borders
+                            previousPenStyle = Qt::SolidLine;
+                            _painter->setPen(BORDERS_COLOR);// BORDERS_COLOR & inverseColor);
+                        }
+                    }
+                    else if (previousPenStyle != Qt::NoPen)
+                    {
+                        previousPenStyle = Qt::NoPen;
+                        _painter->setPen(Qt::NoPen);
                     }
 
                     // Draw rectangle
@@ -441,7 +482,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 // text will be painted with inverse color
                 //auto textColor = inverseColor < 0x00808080 ? profiler::colors::Black : profiler::colors::White;
                 //if (textColor == previousColor) textColor = 0;
-                _painter->setPen(QColor::fromRgb(textColor));
+                _painter->setPen(textColor);
 
                 if (item.block == EASY_GLOBALS.selected_block)
                     _painter->setFont(SELECTED_ITEM_FONT);
@@ -453,8 +494,12 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 // restore previous pen color
                 if (previousPenStyle == Qt::NoPen)
                     _painter->setPen(Qt::NoPen);
+                else if (previousPenStyle == Qt::DotLine)
+                {
+                    _painter->setPen(HIGHLIGHT_COLOR(is_light));
+                }
                 else
-                    _painter->setPen(BORDERS_COLOR & inverseColor);// BORDERS_COLOR); // restore pen for rectangle painting
+                    _painter->setPen(BORDERS_COLOR);// BORDERS_COLOR & inverseColor); // restore pen for rectangle painting
 
                 // restore font
                 if (item.block == EASY_GLOBALS.selected_block)

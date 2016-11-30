@@ -125,7 +125,8 @@ public:
     ::profiler::timestamp_t duration() const;
     ::profiler::timestamp_t selfDuration() const;
 
-    void setTimeSmart(int _column, const ::profiler::timestamp_t& _time, const QString& _prefix = "");
+    void setTimeSmart(int _column, ::profiler_gui::TimeUnits _units, const ::profiler::timestamp_t& _time, const QString& _prefix);
+    void setTimeSmart(int _column, ::profiler_gui::TimeUnits _units, const ::profiler::timestamp_t& _time);
 
     void setTimeMs(int _column, const ::profiler::timestamp_t& _time);
     void setTimeMs(int _column, const ::profiler::timestamp_t& _time, const QString& _prefix);

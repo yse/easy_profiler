@@ -639,6 +639,10 @@ void EasyTreeWidget::onJumpToItemClicked(bool)
 
     auto block_index = action->data().toUInt();
     EASY_GLOBALS.selected_block = block_index;
+    if (block_index < EASY_GLOBALS.gui_blocks.size())
+        EASY_GLOBALS.selected_block_id = easyBlock(block_index).tree.node->id();
+    else
+        ::profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
     emit EASY_GLOBALS.events.selectedBlockChanged(block_index);
 }
 
@@ -762,12 +766,33 @@ void EasyTreeWidget::onItemCollapse(QTreeWidgetItem* _item)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyTreeWidget::onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidgetItem*)
+void EasyTreeWidget::onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidgetItem* _previous)
 {
+    if (_previous != nullptr)
+    {
+        auto f = font();
+        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+            _previous->setFont(i, f);
+    }
+
     if (_item == nullptr)
+    {
         ::profiler_gui::set_max(EASY_GLOBALS.selected_block);
+        ::profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
+    }
     else
+    {
+        auto f = font();
+        f.setBold(true);
+        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+            _item->setFont(i, f);
+
         EASY_GLOBALS.selected_block = static_cast<EasyTreeWidgetItem*>(_item)->block_index();
+        if (EASY_GLOBALS.selected_block < EASY_GLOBALS.gui_blocks.size())
+            EASY_GLOBALS.selected_block_id = easyBlock(EASY_GLOBALS.selected_block).tree.node->id();
+        else
+            ::profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
+    }
 
     disconnect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
     emit EASY_GLOBALS.events.selectedBlockChanged(EASY_GLOBALS.selected_block);
@@ -826,6 +851,10 @@ void EasyTreeWidget::onSelectedBlockChange(uint32_t _block_index)
     if (item != nullptr)
     {
         //const QSignalBlocker b(this);
+        auto previous = currentItem();
+        auto f = font();
+        if (previous != nullptr) for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+            previous->setFont(i, f);
 
         if (EASY_GLOBALS.bind_scene_and_tree_expand_status)
         {
@@ -849,9 +878,21 @@ void EasyTreeWidget::onSelectedBlockChange(uint32_t _block_index)
             resizeColumnsToContents();
             connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
         }
+
+        f.setBold(true);
+        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+            item->setFont(i, f);
     }
     else
     {
+        auto previous = currentItem();
+        if (previous != nullptr)
+        {
+            auto f = font();
+            for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+                previous->setFont(i, f);
+        }
+
         setCurrentItem(item);
     }
 
@@ -894,11 +935,9 @@ void EasyTreeWidget::loadSettings()
     if (!color_rows_set.isNull())
         m_bColorRows = color_rows_set.toBool();
 
-    for (int i = 0; i < columnCount(); i++)
-    {
-        if (settings.value(QString("Column") + QString::number(i)).toBool())
-            hideColumn(i);
-    }
+    auto state = settings.value("headerState").toByteArray();
+    if (!state.isEmpty())
+        header()->restoreState(state);
 
     settings.endGroup();
 }
@@ -907,14 +946,8 @@ void EasyTreeWidget::saveSettings()
 {
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
     settings.beginGroup("tree_widget");
-
     settings.setValue("color_rows", m_bColorRows);
-
-    for (int i = 0; i < columnCount(); i++)
-    {
-        settings.setValue(QString("Column") + QString::number(i) , isColumnHidden(i));
-    }
-
+    settings.setValue("headerState", header()->saveState());
     settings.endGroup();
 }
 

@@ -153,7 +153,7 @@ void EasyTreeWidgetLoader::fillTree(::profiler::timestamp_t& _beginTime, const u
     interrupt();
     m_thread = ::std::move(::std::thread(&FillTreeClass<EasyTreeWidgetLoader>::setTreeInternal1,
         ::std::ref(*this), ::std::ref(m_items), ::std::ref(m_topLevelItems), ::std::ref(_beginTime),
-        _blocksNumber, ::std::ref(_blocksTree), _colorizeRows, EASY_GLOBALS.add_zero_blocks_to_hierarchy));
+        _blocksNumber, ::std::ref(_blocksTree), _colorizeRows, EASY_GLOBALS.add_zero_blocks_to_hierarchy, EASY_GLOBALS.time_units));
 }
 
 void EasyTreeWidgetLoader::fillTreeBlocks(const::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _beginTime, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, bool _colorizeRows)
@@ -161,13 +161,13 @@ void EasyTreeWidgetLoader::fillTreeBlocks(const::profiler_gui::TreeBlocks& _bloc
     interrupt();
     m_thread = ::std::move(::std::thread(&FillTreeClass<EasyTreeWidgetLoader>::setTreeInternal2,
         ::std::ref(*this), ::std::ref(m_items), ::std::ref(m_topLevelItems), _beginTime, ::std::ref(_blocks),
-        _left, _right, _strict, _colorizeRows, EASY_GLOBALS.add_zero_blocks_to_hierarchy));
+        _left, _right, _strict, _colorizeRows, EASY_GLOBALS.add_zero_blocks_to_hierarchy, EASY_GLOBALS.time_units));
 }
 
 //////////////////////////////////////////////////////////////////////////
 
 template <class T>
-void FillTreeClass<T>::setTreeInternal1(T& _safelocker, Items& _items, ThreadedItems& _topLevelItems, ::profiler::timestamp_t& _beginTime, const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, bool _colorizeRows, bool _addZeroBlocks)
+void FillTreeClass<T>::setTreeInternal1(T& _safelocker, Items& _items, ThreadedItems& _topLevelItems, ::profiler::timestamp_t& _beginTime, const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, bool _colorizeRows, bool _addZeroBlocks, ::profiler_gui::TimeUnits _units)
 {
     _items.reserve(_blocksNumber + _blocksTree.size()); // _blocksNumber does not include Thread root blocks
 
@@ -217,16 +217,16 @@ void FillTreeClass<T>::setTreeInternal1(T& _safelocker, Items& _items, ThreadedI
         if (!root.children.empty())
             duration = blocksTree(root.children.back()).node->end() - blocksTree(root.children.front()).node->begin();
 
-        item->setTimeSmart(COL_DURATION, duration);
+        item->setTimeSmart(COL_DURATION, _units, duration);
         item->setBackgroundColor(::profiler_gui::SELECTED_THREAD_BACKGROUND);
         item->setTextColor(::profiler_gui::SELECTED_THREAD_FOREGROUND);
 
         //_items.push_back(item);
 
-        item->setTimeSmart(COL_SELF_DURATION, root.active_time);
+        item->setTimeSmart(COL_SELF_DURATION, _units, root.active_time);
 
         ::profiler::timestamp_t children_duration = 0;
-        const auto children_items_number = FillTreeClass<T>::setTreeInternal(_safelocker, _items, _beginTime, root.children, item, nullptr, item, _beginTime, finishtime + 1000000000ULL, false, children_duration, _colorizeRows, _addZeroBlocks);
+        const auto children_items_number = FillTreeClass<T>::setTreeInternal(_safelocker, _items, _beginTime, root.children, item, nullptr, item, _beginTime, finishtime + 1000000000ULL, false, children_duration, _colorizeRows, _addZeroBlocks, _units);
 
         if (children_items_number > 0)
         {
@@ -259,7 +259,7 @@ auto calculateTotalChildrenNumber(const ::profiler::BlocksTree& _tree) -> declty
 }
 
 template <class T>
-void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedItems& _topLevelItems, const ::profiler::timestamp_t& _beginTime, const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, bool _colorizeRows, bool _addZeroBlocks)
+void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedItems& _topLevelItems, const ::profiler::timestamp_t& _beginTime, const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, bool _colorizeRows, bool _addZeroBlocks, ::profiler_gui::TimeUnits _units)
 {
     //size_t blocksNumber = 0;
     //for (const auto& block : _blocks)
@@ -316,12 +316,12 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
             if (!block.root->children.empty())
                 duration = blocksTree(block.root->children.back()).node->end() - blocksTree(block.root->children.front()).node->begin();
 
-            thread_item->setTimeSmart(COL_DURATION, duration);
+            thread_item->setTimeSmart(COL_DURATION, _units, duration);
             thread_item->setBackgroundColor(::profiler_gui::SELECTED_THREAD_BACKGROUND);
             thread_item->setTextColor(::profiler_gui::SELECTED_THREAD_FOREGROUND);
 
             // Sum of all children durations:
-            thread_item->setTimeSmart(COL_SELF_DURATION, block.root->active_time);
+            thread_item->setTimeSmart(COL_SELF_DURATION, _units, block.root->active_time);
 
             threadsMap.insert(::std::make_pair(block.root->thread_id, thread_item));
         }
@@ -331,7 +331,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
 
         auto name = *gui_block.tree.node->name() != 0 ? gui_block.tree.node->name() : easyDescriptor(gui_block.tree.node->id()).name();
         item->setText(COL_NAME, ::profiler_gui::toUnicode(name));
-        item->setTimeSmart(COL_DURATION, duration);
+        item->setTimeSmart(COL_DURATION, _units, duration);
         item->setTimeMs(COL_BEGIN, startTime - _beginTime);
         item->setTimeMs(COL_END, endTime - _beginTime);
 
@@ -350,10 +350,10 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
 
             if (per_thread_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_THREAD, per_thread_stats->min_duration, "min ");
-                item->setTimeSmart(COL_MAX_PER_THREAD, per_thread_stats->max_duration, "max ");
-                item->setTimeSmart(COL_AVERAGE_PER_THREAD, per_thread_stats->average_duration());
-                item->setTimeSmart(COL_DURATION_SUM_PER_THREAD, per_thread_stats->total_duration);
+                item->setTimeSmart(COL_MIN_PER_THREAD, _units, per_thread_stats->min_duration, "min ");
+                item->setTimeSmart(COL_MAX_PER_THREAD, _units, per_thread_stats->max_duration, "max ");
+                item->setTimeSmart(COL_AVERAGE_PER_THREAD, _units, per_thread_stats->average_duration());
+                item->setTimeSmart(COL_DURATION_SUM_PER_THREAD, _units, per_thread_stats->total_duration);
             }
 
             item->setData(COL_NCALLS_PER_THREAD, Qt::UserRole, per_thread_stats->calls_number);
@@ -366,10 +366,10 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
 
             if (per_parent_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_PARENT, per_parent_stats->min_duration, "min ");
-                item->setTimeSmart(COL_MAX_PER_PARENT, per_parent_stats->max_duration, "max ");
-                item->setTimeSmart(COL_AVERAGE_PER_PARENT, per_parent_stats->average_duration());
-                item->setTimeSmart(COL_DURATION_SUM_PER_PARENT, per_parent_stats->total_duration);
+                item->setTimeSmart(COL_MIN_PER_PARENT, _units, per_parent_stats->min_duration, "min ");
+                item->setTimeSmart(COL_MAX_PER_PARENT, _units, per_parent_stats->max_duration, "max ");
+                item->setTimeSmart(COL_AVERAGE_PER_PARENT, _units, per_parent_stats->average_duration());
+                item->setTimeSmart(COL_DURATION_SUM_PER_PARENT, _units, per_parent_stats->total_duration);
             }
 
             item->setData(COL_NCALLS_PER_PARENT, Qt::UserRole, per_parent_stats->calls_number);
@@ -378,10 +378,10 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
 
             if (per_frame_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_FRAME, per_frame_stats->min_duration, "min ");
-                item->setTimeSmart(COL_MAX_PER_FRAME, per_frame_stats->max_duration, "max ");
-                item->setTimeSmart(COL_AVERAGE_PER_FRAME, per_frame_stats->average_duration());
-                item->setTimeSmart(COL_DURATION_SUM_PER_FRAME, per_frame_stats->total_duration);
+                item->setTimeSmart(COL_MIN_PER_FRAME, _units, per_frame_stats->min_duration, "min ");
+                item->setTimeSmart(COL_MAX_PER_FRAME, _units, per_frame_stats->max_duration, "max ");
+                item->setTimeSmart(COL_AVERAGE_PER_FRAME, _units, per_frame_stats->average_duration());
+                item->setTimeSmart(COL_DURATION_SUM_PER_FRAME, _units, per_frame_stats->total_duration);
             }
 
             item->setData(COL_NCALLS_PER_FRAME, Qt::UserRole, per_frame_stats->calls_number);
@@ -406,7 +406,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
         ::profiler::timestamp_t children_duration = 0;
         if (!gui_block.tree.children.empty())
         {
-            children_items_number = FillTreeClass<T>::setTreeInternal(_safelocker, _items, _beginTime, gui_block.tree.children, item, item, thread_item, _left, _right, _strict, children_duration, _colorizeRows, _addZeroBlocks);
+            children_items_number = FillTreeClass<T>::setTreeInternal(_safelocker, _items, _beginTime, gui_block.tree.children, item, item, thread_item, _left, _right, _strict, children_duration, _colorizeRows, _addZeroBlocks, _units);
             if (_safelocker.interrupted())
                 break;
         }
@@ -418,7 +418,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
             percentage = static_cast<int>(0.5 + 100. * static_cast<double>(self_duration) / static_cast<double>(duration));
         }
 
-        item->setTimeSmart(COL_SELF_DURATION, self_duration);
+        item->setTimeSmart(COL_SELF_DURATION, _units, self_duration);
         item->setData(COL_SELF_DURATION_PERCENT, Qt::UserRole, percentage);
         item->setText(COL_SELF_DURATION_PERCENT, QString::number(percentage));
 
@@ -472,7 +472,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
 }
 
 template <class T>
-size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::profiler::timestamp_t& _beginTime, const ::profiler::BlocksTree::children_t& _children, EasyTreeWidgetItem* _parent, EasyTreeWidgetItem* _frame, EasyTreeWidgetItem* _thread, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration, bool _colorizeRows, bool _addZeroBlocks)
+size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::profiler::timestamp_t& _beginTime, const ::profiler::BlocksTree::children_t& _children, EasyTreeWidgetItem* _parent, EasyTreeWidgetItem* _frame, EasyTreeWidgetItem* _thread, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration, bool _colorizeRows, bool _addZeroBlocks, ::profiler_gui::TimeUnits _units)
 {
     size_t total_items = 0;
     for (auto child_index : _children)
@@ -498,7 +498,7 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
 
         auto name = *child.node->name() != 0 ? child.node->name() : easyDescriptor(child.node->id()).name();
         item->setText(COL_NAME, ::profiler_gui::toUnicode(name));
-        item->setTimeSmart(COL_DURATION, duration);
+        item->setTimeSmart(COL_DURATION, _units, duration);
         item->setTimeMs(COL_BEGIN, startTime - _beginTime);
         item->setTimeMs(COL_END, endTime - _beginTime);
         item->setData(COL_PERCENT_SUM_PER_THREAD, Qt::UserRole, 0);
@@ -549,10 +549,10 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
 
             if (per_thread_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_THREAD, per_thread_stats->min_duration, "min ");
-                item->setTimeSmart(COL_MAX_PER_THREAD, per_thread_stats->max_duration, "max ");
-                item->setTimeSmart(COL_AVERAGE_PER_THREAD, per_thread_stats->average_duration());
-                item->setTimeSmart(COL_DURATION_SUM_PER_THREAD, per_thread_stats->total_duration);
+                item->setTimeSmart(COL_MIN_PER_THREAD, _units, per_thread_stats->min_duration, "min ");
+                item->setTimeSmart(COL_MAX_PER_THREAD, _units, per_thread_stats->max_duration, "max ");
+                item->setTimeSmart(COL_AVERAGE_PER_THREAD, _units, per_thread_stats->average_duration());
+                item->setTimeSmart(COL_DURATION_SUM_PER_THREAD, _units, per_thread_stats->total_duration);
             }
 
             item->setData(COL_NCALLS_PER_THREAD, Qt::UserRole, per_thread_stats->calls_number);
@@ -568,10 +568,10 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
 
             if (per_parent_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_PARENT, per_parent_stats->min_duration, "min ");
-                item->setTimeSmart(COL_MAX_PER_PARENT, per_parent_stats->max_duration, "max ");
-                item->setTimeSmart(COL_AVERAGE_PER_PARENT, per_parent_stats->average_duration());
-                item->setTimeSmart(COL_DURATION_SUM_PER_PARENT, per_parent_stats->total_duration);
+                item->setTimeSmart(COL_MIN_PER_PARENT, _units, per_parent_stats->min_duration, "min ");
+                item->setTimeSmart(COL_MAX_PER_PARENT, _units, per_parent_stats->max_duration, "max ");
+                item->setTimeSmart(COL_AVERAGE_PER_PARENT, _units, per_parent_stats->average_duration());
+                item->setTimeSmart(COL_DURATION_SUM_PER_PARENT, _units, per_parent_stats->total_duration);
             }
 
             item->setData(COL_NCALLS_PER_PARENT, Qt::UserRole, per_parent_stats->calls_number);
@@ -580,10 +580,10 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
 
             if (per_frame_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_FRAME, per_frame_stats->min_duration, "min ");
-                item->setTimeSmart(COL_MAX_PER_FRAME, per_frame_stats->max_duration, "max ");
-                item->setTimeSmart(COL_AVERAGE_PER_FRAME, per_frame_stats->average_duration());
-                item->setTimeSmart(COL_DURATION_SUM_PER_FRAME, per_frame_stats->total_duration);
+                item->setTimeSmart(COL_MIN_PER_FRAME, _units, per_frame_stats->min_duration, "min ");
+                item->setTimeSmart(COL_MAX_PER_FRAME, _units, per_frame_stats->max_duration, "max ");
+                item->setTimeSmart(COL_AVERAGE_PER_FRAME, _units, per_frame_stats->average_duration());
+                item->setTimeSmart(COL_DURATION_SUM_PER_FRAME, _units, per_frame_stats->total_duration);
             }
 
             item->setData(COL_NCALLS_PER_FRAME, Qt::UserRole, per_frame_stats->calls_number);
@@ -619,7 +619,7 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
         ::profiler::timestamp_t children_duration = 0;
         if (!child.children.empty())
         {
-            children_items_number = FillTreeClass<T>::setTreeInternal(_safelocker, _items, _beginTime, child.children, item, _frame ? _frame : item, _thread, _left, _right, _strict, children_duration, _colorizeRows, _addZeroBlocks);
+            children_items_number = FillTreeClass<T>::setTreeInternal(_safelocker, _items, _beginTime, child.children, item, _frame ? _frame : item, _thread, _left, _right, _strict, children_duration, _colorizeRows, _addZeroBlocks, _units);
             if (_safelocker.interrupted())
                 break;
         }
@@ -631,7 +631,7 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
             percentage = ::profiler_gui::percent(self_duration, duration);
         }
 
-        item->setTimeSmart(COL_SELF_DURATION, self_duration);
+        item->setTimeSmart(COL_SELF_DURATION, _units, self_duration);
         item->setData(COL_SELF_DURATION_PERCENT, Qt::UserRole, percentage);
         item->setText(COL_SELF_DURATION_PERCENT, QString::number(percentage));
 
