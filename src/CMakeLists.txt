@@ -22,6 +22,11 @@ if(DEFINED EASY_ROOT)
         ${EASY_ROOT}/include/easy/reader.h
         ${EASY_ROOT}/include/easy/easy_net.h
         ${EASY_ROOT}/include/easy/easy_socket.h
+        ${EASY_ROOT}/include/easy/easy_compiler_support.h
+        ${EASY_ROOT}/include/easy/profiler_aux.h
+        ${EASY_ROOT}/include/easy/profiler_colors.h
+        ${EASY_ROOT}/include/easy/reader.h
+        ${EASY_ROOT}/include/easy/serialized_block.h
     )
     source_group(include FILES ${INCLUDE_FILES})
 endif(DEFINED EASY_ROOT)
