@@ -175,12 +175,12 @@ extern "C" {
 
     PROFILER_API void   startListen(uint16_t _port)
     {
-        return MANAGER.startListenSignalToCapture(_port);
+        return MANAGER.startListen(_port);
     }
 
     PROFILER_API void   stopListen()
     {
-        return MANAGER.stopListenSignalToCapture();
+        return MANAGER.stopListen();
     }
 #else
     PROFILER_API const BaseBlockDescriptor* registerDescription(EasyBlockStatus, const char*, const char*, const char*, int, block_type_t, color_t) { return reinterpret_cast<const BaseBlockDescriptor*>(0xbad); }
@@ -195,8 +195,8 @@ extern "C" {
     PROFILER_API void setLowPriorityEventTracing(bool) { }
     PROFILER_API void setContextSwitchLogFilename(const char*) { }
     PROFILER_API const char* getContextSwitchLogFilename() { return ""; }
-    PROFILER_API void   startListenSignalToCapture() { }
-    PROFILER_API void   stopListenSignalToCapture() { }
+    PROFILER_API void   startListen(uint16_t) { }
+    PROFILER_API void   stopListen() { }
 #endif
 
     PROFILER_API uint8_t versionMajor()
@@ -396,13 +396,14 @@ ProfileManager::ProfileManager()
 {
     m_isEnabled = ATOMIC_VAR_INIT(false);
     m_isEventTracingEnabled = ATOMIC_VAR_INIT(EASY_EVENT_TRACING_ENABLED);
+    m_isAlreadyListening = ATOMIC_VAR_INIT(false);
     m_stopListen = ATOMIC_VAR_INIT(false);
 }
 
 ProfileManager::~ProfileManager()
 {
 #ifndef EASY_PROFILER_API_DISABLED
-    stopListenSignalToCapture();
+    stopListen();
 #endif
 
     for (auto desc : m_descriptors)
@@ -909,22 +910,21 @@ void ProfileManager::setBlockStatus(block_id_t _id, EasyBlockStatus _status)
     }
 }
 
-void ProfileManager::startListenSignalToCapture(uint16_t _port)
+void ProfileManager::startListen(uint16_t _port)
 {
-    if (!m_isAlreadyListened)
+    if (!m_isAlreadyListening.exchange(true, std::memory_order_release))
     {
         m_stopListen.store(false, std::memory_order_release);
         m_listenThread = std::move(std::thread(&ProfileManager::listen, this, _port));
-        m_isAlreadyListened = true;
     }
 }
 
-void ProfileManager::stopListenSignalToCapture()
+void ProfileManager::stopListen()
 {
     m_stopListen.store(true, std::memory_order_release);
     if (m_listenThread.joinable())
         m_listenThread.join();
-    m_isAlreadyListened = false;
+    m_isAlreadyListening.store(false, std::memory_order_release);
 }
 
 //////////////////////////////////////////////////////////////////////////
