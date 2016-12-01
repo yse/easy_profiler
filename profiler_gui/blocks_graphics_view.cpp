@@ -244,7 +244,7 @@ void EasyTimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGrap
     const auto sceneView = static_cast<const EasyGraphicsView*>(scene()->parent());
     const auto visibleSceneRect = sceneView->visibleSceneRect();
     const auto step = sceneView->timelineStep() * sceneView->scale();
-    const QString text = ::profiler_gui::timeStringInt(EASY_GLOBALS.time_units, units2microseconds(sceneView->timelineStep())); // Displayed text
+    const QString text = ::profiler_gui::autoTimeStringInt(units2microseconds(sceneView->timelineStep())); // Displayed text
 
     // Draw scale indicator
     _painter->save();
@@ -392,7 +392,7 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     // calculate scene size and fill it with items
 
     // Calculating start and end time
-    ::profiler::timestamp_t finish = 0;
+    ::profiler::timestamp_t finish = 0, busyTime = 0;
     ::profiler::thread_id_t longestTree = 0, mainTree = 0;
     for (const auto& threadTree : _blocksTree)
     {
@@ -414,8 +414,11 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         if (m_beginTime > timestart)
             m_beginTime = timestart;
 
-        if (finish < timefinish) {
+        if (finish < timefinish)
             finish = timefinish;
+
+        if (t.active_time > busyTime) {
+            busyTime = t.active_time;
             longestTree = threadTree.first;
         }
 
