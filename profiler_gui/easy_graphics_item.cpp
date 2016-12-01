@@ -63,6 +63,7 @@ enum BlockItemState : int8_t
 //////////////////////////////////////////////////////////////////////////
 
 const int MIN_SYNC_SPACING = 1;
+const int MIN_SYNC_SIZE = 3;
 const QRgb BORDERS_COLOR = ::profiler::colors::Grey600 & 0x00ffffff;// 0x00686868;
 
 inline QRgb selectedItemBorderColor(::profiler::color_t _color) {
@@ -642,8 +643,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     left = prevRight;
                 }
 
-                if (width < EASY_GLOBALS.blocks_size_min)
-                    width = EASY_GLOBALS.blocks_size_min;
+                if (width < MIN_SYNC_SIZE)
+                    width = MIN_SYNC_SIZE;
 
                 const bool self_thread = item.node->id() != 0 && EASY_GLOBALS.profiler_blocks.find(item.node->id()) != EASY_GLOBALS.profiler_blocks.end();
                 ::profiler::color_t color = 0;
