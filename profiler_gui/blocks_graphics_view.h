@@ -265,6 +265,7 @@ public:
     void mouseMoveEvent(QMouseEvent* _event) override;
     void keyPressEvent(QKeyEvent* _event) override;
     void keyReleaseEvent(QKeyEvent* _event) override;
+    void wheelEvent(QWheelEvent* _event) override;
 
     void dragEnterEvent(QDragEnterEvent*) override {}
 

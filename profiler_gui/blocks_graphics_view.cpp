@@ -1807,6 +1807,16 @@ void EasyThreadNamesWidget::keyReleaseEvent(QKeyEvent* _event)
     m_view->keyReleaseEvent(_event);
 }
 
+void EasyThreadNamesWidget::wheelEvent(QWheelEvent* _event)
+{
+    auto vbar = m_view->verticalScrollBar();
+    if (vbar != nullptr)
+    {
+        _event->accept();
+        vbar->setValue(vbar->value() - _event->delta());
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
