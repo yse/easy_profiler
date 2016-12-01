@@ -25,7 +25,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY
 )
 
 include_directories(
-    include
+    easy_profiler_core/include
 )
 
 if(UNIX)
@@ -39,7 +39,7 @@ endif(UNIX)
 
 set(CMAKE_INSTALL_PREFIX ${CMAKE_CURRENT_LIST_DIR}/sdk)
 
-add_subdirectory(src)
+add_subdirectory(easy_profiler_core)
 add_subdirectory(profiler_gui)
 
 add_subdirectory(sample)

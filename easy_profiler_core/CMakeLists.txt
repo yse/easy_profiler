@@ -15,21 +15,23 @@ set(H_FILES
     event_trace_win.h
     current_time.h
 )
+include_directories(
+	include
+)
 
-if(DEFINED EASY_ROOT)
-    set(INCLUDE_FILES
-        ${EASY_ROOT}/include/easy/profiler.h
-        ${EASY_ROOT}/include/easy/reader.h
-        ${EASY_ROOT}/include/easy/easy_net.h
-        ${EASY_ROOT}/include/easy/easy_socket.h
-        ${EASY_ROOT}/include/easy/easy_compiler_support.h
-        ${EASY_ROOT}/include/easy/profiler_aux.h
-        ${EASY_ROOT}/include/easy/profiler_colors.h
-        ${EASY_ROOT}/include/easy/reader.h
-        ${EASY_ROOT}/include/easy/serialized_block.h
-    )
-    source_group(include FILES ${INCLUDE_FILES})
-endif(DEFINED EASY_ROOT)
+set(INCLUDE_FILES
+	include/easy/profiler.h
+	include/easy/reader.h
+	include/easy/easy_net.h
+	include/easy/easy_socket.h
+	include/easy/easy_compiler_support.h
+	include/easy/profiler_aux.h
+	include/easy/profiler_colors.h
+	include/easy/reader.h
+	include/easy/serialized_block.h
+)
+source_group(include FILES ${INCLUDE_FILES})
+
 
 if(NOT DEFINED EASY_PRODUCT_VERSION_STRING)
     file (STRINGS ${CMAKE_CURRENT_LIST_DIR}/version.info EASY_PRODUCT_VERSION_STRING)
