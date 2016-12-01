@@ -8,7 +8,23 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-find_package(Qt5Widgets REQUIRED)
+find_package(Qt5Widgets)
+
+if(Qt5Widgets_FOUND)
+
+if( NOT DEFINED EASY_PRODUCT_VERSION_STRING)
+    set(EASY_PROGRAM_VERSION_MAJOR 0)
+    set(EASY_PROGRAM_VERSION_MINOR 0)
+    set(EASY_PROGRAM_VERSION_PATCH 0)
+    set(EASY_PRODUCT_VERSION_STRING "0.0.0")
+endif()
+
+add_definitions(
+	-DEASY_PROFILER_VERSION_MAJOR=${EASY_PROGRAM_VERSION_MAJOR}
+	-DEASY_PROFILER_VERSION_MINOR=${EASY_PROGRAM_VERSION_MINOR}
+	-DEASY_PROFILER_VERSION_PATCH=${EASY_PROGRAM_VERSION_PATCH}
+	-DEASY_PROFILER_PRODUCT_VERSION=\"v${EASY_PRODUCT_VERSION_STRING}\"
+)
 
 add_executable(${PROJECT_NAME}
     main.cpp
@@ -46,3 +62,9 @@ if(UNIX)
 endif(UNIX)
 
 target_link_libraries(${PROJECT_NAME} Qt5::Widgets  easy_profiler ${SPECIAL_LIB})
+else()
+
+message(STATUS "INFO\n\n\tQt5 not found! Generating EasyProfiler projects without GUI.\n")
+
+endif(Qt5Widgets_FOUND)
+
