@@ -173,12 +173,12 @@ extern "C" {
         return MANAGER.getContextSwitchLogFilename();
     }
 
-    PROFILER_API void   startListenSignalToCapture()
+    PROFILER_API void   startListen(uint16_t _port)
     {
-        return MANAGER.startListenSignalToCapture();
+        return MANAGER.startListenSignalToCapture(_port);
     }
 
-    PROFILER_API void   stopListenSignalToCapture()
+    PROFILER_API void   stopListen()
     {
         return MANAGER.stopListenSignalToCapture();
     }
@@ -727,8 +727,9 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
 
         std::ifstream infile(m_csInfoFilename.c_str());
         if(infile.is_open()) {
-            while (infile >> timestamp >> thread_from >> thread_to) {
-                beginContextSwitch(thread_from, timestamp, thread_to, "", false);
+            std::string next_task_name;
+            while (infile >> timestamp >> thread_from >> thread_to >> next_task_name) {
+                beginContextSwitch(thread_from, timestamp, thread_to, next_task_name.c_str(), false);
                 endContextSwitch(thread_to, timestamp, false);
             }
         }
@@ -908,12 +909,12 @@ void ProfileManager::setBlockStatus(block_id_t _id, EasyBlockStatus _status)
     }
 }
 
-void ProfileManager::startListenSignalToCapture()
+void ProfileManager::startListenSignalToCapture(uint16_t _port)
 {
     if (!m_isAlreadyListened)
     {
         m_stopListen.store(false, std::memory_order_release);
-        m_listenThread = std::move(std::thread(&ProfileManager::listen, this));
+        m_listenThread = std::move(std::thread(&ProfileManager::listen, this, _port));
         m_isAlreadyListened = true;
     }
 }
@@ -930,14 +931,14 @@ void ProfileManager::stopListenSignalToCapture()
 
 //#define EASY_DEBUG_NET_PRINT
 
-void ProfileManager::listen()
+void ProfileManager::listen(uint16_t _port)
 {
     EASY_THREAD_SCOPE("EasyProfiler.Listen");
 
     EasySocket socket;
     profiler::net::Message replyMessage(profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING);
 
-    socket.bind(profiler::DEFAULT_PORT);
+    socket.bind(_port);
     int bytes = 0;
     while (!m_stopListen.load(std::memory_order_acquire))
     {

@@ -368,7 +368,7 @@ class ProfileManager
 
     std::thread m_listenThread;
     bool m_isAlreadyListened = false;
-    void listen();
+    void listen(uint16_t _port);
 
     int m_socket = 0;//TODO crossplatform
 
@@ -409,7 +409,7 @@ public:
     void beginContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, const char* _target_process, bool _lockSpin = true);
     void storeContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, bool _lockSpin = true);
     void endContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime, bool _lockSpin = true);
-    void startListenSignalToCapture();
+    void startListenSignalToCapture(uint16_t _port);
     void stopListenSignalToCapture();
 
 private:
