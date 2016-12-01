@@ -556,7 +556,7 @@ namespace profiler {
         */
         PROFILER_API const char* getContextSwitchLogFilename();
 
-        PROFILER_API void startListen(uint16_t _port = profiler::DEFAULT_PORT);
+        PROFILER_API void startListen(uint16_t _port = ::profiler::DEFAULT_PORT);
         PROFILER_API void stopListen();
 
         /** Returns current major version.
@@ -604,7 +604,7 @@ namespace profiler {
     inline void setLowPriorityEventTracing(bool) { }
     inline void setContextSwitchLogFilename(const char*) { }
     inline const char* getContextSwitchLogFilename() { return ""; }
-    inline void startListen(uint16_t _port = profiler::DEFAULT_PORT) { }
+    inline void startListen(uint16_t = ::profiler::DEFAULT_PORT) { }
     inline void stopListen() { }
     inline uint8_t versionMajor() { return 0; }
     inline uint8_t versionMinor() { return 0; }

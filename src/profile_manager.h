@@ -360,6 +360,7 @@ class ProfileManager
     profiler::spin_lock            m_storedSpin;
     std::atomic_bool                m_isEnabled;
     std::atomic_bool    m_isEventTracingEnabled;
+    std::atomic_bool        m_isAlreadyListening;
 
     std::string m_csInfoFilename = "/tmp/cs_profiling_info.log";
 
@@ -367,7 +368,6 @@ class ProfileManager
     void setBlockStatus(profiler::block_id_t _id, profiler::EasyBlockStatus _status);
 
     std::thread m_listenThread;
-    bool m_isAlreadyListened = false;
     void listen(uint16_t _port);
 
     int m_socket = 0;//TODO crossplatform
@@ -409,8 +409,8 @@ public:
     void beginContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, const char* _target_process, bool _lockSpin = true);
     void storeContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, bool _lockSpin = true);
     void endContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime, bool _lockSpin = true);
-    void startListenSignalToCapture(uint16_t _port);
-    void stopListenSignalToCapture();
+    void startListen(uint16_t _port);
+    void stopListen();
 
 private:
 
