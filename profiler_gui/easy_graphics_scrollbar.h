@@ -93,12 +93,15 @@ class EasyMinimapItem : public QGraphicsItem
     QRectF                           m_boundingRect;
     qreal                             m_maxDuration;
     qreal                             m_minDuration;
+    QString                        m_maxDurationStr;
+    QString                        m_minDurationStr;
     const ::profiler_gui::EasyItems*      m_pSource;
     ::profiler::thread_id_t              m_threadId;
+    ::profiler_gui::TimeUnits           m_timeUnits;
 
 public:
 
-    EasyMinimapItem();
+    explicit EasyMinimapItem();
     virtual ~EasyMinimapItem();
 
     // Public virtual methods

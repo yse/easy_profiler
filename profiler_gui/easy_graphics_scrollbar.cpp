@@ -56,7 +56,8 @@
 
 const int DEFAULT_TOP = -40;
 const int DEFAULT_HEIGHT = 80;
-const int INDICATOR_SIZE = 8;
+const int INDICATOR_SIZE = 6;
+const int INDICATOR_SIZE_x2 = INDICATOR_SIZE << 1;
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -127,7 +128,7 @@ void EasyGraphicsSliderItem::paint(QPainter* _painter, const QStyleOptionGraphic
 //         w = 1.0;
 //     }
 
-    QRectF r(dx + br.left() * currentScale, br.top() + INDICATOR_SIZE, w, br.height() - (INDICATOR_SIZE << 1));
+    QRectF r(dx + br.left() * currentScale, br.top() + INDICATOR_SIZE, w, br.height() - INDICATOR_SIZE_x2);
     const auto r_right = r.right();
     const auto r_bottom = r.bottom();
     auto b = brush();
@@ -200,7 +201,7 @@ void EasyGraphicsSliderItem::setColor(const QColor& _color)
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyMinimapItem::EasyMinimapItem() : Parent(), m_pSource(nullptr), m_maxDuration(0), m_minDuration(0), m_threadId(0)
+EasyMinimapItem::EasyMinimapItem() : Parent(nullptr), m_pSource(nullptr), m_maxDuration(0), m_minDuration(0), m_threadId(0), m_timeUnits(::profiler_gui::TimeUnits_auto)
 {
 
 }
@@ -226,6 +227,7 @@ void EasyMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* 
     const bool bindMode = widget->bindMode();
     const auto currentScale = widget->getWindowScale();
     const auto bottom = m_boundingRect.bottom();
+    const auto width = m_boundingRect.width() * currentScale;
     const auto coeff = m_boundingRect.height() / (m_maxDuration - m_minDuration);
     const auto heightRevert = 1.0 / m_boundingRect.height();
 
@@ -323,16 +325,47 @@ void EasyMinimapItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* 
         }
     }
 
+    qreal top_width = width, bottom_width = width;
+    int font_h = 0;
+    if (!m_maxDurationStr.isEmpty())
+    {
+        rect.setRect(0, m_boundingRect.top() - INDICATOR_SIZE, width - 3, m_boundingRect.height() + INDICATOR_SIZE_x2);
+
+        if (m_timeUnits != EASY_GLOBALS.time_units)
+        {
+            m_timeUnits = EASY_GLOBALS.time_units;
+            m_maxDurationStr = ::profiler_gui::timeStringReal(m_timeUnits, m_maxDuration, 3);
+            m_minDurationStr = ::profiler_gui::timeStringReal(m_timeUnits, m_minDuration, 3);
+        }
+
+        auto fm = _painter->fontMetrics();
+        font_h = fm.height();
+        bottom_width -= fm.width(m_minDurationStr) + 6;
+        top_width -= fm.width(m_maxDurationStr) + 6;
+
+        _painter->setPen(Qt::black);
+        _painter->drawText(rect, Qt::AlignRight | Qt::AlignTop, m_maxDurationStr);
+        _painter->drawText(rect, Qt::AlignRight | Qt::AlignBottom, m_minDurationStr);
+    }
+
     _painter->setPen(Qt::darkGray);
-    _painter->drawLine(QLineF(0, bottom, m_boundingRect.width(), bottom));
-    _painter->drawLine(QLineF(0, m_boundingRect.top(), m_boundingRect.width(), m_boundingRect.top()));
+    _painter->drawLine(QLineF(0, bottom, bottom_width, bottom));
+    _painter->drawLine(QLineF(0, m_boundingRect.top(), top_width, m_boundingRect.top()));
 
     if (m_minDuration < EASY_GLOBALS.frame_time && EASY_GLOBALS.frame_time < m_maxDuration)
     {
         // Draw marker displaying required frame_time step
         const auto h = bottom - (EASY_GLOBALS.frame_time - m_minDuration) * coeff;
         _painter->setPen(Qt::DashLine);
-        _painter->drawLine(QLineF(0, h, m_boundingRect.width(), h));
+
+        auto w = width;
+        const auto boundary = INDICATOR_SIZE - font_h;
+        if (h < (m_boundingRect.top() - boundary))
+            w = top_width;
+        else if (h > (bottom + boundary))
+            w = bottom_width;
+
+        _painter->drawLine(QLineF(0, h, w, h));
     }
 
     _painter->restore();
@@ -358,7 +391,7 @@ void EasyMinimapItem::setSource(::profiler::thread_id_t _thread_id, const ::prof
     m_pSource = _items;
     m_threadId = _thread_id;
 
-    if (m_pSource)
+    if (m_pSource != nullptr)
     {
         if (m_pSource->empty())
         {
@@ -387,10 +420,15 @@ void EasyMinimapItem::setSource(::profiler::thread_id_t _thread_id, const ::prof
 
     if (m_pSource == nullptr)
     {
+        m_maxDurationStr.clear();
+        m_minDurationStr.clear();
         hide();
     }
     else
     {
+        m_timeUnits = EASY_GLOBALS.time_units;
+        m_maxDurationStr = ::profiler_gui::timeStringReal(m_timeUnits, m_maxDuration, 3);
+        m_minDurationStr = ::profiler_gui::timeStringReal(m_timeUnits, m_minDuration, 3);
         show();
     }
 }
@@ -428,7 +466,7 @@ EasyGraphicsScrollbar::EasyGraphicsScrollbar(QWidget* _parent)
 
     m_minimap = new EasyMinimapItem();
     m_minimap->setPos(0, 0);
-    m_minimap->setBoundingRect(0, DEFAULT_TOP + INDICATOR_SIZE, scene()->width(), DEFAULT_HEIGHT - (INDICATOR_SIZE << 1));
+    m_minimap->setBoundingRect(0, DEFAULT_TOP + INDICATOR_SIZE, scene()->width(), DEFAULT_HEIGHT - INDICATOR_SIZE_x2);
     selfScene->addItem(m_minimap);
     m_minimap->hide();
 
@@ -529,7 +567,7 @@ void EasyGraphicsScrollbar::setRange(qreal _minValue, qreal _maxValue)
     m_minimumValue = _minValue;
     m_maximumValue = _maxValue;
     scene()->setSceneRect(_minValue, DEFAULT_TOP, _maxValue - _minValue, DEFAULT_HEIGHT);
-    m_minimap->setBoundingRect(_minValue, DEFAULT_TOP + INDICATOR_SIZE, _maxValue, DEFAULT_HEIGHT - (INDICATOR_SIZE << 1));
+    m_minimap->setBoundingRect(_minValue, DEFAULT_TOP + INDICATOR_SIZE, _maxValue, DEFAULT_HEIGHT - INDICATOR_SIZE_x2);
     emit rangeChanged();
 
     setValue(_minValue + oldValue * range());
