@@ -120,15 +120,7 @@ void EasyGraphicsSliderItem::paint(QPainter* _painter, const QStyleOptionGraphic
     const auto br = rect();
 
     qreal w = width() * currentScale;
-    qreal dx = 0;
-
-//     if (w < 1.0)
-//     {
-//         dx = (w - 1.0) * 0.5;
-//         w = 1.0;
-//     }
-
-    QRectF r(dx + br.left() * currentScale, br.top() + INDICATOR_SIZE, w, br.height() - INDICATOR_SIZE_x2);
+    QRectF r(br.left() * currentScale, br.top() + INDICATOR_SIZE, w, br.height() - INDICATOR_SIZE_x2);
     const auto r_right = r.right();
     const auto r_bottom = r.bottom();
     auto b = brush();

@@ -518,6 +518,8 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         m_pScrollbar->setMinimapFrom(longestItem->threadId(), longestItem->items(0));
         EASY_GLOBALS.selected_thread = longestItem->threadId();
         emit EASY_GLOBALS.events.selectedThreadChanged(longestItem->threadId());
+
+        scrollTo(longestItem);
     }
 
     m_idleTimer.start(IDLE_TIMER_INTERVAL);
@@ -733,15 +735,20 @@ void EasyGraphicsView::onGraphicsScrollbarWheel(qreal _mouseX, int _wheelDelta)
     {
         if (item->threadId() == EASY_GLOBALS.selected_thread)
         {
-            m_bUpdatingRect = true;
-            auto vbar = verticalScrollBar();
-            vbar->setValue(item->y() + (item->boundingRect().height() - vbar->pageStep()) * 0.5);
-            m_bUpdatingRect = false;
+            scrollTo(item);
             break;
         }
     }
 
     onWheel(_mouseX, _wheelDelta);
+}
+
+void EasyGraphicsView::scrollTo(const EasyGraphicsItem* _item)
+{
+    m_bUpdatingRect = true;
+    auto vbar = verticalScrollBar();
+    vbar->setValue(_item->y() + (_item->boundingRect().height() - vbar->pageStep()) * 0.5);
+    m_bUpdatingRect = false;
 }
 
 void EasyGraphicsView::onWheel(qreal _mouseX, int _wheelDelta)
