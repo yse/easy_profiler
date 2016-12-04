@@ -141,7 +141,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
     QRectF rect;
     QBrush brush;
-    QRgb previousColor = 0, inverseColor = 0xffffffff, textColor = 0;
+    QRgb previousColor = 0, textColor = 0;
+    //QRgb inverseColor = 0xffffffff;
     Qt::PenStyle previousPenStyle = Qt::NoPen;
     bool is_light = false;
     brush.setStyle(Qt::SolidPattern);
@@ -206,12 +207,12 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     if (gotItems)
     {
         static const auto MAX_CHILD_INDEX = ::profiler_gui::numeric_max<decltype(::profiler_gui::EasyBlockItem::children_begin)>();
-        auto const skip_children = [this, &levelsNumber](short next_level, decltype(::profiler_gui::EasyBlockItem::children_begin) children_begin)
-        {
-            // Mark that we would not paint children of current item
-            if (next_level < levelsNumber && children_begin != MAX_CHILD_INDEX)
-                m_levels[next_level][children_begin].state = BLOCK_ITEM_DO_NOT_PAINT;
-        };
+        //auto const skip_children = [this, &levelsNumber](short next_level, decltype(::profiler_gui::EasyBlockItem::children_begin) children_begin)
+        //{
+        //    // Mark that we would not paint children of current item
+        //    if (next_level < levelsNumber && children_begin != MAX_CHILD_INDEX)
+        //        m_levels[next_level][children_begin].state = BLOCK_ITEM_DO_NOT_PAINT;
+        //};
 
         auto const dont_skip_children = [this, &levelsNumber](short next_level, decltype(::profiler_gui::EasyBlockItem::children_begin) children_begin, int8_t _state)
         {
@@ -344,7 +345,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     {
                         // Set background color brush for rectangle
                         previousColor = itemDesc.color();
-                        inverseColor = 0xffffffff - previousColor;
+                        //inverseColor = 0xffffffff - previousColor;
                         is_light = ::profiler_gui::isLightColor(previousColor);
                         textColor = ::profiler_gui::textColorForFlag(is_light);
                         brush.setColor(previousColor);
@@ -401,7 +402,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     {
                         // Set background color brush for rectangle
                         previousColor = itemDesc.color();
-                        inverseColor = 0xffffffff - previousColor;
+                        //inverseColor = 0xffffffff - previousColor;
                         is_light = ::profiler_gui::isLightColor(previousColor);
                         textColor = ::profiler_gui::textColorForFlag(is_light);
                         brush.setColor(previousColor);

@@ -533,8 +533,6 @@ const EasyGraphicsView::Items &EasyGraphicsView::getItems() const
 
 qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, ::profiler::block_index_t _parent, const ::profiler::BlocksTree::children_t& _children, qreal& _height, qreal _y, short _level)
 {
-    static const qreal MIN_DURATION = 0.25;
-
     if (_children.empty())
     {
         return 0;
@@ -568,10 +566,9 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, ::profiler::block_index
         //    xbegin -= dt;
         //}
 
+        //static const qreal MIN_DURATION = 0.25;
         //if (duration < MIN_DURATION)
-        //{
         //    duration = MIN_DURATION;
-        //}
 
         const auto i = _item->addItem(level);
         auto& b = _item->getItem(level, i);

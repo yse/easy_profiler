@@ -839,7 +839,6 @@ void EasyHystogramItem::setSource(::profiler::thread_id_t _thread_id, ::profiler
             for (auto frame : profiler_thread.children)
             {
                 const auto& frame_block = easyBlock(frame).tree;
-                const char* frame_name = easyDescriptor(frame_block.node->id()).name();
                 if (frame_block.node->id() == m_blockId)
                 {
                     m_selectedBlocks.push_back(frame);
@@ -861,7 +860,6 @@ void EasyHystogramItem::setSource(::profiler::thread_id_t _thread_id, ::profiler
                     {
                         const auto child_index = top_children[top.second];
                         const auto& child = easyBlock(child_index).tree;
-                        const char* child_name = easyDescriptor(child.node->id()).name();
                         if (child.node->id() == m_blockId)
                         {
                             m_selectedBlocks.push_back(child_index);
