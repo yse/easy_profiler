@@ -479,14 +479,14 @@ void EasyDescTreeWidget::onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidget
             if (EASY_GLOBALS.selected_block_id != id)
             {
                 EASY_GLOBALS.selected_block_id = id;
-                emit EASY_GLOBALS.events.refreshRequired();
+                emit EASY_GLOBALS.events.selectedBlockIdChanged(id);
             }
         }
     }
     else if (::profiler_gui::is_max(EASY_GLOBALS.selected_block) && !::profiler_gui::is_max(EASY_GLOBALS.selected_block_id))
     {
         ::profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
-        emit EASY_GLOBALS.events.refreshRequired();
+        emit EASY_GLOBALS.events.selectedBlockIdChanged(EASY_GLOBALS.selected_block_id);
     }
 }
 

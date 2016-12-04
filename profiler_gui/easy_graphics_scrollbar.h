@@ -46,11 +46,52 @@
 #define EASY__GRAPHICS_SCROLLBAR__H
 
 #include <stdlib.h>
+#include <thread>
+#include <atomic>
 #include <QGraphicsView>
 #include <QGraphicsRectItem>
 #include <QAction>
 #include <QPolygonF>
+#include <QImage>
+#include "easy_qtimer.h"
 #include "common_types.h"
+
+//////////////////////////////////////////////////////////////////////////
+
+// TODO: use profiler_core/spin_lock.h
+
+#define EASY_GUI_USE_CRITICAL_SECTION // Use CRITICAL_SECTION instead of std::atomic_flag
+#if defined(_WIN32) && defined(EASY_GUI_USE_CRITICAL_SECTION)
+namespace profiler_gui {
+    // std::atomic_flag on Windows works slower than critical section, so we will use it instead of std::atomic_flag...
+    // By the way, Windows critical sections are slower than std::atomic_flag on Unix.
+    class spin_lock { void* m_lock; public:
+        void lock();
+        void unlock();
+        spin_lock();
+        ~spin_lock();
+    };
+#else
+namespace profiler_gui {
+    // std::atomic_flag on Unix works fine and very fast (almost instant!)
+    class spin_lock {
+        ::std::atomic_flag m_lock; public:
+
+        void lock() {
+            while (m_lock.test_and_set(::std::memory_order_acquire));
+        }
+
+        void unlock() {
+            m_lock.clear(::std::memory_order_release);
+        }
+
+        spin_lock() {
+            m_lock.clear();
+        }
+    };
+#endif
+
+} // END of namespace profiler_gui.
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -85,24 +126,40 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyMinimapItem : public QGraphicsItem
+class EasyHystogramItem : public QGraphicsItem
 {
     typedef QGraphicsItem Parent;
-    typedef EasyMinimapItem This;
+    typedef EasyHystogramItem This;
 
-    QRectF                           m_boundingRect;
-    qreal                             m_maxDuration;
-    qreal                             m_minDuration;
-    QString                        m_maxDurationStr;
-    QString                        m_minDurationStr;
-    const ::profiler_gui::EasyItems*      m_pSource;
-    ::profiler::thread_id_t              m_threadId;
-    ::profiler_gui::TimeUnits           m_timeUnits;
+    enum HystRegime : uint8_t { Hyst_Pointer, Hyst_Id };
+
+    QRectF                               m_boundingRect;
+    qreal                                 m_maxDuration;
+    qreal                                 m_minDuration;
+    QString                            m_maxDurationStr;
+    QString                            m_minDurationStr;
+    QString                                m_threadName;
+    ::profiler::BlocksTree::children_t m_selectedBlocks;
+    QImage                                  m_mainImage;
+    EasyQTimer                                  m_timer;
+    ::std::thread                        m_workerThread;
+    ::profiler::timestamp_t            m_threadDuration;
+    ::profiler::timestamp_t          m_threadActiveTime;
+    const ::profiler_gui::EasyItems*          m_pSource;
+    QImage*                            m_temporaryImage;
+    ::profiler::thread_id_t                  m_threadId;
+    ::profiler::block_index_t                 m_blockId;
+    int                                      m_timeouts;
+    ::profiler_gui::TimeUnits               m_timeUnits;
+    HystRegime                                 m_regime;
+    bool                               m_bUpdatingImage;
+    ::profiler_gui::spin_lock                    m_spin;
+    ::std::atomic_bool                         m_bReady;
 
 public:
 
-    explicit EasyMinimapItem();
-    virtual ~EasyMinimapItem();
+    explicit EasyHystogramItem();
+    virtual ~EasyHystogramItem();
 
     // Public virtual methods
 
@@ -119,8 +176,20 @@ public:
     void setBoundingRect(qreal x, qreal y, qreal w, qreal h);
 
     void setSource(::profiler::thread_id_t _thread_id, const ::profiler_gui::EasyItems* _items);
+    void setSource(::profiler::thread_id_t _thread_id, ::profiler::block_id_t _block_id);
+    void updateImage();
 
-}; // END of class EasyMinimapItem.
+private:
+
+    void paintByPtr(QPainter* _painter);
+    void paintById(QPainter* _painter);
+    void onTimeout();
+    void updateImage(HystRegime _regime, qreal _current_scale,
+                     qreal _minimum, qreal _maximum, qreal _range,
+                     qreal _value, qreal _width, bool _bindMode,
+                     float _frame_time, ::profiler::timestamp_t _begin_time);
+
+}; // END of class EasyHystogramItem.
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -141,9 +210,11 @@ private:
     Qt::MouseButtons                m_mouseButtons;
     EasyGraphicsSliderItem*               m_slider;
     EasyGraphicsSliderItem* m_chronometerIndicator;
-    EasyMinimapItem*                     m_minimap;
+    EasyHystogramItem*             m_hystogramItem;
+    int                        m_defaultFontHeight;
     bool                              m_bScrolling;
     bool                               m_bBindMode;
+    bool                                 m_bLocked;
 
 public:
 
@@ -169,7 +240,7 @@ public:
 
     bool bindMode() const;
     qreal getWindowScale() const;
-    ::profiler::thread_id_t minimapThread() const;
+    ::profiler::thread_id_t hystThread() const;
 
     qreal minimum() const;
     qreal maximum() const;
@@ -177,6 +248,7 @@ public:
     qreal value() const;
     qreal sliderWidth() const;
     qreal sliderHalfWidth() const;
+    int defaultFontHeight() const;
 
     void setValue(qreal _value);
     void setRange(qreal _minValue, qreal _maxValue);
@@ -185,11 +257,22 @@ public:
     void showChrono();
     void hideChrono();
 
-    void setMinimapFrom(::profiler::thread_id_t _thread_id, const::profiler_gui::EasyItems* _items);
+    void setHystogramFrom(::profiler::thread_id_t _thread_id, const::profiler_gui::EasyItems* _items);
+    void setHystogramFrom(::profiler::thread_id_t _thread_id, ::profiler::block_id_t _block_id);
 
-    inline void setMinimapFrom(::profiler::thread_id_t _thread_id, const ::profiler_gui::EasyItems& _items)
+    inline void setHystogramFrom(::profiler::thread_id_t _thread_id, const ::profiler_gui::EasyItems& _items)
     {
-        setMinimapFrom(_thread_id, &_items);
+        setHystogramFrom(_thread_id, &_items);
+    }
+
+    inline void lock()
+    {
+        m_bLocked = true;
+    }
+
+    inline void unlock()
+    {
+        m_bLocked = false;
     }
 
 signals:

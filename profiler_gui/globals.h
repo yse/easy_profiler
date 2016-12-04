@@ -108,6 +108,7 @@ namespace profiler_gui {
         ::profiler::thread_blocks_tree_t profiler_blocks; ///< Profiler blocks tree loaded from file
         ::profiler::descriptors_list_t       descriptors; ///< Profiler block descriptors list
         EasyBlocks                            gui_blocks; ///< Profiler graphics blocks builded by GUI
+        ::profiler::timestamp_t               begin_time; ///< 
         ::profiler::thread_id_t          selected_thread; ///< Current selected thread id
         ::profiler::block_index_t         selected_block; ///< Current selected profiler block index
         ::profiler::block_id_t         selected_block_id; ///< Current selected profiler block id
@@ -129,6 +130,7 @@ namespace profiler_gui {
         bool               all_items_expanded_by_default; ///< Expand all items after file is opened
         bool               only_current_thread_hierarchy; ///< Build hierarchy tree for current thread only
         bool               highlight_blocks_with_same_id; ///< Highlight all blocks with same id on diagram
+        bool              selecting_block_changes_thread; ///< If true then current selected thread will change every time you select block
         bool           bind_scene_and_tree_expand_status; /** \brief If true then items on graphics scene and in the tree (blocks hierarchy) are binded on each other
                                                                 so expanding/collapsing items on scene also expands/collapse items in the tree. */
 

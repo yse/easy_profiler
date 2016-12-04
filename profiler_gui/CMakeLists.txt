@@ -24,6 +24,8 @@ add_executable(${PROJECT_NAME}
     easy_graphics_item.cpp
     easy_graphics_scrollbar.h
     easy_graphics_scrollbar.cpp
+    easy_qtimer.h
+    easy_qtimer.cpp
     globals.h
     globals.cpp
     globals_qobjects.cpp

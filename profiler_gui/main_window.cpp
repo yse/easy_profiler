@@ -246,22 +246,27 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
 
     menu->addSeparator();
     auto submenu = menu->addMenu("View");
+    submenu->setToolTipsVisible(true);
     action = submenu->addAction("Draw items' borders");
+    action->setToolTip("Draw borders for blocks on diagram.\nThis reduces performance.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.draw_graphics_items_borders);
     connect(action, &QAction::triggered, this, &This::onDrawBordersChanged);
 
     action = submenu->addAction("Hide narrow children");
+    action->setToolTip("Children blocks will be hidden by narrow\nparent blocks. See also \"Blocks narrow size\".\nThis improves performance.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.hide_narrow_children);
     connect(action, &QAction::triggered, this, &This::onHideNarrowChildrenChanged);
 
     action = submenu->addAction("Build hierarchy only for current thread");
+    action->setToolTip("Hierarchy tree will be built\nfor blocks from current thread only.\nThis improves performance\nand saves a lot of memory.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.only_current_thread_hierarchy);
     connect(action, &QAction::triggered, this, &This::onHierarchyFlagChange);
 
     action = submenu->addAction("Add zero blocks to hierarchy");
+    action->setToolTip("Zero duration blocks will be added into hierarchy tree.\nThis reduces performance and increases memory consumption.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.add_zero_blocks_to_hierarchy);
     connect(action, &QAction::triggered, [this](bool _checked)
@@ -270,32 +275,44 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
         emit EASY_GLOBALS.events.hierarchyFlagChanged(_checked);
     });
 
-    action = submenu->addAction("Enable zero length blocks");
+    action = submenu->addAction("Enable zero duration blocks on diagram");
+    action->setToolTip("If checked then allows diagram to paint zero duration blocks\nwith 1px width on each scale. Otherwise, such blocks will be resized\nto 250ns duration.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.enable_zero_length);
     connect(action, &QAction::triggered, [this](bool _checked){ EASY_GLOBALS.enable_zero_length = _checked; refreshDiagram(); });
 
     action = submenu->addAction("Highlight similar blocks");
+    action->setToolTip("Highlight all visible blocks which are similar\nto the current selected block.\nThis reduces performance.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.highlight_blocks_with_same_id);
     connect(action, &QAction::triggered, [this](bool _checked){ EASY_GLOBALS.highlight_blocks_with_same_id = _checked; refreshDiagram(); });
 
-    action = submenu->addAction("Collapse items on tree reset");
+    action = submenu->addAction("Collapse blocks on tree reset");
+    action->setToolTip("This collapses all blocks on diagram\nafter hierarchy tree reset.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.collapse_items_on_tree_close);
     connect(action, &QAction::triggered, this, &This::onCollapseItemsAfterCloseChanged);
 
     action = submenu->addAction("Expand all on file open");
+    action->setToolTip("If checked then all blocks on diagram\nwill be initially expanded.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.all_items_expanded_by_default);
     connect(action, &QAction::triggered, this, &This::onAllItemsExpandedByDefaultChange);
 
-    action = submenu->addAction("Bind scene and tree expand");
+    action = submenu->addAction("Bind diagram and tree expand");
+    action->setToolTip("Expanding/collapsing blocks at diagram expands/collapses\nblocks at hierarchy tree and wise versa.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.bind_scene_and_tree_expand_status);
     connect(action, &QAction::triggered, this, &This::onBindExpandStatusChange);
 
+    action = submenu->addAction("Selecting block changes current thread");
+    action->setToolTip("Automatically select thread while selecting a block.\nIf not checked then you will have to select current thread\nmanually double clicking on thread name on a diagram.");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.selecting_block_changes_thread);
+    connect(action, &QAction::triggered, [this](bool _checked){ EASY_GLOBALS.selecting_block_changes_thread = _checked; });
+
     action = submenu->addAction("Draw event indicators");
+    action->setToolTip("Display event indicators under the blocks\n(even if event-blocks are not visible).\nThis slightly reduces performance.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.enable_event_indicators);
     connect(action, &QAction::triggered, this, &This::onEventIndicatorsChange);
@@ -305,6 +322,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
     actionGroup->setExclusive(true);
 
     action = new QAction("Chrono text at top", actionGroup);
+    action->setToolTip("Draw duration of selected interval\nat the top of the screen.");
     action->setCheckable(true);
     action->setData(static_cast<int>(::profiler_gui::ChronoTextPosition_Top));
     if (EASY_GLOBALS.chrono_text_position == ::profiler_gui::ChronoTextPosition_Top)
@@ -313,6 +331,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
     connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
 
     action = new QAction("Chrono text at center", actionGroup);
+    action->setToolTip("Draw duration of selected interval\nat the center of the screen.");
     action->setCheckable(true);
     action->setData(static_cast<int>(::profiler_gui::ChronoTextPosition_Center));
     if (EASY_GLOBALS.chrono_text_position == ::profiler_gui::ChronoTextPosition_Center)
@@ -321,6 +340,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
     connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
 
     action = new QAction("Chrono text at bottom", actionGroup);
+    action->setToolTip("Draw duration of selected interval\nat the bottom of the screen.");
     action->setCheckable(true);
     action->setData(static_cast<int>(::profiler_gui::ChronoTextPosition_Bottom));
     if (EASY_GLOBALS.chrono_text_position == ::profiler_gui::ChronoTextPosition_Bottom)
@@ -332,7 +352,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
     auto w = new QWidget(submenu);
     auto l = new QHBoxLayout(w);
     l->setContentsMargins(33, 1, 1, 1);
-    l->addWidget(new QLabel("Blocks spacing", w), 0, Qt::AlignLeft);
+    l->addWidget(new QLabel("Min blocks spacing, px", w), 0, Qt::AlignLeft);
     auto spinbox = new QSpinBox(w);
     spinbox->setMinimum(0);
     spinbox->setValue(EASY_GLOBALS.blocks_spacing);
@@ -347,7 +367,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
     w = new QWidget(submenu);
     l = new QHBoxLayout(w);
     l->setContentsMargins(33, 1, 1, 1);
-    l->addWidget(new QLabel("Blocks size min", w), 0, Qt::AlignLeft);
+    l->addWidget(new QLabel("Min blocks size, px", w), 0, Qt::AlignLeft);
     spinbox = new QSpinBox(w);
     spinbox->setMinimum(1);
     spinbox->setValue(EASY_GLOBALS.blocks_size_min);
@@ -362,7 +382,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
     w = new QWidget(submenu);
     l = new QHBoxLayout(w);
     l->setContentsMargins(33, 1, 1, 1);
-    l->addWidget(new QLabel("Blocks narrow size", w), 0, Qt::AlignLeft);
+    l->addWidget(new QLabel("Blocks narrow size, px", w), 0, Qt::AlignLeft);
     spinbox = new QSpinBox(w);
     spinbox->setMinimum(1);
     spinbox->setValue(EASY_GLOBALS.blocks_narrow_size);
@@ -950,6 +970,10 @@ void EasyMainWindow::loadSettings()
     if (!flag.isNull())
         EASY_GLOBALS.bind_scene_and_tree_expand_status = flag.toBool();
 
+    flag = settings.value("selecting_block_changes_thread");
+    if (!flag.isNull())
+        EASY_GLOBALS.selecting_block_changes_thread = flag.toBool();
+
     flag = settings.value("enable_event_indicators");
     if (!flag.isNull())
         EASY_GLOBALS.enable_event_indicators = flag.toBool();
@@ -1007,6 +1031,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("add_zero_blocks_to_hierarchy", EASY_GLOBALS.add_zero_blocks_to_hierarchy);
     settings.setValue("highlight_blocks_with_same_id", EASY_GLOBALS.highlight_blocks_with_same_id);
     settings.setValue("bind_scene_and_tree_expand_status", EASY_GLOBALS.bind_scene_and_tree_expand_status);
+    settings.setValue("selecting_block_changes_thread", EASY_GLOBALS.selecting_block_changes_thread);
     settings.setValue("enable_event_indicators", EASY_GLOBALS.enable_event_indicators);
     settings.setValue("enable_statistics", EASY_GLOBALS.enable_statistics);
     settings.setValue("encoding", QTextCodec::codecForLocale()->name());
@@ -1403,7 +1428,8 @@ void EasyMainWindow::onCaptureClicked(bool)
     m_listener.startCapture();
     m_listenerTimer.start(250);
 
-    m_listenerDialog = new QMessageBox(QMessageBox::Information, "Capturing frames...", "Close this dialog to stop capturing.", QMessageBox::Close, this);
+    m_listenerDialog = new QMessageBox(QMessageBox::Information, "Capturing frames...", "Close this dialog to stop capturing.", QMessageBox::NoButton, this);
+    m_listenerDialog->addButton("Stop", QMessageBox::AcceptRole);
     m_listenerDialog->setAttribute(Qt::WA_DeleteOnClose, true);
     connect(m_listenerDialog, &QDialog::finished, this, &This::onListenerDialogClose);
     m_listenerDialog->show();

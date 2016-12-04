@@ -280,7 +280,6 @@ private slots:
 
     void setVerticalScrollbarRange(int _minValue, int _maxValue);
     void onTreeChange();
-    void onSelectedThreadChange(::profiler::thread_id_t _id);
     void repaintScene();
 
 }; // END of class EasyThreadNamesWidget.

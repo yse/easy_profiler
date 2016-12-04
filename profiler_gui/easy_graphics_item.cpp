@@ -70,13 +70,7 @@ inline QRgb selectedItemBorderColor(::profiler::color_t _color) {
     return ::profiler_gui::isLightColor(_color, 192) ? ::profiler::colors::Black : ::profiler::colors::RichRed;
 }
 
-inline QRgb highlightItemColor(bool _is_light) {
-    return _is_light ? ::profiler::colors::RichRed : ::profiler::colors::White;
-}
-
-#define HIGHLIGHT_COLOR(_is_light) ::profiler::colors::White
-//#define HIGHLIGHT_COLOR(_is_light) highlightItemColor(_is_light)
-
+const QPen HIGHLIGHTER_PEN = ([]() -> QPen { QPen p(::profiler::colors::Black); p.setStyle(Qt::DotLine); p.setWidth(2); return p; })();
 const auto ITEMS_FONT = ::profiler_gui::EFont("Helvetica", 10, QFont::Medium);
 const auto SELECTED_ITEM_FONT = ::profiler_gui::EFont("Helvetica", 10, QFont::Bold);
 
@@ -362,7 +356,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         if (previousPenStyle != Qt::DotLine)
                         {
                             previousPenStyle = Qt::DotLine;
-                            _painter->setPen(HIGHLIGHT_COLOR(is_light));
+                            _painter->setPen(HIGHLIGHTER_PEN);
                         }
                     }
                     else if (EASY_GLOBALS.draw_graphics_items_borders)
@@ -419,7 +413,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         if (previousPenStyle != Qt::DotLine)
                         {
                             previousPenStyle = Qt::DotLine;
-                            _painter->setPen(HIGHLIGHT_COLOR(is_light));
+                            _painter->setPen(HIGHLIGHTER_PEN);
                         }
                     }
                     else if (EASY_GLOBALS.draw_graphics_items_borders)
@@ -497,7 +491,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     _painter->setPen(Qt::NoPen);
                 else if (previousPenStyle == Qt::DotLine)
                 {
-                    _painter->setPen(HIGHLIGHT_COLOR(is_light));
+                    _painter->setPen(HIGHLIGHTER_PEN);
                 }
                 else
                     _painter->setPen(BORDERS_COLOR);// BORDERS_COLOR & inverseColor); // restore pen for rectangle painting
