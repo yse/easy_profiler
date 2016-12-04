@@ -303,8 +303,7 @@ void EasyHystogramItem::paintByPtr(QPainter* _painter)
     const auto bottom = m_boundingRect.bottom();
     const auto width = m_boundingRect.width() * currentScale;
     const auto dtime = m_maxDuration - m_minDuration;
-    const auto coeff = m_boundingRect.height() / (dtime > 1e-3 ? dtime : 1.);
-    const auto heightRevert = 1.0 / m_boundingRect.height();
+    const auto coeff = (m_boundingRect.height() - HYST_COLUMN_MIN_HEIGHT) / (dtime > 1e-3 ? dtime : 1.);
 
     QRectF rect;
     QBrush brush(Qt::SolidPattern);
@@ -343,6 +342,7 @@ void EasyHystogramItem::paintByPtr(QPainter* _painter)
                 }
 
                 auto const calculate_color = gotFrame ? calculate_color2 : calculate_color1;
+                const auto heightRevert = 1.0 / m_boundingRect.height();
                 auto const k = gotFrame ? sqr(sqr(heightRevert * frameCoeff)) : heightRevert;
 
                 const auto& items = *m_pSource;
@@ -379,7 +379,7 @@ void EasyHystogramItem::paintByPtr(QPainter* _painter)
                     const qreal item_x = it->left() * realScale - offset;
                     const qreal item_w = ::std::max(it->width() * realScale, 1.0);
                     const qreal item_r = item_x + item_w;
-                    const auto h = ::std::max((it->width() - m_minDuration) * coeff, 2.0);
+                    const auto h = HYST_COLUMN_MIN_HEIGHT + (it->width() - m_minDuration) * coeff;
 
                     if (h < previous_h && item_r < previous_x)
                         continue;
@@ -437,7 +437,7 @@ void EasyHystogramItem::paintByPtr(QPainter* _painter)
     if (m_minDuration < EASY_GLOBALS.frame_time && EASY_GLOBALS.frame_time < m_maxDuration)
     {
         // Draw marker displaying required frame_time step
-        const auto h = bottom - (EASY_GLOBALS.frame_time - m_minDuration) * coeff;
+        const auto h = bottom - HYST_COLUMN_MIN_HEIGHT - (EASY_GLOBALS.frame_time - m_minDuration) * coeff;
         _painter->setPen(Qt::DashLine);
 
         auto w = width;
@@ -468,8 +468,7 @@ void EasyHystogramItem::paintById(QPainter* _painter)
     const auto bottom = m_boundingRect.bottom();
     const auto width = m_boundingRect.width() * currentScale;
     const auto dtime = m_maxDuration - m_minDuration;
-    const auto coeff = m_boundingRect.height() / (dtime > 1e-3 ? dtime : 1.);
-    const auto heightRevert = 1.0 / m_boundingRect.height();
+    const auto coeff = (m_boundingRect.height() - HYST_COLUMN_MIN_HEIGHT) / (dtime > 1e-3 ? dtime : 1.);
 
     QRectF rect;
     QBrush brush(Qt::SolidPattern);
@@ -479,20 +478,7 @@ void EasyHystogramItem::paintById(QPainter* _painter)
     _painter->setPen(Qt::NoPen);
     _painter->setTransform(QTransform::fromScale(1.0 / currentScale, 1), true);
 
-    const bool gotFrame = EASY_GLOBALS.frame_time > 1e-6f;
-    qreal frameCoeff = 1;
-    if (gotFrame)
-    {
-        if (EASY_GLOBALS.frame_time <= m_minDuration)
-            frameCoeff = m_boundingRect.height();
-        else
-            frameCoeff = 0.9 * dtime / (EASY_GLOBALS.frame_time - m_minDuration);
-    }
-
-    auto const calculate_color = gotFrame ? calculate_color2 : calculate_color1;
-    auto const k = gotFrame ? sqr(sqr(heightRevert * frameCoeff)) : heightRevert;
     const auto& items = m_selectedBlocks;
-
     if (!items.empty())
     {
         if (!bindMode)
@@ -535,6 +521,20 @@ void EasyHystogramItem::paintById(QPainter* _painter)
 
                 if (n > 0)
                 {
+                    const bool gotFrame = EASY_GLOBALS.frame_time > 1e-6f;
+                    qreal frameCoeff = 1;
+                    if (gotFrame)
+                    {
+                        if (EASY_GLOBALS.frame_time <= m_minDuration)
+                            frameCoeff = m_boundingRect.height();
+                        else
+                            frameCoeff = 0.9 * dtime / (EASY_GLOBALS.frame_time - m_minDuration);
+                    }
+
+                    auto const calculate_color = gotFrame ? calculate_color2 : calculate_color1;
+                    const auto heightRevert = 1.0 / m_boundingRect.height();
+                    auto const k = gotFrame ? sqr(sqr(heightRevert * frameCoeff)) : heightRevert;
+
                     const auto draw = [this, &previousColor, &brush, &_painter](qreal x, qreal y, qreal w, qreal h, QRgb color)
                     {
                         m_spin.lock();
@@ -581,7 +581,7 @@ void EasyHystogramItem::paintById(QPainter* _painter)
                                 const qreal item_x = (beginTime * realScale - offset) * 1e-3;
                                 const qreal item_w = ::std::max(duration * realScale, 1.0);
                                 const qreal item_r = item_x + item_w;
-                                const auto h = ::std::max((duration - m_minDuration) * coeff, 2.0);
+                                const auto h = HYST_COLUMN_MIN_HEIGHT + (duration - m_minDuration) * coeff;
 
                                 if (h < previous_h && item_r < previous_x)
                                     continue;
@@ -646,7 +646,7 @@ void EasyHystogramItem::paintById(QPainter* _painter)
     if (m_minDuration < EASY_GLOBALS.frame_time && EASY_GLOBALS.frame_time < m_maxDuration)
     {
         // Draw marker displaying required frame_time step
-        const auto h = bottom - (EASY_GLOBALS.frame_time - m_minDuration) * coeff;
+        const auto h = bottom - HYST_COLUMN_MIN_HEIGHT - (EASY_GLOBALS.frame_time - m_minDuration) * coeff;
         _painter->setPen(Qt::DashLine);
 
         auto w = width;
