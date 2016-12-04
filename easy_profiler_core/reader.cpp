@@ -78,7 +78,33 @@ const uint32_t COMPATIBLE_VERSIONS[] = {
 const uint16_t COMPATIBLE_VERSIONS_NUM = sizeof(COMPATIBLE_VERSIONS) / sizeof(uint32_t);
 # undef EASY_VERSION_INT
 
-const int64_t TIME_FACTOR = 1000000000LL;
+const uint64_t TIME_FACTOR = 1000000000ULL;
+
+// TODO: use 128 bit integer operations for better accuracy
+#define EASY_USE_FLOATING_POINT_CONVERSION
+
+#ifdef EASY_USE_FLOATING_POINT_CONVERSION
+
+// Suppress warnings about double to uint64 conversion
+# ifdef _WIN32
+#  pragma warning(disable:4244)
+# elif defined(__GNUC__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wconversion"
+#  pragma GCC diagnostic ignored "-Wsign-conversion"
+# elif defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wconversion"
+#  pragma clang diagnostic ignored "-Wsign-conversion"
+# endif
+
+# define EASY_CONVERT_TO_NANO(t, freq, factor) t *= factor
+
+#else
+
+# define EASY_CONVERT_TO_NANO(t, freq, factor) t *= TIME_FACTOR; t /= freq
+
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -343,8 +369,10 @@ extern "C" {
             return 0;
         }
 
-        int64_t cpu_frequency = 0LL;
-        inFile.read((char*)&cpu_frequency, sizeof(int64_t));
+        int64_t file_cpu_frequency = 0LL;
+        inFile.read((char*)&file_cpu_frequency, sizeof(int64_t));
+        uint64_t cpu_frequency = file_cpu_frequency;
+        const double conversion_factor = static_cast<double>(TIME_FACTOR) / static_cast<double>(cpu_frequency);
 
         ::profiler::timestamp_t begin_time = 0ULL;
         ::profiler::timestamp_t end_time = 0ULL;
@@ -352,10 +380,8 @@ extern "C" {
         inFile.read((char*)&end_time, sizeof(::profiler::timestamp_t));
         if (cpu_frequency != 0)
         {
-            begin_time *= TIME_FACTOR;
-            begin_time /= cpu_frequency;
-            end_time *= TIME_FACTOR;
-            end_time /= cpu_frequency;
+            EASY_CONVERT_TO_NANO(begin_time, cpu_frequency, conversion_factor);
+            EASY_CONVERT_TO_NANO(end_time, cpu_frequency, conversion_factor);
         }
 
         uint32_t total_blocks_number = 0;
@@ -482,10 +508,8 @@ extern "C" {
 
                 if (cpu_frequency != 0)
                 {
-                    *t_begin *= TIME_FACTOR;
-                    *t_begin /= cpu_frequency;
-                    *t_end *= TIME_FACTOR;
-                    *t_end /= cpu_frequency;
+                    EASY_CONVERT_TO_NANO(*t_begin, cpu_frequency, conversion_factor);
+                    EASY_CONVERT_TO_NANO(*t_end, cpu_frequency, conversion_factor);
                 }
 
                 if (*t_end > begin_time)
@@ -551,10 +575,8 @@ extern "C" {
 
                 if (cpu_frequency != 0)
                 {
-                    *t_begin *= TIME_FACTOR;
-                    *t_begin /= cpu_frequency;
-                    *t_end *= TIME_FACTOR;
-                    *t_end /= cpu_frequency;
+                    EASY_CONVERT_TO_NANO(*t_begin, cpu_frequency, conversion_factor);
+                    EASY_CONVERT_TO_NANO(*t_end, cpu_frequency, conversion_factor);
                 }
 
                 if (*t_end >= begin_time)
@@ -838,3 +860,16 @@ extern "C" {
     //////////////////////////////////////////////////////////////////////////
 
 }
+
+#undef EASY_CONVERT_TO_NANO
+
+#ifdef EASY_USE_FLOATING_POINT_CONVERSION
+# ifdef _WIN32
+#  pragma warning(default:4244)
+# elif defined(__GNUC__)
+#  pragma GCC diagnostic pop
+# elif defined(__clang__)
+#  pragma clang diagnostic pop
+# endif
+# undef EASY_USE_FLOATING_POINT_CONVERSION
+#endif
