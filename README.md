@@ -1,4 +1,4 @@
-# easy_profiler [![version](https://img.shields.io/badge/version-1.0.0-009688.svg)](https://github.com/yse/easy_profiler/releases)
+# easy_profiler [![version](https://img.shields.io/badge/version-1.0.0%20beta-009688.svg)](https://github.com/yse/easy_profiler/releases)
 
 [![Build Status](https://travis-ci.org/yse/easy_profiler.svg?branch=develop)](https://travis-ci.org/yse/easy_profiler)
 
