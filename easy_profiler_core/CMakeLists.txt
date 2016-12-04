@@ -59,13 +59,6 @@ if(NOT DEFINED EASY_PROGRAM_VERSION_MAJOR)
 
 endif(NOT DEFINED EASY_PROGRAM_VERSION_MAJOR)
 
-if(WIN32)
-    add_definitions(
-        -D_CRT_SECURE_NO_WARNINGS
-    )
-endif(WIN32)
-
-
 set(SOURCES
     ${CPP_FILES}
     ${H_FILES}
@@ -77,9 +70,18 @@ add_definitions(
     #-DEASY_PROFILER_API_DISABLED # uncomment this to disable profiler api only (you will have to rebuild only easy_profiler)
 )
 
+if (CMAKE_VERSION VERSION_LESS "3.1")
+    if (UNIX)
+      set (CMAKE_CXX_FLAGS "-std=gnu++11 ${CMAKE_CXX_FLAGS}")
+    endif (UNIX)
+  else ()
+    set (CMAKE_CXX_STANDARD 11)
+endif (CMAKE_VERSION VERSION_LESS "3.1")
+
 if(WIN32)
     add_definitions(
         -D_WINSOCK_DEPRECATED_NO_WARNINGS
+		-D_CRT_SECURE_NO_WARNINGS
     )
 endif(WIN32)
 
