@@ -47,6 +47,7 @@
 #include "event_trace_win.h"
 #include "current_time.h"
 
+
 #ifndef _WIN32
 #include <signal.h>
 #endif
@@ -65,6 +66,10 @@ using namespace profiler;
 #  error "EASY_PROFILER_VERSION_MAJOR and EASY_PROFILER_VERSION_MINOR and EASY_PROFILER_VERSION_PATCH macros must be defined"
 # endif
 #endif
+
+#define EASY_PROFILER_PRODUCT_VERSION "v" EASY_STRINGIFICATION(EASY_PROFILER_VERSION_MAJOR) "." \
+                                          EASY_STRINGIFICATION(EASY_PROFILER_VERSION_MINOR) "." \
+                                          EASY_STRINGIFICATION(EASY_PROFILER_VERSION_PATCH)
 
 # define EASY_VERSION_INT(v_major, v_minor, v_patch) ((static_cast<uint32_t>(v_major) << 24) | (static_cast<uint32_t>(v_minor) << 16) | static_cast<uint32_t>(v_patch))
 extern const uint32_t PROFILER_SIGNATURE = ('E' << 24) | ('a' << 16) | ('s' << 8) | 'y';
