@@ -104,14 +104,14 @@ inline qreal sqr(qreal _value)
     return _value * _value;
 }
 
-inline qreal calculate_color1(qreal h, qreal k)
+inline qreal calculate_color1(qreal h, qreal, qreal k)
 {
     return ::std::min(h * k, 0.9999999);
 }
 
-inline qreal calculate_color2(qreal h, qreal k)
+inline qreal calculate_color2(qreal, qreal duration, qreal k)
 {
-    return ::std::min(sqr(sqr(h)) * k, 0.9999999);
+    return ::std::min(sqr(sqr(duration)) * k, 0.9999999);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -338,12 +338,11 @@ void EasyHystogramItem::paintByPtr(QPainter* _painter)
                     if (EASY_GLOBALS.frame_time <= m_minDuration)
                         frameCoeff = m_boundingRect.height();
                     else
-                        frameCoeff = 0.9 * dtime / (EASY_GLOBALS.frame_time - m_minDuration);
+                        frameCoeff = 0.9 / EASY_GLOBALS.frame_time;
                 }
 
                 auto const calculate_color = gotFrame ? calculate_color2 : calculate_color1;
-                const auto heightRevert = 1.0 / m_boundingRect.height();
-                auto const k = gotFrame ? sqr(sqr(heightRevert * frameCoeff)) : heightRevert;
+                auto const k = gotFrame ? sqr(sqr(frameCoeff)) : 1.0 / m_boundingRect.height();
 
                 const auto& items = *m_pSource;
                 const auto maximum = minimum + range;
@@ -384,7 +383,7 @@ void EasyHystogramItem::paintByPtr(QPainter* _painter)
                     if (h < previous_h && item_r < previous_x)
                         continue;
 
-                    const auto col = calculate_color(h, k);
+                    const auto col = calculate_color(h, it->width(), k);
                     const auto color = 0x00ffffff & QColor::fromHsvF((1.0 - col) * 0.375, 0.85, 0.85).rgb();
 
                     if (previousColor != color)
@@ -457,6 +456,8 @@ void EasyHystogramItem::paintByPtr(QPainter* _painter)
                        .arg(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, m_threadActiveTime))
                        .arg(QString::number(100. * (double)m_threadActiveTime / (double)m_threadDuration, 'f', 2)));
 
+    _painter->drawText(rect, Qt::AlignLeft, bindMode ? " MODE: zoom" : " MODE: overview");
+
     _painter->restore();
 }
 
@@ -528,12 +529,11 @@ void EasyHystogramItem::paintById(QPainter* _painter)
                         if (EASY_GLOBALS.frame_time <= m_minDuration)
                             frameCoeff = m_boundingRect.height();
                         else
-                            frameCoeff = 0.9 * dtime / (EASY_GLOBALS.frame_time - m_minDuration);
+                            frameCoeff = 0.9 / EASY_GLOBALS.frame_time;
                     }
 
                     auto const calculate_color = gotFrame ? calculate_color2 : calculate_color1;
-                    const auto heightRevert = 1.0 / m_boundingRect.height();
-                    auto const k = gotFrame ? sqr(sqr(heightRevert * frameCoeff)) : heightRevert;
+                    auto const k = gotFrame ? sqr(sqr(frameCoeff)) : 1.0 / m_boundingRect.height();
 
                     const auto draw = [this, &previousColor, &brush, &_painter](qreal x, qreal y, qreal w, qreal h, QRgb color)
                     {
@@ -586,7 +586,7 @@ void EasyHystogramItem::paintById(QPainter* _painter)
                                 if (h < previous_h && item_r < previous_x)
                                     continue;
 
-                                const auto col = calculate_color(h, k);
+                                const auto col = calculate_color(h, duration, k);
                                 const auto color = 0x00ffffff & QColor::fromHsvF((1.0 - col) * 0.375, 0.85, 0.85).rgb();
 
                                 draw(item_x, bottom - h, item_w, h, color);
@@ -683,6 +683,8 @@ void EasyHystogramItem::paintById(QPainter* _painter)
         _painter->drawText(rect, Qt::AlignHCenter | Qt::TextDontClip, QString("%1  |  %2  |  %3 calls").arg(m_threadName).arg(easyDescriptor(m_blockId).name())
                            .arg(m_selectedBlocks.size()));
     }
+
+    _painter->drawText(rect, Qt::AlignLeft, bindMode ? " MODE: zoom" : " MODE: overview");
 
     _painter->restore();
 }
@@ -989,7 +991,6 @@ void EasyHystogramItem::updateImage(HystRegime _regime, qreal _current_scale,
     const auto width = m_boundingRect.width() * _current_scale;
     const auto dtime = m_maxDuration - m_minDuration;
     const auto coeff = (m_boundingRect.height() - HYST_COLUMN_MIN_HEIGHT) / (dtime > 1e-3 ? dtime : 1.);
-    const auto heightRevert = 1.0 / m_boundingRect.height();
 
     m_temporaryImage = new QImage((_bindMode ? width * 2. : width) + 0.5, m_boundingRect.height(), QImage::Format_ARGB32);
     m_temporaryImage->fill(Qt::white);
@@ -1012,11 +1013,11 @@ void EasyHystogramItem::updateImage(HystRegime _regime, qreal _current_scale,
         if (_frame_time <= m_minDuration)
             frameCoeff = m_boundingRect.height();
         else
-            frameCoeff = 0.9 * dtime / (_frame_time - m_minDuration);
+            frameCoeff = 0.9 / _frame_time;
     }
 
     auto const calculate_color = gotFrame ? calculate_color2 : calculate_color1;
-    auto const k = gotFrame ? sqr(sqr(heightRevert * frameCoeff)) : heightRevert;
+    auto const k = gotFrame ? sqr(sqr(frameCoeff)) : 1.0 / m_boundingRect.height();
 
     if (_regime == Hyst_Pointer)
     {
@@ -1064,7 +1065,7 @@ void EasyHystogramItem::updateImage(HystRegime _regime, qreal _current_scale,
             if (h < previous_h && item_r < previous_x)
                 continue;
 
-            const auto col = calculate_color(h, k);
+            const auto col = calculate_color(h, it->width(), k);
             const auto color = 0x00ffffff & QColor::fromHsvF((1.0 - col) * 0.375, 0.85, 0.85).rgb();
 
             if (previousColor != color)
@@ -1109,7 +1110,7 @@ void EasyHystogramItem::updateImage(HystRegime _regime, qreal _current_scale,
             if (h < previous_h && item_r < previous_x)
                 continue;
 
-            const auto col = calculate_color(h, k);
+            const auto col = calculate_color(h, duration, k);
             const auto color = 0x00ffffff & QColor::fromHsvF((1.0 - col) * 0.375, 0.85, 0.85).rgb();
 
             if (previousColor != color)
