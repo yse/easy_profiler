@@ -57,6 +57,7 @@
 #include <QToolBar>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QTimer>
 #include <thread>
 #include "descriptors_tree_widget.h"
 #include "globals.h"
@@ -382,7 +383,7 @@ void EasyDescTreeWidget::build()
             auto it = p.children.find(desc->line());
             if (it == p.children.end())
             {
-                auto item = new EasyDescWidgetItem(id, p.item);
+                auto item = new EasyDescWidgetItem(desc->id(), p.item);
                 item->setText(DESC_COL_FILE_LINE, QString::number(desc->line()));
                 item->setData(DESC_COL_FILE_LINE, Qt::UserRole, desc->line());
                 item->setText(DESC_COL_NAME, desc->name());
@@ -403,6 +404,7 @@ void EasyDescTreeWidget::build()
                 item->setForeground(DESC_COL_STATUS, QColor::fromRgba(statusColor(desc->status())));
 
                 m_items[id] = item;
+                p.children.insert(::std::make_pair(desc->line(), item));
             }
             else
             {
@@ -424,6 +426,7 @@ void EasyDescTreeWidget::build()
     setSortingEnabled(true);
     sortByColumn(DESC_COL_FILE_LINE, Qt::AscendingOrder);
     resizeColumnsToContents();
+    QTimer::singleShot(100, [this](){ onSelectedBlockChange(EASY_GLOBALS.selected_block); });
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -541,7 +544,7 @@ void EasyDescTreeWidget::resizeColumnsToContents()
 
 void EasyDescTreeWidget::onSelectedBlockChange(uint32_t _block_index)
 {
-    if (_block_index == ::profiler_gui::numeric_max(_block_index))
+    if (::profiler_gui::is_max(_block_index))
         return;
 
     auto item = m_items[blocksTree(_block_index).node->id()];

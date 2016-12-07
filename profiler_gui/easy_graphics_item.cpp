@@ -352,7 +352,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         _painter->setBrush(brush);
                     }
 
-                    if (EASY_GLOBALS.highlight_blocks_with_same_id && EASY_GLOBALS.selected_block_id == itemDesc.id())
+                    if (EASY_GLOBALS.highlight_blocks_with_same_id && (EASY_GLOBALS.selected_block_id == itemBlock.tree.node->id()
+                        || (::profiler_gui::is_max(EASY_GLOBALS.selected_block) && EASY_GLOBALS.selected_block_id == itemDesc.id())))
                     {
                         if (previousPenStyle != Qt::DotLine)
                         {
@@ -409,7 +410,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         _painter->setBrush(brush);
                     }
 
-                    if (EASY_GLOBALS.highlight_blocks_with_same_id && EASY_GLOBALS.selected_block_id == itemDesc.id())
+                    if (EASY_GLOBALS.highlight_blocks_with_same_id && (EASY_GLOBALS.selected_block_id == itemBlock.tree.node->id()
+                        || (::profiler_gui::is_max(EASY_GLOBALS.selected_block) && EASY_GLOBALS.selected_block_id == itemDesc.id())))
                     {
                         if (previousPenStyle != Qt::DotLine)
                         {
@@ -578,7 +580,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                             _painter->setFont(SELECTED_ITEM_FONT);
 
                             // drawing text
-                            auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : easyDescriptor(itemBlock.tree.node->id()).name();
+                            auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : itemDesc.name();
                             _painter->drawText(rect, Qt::AlignCenter, ::profiler_gui::toUnicode(name));
                             // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                         }
