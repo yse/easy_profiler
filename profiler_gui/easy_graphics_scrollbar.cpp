@@ -501,7 +501,7 @@ void EasyHystogramItem::paintById(QPainter* _painter)
                 minimum *= 1e3;
                 const auto maximum = minimum + range * 1e3;
                 const auto realScale = currentScale * slider_k;
-                const auto offset = minimum * realScale;
+                const auto offset = minimum * realScale + 9e3;
 
                 auto first = ::std::lower_bound(items.begin(), items.end(), minimum + EASY_GLOBALS.begin_time, [](::profiler::block_index_t _item, qreal _value)
                 {
@@ -1468,6 +1468,9 @@ void EasyGraphicsScrollbar::onWindowWidthChange(qreal _width)
     }
 
     scale(m_windowScale / oldScale, 1);
+
+    if (m_hystogramItem->isVisible())
+        m_hystogramItem->updateImage();
 }
 
 //////////////////////////////////////////////////////////////////////////
