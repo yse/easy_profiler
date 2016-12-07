@@ -1370,7 +1370,7 @@ void EasyGraphicsView::onIdleTimeout()
                 if (itemDesc.type() == ::profiler::BLOCK_TYPE_BLOCK)
                 {
                     lay->addWidget(new QLabel("Block:", widget), 0, 0, Qt::AlignRight);
-                    lay->addWidget(new QLabel(name, widget), 0, 1, 1, 3, Qt::AlignLeft);
+                    lay->addWidget(new QLabel(name, widget), 0, 1, 1, 4, Qt::AlignLeft);
 
                     lay->addWidget(new QLabel("Duration:", widget), 1, 0, Qt::AlignRight);
                     lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, itemBlock.node->duration(), 3), widget), 1, 1, 1, 3, Qt::AlignLeft);
@@ -1387,7 +1387,7 @@ void EasyGraphicsView::onIdleTimeout()
                     {
                         const auto duration = itemBlock.node->duration();
 
-                        lay->addWidget(new QLabel("-------- Statistics --------", widget), 2, 0, 1, 4, Qt::AlignHCenter);
+                        lay->addWidget(new QLabel("-------- Statistics --------", widget), 2, 0, 1, 5, Qt::AlignHCenter);
                         lay->addWidget(new QLabel("per ", widget), 3, 0, Qt::AlignRight);
                         lay->addWidget(new QLabel("This %:", widget), 4, 0, Qt::AlignRight);
                         lay->addWidget(new QLabel("Sum %:", widget), 5, 0, Qt::AlignRight);
@@ -1409,7 +1409,7 @@ void EasyGraphicsView::onIdleTimeout()
                             ++col;
                             auto frame_duration = blocksTree(itemBlock.per_frame_stats->parent_block).node->duration();
 
-                            lay->addWidget(new QLabel("Frame", widget), 3, col, Qt::AlignRight);
+                            lay->addWidget(new QLabel("Frame", widget), 3, col, Qt::AlignHCenter);
 
                             percent = ::profiler_gui::percentReal(duration, frame_duration);
                             lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), 4, col, Qt::AlignHCenter);
@@ -1425,7 +1425,7 @@ void EasyGraphicsView::onIdleTimeout()
                             ++col;
                             auto parent_duration = blocksTree(itemBlock.per_parent_stats->parent_block).node->duration();
 
-                            lay->addWidget(new QLabel("Parent", widget), 3, col, Qt::AlignRight);
+                            lay->addWidget(new QLabel("Parent", widget), 3, col, Qt::AlignHCenter);
 
                             percent = ::profiler_gui::percentReal(duration, parent_duration);
                             lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), 4, col, Qt::AlignHCenter);
