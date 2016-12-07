@@ -94,8 +94,6 @@ const qreal FLICKER_FACTOR = 16.0 / FLICKER_INTERVAL;
 const auto BG_FONT = ::profiler_gui::EFont("Helvetica", 10, QFont::Bold);
 const auto CHRONOMETER_FONT = ::profiler_gui::EFont("Helvetica", 16, QFont::Bold);
 
-const uint64_t ADDITIONAL_OFFSET = 50000000ULL; // Additional 50 ms before first block and after last block
-
 #ifdef max
 #undef max
 #endif
@@ -426,8 +424,9 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
             mainTree = threadTree.first;
     }
 
-    finish += ADDITIONAL_OFFSET << 1;
-    m_beginTime -= ::std::min(m_beginTime, ADDITIONAL_OFFSET);
+    const decltype(m_beginTime) additional_offset = (finish - m_beginTime) / 20; // Additional 5% before first block and after last block
+    finish += additional_offset;
+    m_beginTime -= ::std::min(m_beginTime, additional_offset);
     EASY_GLOBALS.begin_time = m_beginTime;
 
     // Filling scene with items
@@ -521,6 +520,8 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
 
         scrollTo(longestItem);
         m_pScrollbar->setHystogramFrom(longestItem->threadId(), longestItem->items(0));
+        if (!longestItem->items(0).empty())
+            m_pScrollbar->setValue(longestItem->items(0).front().left() - m_pScrollbar->sliderWidth() * 0.25);
     }
 
     m_idleTimer.start(IDLE_TIMER_INTERVAL);
