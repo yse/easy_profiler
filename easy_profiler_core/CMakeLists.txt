@@ -1,5 +1,9 @@
 project(easy_profiler)
 
+IF (NOT DEFINED LIB_NAME)
+    SET(LIB_NAME ${PROJECT_NAME})
+ENDIF()
+
 set(CPP_FILES
     block.cpp
     profile_manager.cpp
@@ -85,10 +89,10 @@ if(WIN32)
     )
 endif(WIN32)
 
-add_library(${PROJECT_NAME} SHARED ${SOURCES} resources.rc)
+add_library(${LIB_NAME} SHARED ${SOURCES} resources.rc)
 
 if(UNIX)
     set(PLATFORM_LIBS pthread)
 endif(UNIX)
 
-target_link_libraries(${PROJECT_NAME} ${PLATFORM_LIBS})
+target_link_libraries(${LIB_NAME} ${PLATFORM_LIBS})
