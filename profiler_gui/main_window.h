@@ -124,9 +124,11 @@ enum EasyListenerRegime : uint8_t
 class EasySocketListener Q_DECL_FINAL
 {
     EasySocket            m_easySocket; ///< 
+    ::std::string            m_address; ///< 
     ::std::stringstream m_receivedData; ///< 
     ::std::thread             m_thread; ///< 
     uint64_t            m_receivedSize; ///< 
+    uint16_t                    m_port; ///< 
     ::std::atomic_bool    m_bInterrupt; ///< 
     ::std::atomic_bool    m_bConnected; ///< 
     EasyListenerRegime        m_regime; ///< 
@@ -139,6 +141,8 @@ public:
     bool connected() const;
     EasyListenerRegime regime() const;
     uint64_t size() const;
+    const ::std::string& address() const;
+    uint16_t port() const;
 
     ::std::stringstream& data();
     void clearData();
@@ -274,7 +278,7 @@ private:
     void loadGeometry();
     void saveSettingsAndGeometry();
 
-    void setDisconnected();
+    void setDisconnected(bool _showMessage = true);
 
 }; // END of class EasyMainWindow.
 

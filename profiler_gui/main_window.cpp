@@ -1039,9 +1039,11 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.endGroup();
 }
 
-void EasyMainWindow::setDisconnected()
+void EasyMainWindow::setDisconnected(bool _showMessage)
 {
-    QMessageBox::warning(this, "Warning", "Application was disconnected", QMessageBox::Close);
+    if (_showMessage)
+        QMessageBox::warning(this, "Warning", "Application was disconnected", QMessageBox::Close);
+
     EASY_GLOBALS.connected = false;
     m_captureAction->setEnabled(false);
     SET_ICON(m_connectAction, ":/Connection");
@@ -1351,9 +1353,6 @@ void EasyMainWindow::onFrameTimeEditFinish()
 
 void EasyMainWindow::onConnectClicked(bool)
 {
-    if(EASY_GLOBALS.connected)
-        return;
-
     auto text = m_ipEdit->text();
     auto parts = text.split(QChar('.'));
     if (parts.size() != 4)
@@ -1377,16 +1376,57 @@ void EasyMainWindow::onConnectClicked(bool)
             part = "0";
     }
 
-    m_lastAddress = parts.join(QChar('.'));
-    m_lastPort = m_portEdit->text().toUShort();
-    m_ipEdit->setText(m_lastAddress);
+    QString address = parts.join(QChar('.'));
+    const decltype(m_lastPort) port = m_portEdit->text().toUShort();
+    m_ipEdit->setText(address);
+
+    const bool isReconnecting = (EASY_GLOBALS.connected && m_listener.port() == port && address.toStdString() == m_listener.address());
+    if (EASY_GLOBALS.connected)
+    {
+        if (QMessageBox::question(this, isReconnecting ? "Reconnect" : "New connection", QString("Are you sure you want to %1?\nCurrent connection will be broken.")
+            .arg(isReconnecting ? "re-connect" : "connect to the new address"),
+            QMessageBox::Yes, QMessageBox::No) != QMessageBox::Yes)
+        {
+            if (!isReconnecting)
+            {
+                // Restore last values
+                m_ipEdit->setText(m_lastAddress);
+                m_portEdit->setText(QString::number(m_lastPort));
+            }
+
+            return;
+        }
+    }
 
     profiler::net::EasyProfilerStatus reply(false, false, false);
-    if (!m_listener.connect(m_lastAddress.toStdString().c_str(), m_lastPort, reply))
+    if (!m_listener.connect(address.toStdString().c_str(), port, reply))
     {
-        QMessageBox::warning(this, "Warning", "Cannot connect with application", QMessageBox::Close);
+        if (EASY_GLOBALS.connected && !isReconnecting)
+        {
+            m_ipEdit->setText(m_lastAddress);
+            m_portEdit->setText(QString::number(m_lastPort));
+            if (!m_listener.connect(m_lastAddress.toStdString().c_str(), m_lastPort, reply))
+            {
+                QMessageBox::warning(this, "Warning", QString("Cannot connect to %1.\nPrevious connection lost.").arg(address), QMessageBox::Close);
+                setDisconnected(false);
+            }
+            else
+            {
+                QMessageBox::information(this, "Information", QString("Cannot connect to %1.\nRestored previous connection.").arg(address), QMessageBox::Close);
+            }
+        }
+        else
+        {
+            QMessageBox::warning(this, "Warning", QString("Cannot connect to %1").arg(address), QMessageBox::Close);
+            if (EASY_GLOBALS.connected)
+                setDisconnected(false);
+        }
+
         return;
     }
+
+    m_lastAddress = ::std::move(address);
+    m_lastPort = port;
 
     qInfo() << "Connected successfully";
     EASY_GLOBALS.connected = true;
@@ -1584,7 +1624,7 @@ void EasyMainWindow::onBlockStatusChange(::profiler::block_id_t _id, ::profiler:
 
 //////////////////////////////////////////////////////////////////////////
 
-EasySocketListener::EasySocketListener() : m_receivedSize(0), m_regime(LISTENER_IDLE)
+EasySocketListener::EasySocketListener() : m_receivedSize(0), m_port(0), m_regime(LISTENER_IDLE)
 {
     m_bInterrupt = ATOMIC_VAR_INIT(false);
     m_bConnected = ATOMIC_VAR_INIT(false);
@@ -1617,6 +1657,16 @@ uint64_t EasySocketListener::size() const
     return m_receivedData;
 }
 
+const ::std::string& EasySocketListener::address() const
+{
+    return m_address;
+}
+
+uint16_t EasySocketListener::port() const
+{
+    return m_port;
+}
+
 void EasySocketListener::clearData()
 {
     clear_stream(m_receivedData);
@@ -1626,7 +1676,17 @@ void EasySocketListener::clearData()
 bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profiler::net::EasyProfilerStatus& _reply)
 {
     if (connected())
-        return true;
+    {
+        m_bInterrupt.store(true, ::std::memory_order_release);
+        if (m_thread.joinable())
+            m_thread.join();
+
+        m_bConnected.store(false, ::std::memory_order_release);
+        m_bInterrupt.store(false, ::std::memory_order_release);
+    }
+
+    m_address.clear();
+    m_port = 0;
 
     m_easySocket.flush();
     m_easySocket.init();
@@ -1657,6 +1717,8 @@ bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profile
 
         if (bytes == 0)
         {
+            m_address = _ipaddress;
+            m_port = _port;
             m_bConnected.store(isConnected, ::std::memory_order_release);
             return isConnected;
         }
@@ -1679,6 +1741,9 @@ bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profile
         auto message = reinterpret_cast<const ::profiler::net::EasyProfilerStatus*>(buffer);
         if (message->isEasyNetMessage() && message->type == profiler::net::MESSAGE_TYPE_ACCEPTED_CONNECTION)
             _reply = *message;
+
+        m_address = _ipaddress;
+        m_port = _port;
     }
 
     m_bConnected.store(isConnected, ::std::memory_order_release);
