@@ -249,8 +249,7 @@ EasyHystogramItem::~EasyHystogramItem()
     m_bReady.store(true, ::std::memory_order_release);
     if (m_workerThread.joinable())
         m_workerThread.join();
-    if (m_temporaryImage != nullptr)
-        delete m_temporaryImage;
+    delete m_temporaryImage;
 }
 
 QRectF EasyHystogramItem::boundingRect() const
@@ -716,11 +715,8 @@ void EasyHystogramItem::setSource(::profiler::thread_id_t _thread_id, const ::pr
     if (m_workerThread.joinable())
         m_workerThread.join();
 
-    if (m_temporaryImage != nullptr)
-    {
-        delete m_temporaryImage;
-        m_temporaryImage = nullptr;
-    }
+    delete m_temporaryImage;
+    m_temporaryImage = nullptr;
 
     m_selectedBlocks.clear();
     ::profiler::BlocksTree::children_t().swap(m_selectedBlocks);
@@ -799,11 +795,8 @@ void EasyHystogramItem::setSource(::profiler::thread_id_t _thread_id, ::profiler
     if (m_workerThread.joinable())
         m_workerThread.join();
 
-    if (m_temporaryImage != nullptr)
-    {
-        delete m_temporaryImage;
-        m_temporaryImage = nullptr;
-    }
+    delete m_temporaryImage;
+    m_temporaryImage = nullptr;
 
     m_selectedBlocks.clear();
     ::profiler::BlocksTree::children_t().swap(m_selectedBlocks);
@@ -964,11 +957,8 @@ void EasyHystogramItem::updateImage()
         m_workerThread.join();
     m_bReady.store(false, ::std::memory_order_release);
 
-    if (m_temporaryImage != nullptr)
-    {
-        delete m_temporaryImage;
-        m_temporaryImage = nullptr;
-    }
+    delete m_temporaryImage;
+    m_temporaryImage = nullptr;
 
     m_workerThread = ::std::move(::std::thread([this](HystRegime _regime, qreal _current_scale,
         qreal _minimum, qreal _maximum, qreal _range, qreal _value, qreal _width, bool _bindMode,

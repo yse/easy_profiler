@@ -412,10 +412,7 @@ ProfileManager::~ProfileManager()
 #endif
 
     for (auto desc : m_descriptors)
-    {
-        if (desc != nullptr)
-            delete desc;
-    }
+        delete desc;
 }
 
 #ifndef EASY_MAGIC_STATIC_CPP11
