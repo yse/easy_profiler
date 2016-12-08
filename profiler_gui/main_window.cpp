@@ -1358,6 +1358,14 @@ void EasyMainWindow::onConnectClicked(bool)
     if (parts.size() != 4)
     {
         QMessageBox::warning(this, "Warning", "Invalid IP-Address", QMessageBox::Close);
+
+        if (EASY_GLOBALS.connected)
+        {
+            // Restore last values
+            m_ipEdit->setText(m_lastAddress);
+            m_portEdit->setText(QString::number(m_lastPort));
+        }
+
         return;
     }
 
