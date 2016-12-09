@@ -26,7 +26,7 @@ duration, target thread id, thread owner process id, thread owner process name.
 
 You can see the results of measuring in simple GUI application which provides full statistics and renders beautiful time-line.
 
-![GUI screenshot](https://cloud.githubusercontent.com/assets/10530007/20060202/0eb687de-a50b-11e6-8075-5adb951943db.png)
+![GUI screenshot](https://cloud.githubusercontent.com/assets/10530007/21056780/2383d472-be48-11e6-8b35-d1a32e64b910.png)
 
 # Usage
 
