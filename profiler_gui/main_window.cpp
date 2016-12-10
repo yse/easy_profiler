@@ -194,7 +194,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     //QRegExp rx("^0*(2(5[0-5]|[0-4]\\d)|1?\\d{1,2})(\\.0*(2(5[0-5]|[0-4]\\d)|1?\\d{1,2})){3}$");
     //m_ipEdit->setValidator(new QRegExpValidator(rx, m_ipEdit));
     m_ipEdit->setText(m_lastAddress);
-    m_ipEdit->setFixedWidth(m_ipEdit->fontMetrics().width(QString("255.255.255.255")) + 20);
+    m_ipEdit->setFixedWidth((m_ipEdit->fontMetrics().width(QString("255.255.255.255")) * 3) / 2);
     toolbar->addWidget(m_ipEdit);
 
     lbl = new QLabel("Port:", toolbar);
