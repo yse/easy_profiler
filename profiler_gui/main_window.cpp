@@ -117,7 +117,7 @@ inline void clear_stream(std::stringstream& _stream)
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastPort(::profiler::DEFAULT_PORT)
+EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastPort(::profiler::DEFAULT_PORT)
 {
     { QIcon icon(":/logo"); if (!icon.isNull()) QApplication::setWindowIcon(icon); }
 
@@ -191,8 +191,8 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("127.0.0.1"), m_lastP
     lbl->setContentsMargins(5, 0, 2, 0);
     toolbar->addWidget(lbl);
     m_ipEdit = new QLineEdit();
-    QRegExp rx("^0*(2(5[0-5]|[0-4]\\d)|1?\\d{1,2})(\\.0*(2(5[0-5]|[0-4]\\d)|1?\\d{1,2})){3}$");
-    m_ipEdit->setValidator(new QRegExpValidator(rx, m_ipEdit));
+    //QRegExp rx("^0*(2(5[0-5]|[0-4]\\d)|1?\\d{1,2})(\\.0*(2(5[0-5]|[0-4]\\d)|1?\\d{1,2})){3}$");
+    //m_ipEdit->setValidator(new QRegExpValidator(rx, m_ipEdit));
     m_ipEdit->setText(m_lastAddress);
     m_ipEdit->setFixedWidth(m_ipEdit->fontMetrics().width(QString("255.255.255.255")) + 20);
     toolbar->addWidget(m_ipEdit);
@@ -1354,39 +1354,39 @@ void EasyMainWindow::onFrameTimeEditFinish()
 void EasyMainWindow::onConnectClicked(bool)
 {
     auto text = m_ipEdit->text();
-    auto parts = text.split(QChar('.'));
-    if (parts.size() != 4)
-    {
-        QMessageBox::warning(this, "Warning", "Invalid IP-Address", QMessageBox::Close);
+//     auto parts = text.split(QChar('.'));
+//     if (parts.size() != 4)
+//     {
+//         QMessageBox::warning(this, "Warning", "Invalid IP-Address", QMessageBox::Close);
+// 
+//         if (EASY_GLOBALS.connected)
+//         {
+//             // Restore last values
+//             m_ipEdit->setText(m_lastAddress);
+//             m_portEdit->setText(QString::number(m_lastPort));
+//         }
+// 
+//         return;
+//     }
+// 
+//     for (auto& part : parts)
+//     {
+//         int i = 0;
+//         for (; i < part.size(); ++i)
+//         {
+//             if (part[i] != QChar('0'))
+//                 break;
+//         }
+// 
+//         if (i < part.size())
+//             part = part.mid(i);
+//         else
+//             part = "0";
+//     }
 
-        if (EASY_GLOBALS.connected)
-        {
-            // Restore last values
-            m_ipEdit->setText(m_lastAddress);
-            m_portEdit->setText(QString::number(m_lastPort));
-        }
-
-        return;
-    }
-
-    for (auto& part : parts)
-    {
-        int i = 0;
-        for (; i < part.size(); ++i)
-        {
-            if (part[i] != QChar('0'))
-                break;
-        }
-
-        if (i < part.size())
-            part = part.mid(i);
-        else
-            part = "0";
-    }
-
-    QString address = parts.join(QChar('.'));
+    QString& address = text;// parts.join(QChar('.'));
     const decltype(m_lastPort) port = m_portEdit->text().toUShort();
-    m_ipEdit->setText(address);
+    //m_ipEdit->setText(address);
 
     const bool isReconnecting = (EASY_GLOBALS.connected && m_listener.port() == port && address.toStdString() == m_listener.address());
     if (EASY_GLOBALS.connected)
