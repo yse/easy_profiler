@@ -230,7 +230,6 @@ public:
 protected slots:
 
     void onOpenFileClicked(bool);
-    void onReloadFileClicked(bool);
     void onSaveFileClicked(bool);
     void onDeleteClicked(bool);
     void onExitClicked(bool);

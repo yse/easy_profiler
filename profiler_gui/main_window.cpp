@@ -166,19 +166,17 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     toolbar->setObjectName("ProfilerGUI_FileToolbar");
     toolbar->setContentsMargins(1, 0, 1, 0);
 
-    toolbar->addAction(QIcon(":/Open"), tr("Open"), this, SLOT(onOpenFileClicked(bool)));
-
     m_loadActionMenu = new QMenu(this);
     auto action = m_loadActionMenu->menuAction();
-    action->setText("Reload last file");
-    action->setIcon(QIcon(":/Reopen"));
-    connect(action, &QAction::triggered, this, &This::onReloadFileClicked);
+    action->setText("Open file");
+    action->setIcon(QIcon(":/Open"));
+    connect(action, &QAction::triggered, this, &This::onOpenFileClicked);
     toolbar->addAction(action);
 
     for (const auto& f : m_lastFiles)
     {
         action = new QAction(f, this);
-        connect(action, &QAction::triggered, this, &This::onReloadFileClicked);
+        connect(action, &QAction::triggered, this, &This::onOpenFileClicked);
         m_loadActionMenu->addAction(action);
     }
 
@@ -562,9 +560,20 @@ void EasyMainWindow::dropEvent(QDropEvent* drop_event)
 
 void EasyMainWindow::onOpenFileClicked(bool)
 {
-    auto filename = QFileDialog::getOpenFileName(this, "Open profiler log", m_lastFiles.empty() ? QString() : m_lastFiles.front(), "Profiler Log File (*.prof);;All Files (*.*)");
-    if (!filename.isEmpty())
-        loadFile(filename);
+    auto action = qobject_cast<QAction*>(sender());
+    if (action == nullptr)
+        return;
+
+    if (action == m_loadActionMenu->menuAction())
+    {
+        auto filename = QFileDialog::getOpenFileName(this, "Open profiler log", m_lastFiles.empty() ? QString() : m_lastFiles.front(), "Profiler Log File (*.prof);;All Files (*.*)");
+        if (!filename.isEmpty())
+            loadFile(filename);
+    }
+    else
+    {
+        loadFile(action->text());
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -574,7 +583,7 @@ void EasyMainWindow::addFileToList(const QString& filename)
     m_lastFiles.push_front(filename);
 
     auto action = new QAction(filename, this);
-    connect(action, &QAction::triggered, this, &This::onReloadFileClicked);
+    connect(action, &QAction::triggered, this, &This::onOpenFileClicked);
     auto fileActions = m_loadActionMenu->actions();
     if (fileActions.empty())
         m_loadActionMenu->addAction(action);
@@ -610,35 +619,6 @@ void EasyMainWindow::readStream(::std::stringstream& data)
     m_progress->show();
     m_readerTimer.start(LOADER_TIMER_INTERVAL);
     m_reader.load(data);
-}
-
-//////////////////////////////////////////////////////////////////////////
-
-void EasyMainWindow::onReloadFileClicked(bool)
-{
-    auto action = qobject_cast<QAction*>(sender());
-    if (action == nullptr)
-        return;
-
-    if (action == m_loadActionMenu->menuAction())
-    {
-        if (m_lastFiles.empty())
-            return;
-
-        for (auto it = m_lastFiles.begin(); it != m_lastFiles.end(); ++it)
-        {
-            const auto& f = *it;
-            if (!f.isEmpty())
-            {
-                loadFile(f);
-                break;
-            }
-        }
-    }
-    else
-    {
-        loadFile(action->text());
-    }
 }
 
 //////////////////////////////////////////////////////////////////////////
