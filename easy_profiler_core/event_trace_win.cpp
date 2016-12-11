@@ -246,15 +246,14 @@ namespace profiler {
         m_lowPriority.store(_value, ::std::memory_order_release);
     }
 
-    bool EasyEventTracer::setDebugPrivilege()
+    bool setPrivilege(HANDLE hToken, LPCSTR _privelegeName)
     {
         bool success = false;
 
-        HANDLE hToken = nullptr;
-        if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
+        if (hToken)
         {
             LUID privilegyId;
-            if (LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &privilegyId))
+            if (LookupPrivilegeValue(NULL, _privelegeName, &privilegyId))
             {
                 TOKEN_PRIVILEGES tokenPrivilege;
                 tokenPrivilege.PrivilegeCount = 1;
@@ -262,16 +261,43 @@ namespace profiler {
                 tokenPrivilege.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
                 success = AdjustTokenPrivileges(hToken, FALSE, &tokenPrivilege, sizeof(TOKEN_PRIVILEGES), NULL, NULL) != FALSE;
             }
-
-            CloseHandle(hToken);
         }
 
 #if EASY_LOG_ENABLED != 0
         if (!success)
-            ::std::cerr << "Warning: EasyProfiler failed to set Debug privelege for the application. Some context switch events could not get process name.\n";
+            ::std::cerr << "Warning: EasyProfiler failed to set " << _privelegeName << " privelege for the application.\n";
 #endif
 
         return success;
+    }
+
+    void EasyEventTracer::setProcessPrivileges()
+    {
+        static bool alreadySet = false;
+        if (alreadySet)
+            return;
+
+        alreadySet = true;
+
+        HANDLE hToken = nullptr;
+        if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
+        {
+#if EASY_LOG_ENABLED != 0
+            const bool success = setPrivilege(hToken, SE_DEBUG_NAME);
+            if (!success)
+                ::std::cerr << "Warning: Some context switch events could not get process name.\n";
+#else
+            setPrivilege(hToken, SE_DEBUG_NAME);
+#endif
+            
+            CloseHandle(hToken);
+        }
+#if EASY_LOG_ENABLED != 0
+        else
+        {
+            ::std::cerr << "Warning: EasyProfiler failed to open process to adjust priveleges.\n";
+        }
+#endif
     }
 
     ::profiler::EventTracingEnableStatus EasyEventTracer::startTrace(bool _force, int _step)
@@ -355,12 +381,8 @@ namespace profiler {
         /*
         Trying to set debug privilege for current process
         to be able to get other process information (process name).
-
-        Also it seems that debug privelege lets you to launch
-        event tracing without Administrator access rights.
         */
-        if (!m_bPrivilegeSet)
-            m_bPrivilegeSet = setDebugPrivilege();
+        EasyEventTracer::setProcessPrivileges();
 
         // Clear properties
         memset(&m_properties, 0, sizeof(m_properties));
