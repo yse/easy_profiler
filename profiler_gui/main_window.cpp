@@ -167,7 +167,21 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     toolbar->setContentsMargins(1, 0, 1, 0);
 
     toolbar->addAction(QIcon(":/Open"), tr("Open"), this, SLOT(onOpenFileClicked(bool)));
-    toolbar->addAction(QIcon(":/Reopen"), tr("Reload last file"), this, SLOT(onReloadFileClicked(bool)));
+
+    m_loadActionMenu = new QMenu(this);
+    auto action = m_loadActionMenu->menuAction();
+    action->setText("Reload last file");
+    action->setIcon(QIcon(":/Reopen"));
+    connect(action, &QAction::triggered, this, &This::onReloadFileClicked);
+    toolbar->addAction(action);
+
+    for (const auto& f : m_lastFiles)
+    {
+        action = new QAction(f, this);
+        connect(action, &QAction::triggered, this, &This::onReloadFileClicked);
+        m_loadActionMenu->addAction(action);
+    }
+
     m_saveAction = toolbar->addAction(QIcon(":/Save"), tr("Save"), this, SLOT(onSaveFileClicked(bool)));
     m_deleteAction = toolbar->addAction(QIcon(":/Delete"), tr("Clear all"), this, SLOT(onDeleteClicked(bool)));
 
@@ -187,15 +201,16 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     toolbar->addSeparator();
     m_connectAction = toolbar->addAction(QIcon(":/Connection"), tr("Connect"), this, SLOT(onConnectClicked(bool)));
 
-    auto lbl = new QLabel("IP:", toolbar);
+    auto lbl = new QLabel("Address:", toolbar);
     lbl->setContentsMargins(5, 0, 2, 0);
     toolbar->addWidget(lbl);
-    m_ipEdit = new QLineEdit();
+    m_addressEdit = new QLineEdit();
+    m_addressEdit->setToolTip("Enter IP-address or host name");
     //QRegExp rx("^0*(2(5[0-5]|[0-4]\\d)|1?\\d{1,2})(\\.0*(2(5[0-5]|[0-4]\\d)|1?\\d{1,2})){3}$");
-    //m_ipEdit->setValidator(new QRegExpValidator(rx, m_ipEdit));
-    m_ipEdit->setText(m_lastAddress);
-    m_ipEdit->setFixedWidth((m_ipEdit->fontMetrics().width(QString("255.255.255.255")) * 3) / 2);
-    toolbar->addWidget(m_ipEdit);
+    //m_addressEdit->setValidator(new QRegExpValidator(rx, m_addressEdit));
+    m_addressEdit->setText(m_lastAddress);
+    m_addressEdit->setFixedWidth((m_addressEdit->fontMetrics().width(QString("255.255.255.255")) * 3) / 2);
+    toolbar->addWidget(m_addressEdit);
 
     lbl = new QLabel("Port:", toolbar);
     lbl->setContentsMargins(5, 0, 2, 0);
@@ -206,7 +221,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     m_portEdit->setFixedWidth(m_portEdit->fontMetrics().width(QString("000000")) + 10);
     toolbar->addWidget(m_portEdit);
 
-    connect(m_ipEdit, &QLineEdit::returnPressed, [this](){ onConnectClicked(true); });
+    connect(m_addressEdit, &QLineEdit::returnPressed, [this](){ onConnectClicked(true); });
     connect(m_portEdit, &QLineEdit::returnPressed, [this](){ onConnectClicked(true); });
 
 
@@ -226,7 +241,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     toolButton->setPopupMode(QToolButton::InstantPopup);
     toolbar->addWidget(toolButton);
 
-    auto action = menu->addAction("Statistics enabled");
+    action = menu->addAction("Statistics enabled");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.enable_statistics);
     connect(action, &QAction::triggered, this, &This::onEnableDisableStatistics);
@@ -547,12 +562,33 @@ void EasyMainWindow::dropEvent(QDropEvent* drop_event)
 
 void EasyMainWindow::onOpenFileClicked(bool)
 {
-    auto filename = QFileDialog::getOpenFileName(this, "Open profiler log", m_lastFile, "Profiler Log File (*.prof);;All Files (*.*)");
+    auto filename = QFileDialog::getOpenFileName(this, "Open profiler log", m_lastFiles.empty() ? QString() : m_lastFiles.front(), "Profiler Log File (*.prof);;All Files (*.*)");
     if (!filename.isEmpty())
         loadFile(filename);
 }
 
 //////////////////////////////////////////////////////////////////////////
+
+void EasyMainWindow::addFileToList(const QString& filename)
+{
+    m_lastFiles.push_front(filename);
+
+    auto action = new QAction(filename, this);
+    connect(action, &QAction::triggered, this, &This::onReloadFileClicked);
+    auto fileActions = m_loadActionMenu->actions();
+    if (fileActions.empty())
+        m_loadActionMenu->addAction(action);
+    else
+        m_loadActionMenu->insertAction(fileActions.front(), action);
+
+    if (m_lastFiles.size() > 10)
+    {
+        // Keep 10 files at the list
+        m_lastFiles.pop_back();
+        m_loadActionMenu->removeAction(fileActions.back());
+        delete fileActions.back();
+    }
+}
 
 void EasyMainWindow::loadFile(const QString& filename)
 {
@@ -580,9 +616,29 @@ void EasyMainWindow::readStream(::std::stringstream& data)
 
 void EasyMainWindow::onReloadFileClicked(bool)
 {
-    if (m_lastFile.isEmpty())
+    auto action = qobject_cast<QAction*>(sender());
+    if (action == nullptr)
         return;
-    loadFile(m_lastFile);
+
+    if (action == m_loadActionMenu->menuAction())
+    {
+        if (m_lastFiles.empty())
+            return;
+
+        for (auto it = m_lastFiles.begin(); it != m_lastFiles.end(); ++it)
+        {
+            const auto& f = *it;
+            if (!f.isEmpty())
+            {
+                loadFile(f);
+                break;
+            }
+        }
+    }
+    else
+    {
+        loadFile(action->text());
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -592,13 +648,15 @@ void EasyMainWindow::onSaveFileClicked(bool)
     if (m_serializedBlocks.empty())
         return;
 
-    const auto i = m_lastFile.lastIndexOf(QChar('/'));
-    const auto j = m_lastFile.lastIndexOf(QChar('\\'));
+    QString lastFile = m_lastFiles.empty() ? QString() : m_lastFiles.front();
+
+    const auto i = lastFile.lastIndexOf(QChar('/'));
+    const auto j = lastFile.lastIndexOf(QChar('\\'));
     auto k = ::std::max(i, j);
 
     QString dir;
     if (k > 0)
-        dir = m_lastFile.mid(0, ++k);
+        dir = lastFile.mid(0, ++k);
 
     auto filename = QFileDialog::getSaveFileName(this, "Save profiler log", dir, "Profiler Log File (*.prof);;All Files (*.*)");
     if (!filename.isEmpty())
@@ -607,7 +665,7 @@ void EasyMainWindow::onSaveFileClicked(bool)
         int8_t retry1 = -1;
         while (++retry1 < 4)
         {
-            ::std::ifstream inFile(m_bNetworkFileRegime ? NETWORK_CACHE_FILE : m_lastFile.toStdString().c_str(), ::std::fstream::binary);
+            ::std::ifstream inFile(m_bNetworkFileRegime ? NETWORK_CACHE_FILE : lastFile.toStdString().c_str(), ::std::fstream::binary);
             if (!inFile.is_open())
             {
                 ::std::this_thread::sleep_for(::std::chrono::milliseconds(500));
@@ -638,7 +696,7 @@ void EasyMainWindow::onSaveFileClicked(bool)
         {
             if (m_bNetworkFileRegime)
                 QFile::remove(QString(NETWORK_CACHE_FILE));
-            m_lastFile = filename;
+            addFileToList(filename);
             m_bNetworkFileRegime = false;
         }
         else if (inOk)
@@ -894,9 +952,9 @@ void EasyMainWindow::loadSettings()
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
     settings.beginGroup("main");
 
-    auto last_file = settings.value("last_file");
-    if (!last_file.isNull())
-        m_lastFile = last_file.toString();
+    auto last_files = settings.value("last_files");
+    if (!last_files.isNull())
+        m_lastFiles = last_files.toStringList();
 
     auto last_addr = settings.value("ip_address");
     if (!last_addr.isNull())
@@ -1013,7 +1071,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
 
     settings.setValue("geometry", this->saveGeometry());
     settings.setValue("windowState", this->saveState());
-    settings.setValue("last_file", m_lastFile);
+    settings.setValue("last_files", m_lastFiles);
     settings.setValue("ip_address", m_lastAddress);
     settings.setValue("port", (quint32)m_lastPort);
     settings.setValue("chrono_text_position", static_cast<int>(EASY_GLOBALS.chrono_text_position));
@@ -1138,7 +1196,23 @@ void EasyMainWindow::onFileReaderTimeout()
 
             m_bNetworkFileRegime = !m_reader.isFile();
             if (!m_bNetworkFileRegime)
-                m_lastFile = ::std::move(filename);
+            {
+                auto index = m_lastFiles.indexOf(filename, 0);
+                if (index == -1)
+                {
+                    // This file is totally new. Add it to the list.
+                    addFileToList(filename);
+                }
+                else if (index != 0)
+                {
+                    // This file has been already loaded. Move it to the front.
+                    m_lastFiles.move(index, 0);
+                    auto fileActions = m_loadActionMenu->actions();
+                    auto action = fileActions.at(index);
+                    m_loadActionMenu->removeAction(action);
+                    m_loadActionMenu->insertAction(fileActions.front(), action);
+                }
+            }
             m_serializedBlocks = ::std::move(serialized_blocks);
             m_serializedDescriptors = ::std::move(serialized_descriptors);
             m_descriptorsNumberInFile = descriptorsNumberInFile;
@@ -1171,6 +1245,19 @@ void EasyMainWindow::onFileReaderTimeout()
         else
         {
             QMessageBox::warning(this, "Warning", QString("Can not read profiled blocks.\n\nReason:\n%1").arg(m_reader.getError()), QMessageBox::Close);
+
+            if (m_reader.isFile())
+            {
+                auto index = m_lastFiles.indexOf(m_reader.filename(), 0);
+                if (index >= 0)
+                {
+                    // Remove unexisting file from list
+                    m_lastFiles.removeAt(index);
+                    auto action = m_loadActionMenu->actions().at(index);
+                    m_loadActionMenu->removeAction(action);
+                    delete action;
+                }
+            }
         }
 
         m_reader.interrupt();
@@ -1353,7 +1440,7 @@ void EasyMainWindow::onFrameTimeEditFinish()
 
 void EasyMainWindow::onConnectClicked(bool)
 {
-    auto text = m_ipEdit->text();
+    auto text = m_addressEdit->text();
 //     auto parts = text.split(QChar('.'));
 //     if (parts.size() != 4)
 //     {
@@ -1362,7 +1449,7 @@ void EasyMainWindow::onConnectClicked(bool)
 //         if (EASY_GLOBALS.connected)
 //         {
 //             // Restore last values
-//             m_ipEdit->setText(m_lastAddress);
+//             m_addressEdit->setText(m_lastAddress);
 //             m_portEdit->setText(QString::number(m_lastPort));
 //         }
 // 
@@ -1386,7 +1473,7 @@ void EasyMainWindow::onConnectClicked(bool)
 
     QString& address = text;// parts.join(QChar('.'));
     const decltype(m_lastPort) port = m_portEdit->text().toUShort();
-    //m_ipEdit->setText(address);
+    //m_addressEdit->setText(address);
 
     const bool isReconnecting = (EASY_GLOBALS.connected && m_listener.port() == port && address.toStdString() == m_listener.address());
     if (EASY_GLOBALS.connected)
@@ -1398,7 +1485,7 @@ void EasyMainWindow::onConnectClicked(bool)
             if (!isReconnecting)
             {
                 // Restore last values
-                m_ipEdit->setText(m_lastAddress);
+                m_addressEdit->setText(m_lastAddress);
                 m_portEdit->setText(QString::number(m_lastPort));
             }
 
@@ -1411,7 +1498,7 @@ void EasyMainWindow::onConnectClicked(bool)
     {
         if (EASY_GLOBALS.connected && !isReconnecting)
         {
-            m_ipEdit->setText(m_lastAddress);
+            m_addressEdit->setText(m_lastAddress);
             m_portEdit->setText(QString::number(m_lastPort));
             if (!m_listener.connect(m_lastAddress.toStdString().c_str(), m_lastPort, reply))
             {

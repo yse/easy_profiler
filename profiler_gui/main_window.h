@@ -51,6 +51,7 @@
 
 #include <QMainWindow>
 #include <QTimer>
+#include <QStringList>
 
 #include "easy/easy_socket.h"
 #include "easy/reader.h"
@@ -176,7 +177,7 @@ protected:
     typedef EasyMainWindow This;
     typedef QMainWindow  Parent;
 
-    QString                                 m_lastFile;
+    QStringList                            m_lastFiles;
     QString                              m_lastAddress;
     QDockWidget*                          m_treeWidget = nullptr;
     QDockWidget*                        m_graphicsView = nullptr;
@@ -196,10 +197,11 @@ protected:
     EasyFileReader                            m_reader;
     EasySocketListener                      m_listener;
 
-    class QLineEdit* m_ipEdit = nullptr;
+    class QLineEdit* m_addressEdit = nullptr;
     class QLineEdit* m_portEdit = nullptr;
     class QLineEdit* m_frameTimeEdit = nullptr;
 
+    class QMenu*   m_loadActionMenu = nullptr;
     class QAction* m_saveAction = nullptr;
     class QAction* m_deleteAction = nullptr;
 
@@ -271,6 +273,7 @@ private:
 
     void refreshDiagram();
 
+    void addFileToList(const QString& filename);
     void loadFile(const QString& filename);
     void readStream(::std::stringstream& data);
 
