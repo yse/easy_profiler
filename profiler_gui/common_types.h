@@ -426,7 +426,7 @@ template <class T> inline bool is_max(const T& _value) {
 
 inline double percentReal(::profiler::timestamp_t _partial, ::profiler::timestamp_t _total)
 {
-    return 100. * static_cast<double>(_partial) / static_cast<double>(_total);
+    return _total ? 100. * static_cast<double>(_partial) / static_cast<double>(_total) : 0.;
 }
 
 inline int percent(::profiler::timestamp_t _partial, ::profiler::timestamp_t _total)

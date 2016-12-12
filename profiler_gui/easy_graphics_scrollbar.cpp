@@ -234,6 +234,7 @@ EasyHystogramItem::EasyHystogramItem() : Parent(nullptr)
     , m_maxDuration(0)
     , m_minDuration(0)
     , m_timer(::std::bind(&This::onTimeout, this))
+    , m_pProfilerThread(nullptr)
     , m_threadId(0)
     , m_blockId(::profiler_gui::numeric_max<decltype(m_blockId)>())
     , m_timeouts(0)
@@ -450,10 +451,12 @@ void EasyHystogramItem::paintByPtr(QPainter* _painter)
 
     _painter->setPen(Qt::black);
     rect.setRect(0, bottom + 2, width, widget->defaultFontHeight());
-    _painter->drawText(rect, Qt::AlignHCenter | Qt::TextDontClip, QString("%1  |  duration: %2  |  active time: %3 (%4%)").arg(m_threadName)
+    _painter->drawText(rect, Qt::AlignHCenter | Qt::TextDontClip, QString("%1  |  duration: %2  |  active time: %3 (%4%)  |  %5 blocks (%6 events)").arg(m_threadName)
                        .arg(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, m_threadDuration))
                        .arg(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, m_threadActiveTime))
-                       .arg(QString::number(100. * (double)m_threadActiveTime / (double)m_threadDuration, 'f', 2)));
+                       .arg(m_threadDuration ? QString::number(100. * (double)m_threadActiveTime / (double)m_threadDuration, 'f', 2) : QString("0"))
+                       .arg(m_pProfilerThread->blocks_number)
+                       .arg(m_pProfilerThread->events.size()));
 
     _painter->drawText(rect, Qt::AlignLeft, bindMode ? " MODE: zoom" : " MODE: overview");
 
@@ -669,7 +672,7 @@ void EasyHystogramItem::paintById(QPainter* _painter)
         {
             _painter->drawText(rect, Qt::AlignHCenter | Qt::TextDontClip, QString("%1  |  %2  |  %3 calls  |  %4% of thread active time").arg(m_threadName).arg(name)
                                .arg(item->tree.per_thread_stats->calls_number)
-                               .arg(QString::number(100. * (double)item->tree.per_thread_stats->total_duration / (double)m_threadActiveTime, 'f', 2)));
+                               .arg(m_threadActiveTime ? QString::number(100. * (double)item->tree.per_thread_stats->total_duration / (double)m_threadActiveTime, 'f', 2) : QString("100")));
         }
         else
         {
@@ -750,6 +753,7 @@ void EasyHystogramItem::setSource(::profiler::thread_id_t _thread_id, const ::pr
 
     if (m_pSource == nullptr)
     {
+        m_pProfilerThread = nullptr;
         m_maxDurationStr.clear();
         m_minDurationStr.clear();
         m_threadName.clear();
@@ -768,6 +772,8 @@ void EasyHystogramItem::setSource(::profiler::thread_id_t _thread_id, const ::pr
         else
             m_threadDuration = easyBlock(root.children.back()).tree.node->end() - easyBlock(root.children.front()).tree.node->begin();
         m_threadActiveTime = root.active_time;
+
+        m_pProfilerThread = &root;
 
         m_timeUnits = EASY_GLOBALS.time_units;
         m_maxDurationStr = ::profiler_gui::timeStringReal(m_timeUnits, m_maxDuration, 3);
@@ -817,6 +823,8 @@ void EasyHystogramItem::setSource(::profiler::thread_id_t _thread_id, ::profiler
         else
             m_threadDuration = easyBlock(root.children.back()).tree.node->end() - easyBlock(root.children.front()).tree.node->begin();
         m_threadActiveTime = root.active_time;
+
+        m_pProfilerThread = &root;
 
         show();
         m_timeUnits = EASY_GLOBALS.time_units;
@@ -902,6 +910,7 @@ void EasyHystogramItem::setSource(::profiler::thread_id_t _thread_id, ::profiler
     }
     else
     {
+        m_pProfilerThread = nullptr;
         m_threadName.clear();
         hide();
     }

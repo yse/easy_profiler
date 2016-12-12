@@ -518,8 +518,9 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
             const auto& per_parent_stats = child.per_parent_stats;
             const auto& per_frame_stats = child.per_frame_stats;
 
-            auto percentage = duration == 0 ? 0 : ::profiler_gui::percent(duration, _parent->duration());
-            auto percentage_sum = ::profiler_gui::percent(per_parent_stats->total_duration, _parent->duration());
+            auto parent_duration = _parent->duration();
+            auto percentage = duration == 0 ? 0 : ::profiler_gui::percent(duration, parent_duration);
+            auto percentage_sum = ::profiler_gui::percent(per_parent_stats->total_duration, parent_duration);
             item->setData(COL_PERCENT_PER_PARENT, Qt::UserRole, percentage);
             item->setText(COL_PERCENT_PER_PARENT, QString::number(percentage));
             item->setData(COL_PERCENT_SUM_PER_PARENT, Qt::UserRole, percentage_sum);
@@ -529,8 +530,9 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
             {
                 if (_parent != _frame)
                 {
-                    percentage = duration == 0 ? 0 : ::profiler_gui::percent(duration, _frame->duration());
-                    percentage_sum = ::profiler_gui::percent(per_frame_stats->total_duration, _frame->duration());
+                    parent_duration = _frame->duration();
+                    percentage = duration == 0 ? 0 : ::profiler_gui::percent(duration, parent_duration);
+                    percentage_sum = ::profiler_gui::percent(per_frame_stats->total_duration, parent_duration);
                 }
 
                 item->setData(COL_PERCENT_PER_FRAME, Qt::UserRole, percentage);
