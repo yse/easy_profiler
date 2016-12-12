@@ -686,7 +686,7 @@ bool ProfileManager::checkThreadExpired(ThreadStorage& _registeredThread)
     return false;
 #else
 
-    return pthread_kill(_registeredThread.pthread_id, 0) != 0;
+    return false;//pthread_kill(_registeredThread.pthread_id, 0) != 0;
 
 #endif
 
