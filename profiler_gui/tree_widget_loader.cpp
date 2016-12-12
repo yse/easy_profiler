@@ -399,8 +399,10 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
         item->setBackgroundColor(color);
         item->setTextColor(fgColor);
 
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
         auto item_index = static_cast<unsigned int>(_items.size());
         _items.push_back(item);
+#endif
 
         size_t children_items_number = 0;
         ::profiler::timestamp_t children_duration = 0;
@@ -425,7 +427,9 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
         if (children_items_number > 0 || !_strict || (startTime >= _left && endTime <= _right))
         {
             //total_items += children_items_number + 1;
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
             gui_block.tree_item = item_index;
+#endif
 
             if (_colorizeRows)
                 item->colorize(_colorizeRows);
@@ -433,10 +437,15 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
             if (gui_block.expanded)
                 item->setExpanded(true);
 
+#ifndef EASY_TREE_WIDGET__USE_VECTOR
+            _items.insert(::std::make_pair(block.tree, item));
+#endif
         }
         else
         {
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
             _items.pop_back();
+#endif
             delete item;
         }
 
@@ -612,8 +621,10 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
         item->setBackgroundColor(color);
         item->setTextColor(fgColor);
 
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
         auto item_index = static_cast<uint32_t>(_items.size());
         _items.push_back(item);
+#endif
 
         size_t children_items_number = 0;
         ::profiler::timestamp_t children_duration = 0;
@@ -638,17 +649,25 @@ size_t FillTreeClass<T>::setTreeInternal(T& _safelocker, Items& _items, const ::
         if (children_items_number > 0 || !_strict || (startTime >= _left && endTime <= _right))
         {
             total_items += children_items_number + 1;
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
             gui_block.tree_item = item_index;
+#endif
 
             if (_colorizeRows)
                 item->colorize(_colorizeRows);
 
             if (gui_block.expanded)
                 item->setExpanded(true);
+
+#ifndef EASY_TREE_WIDGET__USE_VECTOR
+            _items.insert(::std::make_pair(child_index, item));
+#endif
         }
         else
         {
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
             _items.pop_back();
+#endif
             delete item;
         }
     }

@@ -460,7 +460,7 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
 
         if (!t.children.empty())
         {
-            children_duration = setTree(item, ~0U, t.children, h, y, 0);
+            children_duration = setTree(item, t.children, h, y, 0);
         }
         else
         {
@@ -532,7 +532,7 @@ const EasyGraphicsView::Items &EasyGraphicsView::getItems() const
     return m_items;
 }
 
-qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, ::profiler::block_index_t _parent, const ::profiler::BlocksTree::children_t& _children, qreal& _height, qreal _y, short _level)
+qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, qreal _y, short _level)
 {
     if (_children.empty())
     {
@@ -540,7 +540,8 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, ::profiler::block_index
     }
 
     const auto level = static_cast<uint8_t>(_level);
-    _item->reserve(level, static_cast<unsigned int>(_children.size()));
+    const auto n = static_cast<unsigned int>(_children.size());
+    _item->reserve(level, n);
 
     const short next_level = _level + 1;
     bool warned = false;
@@ -592,7 +593,7 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, ::profiler::block_index
 
         if (next_level < 256)
         {
-            children_duration = setTree(_item, child_index, child.children, h, _y + ::profiler_gui::GRAPHICS_ROW_SIZE_FULL, next_level);
+            children_duration = setTree(_item, child.children, h, _y + ::profiler_gui::GRAPHICS_ROW_SIZE_FULL, next_level);
         }
         else if (!child.children.empty() && !warned)
         {
@@ -611,7 +612,7 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, ::profiler::block_index
         }
 
         b.block = child_index;// &child;
-        b.parent = _parent;
+        b.neighbours = n;
         b.setPos(xbegin, duration);
         //b.totalHeight = ::profiler_gui::GRAPHICS_ROW_SIZE + h;
         b.state = j > 0 || level == 0 ? 0 : -1;

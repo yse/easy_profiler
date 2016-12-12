@@ -75,6 +75,7 @@ namespace profiler_gui {
         , add_zero_blocks_to_hierarchy(false)
         , draw_graphics_items_borders(true)
         , hide_narrow_children(false)
+        , hide_minsize_blocks(false)
         , display_only_relevant_stats(true)
         , collapse_items_on_tree_close(false)
         , all_items_expanded_by_default(true)

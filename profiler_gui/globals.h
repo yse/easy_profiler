@@ -124,7 +124,8 @@ namespace profiler_gui {
         bool                          enable_zero_length; ///< Enable zero length blocks (if true, then such blocks will have width == 1 pixel on each scale)
         bool                add_zero_blocks_to_hierarchy; ///< Enable adding zero blocks into hierarchy tree
         bool                 draw_graphics_items_borders; ///< Draw borders for graphics blocks or not
-        bool                        hide_narrow_children; ///< Hide children for narrow graphics blocks
+        bool                        hide_narrow_children; ///< Hide children for narrow graphics blocks (See blocks_narrow_size)
+        bool                         hide_minsize_blocks; ///< Hide blocks which screen size is less than blocks_size_min
         bool                 display_only_relevant_stats; ///< Display only relevant information in ProfTreeWidget (excludes min, max, average times if there are only 1 calls number)
         bool                collapse_items_on_tree_close; ///< Collapse all items which were displayed in the hierarchy tree after tree close/reset
         bool               all_items_expanded_by_default; ///< Expand all items after file is opened

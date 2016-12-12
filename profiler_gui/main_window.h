@@ -238,8 +238,6 @@ protected slots:
     void onUnitsChanged(bool);
     void onEventIndicatorsChange(bool);
     void onEnableDisableStatistics(bool);
-    void onDrawBordersChanged(bool);
-    void onHideNarrowChildrenChanged(bool);
     void onCollapseItemsAfterCloseChanged(bool);
     void onAllItemsExpandedByDefaultChange(bool);
     void onBindExpandStatusChange(bool);

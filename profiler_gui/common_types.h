@@ -155,13 +155,12 @@ inline ::profiler::color_t textColorForRgb(::profiler::color_t _color)
 #pragma pack(push, 1)
 struct EasyBlockItem Q_DECL_FINAL
 {
-    qreal                             x; ///< x coordinate of the item (this is made qreal=double to avoid mistakes on very wide scene)
-    float                             w; ///< Width of the item
-    ::profiler::block_index_t     block; ///< Index of profiler block
-    ::profiler::block_index_t    parent; ///< Index of parent profiler block
-    uint32_t             children_begin; ///< Index of first child item on the next sublevel
-    //uint16_t                totalHeight; ///< Total height of the item including heights of all it's children
-    int8_t                        state; ///< 0 = no change, 1 = paint, -1 = do not paint
+    qreal                              x; ///< x coordinate of the item (this is made qreal=double to avoid mistakes on very wide scene)
+    float                              w; ///< Width of the item
+    ::profiler::block_index_t      block; ///< Index of profiler block
+    ::profiler::block_index_t neighbours; ///< Number of neighbours (parent.children.size())
+    uint32_t              children_begin; ///< Index of first child item on the next sublevel
+    int8_t                         state; ///< 0 = no change, 1 = paint, -1 = do not paint
 
     // Possible optimizations:
     // 1) We can save 1 more byte per block if we will use char instead of short + real time calculations for "totalHeight" var;
@@ -175,10 +174,13 @@ struct EasyBlockItem Q_DECL_FINAL
 
 }; // END of struct EasyBlockItem.
 
+//#define EASY_TREE_WIDGET__USE_VECTOR
 struct EasyBlock Q_DECL_FINAL
 {
     ::profiler::BlocksTree       tree;
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
     uint32_t                tree_item;
+#endif
     uint32_t      graphics_item_index;
     uint8_t       graphics_item_level;
     uint8_t             graphics_item;
@@ -188,7 +190,9 @@ struct EasyBlock Q_DECL_FINAL
 
     EasyBlock(EasyBlock&& that)
         : tree(::std::move(that.tree))
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
         , tree_item(that.tree_item)
+#endif
         , graphics_item_index(that.graphics_item_index)
         , graphics_item_level(that.graphics_item_level)
         , graphics_item(that.graphics_item)

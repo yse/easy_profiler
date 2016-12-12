@@ -116,16 +116,16 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
     header_item->setText(COL_DURATION, "Duration");
     header_item->setText(COL_SELF_DURATION, "Self Dur.");
     //header_item->setToolTip(COL_SELF_DURATION, "");
-    header_item->setText(COL_DURATION_SUM_PER_PARENT, "Tot. Dur./Parent");
-    header_item->setText(COL_DURATION_SUM_PER_FRAME, "Tot. Dur./Frame");
-    header_item->setText(COL_DURATION_SUM_PER_THREAD, "Tot. Dur./Thread");
+    header_item->setText(COL_DURATION_SUM_PER_PARENT, "Sum Dur./Parent");
+    header_item->setText(COL_DURATION_SUM_PER_FRAME,  "Sum Dur./Frame");
+    header_item->setText(COL_DURATION_SUM_PER_THREAD, "Sum Dur./Thread");
 
     header_item->setText(COL_SELF_DURATION_PERCENT, "Self %");
     header_item->setText(COL_PERCENT_PER_PARENT, "% / Parent");
     header_item->setText(COL_PERCENT_PER_FRAME, "% / Frame");
-    header_item->setText(COL_PERCENT_SUM_PER_FRAME, "Tot. % / Frame");
-    header_item->setText(COL_PERCENT_SUM_PER_PARENT, "Tot. % / Parent");
-    header_item->setText(COL_PERCENT_SUM_PER_THREAD, "Tot. % / Thread");
+    header_item->setText(COL_PERCENT_SUM_PER_FRAME,  "Sum % / Frame");
+    header_item->setText(COL_PERCENT_SUM_PER_PARENT, "Sum % / Parent");
+    header_item->setText(COL_PERCENT_SUM_PER_THREAD, "Sum % / Thread");
 
     header_item->setText(COL_END, "End, ms");
 
@@ -335,16 +335,27 @@ void EasyTreeWidget::clearSilent(bool _global)
 
     if (!_global)
     {
-        if (EASY_GLOBALS.collapse_items_on_tree_close) for (auto item : m_items)
+        if (EASY_GLOBALS.collapse_items_on_tree_close)
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
+            for (auto item : m_items)
+#else
+            for (auto& item : m_items)
+#endif
         {
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
             auto& gui_block = item->guiBlock();
-            ::profiler_gui::set_max(gui_block.tree_item);
             gui_block.expanded = false;
+            ::profiler_gui::set_max(gui_block.tree_item);
+#else
+            item.second->guiBlock().expanded = false;
+#endif
         }
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
         else for (auto item : m_items)
         {
             ::profiler_gui::set_max(item->guiBlock().tree_item);
         }
+#endif
     }
 
     m_items.clear();
@@ -656,8 +667,13 @@ void EasyTreeWidget::onCollapseAllClicked(bool)
 
     if (EASY_GLOBALS.bind_scene_and_tree_expand_status)
     {
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
         for (auto item : m_items)
             item->guiBlock().expanded = false;
+#else
+        for (auto& item : m_items)
+            item.second->guiBlock().expanded = false;
+#endif
         emit EASY_GLOBALS.events.itemsExpandStateChanged();
     }
 }
@@ -673,9 +689,13 @@ void EasyTreeWidget::onExpandAllClicked(bool)
 
     if (EASY_GLOBALS.bind_scene_and_tree_expand_status)
     {
-        for (auto item : m_items)
-        {
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
+        for (auto item : m_items){
             auto& b = item->guiBlock();
+#else
+        for (auto& item : m_items){
+            auto& b = item.second->guiBlock();
+#endif
             b.expanded = !b.tree.children.empty();
         }
 
@@ -811,11 +831,19 @@ void EasyTreeWidget::onColorizeRowsTriggered(bool _colorize)
     collapseAll(); // Without collapseAll() changing items process is VERY VERY SLOW.
     // TODO: Find the reason of such behavior. QSignalBlocker(this) does not help. QSignalBlocker(item) does not work, because items are not inherited from QObject.
 
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
     for (auto item : m_items)
     {
         if (item->parent() != nullptr)
             item->colorize(m_bColorRows);
     }
+#else
+    for (auto& item : m_items)
+    {
+        if (item.second->parent() != nullptr)
+            item.second->colorize(m_bColorRows);
+    }
+#endif
 
     // Scroll back to previously selected item
     if (current)
@@ -843,9 +871,15 @@ void EasyTreeWidget::onSelectedBlockChange(uint32_t _block_index)
 
     if (_block_index < EASY_GLOBALS.gui_blocks.size())
     {
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
         const auto i = easyBlock(_block_index).tree_item;
         if (i < m_items.size())
             item = m_items[i];
+#else
+        auto it = m_items.find(_block_index);
+        if (it != m_items.end())
+            item = it->second;
+#endif
     }
 
     if (item != nullptr)

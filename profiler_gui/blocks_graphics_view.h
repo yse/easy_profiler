@@ -185,7 +185,7 @@ private:
     void scaleTo(qreal _scale);
     void scrollTo(const EasyGraphicsItem* _item);
     void onWheel(qreal _mouseX, int _wheelDelta);
-    qreal setTree(EasyGraphicsItem* _item, ::profiler::block_index_t _parent, const ::profiler::BlocksTree::children_t& _children, qreal& _height, qreal _y, short _level);
+    qreal setTree(EasyGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, qreal _y, short _level);
 
 private slots:
 

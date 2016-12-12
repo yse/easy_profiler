@@ -207,6 +207,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     if (gotItems)
     {
         static const auto MAX_CHILD_INDEX = ::profiler_gui::numeric_max<decltype(::profiler_gui::EasyBlockItem::children_begin)>();
+        const int narrow_size_half = EASY_GLOBALS.blocks_narrow_size >> 1;
+
         //auto const skip_children = [this, &levelsNumber](short next_level, decltype(::profiler_gui::EasyBlockItem::children_begin) children_begin)
         //{
         //    // Mark that we would not paint children of current item
@@ -270,30 +272,15 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 {
                     // This item is not visible
                     //skip_children(next_level, item.children_begin);
-
-                    if (item.parent != ~0U)
-                    {
-                        const auto n = static_cast<uint32_t>(easyBlock(item.parent).tree.children.size());
-                        if (neighbour < n)
-                            i += n - neighbour - 1; // Skip all neighbours
-                    }
-
+                    if (neighbour < item.neighbours)
+                        i += item.neighbours - neighbour - 1; // Skip all neighbours
                     continue;
                 }
 
-                if (state == BLOCK_ITEM_DO_PAINT_FIRST)
+                if (state == BLOCK_ITEM_DO_PAINT_FIRST && item.children_begin == MAX_CHILD_INDEX && next_level < levelsNumber && neighbour < (item.neighbours-1))
                 {
                     // Paint only first child which has own children
-
-                    if (item.children_begin == MAX_CHILD_INDEX && next_level < levelsNumber)
-                        continue; // This item has no children and would not be painted
-
-                    if (item.parent != ~0U)
-                    {
-                        const auto n = static_cast<uint32_t>(easyBlock(item.parent).tree.children.size());
-                        if (neighbour < n)
-                            i += n - neighbour - 1; // Skip all neighbours
-                    }
+                    continue; // This item has no children and would not be painted
                 }
 
                 const auto& itemBlock = easyBlock(item.block);
@@ -322,6 +309,18 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 {
                     w -= prevRight - x;
                     x = prevRight;
+                }
+
+                if (EASY_GLOBALS.hide_minsize_blocks && w < EASY_GLOBALS.blocks_size_min && l > 0)
+                {
+                    // Hide blocks (except top-level blocks) which width is less than 1 pixel
+                    continue;
+                }
+
+                if (state == BLOCK_ITEM_DO_PAINT_FIRST && neighbour < item.neighbours)
+                {
+                    // Paint only first child which has own children
+                    i += item.neighbours - neighbour - 1; // Skip all neighbours
                 }
 
                 const auto& itemDesc = easyDescriptor(itemBlock.tree.node->id());
@@ -450,7 +449,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     prevRight = rect.right() + EASY_GLOBALS.blocks_spacing;
                     if (w < EASY_GLOBALS.blocks_narrow_size)
                     {
-                        dont_skip_children(next_level, item.children_begin, BLOCK_ITEM_DO_PAINT_FIRST);
+                        dont_skip_children(next_level, item.children_begin, w < narrow_size_half ? BLOCK_ITEM_DO_PAINT_FIRST : BLOCK_ITEM_DO_PAINT);
                         continue;
                     }
 

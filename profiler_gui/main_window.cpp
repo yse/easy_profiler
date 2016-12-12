@@ -264,13 +264,19 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     action->setToolTip("Draw borders for blocks on diagram.\nThis reduces performance.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.draw_graphics_items_borders);
-    connect(action, &QAction::triggered, this, &This::onDrawBordersChanged);
+    connect(action, &QAction::triggered, [this](bool _checked){ EASY_GLOBALS.draw_graphics_items_borders = _checked; refreshDiagram(); });
 
-    action = submenu->addAction("Hide narrow children");
-    action->setToolTip("Children blocks will be hidden by narrow\nparent blocks. See also \"Blocks narrow size\".\nThis improves performance.");
+    action = submenu->addAction("Overlap narrow children");
+    action->setToolTip("Children blocks will be overlaped by narrow\nparent blocks. See also \'Blocks narrow size\'.\nThis improves performance.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.hide_narrow_children);
-    connect(action, &QAction::triggered, this, &This::onHideNarrowChildrenChanged);
+    connect(action, &QAction::triggered, [this](bool _checked){ EASY_GLOBALS.hide_narrow_children = _checked; refreshDiagram(); });
+
+    action = submenu->addAction("Hide min-size blocks");
+    action->setToolTip("Hides blocks which screen size\nis less than \'Min blocks size\'.");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.hide_minsize_blocks);
+    connect(action, &QAction::triggered, [this](bool _checked){ EASY_GLOBALS.hide_minsize_blocks = _checked; refreshDiagram(); });
 
     action = submenu->addAction("Build hierarchy only for current thread");
     action->setToolTip("Hierarchy tree will be built\nfor blocks from current thread only.\nThis improves performance\nand saves a lot of memory.");
@@ -798,18 +804,6 @@ void EasyMainWindow::onEnableDisableStatistics(bool _checked)
     }
 }
 
-void EasyMainWindow::onDrawBordersChanged(bool _checked)
-{
-    EASY_GLOBALS.draw_graphics_items_borders = _checked;
-    refreshDiagram();
-}
-
-void EasyMainWindow::onHideNarrowChildrenChanged(bool _checked)
-{
-    EASY_GLOBALS.hide_narrow_children = _checked;
-    refreshDiagram();
-}
-
 void EasyMainWindow::onCollapseItemsAfterCloseChanged(bool _checked)
 {
     EASY_GLOBALS.collapse_items_on_tree_close = _checked;
@@ -979,6 +973,10 @@ void EasyMainWindow::loadSettings()
     if (!flag.isNull())
         EASY_GLOBALS.hide_narrow_children = flag.toBool();
 
+    flag = settings.value("hide_minsize_blocks");
+    if (!flag.isNull())
+        EASY_GLOBALS.hide_minsize_blocks = flag.toBool();
+
     flag = settings.value("collapse_items_on_tree_close");
     if (!flag.isNull())
         EASY_GLOBALS.collapse_items_on_tree_close = flag.toBool();
@@ -1062,6 +1060,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("blocks_narrow_size", EASY_GLOBALS.blocks_narrow_size);
     settings.setValue("draw_graphics_items_borders", EASY_GLOBALS.draw_graphics_items_borders);
     settings.setValue("hide_narrow_children", EASY_GLOBALS.hide_narrow_children);
+    settings.setValue("hide_minsize_blocks", EASY_GLOBALS.hide_minsize_blocks);
     settings.setValue("collapse_items_on_tree_close", EASY_GLOBALS.collapse_items_on_tree_close);
     settings.setValue("all_items_expanded_by_default", EASY_GLOBALS.all_items_expanded_by_default);
     settings.setValue("only_current_thread_hierarchy", EASY_GLOBALS.only_current_thread_hierarchy);
@@ -1208,7 +1207,9 @@ void EasyMainWindow::onFileReaderTimeout()
             for (decltype(nblocks) i = 0; i < nblocks; ++i) {
                 auto& guiblock = EASY_GLOBALS.gui_blocks[i];
                 guiblock.tree = ::std::move(blocks[i]);
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
                 ::profiler_gui::set_max(guiblock.tree_item);
+#endif
             }
 
             static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->setTree(EASY_GLOBALS.profiler_blocks);
