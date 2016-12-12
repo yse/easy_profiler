@@ -90,6 +90,11 @@ namespace profiler {
 # define EASY_ENABLE_ALIGNMENT 0
 #endif
 
+#ifndef EASY_ALIGNMENT_SIZE
+# define EASY_ALIGNMENT_SIZE 64
+#endif
+
+
 #if EASY_ENABLE_ALIGNMENT == 0
 # define EASY_ALIGNED(TYPE, VAR, A) TYPE VAR
 # define EASY_MALLOC(MEMSIZE, A) malloc(MEMSIZE)
@@ -109,7 +114,7 @@ namespace profiler {
 template <const uint16_t N>
 class chunk_allocator
 {
-    struct chunk { EASY_ALIGNED(int8_t, data[N], 64); chunk* prev = nullptr; };
+    struct chunk { EASY_ALIGNED(int8_t, data[N], EASY_ALIGNMENT_SIZE); chunk* prev = nullptr; };
 
     struct chunk_list
     {
@@ -137,7 +142,7 @@ class chunk_allocator
         void emplace_back()
         {
             auto prev = last;
-            last = ::new (EASY_MALLOC(sizeof(chunk), 64)) chunk();
+            last = ::new (EASY_MALLOC(sizeof(chunk), EASY_ALIGNMENT_SIZE)) chunk();
             last->prev = prev;
             *(uint16_t*)last->data = 0;
         }
