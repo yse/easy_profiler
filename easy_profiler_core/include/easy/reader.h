@@ -190,15 +190,16 @@ namespace profiler {
 
     public:
 
-        BlocksTree::children_t     children; ///< List of children indexes
-        BlocksTree::children_t         sync; ///< List of context-switch events
-        BlocksTree::children_t       events; ///< List of events indexes
-        std::string             thread_name; ///< Name of this thread
-        ::profiler::timestamp_t active_time; ///< Active time of this thread (sum of all children duration)
-        ::profiler::thread_id_t   thread_id; ///< System Id of this thread
-        uint16_t                      depth; ///< Maximum stack depth (number of levels)
+        BlocksTree::children_t         children; ///< List of children indexes
+        BlocksTree::children_t             sync; ///< List of context-switch events
+        BlocksTree::children_t           events; ///< List of events indexes
+        std::string                 thread_name; ///< Name of this thread
+        ::profiler::timestamp_t     active_time; ///< Active time of this thread (sum of all children duration)
+        ::profiler::thread_id_t       thread_id; ///< System Id of this thread
+        ::profiler::block_index_t blocks_number; ///< Total blocks number including their children
+        uint16_t                          depth; ///< Maximum stack depth (number of levels)
 
-        BlocksTreeRoot() : active_time(0), thread_id(0), depth(0)
+        BlocksTreeRoot() : active_time(0), thread_id(0), blocks_number(0), depth(0)
         {
         }
 
@@ -209,6 +210,7 @@ namespace profiler {
             , thread_name(::std::move(that.thread_name))
             , active_time(that.active_time)
             , thread_id(that.thread_id)
+            , blocks_number(that.blocks_number)
             , depth(that.depth)
         {
         }
@@ -221,6 +223,7 @@ namespace profiler {
             thread_name = ::std::move(that.thread_name);
             active_time = that.active_time;
             thread_id = that.thread_id;
+            blocks_number = that.blocks_number;
             depth = that.depth;
             return *this;
         }

@@ -67,14 +67,18 @@
 
 //////////////////////////////////////////////////////////////////////////
 
+typedef uint32_t processid_t;
+
 extern const uint32_t PROFILER_SIGNATURE;
 extern const uint32_t EASY_CURRENT_VERSION;
 
 # define EASY_VERSION_INT(v_major, v_minor, v_patch) ((static_cast<uint32_t>(v_major) << 24) | (static_cast<uint32_t>(v_minor) << 16) | static_cast<uint32_t>(v_patch))
+const uint32_t EASY_V_100 = EASY_VERSION_INT(1, 0, 0);
 const uint32_t COMPATIBLE_VERSIONS[] = {
-    EASY_CURRENT_VERSION,
+    EASY_V_100,
     EASY_VERSION_INT(0, 1, 0)
 };
+// WARNING: Modify isCompatibleVersion(uint32_t _version) if COMPATIBLE_VERSIONS_NUM == 0
 const uint16_t COMPATIBLE_VERSIONS_NUM = sizeof(COMPATIBLE_VERSIONS) / sizeof(uint32_t);
 # undef EASY_VERSION_INT
 
@@ -112,7 +116,9 @@ bool isCompatibleVersion(uint32_t _version)
 {
     if (_version == EASY_CURRENT_VERSION)
         return true;
-    return COMPATIBLE_VERSIONS_NUM > 1 && ::std::binary_search(COMPATIBLE_VERSIONS + 1, COMPATIBLE_VERSIONS + COMPATIBLE_VERSIONS_NUM, _version);
+
+    return ::std::binary_search(COMPATIBLE_VERSIONS, COMPATIBLE_VERSIONS + COMPATIBLE_VERSIONS_NUM,
+                                _version, [](uint32_t _a, uint32_t _b){ return _a > _b; });
 }
 
 inline void write(::std::stringstream& _stream, const char* _value, size_t _size)
@@ -368,6 +374,10 @@ extern "C" {
             _log << "Incompatible version: v" << (version >> 24) << "." << ((version & 0x00ff0000) >> 16) << "." << (version & 0x0000ffff);
             return 0;
         }
+
+        processid_t pid = 0;
+        if (version > EASY_V_100)
+            inFile.read((char*)&pid, sizeof(processid_t));
 
         int64_t file_cpu_frequency = 0LL;
         inFile.read((char*)&file_cpu_frequency, sizeof(int64_t));
@@ -669,6 +679,7 @@ extern "C" {
                         }
                     }
 
+                    ++root.blocks_number;
                     root.children.emplace_back(block_index);// ::std::move(tree));
                     if (desc->type() == ::profiler::BLOCK_TYPE_EVENT)
                         root.events.emplace_back(block_index);

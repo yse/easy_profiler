@@ -129,6 +129,7 @@ namespace profiler {
         if (time > TRACING_END_TIME.load(::std::memory_order_acquire))
             return;
 
+        processid_t pid = 0;
         const char* process_name = "";
 
         // Trying to get target process name and id
@@ -138,7 +139,7 @@ namespace profiler {
             auto hThread = OpenThread(THREAD_QUERY_LIMITED_INFORMATION, FALSE, _contextSwitchEvent->NewThreadId);
             if (hThread != nullptr)
             {
-                auto pid = GetProcessIdOfThread(hThread);
+                pid = GetProcessIdOfThread(hThread);
                 auto pinfo = &PROCESS_INFO_TABLE[pid];
 
                 if (pinfo->valid == 0)
@@ -204,7 +205,7 @@ namespace profiler {
         }
 
         MANAGER.beginContextSwitch(_contextSwitchEvent->OldThreadId, time, _contextSwitchEvent->NewThreadId, process_name);
-        MANAGER.endContextSwitch(_contextSwitchEvent->NewThreadId, time);
+        MANAGER.endContextSwitch(_contextSwitchEvent->NewThreadId, pid, time);
     }
 
     //////////////////////////////////////////////////////////////////////////

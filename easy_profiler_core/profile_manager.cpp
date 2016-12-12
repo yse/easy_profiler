@@ -47,9 +47,8 @@
 #include "event_trace_win.h"
 #include "current_time.h"
 
-
-#ifndef _WIN32
-#include <signal.h>
+#ifdef min
+#undef min
 #endif
 
 //////////////////////////////////////////////////////////////////////////
@@ -93,20 +92,34 @@ EASY_THREAD_LOCAL static ::ThreadStorage* THREAD_STORAGE = nullptr;
 //////////////////////////////////////////////////////////////////////////
 
 #ifdef BUILD_WITH_EASY_PROFILER
+# define EASY_EVENT_RES(res, name, ...)\
+    EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), MANAGER.addBlockDescriptor(\
+        ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
+            __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__)));\
+    res = MANAGER.storeBlock(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name))
+
 # define EASY_FORCE_EVENT(timestamp, name, ...)\
     EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), addBlockDescriptor(\
         ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
             __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__)));\
-    storeBlockForce(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name), timestamp);
+    storeBlockForce(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name), timestamp)
 
 # define EASY_FORCE_EVENT2(timestamp, name, ...)\
     EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), addBlockDescriptor(\
         ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
             __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__)));\
-    storeBlockForce2(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name), timestamp);
+    storeBlockForce2(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name), timestamp)
+
+# define EASY_FORCE_EVENT3(ts, timestamp, name, ...)\
+    EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), addBlockDescriptor(\
+        ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
+            __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__)));\
+    storeBlockForce2(ts, EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name), timestamp)
 #else
+# define EASY_EVENT_RES(res, name, ...) 
 # define EASY_FORCE_EVENT(timestamp, name, ...) 
 # define EASY_FORCE_EVENT2(timestamp, name, ...) 
+# define EASY_FORCE_EVENT3(ts, timestamp, name, ...) 
 #endif
 
 //////////////////////////////////////////////////////////////////////////
@@ -314,14 +327,13 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
-ThreadStorage::ThreadStorage() : id(getCurrentThreadId()), allowChildren(true), named(false)
+ThreadStorage::ThreadStorage() : id(getCurrentThreadId()), allowChildren(true), named(false), guarded(false)
 #ifndef _WIN32
 , pthread_id(pthread_self())
 #endif
 
 {
-    expired = ATOMIC_VAR_INIT(false);
-
+    expired = ATOMIC_VAR_INIT(0);
 }
 
 void ThreadStorage::storeBlock(const profiler::Block& block)
@@ -388,8 +400,9 @@ ThreadGuard::~ThreadGuard()
 #ifndef EASY_PROFILER_API_DISABLED
     if (m_id != 0 && THREAD_STORAGE != nullptr && THREAD_STORAGE->id == m_id)
     {
-        EASY_EVENT("ThreadFinished", profiler::colors::Dark);
-        THREAD_STORAGE->expired.store(true, std::memory_order_release);
+        bool isMarked = false;
+        EASY_EVENT_RES(isMarked, "ThreadFinished", profiler::colors::Dark, ::profiler::FORCE_ON);
+        THREAD_STORAGE->expired.store(isMarked ? 2 : 1, std::memory_order_release);
         THREAD_STORAGE = nullptr;
     }
 #endif
@@ -397,7 +410,15 @@ ThreadGuard::~ThreadGuard()
 
 //////////////////////////////////////////////////////////////////////////
 
-ProfileManager::ProfileManager()
+ProfileManager::ProfileManager() :
+#ifdef _WIN32
+    m_processId(GetProcessId(GetCurrentProcess()))
+#else
+    m_processId((processid_t)getpid())
+#endif
+    , m_usedMemorySize(0)
+    , m_beginTime(0)
+    , m_endTime(0)
 {
     m_isEnabled = ATOMIC_VAR_INIT(false);
     m_isEventTracingEnabled = ATOMIC_VAR_INIT(EASY_EVENT_TRACING_ENABLED);
@@ -422,6 +443,8 @@ class ProfileManagerInstance {
 } PROFILE_MANAGER;
 #endif
 
+//////////////////////////////////////////////////////////////////////////
+
 ProfileManager& ProfileManager::instance()
 {
 #ifndef EASY_MAGIC_STATIC_CPP11
@@ -434,9 +457,10 @@ ProfileManager& ProfileManager::instance()
 #endif
 }
 
-ThreadStorage& ProfileManager::threadStorage(profiler::thread_id_t _thread_id)
+//////////////////////////////////////////////////////////////////////////
+
+ThreadStorage& ProfileManager::_threadStorage(profiler::thread_id_t _thread_id)
 {
-    guard_lock_t lock(m_spin);
     return m_threads[_thread_id];
 }
 
@@ -445,6 +469,8 @@ ThreadStorage* ProfileManager::_findThreadStorage(profiler::thread_id_t _thread_
     auto it = m_threads.find(_thread_id);
     return it != m_threads.end() ? &it->second : nullptr;
 }
+
+//////////////////////////////////////////////////////////////////////////
 
 const BaseBlockDescriptor* ProfileManager::addBlockDescriptor(EasyBlockStatus _defaultStatus,
                                                         const char* _autogenUniqueId,
@@ -469,17 +495,19 @@ const BaseBlockDescriptor* ProfileManager::addBlockDescriptor(EasyBlockStatus _d
     return desc;
 }
 
-void ProfileManager::storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName)
+//////////////////////////////////////////////////////////////////////////
+
+bool ProfileManager::storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName)
 {
     if (!m_isEnabled.load(std::memory_order_acquire) || !(_desc->m_status & profiler::ON))
-        return;
+        return false;
 
     if (THREAD_STORAGE == nullptr)
         THREAD_STORAGE = &threadStorage(getCurrentThreadId());
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
-    if (!THREAD_STORAGE->allowChildren)
-        return;
+    if (!THREAD_STORAGE->allowChildren && !(_desc->m_status & FORCE_ON_FLAG))
+        return false;
 #endif
 
     profiler::Block b(_desc, _runtimeName);
@@ -487,7 +515,11 @@ void ProfileManager::storeBlock(const profiler::BaseBlockDescriptor* _desc, cons
     b.m_end = b.m_begin;
 
     THREAD_STORAGE->storeBlock(b);
+
+    return true;
 }
+
+//////////////////////////////////////////////////////////////////////////
 
 void ProfileManager::storeBlockForce(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t& _timestamp)
 {
@@ -498,7 +530,7 @@ void ProfileManager::storeBlockForce(const profiler::BaseBlockDescriptor* _desc,
         THREAD_STORAGE = &threadStorage(getCurrentThreadId());
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
-    if (!THREAD_STORAGE->allowChildren)
+    if (!THREAD_STORAGE->allowChildren && !(_desc->m_status & FORCE_ON_FLAG))
         return;
 #endif
 
@@ -519,7 +551,7 @@ void ProfileManager::storeBlockForce2(const profiler::BaseBlockDescriptor* _desc
         THREAD_STORAGE = &threadStorage(getCurrentThreadId());
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
-    if (!THREAD_STORAGE->allowChildren)
+    if (!THREAD_STORAGE->allowChildren && !(_desc->m_status & FORCE_ON_FLAG))
         return;
 #endif
 
@@ -528,6 +560,15 @@ void ProfileManager::storeBlockForce2(const profiler::BaseBlockDescriptor* _desc
 
     THREAD_STORAGE->storeBlock(b);
 }
+
+void ProfileManager::storeBlockForce2(ThreadStorage& _registeredThread, const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t _timestamp)
+{
+    profiler::Block b(_desc, _runtimeName);
+    b.m_end = b.m_begin = _timestamp;
+    _registeredThread.storeBlock(b);
+}
+
+//////////////////////////////////////////////////////////////////////////
 
 void ProfileManager::beginBlock(Block& _block)
 {
@@ -569,16 +610,7 @@ void ProfileManager::beginContextSwitch(profiler::thread_id_t _thread_id, profil
         ts->sync.openedList.emplace(_time, _target_thread_id, _target_process);
 }
 
-void ProfileManager::storeContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, bool _lockSpin)
-{
-    auto ts = _lockSpin ? findThreadStorage(_thread_id) : _findThreadStorage(_thread_id);
-    if (ts != nullptr)
-    {
-        profiler::Block b(_time, _target_thread_id, "");
-        b.finish(_time);
-        ts->storeCSwitch(b);
-    }
-}
+//////////////////////////////////////////////////////////////////////////
 
 void ProfileManager::endBlock()
 {
@@ -607,9 +639,16 @@ void ProfileManager::endBlock()
 #endif
 }
 
-void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime, bool _lockSpin)
+void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, processid_t _process_id, profiler::timestamp_t _endtime, bool _lockSpin)
 {
-    auto ts = _lockSpin ? findThreadStorage(_thread_id) : _findThreadStorage(_thread_id);
+    ThreadStorage* ts = nullptr;
+    if (_process_id == m_processId)
+        // If thread owned by current process then create new ThreadStorage if there is no one
+        ts = _lockSpin ? &threadStorage(_thread_id) : &_threadStorage(_thread_id);
+    else
+        // If thread owned by another process OR _process_id IS UNKNOWN then do not create ThreadStorage for this
+        ts = _lockSpin ? findThreadStorage(_thread_id) : _findThreadStorage(_thread_id);
+
     if (ts == nullptr || ts->sync.openedList.empty())
         return;
 
@@ -619,6 +658,8 @@ void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, profiler
     ts->storeCSwitch(lastBlock);
     ts->sync.openedList.pop();
 }
+
+//////////////////////////////////////////////////////////////////////////
 
 void ProfileManager::setEnabled(bool isEnable, bool _setTime)
 {
@@ -661,10 +702,14 @@ void ProfileManager::setEventTracingEnabled(bool _isEnable)
 
 //////////////////////////////////////////////////////////////////////////
 
-bool ProfileManager::checkThreadExpired(ThreadStorage& _registeredThread)
+uint8_t ProfileManager::checkThreadExpired(ThreadStorage& _registeredThread)
 {
-    if (_registeredThread.expired.load(std::memory_order_acquire))
-        return true;
+    const uint8_t val = _registeredThread.expired.load(std::memory_order_acquire);
+    if (val != 0)
+        return val;
+
+    if (_registeredThread.guarded)
+        return 0;
 
 #ifdef _WIN32
 
@@ -678,18 +723,19 @@ bool ProfileManager::checkThreadExpired(ThreadStorage& _registeredThread)
         _registeredThread.expired.store(true, std::memory_order_release);
         if (hThread != nullptr)
             CloseHandle(hThread);
-        return true;
+        return 1;
     }
 
     if (hThread != nullptr)
         CloseHandle(hThread);
-    return false;
+
+    return 0;
+
 #else
 
-    return false;//pthread_kill(_registeredThread.pthread_id, 0) != 0;
+    return 0;//pthread_kill(_registeredThread.pthread_id, 0) != 0;
 
 #endif
-
 
 }
 
@@ -719,6 +765,8 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
     // TODO: think about better solution because this one is not 100% safe...
 
+    const profiler::timestamp_t now = getCurrentTime();
+    const profiler::timestamp_t endtime = m_endTime == 0 ? now : std::min(now, m_endTime);
 
 #ifndef _WIN32
     if (eventTracingEnabled)
@@ -731,9 +779,10 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
         std::ifstream infile(m_csInfoFilename.c_str());
         if(infile.is_open()) {
             std::string next_task_name;
-            while (infile >> timestamp >> thread_from >> thread_to >> next_task_name) {
+            pid_t process_to = 0;
+            while (infile >> timestamp >> thread_from >> thread_to >> next_task_name >> process_to) {
                 beginContextSwitch(thread_from, timestamp, thread_to, next_task_name.c_str(), false);
-                endContextSwitch(thread_to, timestamp, false);
+                endContextSwitch(thread_to, (processid_t)process_to, timestamp, false);
             }
         }
     }
@@ -745,14 +794,18 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
     for (auto it = m_threads.begin(), end = m_threads.end(); it != end;)
     {
         auto& t = it->second;
-        const uint32_t num = static_cast<uint32_t>(t.blocks.closedList.size()) + static_cast<uint32_t>(t.sync.closedList.size());
+        uint32_t num = static_cast<uint32_t>(t.blocks.closedList.size()) + static_cast<uint32_t>(t.sync.closedList.size());
 
-        const bool expired = checkThreadExpired(t) || t.expired.load(std::memory_order_acquire);
-        if (expired && num == 0) {
-            // Thread has been finished and contains no profiled information.
-            // Remove it now.
+        const uint8_t expired = checkThreadExpired(t);
+        if (num == 0 && (expired != 0 || !t.guarded)) {
+            // Remove thread if it contains no profiled information and has been finished or is not guarded.
             m_threads.erase(it++);
             continue;
+        }
+
+        if (expired == 1) {
+            EASY_FORCE_EVENT3(t, endtime, "ThreadExpired", profiler::colors::Dark);
+            ++num;
         }
 
         usedMemorySize += t.blocks.usedMemorySize + t.sync.usedMemorySize;
@@ -763,6 +816,7 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
     // Write profiler signature and version
     _outputStream.write(PROFILER_SIGNATURE);
     _outputStream.write(EASY_CURRENT_VERSION);
+    _outputStream.write(m_processId);
 
     // Write CPU frequency to let GUI calculate real time value from CPU clocks
 #ifdef _WIN32
@@ -847,7 +901,7 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
         t.blocks.openedList.clear();
         t.sync.openedList.clear();
 
-        if (t.expired.load(std::memory_order_acquire))
+        if (t.expired.load(std::memory_order_acquire) != 0)
             m_threads.erase(it++); // Remove expired thread after writing all profiled information
         else
             ++it;
@@ -875,6 +929,7 @@ const char* ProfileManager::registerThread(const char* name, ThreadGuard& thread
     if (THREAD_STORAGE == nullptr)
         THREAD_STORAGE = &threadStorage(getCurrentThreadId());
 
+    THREAD_STORAGE->guarded = true;
     if (!THREAD_STORAGE->named) {
         THREAD_STORAGE->named = true;
         THREAD_STORAGE->name = name;

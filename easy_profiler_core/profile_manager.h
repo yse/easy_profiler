@@ -320,9 +320,10 @@ struct ThreadStorage
 #endif
 
     const profiler::thread_id_t id;
-    std::atomic_bool expired;
+    std::atomic<uint8_t> expired;
     bool allowChildren;
     bool named;
+    bool guarded;
 
     void storeBlock(const profiler::Block& _block);
     void storeCSwitch(const profiler::Block& _block);
@@ -332,6 +333,8 @@ struct ThreadStorage
 };
 
 //////////////////////////////////////////////////////////////////////////
+
+typedef uint32_t processid_t;
 
 class BlockDescriptor;
 
@@ -355,12 +358,14 @@ class ProfileManager
     typedef std::unordered_map<profiler::hashed_stdstring, profiler::block_id_t> descriptors_map_t;
 #endif
 
+    const processid_t               m_processId;
+
     map_of_threads_stacks             m_threads;
     block_descriptors_t           m_descriptors;
     descriptors_map_t          m_descriptorsMap;
-    uint64_t               m_usedMemorySize = 0;
-    profiler::timestamp_t       m_beginTime = 0;
-    profiler::timestamp_t         m_endTime = 0;
+    uint64_t                   m_usedMemorySize;
+    profiler::timestamp_t           m_beginTime;
+    profiler::timestamp_t             m_endTime;
     profiler::spin_lock                  m_spin;
     profiler::spin_lock            m_storedSpin;
     std::atomic_bool                m_isEnabled;
@@ -392,7 +397,7 @@ public:
                                                             profiler::block_type_t _block_type,
                                                             profiler::color_t _color);
 
-    void storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName);
+    bool storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName);
     void beginBlock(profiler::Block& _block);
     void endBlock();
     void setEnabled(bool isEnable, bool _setTime = true);
@@ -412,22 +417,28 @@ public:
     }
 
     void beginContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, const char* _target_process, bool _lockSpin = true);
-    void storeContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, bool _lockSpin = true);
-    void endContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime, bool _lockSpin = true);
+    void endContextSwitch(profiler::thread_id_t _thread_id, processid_t _process_id, profiler::timestamp_t _endtime, bool _lockSpin = true);
     void startListen(uint16_t _port);
     void stopListen();
 
 private:
 
-    bool checkThreadExpired(ThreadStorage& _registeredThread);
+    uint8_t checkThreadExpired(ThreadStorage& _registeredThread);
 
     void storeBlockForce(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t& _timestamp);
     void storeBlockForce2(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t _timestamp);
+    void storeBlockForce2(ThreadStorage& _registeredThread, const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t _timestamp);
 
-    ThreadStorage& threadStorage(profiler::thread_id_t _thread_id);
+    ThreadStorage& _threadStorage(profiler::thread_id_t _thread_id);
     ThreadStorage* _findThreadStorage(profiler::thread_id_t _thread_id);
 
-    ThreadStorage* findThreadStorage(profiler::thread_id_t _thread_id)
+    inline ThreadStorage& threadStorage(profiler::thread_id_t _thread_id)
+    {
+        guard_lock_t lock(m_spin);
+        return _threadStorage(_thread_id);
+    }
+
+    inline ThreadStorage* findThreadStorage(profiler::thread_id_t _thread_id)
     {
         guard_lock_t lock(m_spin);
         return _findThreadStorage(_thread_id);
