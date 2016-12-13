@@ -57,7 +57,7 @@
 #include "event_trace_win.h"
 #include <Psapi.h>
 
-#if EASY_LOG_ENABLED != 0
+#if EASY_OPTION_LOG_ENABLED != 0
 #include <iostream>
 #endif
 
@@ -229,7 +229,7 @@ namespace profiler {
 
     EasyEventTracer::EasyEventTracer()
     {
-        m_lowPriority = ATOMIC_VAR_INIT(EASY_LOW_PRIORITY_EVENT_TRACING);
+        m_lowPriority = ATOMIC_VAR_INIT(EASY_OPTION_LOW_PRIORITY_EVENT_TRACING);
     }
 
     EasyEventTracer::~EasyEventTracer()
@@ -264,7 +264,7 @@ namespace profiler {
             }
         }
 
-#if EASY_LOG_ENABLED != 0
+#if EASY_OPTION_LOG_ENABLED != 0
         if (!success)
             ::std::cerr << "Warning: EasyProfiler failed to set " << _privelegeName << " privelege for the application.\n";
 #endif
@@ -283,7 +283,7 @@ namespace profiler {
         HANDLE hToken = nullptr;
         if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
         {
-#if EASY_LOG_ENABLED != 0
+#if EASY_OPTION_LOG_ENABLED != 0
             const bool success = setPrivilege(hToken, SE_DEBUG_NAME);
             if (!success)
                 ::std::cerr << "Warning: Some context switch events could not get process name.\n";
@@ -293,7 +293,7 @@ namespace profiler {
             
             CloseHandle(hToken);
         }
-#if EASY_LOG_ENABLED != 0
+#if EASY_OPTION_LOG_ENABLED != 0
         else
         {
             ::std::cerr << "Warning: EasyProfiler failed to open process to adjust priveleges.\n";
@@ -348,26 +348,26 @@ namespace profiler {
                     }
                 }
 
-#if EASY_LOG_ENABLED != 0
+#if EASY_OPTION_LOG_ENABLED != 0
                 ::std::cerr << "Error: EasyProfiler.ETW not launched: ERROR_ALREADY_EXISTS. To stop another session execute cmd: logman stop \"" << KERNEL_LOGGER_NAME << "\" -ets\n";
 #endif
                 return EVENT_TRACING_WAS_LAUNCHED_BY_SOMEBODY_ELSE;
             }
 
             case ERROR_ACCESS_DENIED:
-#if EASY_LOG_ENABLED != 0
+#if EASY_OPTION_LOG_ENABLED != 0
                 ::std::cerr << "Error: EasyProfiler.ETW not launched: ERROR_ACCESS_DENIED. Try to launch your application as Administrator.\n";
 #endif
                 return EVENT_TRACING_NOT_ENOUGH_ACCESS_RIGHTS;
 
             case ERROR_BAD_LENGTH:
-#if EASY_LOG_ENABLED != 0
+#if EASY_OPTION_LOG_ENABLED != 0
                 ::std::cerr << "Error: EasyProfiler.ETW not launched: ERROR_BAD_LENGTH. It seems that your KERNEL_LOGGER_NAME differs from \"" << m_properties.sessionName << "\". Try to re-compile easy_profiler or contact EasyProfiler developers.\n";
 #endif
                 return EVENT_TRACING_BAD_PROPERTIES_SIZE;
         }
 
-#if EASY_LOG_ENABLED != 0
+#if EASY_OPTION_LOG_ENABLED != 0
         ::std::cerr << "Error: EasyProfiler.ETW not launched: StartTrace() returned " << startTraceResult << ::std::endl;
 #endif
         return EVENT_TRACING_MISTERIOUS_ERROR;
@@ -408,7 +408,7 @@ namespace profiler {
         m_openedHandle = OpenTrace(&m_trace);
         if (m_openedHandle == INVALID_PROCESSTRACE_HANDLE)
         {
-#if EASY_LOG_ENABLED != 0
+#if EASY_OPTION_LOG_ENABLED != 0
             ::std::cerr << "Error: EasyProfiler.ETW not launched: OpenTrace() returned invalid handle.\n";
 #endif
             return EVENT_TRACING_OPEN_TRACE_ERROR;

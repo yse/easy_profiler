@@ -338,9 +338,9 @@ ThreadStorage::ThreadStorage() : id(getCurrentThreadId()), allowChildren(true), 
 
 void ThreadStorage::storeBlock(const profiler::Block& block)
 {
-#if EASY_MEASURE_STORAGE_EXPAND != 0
+#if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
     EASY_LOCAL_STATIC_PTR(const BaseBlockDescriptor*, desc,\
-        MANAGER.addBlockDescriptor(EASY_STORAGE_EXPAND_ENABLED ? profiler::ON : profiler::OFF, EASY_UNIQUE_LINE_ID, "EasyProfiler.ExpandStorage",\
+        MANAGER.addBlockDescriptor(EASY_OPTION_STORAGE_EXPAND_BLOCKS_ON ? profiler::ON : profiler::OFF, EASY_UNIQUE_LINE_ID, "EasyProfiler.ExpandStorage",\
             __FILE__, __LINE__, profiler::BLOCK_TYPE_BLOCK, profiler::colors::White));
 
     EASY_THREAD_LOCAL static profiler::timestamp_t beginTime = 0ULL;
@@ -350,21 +350,21 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
     auto name_length = static_cast<uint16_t>(strlen(block.name()));
     auto size = static_cast<uint16_t>(sizeof(BaseBlockData) + name_length + 1);
 
-#if EASY_MEASURE_STORAGE_EXPAND != 0
+#if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
     const bool expanded = (desc->m_status & profiler::ON) && blocks.closedList.need_expand(size);
     if (expanded) beginTime = getCurrentTime();
 #endif
 
     auto data = blocks.closedList.allocate(size);
 
-#if EASY_MEASURE_STORAGE_EXPAND != 0
+#if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
     if (expanded) endTime = getCurrentTime();
 #endif
 
     ::new (data) SerializedBlock(block, name_length);
     blocks.usedMemorySize += size;
 
-#if EASY_MEASURE_STORAGE_EXPAND != 0
+#if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
     if (expanded)
     {
         profiler::Block b(beginTime, desc->id(), "");
@@ -421,9 +421,13 @@ ProfileManager::ProfileManager() :
     , m_endTime(0)
 {
     m_isEnabled = ATOMIC_VAR_INIT(false);
-    m_isEventTracingEnabled = ATOMIC_VAR_INIT(EASY_EVENT_TRACING_ENABLED);
+    m_isEventTracingEnabled = ATOMIC_VAR_INIT(EASY_OPTION_EVENT_TRACING_ENABLED);
     m_isAlreadyListening = ATOMIC_VAR_INIT(false);
     m_stopListen = ATOMIC_VAR_INIT(false);
+
+#if !defined(EASY_PROFILER_API_DISABLED) && EASY_OPTION_START_LISTEN_ON_STARTUP != 0
+    startListen(profiler::DEFAULT_PORT);
+#endif
 }
 
 ProfileManager::~ProfileManager()

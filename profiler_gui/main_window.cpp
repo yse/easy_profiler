@@ -458,7 +458,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
 
     m_eventTracingPriorityAction = submenu->addAction("Low priority event tracing");
     m_eventTracingPriorityAction->setCheckable(true);
-    m_eventTracingPriorityAction->setChecked(EASY_LOW_PRIORITY_EVENT_TRACING);
+    m_eventTracingPriorityAction->setChecked(EASY_OPTION_LOW_PRIORITY_EVENT_TRACING);
     m_eventTracingPriorityAction->setEnabled(false);
     connect(m_eventTracingPriorityAction, &QAction::triggered, this, &This::onEventTracingPriorityChange);
 

@@ -206,11 +206,11 @@ This is just for user's comfort. There is no difference for EasyProfiler GUI bet
 
 /** Enable or disable event tracing (context switch events).
 
-\note Default value is controlled by EASY_EVENT_TRACING_ENABLED macro.
+\note Default value is controlled by EASY_OPTION_EVENT_TRACING_ENABLED macro.
 
 \note Change will take effect on the next call to EASY_PROFILER_ENABLE.
 
-\sa EASY_PROFILER_ENABLE, EASY_EVENT_TRACING_ENABLED
+\sa EASY_PROFILER_ENABLE, EASY_OPTION_EVENT_TRACING_ENABLED
 
 \ingroup profiler
 */
@@ -227,7 +227,7 @@ Event tracing with normal priority could gather more information about processes
 it could affect performance as it has more work to do. Usually you will not notice any performance
 breakdown, but if you care about that then you change set event tracing priority level to low.
 
-\sa EASY_LOW_PRIORITY_EVENT_TRACING
+\sa EASY_OPTION_LOW_PRIORITY_EVENT_TRACING
 
 \ingroup profiler
 */
@@ -239,13 +239,13 @@ breakdown, but if you care about that then you change set event tracing priority
 
 \ingroup profiler
 */
-#  define EASY_EVENT_TRACING_SET_LOG(filename) ::profiler::setContextSwitchLogFilename(filename);
+# define EASY_EVENT_TRACING_SET_LOG(filename) ::profiler::setContextSwitchLogFilename(filename);
 
 /** Macro returning current path to the temporary log-file for Unix event tracing system.
 
 \ingroup profiler
 */
-#  define EASY_EVENT_TRACING_LOG ::profiler::getContextSwitchLogFilename();
+# define EASY_EVENT_TRACING_LOG ::profiler::getContextSwitchLogFilename();
 
 // EasyProfiler settings:
 
@@ -257,15 +257,22 @@ These are "EasyProfiler.ExpandStorage" blocks on a diagram.
 
 \ingroup profiler
 */
-# define EASY_MEASURE_STORAGE_EXPAND 0
+# ifndef EASY_OPTION_MEASURE_STORAGE_EXPAND
+#  define EASY_OPTION_MEASURE_STORAGE_EXPAND 0
+# endif
 
-/** If true then "EasyProfiler.ExpandStorage" events are enabled by default and will be
+# if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
+/** If true then "EasyProfiler.ExpandStorage" blocks are enabled by default and will be
 writed to output file or translated over the net.
-If false then you need to enable these events via GUI if you'll want to see them.
+If false then you need to enable these blocks via GUI if you want to see them.
 
 \ingroup profiler
 */
-# define EASY_STORAGE_EXPAND_ENABLED true
+#  ifndef EASY_OPTION_STORAGE_EXPAND_BLOCKS_ON
+#   define EASY_OPTION_STORAGE_EXPAND_BLOCKS_ON true
+#  endif
+
+# endif // EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
 
 /** If true then EasyProfiler event tracing is enabled by default
 and will be turned on and off when you call profiler::setEnabled().
@@ -274,7 +281,9 @@ turned on/off with next calls of profiler::setEnabled().
 
 \ingroup profiler
 */
-# define EASY_EVENT_TRACING_ENABLED true
+# ifndef EASY_OPTION_EVENT_TRACING_ENABLED
+#  define EASY_OPTION_EVENT_TRACING_ENABLED true
+# endif
 
 /** If true then EasyProfiler.ETW thread (Event tracing for Windows) will have low priority by default.
 
@@ -285,7 +294,9 @@ You don't need to rebuild or restart your application for that.
 
 \ingroup profiler
 */
-# define EASY_LOW_PRIORITY_EVENT_TRACING true
+# ifndef EASY_OPTION_LOW_PRIORITY_EVENT_TRACING
+#  define EASY_OPTION_LOW_PRIORITY_EVENT_TRACING true
+# endif
 
 
 /** If != 0 then EasyProfiler will print error messages into stderr.
@@ -293,8 +304,19 @@ Otherwise, no log messages will be printed.
 
 \ingroup profiler
 */
-# define EASY_LOG_ENABLED 0
+# ifndef EASY_OPTION_LOG_ENABLED
+#  define EASY_OPTION_LOG_ENABLED 0
+# endif
 
+/** If != 0 then EasyProfiler will start listening thread immidiately on ProfileManager initialization.
+
+\sa startListen
+
+\ingroup profiler
+*/
+# ifndef EASY_OPTION_START_LISTEN_ON_STARTUP
+#  define EASY_OPTION_START_LISTEN_ON_STARTUP 0
+# endif
 
 #else // #ifdef BUILD_WITH_EASY_PROFILER
 
@@ -315,13 +337,31 @@ Otherwise, no log messages will be printed.
 #  define EASY_EVENT_TRACING_LOG ""
 # endif
 
-# define EASY_MEASURE_STORAGE_EXPAND 0
-# define EASY_STORAGE_EXPAND_ENABLED false
-# define EASY_EVENT_TRACING_ENABLED false
-# define EASY_LOW_PRIORITY_EVENT_TRACING true
-# define EASY_LOG_ENABLED 0
+# ifndef EASY_OPTION_MEASURE_STORAGE_EXPAND
+#  define EASY_OPTION_MEASURE_STORAGE_EXPAND 0
+# endif
+
+# ifndef EASY_OPTION_EVENT_TRACING_ENABLED
+#  define EASY_OPTION_EVENT_TRACING_ENABLED false
+# endif
+
+# ifndef EASY_OPTION_LOW_PRIORITY_EVENT_TRACING
+#  define EASY_OPTION_LOW_PRIORITY_EVENT_TRACING true
+# endif
+
+# ifndef EASY_OPTION_LOG_ENABLED
+#  define EASY_OPTION_LOG_ENABLED 0
+# endif
+
+# ifndef EASY_OPTION_START_LISTEN_ON_STARTUP
+#  define EASY_OPTION_START_LISTEN_ON_STARTUP 0
+# endif
 
 #endif // #ifndef BUILD_WITH_EASY_PROFILER
+
+# ifndef EASY_DEFAULT_PORT
+#  define EASY_DEFAULT_PORT 28077
+# endif
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
@@ -334,7 +374,7 @@ namespace profiler {
     //////////////////////////////////////////////////////////////////////
     // Core types
 
-    const uint16_t DEFAULT_PORT = 28077;
+    const uint16_t DEFAULT_PORT = EASY_DEFAULT_PORT;
 
     typedef uint64_t timestamp_t;
     typedef uint32_t thread_id_t;
