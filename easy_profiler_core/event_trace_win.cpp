@@ -77,9 +77,9 @@ namespace profiler {
     //////////////////////////////////////////////////////////////////////////
 
     struct ProcessInfo {
-        std::string    name;
-        uint32_t     id = 0;
-        int8_t    valid = 0;
+        std::string      name;
+        processid_t    id = 0;
+        int8_t      valid = 0;
     };
 
     //////////////////////////////////////////////////////////////////////////
@@ -106,7 +106,7 @@ namespace profiler {
     //////////////////////////////////////////////////////////////////////////
 
     typedef ::std::unordered_map<decltype(CSwitch::NewThreadId), ProcessInfo*, ::profiler::do_not_calc_hash> thread_process_info_map;
-    typedef ::std::unordered_map<uint32_t, ProcessInfo, ::profiler::do_not_calc_hash> process_info_map;
+    typedef ::std::unordered_map<processid_t, ProcessInfo, ::profiler::do_not_calc_hash> process_info_map;
 
     // Using static is safe because processTraceEvent() is called from one thread
     process_info_map PROCESS_INFO_TABLE;
@@ -183,6 +183,11 @@ namespace profiler {
                         //auto err = GetLastError();
                         //printf("OpenProcess(%u) fail: GetLastError() == %u\n", pid, err);
                         pinfo->valid = -1;
+
+                        if (pid == 4) {
+                            pinfo->name.reserve(pinfo->name.size() + 8);
+                            pinfo->name.append(" System", 6);
+                        }
                     }
                 }
 
@@ -202,6 +207,10 @@ namespace profiler {
             auto pinfo = it->second;
             if (pinfo != nullptr)
                 process_name = pinfo->name.c_str();
+            else if (it->first == 0)
+                process_name = "System Idle";
+            else if (it->first == 4)
+                process_name = "System";
         }
 
         MANAGER.beginContextSwitch(_contextSwitchEvent->OldThreadId, time, _contextSwitchEvent->NewThreadId, process_name);
