@@ -46,6 +46,14 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 \defgroup profiler EasyProfiler
 */
 
+
+/** Indicates that EasyProfiler is used.
+
+\ingroup profiler
+*/
+#define USING_EASY_PROFILER
+
+
 // EasyProfiler core API:
 
 /** Macro for beginning of a block with custom name and color.
