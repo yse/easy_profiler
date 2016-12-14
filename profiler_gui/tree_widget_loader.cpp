@@ -208,7 +208,7 @@ void FillTreeClass<T>::setTreeInternal1(T& _safelocker, Items& _items, ThreadedI
 
         //_items.push_back(item);
 
-        item->setTimeSmart(COL_SELF_DURATION, _units, root.active_time);
+        item->setTimeSmart(COL_SELF_DURATION, _units, root.profiled_time);
 
         ::profiler::timestamp_t children_duration = 0;
         const auto children_items_number = FillTreeClass<T>::setTreeInternal(_safelocker, _items, _beginTime, root.children, item, nullptr, item, _beginTime, finishtime + 1000000000ULL, false, children_duration, _colorizeRows, _addZeroBlocks, _units);
@@ -291,7 +291,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
             thread_item->setTextColor(::profiler_gui::SELECTED_THREAD_FOREGROUND);
 
             // Sum of all children durations:
-            thread_item->setTimeSmart(COL_SELF_DURATION, _units, block.root->active_time);
+            thread_item->setTimeSmart(COL_SELF_DURATION, _units, block.root->profiled_time);
 
             threadsMap.insert(::std::make_pair(block.root->thread_id, thread_item));
         }
@@ -307,7 +307,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
 
         item->setData(COL_PERCENT_PER_FRAME, Qt::UserRole, 0);
 
-        auto percentage_per_thread = ::profiler_gui::percent(duration, block.root->active_time);
+        auto percentage_per_thread = ::profiler_gui::percent(duration, block.root->profiled_time);
         item->setData(COL_PERCENT_PER_PARENT, Qt::UserRole, percentage_per_thread);
         item->setText(COL_PERCENT_PER_PARENT, QString::number(percentage_per_thread));
 
@@ -329,7 +329,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
             item->setData(COL_NCALLS_PER_THREAD, Qt::UserRole, per_thread_stats->calls_number);
             item->setText(COL_NCALLS_PER_THREAD, QString::number(per_thread_stats->calls_number));
 
-            percentage_per_thread = ::profiler_gui::percent(per_thread_stats->total_duration, block.root->active_time);
+            percentage_per_thread = ::profiler_gui::percent(per_thread_stats->total_duration, block.root->profiled_time);
             item->setData(COL_PERCENT_SUM_PER_THREAD, Qt::UserRole, percentage_per_thread);
             item->setText(COL_PERCENT_SUM_PER_THREAD, QString::number(percentage_per_thread));
 

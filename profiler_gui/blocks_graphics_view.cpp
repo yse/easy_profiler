@@ -427,8 +427,8 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         if (finish < timefinish)
             finish = timefinish;
 
-        if (t.active_time > busyTime) {
-            busyTime = t.active_time;
+        if (t.profiled_time > busyTime) {
+            busyTime = t.profiled_time;
             longestTree = threadTree.first;
         }
 
@@ -1442,10 +1442,10 @@ void EasyGraphicsView::onIdleTimeout()
 
                         lay->addWidget(new QLabel("Thread", widget), row + 1, 1, Qt::AlignHCenter);
 
-                        auto percent = ::profiler_gui::percentReal(duration, item->root()->active_time);
+                        auto percent = ::profiler_gui::percentReal(duration, item->root()->profiled_time);
                         lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 2, 1, Qt::AlignHCenter);
 
-                        lay->addWidget(new QLabel(QString::number(::profiler_gui::percent(itemBlock.per_thread_stats->total_duration, item->root()->active_time)), widget), row + 3, 1, Qt::AlignHCenter);
+                        lay->addWidget(new QLabel(QString::number(::profiler_gui::percent(itemBlock.per_thread_stats->total_duration, item->root()->profiled_time)), widget), row + 3, 1, Qt::AlignHCenter);
 
                         lay->addWidget(new QLabel(QString::number(itemBlock.per_thread_stats->calls_number), widget), row + 4, 1, Qt::AlignHCenter);
 

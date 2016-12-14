@@ -532,6 +532,7 @@ extern "C" {
                     tree.node = baseData;
                     const auto block_index = blocks_counter++;
 
+                    root.wait_time += baseData->duration();
                     root.sync.emplace_back(block_index);
                 }
 
@@ -741,7 +742,7 @@ extern "C" {
                         if (root.depth < frame.depth)
                             root.depth = frame.depth;
 
-                        root.active_time += frame.node->duration();
+                        root.profiled_time += frame.node->duration();
                     }
 
                     ++root.depth;
@@ -774,7 +775,7 @@ extern "C" {
                     auto& frame = blocks[i];
                     if (root.depth < frame.depth)
                         root.depth = frame.depth;
-                    root.active_time += frame.node->duration();
+                    root.profiled_time += frame.node->duration();
                 }
 
                 ++root.depth;

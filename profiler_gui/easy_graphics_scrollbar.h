@@ -144,7 +144,8 @@ class EasyHystogramItem : public QGraphicsItem
     EasyQTimer                                  m_timer;
     ::std::thread                        m_workerThread;
     ::profiler::timestamp_t            m_threadDuration;
-    ::profiler::timestamp_t          m_threadActiveTime;
+    ::profiler::timestamp_t        m_threadProfiledTime;
+    ::profiler::timestamp_t            m_threadWaitTime;
     const ::profiler_gui::EasyItems*          m_pSource;
     QImage*                            m_temporaryImage;
     const ::profiler::BlocksTreeRoot* m_pProfilerThread;

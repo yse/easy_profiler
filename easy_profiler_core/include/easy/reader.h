@@ -194,12 +194,13 @@ namespace profiler {
         BlocksTree::children_t             sync; ///< List of context-switch events
         BlocksTree::children_t           events; ///< List of events indexes
         std::string                 thread_name; ///< Name of this thread
-        ::profiler::timestamp_t     active_time; ///< Active time of this thread (sum of all children duration)
+        ::profiler::timestamp_t   profiled_time; ///< Profiled time of this thread (sum of all children duration)
+        ::profiler::timestamp_t       wait_time; ///< Wait time of this thread (sum of all context switches)
         ::profiler::thread_id_t       thread_id; ///< System Id of this thread
         ::profiler::block_index_t blocks_number; ///< Total blocks number including their children
         uint16_t                          depth; ///< Maximum stack depth (number of levels)
 
-        BlocksTreeRoot() : active_time(0), thread_id(0), blocks_number(0), depth(0)
+        BlocksTreeRoot() : profiled_time(0), wait_time(0), thread_id(0), blocks_number(0), depth(0)
         {
         }
 
@@ -208,7 +209,8 @@ namespace profiler {
             , sync(::std::move(that.sync))
             , events(::std::move(that.events))
             , thread_name(::std::move(that.thread_name))
-            , active_time(that.active_time)
+            , profiled_time(that.profiled_time)
+            , wait_time(that.wait_time)
             , thread_id(that.thread_id)
             , blocks_number(that.blocks_number)
             , depth(that.depth)
@@ -221,7 +223,8 @@ namespace profiler {
             sync = ::std::move(that.sync);
             events = ::std::move(that.events);
             thread_name = ::std::move(that.thread_name);
-            active_time = that.active_time;
+            profiled_time = that.profiled_time;
+            wait_time = that.wait_time;
             thread_id = that.thread_id;
             blocks_number = that.blocks_number;
             depth = that.depth;
@@ -343,51 +346,6 @@ namespace profiler {
         SerializedData& operator = (const SerializedData&) = delete;
 
     }; // END of class SerializedData.
-
-    //////////////////////////////////////////////////////////////////////////
-
-    struct FileData
-    {
-        ::profiler::SerializedData         serialized_blocks;
-        ::profiler::SerializedData    serialized_descriptors;
-        ::std::vector<::profiler::thread_id_t> threads_order;
-        ::profiler::timestamp_t            begin_time = 0ULL;
-        ::profiler::timestamp_t              end_time = 0ULL;
-        int64_t                          cpu_frequency = 0LL;
-        uint32_t                     total_blocks_number = 0;
-        uint32_t                total_descriptors_number = 0;
-
-        FileData() = default;
-        FileData(FileData&& _other)
-            : serialized_blocks(::std::move(_other.serialized_blocks))
-            , serialized_descriptors(::std::move(_other.serialized_descriptors))
-            , threads_order(::std::move(_other.threads_order))
-            , begin_time(_other.begin_time)
-            , end_time(_other.end_time)
-            , cpu_frequency(_other.cpu_frequency)
-            , total_blocks_number(_other.total_blocks_number)
-            , total_descriptors_number(_other.total_descriptors_number)
-        {
-        }
-
-        FileData& operator = (FileData&& _other)
-        {
-            serialized_blocks = ::std::move(_other.serialized_blocks);
-            serialized_descriptors = ::std::move(_other.serialized_descriptors);
-            threads_order = ::std::move(_other.threads_order);
-            begin_time = _other.begin_time;
-            end_time = _other.end_time;
-            cpu_frequency = _other.cpu_frequency;
-            total_blocks_number = _other.total_blocks_number;
-            total_descriptors_number = _other.total_descriptors_number;
-            return *this;
-        }
-
-    private:
-
-        FileData(const FileData&) = delete;
-        FileData& operator = (const FileData&) = delete;
-    };
 
     //////////////////////////////////////////////////////////////////////////
 
