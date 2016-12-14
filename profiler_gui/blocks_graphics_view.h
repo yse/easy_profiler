@@ -60,6 +60,7 @@
 #include <QPoint>
 #include <QRectF>
 #include <QTimer>
+#include <QLabel>
 #include "easy/reader.h"
 #include "common_types.h"
 
@@ -91,6 +92,13 @@ EASY_QGRAPHICSITEM(EasyTimelineIndicatorItem);
 EASY_QGRAPHICSITEM(EasyThreadNameItem);
 
 #undef EASY_QGRAPHICSITEM
+
+//////////////////////////////////////////////////////////////////////////
+
+struct EasyBoldLabel : public QLabel {
+    EasyBoldLabel(const QString& _text, QWidget* _parent = nullptr);
+    virtual ~EasyBoldLabel();
+};
 
 //////////////////////////////////////////////////////////////////////////
 

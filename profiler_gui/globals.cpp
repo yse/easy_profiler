@@ -69,6 +69,7 @@ namespace profiler_gui {
         , chrono_text_position(ChronoTextPosition_Center)
         , time_units(TimeUnits_auto)
         , connected(false)
+        , use_decorated_thread_name(true)
         , enable_event_indicators(true)
         , enable_statistics(true)
         , enable_zero_length(true)

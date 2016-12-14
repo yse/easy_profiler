@@ -87,6 +87,8 @@ public:
 
     // Public non-virtual methods
 
+    void validateName();
+
     const ::profiler::BlocksTreeRoot* root() const;
     const QString& threadName() const;
 

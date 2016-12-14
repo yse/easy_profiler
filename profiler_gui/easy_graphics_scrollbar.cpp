@@ -762,10 +762,7 @@ void EasyHystogramItem::setSource(::profiler::thread_id_t _thread_id, const ::pr
     else
     {
         const auto& root = EASY_GLOBALS.profiler_blocks[_thread_id];
-        if (root.got_name())
-            m_threadName = ::std::move(QString("%1 Thread %2").arg(root.name()).arg(_thread_id));
-        else
-            m_threadName = ::std::move(QString("Thread %1").arg(_thread_id));
+        m_threadName = ::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, root);
 
         if (root.children.empty())
             m_threadDuration = 0;
@@ -813,10 +810,7 @@ void EasyHystogramItem::setSource(::profiler::thread_id_t _thread_id, ::profiler
     if (m_threadId != 0 && !::profiler_gui::is_max(m_blockId))
     {
         const auto& root = EASY_GLOBALS.profiler_blocks[_thread_id];
-        if (root.got_name())
-            m_threadName = ::std::move(QString("%1 Thread %2").arg(root.name()).arg(_thread_id));
-        else
-            m_threadName = ::std::move(QString("Thread %1").arg(_thread_id));
+        m_threadName = ::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, root);
 
         if (root.children.empty())
             m_threadDuration = 0;
@@ -914,6 +908,15 @@ void EasyHystogramItem::setSource(::profiler::thread_id_t _thread_id, ::profiler
         m_threadName.clear();
         hide();
     }
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void EasyHystogramItem::validateName()
+{
+    if (m_threadName.isEmpty())
+        return;
+    m_threadName = ::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, EASY_GLOBALS.profiler_blocks[m_threadId]);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1186,6 +1189,14 @@ EasyGraphicsScrollbar::EasyGraphicsScrollbar(QWidget* _parent)
     {
         if (m_hystogramItem->isVisible())
             m_hystogramItem->updateImage();
+        scene()->update();
+    });
+
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::threadNameDecorationChanged, [this]()
+    {
+        if (!m_hystogramItem->isVisible())
+            return;
+        m_hystogramItem->validateName();
         scene()->update();
     });
 

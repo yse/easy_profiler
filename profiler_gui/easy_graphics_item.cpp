@@ -86,26 +86,19 @@ const auto SELECTED_ITEM_FONT = ::profiler_gui::EFont("Helvetica", 10, QFont::Bo
 
 EasyGraphicsItem::EasyGraphicsItem(uint8_t _index, const::profiler::BlocksTreeRoot& _root)
     : QGraphicsItem(nullptr)
+    , m_threadName(::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, _root))
     , m_pRoot(&_root)
     , m_index(_index)
 {
-    const auto u_thread = ::profiler_gui::toUnicode("thread");
-    if (_root.got_name())
-    {
-        QString rootname(::profiler_gui::toUnicode(_root.name()));
-        if (rootname.contains(u_thread, Qt::CaseInsensitive))
-            m_threadName = ::std::move(QString("%1 %2").arg(rootname).arg(_root.thread_id));
-        else
-            m_threadName = ::std::move(QString("%1 Thread %2").arg(rootname).arg(_root.thread_id));
-    }
-    else
-    {
-        m_threadName = ::std::move(QString("Thread %1").arg(_root.thread_id));
-    }
 }
 
 EasyGraphicsItem::~EasyGraphicsItem()
 {
+}
+
+void EasyGraphicsItem::validateName()
+{
+    m_threadName = ::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, *m_pRoot);
 }
 
 const EasyGraphicsView* EasyGraphicsItem::view() const
@@ -375,6 +368,25 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         _painter->setPen(Qt::NoPen);
                     }
 
+                    const auto wprev = w;
+                    decltype(w) dw = 0;
+                    if (item.left() < sceneLeft)
+                    {
+                        // if item left border is out of screen then attach text to the left border of the screen
+                        // to ensure text is always visible for items presenting on the screen.
+                        w += (item.left() - sceneLeft) * currentScale;
+                        x = sceneLeft * currentScale - dx - 2;
+                        w += 2;
+                        dw = 2;
+                    }
+
+                    if (item.right() > sceneRight)
+                    {
+                        w -= (item.right() - sceneRight) * currentScale;
+                        w += 2;
+                        dw += 2;
+                    }
+
                     if (w < EASY_GLOBALS.blocks_size_min)
                         w = EASY_GLOBALS.blocks_size_min;
 
@@ -384,13 +396,18 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
                     prevRight = rect.right() + EASY_GLOBALS.blocks_spacing;
                     //skip_children(next_level, item.children_begin);
-                    if (w < EASY_GLOBALS.blocks_narrow_size)
+                    if (wprev < EASY_GLOBALS.blocks_narrow_size)
                         continue;
 
                     if (totalHeight > ::profiler_gui::GRAPHICS_ROW_SIZE)
                         flags = Qt::AlignCenter;
                     else if (!(item.width() < 1))
                         flags = Qt::AlignHCenter;
+
+                    if (dw > 1) {
+                        w -= dw;
+                        x += 2;
+                    }
                 }
                 else
                 {
@@ -440,6 +457,25 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     if (dh > 0)
                         h -= dh;
 
+                    const auto wprev = w;
+                    decltype(w) dw = 0;
+                    if (item.left() < sceneLeft)
+                    {
+                        // if item left border is out of screen then attach text to the left border of the screen
+                        // to ensure text is always visible for items presenting on the screen.
+                        w += (item.left() - sceneLeft) * currentScale;
+                        x = sceneLeft * currentScale - dx - 2;
+                        w += 2;
+                        dw = 2;
+                    }
+
+                    if (item.right() > sceneRight)
+                    {
+                        w -= (item.right() - sceneRight) * currentScale;
+                        w += 2;
+                        dw += 2;
+                    }
+
                     if (w < EASY_GLOBALS.blocks_size_min)
                         w = EASY_GLOBALS.blocks_size_min;
 
@@ -447,34 +483,24 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     _painter->drawRect(rect);
 
                     prevRight = rect.right() + EASY_GLOBALS.blocks_spacing;
-                    if (w < EASY_GLOBALS.blocks_narrow_size)
+                    if (wprev < EASY_GLOBALS.blocks_narrow_size)
                     {
-                        dont_skip_children(next_level, item.children_begin, w < narrow_size_half ? BLOCK_ITEM_DO_PAINT_FIRST : BLOCK_ITEM_DO_PAINT);
+                        dont_skip_children(next_level, item.children_begin, wprev < narrow_size_half ? BLOCK_ITEM_DO_PAINT_FIRST : BLOCK_ITEM_DO_PAINT);
                         continue;
                     }
 
                     dont_skip_children(next_level, item.children_begin, BLOCK_ITEM_DO_PAINT);
                     if (!(item.width() < 1))
                         flags = Qt::AlignHCenter;
+
+                    if (dw > 1) {
+                        w -= dw;
+                        x += 2;
+                    }
                 }
 
                 // Draw text-----------------------------------
-                // calculating text coordinates
-                auto xtext = x;
-                if (item.left() < sceneLeft)
-                {
-                    // if item left border is out of screen then attach text to the left border of the screen
-                    // to ensure text is always visible for items presenting on the screen.
-                    w += (item.left() - sceneLeft) * currentScale;
-                    xtext = sceneLeft * currentScale - dx;
-                }
-
-                if (item.right() > sceneRight)
-                {
-                    w -= (item.right() - sceneRight) * currentScale;
-                }
-
-                rect.setRect(xtext + 1, top, w - 1, h);
+                rect.setRect(x + 1, top, w - 1, h);
 
                 // text will be painted with inverse color
                 //auto textColor = inverseColor < 0x00808080 ? profiler::colors::Black : profiler::colors::White;
@@ -547,28 +573,36 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         }
 
                         auto x = item.left() * currentScale - dx;
+                        decltype(w) dw = 0;
+                        if (item.left() < sceneLeft)
+                        {
+                            // if item left border is out of screen then attach text to the left border of the screen
+                            // to ensure text is always visible for items presenting on the screen.
+                            w += (item.left() - sceneLeft) * currentScale;
+                            x = sceneLeft * currentScale - dx - 2;
+                            w += 2;
+                            dw = 2;
+                        }
+
+                        if (item.right() > sceneRight)
+                        {
+                            w -= (item.right() - sceneRight) * currentScale;
+                            w += 2;
+                            dw += 2;
+                        }
+
                         rect.setRect(x, top, w, h);
                         _painter->drawRect(rect);
 
                         if (!selectedItemsWasPainted && w > EASY_GLOBALS.blocks_narrow_size)
                         {
+                            if (dw > 1) {
+                                w -= dw;
+                                x += 2;
+                            }
+
                             // Draw text-----------------------------------
-                            // calculating text coordinates
-                            auto xtext = x;
-                            if (item.left() < sceneLeft)
-                            {
-                                // if item left border is out of screen then attach text to the left border of the screen
-                                // to ensure text is always visible for items presenting on the screen.
-                                w += (item.left() - sceneLeft) * currentScale;
-                                xtext = sceneLeft * currentScale - dx;
-                            }
-
-                            if (item.right() > sceneRight)
-                            {
-                                w -= (item.right() - sceneRight) * currentScale;
-                            }
-
-                            rect.setRect(xtext + 1, top, w - 1, h);
+                            rect.setRect(x + 1, top, w - 1, h);
 
                             // text will be painted with inverse color
                             //auto textColor = 0x00ffffff - previousColor;

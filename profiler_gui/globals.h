@@ -90,6 +90,34 @@ namespace profiler_gui {
 
     //////////////////////////////////////////////////////////////////////////
 
+    inline QString decoratedThreadName(bool _use_decorated_thread_name, const::profiler::BlocksTreeRoot& _root, const QString& _unicodeThreadWord)
+    {
+        if (_root.got_name())
+        {
+            QString rootname(toUnicode(_root.name()));
+            if (!_use_decorated_thread_name || rootname.contains(_unicodeThreadWord, Qt::CaseInsensitive))
+                return QString("%1 %2").arg(rootname).arg(_root.thread_id);
+            return QString("%1 Thread %2").arg(rootname).arg(_root.thread_id);
+        }
+
+        return QString("Thread %1").arg(_root.thread_id);
+    }
+
+    inline QString decoratedThreadName(bool _use_decorated_thread_name, const ::profiler::BlocksTreeRoot& _root)
+    {
+        if (_root.got_name())
+        {
+            QString rootname(toUnicode(_root.name()));
+            if (!_use_decorated_thread_name || rootname.contains(toUnicode("thread"), Qt::CaseInsensitive))
+                return QString("%1 %2").arg(rootname).arg(_root.thread_id);
+            return QString("%1 Thread %2").arg(rootname).arg(_root.thread_id);
+        }
+
+        return QString("Thread %1").arg(_root.thread_id);
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+
     enum ChronometerTextPosition : int8_t
     {
         ChronoTextPosition_Center = 0,
@@ -119,6 +147,7 @@ namespace profiler_gui {
         ChronometerTextPosition     chrono_text_position; ///< Selected interval text position
         TimeUnits                             time_units; ///< Units type for time (milliseconds, microseconds, nanoseconds or auto-definition)
         bool                                   connected; ///< Is connected to source (to be able to capture profiling information)
+        bool                   use_decorated_thread_name; ///< Add "Thread" to the name of each thread (if there is no one)
         bool                     enable_event_indicators; ///< Enable event indicators painting (These are narrow rectangles at the bottom of each thread)
         bool                           enable_statistics; ///< Enable gathering and using statistics (Disable if you want to consume less memory)
         bool                          enable_zero_length; ///< Enable zero length blocks (if true, then such blocks will have width == 1 pixel on each scale)

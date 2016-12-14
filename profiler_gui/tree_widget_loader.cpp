@@ -196,22 +196,7 @@ void FillTreeClass<T>::setTreeInternal1(T& _safelocker, Items& _items, ThreadedI
 
         const auto& root = threadTree.second;
         auto item = new EasyTreeWidgetItem();
-
-        QString threadName;
-        if (root.got_name())
-        {
-            QString rootname(::profiler_gui::toUnicode(root.name()));
-            if (rootname.contains(u_thread, Qt::CaseInsensitive))
-                threadName = ::std::move(QString("%1 %2").arg(rootname).arg(root.thread_id));
-            else
-                threadName = ::std::move(QString("%1 Thread %2").arg(rootname).arg(root.thread_id));
-        }
-        else
-        {
-            threadName = ::std::move(QString("Thread %1").arg(root.thread_id));
-        }
-
-        item->setText(COL_NAME, threadName);
+        item->setText(COL_NAME, ::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, root, u_thread));
 
         ::profiler::timestamp_t duration = 0;
         if (!root.children.empty())
@@ -296,22 +281,7 @@ void FillTreeClass<T>::setTreeInternal2(T& _safelocker, Items& _items, ThreadedI
         else
         {
             thread_item = new EasyTreeWidgetItem();
-
-            QString threadName;
-            if (block.root->got_name())
-            {
-                QString rootname(::profiler_gui::toUnicode(block.root->name()));
-                if (rootname.contains(u_thread, Qt::CaseInsensitive))
-                    threadName = ::std::move(QString("%1 %2").arg(rootname).arg(block.root->thread_id));
-                else
-                    threadName = ::std::move(QString("%1 Thread %2").arg(rootname).arg(block.root->thread_id));
-            }
-            else
-            {
-                threadName = ::std::move(QString("Thread %1").arg(block.root->thread_id));
-            }
-
-            thread_item->setText(COL_NAME, threadName);
+            thread_item->setText(COL_NAME, ::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, *block.root, u_thread));
 
             if (!block.root->children.empty())
                 duration = blocksTree(block.root->children.back()).node->end() - blocksTree(block.root->children.front()).node->begin();

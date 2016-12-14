@@ -336,6 +336,16 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     action->setChecked(EASY_GLOBALS.enable_event_indicators);
     connect(action, &QAction::triggered, this, &This::onEventIndicatorsChange);
 
+    action = submenu->addAction("Use decorated thread names");
+    action->setToolTip("Add \'Thread\' word into thread name if there is no one already.\nExamples: \'Render\' will change to \'Render Thread\'\n\'WorkerThread\' will not change.");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.use_decorated_thread_name);
+    connect(action, &QAction::triggered, [this](bool _checked)
+    {
+        EASY_GLOBALS.use_decorated_thread_name = _checked;
+        emit EASY_GLOBALS.events.threadNameDecorationChanged();
+    });
+
     submenu->addSeparator();
     auto actionGroup = new QActionGroup(this);
     actionGroup->setExclusive(true);
@@ -1014,6 +1024,10 @@ void EasyMainWindow::loadSettings()
     if (!flag.isNull())
         EASY_GLOBALS.enable_event_indicators = flag.toBool();
 
+    flag = settings.value("use_decorated_thread_name");
+    if (!flag.isNull())
+        EASY_GLOBALS.use_decorated_thread_name = flag.toBool();
+
     flag = settings.value("enable_statistics");
     if (!flag.isNull())
         EASY_GLOBALS.enable_statistics = flag.toBool();
@@ -1070,6 +1084,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("bind_scene_and_tree_expand_status", EASY_GLOBALS.bind_scene_and_tree_expand_status);
     settings.setValue("selecting_block_changes_thread", EASY_GLOBALS.selecting_block_changes_thread);
     settings.setValue("enable_event_indicators", EASY_GLOBALS.enable_event_indicators);
+    settings.setValue("use_decorated_thread_name", EASY_GLOBALS.use_decorated_thread_name);
     settings.setValue("enable_statistics", EASY_GLOBALS.enable_statistics);
     settings.setValue("encoding", QTextCodec::codecForLocale()->name());
 
