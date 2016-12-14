@@ -1501,27 +1501,69 @@ void EasyGraphicsView::onIdleTimeout()
             auto cse = item->intersectEvent(pos);
             if (cse)
             {
+                const auto& itemBlock = cse->tree;
+
                 auto widget = new QWidget();
                 auto lay = new QGridLayout(widget);
 
                 int row = 0;
                 lay->addWidget(new EasyBoldLabel("Context switch event", widget), row, 0, 1, 2, Qt::AlignHCenter);
-
                 ++row;
+
                 lay->addWidget(new QLabel("Thread:", widget), row, 0, Qt::AlignRight);
                 auto it = EASY_GLOBALS.profiler_blocks.find(cse->tree.node->id());
                 if (it != EASY_GLOBALS.profiler_blocks.end())
                     lay->addWidget(new QLabel(QString("%1 %2").arg(cse->tree.node->id()).arg(it->second.name()), widget), row, 1, Qt::AlignLeft);
                 else
                     lay->addWidget(new QLabel(QString::number(cse->tree.node->id()), widget), row, 1, Qt::AlignLeft);
-
                 ++row;
+
                 lay->addWidget(new QLabel("Process:", widget), row, 0, Qt::AlignRight);
                 lay->addWidget(new QLabel(cse->tree.node->name(), widget), row, 1, Qt::AlignLeft);
-
                 ++row;
+
+                const auto duration = itemBlock.node->duration();
                 lay->addWidget(new QLabel("Duration:", widget), row, 0, Qt::AlignRight);
-                lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, cse->tree.node->duration(), 3), widget), row, 1, Qt::AlignLeft);
+                lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, duration, 3), widget), row, 1, Qt::AlignLeft);
+                ++row;
+
+                if (itemBlock.per_thread_stats)
+                {
+                    lay->addWidget(new QLabel("Sum:", widget), row, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, itemBlock.per_thread_stats->total_duration, 3), widget), row, 1, 1, 3, Qt::AlignLeft);
+                    ++row;
+
+                    lay->addWidget(new EasyBoldLabel("-------- Statistics --------", widget), row, 0, 1, 5, Qt::AlignHCenter);
+                    lay->addWidget(new QLabel("per ", widget), row + 1, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel("This %:", widget), row + 2, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel("Sum %:", widget), row + 3, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel("N Calls:", widget), row + 4, 0, Qt::AlignRight);
+
+                    lay->addWidget(new QLabel("Thread", widget), row + 1, 1, Qt::AlignHCenter);
+
+                    auto percent = ::profiler_gui::percentReal(duration, item->root()->profiled_time);
+                    lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 2, 1, Qt::AlignHCenter);
+
+                    lay->addWidget(new QLabel(QString::number(::profiler_gui::percent(itemBlock.per_thread_stats->total_duration, item->root()->profiled_time)), widget), row + 3, 1, Qt::AlignHCenter);
+
+                    lay->addWidget(new QLabel(QString::number(itemBlock.per_thread_stats->calls_number), widget), row + 4, 1, Qt::AlignHCenter);
+
+                    if (itemBlock.per_frame_stats)
+                    {
+                        int col = 2;
+                        auto frame_duration = blocksTree(itemBlock.per_frame_stats->parent_block).node->duration();
+
+                        lay->addWidget(new QLabel("Frame", widget), row + 1, col, Qt::AlignHCenter);
+
+                        percent = ::profiler_gui::percentReal(duration, frame_duration);
+                        lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 2, col, Qt::AlignHCenter);
+
+                        percent = ::profiler_gui::percentReal(itemBlock.per_frame_stats->total_duration, frame_duration);
+                        lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 3, col, Qt::AlignHCenter);
+
+                        lay->addWidget(new QLabel(QString::number(itemBlock.per_frame_stats->calls_number), widget), row + 4, col, Qt::AlignHCenter);
+                    }
+                }
 
                 m_csInfoWidget = new QGraphicsProxyWidget();
                 m_csInfoWidget->setWidget(widget);

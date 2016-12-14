@@ -188,11 +188,14 @@ typedef ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics
 which uses it as a key, exists only inside fillTreesFromFile function. */
 typedef ::std::unordered_map<::profiler::hashed_cstr, ::profiler::block_id_t> IdMap;
 
+typedef ::std::unordered_map<::profiler::hashed_cstr, ::profiler::BlockStatistics*> CsStatsMap;
+
 #else
 
 // TODO: Create optimized version of profiler::hashed_cstr for Linux too.
 typedef ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, ::profiler::passthrough_hash> StatsMap;
 typedef ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::block_id_t> IdMap;
+typedef ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::BlockStatistics*> CsStatsMap;
 
 #endif
 
@@ -249,6 +252,47 @@ automatically receive statistics update.
     auto stats = new ::profiler::BlockStatistics(duration, _current_index, _parent_index);
     //_stats_map.emplace(key, stats);
     _stats_map.emplace(_current.node->id(), stats);
+
+    return stats;
+}
+
+::profiler::BlockStatistics* update_statistics(CsStatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index)
+{
+    auto duration = _current.node->duration();
+    CsStatsMap::key_type key(_current.node->name());
+    auto it = _stats_map.find(key);
+    if (it != _stats_map.end())
+    {
+        // Update already existing statistics
+
+        auto stats = it->second; // write pointer to statistics into output (this is BlocksTree:: per_thread_stats or per_parent_stats or per_frame_stats)
+
+        ++stats->calls_number; // update calls number of this block
+        stats->total_duration += duration; // update summary duration of all block calls
+
+        if (duration > stats->max_duration)
+        {
+            // update max duration
+            stats->max_duration_block = _current_index;
+            stats->max_duration = duration;
+        }
+
+        if (duration < stats->min_duration)
+        {
+            // update min duraton
+            stats->min_duration_block = _current_index;
+            stats->min_duration = duration;
+        }
+
+        // average duration is calculated inside average_duration() method by dividing total_duration to the calls_number
+
+        return stats;
+    }
+
+    // This is first time the block appear in the file.
+    // Create new statistics.
+    auto stats = new ::profiler::BlockStatistics(duration, _current_index, _parent_index);
+    _stats_map.emplace(key, stats);
 
     return stats;
 }
@@ -462,7 +506,7 @@ extern "C" {
         }
 
         typedef ::std::unordered_map<::profiler::thread_id_t, StatsMap, ::profiler::passthrough_hash> PerThreadStats;
-        PerThreadStats thread_statistics, parent_statistics, frame_statistics;
+        PerThreadStats parent_statistics, frame_statistics;
         IdMap identification_table;
 
         blocks.reserve(total_blocks_number);
@@ -491,6 +535,8 @@ extern "C" {
                 inFile.read(name.data(), name_size);
                 root.thread_name = name.data();
             }
+
+            CsStatsMap per_thread_statistics_cs;
 
             uint32_t blocks_number_in_thread = 0;
             inFile.read((char*)&blocks_number_in_thread, sizeof(decltype(blocks_number_in_thread)));
@@ -534,6 +580,12 @@ extern "C" {
 
                     root.wait_time += baseData->duration();
                     root.sync.emplace_back(block_index);
+
+                    if (gather_statistics)
+                    {
+                        EASY_BLOCK("Gather per thread statistics", ::profiler::colors::Coral);
+                        tree.per_thread_stats = update_statistics(per_thread_statistics_cs, tree, block_index, thread_id);
+                    }
                 }
 
                 auto oldprogress = progress.exchange(20 + static_cast<int>(70 * i / memory_size), ::std::memory_order_release);
@@ -546,6 +598,8 @@ extern "C" {
 
             if (inFile.eof())
                 break;
+
+            StatsMap per_thread_statistics;
 
             blocks_number_in_thread = 0;
             inFile.read((char*)&blocks_number_in_thread, sizeof(decltype(blocks_number_in_thread)));
@@ -600,9 +654,6 @@ extern "C" {
                     tree.node = baseData;
                     const auto block_index = blocks_counter++;
 
-                    auto& per_parent_statistics = parent_statistics[thread_id];
-                    auto& per_thread_statistics = thread_statistics[thread_id];
-
                     if (*tree.node->name() != 0)
                     {
                         // If block has runtime name then generate new id for such block.
@@ -649,6 +700,7 @@ extern "C" {
                             if (gather_statistics)
                             {
                                 EASY_BLOCK("Gather statistic within parent", ::profiler::colors::Magenta);
+                                auto& per_parent_statistics = parent_statistics[thread_id];
                                 per_parent_statistics.clear();
 
                                 //per_parent_statistics.reserve(tree.children.size());     // this gives slow-down on Windows
@@ -731,6 +783,7 @@ extern "C" {
                     //    return blocks[left].node->begin() < blocks[right].node->begin();
                     //});
 
+                    ::profiler::block_index_t cs_index = 0;
                     for (auto i : root.children)
                     {
                         auto& frame = blocks[i];
@@ -738,6 +791,22 @@ extern "C" {
 
                         per_frame_statistics.clear();
                         update_statistics_recursive(per_frame_statistics, frame, i, i, blocks);
+
+                        if (cs_index < root.sync.size())
+                        {
+                            CsStatsMap frame_stats_cs;
+                            do {
+
+                                auto j = root.sync[cs_index];
+                                auto& cs = blocks[j];
+                                if (cs.node->end() < frame.node->begin())
+                                    continue;
+                                if (cs.node->begin() > frame.node->end())
+                                    break;
+                                cs.per_frame_stats = update_statistics(frame_stats_cs, cs, cs_index, i);
+
+                            } while (++cs_index < root.sync.size());
+                        }
 
                         if (root.depth < frame.depth)
                             root.depth = frame.depth;
