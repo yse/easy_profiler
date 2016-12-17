@@ -379,7 +379,7 @@ void EasyHystogramItem::paintByPtr(QPainter* _painter)
                     const qreal item_x = it->left() * realScale - offset;
                     const qreal item_w = ::std::max(it->width() * realScale, 1.0);
                     const qreal item_r = item_x + item_w;
-                    const auto h = HYST_COLUMN_MIN_HEIGHT + (it->width() - m_minDuration) * coeff;
+                    const qreal h = it->width() > m_minDuration ? (HYST_COLUMN_MIN_HEIGHT + (it->width() - m_minDuration) * coeff) : HYST_COLUMN_MIN_HEIGHT;
 
                     if (h < previous_h && item_r < previous_x)
                         continue;
@@ -586,7 +586,7 @@ void EasyHystogramItem::paintById(QPainter* _painter)
                                 const qreal item_x = (beginTime * realScale - offset) * 1e-3;
                                 const qreal item_w = ::std::max(duration * realScale, 1.0);
                                 const qreal item_r = item_x + item_w;
-                                const auto h = HYST_COLUMN_MIN_HEIGHT + (duration - m_minDuration) * coeff;
+                                const qreal h = duration > m_minDuration ? (HYST_COLUMN_MIN_HEIGHT + (duration - m_minDuration) * coeff) : HYST_COLUMN_MIN_HEIGHT;
 
                                 if (h < previous_h && item_r < previous_x)
                                     continue;
@@ -746,9 +746,11 @@ void EasyHystogramItem::setSource(::profiler::thread_id_t _thread_id, const ::pr
             for (const auto& item : *m_pSource)
             {
                 const auto w = item.width();
+
                 if (w > m_maxDuration)
                     m_maxDuration = w;
-                if (w < m_minDuration)
+
+                if (w < m_minDuration && easyDescriptor(easyBlock(item.block).tree.node->id()).type() != ::profiler::BLOCK_TYPE_EVENT)
                     m_minDuration = w;
             }
         }
@@ -1067,7 +1069,7 @@ void EasyHystogramItem::updateImage(HystRegime _regime, qreal _current_scale,
             const qreal item_x = it->left() * realScale - offset;
             const qreal item_w = ::std::max(it->width() * realScale, 1.0);
             const qreal item_r = item_x + item_w;
-            const auto h = HYST_COLUMN_MIN_HEIGHT + (it->width() - m_minDuration) * coeff;
+            const qreal h = it->width() > m_minDuration ? (HYST_COLUMN_MIN_HEIGHT + (it->width() - m_minDuration) * coeff) : HYST_COLUMN_MIN_HEIGHT;
 
             if (h < previous_h && item_r < previous_x)
                 continue;
@@ -1112,7 +1114,7 @@ void EasyHystogramItem::updateImage(HystRegime _regime, qreal _current_scale,
             const qreal item_x = (beginTime * realScale - offset) * 1e-3;
             const qreal item_w = ::std::max(duration * realScale, 1.0);
             const qreal item_r = item_x + item_w;
-            const auto h = HYST_COLUMN_MIN_HEIGHT + (duration - m_minDuration) * coeff;
+            const auto h = duration > m_minDuration ? (HYST_COLUMN_MIN_HEIGHT + (duration - m_minDuration) * coeff) : HYST_COLUMN_MIN_HEIGHT;
 
             if (h < previous_h && item_r < previous_x)
                 continue;
