@@ -199,6 +199,8 @@ typedef ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::BlockStat
 
 #endif
 
+typedef ::std::vector<::profiler::timestamp_t> ChildrenDurations;
+
 //////////////////////////////////////////////////////////////////////////
 
 /** \brief Updates statistics for a profiler block.
@@ -213,7 +215,7 @@ typedef ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::BlockStat
 automatically receive statistics update.
 
 */
-::profiler::BlockStatistics* update_statistics(StatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index)
+::profiler::BlockStatistics* update_statistics(StatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, const ::profiler::blocks_t& _blocks, const ChildrenDurations& _children_dutaions)
 {
     auto duration = _current.node->duration();
     //StatsMap::key_type key(_current.node->name());
@@ -228,19 +230,21 @@ automatically receive statistics update.
         ++stats->calls_number; // update calls number of this block
         stats->total_duration += duration; // update summary duration of all block calls
 
-        if (duration > stats->max_duration)
+        if (duration > _blocks[stats->max_duration_block].node->duration())
         {
             // update max duration
             stats->max_duration_block = _current_index;
-            stats->max_duration = duration;
+            //stats->max_duration = duration;
         }
 
-        if (duration < stats->min_duration)
+        if (duration < _blocks[stats->min_duration_block].node->duration())
         {
             // update min duraton
             stats->min_duration_block = _current_index;
-            stats->min_duration = duration;
+            //stats->min_duration = duration;
         }
+
+        stats->children_duration += _children_dutaions[_current_index];
 
         // average duration is calculated inside average_duration() method by dividing total_duration to the calls_number
 
@@ -249,14 +253,14 @@ automatically receive statistics update.
 
     // This is first time the block appear in the file.
     // Create new statistics.
-    auto stats = new ::profiler::BlockStatistics(duration, _current_index, _parent_index);
+    auto stats = new ::profiler::BlockStatistics(duration, _current_index, _parent_index, _children_dutaions[_current_index]);
     //_stats_map.emplace(key, stats);
     _stats_map.emplace(_current.node->id(), stats);
 
     return stats;
 }
 
-::profiler::BlockStatistics* update_statistics(CsStatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index)
+::profiler::BlockStatistics* update_statistics(CsStatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, const ::profiler::blocks_t& _blocks)
 {
     auto duration = _current.node->duration();
     CsStatsMap::key_type key(_current.node->name());
@@ -270,18 +274,18 @@ automatically receive statistics update.
         ++stats->calls_number; // update calls number of this block
         stats->total_duration += duration; // update summary duration of all block calls
 
-        if (duration > stats->max_duration)
+        if (duration > _blocks[stats->max_duration_block].node->duration())
         {
             // update max duration
             stats->max_duration_block = _current_index;
-            stats->max_duration = duration;
+            //stats->max_duration = duration;
         }
 
-        if (duration < stats->min_duration)
+        if (duration < _blocks[stats->min_duration_block].node->duration())
         {
             // update min duraton
             stats->min_duration_block = _current_index;
-            stats->min_duration = duration;
+            //stats->min_duration = duration;
         }
 
         // average duration is calculated inside average_duration() method by dividing total_duration to the calls_number
@@ -299,11 +303,11 @@ automatically receive statistics update.
 
 //////////////////////////////////////////////////////////////////////////
 
-void update_statistics_recursive(StatsMap& _stats_map, ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, ::profiler::blocks_t& _blocks)
+void update_statistics_recursive(StatsMap& _stats_map, ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, ::profiler::blocks_t& _blocks, const ChildrenDurations& _children_dutaions)
 {
-    _current.per_frame_stats = update_statistics(_stats_map, _current, _current_index, _parent_index);
+    _current.per_frame_stats = update_statistics(_stats_map, _current, _current_index, _parent_index, _blocks, _children_dutaions);
     for (auto i : _current.children)
-        update_statistics_recursive(_stats_map, _blocks[i], i, _parent_index, _blocks);
+        update_statistics_recursive(_stats_map, _blocks[i], i, _parent_index, _blocks, _children_dutaions);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -509,6 +513,7 @@ extern "C" {
         PerThreadStats parent_statistics, frame_statistics;
         IdMap identification_table;
 
+        ChildrenDurations durations(total_blocks_number, 0ULL);
         blocks.reserve(total_blocks_number);
         //olddata = append_regime ? serialized_blocks.data() : nullptr;
         serialized_blocks.set(memory_size);
@@ -584,7 +589,7 @@ extern "C" {
                     if (gather_statistics)
                     {
                         EASY_BLOCK("Gather per thread statistics", ::profiler::colors::Coral);
-                        tree.per_thread_stats = update_statistics(per_thread_statistics_cs, tree, block_index, thread_id);
+                        tree.per_thread_stats = update_statistics(per_thread_statistics_cs, tree, block_index, thread_id, blocks);
                     }
                 }
 
@@ -710,8 +715,7 @@ extern "C" {
                                 for (auto i : tree.children)
                                 {
                                     auto& child = blocks[i];
-                                    child.per_parent_stats = update_statistics(per_parent_statistics, child, i, block_index);
-
+                                    child.per_parent_stats = update_statistics(per_parent_statistics, child, i, block_index, blocks, durations);
                                     children_duration += child.node->duration();
                                     if (tree.depth < child.depth)
                                         tree.depth = child.depth;
@@ -728,6 +732,7 @@ extern "C" {
                                 }
                             }
 
+                            durations[block_index] = children_duration;
                             ++tree.depth;
                         }
                     }
@@ -741,7 +746,7 @@ extern "C" {
                     if (gather_statistics)
                     {
                         EASY_BLOCK("Gather per thread statistics", ::profiler::colors::Coral);
-                        tree.per_thread_stats = update_statistics(per_thread_statistics, tree, block_index, thread_id);
+                        tree.per_thread_stats = update_statistics(per_thread_statistics, tree, block_index, thread_id, blocks, durations);
                     }
                 }
 
@@ -776,7 +781,7 @@ extern "C" {
                 auto& per_parent_statistics = parent_statistics[it.first];
                 per_parent_statistics.clear();
 
-                statistics_threads.emplace_back(::std::thread([&per_parent_statistics, &per_frame_statistics, &blocks](::profiler::BlocksTreeRoot& root)
+                statistics_threads.emplace_back(::std::thread([&per_parent_statistics, &per_frame_statistics, &blocks, &durations](::profiler::BlocksTreeRoot& root)
                 {
                     //::std::sort(root.sync.begin(), root.sync.end(), [&blocks](::profiler::block_index_t left, ::profiler::block_index_t right)
                     //{
@@ -787,10 +792,10 @@ extern "C" {
                     for (auto i : root.children)
                     {
                         auto& frame = blocks[i];
-                        frame.per_parent_stats = update_statistics(per_parent_statistics, frame, i, root.thread_id);
+                        frame.per_parent_stats = update_statistics(per_parent_statistics, frame, i, root.thread_id, blocks, durations);
 
                         per_frame_statistics.clear();
-                        update_statistics_recursive(per_frame_statistics, frame, i, i, blocks);
+                        update_statistics_recursive(per_frame_statistics, frame, i, i, blocks, durations);
 
                         if (cs_index < root.sync.size())
                         {
@@ -803,7 +808,7 @@ extern "C" {
                                     continue;
                                 if (cs.node->begin() > frame.node->end())
                                     break;
-                                cs.per_frame_stats = update_statistics(frame_stats_cs, cs, cs_index, i);
+                                cs.per_frame_stats = update_statistics(frame_stats_cs, cs, cs_index, i, blocks);
 
                             } while (++cs_index < root.sync.size());
                         }

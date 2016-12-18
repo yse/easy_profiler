@@ -58,6 +58,7 @@ namespace profiler_gui {
         void hierarchyFlagChanged(bool);
         void threadNameDecorationChanged();
         void refreshRequired();
+        void blocksTreeModeChanged();
 
     }; // END of class EasyGlobalSignals.
 

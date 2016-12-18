@@ -56,6 +56,7 @@
 #include <QTreeWidget>
 #include <QTimer>
 #include "tree_widget_loader.h"
+#include "tree_widget_item.h"
 #include "easy/reader.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -78,14 +79,18 @@ protected:
     QTreeWidgetItem*             m_lastFound;
     ::profiler::timestamp_t      m_beginTime;
     class QProgressDialog*        m_progress;
+    EasyTreeMode                      m_mode;
     bool                        m_bColorRows;
     bool                           m_bLocked;
     bool             m_bSilentExpandCollapse;
+    char m_columnsHiddenStatus[COL_COLUMNS_NUMBER];
 
 public:
 
     explicit EasyTreeWidget(QWidget* _parent = nullptr);
     virtual ~EasyTreeWidget();
+
+    void contextMenuEvent(QContextMenuEvent* _event) override;
 
     void clearSilent(bool _global = false);
     int findNext(const QString& _str, Qt::MatchFlags _flags);
@@ -99,7 +104,6 @@ public slots:
 
 protected:
 
-    void contextMenuEvent(QContextMenuEvent* _event) override;
     void resizeEvent(QResizeEvent* _event) override;
     void moveEvent(QMoveEvent* _event) override;
 
@@ -130,6 +134,7 @@ private slots:
     void resizeColumnsToContents();
 
     void onHideShowColumn(bool);
+    void onModeChange(bool);
 
     void onFillTimerTimeout();
 
@@ -165,6 +170,7 @@ public:
     explicit EasyHierarchyWidget(QWidget* _parent = nullptr);
     virtual ~EasyHierarchyWidget();
     void keyPressEvent(QKeyEvent* _event) override;
+    void contextMenuEvent(QContextMenuEvent* _event) override;
 
 public:
 

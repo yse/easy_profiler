@@ -1288,6 +1288,12 @@ void EasyGraphicsView::initMode()
 
         repaintScene();
     });
+
+    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::blocksTreeModeChanged, [this]()
+    {
+        if (!m_selectedBlocks.empty())
+            emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_chronometerItem->left()), position2time(m_chronometerItem->right()), m_chronometerItem->reverse());
+    });
 }
 
 //////////////////////////////////////////////////////////////////////////

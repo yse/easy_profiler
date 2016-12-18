@@ -65,9 +65,9 @@
 #include <QToolBar>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
+#include <QByteArray>
 #include <QDebug>
 #include "blocks_tree_widget.h"
-#include "tree_widget_item.h"
 #include "globals.h"
 
 #ifdef _WIN32
@@ -86,6 +86,35 @@
 
 const int HIERARCHY_BUILDER_TIMER_INTERVAL = 40;
 
+const bool SIMPLIFIED_REGIME_COLUMNS[COL_COLUMNS_NUMBER] = {
+    true, //COL_NAME,
+    true, //COL_BEGIN,
+    true, //COL_DURATION,
+    true, //COL_SELF_DURATION,
+    false, //COL_DURATION_SUM_PER_PARENT,
+    true, //COL_DURATION_SUM_PER_FRAME,
+    true, //COL_DURATION_SUM_PER_THREAD,
+    true, //COL_SELF_DURATION_PERCENT,
+    false, //COL_PERCENT_PER_PARENT,
+    false, //COL_PERCENT_PER_FRAME,
+    false, //COL_PERCENT_SUM_PER_PARENT,
+    true, //COL_PERCENT_SUM_PER_FRAME,
+    true, //COL_PERCENT_SUM_PER_THREAD,
+    true, //COL_END,
+    true, //COL_MIN_PER_FRAME,
+    true, //COL_MAX_PER_FRAME,
+    true, //COL_AVERAGE_PER_FRAME,
+    true, //COL_NCALLS_PER_FRAME,
+    true, //COL_MIN_PER_THREAD,
+    true, //COL_MAX_PER_THREAD,
+    true, //COL_AVERAGE_PER_THREAD,
+    true, //COL_NCALLS_PER_THREAD,
+    false, //COL_MIN_PER_PARENT,
+    false, //COL_MAX_PER_PARENT,
+    false, //COL_AVERAGE_PER_PARENT,
+    false //COL_NCALLS_PER_PARENT,
+};
+
 //////////////////////////////////////////////////////////////////////////
 
 EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
@@ -93,10 +122,13 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
     , m_beginTime(::std::numeric_limits<decltype(m_beginTime)>::max())
     , m_lastFound(nullptr)
     , m_progress(nullptr)
+    , m_mode(EasyTreeMode_Plain)
     , m_bColorRows(true)
     , m_bLocked(false)
     , m_bSilentExpandCollapse(false)
 {
+    memset(m_columnsHiddenStatus, 0, sizeof(m_columnsHiddenStatus));
+
     setAutoFillBackground(false);
     setAlternatingRowColors(true);
     setItemsExpandable(true);
@@ -178,6 +210,27 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
 
     loadSettings();
 
+    if (m_mode == EasyTreeMode_Full)
+    {
+        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+            m_columnsHiddenStatus[i] = isColumnHidden(i) ? 1 : 0;
+    }
+    else
+    {
+        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+        {
+            if (SIMPLIFIED_REGIME_COLUMNS[i])
+            {
+                if (isColumnHidden(i))
+                    m_columnsHiddenStatus[i] = 1;
+            }
+            else if (!isColumnHidden(i))
+            {
+                setColumnHidden(i, true);
+            }
+        }
+    }
+
     m_progress = new QProgressDialog("Building blocks hierarchy...", "", 0, 100, this, Qt::FramelessWindowHint);
     m_progress->setAttribute(Qt::WA_TranslucentBackground);
     m_progress->setCancelButton(nullptr);
@@ -224,7 +277,11 @@ void EasyTreeWidget::onFillTimerTimeout()
         m_inputBlocks.clear();
 
         setSortingEnabled(true);
-        sortByColumn(COL_BEGIN, Qt::AscendingOrder);
+
+        sortByColumn(COL_BEGIN, Qt::AscendingOrder); // sort by begin time
+        if (m_mode == EasyTreeMode_Plain) // and after that, sort by frame %
+            sortByColumn(COL_PERCENT_SUM_PER_FRAME, Qt::DescendingOrder);
+
         //resizeColumnToContents(COL_NAME);
         resizeColumnsToContents();
 
@@ -249,7 +306,7 @@ void EasyTreeWidget::setTree(const unsigned int _blocksNumber, const ::profiler:
         m_bLocked = true;
         m_progress->setValue(0);
         m_progress->show();
-        m_hierarchyBuilder.fillTree(m_beginTime, _blocksNumber, _blocksTree, m_bColorRows);
+        m_hierarchyBuilder.fillTree(m_beginTime, _blocksNumber, _blocksTree, m_bColorRows, m_mode);
         m_fillTimer.start(HIERARCHY_BUILDER_TIMER_INTERVAL);
     }
 
@@ -282,7 +339,7 @@ void EasyTreeWidget::setTreeBlocks(const ::profiler_gui::TreeBlocks& _blocks, ::
         m_bLocked = true;
         m_progress->setValue(0);
         m_progress->show();
-        m_hierarchyBuilder.fillTreeBlocks(m_inputBlocks, _session_begin_time, _left, _right, _strict, m_bColorRows);
+        m_hierarchyBuilder.fillTreeBlocks(m_inputBlocks, _session_begin_time, _left, _right, _strict, m_bColorRows, m_mode);
         m_fillTimer.start(HIERARCHY_BUILDER_TIMER_INTERVAL);
     }
 
@@ -523,7 +580,24 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
         menu.addSeparator();
     }
 
+    action = menu.addAction("Hierarchy mode");
+    action->setToolTip("Display full blocks hierarchy");
+    action->setCheckable(true);
+    action->setChecked(m_mode == EasyTreeMode_Full);
+    action->setData((quint32)EasyTreeMode_Full);
+    connect(action, &QAction::triggered, this, &This::onModeChange);
+
+    action = menu.addAction("Plain mode");
+    action->setToolTip("Display plain list of blocks per frame.\nSome columns are disabled with this mode.");
+    action->setCheckable(true);
+    action->setChecked(m_mode == EasyTreeMode_Plain);
+    action->setData((quint32)EasyTreeMode_Plain);
+    connect(action, &QAction::triggered, this, &This::onModeChange);
+
+    menu.addSeparator();
+
     action = menu.addAction("Color rows");
+    action->setToolTip("Colorize rows with same colors as on diagram");
     action->setCheckable(true);
     action->setChecked(m_bColorRows);
     connect(action, &QAction::triggered, this, &This::onColorizeRowsTriggered);
@@ -610,8 +684,11 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
         auto columnAction = new QAction(hdr->text(i), nullptr);
         columnAction->setData(i);
         columnAction->setCheckable(true);
-        columnAction->setChecked(!isColumnHidden(i));
-        connect(columnAction, &QAction::triggered, this, &This::onHideShowColumn);
+        columnAction->setChecked(m_columnsHiddenStatus[i] == 0);// !isColumnHidden(i));
+        if (m_mode == EasyTreeMode_Full || SIMPLIFIED_REGIME_COLUMNS[i])
+            connect(columnAction, &QAction::triggered, this, &This::onHideShowColumn);
+        else
+            columnAction->setEnabled(false);
         hidemenu->addAction(columnAction);
     }
 
@@ -951,11 +1028,36 @@ void EasyTreeWidget::onHideShowColumn(bool)
     if (action == nullptr)
         return;
 
-    auto col = action->data().toInt();
-    if (isColumnHidden(col))
-        showColumn(col);
+    const auto col = action->data().toInt();
+    const bool hideCol = m_columnsHiddenStatus[col] == 0;
+    setColumnHidden(col, hideCol);
+    m_columnsHiddenStatus[col] = hideCol ? 1 : 0;
+}
+
+void EasyTreeWidget::onModeChange(bool)
+{
+    auto action = qobject_cast<QAction*>(sender());
+    if (action == nullptr)
+        return;
+
+    const auto prev = m_mode;
+    m_mode = static_cast<EasyTreeMode>(action->data().toUInt());
+
+    if (m_mode == prev)
+        return;
+
+    if (m_mode == EasyTreeMode_Full)
+    {
+        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+            setColumnHidden(i, m_columnsHiddenStatus[i] != 0);
+    }
     else
-        hideColumn(col);
+    {
+        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+            setColumnHidden(i, m_columnsHiddenStatus[i] != 0 || !SIMPLIFIED_REGIME_COLUMNS[i]);
+    }
+
+    emit EASY_GLOBALS.events.blocksTreeModeChanged();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -965,9 +1067,20 @@ void EasyTreeWidget::loadSettings()
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
     settings.beginGroup("tree_widget");
 
-    auto color_rows_set = settings.value("color_rows");
-    if (!color_rows_set.isNull())
-        m_bColorRows = color_rows_set.toBool();
+    auto val = settings.value("color_rows");
+    if (!val.isNull())
+        m_bColorRows = val.toBool();
+
+    val = settings.value("regime");
+    if (!val.isNull())
+        m_mode = static_cast<EasyTreeMode>(val.toUInt());
+
+    val = settings.value("columns");
+    if (!val.isNull())
+    {
+        auto byteArray = val.toByteArray();
+        memcpy(m_columnsHiddenStatus, byteArray.constData(), sizeof(m_columnsHiddenStatus));
+    }
 
     auto state = settings.value("headerState").toByteArray();
     if (!state.isEmpty())
@@ -981,6 +1094,8 @@ void EasyTreeWidget::saveSettings()
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
     settings.beginGroup("tree_widget");
     settings.setValue("color_rows", m_bColorRows);
+    settings.setValue("regime", static_cast<uint8_t>(m_mode));
+    settings.setValue("columns", QByteArray(m_columnsHiddenStatus, COL_COLUMNS_NUMBER));
     settings.setValue("headerState", header()->saveState());
     settings.endGroup();
 }
@@ -1084,6 +1199,15 @@ void EasyHierarchyWidget::keyPressEvent(QKeyEvent* _event)
 
     _event->accept();
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void EasyHierarchyWidget::contextMenuEvent(QContextMenuEvent* _event)
+{
+    m_tree->contextMenuEvent(_event);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 EasyTreeWidget* EasyHierarchyWidget::tree()
 {
