@@ -1474,8 +1474,8 @@ void EasyMainWindow::onConnectClicked(bool)
     const bool isReconnecting = (EASY_GLOBALS.connected && m_listener.port() == port && address.toStdString() == m_listener.address());
     if (EASY_GLOBALS.connected)
     {
-        if (QMessageBox::question(this, isReconnecting ? "Reconnect" : "New connection", QString("Are you sure you want to %1?\nCurrent connection will be broken.")
-            .arg(isReconnecting ? "re-connect" : "connect to the new address"),
+        if (QMessageBox::question(this, isReconnecting ? "Reconnect" : "New connection", QString("Current connection will be broken\n\n%1")
+            .arg(isReconnecting ? "Re-connect?" : "Establish new connection?"),
             QMessageBox::Yes, QMessageBox::No) != QMessageBox::Yes)
         {
             if (!isReconnecting)
@@ -1494,16 +1494,28 @@ void EasyMainWindow::onConnectClicked(bool)
     {
         if (EASY_GLOBALS.connected && !isReconnecting)
         {
-            m_addressEdit->setText(m_lastAddress);
-            m_portEdit->setText(QString::number(m_lastPort));
-            if (!m_listener.connect(m_lastAddress.toStdString().c_str(), m_lastPort, reply))
+            if (QMessageBox::warning(this, "Warning", QString("Cannot connect to %1\n\nRestore previous connection?").arg(address),
+                QMessageBox::Yes, QMessageBox::No) == QMessageBox::Yes)
             {
-                QMessageBox::warning(this, "Warning", QString("Cannot connect to %1.\nPrevious connection lost.").arg(address), QMessageBox::Close);
-                setDisconnected(false);
+                if (!m_listener.connect(m_lastAddress.toStdString().c_str(), m_lastPort, reply))
+                {
+                    QMessageBox::warning(this, "Warning", "Cannot restore previous connection", QMessageBox::Close);
+                    setDisconnected(false);
+                    m_lastAddress = ::std::move(address);
+                    m_lastPort = port;
+                }
+                else
+                {
+                    m_addressEdit->setText(m_lastAddress);
+                    m_portEdit->setText(QString::number(m_lastPort));
+                //    QMessageBox::information(this, "Information", "Previous connection restored", QMessageBox::Close);
+                }
             }
             else
             {
-                QMessageBox::information(this, "Information", QString("Cannot connect to %1.\nRestored previous connection.").arg(address), QMessageBox::Close);
+                setDisconnected(false);
+                m_lastAddress = ::std::move(address);
+                m_lastPort = port;
             }
         }
         else
@@ -1511,6 +1523,12 @@ void EasyMainWindow::onConnectClicked(bool)
             QMessageBox::warning(this, "Warning", QString("Cannot connect to %1").arg(address), QMessageBox::Close);
             if (EASY_GLOBALS.connected)
                 setDisconnected(false);
+
+            if (!isReconnecting)
+            {
+                m_lastAddress = ::std::move(address);
+                m_lastPort = port;
+            }
         }
 
         return;
@@ -1556,7 +1574,24 @@ void EasyMainWindow::onCaptureClicked(bool)
         return;
     }
 
-    m_listener.startCapture();
+    if (!m_listener.startCapture())
+    {
+        // Connection lost. Try to restore connection.
+
+        profiler::net::EasyProfilerStatus reply(false, false, false);
+        if (!m_listener.connect(m_lastAddress.toStdString().c_str(), m_lastPort, reply))
+        {
+            setDisconnected();
+            return;
+        }
+
+        if (!m_listener.startCapture())
+        {
+            setDisconnected();
+            return;
+        }
+    }
+
     m_listenerTimer.start(250);
 
     m_listenerDialog = new QMessageBox(QMessageBox::Information, "Capturing frames...", "Close this dialog to stop capturing.", QMessageBox::NoButton, this);
@@ -1719,6 +1754,7 @@ EasySocketListener::EasySocketListener() : m_receivedSize(0), m_port(0), m_regim
 {
     m_bInterrupt = ATOMIC_VAR_INIT(false);
     m_bConnected = ATOMIC_VAR_INIT(false);
+    m_bStopReceive = ATOMIC_VAR_INIT(false);
 }
 
 EasySocketListener::~EasySocketListener()
@@ -1841,19 +1877,22 @@ bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profile
     return isConnected;
 }
 
-void EasySocketListener::startCapture()
+bool EasySocketListener::startCapture()
 {
     clearData();
 
     profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE);
     m_easySocket.send(&request, sizeof(request));
 
-    if(m_easySocket.isDisconnected() ){
+    if (m_easySocket.isDisconnected()) {
         m_bConnected.store(false, ::std::memory_order_release);
+        return false;
     }
 
     m_regime = LISTENER_CAPTURE;
     m_thread = ::std::move(::std::thread(&EasySocketListener::listenCapture, this));
+
+    return true;
 }
 
 void EasySocketListener::stopCapture()
@@ -1861,16 +1900,18 @@ void EasySocketListener::stopCapture()
     if (!m_thread.joinable() || m_regime != LISTENER_CAPTURE)
         return;
 
-    profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE);
-    m_easySocket.send(&request, sizeof(request));
+    m_bStopReceive.store(true, ::std::memory_order_release);
 
-    if(m_easySocket.isDisconnected() ){
-        m_bConnected.store(false, ::std::memory_order_release);
-    }
+    //profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE);
+    //m_easySocket.send(&request, sizeof(request));
 
     m_thread.join();
 
+    if (m_easySocket.isDisconnected())
+        m_bConnected.store(false, ::std::memory_order_release);
+
     m_regime = LISTENER_IDLE;
+    m_bStopReceive.store(false, ::std::memory_order_release);
 }
 
 void EasySocketListener::requestBlocksDescription()
@@ -1903,6 +1944,13 @@ void EasySocketListener::listenCapture()
     bool isListen = true, disconnected = false;
     while (isListen && !m_bInterrupt.load(::std::memory_order_acquire))
     {
+        if (m_bStopReceive.load(::std::memory_order_acquire))
+        {
+            profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE);
+            m_easySocket.send(&request, sizeof(request));
+            m_bStopReceive.store(false, ::std::memory_order_release);
+        }
+
         if ((bytes - seek) == 0)
         {
             bytes = m_easySocket.receive(buffer, buffer_size);
@@ -2024,6 +2072,13 @@ void EasySocketListener::listenCapture()
                         neededSize -= toWrite;
                         loaded += toWrite;
                         seek = toWrite;
+                    }
+
+                    if (m_bStopReceive.load(::std::memory_order_acquire))
+                    {
+                        profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE);
+                        m_easySocket.send(&request, sizeof(request));
+                        m_bStopReceive.store(false, ::std::memory_order_release);
                     }
 
                     break;

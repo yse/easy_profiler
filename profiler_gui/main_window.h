@@ -132,6 +132,7 @@ class EasySocketListener Q_DECL_FINAL
     uint16_t                    m_port; ///< 
     ::std::atomic_bool    m_bInterrupt; ///< 
     ::std::atomic_bool    m_bConnected; ///< 
+    ::std::atomic_bool  m_bStopReceive; ///< 
     EasyListenerRegime        m_regime; ///< 
 
 public:
@@ -150,7 +151,7 @@ public:
 
     bool connect(const char* _ipaddress, uint16_t _port, ::profiler::net::EasyProfilerStatus& _reply);
 
-    void startCapture();
+    bool startCapture();
     void stopCapture();
     void requestBlocksDescription();
 
