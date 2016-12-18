@@ -732,6 +732,7 @@ EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
     m_searchBox->setContentsMargins(5, 0, 0, 0);
 
     auto tb = new QToolBar(this);
+    tb->setIconSize(::profiler_gui::ICONS_SIZE);
     auto refreshButton = tb->addAction(QIcon(":/Reload"), tr("Refresh blocks list"));
     refreshButton->setEnabled(EASY_GLOBALS.connected);
     refreshButton->setToolTip(tr("Refresh blocks list.\nConnection needed."));

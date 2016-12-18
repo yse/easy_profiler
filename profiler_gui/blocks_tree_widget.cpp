@@ -1149,6 +1149,7 @@ EasyHierarchyWidget::EasyHierarchyWidget(QWidget* _parent) : Parent(_parent)
     menu->addAction(a);
 
     auto tb = new QToolBar(this);
+    tb->setIconSize(::profiler_gui::ICONS_SIZE);
     tb->setContentsMargins(0, 0, 0, 0);
     tb->addAction(m_searchButton);
     tb->addWidget(m_searchBox);

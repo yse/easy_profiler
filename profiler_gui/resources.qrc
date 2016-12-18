@@ -19,6 +19,7 @@
         <file alias="Connection">icons/lan.svg</file>
         <file alias="Connection-on">icons/lan_on.svg</file>
         <file alias="Start">icons/play.svg</file>
+        <file alias="Stop">icons/stop.svg</file>
         <file alias="Delete">icons/delete.svg</file>
         <file alias="List">icons/list.svg</file>
         <file alias="Search-next">icons/search-next.svg</file>

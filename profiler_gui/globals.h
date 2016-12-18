@@ -69,6 +69,7 @@ namespace profiler_gui {
     const qreal SCALING_COEFFICIENT = 1.25;
     const qreal SCALING_COEFFICIENT_INV = 1.0 / SCALING_COEFFICIENT;
 
+    const QSize ICONS_SIZE(28, 28);
     const uint16_t GRAPHICS_ROW_SIZE = 18;
     const uint16_t GRAPHICS_ROW_SPACING = 2;
     const uint16_t GRAPHICS_ROW_SIZE_FULL = GRAPHICS_ROW_SIZE + GRAPHICS_ROW_SPACING;

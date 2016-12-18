@@ -163,6 +163,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
 
 
     auto toolbar = addToolBar("FileToolbar");
+    toolbar->setIconSize(::profiler_gui::ICONS_SIZE);
     toolbar->setObjectName("ProfilerGUI_FileToolbar");
     toolbar->setContentsMargins(1, 0, 1, 0);
 
@@ -189,6 +190,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
 
 
     toolbar = addToolBar("ProfileToolbar");
+    toolbar->setIconSize(::profiler_gui::ICONS_SIZE);
     toolbar->setObjectName("ProfilerGUI_ProfileToolbar");
     toolbar->setContentsMargins(1, 0, 1, 0);
 
@@ -225,6 +227,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
 
 
     toolbar = addToolBar("SetupToolbar");
+    toolbar->setIconSize(::profiler_gui::ICONS_SIZE);
     toolbar->setObjectName("ProfilerGUI_SetupToolbar");
     toolbar->setContentsMargins(1, 0, 1, 0);
 
@@ -493,6 +496,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
 
     auto tb_height = toolbar->height() + 4;
     toolbar = addToolBar("FrameToolbar");
+    toolbar->setIconSize(::profiler_gui::ICONS_SIZE);
     toolbar->setObjectName("ProfilerGUI_FrameToolbar");
     toolbar->setContentsMargins(1, 0, 1, 0);
     toolbar->setMinimumHeight(tb_height);
@@ -1595,7 +1599,15 @@ void EasyMainWindow::onCaptureClicked(bool)
     m_listenerTimer.start(250);
 
     m_listenerDialog = new QMessageBox(QMessageBox::Information, "Capturing frames...", "Close this dialog to stop capturing.", QMessageBox::NoButton, this);
-    m_listenerDialog->addButton("Stop", QMessageBox::AcceptRole);
+
+    auto button = new QToolButton(m_listenerDialog);
+    button->setAutoRaise(true);
+    button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    button->setIconSize(::profiler_gui::ICONS_SIZE);
+    button->setIcon(QIcon(":/Stop"));
+    button->setText("Stop");
+    m_listenerDialog->addButton(button, QMessageBox::AcceptRole);
+
     m_listenerDialog->setAttribute(Qt::WA_DeleteOnClose, true);
     connect(m_listenerDialog, &QDialog::finished, this, &This::onListenerDialogClose);
     m_listenerDialog->show();
