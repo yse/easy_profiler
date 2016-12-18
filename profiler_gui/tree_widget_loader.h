@@ -49,7 +49,7 @@
 
 #include <stdlib.h>
 #include <vector>
-#include <unordered_set>
+//#include <unordered_set>
 #include <thread>
 #include <atomic>
 #include "easy/reader.h"
@@ -67,7 +67,7 @@ typedef ::std::vector<EasyTreeWidgetItem*> Items;
 
 typedef ::std::vector<::std::pair<::profiler::thread_id_t, EasyTreeWidgetItem*> > ThreadedItems;
 typedef ::std::unordered_map<::profiler::thread_id_t, EasyTreeWidgetItem*, ::profiler_gui::do_no_hash<::profiler::thread_id_t>::hasher_t> RootsMap;
-typedef ::std::unordered_set<::profiler::block_id_t, ::profiler_gui::do_no_hash<::profiler::block_index_t>::hasher_t> IdItems;
+typedef ::std::unordered_map<::profiler::block_id_t, EasyTreeWidgetItem*, ::profiler_gui::do_no_hash<::profiler::block_index_t>::hasher_t> IdItems;
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -113,8 +113,10 @@ private:
 
     void setTreeInternal1(::profiler::timestamp_t& _beginTime, const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, bool _colorizeRows, bool _addZeroBlocks, bool _decoratedThreadNames, ::profiler_gui::TimeUnits _units);
     void setTreeInternal2(const ::profiler::timestamp_t& _beginTime, const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, bool _colorizeRows, bool _addZeroBlocks, bool _decoratedThreadNames, ::profiler_gui::TimeUnits _units);
-    size_t setTreeInternal(const ::profiler::timestamp_t& _beginTime, const ::profiler::BlocksTree::children_t& _children, EasyTreeWidgetItem* _parent, EasyTreeWidgetItem* _frame, EasyTreeWidgetItem* _thread, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration, bool _colorizeRows, bool _addZeroBlocks, ::profiler_gui::TimeUnits _units);
-    size_t setTreeInternalPlain(const ::profiler::timestamp_t& _beginTime, const ::profiler::BlocksTree::children_t& _children, EasyTreeWidgetItem* _parent, EasyTreeWidgetItem* _frame, EasyTreeWidgetItem* _thread, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration, bool _colorizeRows, bool _addZeroBlocks, ::profiler_gui::TimeUnits _units);
+    size_t setTreeInternal(const ::profiler::BlocksTreeRoot& _threadRoot, ::profiler::block_index_t _firstCswitch, const ::profiler::timestamp_t& _beginTime, const ::profiler::BlocksTree::children_t& _children, EasyTreeWidgetItem* _parent, EasyTreeWidgetItem* _frame, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration, bool _colorizeRows, bool _addZeroBlocks, ::profiler_gui::TimeUnits _units);
+    size_t setTreeInternalPlain(const ::profiler::BlocksTreeRoot& _threadRoot, ::profiler::block_index_t _firstCswitch, const ::profiler::timestamp_t& _beginTime, const ::profiler::BlocksTree::children_t& _children, EasyTreeWidgetItem* _parent, EasyTreeWidgetItem* _frame, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration, bool _colorizeRows, bool _addZeroBlocks, ::profiler_gui::TimeUnits _units);
+
+    ::profiler::timestamp_t calculateChildrenDurationRecursive(const ::profiler::BlocksTree::children_t& _children, ::profiler::block_id_t _id);
 
 }; // END of class EasyTreeWidgetLoader.
 

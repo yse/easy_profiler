@@ -92,13 +92,13 @@ const bool SIMPLIFIED_REGIME_COLUMNS[COL_COLUMNS_NUMBER] = {
     true, //COL_DURATION,
     true, //COL_SELF_DURATION,
     false, //COL_DURATION_SUM_PER_PARENT,
-    true, //COL_DURATION_SUM_PER_FRAME,
+    false, //COL_DURATION_SUM_PER_FRAME,
     true, //COL_DURATION_SUM_PER_THREAD,
     true, //COL_SELF_DURATION_PERCENT,
     false, //COL_PERCENT_PER_PARENT,
-    false, //COL_PERCENT_PER_FRAME,
+    true, //COL_PERCENT_PER_FRAME,
     false, //COL_PERCENT_SUM_PER_PARENT,
-    true, //COL_PERCENT_SUM_PER_FRAME,
+    false, //COL_PERCENT_SUM_PER_FRAME,
     true, //COL_PERCENT_SUM_PER_THREAD,
     true, //COL_END,
     true, //COL_MIN_PER_FRAME,
@@ -112,7 +112,9 @@ const bool SIMPLIFIED_REGIME_COLUMNS[COL_COLUMNS_NUMBER] = {
     false, //COL_MIN_PER_PARENT,
     false, //COL_MAX_PER_PARENT,
     false, //COL_AVERAGE_PER_PARENT,
-    false //COL_NCALLS_PER_PARENT,
+    false, //COL_NCALLS_PER_PARENT,
+    true, //COL_ACTIVE_TIME,
+    true //COL_ACTIVE_PERCENT,
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -175,6 +177,9 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
     header_item->setText(COL_MAX_PER_THREAD, "Max dur./Thread");
     header_item->setText(COL_AVERAGE_PER_THREAD, "Average dur./Thread");
     header_item->setText(COL_NCALLS_PER_THREAD, "N Calls/Thread");
+
+    header_item->setText(COL_ACTIVE_TIME, "Active time");
+    header_item->setText(COL_ACTIVE_PERCENT, "Active %");
 
     auto color = QColor::fromRgb(::profiler::colors::DeepOrange900);
     header_item->setForeground(COL_MIN_PER_THREAD, color);
@@ -280,7 +285,7 @@ void EasyTreeWidget::onFillTimerTimeout()
 
         sortByColumn(COL_BEGIN, Qt::AscendingOrder); // sort by begin time
         if (m_mode == EasyTreeMode_Plain) // and after that, sort by frame %
-            sortByColumn(COL_PERCENT_SUM_PER_FRAME, Qt::DescendingOrder);
+            sortByColumn(COL_PERCENT_PER_FRAME, Qt::DescendingOrder);
 
         //resizeColumnToContents(COL_NAME);
         resizeColumnsToContents();
@@ -1079,7 +1084,7 @@ void EasyTreeWidget::loadSettings()
     if (!val.isNull())
     {
         auto byteArray = val.toByteArray();
-        memcpy(m_columnsHiddenStatus, byteArray.constData(), sizeof(m_columnsHiddenStatus));
+        memcpy(m_columnsHiddenStatus, byteArray.constData(), ::std::min(sizeof(m_columnsHiddenStatus), (size_t)byteArray.size()));
     }
 
     auto state = settings.value("headerState").toByteArray();

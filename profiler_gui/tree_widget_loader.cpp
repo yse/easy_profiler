@@ -217,7 +217,7 @@ void EasyTreeWidgetLoader::setTreeInternal1(::profiler::timestamp_t& _beginTime,
         item->setTimeSmart(COL_SELF_DURATION, _units, root.profiled_time);
 
         ::profiler::timestamp_t children_duration = 0;
-        const auto children_items_number = setTreeInternal(_beginTime, root.children, item, nullptr, item, _beginTime, finishtime + 1000000000ULL, false, children_duration, _colorizeRows, _addZeroBlocks, _units);
+        const auto children_items_number = setTreeInternal(root, 0, _beginTime, root.children, item, nullptr, _beginTime, finishtime + 1000000000ULL, false, children_duration, _colorizeRows, _addZeroBlocks, _units);
 
         if (children_items_number > 0)
         {
@@ -249,6 +249,8 @@ void EasyTreeWidgetLoader::setTreeInternal1(::profiler::timestamp_t& _beginTime,
 //     return children_number;
 // }
 
+typedef ::std::unordered_map<::profiler::thread_id_t, ::profiler::block_index_t, ::profiler_gui::do_no_hash<::profiler::thread_id_t>::hasher_t> BeginEndIndicesMap;
+
 void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _beginTime, const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, bool _colorizeRows, bool _addZeroBlocks, bool _decoratedThreadNames, ::profiler_gui::TimeUnits _units)
 {
     //size_t blocksNumber = 0;
@@ -257,6 +259,7 @@ void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _begi
     //    //blocksNumber += block.tree->total_children_number;
     //m_items.reserve(blocksNumber + _blocks.size()); // blocksNumber does not include root blocks
 
+    BeginEndIndicesMap beginEndMap;
     RootsMap threadsMap;
 
     auto const setTree = (m_mode == EasyTreeMode_Full) ? &EasyTreeWidgetLoader::setTreeInternal : &EasyTreeWidgetLoader::setTreeInternalPlain;
@@ -280,6 +283,7 @@ void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _begi
 
         ::profiler::timestamp_t duration = 0;
         EasyTreeWidgetItem* thread_item = nullptr;
+        ::profiler::block_index_t& firstCswitch = beginEndMap[block.root->thread_id];
         auto thread_item_it = threadsMap.find(block.root->thread_id);
         if (thread_item_it != threadsMap.end())
         {
@@ -301,6 +305,49 @@ void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _begi
             thread_item->setTimeSmart(COL_SELF_DURATION, _units, block.root->profiled_time);
 
             threadsMap.insert(::std::make_pair(block.root->thread_id, thread_item));
+
+            firstCswitch = 0;
+            auto it = ::std::lower_bound(block.root->sync.begin(), block.root->sync.end(), _left, [](::profiler::block_index_t ind, decltype(_left) _val)
+            {
+                return EASY_GLOBALS.gui_blocks[ind].tree.node->begin() < _val;
+            });
+
+            if (it != block.root->sync.end())
+            {
+                firstCswitch = it - block.root->sync.begin();
+                if (firstCswitch > 0)
+                    --firstCswitch;
+            }
+            else
+            {
+                firstCswitch = static_cast<::profiler::block_index_t>(block.root->sync.size());
+            }
+        }
+
+        bool hasContextSwitch = false;
+        ::profiler::timestamp_t idleTime = 0;
+        for (::profiler::block_index_t ind = firstCswitch, ncs = static_cast<::profiler::block_index_t>(block.root->sync.size()); ind < ncs; ++ind)
+        {
+            auto cs_index = block.root->sync[ind];
+            const auto cs = EASY_GLOBALS.gui_blocks[cs_index].tree.node;
+
+            if (cs->begin() > endTime)
+            {
+                if (!hasContextSwitch)
+                    firstCswitch = ind;
+                break;
+            }
+
+            if (startTime <= cs->begin() && cs->end() <= endTime)
+            {
+                if (!hasContextSwitch)
+                {
+                    firstCswitch = ind;
+                    hasContextSwitch = true;
+                }
+
+                idleTime += cs->duration();
+            }
         }
 
         auto item = new EasyTreeWidgetItem(block.tree, thread_item);
@@ -309,6 +356,13 @@ void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _begi
         auto name = *gui_block.tree.node->name() != 0 ? gui_block.tree.node->name() : easyDescriptor(gui_block.tree.node->id()).name();
         item->setText(COL_NAME, ::profiler_gui::toUnicode(name));
         item->setTimeSmart(COL_DURATION, _units, duration);
+
+        auto active_time = duration - idleTime;
+        auto active_percent = duration == 0 ? 100. : ::profiler_gui::percentReal(active_time, duration);
+        item->setTimeSmart(COL_ACTIVE_TIME, _units, active_time);
+        item->setText(COL_ACTIVE_PERCENT, QString::number(active_percent, 'g', 3));
+        item->setData(COL_ACTIVE_PERCENT, Qt::UserRole, active_percent);
+
         item->setTimeMs(COL_BEGIN, startTime - _beginTime);
         item->setTimeMs(COL_END, endTime - _beginTime);
 
@@ -386,7 +440,7 @@ void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _begi
         if (!gui_block.tree.children.empty())
         {
             m_iditems.clear();
-            children_items_number = (this->*setTree)(_beginTime, gui_block.tree.children, item, item, thread_item, _left, _right, _strict, children_duration, _colorizeRows, _addZeroBlocks, _units);
+            children_items_number = (this->*setTree)(*block.root, firstCswitch, _beginTime, gui_block.tree.children, item, item, _left, _right, _strict, children_duration, _colorizeRows, _addZeroBlocks, _units);
             if (interrupted())
                 break;
         }
@@ -460,7 +514,7 @@ void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _begi
 
 //////////////////////////////////////////////////////////////////////////
 
-size_t EasyTreeWidgetLoader::setTreeInternal(const ::profiler::timestamp_t& _beginTime, const ::profiler::BlocksTree::children_t& _children, EasyTreeWidgetItem* _parent, EasyTreeWidgetItem* _frame, EasyTreeWidgetItem* _thread, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration, bool _colorizeRows, bool _addZeroBlocks, ::profiler_gui::TimeUnits _units)
+size_t EasyTreeWidgetLoader::setTreeInternal(const ::profiler::BlocksTreeRoot& _threadRoot, ::profiler::block_index_t _firstCswitch, const ::profiler::timestamp_t& _beginTime, const ::profiler::BlocksTree::children_t& _children, EasyTreeWidgetItem* _parent, EasyTreeWidgetItem* _frame, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration, bool _colorizeRows, bool _addZeroBlocks, ::profiler_gui::TimeUnits _units)
 {
     auto const setTree = m_mode == EasyTreeMode_Full ? &EasyTreeWidgetLoader::setTreeInternal : &EasyTreeWidgetLoader::setTreeInternalPlain;
 
@@ -484,11 +538,44 @@ size_t EasyTreeWidgetLoader::setTreeInternal(const ::profiler::timestamp_t& _beg
         if (startTime > _right || endTime < _left)
             continue;
 
+        bool hasContextSwitch = false;
+        ::profiler::timestamp_t idleTime = 0;
+        for (::profiler::block_index_t ind = _firstCswitch, ncs = static_cast<::profiler::block_index_t>(_threadRoot.sync.size()); ind < ncs; ++ind)
+        {
+            auto cs_index = _threadRoot.sync[ind];
+            const auto cs = EASY_GLOBALS.gui_blocks[cs_index].tree.node;
+
+            if (cs->begin() > endTime)
+            {
+                if (!hasContextSwitch)
+                    _firstCswitch = ind;
+                break;
+            }
+
+            if (startTime <= cs->begin() && cs->end() <= endTime)
+            {
+                if (!hasContextSwitch)
+                {
+                    _firstCswitch = ind;
+                    hasContextSwitch = true;
+                }
+
+                idleTime += cs->duration();
+            }
+        }
+
         auto item = new EasyTreeWidgetItem(child_index, _parent);
 
         auto name = *child.node->name() != 0 ? child.node->name() : easyDescriptor(child.node->id()).name();
         item->setText(COL_NAME, ::profiler_gui::toUnicode(name));
         item->setTimeSmart(COL_DURATION, _units, duration);
+
+        auto active_time = duration - idleTime;
+        auto active_percent = duration == 0 ? 100. : ::profiler_gui::percentReal(active_time, duration);
+        item->setTimeSmart(COL_ACTIVE_TIME, _units, active_time);
+        item->setText(COL_ACTIVE_PERCENT, QString::number(active_percent, 'g', 3));
+        item->setData(COL_ACTIVE_PERCENT, Qt::UserRole, active_percent);
+
         item->setTimeMs(COL_BEGIN, startTime - _beginTime);
         item->setTimeMs(COL_END, endTime - _beginTime);
         item->setData(COL_PERCENT_SUM_PER_THREAD, Qt::UserRole, 0);
@@ -526,16 +613,9 @@ size_t EasyTreeWidgetLoader::setTreeInternal(const ::profiler::timestamp_t& _beg
                 item->setData(COL_PERCENT_PER_FRAME, Qt::UserRole, 0);
                 item->setData(COL_PERCENT_SUM_PER_FRAME, Qt::UserRole, 0);
 
-                if (_thread)
-                {
-                    auto percentage_per_thread = ::profiler_gui::percent(duration, _thread->selfDuration());
-                    item->setData(COL_PERCENT_PER_PARENT, Qt::UserRole, percentage_per_thread);
-                    item->setText(COL_PERCENT_PER_PARENT, QString::number(percentage_per_thread));
-                }
-                else
-                {
-                    item->setData(COL_PERCENT_PER_PARENT, Qt::UserRole, 0);
-                }
+                auto percentage_per_thread = ::profiler_gui::percent(duration, _threadRoot.profiled_time);
+                item->setData(COL_PERCENT_PER_PARENT, Qt::UserRole, percentage_per_thread);
+                item->setText(COL_PERCENT_PER_PARENT, QString::number(percentage_per_thread));
             }
 
 
@@ -550,12 +630,9 @@ size_t EasyTreeWidgetLoader::setTreeInternal(const ::profiler::timestamp_t& _beg
             item->setData(COL_NCALLS_PER_THREAD, Qt::UserRole, per_thread_stats->calls_number);
             item->setText(COL_NCALLS_PER_THREAD, QString::number(per_thread_stats->calls_number));
 
-            if (_thread)
-            {
-                auto percentage_per_thread = ::profiler_gui::percent(per_thread_stats->total_duration, _thread->selfDuration());
-                item->setData(COL_PERCENT_SUM_PER_THREAD, Qt::UserRole, percentage_per_thread);
-                item->setText(COL_PERCENT_SUM_PER_THREAD, QString::number(percentage_per_thread));
-            }
+            auto percentage_per_thread = ::profiler_gui::percent(per_thread_stats->total_duration, _threadRoot.profiled_time);
+            item->setData(COL_PERCENT_SUM_PER_THREAD, Qt::UserRole, percentage_per_thread);
+            item->setText(COL_PERCENT_SUM_PER_THREAD, QString::number(percentage_per_thread));
 
 
             if (per_parent_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
@@ -583,9 +660,9 @@ size_t EasyTreeWidgetLoader::setTreeInternal(const ::profiler::timestamp_t& _beg
         }
         else
         {
-            if (_frame == nullptr && _thread != nullptr)
+            if (_frame == nullptr)
             {
-                auto percentage_per_thread = ::profiler_gui::percent(duration, _thread->selfDuration());
+                auto percentage_per_thread = ::profiler_gui::percent(duration, _threadRoot.profiled_time);
                 item->setData(COL_PERCENT_PER_PARENT, Qt::UserRole, percentage_per_thread);
                 item->setText(COL_PERCENT_PER_PARENT, QString::number(percentage_per_thread));
             }
@@ -614,7 +691,7 @@ size_t EasyTreeWidgetLoader::setTreeInternal(const ::profiler::timestamp_t& _beg
         if (!child.children.empty())
         {
             m_iditems.clear();
-            children_items_number = (this->*setTree)(_beginTime, child.children, item, _frame ? _frame : item, _thread, _left, _right, _strict, children_duration, _colorizeRows, _addZeroBlocks, _units);
+            children_items_number = (this->*setTree)(_threadRoot, _firstCswitch, _beginTime, child.children, item, _frame ? _frame : item, _left, _right, _strict, children_duration, _colorizeRows, _addZeroBlocks, _units);
             if (interrupted())
                 break;
         }
@@ -661,7 +738,25 @@ size_t EasyTreeWidgetLoader::setTreeInternal(const ::profiler::timestamp_t& _beg
 
 //////////////////////////////////////////////////////////////////////////
 
-size_t EasyTreeWidgetLoader::setTreeInternalPlain(const ::profiler::timestamp_t& _beginTime, const ::profiler::BlocksTree::children_t& _children, EasyTreeWidgetItem*, EasyTreeWidgetItem* _frame, EasyTreeWidgetItem* _thread, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration, bool _colorizeRows, bool _addZeroBlocks, ::profiler_gui::TimeUnits _units)
+::profiler::timestamp_t EasyTreeWidgetLoader::calculateChildrenDurationRecursive(const ::profiler::BlocksTree::children_t& _children, ::profiler::block_id_t _id)
+{
+    ::profiler::timestamp_t total_duration = 0;
+
+    for (auto child_index : _children)
+    {
+        if (interrupted())
+            break;
+
+        const auto& gui_block = easyBlock(child_index);
+        total_duration += gui_block.tree.node->duration();
+        if (gui_block.tree.node->id() == _id)
+            total_duration += calculateChildrenDurationRecursive(gui_block.tree.children, _id);
+    }
+
+    return total_duration;
+}
+
+size_t EasyTreeWidgetLoader::setTreeInternalPlain(const ::profiler::BlocksTreeRoot& _threadRoot, ::profiler::block_index_t _firstCswitch, const ::profiler::timestamp_t& _beginTime, const ::profiler::BlocksTree::children_t& _children, EasyTreeWidgetItem*, EasyTreeWidgetItem* _frame, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration, bool _colorizeRows, bool _addZeroBlocks, ::profiler_gui::TimeUnits _units)
 {
     size_t total_items = 0;
     for (auto child_index : _children)
@@ -669,7 +764,7 @@ size_t EasyTreeWidgetLoader::setTreeInternalPlain(const ::profiler::timestamp_t&
         if (interrupted())
             break;
 
-        auto& gui_block = easyBlock(child_index);
+        const auto& gui_block = easyBlock(child_index);
         const auto& child = gui_block.tree;
         const auto startTime = child.node->begin();
         const auto endTime = child.node->end();
@@ -677,13 +772,89 @@ size_t EasyTreeWidgetLoader::setTreeInternalPlain(const ::profiler::timestamp_t&
 
         _duration += duration;
 
+        auto it = m_iditems.find(child.node->id());
+        if (it != m_iditems.end())
+        {
+            ++total_items;
+
+            if (it->second != nullptr && child.per_frame_stats != nullptr)
+            {
+                auto item = it->second;
+
+                auto children_duration = calculateChildrenDurationRecursive(child.children, it->first);
+                auto self_duration = item->data(COL_SELF_DURATION, Qt::UserRole).toULongLong() - children_duration;
+
+                int percentage = 100;
+                if (child.per_frame_stats->total_duration > 0)
+                    percentage = ::profiler_gui::percent(self_duration, child.per_frame_stats->total_duration);
+
+                item->setTimeSmart(COL_SELF_DURATION, _units, self_duration);
+                item->setData(COL_SELF_DURATION_PERCENT, Qt::UserRole, percentage);
+                item->setText(COL_SELF_DURATION_PERCENT, QString::number(percentage));
+
+                bool hasContextSwitch = false;
+                ::profiler::timestamp_t idleTime = 0;
+                for (::profiler::block_index_t ind = _firstCswitch, ncs = static_cast<::profiler::block_index_t>(_threadRoot.sync.size()); ind < ncs; ++ind)
+                {
+                    auto cs_index = _threadRoot.sync[ind];
+                    const auto cs = EASY_GLOBALS.gui_blocks[cs_index].tree.node;
+
+                    if (cs->begin() > endTime)
+                    {
+                        if (!hasContextSwitch)
+                            _firstCswitch = ind;
+                        break;
+                    }
+
+                    if (startTime <= cs->begin() && cs->end() <= endTime)
+                    {
+                        if (!hasContextSwitch)
+                        {
+                            _firstCswitch = ind;
+                            hasContextSwitch = true;
+                        }
+
+                        idleTime += cs->duration();
+                    }
+                }
+
+                auto active_time = item->data(COL_ACTIVE_TIME, Qt::UserRole).toULongLong() - idleTime;
+                auto active_percent = child.per_frame_stats->total_duration == 0 ? 100. : ::profiler_gui::percentReal(active_time, child.per_frame_stats->total_duration);
+                item->setTimeSmart(COL_ACTIVE_TIME, _units, active_time);
+                item->setText(COL_ACTIVE_PERCENT, QString::number(active_percent, 'g', 3));
+                item->setData(COL_ACTIVE_PERCENT, Qt::UserRole, active_percent);
+            }
+
+            continue;
+        }
+
         if (startTime > _right || endTime < _left)
             continue;
 
-        if (m_iditems.find(gui_block.tree.node->id()) != m_iditems.end())
+        bool hasContextSwitch = false;
+        ::profiler::timestamp_t idleTime = 0;
+        for (::profiler::block_index_t ind = _firstCswitch, ncs = static_cast<::profiler::block_index_t>(_threadRoot.sync.size()); ind < ncs; ++ind)
         {
-            ++total_items;
-            continue;
+            auto cs_index = _threadRoot.sync[ind];
+            const auto cs = EASY_GLOBALS.gui_blocks[cs_index].tree.node;
+
+            if (cs->begin() > endTime)
+            {
+                if (!hasContextSwitch)
+                    _firstCswitch = ind;
+                break;
+            }
+
+            if (startTime <= cs->begin() && cs->end() <= endTime)
+            {
+                if (!hasContextSwitch)
+                {
+                    _firstCswitch = ind;
+                    hasContextSwitch = true;
+                }
+
+                idleTime += cs->duration();
+            }
         }
 
         auto item = new EasyTreeWidgetItem(child_index, _frame);
@@ -705,17 +876,14 @@ size_t EasyTreeWidgetLoader::setTreeInternalPlain(const ::profiler::timestamp_t&
             item->setData(COL_NCALLS_PER_THREAD, Qt::UserRole, per_thread_stats->calls_number);
             item->setText(COL_NCALLS_PER_THREAD, QString::number(per_thread_stats->calls_number));
 
-            if (_thread != nullptr)
-            {
-                auto percentage_per_thread = ::profiler_gui::percent(per_thread_stats->total_duration, _thread->selfDuration());
-                item->setData(COL_PERCENT_SUM_PER_THREAD, Qt::UserRole, percentage_per_thread);
-                item->setText(COL_PERCENT_SUM_PER_THREAD, QString::number(percentage_per_thread));
-            }
+            auto percentage_per_thread = ::profiler_gui::percent(per_thread_stats->total_duration, _threadRoot.profiled_time);
+            item->setData(COL_PERCENT_SUM_PER_THREAD, Qt::UserRole, percentage_per_thread);
+            item->setText(COL_PERCENT_SUM_PER_THREAD, QString::number(percentage_per_thread));
 
             const ::profiler::BlockStatistics* per_frame_stats = child.per_frame_stats;
             const auto percentage_sum = ::profiler_gui::percent(per_frame_stats->total_duration, _frame->duration());
-            item->setData(COL_PERCENT_SUM_PER_FRAME, Qt::UserRole, percentage_sum);
-            item->setText(COL_PERCENT_SUM_PER_FRAME, QString::number(percentage_sum));
+            item->setData(COL_PERCENT_PER_FRAME, Qt::UserRole, percentage_sum);
+            item->setText(COL_PERCENT_PER_FRAME, QString::number(percentage_sum));
 
             if (per_frame_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
@@ -724,14 +892,14 @@ size_t EasyTreeWidgetLoader::setTreeInternalPlain(const ::profiler::timestamp_t&
                 item->setTimeSmart(COL_AVERAGE_PER_FRAME, _units, per_frame_stats->average_duration());
             }
 
-            item->setTimeSmart(COL_DURATION_SUM_PER_FRAME, _units, per_frame_stats->total_duration);
+            item->setTimeSmart(COL_DURATION, _units, per_frame_stats->total_duration);
             item->setData(COL_NCALLS_PER_FRAME, Qt::UserRole, per_frame_stats->calls_number);
             item->setText(COL_NCALLS_PER_FRAME, QString::number(per_frame_stats->calls_number));
         }
         else
         {
             item->setData(COL_PERCENT_SUM_PER_THREAD, Qt::UserRole, 0);
-            item->setData(COL_PERCENT_SUM_PER_FRAME, Qt::UserRole, 0);
+            item->setData(COL_PERCENT_PER_FRAME, Qt::UserRole, 0);
         }
 
         const auto color = easyDescriptor(child.node->id()).color();
@@ -743,27 +911,35 @@ size_t EasyTreeWidgetLoader::setTreeInternalPlain(const ::profiler::timestamp_t&
         auto item_index = static_cast<uint32_t>(m_items.size());
         m_items.push_back(item);
 #endif
-        m_iditems.insert(gui_block.tree.node->id());
+        m_iditems[child.node->id()] = nullptr;
 
         size_t children_items_number = 0;
         ::profiler::timestamp_t children_duration = 0;
         if (!child.children.empty())
         {
-            children_items_number = setTreeInternalPlain(_beginTime, child.children, _frame, _frame, _thread, _left, _right, _strict, children_duration, _colorizeRows, _addZeroBlocks, _units);
+            children_items_number = setTreeInternalPlain(_threadRoot, _firstCswitch, _beginTime, child.children, _frame, _frame, _left, _right, _strict, children_duration, _colorizeRows, _addZeroBlocks, _units);
             if (interrupted())
                 break;
         }
 
+        m_iditems[child.node->id()] = item;
+
         if (child.per_frame_stats != nullptr)
         {
             int percentage = 100;
-            auto self_duration = child.per_frame_stats->total_duration - child.per_frame_stats->children_duration;
+            auto self_duration = child.per_frame_stats->total_duration - children_duration;
             if (child.per_frame_stats->total_duration > 0)
                 percentage = ::profiler_gui::percent(self_duration, child.per_frame_stats->total_duration);
 
             item->setTimeSmart(COL_SELF_DURATION, _units, self_duration);
             item->setData(COL_SELF_DURATION_PERCENT, Qt::UserRole, percentage);
             item->setText(COL_SELF_DURATION_PERCENT, QString::number(percentage));
+
+            auto active_time = child.per_frame_stats->total_duration - idleTime;
+            auto active_percent = child.per_frame_stats->total_duration == 0 ? 100. : ::profiler_gui::percentReal(active_time, child.per_frame_stats->total_duration);
+            item->setTimeSmart(COL_ACTIVE_TIME, _units, active_time);
+            item->setText(COL_ACTIVE_PERCENT, QString::number(active_percent, 'g', 3));
+            item->setData(COL_ACTIVE_PERCENT, Qt::UserRole, active_percent);
         }
 
         if (children_items_number > 0 || !_strict || (startTime >= _left && endTime <= _right))

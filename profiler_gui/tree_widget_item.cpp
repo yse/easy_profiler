@@ -92,6 +92,11 @@ bool EasyTreeWidgetItem::operator < (const Parent& _other) const
             return data(col, Qt::UserRole).toInt() < _other.data(col, Qt::UserRole).toInt();
         }
 
+        case COL_ACTIVE_PERCENT:
+        {
+            return data(col, Qt::UserRole).toDouble() < _other.data(col, Qt::UserRole).toDouble();
+        }
+
         default:
         {
             // durations min, max, average

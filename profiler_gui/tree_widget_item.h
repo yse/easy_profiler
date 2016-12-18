@@ -92,6 +92,9 @@ enum EasyColumnsIndexes
     COL_AVERAGE_PER_PARENT,
     COL_NCALLS_PER_PARENT,
 
+    COL_ACTIVE_TIME,
+    COL_ACTIVE_PERCENT,
+
     COL_COLUMNS_NUMBER
 };
 
@@ -111,7 +114,7 @@ public:
     using Parent::setBackgroundColor;
     using Parent::setTextColor;
 
-    EasyTreeWidgetItem(const ::profiler::block_index_t _treeBlock = ::profiler_gui::numeric_max<decltype(m_block)>(), Parent* _parent = nullptr);
+    explicit EasyTreeWidgetItem(const ::profiler::block_index_t _treeBlock = ::profiler_gui::numeric_max<decltype(m_block)>(), Parent* _parent = nullptr);
     virtual ~EasyTreeWidgetItem();
 
     bool operator < (const Parent& _other) const override;

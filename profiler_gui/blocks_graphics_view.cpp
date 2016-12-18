@@ -1440,6 +1440,47 @@ void EasyGraphicsView::onIdleTimeout()
                         lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, itemBlock.per_thread_stats->average_duration(), 3), widget), row, 1, 1, 3, Qt::AlignLeft);
                         ++row;
 
+                        // Calculate idle/active time
+                        {
+                            auto threadRoot = item->root();
+
+                            ::profiler::block_index_t ind = 0;
+                            auto it = ::std::lower_bound(threadRoot->sync.begin(), threadRoot->sync.end(), itemBlock.node->begin(), [](::profiler::block_index_t _cs_index, ::profiler::timestamp_t _val)
+                            {
+                                return EASY_GLOBALS.gui_blocks[_cs_index].tree.node->begin() < _val;
+                            });
+
+                            if (it != threadRoot->sync.end())
+                            {
+                                ind = it - threadRoot->sync.begin();
+                                if (ind > 0)
+                                    --ind;
+                            }
+                            else
+                            {
+                                ind = static_cast<::profiler::block_index_t>(threadRoot->sync.size());
+                            }
+
+                            ::profiler::timestamp_t idleTime = 0;
+                            for (::profiler::block_index_t ncs = static_cast<::profiler::block_index_t>(threadRoot->sync.size()); ind < ncs; ++ind)
+                            {
+                                auto cs_index = threadRoot->sync[ind];
+                                const auto cs = EASY_GLOBALS.gui_blocks[cs_index].tree.node;
+
+                                if (cs->begin() > itemBlock.node->end())
+                                    break;
+
+                                if (itemBlock.node->begin() <= cs->begin() && cs->end() <= itemBlock.node->end())
+                                    idleTime += cs->duration();
+                            }
+
+                            auto active_time = duration - idleTime;
+                            auto active_percent = duration == 0 ? 100. : ::profiler_gui::percentReal(active_time, duration);
+                            lay->addWidget(new QLabel("Active time:", widget), row, 0, Qt::AlignRight);
+                            lay->addWidget(new QLabel(QString("%1 (%2%)").arg(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, active_time, 3)).arg(QString::number(active_percent, 'g', 3)), widget), row, 1, 1, 3, Qt::AlignLeft);
+                            ++row;
+                        }
+
                         lay->addWidget(new EasyBoldLabel("-------- Statistics --------", widget), row, 0, 1, 5, Qt::AlignHCenter);
                         lay->addWidget(new QLabel("per ", widget), row + 1, 0, Qt::AlignRight);
                         lay->addWidget(new QLabel("This %:", widget), row + 2, 0, Qt::AlignRight);

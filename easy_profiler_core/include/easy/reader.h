@@ -53,19 +53,13 @@ namespace profiler {
     struct BlockStatistics EASY_FINAL
     {
         ::profiler::timestamp_t        total_duration; ///< Total duration of all block calls
-        ::profiler::timestamp_t     children_duration; ///< Total duration of all children block calls (which is less or equal to total_duration)
-        //::profiler::timestamp_t          min_duration; ///< Cached block->duration() value. TODO: Remove this if memory consumption will be too high
-        //::profiler::timestamp_t          max_duration; ///< Cached block->duration() value. TODO: Remove this if memory consumption will be too high
         ::profiler::block_index_t  min_duration_block; ///< Will be used in GUI to jump to the block with min duration
         ::profiler::block_index_t  max_duration_block; ///< Will be used in GUI to jump to the block with max duration
         ::profiler::block_index_t        parent_block; ///< Index of block which is "parent" for "per_parent_stats" or "frame" for "per_frame_stats" or thread-id for "per_thread_stats"
         ::profiler::calls_number_t       calls_number; ///< Block calls number
 
-        explicit BlockStatistics(::profiler::timestamp_t _duration, ::profiler::block_index_t _block_index, ::profiler::block_index_t _parent_index, ::profiler::timestamp_t _children_duration = 0)
+        explicit BlockStatistics(::profiler::timestamp_t _duration, ::profiler::block_index_t _block_index, ::profiler::block_index_t _parent_index)
             : total_duration(_duration)
-            , children_duration(_children_duration)
-            //, min_duration(_duration)
-            //, max_duration(_duration)
             , min_duration_block(_block_index)
             , max_duration_block(_block_index)
             , parent_block(_parent_index)

@@ -199,8 +199,6 @@ typedef ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::BlockStat
 
 #endif
 
-typedef ::std::vector<::profiler::timestamp_t> ChildrenDurations;
-
 //////////////////////////////////////////////////////////////////////////
 
 /** \brief Updates statistics for a profiler block.
@@ -215,7 +213,7 @@ typedef ::std::vector<::profiler::timestamp_t> ChildrenDurations;
 automatically receive statistics update.
 
 */
-::profiler::BlockStatistics* update_statistics(StatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, const ::profiler::blocks_t& _blocks, const ChildrenDurations& _children_dutaions)
+::profiler::BlockStatistics* update_statistics(StatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, const ::profiler::blocks_t& _blocks)
 {
     auto duration = _current.node->duration();
     //StatsMap::key_type key(_current.node->name());
@@ -244,8 +242,6 @@ automatically receive statistics update.
             //stats->min_duration = duration;
         }
 
-        stats->children_duration += _children_dutaions[_current_index];
-
         // average duration is calculated inside average_duration() method by dividing total_duration to the calls_number
 
         return stats;
@@ -253,7 +249,7 @@ automatically receive statistics update.
 
     // This is first time the block appear in the file.
     // Create new statistics.
-    auto stats = new ::profiler::BlockStatistics(duration, _current_index, _parent_index, _children_dutaions[_current_index]);
+    auto stats = new ::profiler::BlockStatistics(duration, _current_index, _parent_index);
     //_stats_map.emplace(key, stats);
     _stats_map.emplace(_current.node->id(), stats);
 
@@ -303,11 +299,11 @@ automatically receive statistics update.
 
 //////////////////////////////////////////////////////////////////////////
 
-void update_statistics_recursive(StatsMap& _stats_map, ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, ::profiler::blocks_t& _blocks, const ChildrenDurations& _children_dutaions)
+void update_statistics_recursive(StatsMap& _stats_map, ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, ::profiler::blocks_t& _blocks)
 {
-    _current.per_frame_stats = update_statistics(_stats_map, _current, _current_index, _parent_index, _blocks, _children_dutaions);
+    _current.per_frame_stats = update_statistics(_stats_map, _current, _current_index, _parent_index, _blocks);
     for (auto i : _current.children)
-        update_statistics_recursive(_stats_map, _blocks[i], i, _parent_index, _blocks, _children_dutaions);
+        update_statistics_recursive(_stats_map, _blocks[i], i, _parent_index, _blocks);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -513,7 +509,6 @@ extern "C" {
         PerThreadStats parent_statistics, frame_statistics;
         IdMap identification_table;
 
-        ChildrenDurations durations(total_blocks_number, 0ULL);
         blocks.reserve(total_blocks_number);
         //olddata = append_regime ? serialized_blocks.data() : nullptr;
         serialized_blocks.set(memory_size);
@@ -715,8 +710,7 @@ extern "C" {
                                 for (auto i : tree.children)
                                 {
                                     auto& child = blocks[i];
-                                    child.per_parent_stats = update_statistics(per_parent_statistics, child, i, block_index, blocks, durations);
-                                    children_duration += child.node->duration();
+                                    child.per_parent_stats = update_statistics(per_parent_statistics, child, i, block_index, blocks);
                                     if (tree.depth < child.depth)
                                         tree.depth = child.depth;
                                 }
@@ -726,13 +720,11 @@ extern "C" {
                                 for (auto i : tree.children)
                                 {
                                     const auto& child = blocks[i];
-                                    children_duration += child.node->duration();
                                     if (tree.depth < child.depth)
                                         tree.depth = child.depth;
                                 }
                             }
 
-                            durations[block_index] = children_duration;
                             ++tree.depth;
                         }
                     }
@@ -746,7 +738,7 @@ extern "C" {
                     if (gather_statistics)
                     {
                         EASY_BLOCK("Gather per thread statistics", ::profiler::colors::Coral);
-                        tree.per_thread_stats = update_statistics(per_thread_statistics, tree, block_index, thread_id, blocks, durations);
+                        tree.per_thread_stats = update_statistics(per_thread_statistics, tree, block_index, thread_id, blocks);
                     }
                 }
 
@@ -781,7 +773,7 @@ extern "C" {
                 auto& per_parent_statistics = parent_statistics[it.first];
                 per_parent_statistics.clear();
 
-                statistics_threads.emplace_back(::std::thread([&per_parent_statistics, &per_frame_statistics, &blocks, &durations](::profiler::BlocksTreeRoot& root)
+                statistics_threads.emplace_back(::std::thread([&per_parent_statistics, &per_frame_statistics, &blocks](::profiler::BlocksTreeRoot& root)
                 {
                     //::std::sort(root.sync.begin(), root.sync.end(), [&blocks](::profiler::block_index_t left, ::profiler::block_index_t right)
                     //{
@@ -792,10 +784,10 @@ extern "C" {
                     for (auto i : root.children)
                     {
                         auto& frame = blocks[i];
-                        frame.per_parent_stats = update_statistics(per_parent_statistics, frame, i, root.thread_id, blocks, durations);
+                        frame.per_parent_stats = update_statistics(per_parent_statistics, frame, i, root.thread_id, blocks);
 
                         per_frame_statistics.clear();
-                        update_statistics_recursive(per_frame_statistics, frame, i, i, blocks, durations);
+                        update_statistics_recursive(per_frame_statistics, frame, i, i, blocks);
 
                         if (cs_index < root.sync.size())
                         {
