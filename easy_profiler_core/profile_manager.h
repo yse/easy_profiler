@@ -320,7 +320,8 @@ struct ThreadStorage
 #endif
 
     const profiler::thread_id_t id;
-    std::atomic<uint8_t> expired;
+    std::atomic<char> expired;
+    std::atomic_bool frame; ///< is new frame working
     bool allowChildren;
     bool named;
     bool guarded;
@@ -368,13 +369,14 @@ class ProfileManager
     profiler::timestamp_t             m_endTime;
     profiler::spin_lock                  m_spin;
     profiler::spin_lock            m_storedSpin;
-    std::atomic_bool                m_isEnabled;
+    profiler::spin_lock              m_dumpSpin;
+    std::atomic<char>          m_profilerStatus;
     std::atomic_bool    m_isEventTracingEnabled;
-    std::atomic_bool        m_isAlreadyListening;
+    std::atomic_bool       m_isAlreadyListening;
 
     std::string m_csInfoFilename = "/tmp/cs_profiling_info.log";
 
-    uint32_t dumpBlocksToStream(profiler::OStream& _outputStream);
+    uint32_t dumpBlocksToStream(profiler::OStream& _outputStream, bool _lockSpin);
     void setBlockStatus(profiler::block_id_t _id, profiler::EasyBlockStatus _status);
 
     std::thread m_listenThread;
@@ -395,12 +397,13 @@ public:
                                                             const char* _filename,
                                                             int _line,
                                                             profiler::block_type_t _block_type,
-                                                            profiler::color_t _color);
+                                                            profiler::color_t _color,
+                                                            bool _copyName = false);
 
     bool storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName);
     void beginBlock(profiler::Block& _block);
     void endBlock();
-    void setEnabled(bool isEnable, bool _setTime = true);
+    void setEnabled(bool isEnable);
     void setEventTracingEnabled(bool _isEnable);
     uint32_t dumpBlocksToFile(const char* filename);
     const char* registerThread(const char* name, profiler::ThreadGuard& threadGuard);
@@ -423,7 +426,10 @@ public:
 
 private:
 
-    uint8_t checkThreadExpired(ThreadStorage& _registeredThread);
+    void enableEventTracer();
+    void disableEventTracer();
+
+    char checkThreadExpired(ThreadStorage& _registeredThread);
 
     void storeBlockForce(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t& _timestamp);
     void storeBlockForce2(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t _timestamp);

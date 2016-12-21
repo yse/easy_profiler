@@ -91,7 +91,8 @@ Block will be automatically completed by destructor.
 */
 # define EASY_BLOCK(name, ...)\
     EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), ::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__),\
-        EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name), __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__)));\
+        EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name), __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__),\
+        ::std::is_base_of<::profiler::ForceConstStr, decltype(name)>::value));\
     ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name));\
     ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
@@ -121,7 +122,7 @@ Name of the block automatically created with function name.
 */
 # define EASY_FUNCTION(...)\
     EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), ::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__),\
-        EASY_UNIQUE_LINE_ID, __func__, __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__)));\
+        EASY_UNIQUE_LINE_ID, __func__, __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__), false));\
     ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(EASY_UNIQUE_DESC(__LINE__), "");\
     ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
@@ -162,7 +163,8 @@ will end previously opened EASY_BLOCK or EASY_FUNCTION.
 # define EASY_EVENT(name, ...)\
     EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), ::profiler::registerDescription(\
         ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
-            __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__)));\
+            __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__),\
+            ::std::is_base_of<::profiler::ForceConstStr, decltype(name)>::value));\
     ::profiler::storeEvent(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name));
 
 /** Macro for enabling profiler.
@@ -515,7 +517,7 @@ namespace profiler {
 
         \ingroup profiler
         */
-        PROFILER_API const BaseBlockDescriptor* registerDescription(EasyBlockStatus _status, const char* _autogenUniqueId, const char* _compiletimeName, const char* _filename, int _line, block_type_t _block_type, color_t _color);
+        PROFILER_API const BaseBlockDescriptor* registerDescription(EasyBlockStatus _status, const char* _autogenUniqueId, const char* _compiletimeName, const char* _filename, int _line, block_type_t _block_type, color_t _color, bool _copyName = false);
 
         /** Stores event in the blocks list.
 
@@ -639,7 +641,7 @@ namespace profiler {
 
     }
 #else
-    inline const BaseBlockDescriptor* registerDescription(EasyBlockStatus, const char*, const char*, const char*, int, block_type_t, color_t)
+    inline const BaseBlockDescriptor* registerDescription(EasyBlockStatus, const char*, const char*, const char*, int, block_type_t, color_t, bool = false)
     { return reinterpret_cast<const BaseBlockDescriptor*>(0xbad); }
     inline void endBlock() { }
     inline void setEnabled(bool) { }
