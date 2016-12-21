@@ -693,6 +693,7 @@ int EasyDescTreeWidget::findPrev(const QString& _str, Qt::MatchFlags _flags)
         m_lastSearch = _str;
         m_lastFound = !itemsList.empty() ? itemsList.front() : nullptr;
 
+        m_highlightItems.reserve(itemsList.size());
         for (auto item : itemsList)
         {
             m_highlightItems.push_back(item);
