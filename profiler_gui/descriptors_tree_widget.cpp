@@ -199,6 +199,7 @@ bool EasyDescWidgetItem::operator < (const Parent& _other) const
 EasyDescTreeWidget::EasyDescTreeWidget(QWidget* _parent)
     : Parent(_parent)
     , m_lastFound(nullptr)
+    , m_lastSearchColumn(-1)
     , m_searchColumn(DESC_COL_NAME)
     , m_bLocked(false)
 {
@@ -318,6 +319,7 @@ void EasyDescTreeWidget::clearSilent(bool _global)
     m_lastFound = nullptr;
     m_lastSearch.clear();
 
+    m_highlightItems.clear();
     m_items.clear();
 
     ::std::vector<QTreeWidgetItem*> topLevelItems;
@@ -557,6 +559,15 @@ void EasyDescTreeWidget::onSelectedBlockChange(uint32_t _block_index)
 
 //////////////////////////////////////////////////////////////////////////
 
+void EasyDescTreeWidget::resetHighlight()
+{
+    for (auto item : m_highlightItems) {
+        for (int i = 0; i < DESC_COL_COLUMNS_NUMBER; ++i)
+            item->setBackground(i, Qt::NoBrush);
+    }
+    m_highlightItems.clear();
+}
+
 void EasyDescTreeWidget::loadSettings()
 {
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
@@ -585,16 +596,12 @@ int EasyDescTreeWidget::findNext(const QString& _str, Qt::MatchFlags _flags)
 {
     if (_str.isEmpty())
     {
-        for (auto item : m_items)
-        {
-            for (int i = 0; i < DESC_COL_COLUMNS_NUMBER; ++i)
-                item->setBackground(i, Qt::NoBrush);
-        }
-
+        resetHighlight();
+        m_lastSearchColumn = m_searchColumn;
         return 0;
     }
 
-    const bool isNewSearch = (m_lastSearch != _str);
+    const bool isNewSearch = (m_lastSearchColumn != m_searchColumn || m_lastSearch != _str);
     auto itemsList = findItems(_str, Qt::MatchContains | Qt::MatchRecursive | _flags, m_searchColumn);
 
     if (!isNewSearch)
@@ -605,9 +612,6 @@ int EasyDescTreeWidget::findNext(const QString& _str, Qt::MatchFlags _flags)
             decltype(m_lastFound) next = nullptr;
             for (auto item : itemsList)
             {
-                if (item->parent() == nullptr)
-                    continue;
-
                 if (stop)
                 {
                     next = item;
@@ -626,18 +630,16 @@ int EasyDescTreeWidget::findNext(const QString& _str, Qt::MatchFlags _flags)
     }
     else
     {
-        for (auto item : m_items)
-        {
-            for (int i = 0; i < DESC_COL_COLUMNS_NUMBER; ++i)
-                item->setBackground(i, Qt::NoBrush);
-        }
+        resetHighlight();
 
+        m_lastSearchColumn = m_searchColumn;
         m_lastSearch = _str;
         m_lastFound = !itemsList.empty() ? itemsList.front() : nullptr;
 
         for (auto item : itemsList)
         {
-            if (item->parent() != nullptr) for (int i = 0; i < DESC_COL_COLUMNS_NUMBER; ++i)
+            m_highlightItems.push_back(item);
+            for (int i = 0; i < DESC_COL_COLUMNS_NUMBER; ++i)
                 item->setBackgroundColor(i, QColor::fromRgba(0x80000000 | (0x00ffffff & ::profiler::colors::Yellow)));
         }
     }
@@ -655,16 +657,12 @@ int EasyDescTreeWidget::findPrev(const QString& _str, Qt::MatchFlags _flags)
 {
     if (_str.isEmpty())
     {
-        for (auto item : m_items)
-        {
-            for (int i = 0; i < DESC_COL_COLUMNS_NUMBER; ++i)
-                item->setBackground(i, Qt::NoBrush);
-        }
-
+        resetHighlight();
+        m_lastSearchColumn = m_searchColumn;
         return 0;
     }
 
-    const bool isNewSearch = (m_lastSearch != _str);
+    const bool isNewSearch = (m_lastSearchColumn != m_searchColumn || m_lastSearch != _str);
     auto itemsList = findItems(_str, Qt::MatchContains | Qt::MatchRecursive | _flags, m_searchColumn);
 
     if (!isNewSearch)
@@ -674,9 +672,6 @@ int EasyDescTreeWidget::findPrev(const QString& _str, Qt::MatchFlags _flags)
             decltype(m_lastFound) prev = nullptr;
             for (auto item : itemsList)
             {
-                if (item->parent() == nullptr)
-                    continue;
-
                 if (item == m_lastFound)
                     break;
 
@@ -692,18 +687,16 @@ int EasyDescTreeWidget::findPrev(const QString& _str, Qt::MatchFlags _flags)
     }
     else
     {
-        for (auto item : m_items)
-        {
-            for (int i = 0; i < DESC_COL_COLUMNS_NUMBER; ++i)
-                item->setBackground(i, Qt::NoBrush);
-        }
+        resetHighlight();
 
+        m_lastSearchColumn = m_searchColumn;
         m_lastSearch = _str;
         m_lastFound = !itemsList.empty() ? itemsList.front() : nullptr;
 
         for (auto item : itemsList)
         {
-            if (item->parent() != nullptr) for (int i = 0; i < DESC_COL_COLUMNS_NUMBER; ++i)
+            m_highlightItems.push_back(item);
+            for (int i = 0; i < DESC_COL_COLUMNS_NUMBER; ++i)
                 item->setBackgroundColor(i, QColor::fromRgba(0x80000000 | (0x00ffffff & ::profiler::colors::Yellow)));
         }
     }
@@ -823,6 +816,11 @@ void EasyDescWidget::keyPressEvent(QKeyEvent* _event)
     }
 
     _event->accept();
+}
+
+void EasyDescWidget::contextMenuEvent(QContextMenuEvent* _event)
+{
+    m_tree->contextMenuEvent(_event);
 }
 
 void EasyDescWidget::build()

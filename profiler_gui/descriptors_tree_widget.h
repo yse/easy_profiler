@@ -89,14 +89,17 @@ class EasyDescTreeWidget : public QTreeWidget
     typedef EasyDescTreeWidget   This;
 
     typedef ::std::vector<EasyDescWidgetItem*> Items;
+    typedef ::std::vector<QTreeWidgetItem*> TreeItems;
     typedef ::std::unordered_set<::std::string> ExpandedFiles;
 
 protected:
 
     ExpandedFiles    m_expandedFilesTemp;
     Items                        m_items;
+    TreeItems           m_highlightItems;
     QString                 m_lastSearch;
     QTreeWidgetItem*         m_lastFound;
+    int               m_lastSearchColumn;
     int                   m_searchColumn;
     bool                       m_bLocked;
 
@@ -135,6 +138,7 @@ private:
 
     // Private methods
 
+    void resetHighlight();
     void loadSettings();
     void saveSettings();
 
@@ -164,6 +168,7 @@ public:
     explicit EasyDescWidget(QWidget* _parent = nullptr);
     virtual ~EasyDescWidget();
     void keyPressEvent(QKeyEvent* _event) override;
+    void contextMenuEvent(QContextMenuEvent* _event) override;
 
 public:
 
