@@ -188,7 +188,7 @@ private:
     EasyChronometerItem* createChronometer(bool _main = true);
     bool moveChrono(EasyChronometerItem* _chronometerItem, qreal _mouseX);
     void initMode();
-    void updateVisibleSceneRect();
+    int updateVisibleSceneRect();
     void updateTimelineStep(qreal _windowWidth);
     void scaleTo(qreal _scale);
     void scrollTo(const EasyGraphicsItem* _item);

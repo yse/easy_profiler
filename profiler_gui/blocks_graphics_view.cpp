@@ -663,7 +663,10 @@ void EasyGraphicsView::setScrollbar(EasyGraphicsScrollbar* _scrollbar)
     m_pScrollbar = _scrollbar;
     m_pScrollbar->clear();
     m_pScrollbar->setRange(0, m_sceneWidth);
-    m_pScrollbar->setSliderWidth(m_visibleSceneRect.width());
+
+    auto vbar = verticalScrollBar();
+    const int vbar_width = (vbar != nullptr && vbar->isVisible() ? vbar->width() + 2 : 0);
+    m_pScrollbar->setSliderWidth(m_visibleSceneRect.width() + vbar_width);
 
     if (makeConnect)
     {
@@ -677,14 +680,19 @@ void EasyGraphicsView::setScrollbar(EasyGraphicsScrollbar* _scrollbar)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::updateVisibleSceneRect()
+int EasyGraphicsView::updateVisibleSceneRect()
 {
     m_visibleSceneRect = mapToScene(rect()).boundingRect();
 
     auto vbar = verticalScrollBar();
+    int vbar_width = 0;
     if (vbar && vbar->isVisible())
-        m_visibleSceneRect.setWidth(m_visibleSceneRect.width() - vbar->width() - 2);
+        vbar_width = vbar->width() + 2;
+
+    m_visibleSceneRect.setWidth(m_visibleSceneRect.width() - vbar_width);
     m_visibleSceneRect.setHeight(m_visibleSceneRect.height() - TIMELINE_ROW_SIZE);
+
+    return vbar_width;
 }
 
 void EasyGraphicsView::updateTimelineStep(qreal _windowWidth)
@@ -727,10 +735,10 @@ void EasyGraphicsView::scaleTo(qreal _scale)
     // have to limit scale because of Qt's QPainter feature: it doesn't draw text
     // with very big coordinates (but it draw rectangles with the same coordinates good).
     m_scale = clamp(MIN_SCALE, _scale, MAX_SCALE); 
-    updateVisibleSceneRect();
+    const int vbar_width = updateVisibleSceneRect();
 
     // Update slider width for scrollbar
-    const auto windowWidth = m_visibleSceneRect.width() / m_scale;
+    const auto windowWidth = (m_visibleSceneRect.width() + vbar_width) / m_scale;
     m_pScrollbar->setSliderWidth(windowWidth);
 
     updateTimelineStep(windowWidth);
@@ -785,7 +793,9 @@ void EasyGraphicsView::onWheel(qreal _mouseX, int _wheelDelta)
     //updateVisibleSceneRect(); // Update scene rect
 
     // Update slider width for scrollbar
-    const auto windowWidth = m_visibleSceneRect.width() / m_scale;
+    auto vbar = verticalScrollBar();
+    const int vbar_width = (vbar != nullptr && vbar->isVisible() ? vbar->width() + 2 : 0);
+    const auto windowWidth = (m_visibleSceneRect.width() + vbar_width) / m_scale;
     m_pScrollbar->setSliderWidth(windowWidth);
 
     // Calculate new offset to simulate QGraphicsView::AnchorUnderMouse scaling behavior
@@ -1206,10 +1216,10 @@ void EasyGraphicsView::resizeEvent(QResizeEvent* _event)
     Parent::resizeEvent(_event);
 
     const QRectF previousRect = m_visibleSceneRect;
-    updateVisibleSceneRect(); // Update scene visible rect only once    
+    const int vbar_width = updateVisibleSceneRect(); // Update scene visible rect only once    
 
     // Update slider width for scrollbar
-    const auto windowWidth = m_visibleSceneRect.width() / m_scale;
+    const auto windowWidth = (m_visibleSceneRect.width() + vbar_width) / m_scale;
     m_pScrollbar->setSliderWidth(windowWidth);
 
     // Calculate new offset to save old screen center
