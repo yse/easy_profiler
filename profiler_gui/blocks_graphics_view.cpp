@@ -1554,33 +1554,33 @@ void EasyGraphicsView::onIdleTimeout()
                 auto lay = new QGridLayout(widget);
 
                 int row = 0;
-                lay->addWidget(new EasyBoldLabel("Context switch event", widget), row, 0, 1, 2, Qt::AlignHCenter);
+                lay->addWidget(new EasyBoldLabel("Context switch event", widget), row, 0, 1, 3, Qt::AlignHCenter);
                 ++row;
 
                 lay->addWidget(new QLabel("Thread:", widget), row, 0, Qt::AlignRight);
                 auto it = EASY_GLOBALS.profiler_blocks.find(cse->tree.node->id());
                 if (it != EASY_GLOBALS.profiler_blocks.end())
-                    lay->addWidget(new QLabel(QString("%1 %2").arg(cse->tree.node->id()).arg(it->second.name()), widget), row, 1, Qt::AlignLeft);
+                    lay->addWidget(new QLabel(QString("%1 %2").arg(cse->tree.node->id()).arg(it->second.name()), widget), row, 1, 1, 2, Qt::AlignLeft);
                 else
-                    lay->addWidget(new QLabel(QString::number(cse->tree.node->id()), widget), row, 1, Qt::AlignLeft);
+                    lay->addWidget(new QLabel(QString::number(cse->tree.node->id()), widget), row, 1, 1, 2, Qt::AlignLeft);
                 ++row;
 
                 lay->addWidget(new QLabel("Process:", widget), row, 0, Qt::AlignRight);
-                lay->addWidget(new QLabel(cse->tree.node->name(), widget), row, 1, Qt::AlignLeft);
+                lay->addWidget(new QLabel(cse->tree.node->name(), widget), row, 1, 1, 2, Qt::AlignLeft);
                 ++row;
 
                 const auto duration = itemBlock.node->duration();
                 lay->addWidget(new QLabel("Duration:", widget), row, 0, Qt::AlignRight);
-                lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, duration, 3), widget), row, 1, Qt::AlignLeft);
+                lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, duration, 3), widget), row, 1, 1, 2, Qt::AlignLeft);
                 ++row;
 
                 if (itemBlock.per_thread_stats)
                 {
                     lay->addWidget(new QLabel("Sum:", widget), row, 0, Qt::AlignRight);
-                    lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, itemBlock.per_thread_stats->total_duration, 3), widget), row, 1, 1, 3, Qt::AlignLeft);
+                    lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, itemBlock.per_thread_stats->total_duration, 3), widget), row, 1, 1, 2, Qt::AlignLeft);
                     ++row;
 
-                    lay->addWidget(new EasyBoldLabel("-------- Statistics --------", widget), row, 0, 1, 5, Qt::AlignHCenter);
+                    lay->addWidget(new EasyBoldLabel("-------- Statistics --------", widget), row, 0, 1, 3, Qt::AlignHCenter);
                     lay->addWidget(new QLabel("per ", widget), row + 1, 0, Qt::AlignRight);
                     lay->addWidget(new QLabel("This %:", widget), row + 2, 0, Qt::AlignRight);
                     lay->addWidget(new QLabel("Sum %:", widget), row + 3, 0, Qt::AlignRight);
