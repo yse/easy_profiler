@@ -18,6 +18,8 @@ You can profile any function in you code. Furthermore this library provide measu
 For example, information for 12 millions of blocks is using less than 300Mb of memory.
 Working profiler slows your application execution for only 1-2%.
 
+![Block time](https://hsto.org/files/3e4/afe/8b7/3e4afe8b77ac4ad3a6f8c805be4b7f13.png)
+
 Disabled profiler will not affect your application execution in any way. You can leave it in your Release build
 and enable it at run-time at any moment during application launch to see what is happening at the moment.
 
