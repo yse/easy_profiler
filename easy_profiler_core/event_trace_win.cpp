@@ -189,7 +189,7 @@ namespace profiler {
 
                         if (pid == 4) {
                             pinfo->name.reserve(pinfo->name.size() + 8);
-                            pinfo->name.append(" System", 6);
+                            pinfo->name.append(" System", 7);
                         }
                     }
                 }
