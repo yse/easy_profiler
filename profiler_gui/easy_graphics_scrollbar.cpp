@@ -520,10 +520,15 @@ void EasyHystogramItem::paintById(QPainter* _painter)
                 }
                 else
                 {
-                    first = items.begin() + items.size() - 1;
+                    first = items.begin() + (items.size() - 1);
                 }
 
-                const auto n = static_cast<uint32_t>(::std::distance(first, items.end()));
+                auto last = ::std::upper_bound(first, items.end(), maximum + EASY_GLOBALS.begin_time, [](qreal _value, ::profiler::block_index_t _item)
+                {
+                    return _value < easyBlock(_item).tree.node->begin();
+                });
+
+                const auto n = static_cast<uint32_t>(::std::distance(first, last));
 
                 if (n > 0)
                 {
