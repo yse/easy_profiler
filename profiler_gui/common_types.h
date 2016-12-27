@@ -152,15 +152,24 @@ inline ::profiler::color_t textColorForRgb(::profiler::color_t _color)
 
 //////////////////////////////////////////////////////////////////////////
 
+#define EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
+//#undef  EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
+
 #pragma pack(push, 1)
 struct EasyBlockItem Q_DECL_FINAL
 {
     qreal                              x; ///< x coordinate of the item (this is made qreal=double to avoid mistakes on very wide scene)
     float                              w; ///< Width of the item
     ::profiler::block_index_t      block; ///< Index of profiler block
+
+#ifndef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
     ::profiler::block_index_t neighbours; ///< Number of neighbours (parent.children.size())
     uint32_t              children_begin; ///< Index of first child item on the next sublevel
     int8_t                         state; ///< 0 = no change, 1 = paint, -1 = do not paint
+#else
+    ::profiler::block_index_t max_depth_child; ///< Index of child with maximum tree depth
+    uint32_t              children_begin; ///< Index of first child item on the next sublevel
+#endif
 
     // Possible optimizations:
     // 1) We can save 1 more byte per block if we will use char instead of short + real time calculations for "totalHeight" var;

@@ -115,6 +115,326 @@ QRectF EasyGraphicsItem::boundingRect() const
 
 //////////////////////////////////////////////////////////////////////////
 
+struct EasyPainterInformation EASY_FINAL
+{
+    const QRectF visibleSceneRect;
+    QRectF rect;
+    QBrush brush;
+    const qreal visibleBottom;
+    const qreal currentScale;
+    const qreal offset;
+    const qreal sceneLeft;
+    const qreal sceneRight;
+    const qreal dx;
+    QRgb previousColor;
+    QRgb textColor;
+    Qt::PenStyle previousPenStyle;
+    bool is_light;
+    bool selectedItemsWasPainted;
+
+    explicit EasyPainterInformation(const EasyGraphicsView* sceneView)
+        : visibleSceneRect(sceneView->visibleSceneRect())
+        , visibleBottom(visibleSceneRect.bottom() - 1)
+        , currentScale(sceneView->scale())
+        , offset(sceneView->offset())
+        , sceneLeft(offset)
+        , sceneRight(offset + visibleSceneRect.width() / currentScale)
+        , dx(offset * currentScale)
+        , previousColor(0)
+        , textColor(0)
+        , previousPenStyle(Qt::NoPen)
+        , is_light(false)
+        , selectedItemsWasPainted(false)
+    {
+        brush.setStyle(Qt::SolidPattern);
+    }
+
+    EasyPainterInformation() = delete;
+};
+
+#ifdef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
+void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSizeHalf, const uint8_t _levelsNumber, QPainter* _painter, struct EasyPainterInformation& p, ::profiler_gui::EasyBlockItem& _item, const ::profiler_gui::EasyBlock& _itemBlock, RightBounds& _rightBounds, uint8_t _level, int8_t _mode)
+{
+    if (_level >= _levelsNumber || _itemBlock.tree.children.empty())
+        return;
+
+    const auto top = levelY(_level);
+    if (top > p.visibleBottom)
+        return;
+
+    qreal& prevRight = _rightBounds[_level];
+    auto& level = m_levels[_level];
+    const short next_level = _level + 1;
+
+    uint32_t neighbours = (uint32_t)_itemBlock.tree.children.size();
+    uint32_t last = neighbours - 1;
+    uint32_t neighbour = 0;
+
+    if (_mode == BLOCK_ITEM_DO_PAINT_FIRST)
+    {
+        neighbour = last = _item.max_depth_child;
+        neighbours = neighbour + 1;
+    }
+
+    for (uint32_t i = _item.children_begin + neighbour; neighbour < neighbours; ++i, ++neighbour)
+    {
+        auto& item = level[i];
+
+        if (item.left() > p.sceneRight)
+            break; // This is first totally invisible item. No need to check other items.
+
+        if (item.right() < p.sceneLeft)
+            continue; // This item is not visible
+
+        const auto& itemBlock = easyBlock(item.block);
+        const uint16_t totalHeight = itemBlock.tree.depth * ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + ::profiler_gui::GRAPHICS_ROW_SIZE;
+        if ((top + totalHeight) < p.visibleSceneRect.top())
+            continue; // This item is not visible
+
+        const auto item_width = ::std::max(item.width(), _minWidth);
+        auto x = item.left() * p.currentScale - p.dx;
+        auto w = item_width * p.currentScale;
+        //const auto right = x + w;
+        if ((x + w) <= prevRight)
+        {
+            // This item is not visible
+            if (!(EASY_GLOBALS.hide_narrow_children && w < EASY_GLOBALS.blocks_narrow_size))
+                paintChildren(_minWidth, _narrowSizeHalf, _levelsNumber, _painter, p, item, itemBlock, _rightBounds, next_level, BLOCK_ITEM_DO_PAINT_FIRST);
+            continue;
+        }
+
+        if (x < prevRight)
+        {
+            w -= prevRight - x;
+            x = prevRight;
+        }
+
+        if (EASY_GLOBALS.hide_minsize_blocks && w < EASY_GLOBALS.blocks_size_min)
+            continue; // Hide blocks (except top-level blocks) which width is less than 1 pixel
+
+        const auto& itemDesc = easyDescriptor(itemBlock.tree.node->id());
+
+        int h = 0, flags = 0;
+        bool do_paint_children = false;
+        if ((EASY_GLOBALS.hide_narrow_children && w < EASY_GLOBALS.blocks_narrow_size) || !itemBlock.expanded)
+        {
+            // Items which width is less than 20 will be painted as big rectangles which are hiding it's children
+
+            //x = item.left() * p.currentScale - p.dx;
+            h = totalHeight;
+            const auto dh = top + h - p.visibleBottom;
+            if (dh > 0)
+                h -= dh;
+
+            if (item.block == EASY_GLOBALS.selected_block)
+                p.selectedItemsWasPainted = true;
+
+            const bool colorChange = (p.previousColor != itemDesc.color());
+            if (colorChange)
+            {
+                // Set background color brush for rectangle
+                p.previousColor = itemDesc.color();
+                //p.inverseColor = 0xffffffff - p.previousColor;
+                p.is_light = ::profiler_gui::isLightColor(p.previousColor);
+                p.textColor = ::profiler_gui::textColorForFlag(p.is_light);
+                p.brush.setColor(p.previousColor);
+                _painter->setBrush(p.brush);
+            }
+
+            if (EASY_GLOBALS.highlight_blocks_with_same_id && (EASY_GLOBALS.selected_block_id == itemBlock.tree.node->id()
+                || (::profiler_gui::is_max(EASY_GLOBALS.selected_block) && EASY_GLOBALS.selected_block_id == itemDesc.id())))
+            {
+                if (p.previousPenStyle != Qt::DotLine)
+                {
+                    p.previousPenStyle = Qt::DotLine;
+                    _painter->setPen(HIGHLIGHTER_PEN);
+                }
+            }
+            else if (EASY_GLOBALS.draw_graphics_items_borders)
+            {
+                if (p.previousPenStyle != Qt::SolidLine)// || colorChange)
+                {
+                    // Restore pen for item which is wide enough to paint borders
+                    p.previousPenStyle = Qt::SolidLine;
+                    _painter->setPen(BORDERS_COLOR);//BORDERS_COLOR & inverseColor);
+                }
+            }
+            else if (p.previousPenStyle != Qt::NoPen)
+            {
+                p.previousPenStyle = Qt::NoPen;
+                _painter->setPen(Qt::NoPen);
+            }
+
+            const auto wprev = w;
+            decltype(w) dw = 0;
+            if (item.left() < p.sceneLeft)
+            {
+                // if item left border is out of screen then attach text to the left border of the screen
+                // to ensure text is always visible for items presenting on the screen.
+                w += (item.left() - p.sceneLeft) * p.currentScale;
+                x = p.sceneLeft * p.currentScale - p.dx - 2;
+                w += 2;
+                dw = 2;
+            }
+
+            if (item.right() > p.sceneRight)
+            {
+                w -= (item.right() - p.sceneRight) * p.currentScale;
+                w += 2;
+                dw += 2;
+            }
+
+            if (w < EASY_GLOBALS.blocks_size_min)
+                w = EASY_GLOBALS.blocks_size_min;
+
+            // Draw rectangle
+            p.rect.setRect(x, top, w, h);
+            _painter->drawRect(p.rect);
+
+            prevRight = p.rect.right() + EASY_GLOBALS.blocks_spacing;
+            //skip_children(next_level, item.children_begin);
+            if (wprev < EASY_GLOBALS.blocks_narrow_size)
+                continue;
+
+            if (totalHeight > ::profiler_gui::GRAPHICS_ROW_SIZE)
+                flags = Qt::AlignCenter;
+            else if (!(item.width() < 1))
+                flags = Qt::AlignHCenter;
+
+            if (dw > 1)
+            {
+                w -= dw;
+                x += 2;
+            }
+        }
+        else
+        {
+            if (item.block == EASY_GLOBALS.selected_block)
+                p.selectedItemsWasPainted = true;
+
+            const bool colorChange = (p.previousColor != itemDesc.color());
+            if (colorChange)
+            {
+                // Set background color brush for rectangle
+                p.previousColor = itemDesc.color();
+                //p.inverseColor = 0xffffffff - p.previousColor;
+                p.is_light = ::profiler_gui::isLightColor(p.previousColor);
+                p.textColor = ::profiler_gui::textColorForFlag(p.is_light);
+                p.brush.setColor(p.previousColor);
+                _painter->setBrush(p.brush);
+            }
+
+            if (EASY_GLOBALS.highlight_blocks_with_same_id && (EASY_GLOBALS.selected_block_id == itemBlock.tree.node->id()
+                || (::profiler_gui::is_max(EASY_GLOBALS.selected_block) && EASY_GLOBALS.selected_block_id == itemDesc.id())))
+            {
+                if (p.previousPenStyle != Qt::DotLine)
+                {
+                    p.previousPenStyle = Qt::DotLine;
+                    _painter->setPen(HIGHLIGHTER_PEN);
+                }
+            }
+            else if (EASY_GLOBALS.draw_graphics_items_borders)
+            {
+                if (p.previousPenStyle != Qt::SolidLine)// || colorChange)
+                {
+                    // Restore pen for item which is wide enough to paint borders
+                    p.previousPenStyle = Qt::SolidLine;
+                    _painter->setPen(BORDERS_COLOR);// BORDERS_COLOR & inverseColor);
+                }
+            }
+            else if (p.previousPenStyle != Qt::NoPen)
+            {
+                p.previousPenStyle = Qt::NoPen;
+                _painter->setPen(Qt::NoPen);
+            }
+
+            // Draw rectangle
+            //x = item.left() * currentScale - p.dx;
+            h = ::profiler_gui::GRAPHICS_ROW_SIZE;
+            const auto dh = top + h - p.visibleBottom;
+            if (dh > 0)
+                h -= dh;
+
+            const auto wprev = w;
+            decltype(w) dw = 0;
+            if (item.left() < p.sceneLeft)
+            {
+                // if item left border is out of screen then attach text to the left border of the screen
+                // to ensure text is always visible for items presenting on the screen.
+                w += (item.left() - p.sceneLeft) * p.currentScale;
+                x = p.sceneLeft * p.currentScale - p.dx - 2;
+                w += 2;
+                dw = 2;
+            }
+
+            if (item.right() > p.sceneRight)
+            {
+                w -= (item.right() - p.sceneRight) * p.currentScale;
+                w += 2;
+                dw += 2;
+            }
+
+            if (w < EASY_GLOBALS.blocks_size_min)
+                w = EASY_GLOBALS.blocks_size_min;
+
+            p.rect.setRect(x, top, w, h);
+            _painter->drawRect(p.rect);
+
+            prevRight = p.rect.right() + EASY_GLOBALS.blocks_spacing;
+            if (wprev < EASY_GLOBALS.blocks_narrow_size)
+            {
+                paintChildren(_minWidth, _narrowSizeHalf, _levelsNumber, _painter, p, item, itemBlock, _rightBounds, next_level, wprev < _narrowSizeHalf ? BLOCK_ITEM_DO_PAINT_FIRST : BLOCK_ITEM_DO_PAINT);
+                continue;
+            }
+
+            if (!(item.width() < 1))
+                flags = Qt::AlignHCenter;
+
+            if (dw > 1)
+            {
+                w -= dw;
+                x += 2;
+            }
+
+            do_paint_children = true;
+        }
+
+        // Draw text-----------------------------------
+        p.rect.setRect(x + 1, top, w - 1, h);
+
+        // text will be painted with inverse color
+        //auto textColor = inverseColor < 0x00808080 ? profiler::colors::Black : profiler::colors::White;
+        //if (textColor == previousColor) textColor = 0;
+        _painter->setPen(p.textColor);
+
+        if (item.block == EASY_GLOBALS.selected_block)
+            _painter->setFont(SELECTED_ITEM_FONT);
+
+        // drawing text
+        auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : itemDesc.name();
+        _painter->drawText(p.rect, flags, ::profiler_gui::toUnicode(name));
+
+        // restore previous pen color
+        if (p.previousPenStyle == Qt::NoPen)
+            _painter->setPen(Qt::NoPen);
+        else if (p.previousPenStyle == Qt::DotLine)
+        {
+            _painter->setPen(HIGHLIGHTER_PEN);
+        }
+        else
+            _painter->setPen(BORDERS_COLOR);// BORDERS_COLOR & inverseColor); // restore pen for rectangle painting
+
+        // restore font
+        if (item.block == EASY_GLOBALS.selected_block)
+            _painter->setFont(ITEMS_FONT);
+        // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+        if (do_paint_children)
+            paintChildren(_minWidth, _narrowSizeHalf, _levelsNumber, _painter, p, item, itemBlock, _rightBounds, next_level, _mode);
+    }
+}
+#endif
+
 void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
 {
     const bool gotItems = !m_levels.empty() && !m_levels.front().empty();
@@ -125,34 +445,25 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         return;
     }
 
-    const auto sceneView = view();
-    const auto visibleSceneRect = sceneView->visibleSceneRect(); // Current visible scene rect
-    const auto visibleBottom = visibleSceneRect.bottom() - 1;
-    const auto currentScale = sceneView->scale(); // Current GraphicsView scale
-    const auto offset = sceneView->offset();
-    const auto sceneLeft = offset, sceneRight = offset + visibleSceneRect.width() / currentScale;
-
-    QRectF rect;
-    QBrush brush;
-    QRgb previousColor = 0, textColor = 0;
-    //QRgb inverseColor = 0xffffffff;
-    Qt::PenStyle previousPenStyle = Qt::NoPen;
-    bool is_light = false;
-    brush.setStyle(Qt::SolidPattern);
+    EasyPainterInformation p(view());
 
     _painter->save();
     _painter->setFont(ITEMS_FONT);
     
     // Reset indices of first visible item for each layer
     const auto levelsNumber = levels();
-    for (uint8_t i = 1; i < levelsNumber; ++i) ::profiler_gui::set_max(m_levelsIndexes[i]);
+    m_rightBounds[0] = -1e100;
+    for (uint8_t i = 1; i < levelsNumber; ++i) {
+        ::profiler_gui::set_max(m_levelsIndexes[i]);
+        m_rightBounds[i] = -1e100;
+    }
 
 
     // Search for first visible top-level item
     if (gotItems)
     {
         auto& level0 = m_levels.front();
-        auto first = ::std::lower_bound(level0.begin(), level0.end(), sceneLeft, [](const ::profiler_gui::EasyBlockItem& _item, qreal _value)
+        auto first = ::std::lower_bound(level0.begin(), level0.end(), p.sceneLeft, [](const ::profiler_gui::EasyBlockItem& _item, qreal _value)
         {
             return _item.left() < _value;
         });
@@ -175,7 +486,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     // (it seems there is a bug in Qt5.6 when drawText called for big coordinates,
     // drawRect at the same time called for actually same coordinates
     // works fine without using this additional shifting)
-    const auto dx = offset * currentScale;
+    //const auto dx = p.offset * p.currentScale;
 
     // Shifting coordinates to current screen offset
     _painter->setTransform(QTransform::fromTranslate(0, -y()), true);
@@ -184,7 +495,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
     if (EASY_GLOBALS.draw_graphics_items_borders)
     {
-        previousPenStyle = Qt::SolidLine;
+        p.previousPenStyle = Qt::SolidLine;
         _painter->setPen(BORDERS_COLOR);
     }
     else
@@ -202,13 +513,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         static const auto MAX_CHILD_INDEX = ::profiler_gui::numeric_max<decltype(::profiler_gui::EasyBlockItem::children_begin)>();
         const int narrow_size_half = EASY_GLOBALS.blocks_narrow_size >> 1;
 
-        //auto const skip_children = [this, &levelsNumber](short next_level, decltype(::profiler_gui::EasyBlockItem::children_begin) children_begin)
-        //{
-        //    // Mark that we would not paint children of current item
-        //    if (next_level < levelsNumber && children_begin != MAX_CHILD_INDEX)
-        //        m_levels[next_level][children_begin].state = BLOCK_ITEM_DO_NOT_PAINT;
-        //};
-
+#ifndef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
         auto const dont_skip_children = [this, &levelsNumber](short next_level, decltype(::profiler_gui::EasyBlockItem::children_begin) children_begin, int8_t _state)
         {
             if (next_level < levelsNumber && children_begin != MAX_CHILD_INDEX)
@@ -223,19 +528,24 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 m_levels[next_level][children_begin].state = _state;
             }
         };
+#endif
 
         //size_t iterations = 0;
-        bool selectedItemsWasPainted = false;
+#ifndef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
         for (uint8_t l = 0; l < levelsNumber; ++l)
+#else
+        for (uint8_t l = 0; l < 1; ++l)
+#endif
         {
             auto& level = m_levels[l];
             const short next_level = l + 1;
             char state = BLOCK_ITEM_DO_PAINT;
 
             const auto top = levelY(l);
-            if (top > visibleBottom)
+            if (top > p.visibleBottom)
                 break;
 
+            //qreal& prevRight = m_rightBounds[l];
             qreal prevRight = -1e100;
             uint32_t neighbour = 0;
             for (uint32_t i = m_levelsIndexes[l], end = static_cast<uint32_t>(level.size()); i < end; ++i, ++neighbour)
@@ -244,57 +554,53 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
                 auto& item = level[i];
 
-                if (item.left() > sceneRight)
+                if (item.left() > p.sceneRight)
                     break; // This is first totally invisible item. No need to check other items.
 
+#ifndef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
                 if (item.state != BLOCK_ITEM_UNCHANGED)
                 {
                     neighbour = 0; // first block in parent's children list
                     state = item.state;
                     item.state = BLOCK_ITEM_DO_NOT_PAINT;
                 }
+#endif
 
-                if (item.right() < sceneLeft)
-                {
-                    // This item is not visible
-                    //skip_children(next_level, item.children_begin);
-                    continue;
-                } 
+                if (item.right() < p.sceneLeft)
+                    continue; // This item is not visible
 
+#ifndef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
                 if (state == BLOCK_ITEM_DO_NOT_PAINT)
                 {
                     // This item is not visible
-                    //skip_children(next_level, item.children_begin);
                     if (neighbour < item.neighbours)
                         i += item.neighbours - neighbour - 1; // Skip all neighbours
                     continue;
                 }
 
                 if (state == BLOCK_ITEM_DO_PAINT_FIRST && item.children_begin == MAX_CHILD_INDEX && next_level < levelsNumber && neighbour < (item.neighbours-1))
-                {
                     // Paint only first child which has own children
                     continue; // This item has no children and would not be painted
-                }
+#endif
 
                 const auto& itemBlock = easyBlock(item.block);
                 const uint16_t totalHeight = itemBlock.tree.depth * ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + ::profiler_gui::GRAPHICS_ROW_SIZE;
-                if ((top + totalHeight) < visibleSceneRect.top())
-                {
-                    // This item is not visible
-                    //skip_children(next_level, item.children_begin);
-                    continue;
-                }
+                if ((top + totalHeight) < p.visibleSceneRect.top())
+                    continue; // This item is not visible
 
                 const auto item_width = ::std::max(item.width(), MIN_WIDTH);
-                auto x = item.left() * currentScale - dx;
-                auto w = item_width * currentScale;
-                if (x + w <= prevRight)
+                auto x = item.left() * p.currentScale - p.dx;
+                auto w = item_width * p.currentScale;
+                if ((x + w) <= prevRight)
                 {
                     // This item is not visible
+#ifdef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
+                    if (!EASY_GLOBALS.hide_narrow_children || w >= EASY_GLOBALS.blocks_narrow_size)
+                        paintChildren(MIN_WIDTH, narrow_size_half, levelsNumber, _painter, p, item, itemBlock, m_rightBounds, next_level, BLOCK_ITEM_DO_PAINT_FIRST);
+#else
                     if (!(EASY_GLOBALS.hide_narrow_children && w < EASY_GLOBALS.blocks_narrow_size) && l > 0)
                         dont_skip_children(next_level, item.children_begin, BLOCK_ITEM_DO_PAINT_FIRST);
-                    //else
-                    //    skip_children(next_level, item.children_begin);
+#endif
                     continue;
                 }
 
@@ -304,85 +610,88 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     x = prevRight;
                 }
 
+#ifndef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
                 if (EASY_GLOBALS.hide_minsize_blocks && w < EASY_GLOBALS.blocks_size_min && l > 0)
-                {
-                    // Hide blocks (except top-level blocks) which width is less than 1 pixel
-                    continue;
-                }
+                    continue; // Hide blocks (except top-level blocks) which width is less than 1 pixel
 
                 if (state == BLOCK_ITEM_DO_PAINT_FIRST && neighbour < item.neighbours)
                 {
                     // Paint only first child which has own children
                     i += item.neighbours - neighbour - 1; // Skip all neighbours
                 }
+#endif
 
                 const auto& itemDesc = easyDescriptor(itemBlock.tree.node->id());
-
                 int h = 0, flags = 0;
+
+#ifdef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
+                bool do_paint_children = false;
+#endif
+
                 if ((EASY_GLOBALS.hide_narrow_children && w < EASY_GLOBALS.blocks_narrow_size) || !itemBlock.expanded)
                 {
                     // Items which width is less than 20 will be painted as big rectangles which are hiding it's children
 
-                    //x = item.left() * currentScale - dx;
+                    //x = item.left() * p.currentScale - p.dx;
                     h = totalHeight;
-                    const auto dh = top + h - visibleBottom;
+                    const auto dh = top + h - p.visibleBottom;
                     if (dh > 0)
                         h -= dh;
 
                     if (item.block == EASY_GLOBALS.selected_block)
-                        selectedItemsWasPainted = true;
+                        p.selectedItemsWasPainted = true;
 
-                    const bool colorChange = (previousColor != itemDesc.color());
+                    const bool colorChange = (p.previousColor != itemDesc.color());
                     if (colorChange)
                     {
                         // Set background color brush for rectangle
-                        previousColor = itemDesc.color();
-                        //inverseColor = 0xffffffff - previousColor;
-                        is_light = ::profiler_gui::isLightColor(previousColor);
-                        textColor = ::profiler_gui::textColorForFlag(is_light);
-                        brush.setColor(previousColor);
-                        _painter->setBrush(brush);
+                        p.previousColor = itemDesc.color();
+                        //p.inverseColor = 0xffffffff - p.previousColor;
+                        p.is_light = ::profiler_gui::isLightColor(p.previousColor);
+                        p.textColor = ::profiler_gui::textColorForFlag(p.is_light);
+                        p.brush.setColor(p.previousColor);
+                        _painter->setBrush(p.brush);
                     }
 
                     if (EASY_GLOBALS.highlight_blocks_with_same_id && (EASY_GLOBALS.selected_block_id == itemBlock.tree.node->id()
                         || (::profiler_gui::is_max(EASY_GLOBALS.selected_block) && EASY_GLOBALS.selected_block_id == itemDesc.id())))
                     {
-                        if (previousPenStyle != Qt::DotLine)
+                        if (p.previousPenStyle != Qt::DotLine)
                         {
-                            previousPenStyle = Qt::DotLine;
+                            p.previousPenStyle = Qt::DotLine;
                             _painter->setPen(HIGHLIGHTER_PEN);
                         }
                     }
                     else if (EASY_GLOBALS.draw_graphics_items_borders)
                     {
-                        if (previousPenStyle != Qt::SolidLine)// || colorChange)
+                        if (p.previousPenStyle != Qt::SolidLine)// || colorChange)
                         {
                             // Restore pen for item which is wide enough to paint borders
-                            previousPenStyle = Qt::SolidLine;
+                            p.previousPenStyle = Qt::SolidLine;
                             _painter->setPen(BORDERS_COLOR);//BORDERS_COLOR & inverseColor);
                         }
                     }
-                    else if (previousPenStyle != Qt::NoPen)
+                    else if (p.previousPenStyle != Qt::NoPen)
                     {
-                        previousPenStyle = Qt::NoPen;
+                        p.previousPenStyle = Qt::NoPen;
                         _painter->setPen(Qt::NoPen);
                     }
 
                     const auto wprev = w;
                     decltype(w) dw = 0;
-                    if (item.left() < sceneLeft)
+                    if (item.left() < p.sceneLeft)
                     {
                         // if item left border is out of screen then attach text to the left border of the screen
                         // to ensure text is always visible for items presenting on the screen.
-                        w += (item.left() - sceneLeft) * currentScale;
-                        x = sceneLeft * currentScale - dx - 2;
+                        w += (item.left() - p.sceneLeft) * p.currentScale;
+                        x = p.sceneLeft * p.currentScale - p.dx - 2;
                         w += 2;
                         dw = 2;
                     }
 
-                    if (item.right() > sceneRight)
+                    if (item.right() > p.sceneRight)
                     {
-                        w -= (item.right() - sceneRight) * currentScale;
+                        w -= (item.right() - p.sceneRight) * p.currentScale;
                         w += 2;
                         dw += 2;
                     }
@@ -391,10 +700,10 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         w = EASY_GLOBALS.blocks_size_min;
 
                     // Draw rectangle
-                    rect.setRect(x, top, w, h);
-                    _painter->drawRect(rect);
+                    p.rect.setRect(x, top, w, h);
+                    _painter->drawRect(p.rect);
 
-                    prevRight = rect.right() + EASY_GLOBALS.blocks_spacing;
+                    prevRight = p.rect.right() + EASY_GLOBALS.blocks_spacing;
                     //skip_children(next_level, item.children_begin);
                     if (wprev < EASY_GLOBALS.blocks_narrow_size)
                         continue;
@@ -412,66 +721,66 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 else
                 {
                     if (item.block == EASY_GLOBALS.selected_block)
-                        selectedItemsWasPainted = true;
+                        p.selectedItemsWasPainted = true;
 
-                    const bool colorChange = (previousColor != itemDesc.color());
+                    const bool colorChange = (p.previousColor != itemDesc.color());
                     if (colorChange)
                     {
                         // Set background color brush for rectangle
-                        previousColor = itemDesc.color();
-                        //inverseColor = 0xffffffff - previousColor;
-                        is_light = ::profiler_gui::isLightColor(previousColor);
-                        textColor = ::profiler_gui::textColorForFlag(is_light);
-                        brush.setColor(previousColor);
-                        _painter->setBrush(brush);
+                        p.previousColor = itemDesc.color();
+                        //p.inverseColor = 0xffffffff - p.previousColor;
+                        p.is_light = ::profiler_gui::isLightColor(p.previousColor);
+                        p.textColor = ::profiler_gui::textColorForFlag(p.is_light);
+                        p.brush.setColor(p.previousColor);
+                        _painter->setBrush(p.brush);
                     }
 
                     if (EASY_GLOBALS.highlight_blocks_with_same_id && (EASY_GLOBALS.selected_block_id == itemBlock.tree.node->id()
                         || (::profiler_gui::is_max(EASY_GLOBALS.selected_block) && EASY_GLOBALS.selected_block_id == itemDesc.id())))
                     {
-                        if (previousPenStyle != Qt::DotLine)
+                        if (p.previousPenStyle != Qt::DotLine)
                         {
-                            previousPenStyle = Qt::DotLine;
+                            p.previousPenStyle = Qt::DotLine;
                             _painter->setPen(HIGHLIGHTER_PEN);
                         }
                     }
                     else if (EASY_GLOBALS.draw_graphics_items_borders)
                     {
-                        if (previousPenStyle != Qt::SolidLine)// || colorChange)
+                        if (p.previousPenStyle != Qt::SolidLine)// || colorChange)
                         {
                             // Restore pen for item which is wide enough to paint borders
-                            previousPenStyle = Qt::SolidLine;
+                            p.previousPenStyle = Qt::SolidLine;
                             _painter->setPen(BORDERS_COLOR);// BORDERS_COLOR & inverseColor);
                         }
                     }
-                    else if (previousPenStyle != Qt::NoPen)
+                    else if (p.previousPenStyle != Qt::NoPen)
                     {
-                        previousPenStyle = Qt::NoPen;
+                        p.previousPenStyle = Qt::NoPen;
                         _painter->setPen(Qt::NoPen);
                     }
 
                     // Draw rectangle
-                    //x = item.left() * currentScale - dx;
+                    //x = item.left() * currentScale - p.dx;
                     h = ::profiler_gui::GRAPHICS_ROW_SIZE;
-                    const auto dh = top + h - visibleBottom;
+                    const auto dh = top + h - p.visibleBottom;
                     if (dh > 0)
                         h -= dh;
 
                     const auto wprev = w;
                     decltype(w) dw = 0;
-                    if (item.left() < sceneLeft)
+                    if (item.left() < p.sceneLeft)
                     {
                         // if item left border is out of screen then attach text to the left border of the screen
                         // to ensure text is always visible for items presenting on the screen.
-                        w += (item.left() - sceneLeft) * currentScale;
-                        x = sceneLeft * currentScale - dx - 2;
+                        w += (item.left() - p.sceneLeft) * p.currentScale;
+                        x = p.sceneLeft * p.currentScale - p.dx - 2;
                         w += 2;
                         dw = 2;
                     }
 
-                    if (item.right() > sceneRight)
+                    if (item.right() > p.sceneRight)
                     {
-                        w -= (item.right() - sceneRight) * currentScale;
+                        w -= (item.right() - p.sceneRight) * p.currentScale;
                         w += 2;
                         dw += 2;
                     }
@@ -479,17 +788,23 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     if (w < EASY_GLOBALS.blocks_size_min)
                         w = EASY_GLOBALS.blocks_size_min;
 
-                    rect.setRect(x, top, w, h);
-                    _painter->drawRect(rect);
+                    p.rect.setRect(x, top, w, h);
+                    _painter->drawRect(p.rect);
 
-                    prevRight = rect.right() + EASY_GLOBALS.blocks_spacing;
+                    prevRight = p.rect.right() + EASY_GLOBALS.blocks_spacing;
                     if (wprev < EASY_GLOBALS.blocks_narrow_size)
                     {
+#ifndef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
                         dont_skip_children(next_level, item.children_begin, wprev < narrow_size_half ? BLOCK_ITEM_DO_PAINT_FIRST : BLOCK_ITEM_DO_PAINT);
+#else
+                        paintChildren(MIN_WIDTH, narrow_size_half, levelsNumber, _painter, p, item, itemBlock, m_rightBounds, next_level, wprev < narrow_size_half ? BLOCK_ITEM_DO_PAINT_FIRST : BLOCK_ITEM_DO_PAINT);
+#endif
                         continue;
                     }
 
+#ifndef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
                     dont_skip_children(next_level, item.children_begin, BLOCK_ITEM_DO_PAINT);
+#endif
                     if (!(item.width() < 1))
                         flags = Qt::AlignHCenter;
 
@@ -497,27 +812,31 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         w -= dw;
                         x += 2;
                     }
+
+#ifdef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
+                    do_paint_children = true;
+#endif
                 }
 
                 // Draw text-----------------------------------
-                rect.setRect(x + 1, top, w - 1, h);
+                p.rect.setRect(x + 1, top, w - 1, h);
 
                 // text will be painted with inverse color
                 //auto textColor = inverseColor < 0x00808080 ? profiler::colors::Black : profiler::colors::White;
                 //if (textColor == previousColor) textColor = 0;
-                _painter->setPen(textColor);
+                _painter->setPen(p.textColor);
 
                 if (item.block == EASY_GLOBALS.selected_block)
                     _painter->setFont(SELECTED_ITEM_FONT);
 
                 // drawing text
                 auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : itemDesc.name();
-                _painter->drawText(rect, flags, ::profiler_gui::toUnicode(name));
+                _painter->drawText(p.rect, flags, ::profiler_gui::toUnicode(name));
 
                 // restore previous pen color
-                if (previousPenStyle == Qt::NoPen)
+                if (p.previousPenStyle == Qt::NoPen)
                     _painter->setPen(Qt::NoPen);
-                else if (previousPenStyle == Qt::DotLine)
+                else if (p.previousPenStyle == Qt::DotLine)
                 {
                     _painter->setPen(HIGHLIGHTER_PEN);
                 }
@@ -528,6 +847,11 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 if (item.block == EASY_GLOBALS.selected_block)
                     _painter->setFont(ITEMS_FONT);
                 // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#ifdef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
+                if (do_paint_children)
+                    paintChildren(MIN_WIDTH, narrow_size_half, levelsNumber, _painter, p, item, itemBlock, m_rightBounds, next_level, BLOCK_ITEM_DO_PAINT);
+#endif
             }
         }
 
@@ -537,18 +861,18 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
             if (guiblock.graphics_item == m_index)
             {
                 const auto& item = m_levels[guiblock.graphics_item_level][guiblock.graphics_item_index];
-                if (item.left() < sceneRight && item.right() > sceneLeft)
+                if (item.left() < p.sceneRight && item.right() > p.sceneLeft)
                 {
                     const auto& itemBlock = easyBlock(item.block);
                     const auto item_width = ::std::max(item.width(), MIN_WIDTH);
                     auto top = levelY(guiblock.graphics_item_level);
-                    auto w = ::std::max(item_width * currentScale, 1.0);
+                    auto w = ::std::max(item_width * p.currentScale, 1.0);
                     decltype(top) h = (!itemBlock.expanded ||
                                        (w < EASY_GLOBALS.blocks_narrow_size && EASY_GLOBALS.hide_narrow_children))
                                        ? (itemBlock.tree.depth * ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + ::profiler_gui::GRAPHICS_ROW_SIZE)
                                        : ::profiler_gui::GRAPHICS_ROW_SIZE;
 
-                    auto dh = top + h - visibleBottom;
+                    auto dh = top + h - p.visibleBottom;
                     if (dh < h)
                     {
                         if (dh > 0)
@@ -562,39 +886,39 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         pen.setWidth(3);
                         _painter->setPen(pen);
 
-                        if (!selectedItemsWasPainted)
+                        if (!p.selectedItemsWasPainted)
                         {
-                            brush.setColor(itemDesc.color());// SELECTED_ITEM_COLOR);
-                            _painter->setBrush(brush);
+                            p.brush.setColor(itemDesc.color());// SELECTED_ITEM_COLOR);
+                            _painter->setBrush(p.brush);
                         }
                         else
                         {
                             _painter->setBrush(Qt::NoBrush);
                         }
 
-                        auto x = item.left() * currentScale - dx;
+                        auto x = item.left() * p.currentScale - p.dx;
                         decltype(w) dw = 0;
-                        if (item.left() < sceneLeft)
+                        if (item.left() < p.sceneLeft)
                         {
                             // if item left border is out of screen then attach text to the left border of the screen
                             // to ensure text is always visible for items presenting on the screen.
-                            w += (item.left() - sceneLeft) * currentScale;
-                            x = sceneLeft * currentScale - dx - 2;
+                            w += (item.left() - p.sceneLeft) * p.currentScale;
+                            x = p.sceneLeft * p.currentScale - p.dx - 2;
                             w += 2;
                             dw = 2;
                         }
 
-                        if (item.right() > sceneRight)
+                        if (item.right() > p.sceneRight)
                         {
-                            w -= (item.right() - sceneRight) * currentScale;
+                            w -= (item.right() - p.sceneRight) * p.currentScale;
                             w += 2;
                             dw += 2;
                         }
 
-                        rect.setRect(x, top, w, h);
-                        _painter->drawRect(rect);
+                        p.rect.setRect(x, top, w, h);
+                        _painter->drawRect(p.rect);
 
-                        if (!selectedItemsWasPainted && w > EASY_GLOBALS.blocks_narrow_size)
+                        if (!p.selectedItemsWasPainted && w > EASY_GLOBALS.blocks_narrow_size)
                         {
                             if (dw > 1) {
                                 w -= dw;
@@ -602,19 +926,19 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                             }
 
                             // Draw text-----------------------------------
-                            rect.setRect(x + 1, top, w - 1, h);
+                            p.rect.setRect(x + 1, top, w - 1, h);
 
                             // text will be painted with inverse color
                             //auto textColor = 0x00ffffff - previousColor;
                             //if (textColor == previousColor) textColor = 0;
-                            textColor = ::profiler_gui::textColorForRgb(itemDesc.color());// SELECTED_ITEM_COLOR);
-                            _painter->setPen(textColor);
+                            p.textColor = ::profiler_gui::textColorForRgb(itemDesc.color());// SELECTED_ITEM_COLOR);
+                            _painter->setPen(p.textColor);
 
                             _painter->setFont(SELECTED_ITEM_FONT);
 
                             // drawing text
                             auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : itemDesc.name();
-                            _painter->drawText(rect, Qt::AlignCenter, ::profiler_gui::toUnicode(name));
+                            _painter->drawText(p.rect, Qt::AlignCenter, ::profiler_gui::toUnicode(name));
                             // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                         }
                     }
@@ -629,7 +953,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
     if (gotSync)
     {
-        auto firstSync = ::std::lower_bound(m_pRoot->sync.begin(), m_pRoot->sync.end(), sceneLeft, [&sceneView](::profiler::block_index_t _index, qreal _value)
+        const auto sceneView = view();
+        auto firstSync = ::std::lower_bound(m_pRoot->sync.begin(), m_pRoot->sync.end(), p.sceneLeft, [&sceneView](::profiler::block_index_t _index, qreal _value)
         {
             return sceneView->time2position(blocksTree(_index).node->begin()) < _value;
         });
@@ -645,25 +970,27 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         }
         //firstSync = m_pRoot->sync.begin();
 
-        previousColor = 0;
+        p.previousColor = 0;
         qreal prevRight = -1e100, top = y() - 4, h = 3;
-        if (top + h < visibleBottom)
+        if (top + h < p.visibleBottom)
         {
+            _painter->setPen(BORDERS_COLOR);
+
             for (auto it = firstSync, end = m_pRoot->sync.end(); it != end; ++it)
             {
                 const auto& item = blocksTree(*it);
                 auto left = sceneView->time2position(item.node->begin());
 
-                if (left > sceneRight)
+                if (left > p.sceneRight)
                     break; // This is first totally invisible item. No need to check other items.
 
                 decltype(left) width = sceneView->time2position(item.node->end()) - left;
-                if (left + width < sceneLeft) // This item is not visible
+                if (left + width < p.sceneLeft) // This item is not visible
                     continue;
 
-                left *= currentScale;
-                left -= dx;
-                width *= currentScale;
+                left *= p.currentScale;
+                left -= p.dx;
+                width *= p.currentScale;
                 if (left + width <= prevRight) // This item is not visible
                     continue;
 
@@ -685,18 +1012,14 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 else
                     color = ::profiler::colors::RedA400;
 
-                if (previousColor != color)
+                if (p.previousColor != color)
                 {
-                    previousColor = color;
+                    p.previousColor = color;
                     _painter->setBrush(QColor::fromRgb(color));
-                    if (color != ::profiler::colors::Black)
-                        _painter->setPen(QColor::fromRgb(0x00808080 & color));
-                    else
-                        _painter->setPen(QColor::fromRgb(::profiler::colors::Grey800));
                 }
 
-                rect.setRect(left, top, width, h);
-                _painter->drawRect(rect);
+                p.rect.setRect(left, top, width, h);
+                _painter->drawRect(p.rect);
                 prevRight = left + width + MIN_SYNC_SPACING;
             }
         }
@@ -706,7 +1029,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
     if (EASY_GLOBALS.enable_event_indicators && !m_pRoot->events.empty())
     {
-        auto first = ::std::lower_bound(m_pRoot->events.begin(), m_pRoot->events.end(), offset, [&sceneView](::profiler::block_index_t _index, qreal _value)
+        const auto sceneView = view();
+        auto first = ::std::lower_bound(m_pRoot->events.begin(), m_pRoot->events.end(), p.offset, [&sceneView](::profiler::block_index_t _index, qreal _value)
         {
             return sceneView->time2position(blocksTree(_index).node->begin()) < _value;
         });
@@ -721,25 +1045,27 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
             first = m_pRoot->events.begin() + m_pRoot->events.size() - 1;
         }
 
-        previousColor = 0;
+        p.previousColor = 0;
         qreal prevRight = -1e100, top = y() + boundingRect().height() - 1, h = 3;
-        if (top + h < visibleBottom)
+        if (top + h < p.visibleBottom)
         {
+            _painter->setPen(BORDERS_COLOR);
+
             for (auto it = first, end = m_pRoot->events.end(); it != end; ++it)
             {
                 const auto& item = blocksTree(*it);
                 auto left = sceneView->time2position(item.node->begin());
 
-                if (left > sceneRight)
+                if (left > p.sceneRight)
                     break; // This is first totally invisible item. No need to check other items.
 
                 decltype(left) width = MIN_WIDTH;
-                if (left + width < sceneLeft) // This item is not visible
+                if (left + width < p.sceneLeft) // This item is not visible
                     continue;
 
-                left *= currentScale;
-                left -= dx;
-                width *= currentScale;
+                left *= p.currentScale;
+                left -= p.dx;
+                width *= p.currentScale;
                 if (width < 2) width = 2;
 
                 if (left + width <= prevRight) // This item is not visible
@@ -755,15 +1081,14 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     width = 2;
 
                 ::profiler::color_t color = easyDescriptor(item.node->id()).color();
-                if (previousColor != color)
+                if (p.previousColor != color)
                 {
-                    previousColor = color;
+                    p.previousColor = color;
                     _painter->setBrush(QColor::fromRgb(color));
-                    _painter->setPen(QColor::fromRgb(BORDERS_COLOR & (0xffffffff - color)));
                 }
 
-                rect.setRect(left, top, width, h);
-                _painter->drawRect(rect);
+                p.rect.setRect(left, top, width, h);
+                _painter->drawRect(p.rect);
                 prevRight = left + width + 2;
             }
         }
@@ -1101,6 +1426,7 @@ void EasyGraphicsItem::setLevels(uint8_t _levels)
 
     m_levels.resize(_levels);
     m_levelsIndexes.resize(_levels, MAX_CHILD_INDEX);
+    m_rightBounds.resize(_levels, -1e100);
 }
 
 void EasyGraphicsItem::reserve(uint8_t _level, unsigned int _items)
