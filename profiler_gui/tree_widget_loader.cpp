@@ -777,20 +777,32 @@ size_t EasyTreeWidgetLoader::setTreeInternalPlain(const ::profiler::BlocksTreeRo
         {
             ++total_items;
 
+            size_t children_items_number = 0;
+            ::profiler::timestamp_t children_duration = 0;
+            if (!child.children.empty())
+            {
+                children_items_number = setTreeInternalPlain(_threadRoot, _firstCswitch, _beginTime, child.children, _frame, _frame, _left, _right, _strict, children_duration, _colorizeRows, _addZeroBlocks, _units);
+                if (interrupted())
+                    break;
+            }
+
             if (it->second != nullptr && child.per_frame_stats != nullptr)
             {
                 auto item = it->second;
 
-                auto children_duration = calculateChildrenDurationRecursive(child.children, it->first);
-                auto self_duration = item->data(COL_SELF_DURATION, Qt::UserRole).toULongLong() - children_duration;
+                //auto children_duration = calculateChildrenDurationRecursive(child.children, it->first);
+                if (children_duration != 0)
+                {
+                    auto self_duration = item->data(COL_SELF_DURATION, Qt::UserRole).toULongLong() - children_duration;
 
-                int percentage = 100;
-                if (child.per_frame_stats->total_duration > 0)
-                    percentage = ::profiler_gui::percent(self_duration, child.per_frame_stats->total_duration);
+                    int percentage = 100;
+                    if (child.per_frame_stats->total_duration > 0)
+                        percentage = ::profiler_gui::percent(self_duration, child.per_frame_stats->total_duration);
 
-                item->setTimeSmart(COL_SELF_DURATION, _units, self_duration);
-                item->setData(COL_SELF_DURATION_PERCENT, Qt::UserRole, percentage);
-                item->setText(COL_SELF_DURATION_PERCENT, QString::number(percentage));
+                    item->setTimeSmart(COL_SELF_DURATION, _units, self_duration);
+                    item->setData(COL_SELF_DURATION_PERCENT, Qt::UserRole, percentage);
+                    item->setText(COL_SELF_DURATION_PERCENT, QString::number(percentage));
+                }
 
                 bool hasContextSwitch = false;
                 ::profiler::timestamp_t idleTime = 0;
