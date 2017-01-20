@@ -7,6 +7,8 @@
 
 1. [About](#about)
 2. [Usage](#usage)
+    - [Add profiling blocks](#add-profiling-blocks)
+    - [Collect blocks](#collect-blocks)
 3. [Build](#build)
     - [Linux](#linux)
     - [Windows](#windows)
