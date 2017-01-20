@@ -33,6 +33,8 @@ You can see the results of measuring in simple GUI application which provides fu
 
 # Usage
 
+## Add profiling blocks
+
 First of all you can specify path to include directory which contains `include/profiler` directory and define macro `BUILD_WITH_EASY_PROFILER`.
 For linking with easy_profiler you can specify path to library.
 
@@ -83,6 +85,9 @@ void bar() {
     // some code
 }
 ```
+## Collect blocks
+
+To collect blocks data you can either save them in file by `profiler::dumpBlocksToFile(const char*)`function or listen capturing signal from profiler_gui application. In the latter case you may control captruing blocks in GUI-based application after calling function `profiler::startListen()`.
 
 # Build
 
