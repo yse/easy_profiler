@@ -14,7 +14,9 @@ include_directories(
 )
 link_directories(${CMAKE_SOURCE_DIR}/../bin)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
+if(UNIX)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
+endif(UNIX)
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 
