@@ -157,18 +157,18 @@ void EasyTreeWidgetLoader::fillTree(::profiler::timestamp_t& _beginTime, const u
 {
     interrupt();
     m_mode = _mode;
-    m_thread = ::std::move(::std::thread(&EasyTreeWidgetLoader::setTreeInternal1, this,
+    m_thread = ::std::thread(&EasyTreeWidgetLoader::setTreeInternal1, this,
         ::std::ref(_beginTime), _blocksNumber, ::std::ref(_blocksTree), _colorizeRows,
-        EASY_GLOBALS.add_zero_blocks_to_hierarchy, EASY_GLOBALS.use_decorated_thread_name, EASY_GLOBALS.time_units));
+        EASY_GLOBALS.add_zero_blocks_to_hierarchy, EASY_GLOBALS.use_decorated_thread_name, EASY_GLOBALS.time_units);
 }
 
 void EasyTreeWidgetLoader::fillTreeBlocks(const::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _beginTime, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, bool _colorizeRows, EasyTreeMode _mode)
 {
     interrupt();
     m_mode = _mode;
-    m_thread = ::std::move(::std::thread(&EasyTreeWidgetLoader::setTreeInternal2, this,
+    m_thread = ::std::thread(&EasyTreeWidgetLoader::setTreeInternal2, this,
         _beginTime, ::std::ref(_blocks), _left, _right, _strict, _colorizeRows,
-        EASY_GLOBALS.add_zero_blocks_to_hierarchy, EASY_GLOBALS.use_decorated_thread_name, EASY_GLOBALS.time_units));
+        EASY_GLOBALS.add_zero_blocks_to_hierarchy, EASY_GLOBALS.use_decorated_thread_name, EASY_GLOBALS.time_units);
 }
 
 //////////////////////////////////////////////////////////////////////////

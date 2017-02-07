@@ -1,4 +1,5 @@
 project(profiler_sample)
+cmake_minimum_required(VERSION 2.8)
 
 set(CPP_FILES
     main.cpp
@@ -7,6 +8,13 @@ set(CPP_FILES
 set(SOURCES
     ${CPP_FILES}
 )
+
+include_directories(
+    ../easy_profiler_core/include
+)
+link_directories(${CMAKE_SOURCE_DIR}/../bin)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 

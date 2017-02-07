@@ -382,8 +382,6 @@ class ProfileManager
     std::thread m_listenThread;
     void listen(uint16_t _port);
 
-    int m_socket = 0;//TODO crossplatform
-
     std::atomic_bool m_stopListen;
 
 public:

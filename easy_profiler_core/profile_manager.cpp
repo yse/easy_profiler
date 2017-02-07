@@ -1066,7 +1066,7 @@ void ProfileManager::startListen(uint16_t _port)
     if (!m_isAlreadyListening.exchange(true, std::memory_order_release))
     {
         m_stopListen.store(false, std::memory_order_release);
-        m_listenThread = std::move(std::thread(&ProfileManager::listen, this, _port));
+        m_listenThread = std::thread(&ProfileManager::listen, this, _port);
     }
 }
 
