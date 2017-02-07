@@ -835,7 +835,7 @@ void EasyHystogramItem::setSource(::profiler::thread_id_t _thread_id, ::profiler
         show();
         m_timeUnits = EASY_GLOBALS.time_units;
         m_bReady.store(false, ::std::memory_order_release);
-        m_workerThread = ::std::move(::std::thread([this](decltype(root) profiler_thread)
+        m_workerThread = ::std::thread([this](decltype(root) profiler_thread)
         {
             typedef ::std::vector<::std::pair<::profiler::block_index_t, ::profiler::block_index_t> > Stack;
 
@@ -909,7 +909,7 @@ void EasyHystogramItem::setSource(::profiler::thread_id_t _thread_id, ::profiler
             }
 
             m_bReady.store(true, ::std::memory_order_release);
-        }, std::ref(root)));
+        }, std::ref(root));
 
         m_timeouts = 3;
         m_timer.start(500);
@@ -984,13 +984,13 @@ void EasyHystogramItem::updateImage()
     delete m_temporaryImage;
     m_temporaryImage = nullptr;
 
-    m_workerThread = ::std::move(::std::thread([this](HystRegime _regime, qreal _current_scale,
+    m_workerThread = ::std::thread([this](HystRegime _regime, qreal _current_scale,
         qreal _minimum, qreal _maximum, qreal _range, qreal _value, qreal _width, bool _bindMode,
         float _frame_time, ::profiler::timestamp_t _begin_time)
     {
         updateImage(_regime, _current_scale, _minimum, _maximum, _range, _value, _width, _bindMode, _frame_time, _begin_time);
         m_bReady.store(true, ::std::memory_order_release);
-    }, m_regime, widget->getWindowScale(), widget->minimum(), widget->maximum(), widget->range(), widget->value(), widget->sliderWidth(), widget->bindMode(), EASY_GLOBALS.frame_time, EASY_GLOBALS.begin_time));
+    }, m_regime, widget->getWindowScale(), widget->minimum(), widget->maximum(), widget->range(), widget->value(), widget->sliderWidth(), widget->bindMode(), EASY_GLOBALS.frame_time, EASY_GLOBALS.begin_time);
 
     m_timeouts = 3;
     m_timer.start(500);

@@ -1328,12 +1328,12 @@ void EasyFileReader::load(const QString& _filename)
 
     m_isFile = true;
     m_filename = _filename;
-    m_thread = ::std::move(::std::thread([this](bool _enableStatistics) {
+    m_thread = ::std::thread([this](bool _enableStatistics) {
         m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_serializedBlocks, m_serializedDescriptors,
             m_descriptors, m_blocks, m_blocksTree, m_descriptorsNumberInFile, _enableStatistics, m_errorMessage), ::std::memory_order_release);
         m_progress.store(100, ::std::memory_order_release);
         m_bDone.store(true, ::std::memory_order_release);
-    }, EASY_GLOBALS.enable_statistics));
+    }, EASY_GLOBALS.enable_statistics);
 }
 
 void EasyFileReader::load(::std::stringstream& _stream)
@@ -1343,7 +1343,7 @@ void EasyFileReader::load(::std::stringstream& _stream)
     m_isFile = false;
     m_filename.clear();
 
-#if defined(__GNUC__) && __GNUC__ < 5
+#if defined(__GNUC__) && __GNUC__ < 5 && !defined(__llvm__)
     // gcc 4 has a known bug which has been solved in gcc 5:
     // std::stringstream has no swap() method :(
     // have to copy all contents... Use gcc 5 or higher!
@@ -1353,7 +1353,7 @@ void EasyFileReader::load(::std::stringstream& _stream)
     m_stream.swap(_stream);
 #endif
 
-    m_thread = ::std::move(::std::thread([this](bool _enableStatistics) {
+    m_thread = ::std::thread([this](bool _enableStatistics) {
         ::std::ofstream cache_file(NETWORK_CACHE_FILE, ::std::fstream::binary);
         if (cache_file.is_open()) {
             cache_file << m_stream.str();
@@ -1363,7 +1363,7 @@ void EasyFileReader::load(::std::stringstream& _stream)
             m_blocks, m_blocksTree, m_descriptorsNumberInFile, _enableStatistics, m_errorMessage), ::std::memory_order_release);
         m_progress.store(100, ::std::memory_order_release);
         m_bDone.store(true, ::std::memory_order_release);
-    }, EASY_GLOBALS.enable_statistics));
+    }, EASY_GLOBALS.enable_statistics);
 }
 
 void EasyFileReader::interrupt()
@@ -1902,7 +1902,7 @@ bool EasySocketListener::startCapture()
     }
 
     m_regime = LISTENER_CAPTURE;
-    m_thread = ::std::move(::std::thread(&EasySocketListener::listenCapture, this));
+    m_thread = ::std::thread(&EasySocketListener::listenCapture, this);
 
     return true;
 }

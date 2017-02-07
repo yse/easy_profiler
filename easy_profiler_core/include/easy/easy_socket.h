@@ -79,7 +79,6 @@ private:
     
     socket_t m_socket = 0;
     socket_t m_replySocket = 0;
-    uint16_t m_port = 0;
 
     int wsaret = -1;
 

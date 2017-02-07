@@ -697,7 +697,6 @@ extern "C" {
                             root.children.erase(lower, root.children.end());
                             EASY_END_BLOCK;
 
-                            ::profiler::timestamp_t children_duration = 0;
                             if (gather_statistics)
                             {
                                 EASY_BLOCK("Gather statistic within parent", ::profiler::colors::Magenta);
