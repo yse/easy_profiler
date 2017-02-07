@@ -75,6 +75,7 @@ extern const uint32_t EASY_CURRENT_VERSION;
 # define EASY_VERSION_INT(v_major, v_minor, v_patch) ((static_cast<uint32_t>(v_major) << 24) | (static_cast<uint32_t>(v_minor) << 16) | static_cast<uint32_t>(v_patch))
 const uint32_t EASY_V_100 = EASY_VERSION_INT(1, 0, 0);
 const uint32_t COMPATIBLE_VERSIONS[] = {
+    EASY_VERSION_INT(1, 0, 1),
     EASY_V_100,
     EASY_VERSION_INT(0, 1, 0)
 };

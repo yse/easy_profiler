@@ -1,4 +1,4 @@
-# easy_profiler [![version](https://img.shields.io/badge/version-1.0.1-009688.svg)](https://github.com/yse/easy_profiler/releases)
+# easy_profiler [![version](https://img.shields.io/badge/version-1.0.2-009688.svg)](https://github.com/yse/easy_profiler/releases)
 
 [![Build Status](https://travis-ci.org/yse/easy_profiler.svg?branch=develop)](https://travis-ci.org/yse/easy_profiler)
 
@@ -7,6 +7,9 @@
 
 1. [About](#about)
 2. [Usage](#usage)
+    - [Prepare build system](#prepare-build-system)
+       - [General build system](#general)
+       - [CMake](#build-with-cmake)
     - [Add profiling blocks](#add-profiling-blocks)
     - [Collect blocks](#collect-blocks)
 3. [Build](#build)
@@ -35,10 +38,37 @@ You can see the results of measuring in simple GUI application which provides fu
 
 # Usage
 
-## Add profiling blocks
+## Prepare build system
+
+### General
 
 First of all you can specify path to include directory which contains `include/profiler` directory and define macro `BUILD_WITH_EASY_PROFILER`.
 For linking with easy_profiler you can specify path to library.
+
+### Build with cmake
+
+If you are using `cmake` set `CMAKE_PREFIX_PATH` to `cmake/easy_profiler` directory (from [release](https://github.com/yse/easy_profiler/releases) package) and use function `find_package(easy_profiler)` with `target_link_libraries(... easy_profiler)`. Don't forget to define macro  `BUILD_WITH_EASY_PROFILER`. Example:
+
+``` cmake
+project(app_for_profiling)
+
+set(SOURCES
+    main.cpp
+)
+
+#CMAKE_PREFIX_PATH should be set to <easy_profiler-release_dir>/cmake/easy_profiler
+find_package(easy_profiler REQUIRED)
+
+add_definitions(
+-DBUILD_WITH_EASY_PROFILER
+)
+
+add_executable(app_for_profiling ${SOURCES})
+
+target_link_libraries(app_for_profiling easy_profiler)
+```
+
+## Add profiling blocks
 
 Example of usage.
 
@@ -135,7 +165,3 @@ $ mkdir build
 $ cd build
 $ cmake .. -G "Visual Studio 12 2013 Win64"
 ```
-
-
-
-[![Analytics](https://ga-beacon.appspot.com/UA-82899176-1/easy_profiler/readme)](https://github.com/yse/easy_profiler)
