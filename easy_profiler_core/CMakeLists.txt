@@ -1,4 +1,5 @@
-project(easy_profiler)
+cmake_minimum_required(VERSION 2.8)
+project(easy_profiler CXX)
 
 IF (NOT DEFINED LIB_NAME)
     SET(LIB_NAME ${PROJECT_NAME})
@@ -143,14 +144,6 @@ add_definitions(
     #-DEASY_PROFILER_API_DISABLED # uncomment this to disable profiler api only (you will have to rebuild only easy_profiler)
 )
 
-if (CMAKE_VERSION VERSION_LESS "3.1")
-    if (UNIX)
-      set (CMAKE_CXX_FLAGS "-std=gnu++11 ${CMAKE_CXX_FLAGS}")
-    endif (UNIX)
-  else ()
-    set (CMAKE_CXX_STANDARD 11)
-endif (CMAKE_VERSION VERSION_LESS "3.1")
-
 if(WIN32)
     add_definitions(
         -D_WINSOCK_DEPRECATED_NO_WARNINGS
@@ -159,6 +152,17 @@ if(WIN32)
 endif(WIN32)
 
 add_library(${LIB_NAME} SHARED ${SOURCES} resources.rc)
+
+if (CMAKE_VERSION VERSION_LESS "3.1")
+    if (UNIX OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+      set (CMAKE_CXX_FLAGS "-std=gnu++11 ${CMAKE_CXX_FLAGS}")
+    endif (UNIX OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+else ()
+    set_target_properties(${LIB_NAME} PROPERTIES
+        CXX_STANDARD 11
+        CXX_STANDARD_REQUIRED ON
+    )
+endif (CMAKE_VERSION VERSION_LESS "3.1")
 
 if(UNIX)
     set(PLATFORM_LIBS pthread)

@@ -1,5 +1,5 @@
-project(profiler_sample)
 cmake_minimum_required(VERSION 2.8)
+project(profiler_sample CXX)
 
 set(CPP_FILES
     main.cpp
@@ -14,10 +14,6 @@ include_directories(
 )
 link_directories(${CMAKE_SOURCE_DIR}/../bin)
 
-if(UNIX)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
-endif(UNIX)
-
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 set(DISABLED_PROFILER_NAME
@@ -31,5 +27,16 @@ endif(UNIX)
 
 target_link_libraries(${PROJECT_NAME} easy_profiler ${SPEC_LIB})
 target_link_libraries(${DISABLED_PROFILER_NAME} easy_profiler ${SPEC_LIB})
+
+if (CMAKE_VERSION VERSION_LESS "3.1")
+    if (UNIX OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
+    endif (UNIX OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+else ()
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        CXX_STANDARD 11
+        CXX_STANDARD_REQUIRED ON
+    )
+endif (CMAKE_VERSION VERSION_LESS "3.1")
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE BUILD_WITH_EASY_PROFILER)

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0.0 FATAL_ERROR)
 
-project(profiler_gui)
+project(profiler_gui CXX)
 
 #set(CMAKE_PREFIX_PATH f:/qt/5.5/5.6/msvc2013_64/lib/cmake)
 
@@ -57,6 +57,17 @@ add_executable(${PROJECT_NAME}
     resources.qrc
     resources.rc
 )
+
+if (CMAKE_VERSION VERSION_LESS "3.1")
+    if (UNIX OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+      set (CMAKE_CXX_FLAGS "-std=gnu++11 ${CMAKE_CXX_FLAGS}")
+    endif (UNIX OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+else ()
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        CXX_STANDARD 11
+        CXX_STANDARD_REQUIRED ON
+    )
+endif (CMAKE_VERSION VERSION_LESS "3.1")
 
 if(UNIX)
     set(SPECIAL_LIB pthread)
