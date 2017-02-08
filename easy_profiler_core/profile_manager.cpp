@@ -47,6 +47,53 @@
 #include "event_trace_win.h"
 #include "current_time.h"
 
+#if EASY_OPTION_LOG_ENABLED != 0
+# include <iostream>
+
+# ifndef EASY_ERRORLOG
+#  define EASY_ERRORLOG ::std::cerr
+# endif
+
+# ifndef EASY_LOG
+#  define EASY_LOG ::std::cerr
+# endif
+
+# ifndef EASY_ERROR
+#  define EASY_ERROR(LOG_MSG) EASY_ERRORLOG << "EasyProfiler ERROR: " << LOG_MSG
+# endif
+
+# ifndef EASY_WARNING
+#  define EASY_WARNING(LOG_MSG) EASY_ERRORLOG << "EasyProfiler WARNING: " << LOG_MSG
+# endif
+
+# ifndef EASY_LOGMSG
+#  define EASY_LOGMSG(LOG_MSG) EASY_LOG << "EasyProfiler INFO: " << LOG_MSG
+# endif
+
+# ifndef EASY_LOG_ONLY
+#  define EASY_LOG_ONLY(CODE) CODE
+# endif
+
+#else
+
+# ifndef EASY_ERROR
+#  define EASY_ERROR(LOG_MSG) 
+# endif
+
+# ifndef EASY_WARNING
+#  define EASY_WARNING(LOG_MSG) 
+# endif
+
+# ifndef EASY_LOGMSG
+#  define EASY_LOGMSG(LOG_MSG) 
+# endif
+
+# ifndef EASY_LOG_ONLY
+#  define EASY_LOG_ONLY(CODE) 
+# endif
+
+#endif
+
 #ifdef min
 #undef min
 #endif
@@ -764,11 +811,13 @@ void ProfileManager::setEnabled(bool isEnable)
 
     if (isEnable)
     {
+        EASY_LOGMSG("Enabled profiling\n");
         enableEventTracer();
         m_beginTime = time;
     }
     else
     {
+        EASY_LOGMSG("Disabled profiling\n");
         disableEventTracer();
         m_endTime = time;
     }
@@ -822,6 +871,8 @@ char ProfileManager::checkThreadExpired(ThreadStorage& _registeredThread)
 
 uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bool _lockSpin)
 {
+    EASY_LOGMSG("dumpBlocksToStream(_lockSpin = " << _lockSpin << ")...\n");
+
     if (_lockSpin)
         m_dumpSpin.lock();
 
@@ -849,14 +900,36 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
 
     // wait for all threads finish opened frames
+    EASY_LOG_ONLY(bool logged = false);
     for (auto it = m_threads.begin(), end = m_threads.end(); it != end;)
     {
         if (!it->second.frame.load(std::memory_order_acquire))
+        {
             ++it;
+            EASY_LOG_ONLY(logged = false);
+        }
         else
+        {
+            EASY_LOG_ONLY(
+                if (!logged)
+                {
+                    logged = true;
+                    if (it->second.named)
+                        EASY_WARNING("Waiting for thread \"" << it->second.name << "\" finish opened frame (which is top EASY_BLOCK for this thread)...\n");
+                    else
+                        EASY_WARNING("Waiting for thread " << it->first << " finish opened frame (which is top EASY_BLOCK for this thread)...\n");
+                }
+            );
+
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
     }
+
     m_profilerStatus.store(EASY_PROF_DISABLED, std::memory_order_release);
+
+    EASY_LOGMSG("All threads have closed frames\n");
+    EASY_LOGMSG("Disabled profiling\n");
+
     m_spin.lock();
     m_storedSpin.lock();
     // TODO: think about better solution because this one is not 100% safe...
@@ -869,18 +942,31 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
     {
         // Read thread context switch events from temporary file
 
+        EASY_LOGMSG("Writing context switch events...\n");
+
         uint64_t timestamp = 0;
         uint32_t thread_from = 0, thread_to = 0;
 
         std::ifstream infile(m_csInfoFilename.c_str());
-        if(infile.is_open()) {
+        if(infile.is_open())
+        {
+            EASY_LOG_ONLY(uint32_t num = 0);
             std::string next_task_name;
             pid_t process_to = 0;
-            while (infile >> timestamp >> thread_from >> thread_to >> next_task_name >> process_to) {
+            while (infile >> timestamp >> thread_from >> thread_to >> next_task_name >> process_to)
+            {
                 beginContextSwitch(thread_from, timestamp, thread_to, next_task_name.c_str(), false);
                 endContextSwitch(thread_to, (processid_t)process_to, timestamp, false);
+                EASY_LOG_ONLY(++num);
             }
+
+            EASY_LOGMSG("Done, " << num << " context switch events wrote\n");
         }
+        EASY_LOG_ONLY(
+            else {
+                EASY_ERROR("Can not open context switch log-file \"" << m_csInfoFilename << "\"\n");
+            }
+        )
     }
 #endif
 
@@ -920,6 +1006,7 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
 #else
 
 #if !defined(USE_STD_CHRONO)
+    EASY_LOGMSG("Calculating CPU frequency\n");
     double g_TicksPerNanoSec;
     struct timespec begints, endts;
     uint64_t begin = 0, end = 0;
@@ -945,6 +1032,7 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
 
     int64_t cpu_frequency = int(g_TicksPerNanoSec*1000000);
      _outputStream.write(cpu_frequency*1000LL);
+     EASY_LOGMSG("Done calculating CPU frequency\n");
 #else
     _outputStream.write(0LL);
 #endif
@@ -1009,14 +1097,21 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
     if (_lockSpin)
         m_dumpSpin.unlock();
 
+    EASY_LOGMSG("Done dumpBlocksToStream(). Dumped " << blocks_number << " blocks\n");
+
     return blocks_number;
 }
 
 uint32_t ProfileManager::dumpBlocksToFile(const char* _filename)
 {
+    EASY_LOGMSG("dumpBlocksToFile(\"" << _filename << "\")...\n");
+
     std::ofstream outputFile(_filename, std::fstream::binary);
     if (!outputFile.is_open())
+    {
+        EASY_ERROR("Can not open \"" << _filename << "\" for writing\n");
         return 0;
+    }
 
     profiler::OStream outputStream;
 
@@ -1030,6 +1125,8 @@ uint32_t ProfileManager::dumpBlocksToFile(const char* _filename)
 
     // Restore old outputStream buffer to avoid possible second memory free on stringstream destructor
     s.rdbuf(oldbuf);
+
+    EASY_LOGMSG("Done dumpBlocksToFile()\n");
 
     return blocksNumber;
 }
@@ -1092,15 +1189,17 @@ void ProfileManager::stopListen()
     if (m_listenThread.joinable())
         m_listenThread.join();
     m_isAlreadyListening.store(false, std::memory_order_release);
+
+    EASY_LOGMSG("Listening stopped\n");
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-//#define EASY_DEBUG_NET_PRINT
-
 void ProfileManager::listen(uint16_t _port)
 {
     EASY_THREAD_SCOPE("EasyProfiler.Listen");
+
+    EASY_LOGMSG("Listening started\n");
 
     EasySocket socket;
     profiler::net::Message replyMessage(profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING);
@@ -1117,9 +1216,7 @@ void ProfileManager::listen(uint16_t _port)
         EASY_EVENT("ClientConnected", EASY_COLOR_INTERNAL_EVENT, profiler::OFF);
         hasConnect = true;
 
-#ifdef EASY_DEBUG_NET_PRINT
-        printf("GUI-client connected\n");
-#endif
+        EASY_LOGMSG("GUI-client connected\n");
 
         // Send reply
         {
@@ -1155,16 +1252,13 @@ void ProfileManager::listen(uint16_t _port)
                 {
                     case profiler::net::MESSAGE_TYPE_CHECK_CONNECTION:
                     {
-#ifdef EASY_DEBUG_NET_PRINT
-                        printf("receive MESSAGE_TYPE_CHECK_CONNECTION\n");
-#endif
+                        EASY_LOGMSG("receive MESSAGE_TYPE_CHECK_CONNECTION\n");
                         break;
                     }
                     case profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE:
                     {
-#ifdef EASY_DEBUG_NET_PRINT
-                        printf("receive REQUEST_START_CAPTURE\n");
-#endif
+                        EASY_LOGMSG("receive REQUEST_START_CAPTURE\n");
+
                         ::profiler::timestamp_t t = 0;
                         EASY_FORCE_EVENT(t, "StartCapture", EASY_COLOR_START, profiler::OFF);
 
@@ -1185,9 +1279,8 @@ void ProfileManager::listen(uint16_t _port)
 
                     case profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE:
                     {
-#ifdef EASY_DEBUG_NET_PRINT
-                        printf("receive REQUEST_STOP_CAPTURE\n");
-#endif
+                        EASY_LOGMSG("receive REQUEST_STOP_CAPTURE\n");
+
                         m_dumpSpin.lock();
                         auto time = getCurrentTime();
                         const auto prev = m_profilerStatus.exchange(EASY_PROF_DUMP, std::memory_order_release);
@@ -1234,9 +1327,7 @@ void ProfileManager::listen(uint16_t _port)
 
                     case profiler::net::MESSAGE_TYPE_REQUEST_BLOCKS_DESCRIPTION:
                     {
-#ifdef EASY_DEBUG_NET_PRINT
-                        printf("receive REQUEST_BLOCKS_DESCRIPTION\n");
-#endif
+                        EASY_LOGMSG("receive REQUEST_BLOCKS_DESCRIPTION\n");
 
                         profiler::OStream os;
 
@@ -1288,9 +1379,7 @@ void ProfileManager::listen(uint16_t _port)
                     {
                         auto data = reinterpret_cast<const profiler::net::BlockStatusMessage*>(message);
 
-#ifdef EASY_DEBUG_NET_PRINT
-                        printf("receive EDIT_BLOCK_STATUS id=%u status=%u\n", data->id, data->status);
-#endif
+                        EASY_LOGMSG("receive EDIT_BLOCK_STATUS id=" << data->id << " status=" << data->status << std::endl);
 
                         setBlockStatus(data->id, static_cast<::profiler::EasyBlockStatus>(data->status));
 
@@ -1301,9 +1390,7 @@ void ProfileManager::listen(uint16_t _port)
                     {
                         auto data = reinterpret_cast<const profiler::net::BoolMessage*>(message);
 
-#ifdef EASY_DEBUG_NET_PRINT
-                        printf("receive EVENT_TRACING_STATUS on=%d\n", data->flag ? 1 : 0);
-#endif
+                        EASY_LOGMSG("receive EVENT_TRACING_STATUS on=" << data->flag << std::endl);
 
                         m_isEventTracingEnabled.store(data->flag, std::memory_order_release);
                         break;
@@ -1311,13 +1398,11 @@ void ProfileManager::listen(uint16_t _port)
 
                     case profiler::net::MESSAGE_TYPE_EVENT_TRACING_PRIORITY:
                     {
-#if defined(_WIN32) || defined(EASY_DEBUG_NET_PRINT)
+#if defined(_WIN32) || EASY_OPTION_LOG_ENABLED != 0
                         auto data = reinterpret_cast<const profiler::net::BoolMessage*>(message);
 #endif
 
-#ifdef EASY_DEBUG_NET_PRINT
-                        printf("receive EVENT_TRACING_PRIORITY low=%d\n", data->flag ? 1 : 0);
-#endif
+                        EASY_LOGMSG("receive EVENT_TRACING_PRIORITY low=" << data->flag << std::endl);
 
 #ifdef _WIN32
                         EasyEventTracer::instance().setLowPriority(data->flag);
