@@ -64,7 +64,7 @@ namespace profiler_gui {
         , begin_time(0)
         , frame_time(4e4f)
         , blocks_spacing(2)
-        , blocks_size_min(3)
+        , blocks_size_min(2)
         , blocks_narrow_size(20)
         , chrono_text_position(ChronoTextPosition_Center)
         , time_units(TimeUnits_auto)
