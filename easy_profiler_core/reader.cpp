@@ -372,12 +372,16 @@ extern "C" {
 
         ::std::stringstream str;
 
+        // Replace str buffer to inFile buffer to avoid redundant copying
         typedef ::std::basic_iostream<::std::stringstream::char_type, ::std::stringstream::traits_type> stringstream_parent;
         stringstream_parent& s = str;
         auto oldbuf = s.rdbuf(inFile.rdbuf());
         
+        // Read data from file
         auto result = fillTreesFromStream(progress, str, serialized_blocks, serialized_descriptors, descriptors, blocks,
                                           threaded_trees, total_descriptors_number, gather_statistics, _log);
+
+        // Restore old str buffer to avoid possible second memory free on stringstream destructor
         s.rdbuf(oldbuf);
 
         return result;

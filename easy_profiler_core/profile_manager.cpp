@@ -1009,11 +1009,22 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
 
 uint32_t ProfileManager::dumpBlocksToFile(const char* _filename)
 {
+    std::ofstream outputFile(_filename, std::fstream::binary);
+    if (!outputFile.is_open())
+        return 0;
+
     profiler::OStream outputStream;
+
+    // Replace outputStream buffer to outputFile buffer to avoid redundant copying
+    typedef ::std::basic_iostream<std::stringstream::char_type, std::stringstream::traits_type> stringstream_parent;
+    stringstream_parent& s = outputStream.stream();
+    auto oldbuf = s.rdbuf(outputFile.rdbuf());
+
+    // Write data directly to file
     const auto blocksNumber = dumpBlocksToStream(outputStream, true);
 
-    std::ofstream of(_filename, std::fstream::binary);
-    of << outputStream.stream().str();
+    // Restore old outputStream buffer to avoid possible second memory free on stringstream destructor
+    s.rdbuf(oldbuf);
 
     return blocksNumber;
 }
