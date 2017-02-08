@@ -91,6 +91,11 @@ const uint8_t FORCE_ON_FLAG = profiler::FORCE_ON & ~profiler::ON;
 decltype(LARGE_INTEGER::QuadPart) const CPU_FREQUENCY = ([](){ LARGE_INTEGER freq; QueryPerformanceFrequency(&freq); return freq.QuadPart; })();
 #endif
 
+extern const profiler::color_t EASY_COLOR_INTERNAL_EVENT = 0xffffffff; // profiler::colors::White
+const profiler::color_t EASY_COLOR_THREAD_END = 0xff212121; // profiler::colors::Dark
+const profiler::color_t EASY_COLOR_START = 0xff4caf50; // profiler::colors::Green
+const profiler::color_t EASY_COLOR_END = 0xfff44336; // profiler::colors::Red
+
 //////////////////////////////////////////////////////////////////////////
 
 EASY_THREAD_LOCAL static ::ThreadStorage* THREAD_STORAGE = nullptr;
@@ -347,7 +352,7 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
 #if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
     EASY_LOCAL_STATIC_PTR(const BaseBlockDescriptor*, desc,\
         MANAGER.addBlockDescriptor(EASY_OPTION_STORAGE_EXPAND_BLOCKS_ON ? profiler::ON : profiler::OFF, EASY_UNIQUE_LINE_ID, "EasyProfiler.ExpandStorage",\
-            __FILE__, __LINE__, profiler::BLOCK_TYPE_BLOCK, profiler::colors::White));
+            __FILE__, __LINE__, profiler::BLOCK_TYPE_BLOCK, EASY_COLOR_INTERNAL_EVENT));
 
     EASY_THREAD_LOCAL static profiler::timestamp_t beginTime = 0ULL;
     EASY_THREAD_LOCAL static profiler::timestamp_t endTime = 0ULL;
@@ -407,7 +412,7 @@ ThreadGuard::~ThreadGuard()
     if (m_id != 0 && THREAD_STORAGE != nullptr && THREAD_STORAGE->id == m_id)
     {
         bool isMarked = false;
-        EASY_EVENT_RES(isMarked, "ThreadFinished", profiler::colors::Dark, ::profiler::FORCE_ON);
+        EASY_EVENT_RES(isMarked, "ThreadFinished", EASY_COLOR_THREAD_END, ::profiler::FORCE_ON);
         THREAD_STORAGE->frame.store(false, std::memory_order_release);
         THREAD_STORAGE->expired.store(isMarked ? 2 : 1, std::memory_order_release);
         THREAD_STORAGE = nullptr;
@@ -895,7 +900,7 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
         }
 
         if (expired == 1) {
-            EASY_FORCE_EVENT3(t, endtime, "ThreadExpired", profiler::colors::Dark);
+            EASY_FORCE_EVENT3(t, endtime, "ThreadExpired", EASY_COLOR_THREAD_END);
             ++num;
         }
 
@@ -1109,7 +1114,7 @@ void ProfileManager::listen(uint16_t _port)
         socket.listen();
         socket.accept();
 
-        EASY_EVENT("ClientConnected", profiler::colors::White, profiler::OFF);
+        EASY_EVENT("ClientConnected", EASY_COLOR_INTERNAL_EVENT, profiler::OFF);
         hasConnect = true;
 
 #ifdef EASY_DEBUG_NET_PRINT
@@ -1161,7 +1166,7 @@ void ProfileManager::listen(uint16_t _port)
                         printf("receive REQUEST_START_CAPTURE\n");
 #endif
                         ::profiler::timestamp_t t = 0;
-                        EASY_FORCE_EVENT(t, "StartCapture", profiler::colors::Green, profiler::OFF);
+                        EASY_FORCE_EVENT(t, "StartCapture", EASY_COLOR_START, profiler::OFF);
 
                         m_dumpSpin.lock();
                         const auto prev = m_profilerStatus.exchange(EASY_PROF_ENABLED, std::memory_order_release);
@@ -1190,7 +1195,7 @@ void ProfileManager::listen(uint16_t _port)
                             disableEventTracer();
                             m_endTime = time;
                         }
-                        EASY_FORCE_EVENT2(m_endTime, "StopCapture", profiler::colors::Red, profiler::OFF);
+                        EASY_FORCE_EVENT2(m_endTime, "StopCapture", EASY_COLOR_END, profiler::OFF);
 
                         //TODO
                         //if connection aborted - ignore this part

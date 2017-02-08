@@ -70,6 +70,7 @@
 //extern ProfileManager& MANAGER;
 #define MANAGER ProfileManager::instance()
 
+extern const ::profiler::color_t EASY_COLOR_INTERNAL_EVENT;
 ::std::atomic_uint64_t TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
 
 namespace profiler {
@@ -125,7 +126,7 @@ namespace profiler {
         if (sizeof(CSwitch) != _traceEvent->UserDataLength)
             return;
 
-        EASY_FUNCTION(::profiler::colors::White, ::profiler::OFF);
+        EASY_FUNCTION(EASY_COLOR_INTERNAL_EVENT, ::profiler::OFF);
 
         auto _contextSwitchEvent = reinterpret_cast<CSwitch*>(_traceEvent->UserData);
         const auto time = static_cast<::profiler::timestamp_t>(_traceEvent->EventHeader.TimeStamp.QuadPart);

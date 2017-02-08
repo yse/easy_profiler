@@ -59,7 +59,7 @@ namespace profiler {
             return (static_cast<color_t>(_alpha) << 24) | (static_cast<color_t>(_red) << 16) | (static_cast<color_t>(_green) << 8) | static_cast<color_t>(_blue);
         }
 
-
+#if !defined(EASY_OPTION_BUILTIN_COLORS) || EASY_OPTION_BUILTIN_COLORS != 0
         // Google Material Design colors
         // See https://material.google.com/style/color.html
 
@@ -388,6 +388,9 @@ namespace profiler {
         const color_t BlueGrey    = BlueGrey500;
 
         const color_t Default = Wheat;
+#else
+        const color_t Default = 0xffffecb3;
+#endif // #if !defined(EASY_OPTION_BUILTIN_COLORS) || EASY_OPTION_BUILTIN_COLORS == 0
 
 	} // END of namespace colors.
 

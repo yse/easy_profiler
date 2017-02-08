@@ -34,11 +34,13 @@ message(STATUS "")
 
 
 # EasyProfiler options:----------------------------------------------
-set(EASY_DEFAULT_PORT 28077) # default listening port
-set(EASY_OPTION_LISTEN OFF) # enable automatic startListen on startup
-set(EASY_OPTION_PROFILE_SELF OFF) # enable self profiling (measure time for internal storage expand)
-set(EASY_OPTION_PROFILE_SELF_BLOCKS_ON OFF) # storage expand default status (profiler::ON or profiler::OFF)
-set(EASY_OPTION_LOG OFF) # print errors to stderr
+set(EASY_DEFAULT_PORT 28077) # Default listening port
+set(EASY_OPTION_LISTEN OFF) # Enable automatic startListen on startup
+set(EASY_OPTION_PROFILE_SELF OFF) # Enable self profiling (measure time for internal storage expand)
+set(EASY_OPTION_PROFILE_SELF_BLOCKS_ON OFF) # Storage expand default status (profiler::ON or profiler::OFF)
+set(EASY_OPTION_LOG OFF) # Print errors to stderr
+set(EASY_OPTION_PREDEFINED_COLORS ON) # Use predefined set of colors (see profiler_colors.h)
+                                      # If you want to use your own colors palette you can turn this option OFF
 
 if(WIN32)
  set(EASY_OPTION_EVENT_TRACING ON) # Enable event tracing by default
@@ -59,6 +61,7 @@ if(WIN32)
  endif(EASY_OPTION_LOW_PRIORITY_EVENT_TRACING)
 endif(WIN32)
 MESSAGE(STATUS "  Print errors to stderr = ${EASY_OPTION_LOG}")
+MESSAGE(STATUS "  Use EasyProfiler colors palette = ${EASY_OPTION_PREDEFINED_COLORS}")
 MESSAGE(STATUS "END EASY_PROFILER OPTIONS.----------")
 MESSAGE(STATUS "")
 # END EasyProfiler options.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -100,6 +103,12 @@ if(EASY_OPTION_LOG)
 else()
  add_definitions(-DEASY_OPTION_LOG_ENABLED=0)
 endif(EASY_OPTION_LOG)
+
+if(EASY_OPTION_PREDEFINED_COLORS)
+ add_definitions(-DEASY_OPTION_BUILTIN_COLORS=1)
+else()
+ add_definitions(-DEASY_OPTION_BUILTIN_COLORS=0)
+endif(EASY_OPTION_PREDEFINED_COLORS)
 
 set(CPP_FILES
     block.cpp
