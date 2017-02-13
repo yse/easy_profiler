@@ -46,7 +46,7 @@
 //#define EASY_CODE_WRAP(Code) Code
 
 #ifdef _WIN32
-# define __func__ __FUNCTION__
+// Visual Studio and MinGW
 # ifdef _BUILD_PROFILER
 #  define PROFILER_API __declspec(dllexport)
 # else
@@ -59,6 +59,8 @@
 #if defined (_MSC_VER)
 //////////////////////////////////////////////////////////////////////////
 // Visual Studio
+
+# define __func__ __FUNCTION__
 
 # if _MSC_VER <= 1800
 // There is no support for C++11 thread_local keyword prior to Visual Studio 2015. Use __declspec(thread) instead.

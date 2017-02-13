@@ -111,7 +111,12 @@
 #define MANAGER ProfileManager::instance()
 
 extern const ::profiler::color_t EASY_COLOR_INTERNAL_EVENT;
+
+#ifdef _MSC_VER
 ::std::atomic_uint64_t TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
+#else
+::std::atomic<uint64_t> TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
+#endif
 
 namespace profiler {
 

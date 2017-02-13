@@ -91,7 +91,7 @@ const uint64_t TIME_FACTOR = 1000000000ULL;
 #ifdef EASY_USE_FLOATING_POINT_CONVERSION
 
 // Suppress warnings about double to uint64 conversion
-# ifdef _WIN32
+# ifdef _MSC_VER
 #  pragma warning(disable:4244)
 # elif defined(__GNUC__)
 #  pragma GCC diagnostic push
@@ -181,7 +181,7 @@ namespace profiler {
 
 //////////////////////////////////////////////////////////////////////////
 
-#ifdef _WIN32
+#ifdef EASY_PROFILER_HASHED_CSTR_DEFINED
 
 typedef ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, ::profiler::passthrough_hash> StatsMap;
 
@@ -946,7 +946,7 @@ extern "C" {
 #undef EASY_CONVERT_TO_NANO
 
 #ifdef EASY_USE_FLOATING_POINT_CONVERSION
-# ifdef _WIN32
+# ifdef _MSC_VER
 #  pragma warning(default:4244)
 # elif defined(__GNUC__)
 #  pragma GCC diagnostic pop
