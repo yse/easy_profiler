@@ -21,22 +21,35 @@ set(DISABLED_PROFILER_NAME
 )
 add_executable(${DISABLED_PROFILER_NAME} ${SOURCES})
 
-if(UNIX)
-    set(SPEC_LIB pthread)
-endif(UNIX)
+if (MINGW)
 
-target_link_libraries(${PROJECT_NAME} easy_profiler ${SPEC_LIB})
-target_link_libraries(${DISABLED_PROFILER_NAME} easy_profiler ${SPEC_LIB})
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+    
+elseif (CMAKE_VERSION VERSION_LESS "3.1")
 
-if (CMAKE_VERSION VERSION_LESS "3.1")
     if (UNIX OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
     endif (UNIX OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    
 else ()
+
     set_target_properties(${PROJECT_NAME} PROPERTIES
         CXX_STANDARD 11
         CXX_STANDARD_REQUIRED ON
     )
-endif (CMAKE_VERSION VERSION_LESS "3.1")
+    
+    set_target_properties(${DISABLED_PROFILER_NAME} PROPERTIES
+        CXX_STANDARD 11
+        CXX_STANDARD_REQUIRED ON
+    )
+    
+endif (MINGW)
+
+if(UNIX)
+    set(SPEC_LIB ${SPEC_LIB} pthread)
+endif(UNIX)
+
+target_link_libraries(${PROJECT_NAME} easy_profiler ${SPEC_LIB})
+target_link_libraries(${DISABLED_PROFILER_NAME} easy_profiler ${SPEC_LIB})
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE BUILD_WITH_EASY_PROFILER)

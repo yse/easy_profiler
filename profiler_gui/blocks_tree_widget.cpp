@@ -72,6 +72,7 @@
 
 #ifdef _WIN32
 #include <Windows.h>
+#include <processthreadsapi.h>
 #endif
 
 #ifdef max
@@ -428,14 +429,16 @@ void EasyTreeWidget::clearSilent(bool _global)
     for (int i = topLevelItemCount() - 1; i >= 0; --i)
         topLevelItems.push_back(takeTopLevelItem(i));
 
-    auto deleter_thread = ::std::thread([](decltype(topLevelItems) _items) {
+    auto deleter_thread = ::std::thread([](decltype(topLevelItems) _items)
+    {
+#ifdef _WIN32
+        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST);
+#endif
+
         for (auto item : _items)
             delete item;
-    }, ::std::move(topLevelItems));
 
-#ifdef _WIN32
-    SetThreadPriority(deleter_thread.native_handle(), THREAD_PRIORITY_LOWEST);
-#endif
+    }, ::std::move(topLevelItems));
 
     deleter_thread.detach();
 

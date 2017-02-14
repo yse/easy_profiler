@@ -56,6 +56,8 @@
 
 #include "event_trace_win.h"
 #include <Psapi.h>
+#include <processthreadsapi.h>
+//#include <Shellapi.h>
 
 #if EASY_OPTION_LOG_ENABLED != 0
 # include <iostream>
@@ -112,10 +114,11 @@
 
 extern const ::profiler::color_t EASY_COLOR_INTERNAL_EVENT;
 
-#ifdef _MSC_VER
-::std::atomic_uint64_t TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
-#else
+#ifdef __MINGW32__
 ::std::atomic<uint64_t> TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
+char KERNEL_LOGGER[] = KERNEL_LOGGER_NAME;
+#else
+::std::atomic_uint64_t TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
 #endif
 
 namespace profiler {
@@ -451,7 +454,11 @@ namespace profiler {
             return res;
 
         memset(&m_trace, 0, sizeof(m_trace));
+#ifdef __MINGW32__
+        m_trace.LoggerName = KERNEL_LOGGER;
+#else
         m_trace.LoggerName = KERNEL_LOGGER_NAME;
+#endif
         m_trace.ProcessTraceMode = PROCESS_TRACE_MODE_REAL_TIME | PROCESS_TRACE_MODE_EVENT_RECORD | PROCESS_TRACE_MODE_RAW_TIMESTAMP;
         m_trace.EventRecordCallback = ::profiler::processTraceEvent;
 
@@ -471,15 +478,14 @@ namespace profiler {
         
         https://msdn.microsoft.com/en-us/library/windows/desktop/aa364093(v=vs.85).aspx
         */
-        m_processThread = ::std::move(::std::thread([this]()
+        m_processThread = ::std::thread([this](bool _lowPriority)
         {
+            if (_lowPriority) // Set low priority for event tracing thread
+                SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST);
             EASY_THREAD_SCOPE("EasyProfiler.ETW");
             ProcessTrace(&m_openedHandle, 1, 0, 0);
-        }));
 
-        // Set low priority for event tracing thread
-        if (m_lowPriority.load(::std::memory_order_acquire))
-            SetThreadPriority(m_processThread.native_handle(), THREAD_PRIORITY_LOWEST);
+        }, m_lowPriority.load(::std::memory_order_acquire));
 
         m_bEnabled = true;
 
