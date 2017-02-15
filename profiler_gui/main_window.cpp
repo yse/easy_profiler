@@ -127,7 +127,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     setAcceptDrops(true);
     resize(800, 600);
     
-    setStatusBar(new QStatusBar());
+    setStatusBar(nullptr);
 
     m_graphicsView = new QDockWidget("Diagram", this);
     m_graphicsView->setObjectName("ProfilerGUI_Diagram");
