@@ -73,14 +73,8 @@ extern const uint32_t PROFILER_SIGNATURE;
 extern const uint32_t EASY_CURRENT_VERSION;
 
 # define EASY_VERSION_INT(v_major, v_minor, v_patch) ((static_cast<uint32_t>(v_major) << 24) | (static_cast<uint32_t>(v_minor) << 16) | static_cast<uint32_t>(v_patch))
-const uint32_t EASY_V_100 = EASY_VERSION_INT(1, 0, 0);
-const uint32_t COMPATIBLE_VERSIONS[] = {
-    EASY_VERSION_INT(1, 0, 1),
-    EASY_V_100,
-    EASY_VERSION_INT(0, 1, 0)
-};
-// WARNING: Modify isCompatibleVersion(uint32_t _version) if COMPATIBLE_VERSIONS_NUM == 0
-const uint16_t COMPATIBLE_VERSIONS_NUM = sizeof(COMPATIBLE_VERSIONS) / sizeof(uint32_t);
+const uint32_t MIN_COMPATIBLE_VERSION = EASY_VERSION_INT(0, 1, 0); ///< minimal compatible version (.prof file format was not changed seriously since this version)
+const uint32_t EASY_V_100 = EASY_VERSION_INT(1, 0, 0); ///< in v1.0.0 some additional data were added into .prof file
 # undef EASY_VERSION_INT
 
 const uint64_t TIME_FACTOR = 1000000000ULL;
@@ -113,13 +107,9 @@ const uint64_t TIME_FACTOR = 1000000000ULL;
 
 //////////////////////////////////////////////////////////////////////////
 
-bool isCompatibleVersion(uint32_t _version)
+inline bool isCompatibleVersion(uint32_t _version)
 {
-    if (_version == EASY_CURRENT_VERSION)
-        return true;
-
-    return ::std::binary_search(COMPATIBLE_VERSIONS, COMPATIBLE_VERSIONS + COMPATIBLE_VERSIONS_NUM,
-                                _version, [](uint32_t _a, uint32_t _b){ return _a > _b; });
+    return _version >= MIN_COMPATIBLE_VERSION;
 }
 
 inline void write(::std::stringstream& _stream, const char* _value, size_t _size)
