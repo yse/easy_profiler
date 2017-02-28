@@ -188,7 +188,7 @@ target_link_libraries(${LIB_NAME} ${PLATFORM_LIBS})
 
 ####
 # Installation 
-set(config_install_dir "cmake/${PROJECT_NAME}")
+set(config_install_dir "lib/cmake/${PROJECT_NAME}")
 set(include_install_dir "include")
 
 set(generated_dir "${CMAKE_CURRENT_BINARY_DIR}/generated")
@@ -251,3 +251,4 @@ install(
     DESTINATION "${config_install_dir}"
 )
 
+target_compile_definitions(easy_profiler PUBLIC BUILD_WITH_EASY_PROFILER)

@@ -37,7 +37,7 @@ else()
     )
 endif(UNIX)
 
-set(CMAKE_INSTALL_PREFIX ${CMAKE_CURRENT_LIST_DIR}/sdk)
+#set(CMAKE_INSTALL_PREFIX ${CMAKE_CURRENT_LIST_DIR}/sdk)
 
 add_subdirectory(easy_profiler_core)
 add_subdirectory(profiler_gui)
