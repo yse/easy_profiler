@@ -13,6 +13,8 @@
        - [CMake](#build-with-cmake)
     - [Add profiling blocks](#add-profiling-blocks)
     - [Collect blocks](#collect-blocks)
+        - Collect via network(#collect-via-network)
+        - Collect via file(#collect-via-file)
 4. [Build](#build)
     - [Linux](#linux)
     - [Windows](#windows)
@@ -125,7 +127,29 @@ void bar() {
 ```
 ## Collect blocks
 
-To collect blocks data you can either save them in file by `profiler::dumpBlocksToFile(const char*)`function or listen capturing signal from profiler_gui application. In the latter case you may control captruing blocks in GUI-based application after calling function `profiler::startListen()`.
+There are two ways to cature blocks
+
+### Collect via network
+
+It's most prefered and convenient approach in many case.
+
+1. Initialize listening by `profiler::startListen()`. It's start new thread to listen on `28077` port the start-capture-signal from gui-application.
+2. To stop listening you can call `profiler::stopListen()` function. 
+
+### Collect via file
+
+1. Enable profiler by `EASY_PROFILER_ENABLE` macro
+2. Dump blocks to file in any place you want by `profiler::dumpBlocksToFile("test_profile.prof")` function
+
+Example:
+```cpp
+int main()
+{
+    EASY_PROFILER_ENABLE;
+    /* do work*/
+    profiler::dumpBlocksToFile("test_profile.prof");
+}
+```
 
 # Build
 
