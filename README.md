@@ -15,6 +15,7 @@
     - [Collect blocks](#collect-blocks)
         - [Collect via network](#collect-via-network)
         - [Collect via file](#collect-via-file)
+        - [Note about context-switch](#note-about-context-switch)
 4. [Build](#build)
     - [Linux](#linux)
     - [Windows](#windows)
@@ -150,6 +151,17 @@ int main()
     profiler::dumpBlocksToFile("test_profile.prof");
 }
 ```
+
+### Note about context-switch
+
+To capture a thread context-switch event you need:
+
+- On Windows: run profiling application "as administrator"
+- On linux: you can run special `systemtap` script with root privileges as follow (example on Fedora):
+```bash
+#stap -o /tmp/cs_profiling_info.log scripts/context_switch_logger.stp name APPLICATION_NAME
+```
+APPLICATION_NAME - name of profiling application
 
 # Build
 
