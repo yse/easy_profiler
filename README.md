@@ -6,13 +6,14 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](http://www.gnu.org/licenses/gpl-3.0)
 
 1. [About](#about)
-2. [Usage](#usage)
+2. [Key features](#key-features)
+3. [Usage](#usage)
     - [Prepare build system](#prepare-build-system)
        - [General build system](#general)
        - [CMake](#build-with-cmake)
     - [Add profiling blocks](#add-profiling-blocks)
     - [Collect blocks](#collect-blocks)
-3. [Build](#build)
+4. [Build](#build)
     - [Linux](#linux)
     - [Windows](#windows)
 
@@ -35,6 +36,15 @@ duration, target thread id, thread owner process id, thread owner process name.
 You can see the results of measuring in simple GUI application which provides full statistics and renders beautiful time-line.
 
 ![GUI screenshot](https://cloud.githubusercontent.com/assets/10530007/21056780/2383d472-be48-11e6-8b35-d1a32e64b910.png)
+
+# Key features
+
+- Extremely low overhead
+- Low additional memory usage
+- Cross-platform
+- Measuring over network
+- Capture thread context-switch events
+- Fully remove integration via defines
 
 # Usage
 
