@@ -232,6 +232,21 @@ int EasySocket::listen(int count)
 int EasySocket::accept()
 {
     if(!checkSocket(m_socket)) return -1;
+
+    fd_set fdread, fdwrite, fdexcl;
+    timeval tv = { 0 };
+    FD_ZERO (&fdread);
+    FD_SET (m_socket, &fdread);
+    fdwrite = fdread;
+    fdexcl = fdread;
+    tv.tv_sec = 0; tv.tv_usec = 500;
+
+    int rc =select (m_socket+1, &fdread, &fdwrite, &fdexcl, &tv);
+
+    if(rc <= 0){
+        //there is no connection for accept
+        return -1;
+    }
     m_replySocket = ::accept(m_socket,nullptr,nullptr);
 
     checkResult((int)m_replySocket);
