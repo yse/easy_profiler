@@ -402,7 +402,9 @@ public:
     void beginBlock(profiler::Block& _block);
     void endBlock();
     void setEnabled(bool isEnable);
+    bool isEnabled() const;
     void setEventTracingEnabled(bool _isEnable);
+    bool isEventTracingEnabled() const;
     uint32_t dumpBlocksToFile(const char* filename);
     const char* registerThread(const char* name, profiler::ThreadGuard& threadGuard);
     const char* registerThread(const char* name);
@@ -421,6 +423,7 @@ public:
     void endContextSwitch(profiler::thread_id_t _thread_id, processid_t _process_id, profiler::timestamp_t _endtime, bool _lockSpin = true);
     void startListen(uint16_t _port);
     void stopListen();
+    bool isListening() const;
 
 private:
 

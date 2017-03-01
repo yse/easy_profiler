@@ -95,6 +95,7 @@ namespace profiler {
         ::profiler::EventTracingEnableStatus enable(bool _force = false);
         void disable();
         void setLowPriority(bool _value);
+        bool getLowPriority();
         static void setProcessPrivileges();
 
     private:

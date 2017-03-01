@@ -201,6 +201,11 @@ extern "C" {
         MANAGER.setEnabled(isEnable);
     }
 
+    PROFILER_API bool isEnabled()
+    {
+        return MANAGER.isEnabled();
+    }
+
     PROFILER_API void storeEvent(const BaseBlockDescriptor* _desc, const char* _runtimeName)
     {
         MANAGER.storeBlock(_desc, _runtimeName);
@@ -231,13 +236,24 @@ extern "C" {
         MANAGER.setEventTracingEnabled(_isEnable);
     }
 
+    PROFILER_API bool isEventTracingEnabled()
+    {
+        return MANAGER.isEventTracingEnabled();
+    }
+
 # ifdef _WIN32
     PROFILER_API void setLowPriorityEventTracing(bool _isLowPriority)
     {
         EasyEventTracer::instance().setLowPriority(_isLowPriority);
     }
+
+    PROFILER_API bool isLowPriorityEventTracing()
+    {
+        return EasyEventTracer::instance().isLowPriorityEventTracing();
+    }
 # else
     PROFILER_API void setLowPriorityEventTracing(bool) { }
+    PROFILER_API bool isLowPriorityEventTracing() { return false; }
 # endif
 
     PROFILER_API void setContextSwitchLogFilename(const char* name)
@@ -259,21 +275,30 @@ extern "C" {
     {
         return MANAGER.stopListen();
     }
+
+    PROFILER_API bool isListening()
+    {
+        return MANAGER.isListening();
+    }
 #else
     PROFILER_API const BaseBlockDescriptor* registerDescription(EasyBlockStatus, const char*, const char*, const char*, int, block_type_t, color_t, bool) { return reinterpret_cast<const BaseBlockDescriptor*>(0xbad); }
     PROFILER_API void endBlock() { }
     PROFILER_API void setEnabled(bool) { }
+    PROFILER_API bool isEnabled() { return false; }
     PROFILER_API void storeEvent(const BaseBlockDescriptor*, const char*) { }
     PROFILER_API void beginBlock(Block&) { }
     PROFILER_API uint32_t dumpBlocksToFile(const char*) { return 0; }
     PROFILER_API const char* registerThreadScoped(const char*, ThreadGuard&) { return ""; }
     PROFILER_API const char* registerThread(const char*) { return ""; }
     PROFILER_API void setEventTracingEnabled(bool) { }
+    PROFILER_API bool isEventTracingEnabled() { return false; }
     PROFILER_API void setLowPriorityEventTracing(bool) { }
+    PROFILER_API bool isLowPriorityEventTracing(bool) { return false; }
     PROFILER_API void setContextSwitchLogFilename(const char*) { }
     PROFILER_API const char* getContextSwitchLogFilename() { return ""; }
     PROFILER_API void   startListen(uint16_t) { }
     PROFILER_API void   stopListen() { }
+    PROFILER_API bool isListening() { }
 #endif
 
     PROFILER_API uint8_t versionMajor()
@@ -823,9 +848,19 @@ void ProfileManager::setEnabled(bool isEnable)
     }
 }
 
+bool ProfileManager::isEnabled() const
+{
+    return m_profilerStatus.load(std::memory_order_acquire) == EASY_PROF_ENABLED;
+}
+
 void ProfileManager::setEventTracingEnabled(bool _isEnable)
 {
-    m_isEventTracingEnabled.store(_isEnable, std::memory_order_release);
+    m_isEventTracingEnabled.store(_isEnable, std::memory_order_acquire);
+}
+
+bool ProfileManager::isEventTracingEnabled() const
+{
+    return m_isEventTracingEnabled.load(std::memory_order_acquire);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1193,6 +1228,11 @@ void ProfileManager::stopListen()
     EASY_LOGMSG("Listening stopped\n");
 }
 
+bool ProfileManager::isListening() const
+{
+    return m_isAlreadyListening.load(std::memory_order_acquire);
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 void ProfileManager::listen(uint16_t _port)
@@ -1423,5 +1463,6 @@ void ProfileManager::listen(uint16_t _port)
     }
 
 }
+
 //////////////////////////////////////////////////////////////////////////
 
