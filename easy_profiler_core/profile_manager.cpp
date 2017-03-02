@@ -855,7 +855,7 @@ bool ProfileManager::isEnabled() const
 
 void ProfileManager::setEventTracingEnabled(bool _isEnable)
 {
-    m_isEventTracingEnabled.store(_isEnable, std::memory_order_acquire);
+    m_isEventTracingEnabled.store(_isEnable, std::memory_order_release);
 }
 
 bool ProfileManager::isEventTracingEnabled() const
