@@ -249,7 +249,7 @@ extern "C" {
 
     PROFILER_API bool isLowPriorityEventTracing()
     {
-        return EasyEventTracer::instance().isLowPriorityEventTracing();
+        return EasyEventTracer::instance().isLowPriority();
     }
 # else
     PROFILER_API void setLowPriorityEventTracing(bool) { }
@@ -296,9 +296,9 @@ extern "C" {
     PROFILER_API bool isLowPriorityEventTracing(bool) { return false; }
     PROFILER_API void setContextSwitchLogFilename(const char*) { }
     PROFILER_API const char* getContextSwitchLogFilename() { return ""; }
-    PROFILER_API void   startListen(uint16_t) { }
-    PROFILER_API void   stopListen() { }
-    PROFILER_API bool isListening() { }
+    PROFILER_API void startListen(uint16_t) { }
+    PROFILER_API void stopListen() { }
+    PROFILER_API bool isListening() { return false; }
 #endif
 
     PROFILER_API uint8_t versionMajor()
