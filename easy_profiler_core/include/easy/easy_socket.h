@@ -41,6 +41,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <netinet/in.h> //for android-build
 #else
 
 #define WIN32_LEAN_AND_MEAN
