@@ -38,7 +38,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 namespace profiler {
 namespace net {
 
-const char* DAFAULT_ADDRESS = "tcp://127.0.0.1:28077";
+#define DAFAULT_ADDRESS "tcp://127.0.0.1:28077"
 const uint32_t EASY_MESSAGE_SIGN = 20160909;
 
 #pragma pack(push,1)

@@ -547,6 +547,7 @@ namespace profiler {
         \ingroup profiler
         */
         PROFILER_API void setEnabled(bool _isEnable);
+        PROFILER_API bool isEnabled();
 
         /** Save all gathered blocks into file.
 
@@ -581,6 +582,7 @@ namespace profiler {
         \ingroup profiler
         */
         PROFILER_API void setEventTracingEnabled(bool _isEnable);
+        PROFILER_API bool isEventTracingEnabled();
 
         /** Set event tracing thread priority (low or normal).
 
@@ -591,6 +593,7 @@ namespace profiler {
         \ingroup profiler
         */
         PROFILER_API void setLowPriorityEventTracing(bool _isLowPriority);
+        PROFILER_API bool isLowPriorityEventTracing();
 
         /** Set temporary log-file path for Unix event tracing system.
 
@@ -608,6 +611,7 @@ namespace profiler {
 
         PROFILER_API void startListen(uint16_t _port = ::profiler::DEFAULT_PORT);
         PROFILER_API void stopListen();
+        PROFILER_API bool isListening();
 
         /** Returns current major version.
         
@@ -645,17 +649,21 @@ namespace profiler {
     { return reinterpret_cast<const BaseBlockDescriptor*>(0xbad); }
     inline void endBlock() { }
     inline void setEnabled(bool) { }
+    inline bool isEnabled(bool) { return false; }
     inline void storeEvent(const BaseBlockDescriptor*, const char*) { }
     inline void beginBlock(Block&) { }
     inline uint32_t dumpBlocksToFile(const char*) { return 0; }
     inline const char* registerThreadScoped(const char*, ThreadGuard&) { return ""; }
     inline const char* registerThread(const char*) { return ""; }
     inline void setEventTracingEnabled(bool) { }
+    inline bool isEventTracingEnabled() { return false; }
     inline void setLowPriorityEventTracing(bool) { }
+    inline bool isLowPriorityEventTracing() { return false; }
     inline void setContextSwitchLogFilename(const char*) { }
     inline const char* getContextSwitchLogFilename() { return ""; }
     inline void startListen(uint16_t = ::profiler::DEFAULT_PORT) { }
     inline void stopListen() { }
+    inline bool isListening() { return false; }
     inline uint8_t versionMajor() { return 0; }
     inline uint8_t versionMinor() { return 0; }
     inline uint16_t versionPatch() { return 0; }
