@@ -50,10 +50,6 @@ add_executable(${PROJECT_NAME}
     tree_widget_item.cpp
     tree_widget_loader.h
     tree_widget_loader.cpp
-    #treemodel.h
-    #treemodel.cpp
-    #treeitem.h
-    #treeitem.cpp
     resources.qrc
     resources.rc
 )
