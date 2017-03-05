@@ -30,8 +30,8 @@ You should have received a copy of the GNU General Public License
 along with this program.If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#ifndef EASY_PROFILER__COLORS__H_______
-#define EASY_PROFILER__COLORS__H_______
+#ifndef EASY_PROFILER_COLORS_H
+#define EASY_PROFILER_COLORS_H
 
 #include <stdint.h>
 
@@ -399,4 +399,4 @@ namespace profiler {
 //////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////
 
-#endif // EASY_PROFILER__COLORS__H_______
+#endif // EASY_PROFILER_COLORS_H

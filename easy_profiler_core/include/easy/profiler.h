@@ -30,8 +30,8 @@ You should have received a copy of the GNU General Public License
 along with this program.If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#ifndef EASY_PROFILER____H_______
-#define EASY_PROFILER____H_______
+#ifndef EASY_PROFILER_H
+#define EASY_PROFILER_H
 
 #include "easy/profiler_aux.h"
 
@@ -679,4 +679,4 @@ namespace profiler {
 # pragma clang diagnostic pop
 #endif
 
-#endif // EASY_PROFILER____H_______
+#endif // EASY_PROFILER_H

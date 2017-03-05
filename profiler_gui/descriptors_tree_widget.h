@@ -43,8 +43,8 @@
 *                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
-#ifndef EASY__DESCRIPTORS__WIDGET__H_
-#define EASY__DESCRIPTORS__WIDGET__H_
+#ifndef EASY_DESCRIPTORS_WIDGET_H
+#define EASY_DESCRIPTORS_WIDGET_H
 
 #include <QTreeWidget>
 #include <QString>
@@ -196,4 +196,4 @@ private:
 
 //////////////////////////////////////////////////////////////////////////
 
-#endif // EASY__DESCRIPTORS__WIDGET__H_
+#endif // EASY_DESCRIPTORS_WIDGET_H

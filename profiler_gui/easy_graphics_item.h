@@ -43,8 +43,8 @@
 *                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
-#ifndef EASY__GRAPHICS_ITEM__H_
-#define EASY__GRAPHICS_ITEM__H_
+#ifndef EASY_GRAPHICS_ITEM_H
+#define EASY_GRAPHICS_ITEM_H
 
 #include <stdlib.h>
 #include <QGraphicsItem>
@@ -179,4 +179,4 @@ public:
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-#endif // EASY__GRAPHICS_ITEM__H_
+#endif // EASY_GRAPHICS_ITEM_H

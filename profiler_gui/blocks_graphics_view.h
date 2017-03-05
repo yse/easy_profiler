@@ -50,8 +50,8 @@
 *                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
-#ifndef EASY__GRAPHICS_VIEW__H_
-#define EASY__GRAPHICS_VIEW__H_
+#ifndef EASY_GRAPHICS_VIEW_H
+#define EASY_GRAPHICS_VIEW_H
 
 #include <stdlib.h>
 #include <unordered_set>
@@ -321,4 +321,4 @@ private:
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-#endif // EASY__GRAPHICS_VIEW__H_
+#endif // EASY_GRAPHICS_VIEW_H

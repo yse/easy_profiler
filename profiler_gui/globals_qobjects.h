@@ -28,8 +28,8 @@
 *                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
-#ifndef EASY__GLOBALS_QOBJECTS_H___
-#define EASY__GLOBALS_QOBJECTS_H___
+#ifndef EASY_GLOBALS_QOBJECTS_H
+#define EASY_GLOBALS_QOBJECTS_H
 
 #include <QObject>
 #include "easy/profiler.h"
@@ -64,4 +64,4 @@ namespace profiler_gui {
 
 } // END of namespace profiler_gui.
 
-#endif // EASY__GLOBALS_QOBJECTS_H___
+#endif // EASY_GLOBALS_QOBJECTS_H

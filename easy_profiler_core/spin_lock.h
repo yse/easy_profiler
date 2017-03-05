@@ -30,8 +30,8 @@ You should have received a copy of the GNU General Public License
 along with this program.If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#ifndef EASY_PROFILER__SPIN_LOCK__________H______
-#define EASY_PROFILER__SPIN_LOCK__________H______
+#ifndef EASY_PROFILER_SPIN_LOCK_H
+#define EASY_PROFILER_SPIN_LOCK_H
 
 #define EASY_USE_CRITICAL_SECTION // Use CRITICAL_SECTION instead of std::atomic_flag
 
@@ -113,4 +113,4 @@ namespace profiler {
 # undef EASY_USE_CRITICAL_SECTION
 #endif
 
-#endif // EASY_PROFILER__SPIN_LOCK__________H______
+#endif // EASY_PROFILER_SPIN_LOCK_H

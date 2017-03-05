@@ -38,8 +38,8 @@
 *                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
-#ifndef EASY_PROFILER__COMPILER_SUPPORT__H_______
-#define EASY_PROFILER__COMPILER_SUPPORT__H_______
+#ifndef EASY_PROFILER_COMPILER_SUPPORT_H
+#define EASY_PROFILER_COMPILER_SUPPORT_H
 
 #include <cstddef>
 
@@ -143,4 +143,4 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-#endif // EASY_PROFILER__COMPILER_SUPPORT__H_______
+#endif // EASY_PROFILER_COMPILER_SUPPORT_H
