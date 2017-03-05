@@ -47,10 +47,13 @@
 #define EASY_GRAPHICS_ITEM_H
 
 #include <stdlib.h>
+
 #include <QGraphicsItem>
 #include <QRectF>
 #include <QString>
-#include "easy/reader.h"
+
+#include <easy/reader.h>
+
 #include "common_types.h"
 
 //////////////////////////////////////////////////////////////////////////

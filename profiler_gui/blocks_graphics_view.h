@@ -55,13 +55,16 @@
 
 #include <stdlib.h>
 #include <unordered_set>
+
 #include <QGraphicsView>
 #include <QGraphicsItem>
 #include <QPoint>
 #include <QRectF>
 #include <QTimer>
 #include <QLabel>
-#include "easy/reader.h"
+
+#include <easy/reader.h>
+
 #include "common_types.h"
 
 //////////////////////////////////////////////////////////////////////////

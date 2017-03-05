@@ -46,8 +46,9 @@
 #define EASY_PROFILER_AUX_H
 
 #include <stdint.h>
-#include "easy/easy_compiler_support.h"
-#include "easy/profiler_colors.h"
+
+#include <easy/easy_compiler_support.h>
+#include <easy/profiler_colors.h>
 
 //////////////////////////////////////////////////////////////////////////
 

@@ -55,9 +55,11 @@
 
 #include <QTreeWidget>
 #include <QTimer>
+
 #include "tree_widget_loader.h"
 #include "tree_widget_item.h"
-#include "easy/reader.h"
+
+#include <easy/reader.h>
 
 //////////////////////////////////////////////////////////////////////////
 

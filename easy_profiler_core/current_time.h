@@ -33,7 +33,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #ifndef EASY_PROFILER_CURRENT_TIME_H
 #define EASY_PROFILER_CURRENT_TIME_H
 
-#include "easy/profiler.h"
+#include <easy/profiler.h>
 
 #ifdef _WIN32
 #include <Windows.h>

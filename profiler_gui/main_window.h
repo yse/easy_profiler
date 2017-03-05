@@ -53,8 +53,8 @@
 #include <QTimer>
 #include <QStringList>
 
-#include "easy/easy_socket.h"
-#include "easy/reader.h"
+#include <easy/easy_socket.h>
+#include <easy/reader.h>
 
 #ifdef max
 #undef max

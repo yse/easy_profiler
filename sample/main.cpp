@@ -1,13 +1,14 @@
 //#define FULL_DISABLE_PROFILER
-#include "easy/profiler.h"
 #include <chrono>
 #include <thread>
 #include <vector>
 #include <iostream>
 #include <condition_variable>
-#include "easy/reader.h"
 #include <cstdlib>
 #include <math.h>
+
+#include <easy/profiler.h>
+#include <easy/reader.h>
 
 std::condition_variable cv;
 std::mutex cv_m;

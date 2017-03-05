@@ -50,7 +50,7 @@
 #include <memory.h>
 #include <chrono>
 #include <unordered_map>
-#include "easy/profiler.h"
+#include <easy/profiler.h>
 #include "profile_manager.h"
 #include "current_time.h"
 

@@ -49,10 +49,11 @@
 
 #include <stdlib.h>
 #include <vector>
-//#include <unordered_set>
 #include <thread>
 #include <atomic>
-#include "easy/reader.h"
+
+#include <easy/reader.h>
+
 #include "common_types.h"
 
 //////////////////////////////////////////////////////////////////////////

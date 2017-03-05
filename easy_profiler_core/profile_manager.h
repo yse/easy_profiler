@@ -33,11 +33,13 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #ifndef EASY_PROFILER_MANAGER_H
 #define EASY_PROFILER_MANAGER_H
 
-#include "easy/profiler.h"
-#include "easy/easy_socket.h"
+#include <easy/profiler.h>
+#include <easy/easy_socket.h>
+
 #include "spin_lock.h"
 #include "outstream.h"
 #include "hashed_cstr.h"
+
 #include <map>
 #include <vector>
 #include <unordered_map>

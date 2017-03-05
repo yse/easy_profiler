@@ -49,7 +49,8 @@
 
 #include <stdlib.h>
 #include <QTreeWidget>
-#include "easy/reader.h"
+#include <easy/reader.h>
+
 #include "common_types.h"
 
 //////////////////////////////////////////////////////////////////////////

@@ -48,9 +48,11 @@
 
 #include <QTreeWidget>
 #include <QString>
+
 #include <vector>
 #include <unordered_set>
-#include "easy/profiler.h"
+
+#include <easy/profiler.h>
 
 //////////////////////////////////////////////////////////////////////////
 
