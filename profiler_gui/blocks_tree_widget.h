@@ -50,14 +50,16 @@
 *                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
-#ifndef EASY__TREE_WIDGET__H_
-#define EASY__TREE_WIDGET__H_
+#ifndef EASY_TREE_WIDGET_H
+#define EASY_TREE_WIDGET_H
 
 #include <QTreeWidget>
 #include <QTimer>
+
 #include "tree_widget_loader.h"
 #include "tree_widget_item.h"
-#include "easy/reader.h"
+
+#include <easy/reader.h>
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -201,4 +203,4 @@ private:
 
 //////////////////////////////////////////////////////////////////////////
 
-#endif // EASY__TREE_WIDGET__H_
+#endif // EASY_TREE_WIDGET_H

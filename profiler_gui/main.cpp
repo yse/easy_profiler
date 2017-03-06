@@ -40,11 +40,10 @@
 
 #include <chrono>
 #include <QApplication>
-//#include <QTreeView>
-//#include <QFileSystemModel>
-//#include "treemodel.h"
+
 #include "main_window.h"
-#include "easy/reader.h"
+
+#include <easy/reader.h>
 
 
 #if defined(_WIN32) && defined (_BUILD_RELEASE_)

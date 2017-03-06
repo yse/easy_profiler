@@ -43,8 +43,8 @@
 *                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
-#ifndef EASY__CHRONOMETER_ITEM__H_
-#define EASY__CHRONOMETER_ITEM__H_
+#ifndef EASY_CHRONOMETER_ITEM_H
+#define EASY_CHRONOMETER_ITEM_H
 
 #include <QGraphicsItem>
 #include <QRectF>
@@ -132,4 +132,4 @@ private:
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-#endif // EASY__CHRONOMETER_ITEM__H_
+#endif // EASY_CHRONOMETER_ITEM_H

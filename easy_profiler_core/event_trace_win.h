@@ -43,8 +43,8 @@
 *                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
-#ifndef EASY_PROFILER__EVENT_TRACE_WINDOWS__H_
-#define EASY_PROFILER__EVENT_TRACE_WINDOWS__H_
+#ifndef EASY_PROFILER_EVENT_TRACE_WINDOWS_H
+#define EASY_PROFILER_EVENT_TRACE_WINDOWS_H
 #ifdef _WIN32
 
 #define INITGUID  // This is to enable using SystemTraceControlGuid in evntrace.h.
@@ -116,4 +116,4 @@ namespace profiler {
 //////////////////////////////////////////////////////////////////////////
 
 #endif // _WIN32
-#endif // EASY_PROFILER__EVENT_TRACE_WINDOWS__H_
+#endif // EASY_PROFILER_EVENT_TRACE_WINDOWS_H

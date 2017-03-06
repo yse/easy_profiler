@@ -30,10 +30,10 @@ You should have received a copy of the GNU General Public License
 along with this program.If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#ifndef EASY_PROFILER_SERIALIZED_BLOCK__H_______
-#define EASY_PROFILER_SERIALIZED_BLOCK__H_______
+#ifndef EASY_PROFILER_SERIALIZED_BLOCK_H
+#define EASY_PROFILER_SERIALIZED_BLOCK_H
 
-#include "easy/profiler.h"
+#include <easy/profiler.h>
 
 namespace profiler {
 
@@ -99,4 +99,4 @@ namespace profiler {
 
 } // END of namespace profiler.
 
-#endif // EASY_PROFILER_SERIALIZED_BLOCK__H_______
+#endif // EASY_PROFILER_SERIALIZED_BLOCK_H

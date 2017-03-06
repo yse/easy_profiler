@@ -42,12 +42,13 @@
 *                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
-#ifndef EASY_PROFILER__AUX__H_______
-#define EASY_PROFILER__AUX__H_______
+#ifndef EASY_PROFILER_AUX_H
+#define EASY_PROFILER_AUX_H
 
 #include <stdint.h>
-#include "easy/easy_compiler_support.h"
-#include "easy/profiler_colors.h"
+
+#include <easy/easy_compiler_support.h>
+#include <easy/profiler_colors.h>
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -194,4 +195,4 @@ namespace profiler {
 
 //////////////////////////////////////////////////////////////////////////
 
-#endif // EASY_PROFILER__AUX__H_______
+#endif // EASY_PROFILER_AUX_H

@@ -49,7 +49,6 @@
 #include <QResizeEvent>
 #include <QContextMenuEvent>
 #include <QMenu>
-#include <QDebug>
 #include "easy_graphics_scrollbar.h"
 #include "globals.h"
 

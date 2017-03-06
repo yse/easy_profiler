@@ -39,8 +39,9 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 #include <vector>
 #include <string>
 #include <atomic>
-#include "easy/profiler.h"
-#include "easy/serialized_block.h"
+
+#include <easy/profiler.h>
+#include <easy/serialized_block.h>
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

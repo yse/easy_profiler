@@ -44,12 +44,13 @@
 *                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
-#ifndef EASY__TREE_WIDGET_ITEM__H_
-#define EASY__TREE_WIDGET_ITEM__H_
+#ifndef EASY_TREE_WIDGET_ITEM_H
+#define EASY_TREE_WIDGET_ITEM_H
 
 #include <stdlib.h>
 #include <QTreeWidget>
-#include "easy/reader.h"
+#include <easy/reader.h>
+
 #include "common_types.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -148,4 +149,4 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
-#endif // EASY__TREE_WIDGET_ITEM__H_
+#endif // EASY_TREE_WIDGET_ITEM_H

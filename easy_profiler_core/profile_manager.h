@@ -30,14 +30,16 @@ You should have received a copy of the GNU General Public License
 along with this program.If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#ifndef EASY_PROFILER____MANAGER____H______
-#define EASY_PROFILER____MANAGER____H______
+#ifndef EASY_PROFILER_MANAGER_H
+#define EASY_PROFILER_MANAGER_H
 
-#include "easy/profiler.h"
-#include "easy/easy_socket.h"
+#include <easy/profiler.h>
+#include <easy/easy_socket.h>
+
 #include "spin_lock.h"
 #include "outstream.h"
 #include "hashed_cstr.h"
+
 #include <map>
 #include <vector>
 #include <unordered_map>
@@ -452,4 +454,4 @@ private:
     }
 };
 
-#endif // EASY_PROFILER____MANAGER____H______
+#endif // EASY_PROFILER_MANAGER_H

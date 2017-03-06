@@ -44,15 +44,16 @@
 *                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
-#ifndef EASY__TREE_WIDGET_LOADER__H_
-#define EASY__TREE_WIDGET_LOADER__H_
+#ifndef EASY_TREE_WIDGET_LOADER_H
+#define EASY_TREE_WIDGET_LOADER_H
 
 #include <stdlib.h>
 #include <vector>
-//#include <unordered_set>
 #include <thread>
 #include <atomic>
-#include "easy/reader.h"
+
+#include <easy/reader.h>
+
 #include "common_types.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -122,4 +123,4 @@ private:
 
 //////////////////////////////////////////////////////////////////////////
 
-#endif // EASY__TREE_WIDGET_LOADER__H_
+#endif // EASY_TREE_WIDGET_LOADER_H

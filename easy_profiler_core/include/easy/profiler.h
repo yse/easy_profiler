@@ -30,10 +30,10 @@ You should have received a copy of the GNU General Public License
 along with this program.If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#ifndef EASY_PROFILER____H_______
-#define EASY_PROFILER____H_______
+#ifndef EASY_PROFILER_H
+#define EASY_PROFILER_H
 
-#include "easy/profiler_aux.h"
+#include <easy/profiler_aux.h>
 
 #if defined ( __clang__ )
 # pragma clang diagnostic push
@@ -59,7 +59,7 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 /** Macro for beginning of a block with custom name and color.
 
 \code
-    #include "easy/profiler.h"
+    #include <easy/profiler.h>
     void foo()
     {
         // some code ...
@@ -99,7 +99,7 @@ Block will be automatically completed by destructor.
 /** Macro for beginning of a block with function name and custom color.
 
 \code
-    #include "easy/profiler.h"
+    #include <easy/profiler.h>
     void foo(){
         EASY_FUNCTION(); // Block with name="foo" and default color
         //some code...
@@ -129,7 +129,7 @@ Name of the block automatically created with function name.
 /** Macro for completion of last opened block.
 
 \code
-#include "easy/profiler.h"
+#include <easy/profiler.h>
 int foo()
 {
     // some code ...
@@ -679,4 +679,4 @@ namespace profiler {
 # pragma clang diagnostic pop
 #endif
 
-#endif // EASY_PROFILER____H_______
+#endif // EASY_PROFILER_H
