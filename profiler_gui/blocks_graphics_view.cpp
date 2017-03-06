@@ -263,17 +263,25 @@ void EasyTimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGrap
     _painter->setBrush(Qt::NoBrush);
 
     QPen pen(Qt::black);
-    pen.setWidth(2);
-    pen.setJoinStyle(Qt::MiterJoin);
+    pen.setWidth(3);
+    //pen.setJoinStyle(Qt::MiterJoin);
     _painter->setPen(pen);
 
-    QRectF rect(visibleSceneRect.width() - 10 - step, visibleSceneRect.height() - 20, step, 10);
-    const auto rect_right = rect.right();
-    const QPointF points[] = {{rect.left(), rect.bottom()}, {rect.left(), rect.top()}, {rect_right, rect.top()}, {rect_right, rect.top() + 5}};
-    _painter->drawPolyline(points, sizeof(points) / sizeof(QPointF));
+    _painter->drawLine(QLineF(visibleSceneRect.width() - 8 - step, visibleSceneRect.height() - 10, visibleSceneRect.width() - 12, visibleSceneRect.height() - 10));
 
-    rect.translate(0, 3);
-    _painter->drawText(rect, Qt::AlignRight | Qt::TextDontClip, text);
+    _painter->setPen(Qt::black);
+    _painter->drawLine(QLineF(visibleSceneRect.width() - 10 - step, visibleSceneRect.height() - 6, visibleSceneRect.width() - 10 - step, visibleSceneRect.height() - 14));
+    _painter->drawLine(QLineF(visibleSceneRect.width() - 10, visibleSceneRect.height() - 6, visibleSceneRect.width() - 10, visibleSceneRect.height() - 14));
+
+    QRectF rect(visibleSceneRect.width() - 10 - step, visibleSceneRect.height() - 63, step, 50);
+    //const auto rect_right = rect.right();
+    //const QPointF points[] = {{rect.left(), rect.bottom()}, {rect.left(), rect.top()}, {rect_right, rect.top()}, {rect_right, rect.top() + 5}};
+    //_painter->drawPolyline(points, sizeof(points) / sizeof(QPointF));
+
+    //rect.translate(0, 3);
+    _painter->setPen(Qt::black);
+    _painter->setFont(BG_FONT);
+    _painter->drawText(rect, Qt::AlignRight | Qt::AlignBottom | Qt::TextDontClip, text);
 
     _painter->restore();
 }
