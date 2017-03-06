@@ -71,7 +71,7 @@ namespace profiler_gui {
 
     const QSize ICONS_SIZE(28, 28);
     const uint16_t GRAPHICS_ROW_SIZE = 18;
-    const uint16_t GRAPHICS_ROW_SPACING = 2;
+    const uint16_t GRAPHICS_ROW_SPACING = 0;
     const uint16_t GRAPHICS_ROW_SIZE_FULL = GRAPHICS_ROW_SIZE + GRAPHICS_ROW_SPACING;
     const uint16_t THREADS_ROW_SPACING = 8;
 
