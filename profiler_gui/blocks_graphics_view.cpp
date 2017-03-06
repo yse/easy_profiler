@@ -267,7 +267,7 @@ void EasyTimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGrap
     //pen.setJoinStyle(Qt::MiterJoin);
     _painter->setPen(pen);
 
-    _painter->drawLine(QLineF(visibleSceneRect.width() - 8 - step, visibleSceneRect.height() - 10, visibleSceneRect.width() - 12, visibleSceneRect.height() - 10));
+    _painter->drawLine(QLineF(visibleSceneRect.width() - 9 - step, visibleSceneRect.height() - 10, visibleSceneRect.width() - 11, visibleSceneRect.height() - 10));
 
     _painter->setPen(Qt::black);
     _painter->drawLine(QLineF(visibleSceneRect.width() - 10 - step, visibleSceneRect.height() - 6, visibleSceneRect.width() - 10 - step, visibleSceneRect.height() - 14));
