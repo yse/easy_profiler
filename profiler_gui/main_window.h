@@ -260,6 +260,7 @@ protected slots:
     void onEventTracingPriorityChange(bool _checked);
     void onEventTracingEnableChange(bool _checked);
     void onFrameTimeEditFinish();
+    void onFrameTimeChanged();
 
     void onBlockStatusChange(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status);
 

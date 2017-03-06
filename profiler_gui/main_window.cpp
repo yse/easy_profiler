@@ -514,6 +514,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     m_frameTimeEdit->setValidator(val);
     m_frameTimeEdit->setText(QString::number(EASY_GLOBALS.frame_time * 1e-3));
     connect(m_frameTimeEdit, &QLineEdit::editingFinished, this, &This::onFrameTimeEditFinish);
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::timelineMarkerChanged, this, &This::onFrameTimeChanged);
     toolbar->addWidget(m_frameTimeEdit);
 
     lbl = new QLabel("ms", toolbar);
@@ -1434,7 +1435,15 @@ void EasyMainWindow::onFrameTimeEditFinish()
     }
 
     EASY_GLOBALS.frame_time = text.toFloat() * 1e3f;
+
+    disconnect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::timelineMarkerChanged, this, &This::onFrameTimeChanged);
     emit EASY_GLOBALS.events.timelineMarkerChanged();
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::timelineMarkerChanged, this, &This::onFrameTimeChanged);
+}
+
+void EasyMainWindow::onFrameTimeChanged()
+{
+    m_frameTimeEdit->setText(QString::number(EASY_GLOBALS.frame_time * 1e-3));
 }
 
 //////////////////////////////////////////////////////////////////////////

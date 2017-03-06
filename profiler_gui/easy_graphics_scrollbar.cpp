@@ -90,7 +90,7 @@ const int DEFAULT_TOP = -40;
 const int DEFAULT_HEIGHT = 80;
 const int INDICATOR_SIZE = 6;
 const int INDICATOR_SIZE_x2 = INDICATOR_SIZE << 1;
-const int HYST_COLUMN_MIN_HEIGHT = 2;
+const int HIST_COLUMN_MIN_HEIGHT = 2;
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -325,7 +325,7 @@ void EasyHistogramItem::paintByPtr(QPainter* _painter)
     const auto width = m_boundingRect.width() * currentScale;
     const auto dtime = m_topDuration - m_bottomDuration;
     const auto maxColumnHeight = m_boundingRect.height();
-    const auto coeff = (m_boundingRect.height() - HYST_COLUMN_MIN_HEIGHT) / (dtime > 1e-3 ? dtime : 1.);
+    const auto coeff = (m_boundingRect.height() - HIST_COLUMN_MIN_HEIGHT) / (dtime > 1e-3 ? dtime : 1.);
 
     QRectF rect;
     QBrush brush(Qt::SolidPattern);
@@ -401,8 +401,8 @@ void EasyHistogramItem::paintByPtr(QPainter* _painter)
                     const qreal item_x = it->left() * realScale - offset;
                     const qreal item_w = ::std::max(it->width() * realScale, 1.0);
                     const qreal item_r = item_x + item_w;
-                    const qreal h = it->width() <= m_bottomDuration ? HYST_COLUMN_MIN_HEIGHT :
-                        (it->width() > m_topDuration ? maxColumnHeight : (HYST_COLUMN_MIN_HEIGHT + (it->width() - m_bottomDuration) * coeff));
+                    const qreal h = it->width() <= m_bottomDuration ? HIST_COLUMN_MIN_HEIGHT :
+                        (it->width() > m_topDuration ? maxColumnHeight : (HIST_COLUMN_MIN_HEIGHT + (it->width() - m_bottomDuration) * coeff));
 
                     if (h < previous_h && item_r < previous_x)
                         continue;
@@ -460,12 +460,12 @@ void EasyHistogramItem::paintByPtr(QPainter* _painter)
     _painter->drawLine(QLineF(0, bottom, bottom_width, bottom));
     _painter->drawLine(QLineF(0, m_boundingRect.top(), top_width, m_boundingRect.top()));
 
-    paintMouseIndicator(_painter, m_boundingRect.top(), bottom, width, maxColumnHeight, top_width, m_mouseY, dtime, font_h);
+    paintMouseIndicator(_painter, m_boundingRect.top(), bottom, width, maxColumnHeight - HIST_COLUMN_MIN_HEIGHT, top_width, m_mouseY, dtime, font_h);
 
     if (m_bottomDuration < EASY_GLOBALS.frame_time && EASY_GLOBALS.frame_time < m_topDuration)
     {
         // Draw marker displaying expected frame_time step
-        const auto h = bottom - HYST_COLUMN_MIN_HEIGHT - (EASY_GLOBALS.frame_time - m_bottomDuration) * coeff;
+        const auto h = bottom - (EASY_GLOBALS.frame_time - m_bottomDuration) * coeff;
         _painter->setPen(Qt::DashLine);
 
         auto w = width;
@@ -506,7 +506,7 @@ void EasyHistogramItem::paintById(QPainter* _painter)
     const auto width = m_boundingRect.width() * currentScale;
     const auto dtime = m_topDuration - m_bottomDuration;
     const auto maxColumnHeight = m_boundingRect.height();
-    const auto coeff = (m_boundingRect.height() - HYST_COLUMN_MIN_HEIGHT) / (dtime > 1e-3 ? dtime : 1.);
+    const auto coeff = (m_boundingRect.height() - HIST_COLUMN_MIN_HEIGHT) / (dtime > 1e-3 ? dtime : 1.);
 
     QRectF rect;
     QBrush brush(Qt::SolidPattern);
@@ -625,8 +625,8 @@ void EasyHistogramItem::paintById(QPainter* _painter)
                                     const qreal item_x = (beginTime * realScale - offset) * 1e-3;
                                     const qreal item_w = ::std::max(duration * realScale, 1.0);
                                     const qreal item_r = item_x + item_w;
-                                    const qreal h = duration <= m_bottomDuration ? HYST_COLUMN_MIN_HEIGHT :
-                                        (duration > m_topDuration ? maxColumnHeight : (HYST_COLUMN_MIN_HEIGHT + (duration - m_bottomDuration) * coeff));
+                                    const qreal h = duration <= m_bottomDuration ? HIST_COLUMN_MIN_HEIGHT :
+                                        (duration > m_topDuration ? maxColumnHeight : (HIST_COLUMN_MIN_HEIGHT + (duration - m_bottomDuration) * coeff));
 
                                     if (h < previous_h && item_r < previous_x)
                                         continue;
@@ -692,12 +692,12 @@ void EasyHistogramItem::paintById(QPainter* _painter)
     _painter->drawLine(QLineF(0, bottom, bottom_width, bottom));
     _painter->drawLine(QLineF(0, m_boundingRect.top(), top_width, m_boundingRect.top()));
 
-    paintMouseIndicator(_painter, m_boundingRect.top(), bottom, width, maxColumnHeight, top_width, m_mouseY, dtime, font_h);
+    paintMouseIndicator(_painter, m_boundingRect.top(), bottom, width, maxColumnHeight - HIST_COLUMN_MIN_HEIGHT, top_width, m_mouseY, dtime, font_h);
 
     if (m_bottomDuration < EASY_GLOBALS.frame_time && EASY_GLOBALS.frame_time < m_topDuration)
     {
         // Draw marker displaying required frame_time step
-        const auto h = bottom - HYST_COLUMN_MIN_HEIGHT - (EASY_GLOBALS.frame_time - m_bottomDuration) * coeff;
+        const auto h = bottom - (EASY_GLOBALS.frame_time - m_bottomDuration) * coeff;
         _painter->setPen(Qt::DashLine);
 
         auto w = width;
@@ -1106,6 +1106,15 @@ void EasyHistogramItem::setMouseY(qreal _mouseY)
     m_mouseY = _mouseY;
 }
 
+void EasyHistogramItem::pickFrameTime(qreal _y) const
+{
+    if (_y > m_boundingRect.top() && _y < m_boundingRect.bottom())
+    {
+        EASY_GLOBALS.frame_time = m_bottomDuration + (m_topDuration - m_bottomDuration) * (m_boundingRect.bottom() - _y) / (m_boundingRect.height() - HIST_COLUMN_MIN_HEIGHT);
+        emit EASY_GLOBALS.events.timelineMarkerChanged();
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 void EasyHistogramItem::updateImage()
@@ -1144,7 +1153,7 @@ void EasyHistogramItem::updateImage(HystRegime _regime, qreal _current_scale,
     const auto width = m_boundingRect.width() * _current_scale;
     const auto dtime = m_topDuration - m_bottomDuration;
     const auto maxColumnHeight = m_boundingRect.height();
-    const auto coeff = (m_boundingRect.height() - HYST_COLUMN_MIN_HEIGHT) / (dtime > 1e-3 ? dtime : 1.);
+    const auto coeff = (m_boundingRect.height() - HIST_COLUMN_MIN_HEIGHT) / (dtime > 1e-3 ? dtime : 1.);
 
     m_temporaryImage = new QImage((_bindMode ? width * 2. : width) + 0.5, m_boundingRect.height(), QImage::Format_ARGB32);
     m_temporaryImage->fill(Qt::white);
@@ -1214,8 +1223,8 @@ void EasyHistogramItem::updateImage(HystRegime _regime, qreal _current_scale,
             const qreal item_x = it->left() * realScale - offset;
             const qreal item_w = ::std::max(it->width() * realScale, 1.0);
             const qreal item_r = item_x + item_w;
-            const qreal h = it->width() <= m_bottomDuration ? HYST_COLUMN_MIN_HEIGHT : 
-                (it->width() > m_topDuration ? maxColumnHeight : (HYST_COLUMN_MIN_HEIGHT + (it->width() - m_bottomDuration) * coeff));
+            const qreal h = it->width() <= m_bottomDuration ? HIST_COLUMN_MIN_HEIGHT : 
+                (it->width() > m_topDuration ? maxColumnHeight : (HIST_COLUMN_MIN_HEIGHT + (it->width() - m_bottomDuration) * coeff));
 
             if (h < previous_h && item_r < previous_x)
                 continue;
@@ -1260,8 +1269,8 @@ void EasyHistogramItem::updateImage(HystRegime _regime, qreal _current_scale,
             const qreal item_x = (beginTime * realScale - offset) * 1e-3;
             const qreal item_w = ::std::max(duration * realScale, 1.0);
             const qreal item_r = item_x + item_w;
-            const auto h = duration <= m_bottomDuration ? HYST_COLUMN_MIN_HEIGHT :
-                (duration > m_topDuration ? maxColumnHeight : (HYST_COLUMN_MIN_HEIGHT + (duration - m_bottomDuration) * coeff));
+            const auto h = duration <= m_bottomDuration ? HIST_COLUMN_MIN_HEIGHT :
+                (duration > m_topDuration ? maxColumnHeight : (HIST_COLUMN_MIN_HEIGHT + (duration - m_bottomDuration) * coeff));
 
             if (h < previous_h && item_r < previous_x)
                 continue;
@@ -1499,7 +1508,24 @@ void EasyGraphicsScrollbar::setHystogramFrom(::profiler::thread_id_t _thread_id,
 
 void EasyGraphicsScrollbar::mousePressEvent(QMouseEvent* _event)
 {
+    _event->accept();
+
     m_mouseButtons = _event->buttons();
+
+    if (m_mouseButtons & Qt::LeftButton)
+    {
+        if (_event->modifiers() & Qt::ControlModifier)
+        {
+            m_histogramItem->pickFrameTime(mapToScene(_event->pos()).y());
+        }
+        else
+        {
+            m_bScrolling = true;
+            m_mousePressPos = _event->pos();
+            if (!m_bBindMode)
+                setValue(mapToScene(m_mousePressPos).x() - m_minimumValue - m_slider->halfwidth());
+        }
+    }
 
     if (m_mouseButtons & Qt::RightButton)
     {
@@ -1507,15 +1533,6 @@ void EasyGraphicsScrollbar::mousePressEvent(QMouseEvent* _event)
         scene()->update();
     }
 
-    if (m_mouseButtons & Qt::LeftButton)
-    {
-        m_bScrolling = true;
-        m_mousePressPos = _event->pos();
-        if (!m_bBindMode)
-            setValue(mapToScene(m_mousePressPos).x() - m_minimumValue - m_slider->halfwidth());
-    }
-
-    _event->accept();
     //QGraphicsView::mousePressEvent(_event);
 }
 

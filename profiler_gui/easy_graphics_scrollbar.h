@@ -192,6 +192,7 @@ public:
     void decreaseBottomBoundary();
 
     void setMouseY(qreal _mouseY);
+    void pickFrameTime(qreal _y) const;
 
 private:
 
