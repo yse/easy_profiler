@@ -126,18 +126,21 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyHystogramItem : public QGraphicsItem
+class EasyHistogramItem : public QGraphicsItem
 {
     typedef QGraphicsItem Parent;
-    typedef EasyHystogramItem This;
+    typedef EasyHistogramItem This;
 
     enum HystRegime : uint8_t { Hyst_Pointer, Hyst_Id };
 
     QRectF                               m_boundingRect;
+    qreal                                 m_topDuration;
+    qreal                              m_bottomDuration;
     qreal                                 m_maxDuration;
     qreal                                 m_minDuration;
-    QString                            m_maxDurationStr;
-    QString                            m_minDurationStr;
+    qreal                                      m_mouseY;
+    QString                            m_topDurationStr;
+    QString                         m_bottomDurationStr;
     QString                                m_threadName;
     ::profiler::BlocksTree::children_t m_selectedBlocks;
     QImage                                  m_mainImage;
@@ -154,14 +157,14 @@ class EasyHystogramItem : public QGraphicsItem
     int                                      m_timeouts;
     ::profiler_gui::TimeUnits               m_timeUnits;
     HystRegime                                 m_regime;
-    bool                               m_bUpdatingImage;
+    bool                           m_bPermitImageUpdate; ///< Is false when m_workerThread is parsing input dataset (when setSource(_block_id) is called)
     ::profiler_gui::spin_lock                    m_spin;
     ::std::atomic_bool                         m_bReady;
 
 public:
 
-    explicit EasyHystogramItem();
-    virtual ~EasyHystogramItem();
+    explicit EasyHistogramItem();
+    virtual ~EasyHistogramItem();
 
     // Public virtual methods
 
@@ -182,8 +185,18 @@ public:
     void validateName();
     void updateImage();
 
+    void increaseTopBoundary();
+    void decreaseTopBoundary();
+
+    void increaseBottomBoundary();
+    void decreaseBottomBoundary();
+
+    void setMouseY(qreal _mouseY);
+
 private:
 
+    void paintBusyIndicator(QPainter* _painter, qreal _current_scale);
+    void paintMouseIndicator(QPainter* _painter, qreal _top, qreal _bottom, qreal _width, qreal _height, qreal _top_width, qreal _mouse_y, qreal _delta_time, int _font_h);
     void paintByPtr(QPainter* _painter);
     void paintById(QPainter* _painter);
     void onTimeout();
@@ -192,7 +205,7 @@ private:
                      qreal _value, qreal _width, bool _bindMode,
                      float _frame_time, ::profiler::timestamp_t _begin_time);
 
-}; // END of class EasyHystogramItem.
+}; // END of class EasyHistogramItem.
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -213,7 +226,7 @@ private:
     Qt::MouseButtons                m_mouseButtons;
     EasyGraphicsSliderItem*               m_slider;
     EasyGraphicsSliderItem* m_chronometerIndicator;
-    EasyHystogramItem*             m_hystogramItem;
+    EasyHistogramItem*             m_histogramItem;
     int                        m_defaultFontHeight;
     bool                              m_bScrolling;
     bool                               m_bBindMode;

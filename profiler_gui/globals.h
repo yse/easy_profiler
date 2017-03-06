@@ -141,7 +141,7 @@ namespace profiler_gui {
         ::profiler::thread_id_t          selected_thread; ///< Current selected thread id
         ::profiler::block_index_t         selected_block; ///< Current selected profiler block index
         ::profiler::block_id_t         selected_block_id; ///< Current selected profiler block id
-        float                                 frame_time; ///< Value in microseconds to be displayed at minimap on graphics scrollbar
+        float                                 frame_time; ///< Expected frame time value in microseconds to be displayed at minimap on graphics scrollbar
         int                               blocks_spacing; ///< Minimum blocks spacing on diagram
         int                              blocks_size_min; ///< Minimum blocks size on diagram
         int                           blocks_narrow_size; ///< Width indicating narrow blocks

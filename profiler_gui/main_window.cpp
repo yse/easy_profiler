@@ -501,7 +501,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     toolbar->setContentsMargins(1, 0, 1, 0);
     toolbar->setMinimumHeight(tb_height);
 
-    lbl = new QLabel("Frame time:", toolbar);
+    lbl = new QLabel("Expected frame time:", toolbar);
     lbl->setContentsMargins(5, 2, 2, 2);
     toolbar->addWidget(lbl);
 

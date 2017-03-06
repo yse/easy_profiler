@@ -67,7 +67,7 @@ namespace profiler_gui {
         , blocks_size_min(2)
         , blocks_narrow_size(20)
         , chrono_text_position(ChronoTextPosition_Center)
-        , time_units(TimeUnits_auto)
+        , time_units(TimeUnits_ms)
         , connected(false)
         , use_decorated_thread_name(true)
         , enable_event_indicators(true)
