@@ -264,7 +264,6 @@ void EasyTimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGrap
 
     QPen pen(Qt::black);
     pen.setWidth(3);
-    //pen.setJoinStyle(Qt::MiterJoin);
     _painter->setPen(pen);
 
     _painter->drawLine(QLineF(visibleSceneRect.width() - 9 - step, visibleSceneRect.height() - 10, visibleSceneRect.width() - 11, visibleSceneRect.height() - 10));
@@ -273,15 +272,9 @@ void EasyTimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGrap
     _painter->drawLine(QLineF(visibleSceneRect.width() - 10 - step, visibleSceneRect.height() - 6, visibleSceneRect.width() - 10 - step, visibleSceneRect.height() - 14));
     _painter->drawLine(QLineF(visibleSceneRect.width() - 10, visibleSceneRect.height() - 6, visibleSceneRect.width() - 10, visibleSceneRect.height() - 14));
 
-    QRectF rect(visibleSceneRect.width() - 10 - step, visibleSceneRect.height() - 63, step, 50);
-    //const auto rect_right = rect.right();
-    //const QPointF points[] = {{rect.left(), rect.bottom()}, {rect.left(), rect.top()}, {rect_right, rect.top()}, {rect_right, rect.top() + 5}};
-    //_painter->drawPolyline(points, sizeof(points) / sizeof(QPointF));
-
-    //rect.translate(0, 3);
     _painter->setPen(Qt::black);
     _painter->setFont(BG_FONT);
-    _painter->drawText(rect, Qt::AlignRight | Qt::AlignBottom | Qt::TextDontClip, text);
+    _painter->drawText(QRectF(visibleSceneRect.width() - 10 - step, visibleSceneRect.height() - 63, step, 50), Qt::AlignRight | Qt::AlignBottom | Qt::TextDontClip, text);
 
     _painter->restore();
 }
@@ -547,7 +540,7 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         emit EASY_GLOBALS.events.selectedThreadChanged(longestItem->threadId());
 
         scrollTo(longestItem);
-        m_pScrollbar->setHystogramFrom(longestItem->threadId(), longestItem->items(0));
+        m_pScrollbar->setHistogramSource(longestItem->threadId(), longestItem->items(0));
         if (!longestItem->items(0).empty())
             m_pScrollbar->setValue(longestItem->items(0).front().left() - m_pScrollbar->sliderWidth() * 0.25);
     }
@@ -1020,14 +1013,14 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
         m_bUpdatingRect = false;
 
         if (selectedBlock != nullptr && selectedBlockThread == EASY_GLOBALS.selected_thread)
-            m_pScrollbar->setHystogramFrom(EASY_GLOBALS.selected_thread, EASY_GLOBALS.selected_block_id);
+            m_pScrollbar->setHistogramSource(EASY_GLOBALS.selected_thread, EASY_GLOBALS.selected_block_id);
         else
         {
             for (auto item : m_items)
             {
                 if (item->threadId() == EASY_GLOBALS.selected_thread)
                 {
-                    m_pScrollbar->setHystogramFrom(EASY_GLOBALS.selected_thread, item->items(0));
+                    m_pScrollbar->setHistogramSource(EASY_GLOBALS.selected_thread, item->items(0));
                     break;
                 }
             }
@@ -1291,18 +1284,18 @@ void EasyGraphicsView::initMode()
                 {
                     if (item->threadId() == EASY_GLOBALS.selected_thread)
                     {
-                        m_pScrollbar->setHystogramFrom(EASY_GLOBALS.selected_thread, item->items(0));
+                        m_pScrollbar->setHistogramSource(EASY_GLOBALS.selected_thread, item->items(0));
                         break;
                     }
                 }
             }
             else
             {
-                m_pScrollbar->setHystogramFrom(0, nullptr);
+                m_pScrollbar->setHistogramSource(0, nullptr);
             }
         }
         else
-            m_pScrollbar->setHystogramFrom(EASY_GLOBALS.selected_thread, EASY_GLOBALS.selected_block_id);
+            m_pScrollbar->setHistogramSource(EASY_GLOBALS.selected_thread, EASY_GLOBALS.selected_block_id);
         onRefreshRequired();
     });
 
@@ -1718,7 +1711,7 @@ void EasyGraphicsView::onSelectedThreadChange(::profiler::thread_id_t _id)
 
     if (_id == 0)
     {
-        m_pScrollbar->setHystogramFrom(0, nullptr);
+        m_pScrollbar->setHistogramSource(0, nullptr);
         return;
     }
 
@@ -1726,7 +1719,7 @@ void EasyGraphicsView::onSelectedThreadChange(::profiler::thread_id_t _id)
     {
         if (item->threadId() == _id)
         {
-            m_pScrollbar->setHystogramFrom(_id, item->items(0));
+            m_pScrollbar->setHistogramSource(_id, item->items(0));
 
             bool changedSelection = false;
             if (EASY_GLOBALS.only_current_thread_hierarchy)
@@ -1755,7 +1748,7 @@ void EasyGraphicsView::onSelectedThreadChange(::profiler::thread_id_t _id)
         }
     }
 
-    m_pScrollbar->setHystogramFrom(0, nullptr);
+    m_pScrollbar->setHistogramSource(0, nullptr);
     repaintScene();
 }
 
@@ -1788,7 +1781,7 @@ void EasyGraphicsView::onSelectedBlockChange(unsigned int _block_index)
                 m_pScrollbar->unlock();
             }
 
-            m_pScrollbar->setHystogramFrom(EASY_GLOBALS.selected_thread, guiblock.tree.node->id());
+            m_pScrollbar->setHistogramSource(EASY_GLOBALS.selected_thread, guiblock.tree.node->id());
 
             m_bUpdatingRect = false;
         }
@@ -1798,14 +1791,14 @@ void EasyGraphicsView::onSelectedBlockChange(unsigned int _block_index)
             {
                 if (item->threadId() == EASY_GLOBALS.selected_thread)
                 {
-                    m_pScrollbar->setHystogramFrom(EASY_GLOBALS.selected_thread, item->items(0));
+                    m_pScrollbar->setHistogramSource(EASY_GLOBALS.selected_thread, item->items(0));
                     break;
                 }
             }
         }
         else
         {
-            m_pScrollbar->setHystogramFrom(0, nullptr);
+            m_pScrollbar->setHistogramSource(0, nullptr);
         }
 
         updateVisibleSceneRect();
