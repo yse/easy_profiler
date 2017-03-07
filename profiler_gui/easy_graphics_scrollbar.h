@@ -131,7 +131,7 @@ class EasyHistogramItem : public QGraphicsItem
     typedef QGraphicsItem Parent;
     typedef EasyHistogramItem This;
 
-    enum HystRegime : uint8_t { Hyst_Pointer, Hyst_Id };
+    enum HistRegime : uint8_t { Hist_Pointer, Hist_Id };
 
     QRectF                               m_boundingRect;
     qreal                                 m_topDuration;
@@ -139,6 +139,8 @@ class EasyHistogramItem : public QGraphicsItem
     qreal                                 m_maxDuration;
     qreal                                 m_minDuration;
     qreal                                      m_mouseY;
+    qreal                                 m_imageOrigin;
+    qreal                        m_temporaryImageOrigin;
     QString                            m_topDurationStr;
     QString                         m_bottomDurationStr;
     QString                                m_threadName;
@@ -156,7 +158,7 @@ class EasyHistogramItem : public QGraphicsItem
     ::profiler::block_index_t                 m_blockId;
     int                                      m_timeouts;
     ::profiler_gui::TimeUnits               m_timeUnits;
-    HystRegime                                 m_regime;
+    HistRegime                                 m_regime;
     bool                           m_bPermitImageUpdate; ///< Is false when m_workerThread is parsing input dataset (when setSource(_block_id) is called)
     ::profiler_gui::spin_lock                    m_spin;
     ::std::atomic_bool                         m_bReady;
@@ -201,9 +203,9 @@ private:
     void paintByPtr(QPainter* _painter);
     void paintById(QPainter* _painter);
     void onTimeout();
-    void updateImage(HystRegime _regime, qreal _current_scale,
+    void updateImage(HistRegime _regime, qreal _current_scale,
                      qreal _minimum, qreal _maximum, qreal _range,
-                     qreal _value, qreal _width, bool _bindMode,
+                     qreal _value, qreal _width, qreal _topDuration, qreal _bottomDuration, bool _bindMode,
                      float _frame_time, ::profiler::timestamp_t _begin_time);
 
 }; // END of class EasyHistogramItem.
@@ -274,12 +276,12 @@ public:
     void showChrono();
     void hideChrono();
 
-    void setHystogramFrom(::profiler::thread_id_t _thread_id, const::profiler_gui::EasyItems* _items);
-    void setHystogramFrom(::profiler::thread_id_t _thread_id, ::profiler::block_id_t _block_id);
+    void setHistogramSource(::profiler::thread_id_t _thread_id, const::profiler_gui::EasyItems* _items);
+    void setHistogramSource(::profiler::thread_id_t _thread_id, ::profiler::block_id_t _block_id);
 
-    inline void setHystogramFrom(::profiler::thread_id_t _thread_id, const ::profiler_gui::EasyItems& _items)
+    inline void setHistogramSource(::profiler::thread_id_t _thread_id, const ::profiler_gui::EasyItems& _items)
     {
-        setHystogramFrom(_thread_id, &_items);
+        setHistogramSource(_thread_id, &_items);
     }
 
     inline void lock()

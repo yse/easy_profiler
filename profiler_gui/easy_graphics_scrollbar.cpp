@@ -235,13 +235,15 @@ EasyHistogramItem::EasyHistogramItem() : Parent(nullptr)
     , m_topDuration(0)
     , m_maxDuration(0)
     , m_minDuration(0)
+    , m_imageOrigin(0)
+    , m_temporaryImageOrigin(0)
     , m_timer(::std::bind(&This::onTimeout, this))
     , m_pProfilerThread(nullptr)
     , m_threadId(0)
     , m_blockId(::profiler_gui::numeric_max<decltype(m_blockId)>())
     , m_timeouts(0)
     , m_timeUnits(::profiler_gui::TimeUnits_auto)
-    , m_regime(Hyst_Pointer)
+    , m_regime(Hist_Pointer)
     , m_bPermitImageUpdate(false)
 {
     m_bReady = ATOMIC_VAR_INIT(false);
@@ -262,10 +264,10 @@ QRectF EasyHistogramItem::boundingRect() const
 
 void EasyHistogramItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget)
 {
-    if ((m_regime == Hyst_Pointer && m_pSource == nullptr) || (m_regime == Hyst_Id && (m_threadId == 0 || ::profiler_gui::is_max(m_blockId))))
+    if ((m_regime == Hist_Pointer && m_pSource == nullptr) || (m_regime == Hist_Id && (m_threadId == 0 || ::profiler_gui::is_max(m_blockId))))
         return;
 
-    if (m_regime == Hyst_Pointer)
+    if (m_regime == Hist_Pointer)
         paintByPtr(_painter);
     else
         paintById(_painter);
@@ -348,8 +350,9 @@ void EasyHistogramItem::paintByPtr(QPainter* _painter)
 
             if (slider_k < 8)
             {
+                //printf("slider_k = %lf\n", slider_k);
                 _painter->setTransform(QTransform::fromScale(slider_k, 1), true);
-                _painter->drawImage(-minimum * currentScale, m_boundingRect.top(), m_mainImage);
+                _painter->drawImage((m_imageOrigin - minimum) * currentScale, m_boundingRect.top(), m_mainImage);
                 _painter->setTransform(QTransform::fromScale(1./slider_k, 1), true);
             }
             else
@@ -532,7 +535,7 @@ void EasyHistogramItem::paintById(QPainter* _painter)
                 if (slider_k < 8)
                 {
                     _painter->setTransform(QTransform::fromScale(slider_k, 1), true);
-                    _painter->drawImage(-minimum * currentScale, m_boundingRect.top(), m_mainImage);
+                    _painter->drawImage((m_imageOrigin - minimum) * currentScale, m_boundingRect.top(), m_mainImage);
                     _painter->setTransform(QTransform::fromScale(1. / slider_k, 1), true);
                 }
                 else
@@ -757,7 +760,7 @@ void EasyHistogramItem::setBoundingRect(qreal x, qreal y, qreal w, qreal h)
 
 void EasyHistogramItem::setSource(::profiler::thread_id_t _thread_id, const ::profiler_gui::EasyItems* _items)
 {
-    if (m_regime == Hyst_Pointer && m_threadId == _thread_id && m_pSource == _items)
+    if (m_regime == Hist_Pointer && m_threadId == _thread_id && m_pSource == _items)
         return;
 
     if (m_timer.isActive())
@@ -769,12 +772,13 @@ void EasyHistogramItem::setSource(::profiler::thread_id_t _thread_id, const ::pr
 
     delete m_temporaryImage;
     m_temporaryImage = nullptr;
+    m_imageOrigin = 0;
 
     m_selectedBlocks.clear();
     ::profiler::BlocksTree::children_t().swap(m_selectedBlocks);
 
     m_bPermitImageUpdate = true;
-    m_regime = Hyst_Pointer;
+    m_regime = Hist_Pointer;
     m_pSource = _items;
     m_threadId = _thread_id;
     ::profiler_gui::set_max(m_blockId);
@@ -837,11 +841,11 @@ void EasyHistogramItem::setSource(::profiler::thread_id_t _thread_id, const ::pr
 
 void EasyHistogramItem::setSource(::profiler::thread_id_t _thread_id, ::profiler::block_id_t _block_id)
 {
-    if (m_regime == Hyst_Id && m_threadId == _thread_id && m_blockId == _block_id)
+    if (m_regime == Hist_Id && m_threadId == _thread_id && m_blockId == _block_id)
         return;
 
     m_bPermitImageUpdate = false; // Set to false because m_workerThread have to parse input data first. This will be set to true when m_workerThread finish - see onTimeout()
-    m_regime = Hyst_Id;
+    m_regime = Hist_Id;
     m_pSource = nullptr;
     m_topDurationStr.clear();
     m_bottomDurationStr.clear();
@@ -855,6 +859,7 @@ void EasyHistogramItem::setSource(::profiler::thread_id_t _thread_id, ::profiler
 
     delete m_temporaryImage;
     m_temporaryImage = nullptr;
+    m_imageOrigin = 0;
 
     m_selectedBlocks.clear();
     ::profiler::BlocksTree::children_t().swap(m_selectedBlocks);
@@ -1005,12 +1010,14 @@ void EasyHistogramItem::onTimeout()
         {
             // Image updated
 
+            if (m_workerThread.joinable())
+                m_workerThread.join();
+
             m_temporaryImage->swap(m_mainImage);
             delete m_temporaryImage;
             m_temporaryImage = nullptr;
 
-            if (m_workerThread.joinable())
-                m_workerThread.join();
+            m_imageOrigin = m_temporaryImageOrigin;
         }
     }
 
@@ -1132,30 +1139,43 @@ void EasyHistogramItem::updateImage()
     delete m_temporaryImage;
     m_temporaryImage = nullptr;
 
-    m_workerThread = ::std::thread([this](HystRegime _regime, qreal _current_scale,
-        qreal _minimum, qreal _maximum, qreal _range, qreal _value, qreal _width, bool _bindMode,
-        float _frame_time, ::profiler::timestamp_t _begin_time)
+    m_workerThread = ::std::thread([this](HistRegime _regime, qreal _current_scale,
+        qreal _minimum, qreal _maximum, qreal _range, qreal _value, qreal _width, qreal _topDuration, qreal _bottomDuration,
+        bool _bindMode, float _frame_time, ::profiler::timestamp_t _begin_time)
     {
-        updateImage(_regime, _current_scale, _minimum, _maximum, _range, _value, _width, _bindMode, _frame_time, _begin_time);
+        updateImage(_regime, _current_scale, _minimum, _maximum, _range, _value, _width, _topDuration, _bottomDuration, _bindMode, _frame_time, _begin_time);
         m_bReady.store(true, ::std::memory_order_release);
-    }, m_regime, widget->getWindowScale(), widget->minimum(), widget->maximum(), widget->range(), widget->value(), widget->sliderWidth(), widget->bindMode(), EASY_GLOBALS.frame_time, EASY_GLOBALS.begin_time);
+    }, m_regime, widget->getWindowScale(), widget->minimum(), widget->maximum(), widget->range(), widget->value(), widget->sliderWidth(),
+        m_topDuration, m_bottomDuration, widget->bindMode(), EASY_GLOBALS.frame_time, EASY_GLOBALS.begin_time);
 
     m_timeouts = 3;
     m_timer.start(500);
 }
 
-void EasyHistogramItem::updateImage(HystRegime _regime, qreal _current_scale,
+void EasyHistogramItem::updateImage(HistRegime _regime, qreal _current_scale,
                                     qreal _minimum, qreal _maximum, qreal _range,
-                                    qreal _value, qreal _width, bool _bindMode,
-                                    float _frame_time, ::profiler::timestamp_t _begin_time)
+                                    qreal _value, qreal _width, qreal _topDuration, qreal _bottomDuration,
+                                    bool _bindMode, float _frame_time, ::profiler::timestamp_t _begin_time)
 {
     const auto bottom = m_boundingRect.height();//m_boundingRect.bottom();
     const auto width = m_boundingRect.width() * _current_scale;
-    const auto dtime = m_topDuration - m_bottomDuration;
+    const auto dtime = _topDuration - _bottomDuration;
     const auto maxColumnHeight = m_boundingRect.height();
     const auto coeff = (m_boundingRect.height() - HIST_COLUMN_MIN_HEIGHT) / (dtime > 1e-3 ? dtime : 1.);
+    //const auto viewScale = _range / _width;
 
-    m_temporaryImage = new QImage((_bindMode ? width * 2. : width) + 0.5, m_boundingRect.height(), QImage::Format_ARGB32);
+    _bindMode; // to omit warning about unused variable
+    //if (_bindMode && viewScale >= 8 && _regime == Hist_Pointer)
+    //{
+    //    m_temporaryImageOrigin = std::max(_minimum, _value - _width * 2);
+    //    m_temporaryImage = new QImage(_width * 5 + 0.5, m_boundingRect.height(), QImage::Format_ARGB32);
+    //}
+    //else
+    //{
+    m_temporaryImageOrigin = _minimum;
+    m_temporaryImage = new QImage(width + 0.5, m_boundingRect.height(), QImage::Format_ARGB32);
+    //}
+
     m_temporaryImage->fill(Qt::white);
     QPainter p(m_temporaryImage);
     p.setPen(Qt::NoPen);
@@ -1166,14 +1186,12 @@ void EasyHistogramItem::updateImage(HystRegime _regime, qreal _current_scale,
 
     qreal previous_x = -1e30, previous_h = -1e30, offset = 0.;
     auto realScale = _current_scale;
-    auto minimum = _minimum;
-    auto maximum = _maximum;
 
     const bool gotFrame = _frame_time > 1e-6f;
     qreal frameCoeff = 1;
     if (gotFrame)
     {
-        if (_frame_time <= m_bottomDuration)
+        if (_frame_time <= _bottomDuration)
             frameCoeff = m_boundingRect.height();
         else
             frameCoeff = 0.9 / _frame_time;
@@ -1182,20 +1200,22 @@ void EasyHistogramItem::updateImage(HystRegime _regime, qreal _current_scale,
     auto const calculate_color = gotFrame ? calculate_color2 : calculate_color1;
     auto const k = gotFrame ? sqr(sqr(frameCoeff)) : 1.0 / m_boundingRect.height();
 
-    if (_regime == Hyst_Pointer)
+    if (_regime == Hist_Pointer)
     {
         const auto& items = *m_pSource;
         if (items.empty())
             return;
 
-        //if (_bindMode)
-        //{
-        //    minimum = _value;
-        //    maximum = minimum + _width;
-        //    realScale *= _range / _width;
-        //    offset = minimum * realScale;
+        auto first = items.begin();
 
-        //    auto first = ::std::lower_bound(items.begin(), items.end(), minimum, [](const ::profiler_gui::EasyBlockItem& _item, qreal _value)
+        //if (_bindMode && viewScale >= 8)
+        //{
+        //    _minimum = m_temporaryImageOrigin;
+        //    _maximum = m_temporaryImageOrigin + _width * 5;
+        //    //realScale *= viewScale;
+        //    offset = _minimum * realScale;
+
+        //    first = ::std::lower_bound(items.begin(), items.end(), _minimum, [](const ::profiler_gui::EasyBlockItem& _item, qreal _value)
         //    {
         //        return _item.left() < _value;
         //    });
@@ -1211,20 +1231,20 @@ void EasyHistogramItem::updateImage(HystRegime _regime, qreal _current_scale,
         //    }
         //}
 
-        for (auto it = items.begin(), end = items.end(); it != end; ++it)
+        for (auto it = first, end = items.end(); it != end; ++it)
         {
             // Draw rectangle
-            if (it->left() > maximum)
+            if (it->left() > _maximum)
                 break;
 
-            if (it->right() < minimum)
+            if (it->right() < _minimum)
                 continue;
 
             const qreal item_x = it->left() * realScale - offset;
             const qreal item_w = ::std::max(it->width() * realScale, 1.0);
             const qreal item_r = item_x + item_w;
-            const qreal h = it->width() <= m_bottomDuration ? HIST_COLUMN_MIN_HEIGHT : 
-                (it->width() > m_topDuration ? maxColumnHeight : (HIST_COLUMN_MIN_HEIGHT + (it->width() - m_bottomDuration) * coeff));
+            const qreal h = it->width() <= _bottomDuration ? HIST_COLUMN_MIN_HEIGHT : 
+                (it->width() > _topDuration ? maxColumnHeight : (HIST_COLUMN_MIN_HEIGHT + (it->width() - _bottomDuration) * coeff));
 
             if (h < previous_h && item_r < previous_x)
                 continue;
@@ -1249,8 +1269,8 @@ void EasyHistogramItem::updateImage(HystRegime _regime, qreal _current_scale,
     }
     else
     {
-        minimum *= 1e3;
-        maximum *= 1e3;
+        _minimum *= 1e3;
+        _maximum *= 1e3;
 
         for (auto it = m_selectedBlocks.begin(), end = m_selectedBlocks.end(); it != end; ++it)
         {
@@ -1258,19 +1278,19 @@ void EasyHistogramItem::updateImage(HystRegime _regime, qreal _current_scale,
             const auto item = easyBlock(*it).tree.node;
 
             const auto beginTime = item->begin() - _begin_time;
-            if (beginTime > maximum)
+            if (beginTime > _maximum)
                 break;
 
             const auto endTime = item->end() - _begin_time;
-            if (endTime < minimum)
+            if (endTime < _minimum)
                 continue;
 
             const qreal duration = item->duration() * 1e-3;
             const qreal item_x = (beginTime * realScale - offset) * 1e-3;
             const qreal item_w = ::std::max(duration * realScale, 1.0);
             const qreal item_r = item_x + item_w;
-            const auto h = duration <= m_bottomDuration ? HIST_COLUMN_MIN_HEIGHT :
-                (duration > m_topDuration ? maxColumnHeight : (HIST_COLUMN_MIN_HEIGHT + (duration - m_bottomDuration) * coeff));
+            const auto h = duration <= _bottomDuration ? HIST_COLUMN_MIN_HEIGHT :
+                (duration > _topDuration ? maxColumnHeight : (HIST_COLUMN_MIN_HEIGHT + (duration - _bottomDuration) * coeff));
 
             if (h < previous_h && item_r < previous_x)
                 continue;
@@ -1375,7 +1395,7 @@ EasyGraphicsScrollbar::~EasyGraphicsScrollbar()
 
 void EasyGraphicsScrollbar::clear()
 {
-    setHystogramFrom(0, nullptr);
+    setHistogramSource(0, nullptr);
     hideChrono();
     setRange(0, 100);
     setSliderWidth(2);
@@ -1484,7 +1504,7 @@ void EasyGraphicsScrollbar::hideChrono()
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsScrollbar::setHystogramFrom(::profiler::thread_id_t _thread_id, const ::profiler_gui::EasyItems* _items)
+void EasyGraphicsScrollbar::setHistogramSource(::profiler::thread_id_t _thread_id, const ::profiler_gui::EasyItems* _items)
 {
     if (m_bLocked)
         return;
@@ -1494,7 +1514,7 @@ void EasyGraphicsScrollbar::setHystogramFrom(::profiler::thread_id_t _thread_id,
     scene()->update();
 }
 
-void EasyGraphicsScrollbar::setHystogramFrom(::profiler::thread_id_t _thread_id, ::profiler::block_id_t _block_id)
+void EasyGraphicsScrollbar::setHistogramSource(::profiler::thread_id_t _thread_id, ::profiler::block_id_t _block_id)
 {
     if (m_bLocked)
         return;
