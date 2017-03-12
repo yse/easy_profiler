@@ -53,10 +53,11 @@ EasyQTimer::EasyQTimer()
     connect(&m_timer, &QTimer::timeout, [this](){ m_handler(); });
 }
 
-EasyQTimer::EasyQTimer(::std::function<void()>&& _handler)
+EasyQTimer::EasyQTimer(::std::function<void()>&& _handler, bool _isSignleShot)
     : QObject()
     , m_handler(::std::forward<::std::function<void()>&&>(_handler))
 {
+    m_timer.setSingleShot(_isSignleShot);
     connect(&m_timer, &QTimer::timeout, [this](){ m_handler(); });
 }
 

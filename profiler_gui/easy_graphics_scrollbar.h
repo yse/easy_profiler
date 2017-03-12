@@ -140,13 +140,18 @@ class EasyHistogramItem : public QGraphicsItem
     qreal                                 m_minDuration;
     qreal                                      m_mouseY;
     qreal                                 m_imageOrigin;
+    qreal                                  m_imageScale;
+    qreal                           m_imageOriginUpdate;
+    qreal                            m_imageScaleUpdate;
     qreal                        m_temporaryImageOrigin;
+    qreal                         m_temporaryImageScale;
     QString                            m_topDurationStr;
     QString                         m_bottomDurationStr;
     QString                                m_threadName;
     ::profiler::BlocksTree::children_t m_selectedBlocks;
     QImage                                  m_mainImage;
     EasyQTimer                                  m_timer;
+    EasyQTimer                          m_boundaryTimer;
     ::std::thread                        m_workerThread;
     ::profiler::timestamp_t            m_threadDuration;
     ::profiler::timestamp_t        m_threadProfiledTime;
@@ -186,15 +191,20 @@ public:
     void setSource(::profiler::thread_id_t _thread_id, ::profiler::block_id_t _block_id);
     void validateName();
     void updateImage();
+    void cancelImageUpdate();
 
+    void pickTopBoundary(qreal _y);
     void increaseTopBoundary();
     void decreaseTopBoundary();
 
+    void pickBottomBoundary(qreal _y);
     void increaseBottomBoundary();
     void decreaseBottomBoundary();
 
     void setMouseY(qreal _mouseY);
     void pickFrameTime(qreal _y) const;
+
+    void onValueChanged();
 
 private:
 
@@ -203,10 +213,10 @@ private:
     void paintByPtr(QPainter* _painter);
     void paintById(QPainter* _painter);
     void onTimeout();
-    void updateImage(HistRegime _regime, qreal _current_scale,
+    void updateImage(QRectF _boundingRect, HistRegime _regime, qreal _current_scale,
                      qreal _minimum, qreal _maximum, qreal _range,
-                     qreal _value, qreal _width, qreal _topDuration, qreal _bottomDuration, bool _bindMode,
-                     float _frame_time, ::profiler::timestamp_t _begin_time);
+                     qreal _value, qreal _width, qreal _top_duration, qreal _bottom_duration, bool _bindMode,
+                     float _frame_time, ::profiler::timestamp_t _begin_time, qreal _origin);
 
 }; // END of class EasyHistogramItem.
 

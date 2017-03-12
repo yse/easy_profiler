@@ -63,13 +63,13 @@ private:
 public:
 
     EasyQTimer();
-    EasyQTimer(::std::function<void()>&& _handler);
+    EasyQTimer(::std::function<void()>&& _handler, bool _isSignleShot = false);
     virtual ~EasyQTimer();
 
     void setHandler(::std::function<void()>&& _handler);
 
     inline void start(int msec) { m_timer.start(msec); }
-    inline void stop() { m_timer.stop(); }
+    inline void stop() { if (m_timer.isActive()) m_timer.stop(); }
     inline bool isActive() const { return m_timer.isActive(); }
 
 }; // END of class EasyQTimer.
