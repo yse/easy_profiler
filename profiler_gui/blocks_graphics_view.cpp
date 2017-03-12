@@ -194,11 +194,11 @@ void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
     const auto nsteps = (1 + odd) * 2 + static_cast<int>(visibleSceneRect.width() / step);
     first -= odd;
 
-    QPen pen(Qt::gray);
+    QPen pen(Qt::darkGray);
     pen.setWidth(2);
     _painter->setPen(pen);
     _painter->drawLine(QPointF(0, h), QPointF(visibleSceneRect.width(), h));
-    _painter->setPen(Qt::gray);
+    _painter->setPen(Qt::darkGray);
 
     QLineF marks[20];
     qreal first_x = first * sceneStep;
@@ -232,7 +232,7 @@ void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
             next = n;
             _painter->setPen(Qt::black);
             _painter->drawText(QPointF(current + 1, h + 17), QString::number(static_cast<quint64>(0.5 + (current + left) * factor / currentScale)));
-            _painter->setPen(Qt::gray);
+            _painter->setPen(Qt::darkGray);
         }
 
         // TEST
