@@ -143,8 +143,10 @@ class EasyHistogramItem : public QGraphicsItem
     qreal                                  m_imageScale;
     qreal                           m_imageOriginUpdate;
     qreal                            m_imageScaleUpdate;
-    qreal                        m_temporaryImageOrigin;
-    qreal                         m_temporaryImageScale;
+    qreal                           m_workerImageOrigin;
+    qreal                            m_workerImageScale;
+    qreal                           m_workerTopDuration;
+    qreal                        m_workerBottomDuration;
     QString                            m_topDurationStr;
     QString                         m_bottomDurationStr;
     QString                                m_threadName;
@@ -157,7 +159,7 @@ class EasyHistogramItem : public QGraphicsItem
     ::profiler::timestamp_t        m_threadProfiledTime;
     ::profiler::timestamp_t            m_threadWaitTime;
     const ::profiler_gui::EasyItems*          m_pSource;
-    QImage*                            m_temporaryImage;
+    QImage*                               m_workerImage;
     const ::profiler::BlocksTreeRoot* m_pProfilerThread;
     ::profiler::thread_id_t                  m_threadId;
     ::profiler::block_index_t                 m_blockId;
@@ -205,6 +207,7 @@ public:
     void pickFrameTime(qreal _y) const;
 
     void onValueChanged();
+    void onModeChanged();
 
 private:
 
@@ -216,7 +219,7 @@ private:
     void updateImage(QRectF _boundingRect, HistRegime _regime, qreal _current_scale,
                      qreal _minimum, qreal _maximum, qreal _range,
                      qreal _value, qreal _width, qreal _top_duration, qreal _bottom_duration, bool _bindMode,
-                     float _frame_time, ::profiler::timestamp_t _begin_time, qreal _origin);
+                     float _frame_time, ::profiler::timestamp_t _begin_time, qreal _origin, bool _autoAdjustHist);
 
 }; // END of class EasyHistogramItem.
 

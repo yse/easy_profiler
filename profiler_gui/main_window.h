@@ -237,7 +237,6 @@ protected slots:
     void onEncodingChanged(bool);
     void onChronoTextPosChanged(bool);
     void onUnitsChanged(bool);
-    void onEventIndicatorsChange(bool);
     void onEnableDisableStatistics(bool);
     void onCollapseItemsAfterCloseChanged(bool);
     void onAllItemsExpandedByDefaultChange(bool);

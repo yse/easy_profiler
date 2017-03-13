@@ -1027,7 +1027,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
 
 
-    if (EASY_GLOBALS.enable_event_indicators && !m_pRoot->events.empty())
+    if (EASY_GLOBALS.enable_event_markers && !m_pRoot->events.empty())
     {
         const auto sceneView = view();
         auto first = ::std::lower_bound(m_pRoot->events.begin(), m_pRoot->events.end(), p.offset, [&sceneView](::profiler::block_index_t _index, qreal _value)
@@ -1192,7 +1192,7 @@ const ::profiler_gui::EasyBlock* EasyGraphicsItem::intersect(const QPointF& _pos
     {
         // The Y position is out of blocks range
 
-        if (EASY_GLOBALS.enable_event_indicators && !m_pRoot->events.empty())
+        if (EASY_GLOBALS.enable_event_markers && !m_pRoot->events.empty())
         {
             // If event indicators are enabled then try to intersect with one of event indicators
 

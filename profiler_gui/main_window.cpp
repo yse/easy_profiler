@@ -334,11 +334,25 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     action->setChecked(EASY_GLOBALS.selecting_block_changes_thread);
     connect(action, &QAction::triggered, [this](bool _checked){ EASY_GLOBALS.selecting_block_changes_thread = _checked; });
 
-    action = submenu->addAction("Draw event indicators");
-    action->setToolTip("Display event indicators under the blocks\n(even if event-blocks are not visible).\nThis slightly reduces performance.");
+    action = submenu->addAction("Draw event markers");
+    action->setToolTip("Display event markers under the blocks\n(even if event-blocks are not visible).\nThis slightly reduces performance.");
     action->setCheckable(true);
-    action->setChecked(EASY_GLOBALS.enable_event_indicators);
-    connect(action, &QAction::triggered, this, &This::onEventIndicatorsChange);
+    action->setChecked(EASY_GLOBALS.enable_event_markers);
+    connect(action, &QAction::triggered, [this](bool _checked)
+    {
+        EASY_GLOBALS.enable_event_markers = _checked;
+        refreshDiagram();
+    });
+
+    action = submenu->addAction("Automatically adjust histogram height");
+    action->setToolTip("You do not need to adjust boundaries manually,\nbut this restricts you from adjusting boundaries at all (zoom mode).\nYou can still adjust boundaries in overview mode though.");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.auto_adjust_histogram_height);
+    connect(action, &QAction::triggered, [](bool _checked)
+    {
+        EASY_GLOBALS.auto_adjust_histogram_height = _checked;
+        emit EASY_GLOBALS.events.autoAdjustHistogramChanged();
+    });
 
     action = submenu->addAction("Use decorated thread names");
     action->setToolTip("Add \'Thread\' word into thread name if there is no one already.\nExamples: \'Render\' will change to \'Render Thread\'\n\'WorkerThread\' will not change.");
@@ -514,7 +528,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     m_frameTimeEdit->setValidator(val);
     m_frameTimeEdit->setText(QString::number(EASY_GLOBALS.frame_time * 1e-3));
     connect(m_frameTimeEdit, &QLineEdit::editingFinished, this, &This::onFrameTimeEditFinish);
-    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::timelineMarkerChanged, this, &This::onFrameTimeChanged);
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::expectedFrameTimeChanged, this, &This::onFrameTimeChanged);
     toolbar->addWidget(m_frameTimeEdit);
 
     lbl = new QLabel("ms", toolbar);
@@ -790,12 +804,6 @@ void EasyMainWindow::onUnitsChanged(bool)
     EASY_GLOBALS.time_units = static_cast<::profiler_gui::TimeUnits>(_sender->data().toInt());
 }
 
-void EasyMainWindow::onEventIndicatorsChange(bool _checked)
-{
-    EASY_GLOBALS.enable_event_indicators = _checked;
-    refreshDiagram();
-}
-
 void EasyMainWindow::onEnableDisableStatistics(bool _checked)
 {
     EASY_GLOBALS.enable_statistics = _checked;
@@ -1028,7 +1036,11 @@ void EasyMainWindow::loadSettings()
 
     flag = settings.value("enable_event_indicators");
     if (!flag.isNull())
-        EASY_GLOBALS.enable_event_indicators = flag.toBool();
+        EASY_GLOBALS.enable_event_markers = flag.toBool();
+
+    flag = settings.value("auto_adjust_histogram_height");
+    if (!flag.isNull())
+        EASY_GLOBALS.auto_adjust_histogram_height = flag.toBool();
 
     flag = settings.value("use_decorated_thread_name");
     if (!flag.isNull())
@@ -1089,7 +1101,8 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("highlight_blocks_with_same_id", EASY_GLOBALS.highlight_blocks_with_same_id);
     settings.setValue("bind_scene_and_tree_expand_status", EASY_GLOBALS.bind_scene_and_tree_expand_status);
     settings.setValue("selecting_block_changes_thread", EASY_GLOBALS.selecting_block_changes_thread);
-    settings.setValue("enable_event_indicators", EASY_GLOBALS.enable_event_indicators);
+    settings.setValue("enable_event_indicators", EASY_GLOBALS.enable_event_markers);
+    settings.setValue("auto_adjust_histogram_height", EASY_GLOBALS.auto_adjust_histogram_height);
     settings.setValue("use_decorated_thread_name", EASY_GLOBALS.use_decorated_thread_name);
     settings.setValue("enable_statistics", EASY_GLOBALS.enable_statistics);
     settings.setValue("encoding", QTextCodec::codecForLocale()->name());
@@ -1436,9 +1449,9 @@ void EasyMainWindow::onFrameTimeEditFinish()
 
     EASY_GLOBALS.frame_time = text.toFloat() * 1e3f;
 
-    disconnect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::timelineMarkerChanged, this, &This::onFrameTimeChanged);
-    emit EASY_GLOBALS.events.timelineMarkerChanged();
-    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::timelineMarkerChanged, this, &This::onFrameTimeChanged);
+    disconnect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::expectedFrameTimeChanged, this, &This::onFrameTimeChanged);
+    emit EASY_GLOBALS.events.expectedFrameTimeChanged();
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::expectedFrameTimeChanged, this, &This::onFrameTimeChanged);
 }
 
 void EasyMainWindow::onFrameTimeChanged()

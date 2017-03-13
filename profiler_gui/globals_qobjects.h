@@ -54,7 +54,8 @@ namespace profiler_gui {
         void blockStatusChanged(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status);
         void connectionChanged(bool _connected);
         void blocksRefreshRequired(bool);
-        void timelineMarkerChanged();
+        void expectedFrameTimeChanged();
+        void autoAdjustHistogramChanged();
         void hierarchyFlagChanged(bool);
         void threadNameDecorationChanged();
         void refreshRequired();

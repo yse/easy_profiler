@@ -149,7 +149,7 @@ namespace profiler_gui {
         TimeUnits                             time_units; ///< Units type for time (milliseconds, microseconds, nanoseconds or auto-definition)
         bool                                   connected; ///< Is connected to source (to be able to capture profiling information)
         bool                   use_decorated_thread_name; ///< Add "Thread" to the name of each thread (if there is no one)
-        bool                     enable_event_indicators; ///< Enable event indicators painting (These are narrow rectangles at the bottom of each thread)
+        bool                        enable_event_markers; ///< Enable event indicators painting (These are narrow rectangles at the bottom of each thread)
         bool                           enable_statistics; ///< Enable gathering and using statistics (Disable if you want to consume less memory)
         bool                          enable_zero_length; ///< Enable zero length blocks (if true, then such blocks will have width == 1 pixel on each scale)
         bool                add_zero_blocks_to_hierarchy; ///< Enable adding zero blocks into hierarchy tree
@@ -162,6 +162,7 @@ namespace profiler_gui {
         bool               only_current_thread_hierarchy; ///< Build hierarchy tree for current thread only
         bool               highlight_blocks_with_same_id; ///< Highlight all blocks with same id on diagram
         bool              selecting_block_changes_thread; ///< If true then current selected thread will change every time you select block
+        bool                auto_adjust_histogram_height; ///< Automatically adjust histogram height to the visible region
         bool           bind_scene_and_tree_expand_status; /** \brief If true then items on graphics scene and in the tree (blocks hierarchy) are binded on each other
                                                                 so expanding/collapsing items on scene also expands/collapse items in the tree. */
 

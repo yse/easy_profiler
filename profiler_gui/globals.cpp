@@ -70,7 +70,7 @@ namespace profiler_gui {
         , time_units(TimeUnits_ms)
         , connected(false)
         , use_decorated_thread_name(true)
-        , enable_event_indicators(true)
+        , enable_event_markers(true)
         , enable_statistics(true)
         , enable_zero_length(true)
         , add_zero_blocks_to_hierarchy(false)
@@ -83,6 +83,7 @@ namespace profiler_gui {
         , only_current_thread_hierarchy(false)
         , highlight_blocks_with_same_id(true)
         , selecting_block_changes_thread(true)
+        , auto_adjust_histogram_height(false)
         , bind_scene_and_tree_expand_status(true)
     {
 
