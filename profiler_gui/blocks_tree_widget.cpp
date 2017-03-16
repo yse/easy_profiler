@@ -149,11 +149,11 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
     header_item->setText(COL_BEGIN, "Begin, ms");
 
     header_item->setText(COL_DURATION, "Duration");
-    header_item->setText(COL_SELF_DURATION, "Self Dur.");
+    header_item->setText(COL_SELF_DURATION, "Self dur.");
     //header_item->setToolTip(COL_SELF_DURATION, "");
-    header_item->setText(COL_DURATION_SUM_PER_PARENT, "Sum Dur./Parent");
-    header_item->setText(COL_DURATION_SUM_PER_FRAME,  "Sum Dur./Frame");
-    header_item->setText(COL_DURATION_SUM_PER_THREAD, "Sum Dur./Thread");
+    header_item->setText(COL_DURATION_SUM_PER_PARENT, "Total / Parent");
+    header_item->setText(COL_DURATION_SUM_PER_FRAME,  "Total / Frame");
+    header_item->setText(COL_DURATION_SUM_PER_THREAD, "Total / Thread");
 
     header_item->setText(COL_SELF_DURATION_PERCENT, "Self %");
     header_item->setText(COL_PERCENT_PER_PARENT, "% / Parent");
@@ -164,20 +164,20 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
 
     header_item->setText(COL_END, "End, ms");
 
-    header_item->setText(COL_MIN_PER_FRAME, "Min dur./Frame");
-    header_item->setText(COL_MAX_PER_FRAME, "Max dur./Frame");
-    header_item->setText(COL_AVERAGE_PER_FRAME, "Average dur./Frame");
-    header_item->setText(COL_NCALLS_PER_FRAME, "N Calls/Frame");
+    header_item->setText(COL_MIN_PER_FRAME, "Min / Frame");
+    header_item->setText(COL_MAX_PER_FRAME, "Max / Frame");
+    header_item->setText(COL_AVERAGE_PER_FRAME, "Avg / Frame");
+    header_item->setText(COL_NCALLS_PER_FRAME, "N Calls / Frame");
 
-    header_item->setText(COL_MIN_PER_PARENT, "Min dur./Parent");
-    header_item->setText(COL_MAX_PER_PARENT, "Max dur./Parent");
-    header_item->setText(COL_AVERAGE_PER_PARENT, "Average dur./Parent");
-    header_item->setText(COL_NCALLS_PER_PARENT, "N Calls/Parent");
+    header_item->setText(COL_MIN_PER_PARENT, "Min / Parent");
+    header_item->setText(COL_MAX_PER_PARENT, "Max / Parent");
+    header_item->setText(COL_AVERAGE_PER_PARENT, "Avg / Parent");
+    header_item->setText(COL_NCALLS_PER_PARENT, "N Calls / Parent");
 
-    header_item->setText(COL_MIN_PER_THREAD, "Min dur./Thread");
-    header_item->setText(COL_MAX_PER_THREAD, "Max dur./Thread");
-    header_item->setText(COL_AVERAGE_PER_THREAD, "Average dur./Thread");
-    header_item->setText(COL_NCALLS_PER_THREAD, "N Calls/Thread");
+    header_item->setText(COL_MIN_PER_THREAD, "Min / Thread");
+    header_item->setText(COL_MAX_PER_THREAD, "Max / Thread");
+    header_item->setText(COL_AVERAGE_PER_THREAD, "Avg / Thread");
+    header_item->setText(COL_NCALLS_PER_THREAD, "N Calls / Thread");
 
     header_item->setText(COL_ACTIVE_TIME, "Active time");
     header_item->setText(COL_ACTIVE_PERCENT, "Active %");
