@@ -2,8 +2,9 @@
 
 [![Build Status](https://travis-ci.org/yse/easy_profiler.svg?branch=develop)](https://travis-ci.org/yse/easy_profiler)
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-[![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](http://www.gnu.org/licenses/gpl-3.0)
+
 
 1. [About](#about)
 2. [Key features](#key-features)
@@ -19,6 +20,7 @@
 4. [Build](#build)
     - [Linux](#linux)
     - [Windows](#windows)
+5. [License](#license)
 
 # About
 Lightweight cross-platform profiler library for c++
@@ -207,3 +209,11 @@ $ mkdir build
 $ cd build
 $ cmake .. -G "Visual Studio 12 2013 Win64"
 ```
+
+# License
+
+Licensed under either of
+- MIT license ([LICENSE.MIT](LICENSE.MIT) or http://opensource.org/licenses/MIT)
+- Apache License, Version 2.0, ([LICENSE.APACHE](LICENSE.APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+
+at your option.
