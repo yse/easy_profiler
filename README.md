@@ -209,7 +209,7 @@ $ cd build
 $ cmake .. -G "Visual Studio 12 2013 Win64"
 ```
 
-#License
+# License
 
 Licensed under either of
 - MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
