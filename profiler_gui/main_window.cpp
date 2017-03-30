@@ -1582,6 +1582,13 @@ void EasyMainWindow::onConnectClicked(bool)
     connect(m_eventTracingPriorityAction, &QAction::triggered, this, &This::onEventTracingPriorityChange);
 
     emit EASY_GLOBALS.events.connectionChanged(true);
+
+    if (reply.isProfilerEnabled)
+    {
+        // Connected application is already profiling.
+        // Show capture dialog immediately
+        onCaptureClicked(true);
+    }
 }
 
 void EasyMainWindow::onCaptureClicked(bool)
