@@ -50,6 +50,7 @@ You can see the results of measuring in simple GUI application which provides fu
 - Measuring over network
 - Capture thread context-switch events
 - Fully remove integration via defines
+- You can start profiling from application launch (GUI could be connected later)
 
 # Usage
 
