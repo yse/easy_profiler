@@ -19,7 +19,7 @@ int MODELLING_STEPS = 1500;
 int RENDER_STEPS = 1500;
 int RESOURCE_LOADING_COUNT = 50;
 
-//#define SAMPLE_NETWORK_TEST
+#define SAMPLE_NETWORK_TEST
 
 void localSleep(int magic=200000)
 {
@@ -211,7 +211,8 @@ int main(int argc, char* argv[])
     profiler::startListen();
 
     std::vector<std::thread> threads;
-    for (int i=0; i < 3; i++) {
+    //for (int i=0; i < 3; i++)
+    {
         threads.emplace_back(loadingResourcesThread);
         threads.emplace_back(renderThread);
         threads.emplace_back(modellingThread);
