@@ -1297,6 +1297,7 @@ void ProfileManager::listen(uint16_t _port)
                         EASY_LOGMSG("receive MESSAGE_TYPE_CHECK_CONNECTION\n");
                         break;
                     }
+
                     case profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE:
                     {
                         EASY_LOGMSG("receive REQUEST_START_CAPTURE\n");
@@ -1339,26 +1340,34 @@ void ProfileManager::listen(uint16_t _port)
                         dumpBlocksToStream(os, false);
                         m_dumpSpin.unlock();
 
-                        profiler::net::DataMessage dm;
-                        dm.size = (uint32_t)os.stream().str().length();
+                        const auto size = os.stream().tellp();
+                        static const decltype(size) badSize = -1;
+                        if (size != badSize)
+                        {
+                            const profiler::net::DataMessage dm(static_cast<uint32_t>(size), profiler::net::MESSAGE_TYPE_REPLY_BLOCKS);
 
-                        int packet_size = int(sizeof(dm)) + int(dm.size);
+                            const size_t packet_size = sizeof(dm) + dm.size;
+                            std::string sendbuf;
+                            sendbuf.reserve(packet_size + 1);
 
-                        char *sendbuf = new char[packet_size];
+                            if (sendbuf.capacity() >= packet_size) // check if there is enough memory
+                            {
+                                sendbuf.append((const char*)&dm, sizeof(dm));
+                                sendbuf += os.stream().str(); // TODO: Avoid double-coping data from stringstream!
+                                os.clear();
 
-                        memset(sendbuf, 0, packet_size);
-                        memcpy(sendbuf, &dm, sizeof(dm));
-                        memcpy(sendbuf + sizeof(dm), os.stream().str().c_str(), dm.size);
-
-                        bytes = socket.send(sendbuf, packet_size);
-                        hasConnect = bytes > 0;
-
-                        /*std::string tempfilename = "test_snd.prof";
-                        std::ofstream of(tempfilename, std::fstream::binary);
-                        of.write((const char*)os.stream().str().c_str(), dm.size);
-                        of.close();*/
-
-                        delete[] sendbuf;
+                                bytes = socket.send(sendbuf.c_str(), packet_size);
+                                hasConnect = bytes > 0;
+                            }
+                            else
+                            {
+                                EASY_ERROR("Can not send blocks. Not enough memory for allocating " << packet_size << " bytes");
+                            }
+                        }
+                        else
+                        {
+                            EASY_ERROR("Can not send blocks. Bad std::stringstream.tellp() == -1");
+                        }
 
                         replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_BLOCKS_END;
                         bytes = socket.send(&replyMessage, sizeof(replyMessage));
@@ -1396,19 +1405,34 @@ void ProfileManager::listen(uint16_t _port)
                         m_storedSpin.unlock();
                         // END of Write block descriptors.
 
-                        profiler::net::DataMessage dm((uint32_t)os.stream().str().length(), profiler::net::MESSAGE_TYPE_REPLY_BLOCKS_DESCRIPTION);
-                        int packet_size = int(sizeof(dm)) + int(dm.size);
+                        const auto size = os.stream().tellp();
+                        static const decltype(size) badSize = -1;
+                        if (size != badSize)
+                        {
+                            const profiler::net::DataMessage dm(static_cast<uint32_t>(size), profiler::net::MESSAGE_TYPE_REPLY_BLOCKS_DESCRIPTION);
 
-                        char *sendbuf = new char[packet_size];
+                            const size_t packet_size = sizeof(dm) + dm.size;
+                            std::string sendbuf;
+                            sendbuf.reserve(packet_size + 1);
 
-                        memset(sendbuf, 0, packet_size);
-                        memcpy(sendbuf, &dm, sizeof(dm));
-                        memcpy(sendbuf + sizeof(dm), os.stream().str().c_str(), dm.size);
+                            if (sendbuf.capacity() >= packet_size) // check if there is enough memory
+                            {
+                                sendbuf.append((const char*)&dm, sizeof(dm));
+                                sendbuf += os.stream().str(); // TODO: Avoid double-coping data from stringstream!
+                                os.clear();
 
-                        bytes = socket.send(sendbuf, packet_size);
-                        hasConnect = bytes > 0;
-
-                        delete[] sendbuf;
+                                bytes = socket.send(sendbuf.c_str(), packet_size);
+                                hasConnect = bytes > 0;
+                            }
+                            else
+                            {
+                                EASY_ERROR("Can not send block descriptions. Not enough memory for allocating " << packet_size << " bytes");
+                            }
+                        }
+                        else
+                        {
+                            EASY_ERROR("Can not send block descriptions. Bad std::stringstream.tellp() == -1");
+                        }
 
                         replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_BLOCKS_DESCRIPTION_END;
                         bytes = socket.send(&replyMessage, sizeof(replyMessage));

@@ -70,6 +70,17 @@ namespace profiler {
             return m_stream;
         }
 
+        void clear()
+        {
+#if defined(__GNUC__) && __GNUC__ < 5
+            // gcc 4 has a known bug which has been solved in gcc 5:
+            // std::stringstream has no swap() method :(
+            m_stream.str(::std::string());
+#else
+            ::std::stringstream().swap(m_stream);
+#endif
+        }
+
     }; // END of class OStream.
 
 } // END of namespace profiler.
