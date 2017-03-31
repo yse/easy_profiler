@@ -320,12 +320,18 @@ struct BlocksList
     }
 };
 
-
 struct ThreadStorage
 {
     BlocksList<std::reference_wrapper<profiler::Block>, SIZEOF_CSWITCH * (uint16_t)128U> blocks;
     BlocksList<profiler::Block, SIZEOF_CSWITCH * (uint16_t)128U>                           sync;
+    std::vector<std::reference_wrapper<profiler::FrameCounterGuard> >             frameCounters;
     std::string name;
+
+    struct {
+        profiler::timestamp_t maximum = 0;
+        profiler::timestamp_t current = 0;
+        bool reset = false;
+    } frameTime;
 
 #ifndef _WIN32
     const pthread_t pthread_id;
@@ -379,12 +385,15 @@ class ProfileManager
     uint64_t                   m_usedMemorySize;
     profiler::timestamp_t           m_beginTime;
     profiler::timestamp_t             m_endTime;
+    std::atomic<profiler::timestamp_t>  m_frameMax;
+    std::atomic<profiler::timestamp_t> m_frameCurr;
     profiler::spin_lock                  m_spin;
     profiler::spin_lock            m_storedSpin;
     profiler::spin_lock              m_dumpSpin;
     std::atomic<char>          m_profilerStatus;
     std::atomic_bool    m_isEventTracingEnabled;
     std::atomic_bool       m_isAlreadyListening;
+    std::atomic_bool               m_frameReset;
 
     std::string m_csInfoFilename = "/tmp/cs_profiling_info.log";
 
@@ -413,6 +422,10 @@ public:
     bool storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName);
     void beginBlock(profiler::Block& _block);
     void endBlock();
+    void beginFrame(profiler::FrameCounterGuard& _frameCounter);
+    void endFrame();
+    profiler::timestamp_t maxFrameDuration();
+    profiler::timestamp_t frameDuration() const;
     void setEnabled(bool isEnable);
     bool isEnabled() const;
     void setEventTracingEnabled(bool _isEnable);

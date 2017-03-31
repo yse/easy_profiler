@@ -73,7 +73,10 @@ enum MessageType : uint8_t
 
     MESSAGE_TYPE_EVENT_TRACING_STATUS,
     MESSAGE_TYPE_EVENT_TRACING_PRIORITY,
-    MESSAGE_TYPE_CHECK_CONNECTION
+    MESSAGE_TYPE_CHECK_CONNECTION,
+
+    MESSAGE_TYPE_REQUEST_MAIN_FRAME_LOCAL_MAX_US,
+    MESSAGE_TYPE_REPLY_MAIN_FRAME_LOCAL_MAX_US,
 };
 
 struct Message
@@ -128,6 +131,12 @@ struct BoolMessage : public Message {
     bool flag = false;
     BoolMessage(MessageType _t, bool _flag = false) : Message(_t), flag(_flag) { }
     BoolMessage() = default;
+};
+
+struct TimestampMessage : public Message {
+    uint64_t timestamp = 0;
+    TimestampMessage(MessageType _t, uint64_t _timestamp) : Message(_t), timestamp(_timestamp) { }
+    TimestampMessage() = default;
 };
 
 #pragma pack(pop)

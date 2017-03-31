@@ -91,6 +91,7 @@ namespace profiler {
 # define EASY_TOKEN_JOIN(x, y) x ## y
 # define EASY_TOKEN_CONCATENATE(x, y) EASY_TOKEN_JOIN(x, y)
 # define EASY_UNIQUE_BLOCK(x) EASY_TOKEN_CONCATENATE(unique_profiler_mark_name_, x)
+# define EASY_UNIQUE_FRAME_COUNTER(x) EASY_TOKEN_CONCATENATE(unique_profiler_frame_mark_name_, x)
 # define EASY_UNIQUE_DESC(x) EASY_TOKEN_CONCATENATE(unique_profiler_descriptor_, x)
 
 #ifdef BUILD_WITH_EASY_PROFILER
