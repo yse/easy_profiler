@@ -19,7 +19,7 @@ int MODELLING_STEPS = 1500;
 int RENDER_STEPS = 1500;
 int RESOURCE_LOADING_COUNT = 50;
 
-#define SAMPLE_NETWORK_TEST
+//#define SAMPLE_NETWORK_TEST
 
 void localSleep(int magic=200000)
 {
@@ -227,7 +227,7 @@ int main(int argc, char* argv[])
     cv.notify_all();
 
     std::atomic_bool stop = ATOMIC_VAR_INIT(false);
-    auto ttt = std::thread([&stop]()
+    auto frame_time_printer_thread = std::thread([&stop]()
     {
         while (!stop.load(std::memory_order_acquire))
         {
@@ -243,7 +243,7 @@ int main(int argc, char* argv[])
     for(auto& t : threads)
         t.join();
 
-    ttt.join();
+    frame_time_printer_thread.join();
 
     auto end = std::chrono::system_clock::now();
     auto elapsed =
