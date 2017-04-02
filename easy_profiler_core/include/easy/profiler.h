@@ -161,108 +161,6 @@ int foo()
 */
 # define EASY_END_BLOCK ::profiler::endBlock();
 
-/** Macro for starting frame counter.
-
-Measures time even if profiler is disabled.
-Use this if you want to observe your frame time at run-time to see if all is going right
-or/and to find better moment to enable profiling.
-
-\warning This only changes value of profiler::this_thread::frameTime (or profiler::this_thread::frameTimeLocalMax).
-This is not profiler::Block and is not saved to output file or sent via network.
-You need to use this together with profiler::Block (or EASY_BLOCK, or EASY_FUNCTION).
-
-\note All following calls to EASY_FRAME_COUNTER would have no effect
-until EASY_END_FRAME_COUNTER called or FrameCounter object destroyed.
-
-\note EASY_FRAME_COUNTER is not binded to Main thread only.
-You are free to measure frame time of any thread you want.
-
-\code
-#include <easy/profiler.h>
-int main()
-{
-    EASY_MAIN_THREAD;
-
-    // main application cycle
-    while (true) {
-        EASY_FRAME_COUNTER; // new frame counter which is used just to get frame time
-        EASY_BLOCK("Frame"); // this is Frame block which would be saved into file or sent via network
-
-        // some code ...
-
-        // frame ends here
-    }
-
-    return 0;
-}
-\endcode
-
-\ingroup profiler
-*/
-# define EASY_FRAME_COUNTER \
-    ::profiler::FrameCounterGuard EASY_UNIQUE_FRAME_COUNTER(__LINE__);\
-    ::profiler::beginFrame(EASY_UNIQUE_FRAME_COUNTER(__LINE__)); // this is to avoid compiler warning about unused variable
-
-/** Macro for stopping frame counter explicitly.
-
-\code
-#include <easy/profiler.h>
-int main()
-{
-    EASY_MAIN_THREAD;
-
-    // main application cycle
-    while (true) {
-        EASY_FRAME_COUNTER; // new frame counter which is used just to get frame time
-
-        // some code ...
-
-        EASY_END_FRAME_COUNTER; // stop frame counter explicitly
-
-        // some another code which we do not want to profile ...
-
-        // frame really ends here, but we have explicitly said that it has ended earlier
-    }
-
-    return 0;
-}
-\endcode
-
-\ingroup profiler
-*/
-# define EASY_END_FRAME_COUNTER ::profiler::endFrame();
-
-/** Macro combining EASY_BLOCK with EASY_FRAME_COUNTER
-
-\ingroup profiler
-*/
-# define EASY_FRAME(name, ...)\
-    EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), ::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__),\
-        EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name), __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__),\
-        ::std::is_base_of<::profiler::ForceConstStr, decltype(name)>::value));\
-    ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name));\
-    EASY_FRAME_COUNTER\
-    ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
-
-/** Macro combining EASY_FUNCTION with EASY_FRAME_COUNTER
-
-\ingroup profiler
-*/
-# define EASY_FRAME_FUNCTION(...)\
-    EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), ::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__),\
-        EASY_UNIQUE_LINE_ID, __func__, __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__), false));\
-    ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(EASY_UNIQUE_DESC(__LINE__), "");\
-    EASY_FRAME_COUNTER\
-    ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
-
-/** Macro combining EASY_END_BLOCK with EASY_END_FRAME_COUNTER
-
-\ingroup profiler
-*/
-# define EASY_END_FRAME \
-    EASY_END_BLOCK\
-    EASY_END_FRAME_COUNTER
-
 /** Macro for creating event marker with custom name and color.
 
 Event marker is a block with zero duration and special type.
@@ -445,11 +343,6 @@ Otherwise, no log messages will be printed.
 # define EASY_BLOCK(...)
 # define EASY_FUNCTION(...)
 # define EASY_END_BLOCK 
-# define EASY_FRAME_COUNTER 
-# define EASY_END_FRAME_COUNTER 
-# define EASY_FRAME(...) 
-# define EASY_FRAME_FUNCTION(...) 
-# define EASY_END_FRAME 
 # define EASY_PROFILER_ENABLE 
 # define EASY_PROFILER_DISABLE 
 # define EASY_EVENT(...)
@@ -619,26 +512,6 @@ namespace profiler {
 
     //***********************************************
 
-    /** Scoped object used to stop frame timer implicitly.
-
-    EasyProfiler frame counter measures time even if profiler is disabled.
-    Use this if you want to observe your frame time at run-time to see if
-    all is going right or/and to find better moment to enable profiling.
-
-    \note It is not binded to Main thread only.
-    You are free to measure frame time of any thread you want.
-
-    \ingroup profiler
-    */
-    class PROFILER_API FrameCounterGuard EASY_FINAL {
-        friend ::ProfileManager;
-        int8_t m_state = 0;
-    public:
-        ~FrameCounterGuard();
-    }; // END of class FrameCounterGuard.
-
-    //***********************************************
-
     class PROFILER_API ThreadGuard EASY_FINAL {
         friend ::ProfileManager;
         thread_id_t m_id = 0;
@@ -793,31 +666,11 @@ namespace profiler {
         */
         PROFILER_API bool isMainThread();
 
-        /** Begins Frame counter.
-
-        Measures time even if profiler is disabled.
-        Use this if you want to observe your frame time at run-time to see
-        if all is going right or/and to find better moment to enable profiling.
-
-        \note All following calls to beginFrame() would have no effect
-        until endFrame() called or FrameCounter object destroyed.
-
-        \note It is not binded to Main thread only.
-        You are free to measure frame time of any thread you want.
-        */
-        PROFILER_API void beginFrame(FrameCounterGuard& _frameCounter);
-
-        /** Ends frame counter.
-
-        Use this only if you want to stop frame timer explicitly before it really finished.
-        */
-        PROFILER_API void endFrame();
-
         /** Returns last frame duration for current thread.
 
         \param _durationCast desired duration units (could be cpu-ticks or microseconds)
         */
-        PROFILER_API timestamp_t this_thread_frameTime(Duration _durationCast);
+        PROFILER_API timestamp_t this_thread_frameTime(Duration _durationCast = ::profiler::MICROSECONDS);
 
         /** Returns local max of frame duration for current thread.
 
@@ -825,13 +678,13 @@ namespace profiler {
 
         \param _durationCast desired duration units (could be cpu-ticks or microseconds)
         */
-        PROFILER_API timestamp_t this_thread_frameTimeLocalMax(Duration _durationCast);
+        PROFILER_API timestamp_t this_thread_frameTimeLocalMax(Duration _durationCast = ::profiler::MICROSECONDS);
 
         /** Returns last frame duration for main thread.
 
         \param _durationCast desired duration units (could be cpu-ticks or microseconds)
         */
-        PROFILER_API timestamp_t main_thread_frameTime(Duration _durationCast);
+        PROFILER_API timestamp_t main_thread_frameTime(Duration _durationCast = ::profiler::MICROSECONDS);
 
         /** Returns local max of frame duration for main thread.
 
@@ -839,7 +692,7 @@ namespace profiler {
 
         \param _durationCast desired duration units (could be cpu-ticks or microseconds)
         */
-        PROFILER_API timestamp_t main_thread_frameTimeLocalMax(Duration _durationCast);
+        PROFILER_API timestamp_t main_thread_frameTimeLocalMax(Duration _durationCast = ::profiler::MICROSECONDS);
 
     }
 #else
@@ -868,12 +721,10 @@ namespace profiler {
     inline uint32_t version() { return 0; }
     inline const char* versionName() { return "v0.0.0_disabled"; }
     inline bool isMainThread() { return false; }
-    inline void beginFrame(FrameCounterGuard&) { }
-    inline void endFrame() { }
-    inline timestamp_t this_thread_frameTime(Duration) { return 0; }
-    inline timestamp_t this_thread_frameTimeLocalMax(Duration) { return 0; }
-    inline timestamp_t main_thread_frameTime(Duration) { return 0; }
-    inline timestamp_t main_thread_frameTimeLocalMax(Duration) { return 0; }
+    inline timestamp_t this_thread_frameTime(Duration = ::profiler::MICROSECONDS) { return 0; }
+    inline timestamp_t this_thread_frameTimeLocalMax(Duration = ::profiler::MICROSECONDS) { return 0; }
+    inline timestamp_t main_thread_frameTime(Duration = ::profiler::MICROSECONDS) { return 0; }
+    inline timestamp_t main_thread_frameTimeLocalMax(Duration = ::profiler::MICROSECONDS) { return 0; }
 #endif
 
     /** API functions binded to current thread.
@@ -890,19 +741,11 @@ namespace profiler {
             return ::profiler::registerThreadScoped(_name, _threadGuard);
         }
 
-        inline void beginFrame(FrameCounterGuard& _frameCounter) {
-            ::profiler::beginFrame(_frameCounter);
-        }
-
-        inline void endFrame() {
-            ::profiler::endFrame();
-        }
-
-        inline timestamp_t frameTime(Duration _durationCast) {
+        inline timestamp_t frameTime(Duration _durationCast = ::profiler::MICROSECONDS) {
             return ::profiler::this_thread_frameTime(_durationCast);
         }
 
-        inline timestamp_t frameTimeLocalMax(Duration _durationCast) {
+        inline timestamp_t frameTimeLocalMax(Duration _durationCast = ::profiler::MICROSECONDS) {
             return ::profiler::this_thread_frameTimeLocalMax(_durationCast);
         }
 
@@ -920,11 +763,11 @@ namespace profiler {
     */
     namespace main_thread {
 
-        inline timestamp_t frameTime(Duration _durationCast) {
+        inline timestamp_t frameTime(Duration _durationCast = ::profiler::MICROSECONDS) {
             return ::profiler::main_thread_frameTime(_durationCast);
         }
 
-        inline timestamp_t frameTimeLocalMax(Duration _durationCast) {
+        inline timestamp_t frameTimeLocalMax(Duration _durationCast = ::profiler::MICROSECONDS) {
             return ::profiler::main_thread_frameTimeLocalMax(_durationCast);
         }
 

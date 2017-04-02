@@ -196,7 +196,12 @@ const profiler::color_t EASY_COLOR_END = 0xfff44336; // profiler::colors::Red
 EASY_THREAD_LOCAL static ::ThreadStorage* THIS_THREAD = nullptr;
 EASY_THREAD_LOCAL static int32_t THIS_THREAD_STACK_SIZE = 0;
 EASY_THREAD_LOCAL static profiler::timestamp_t THIS_THREAD_FRAME_T = 0ULL;
+EASY_THREAD_LOCAL static bool THIS_THREAD_FRAME = false;
 EASY_THREAD_LOCAL static bool THIS_THREAD_IS_MAIN = false;
+
+EASY_THREAD_LOCAL static profiler::timestamp_t THIS_THREAD_FRAME_T_MAX = 0ULL;
+EASY_THREAD_LOCAL static profiler::timestamp_t THIS_THREAD_FRAME_T_CUR = 0ULL;
+EASY_THREAD_LOCAL static bool THIS_THREAD_FRAME_T_RESET = false;
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -339,38 +344,24 @@ extern "C" {
         return THIS_THREAD_IS_MAIN;
     }
 
-    PROFILER_API void beginFrame(FrameCounterGuard& _frameCounter)
-    {
-        MANAGER.beginFrame(_frameCounter);
-    }
-
-    PROFILER_API void endFrame()
-    {
-        MANAGER.endFrame();
-    }
-
     PROFILER_API timestamp_t this_thread_frameTime(Duration _durationCast)
     {
-        assert(THIS_THREAD != nullptr);
         if (_durationCast == profiler::TICKS)
-            return THIS_THREAD->frameTime.current;
-        return TICKS_TO_US(THIS_THREAD->frameTime.current);
+            return THIS_THREAD_FRAME_T_CUR;
+        return TICKS_TO_US(THIS_THREAD_FRAME_T_CUR);
     }
 
     PROFILER_API timestamp_t this_thread_frameTimeLocalMax(Duration _durationCast)
     {
-        assert(THIS_THREAD != nullptr);
-
-        THIS_THREAD->frameTime.reset = true;
-
+        THIS_THREAD_FRAME_T_RESET = true;
         if (_durationCast == profiler::TICKS)
-            return THIS_THREAD->frameTime.maximum;
-        return TICKS_TO_US(THIS_THREAD->frameTime.maximum);
+            return THIS_THREAD_FRAME_T_MAX;
+        return TICKS_TO_US(THIS_THREAD_FRAME_T_MAX);
     }
 
     PROFILER_API timestamp_t main_thread_frameTime(Duration _durationCast)
     {
-        const auto ticks = THIS_THREAD_IS_MAIN ? THIS_THREAD->frameTime.current : MANAGER.frameDuration();
+        const auto ticks = THIS_THREAD_IS_MAIN ? THIS_THREAD_FRAME_T_CUR : MANAGER.frameDuration();
         if (_durationCast == profiler::TICKS)
             return ticks;
         return TICKS_TO_US(ticks);
@@ -380,10 +371,10 @@ extern "C" {
     {
         if (THIS_THREAD_IS_MAIN)
         {
-            THIS_THREAD->frameTime.reset = true;
+            THIS_THREAD_FRAME_T_RESET = true;
             if (_durationCast == profiler::TICKS)
-                return THIS_THREAD->frameTime.maximum;
-            return TICKS_TO_US(THIS_THREAD->frameTime.maximum);
+                return THIS_THREAD_FRAME_T_MAX;
+            return TICKS_TO_US(THIS_THREAD_FRAME_T_MAX);
         }
 
         if (_durationCast == profiler::TICKS)
@@ -398,8 +389,6 @@ extern "C" {
     PROFILER_API bool isEnabled() { return false; }
     PROFILER_API void storeEvent(const BaseBlockDescriptor*, const char*) { }
     PROFILER_API void beginBlock(Block&) { }
-    PROFILER_API void beginFrame(FrameCounter&) { }
-    PROFILER_API void endFrame() { }
     PROFILER_API uint32_t dumpBlocksToFile(const char*) { return 0; }
     PROFILER_API const char* registerThreadScoped(const char*, ThreadGuard&) { return ""; }
     PROFILER_API const char* registerThread(const char*) { return ""; }
@@ -607,20 +596,6 @@ ThreadGuard::~ThreadGuard()
         THIS_THREAD->frame.store(false, std::memory_order_release);
         THIS_THREAD->expired.store(isMarked ? 2 : 1, std::memory_order_release);
         THIS_THREAD = nullptr;
-    }
-#endif
-}
-
-//////////////////////////////////////////////////////////////////////////
-
-FrameCounterGuard::~FrameCounterGuard()
-{
-#ifndef EASY_PROFILER_API_DISABLED
-    if (m_state & 2)
-    {
-        if (m_state & 1)
-            MANAGER.endFrame();
-        THIS_THREAD->frameCounters.pop_back();
     }
 #endif
 }
@@ -839,9 +814,11 @@ void ProfileManager::beginBlock(Block& _block)
 
     const auto state = m_profilerStatus.load(std::memory_order_acquire);
     if (state == EASY_PROF_DISABLED)
+    {
+        beginFrame();
         return;
+    }
 
-    THIS_THREAD_STACK_SIZE = 0;
     bool empty = true;
     if (state == EASY_PROF_DUMP)
     {
@@ -857,6 +834,8 @@ void ProfileManager::beginBlock(Block& _block)
     {
         empty = THIS_THREAD->blocks.openedList.empty();
     }
+
+    THIS_THREAD_STACK_SIZE = 0;
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
     if (THIS_THREAD->allowChildren)
@@ -879,7 +858,11 @@ void ProfileManager::beginBlock(Block& _block)
 #endif
 
     if (empty)
+    {
+        beginFrame();
         THIS_THREAD->frame.store(true, std::memory_order_release);
+    }
+
     THIS_THREAD->blocks.openedList.emplace(_block);
 }
 
@@ -896,8 +879,14 @@ void ProfileManager::beginContextSwitch(profiler::thread_id_t _thread_id, profil
 
 void ProfileManager::endBlock()
 {
-    if (--THIS_THREAD_STACK_SIZE > 0 || m_profilerStatus.load(std::memory_order_acquire) == EASY_PROF_DISABLED)
+    if (--THIS_THREAD_STACK_SIZE > 0)
         return;
+
+    if (m_profilerStatus.load(std::memory_order_acquire) == EASY_PROF_DISABLED)
+    {
+        endFrame();
+        return;
+    }
 
     THIS_THREAD_STACK_SIZE = 0;
     if (THIS_THREAD == nullptr || THIS_THREAD->blocks.openedList.empty())
@@ -918,10 +907,18 @@ void ProfileManager::endBlock()
     THIS_THREAD->blocks.openedList.pop();
     const bool empty = THIS_THREAD->blocks.openedList.empty();
     if (empty)
+    {
         THIS_THREAD->frame.store(false, std::memory_order_release);
-
+        endFrame();
 #if EASY_ENABLE_BLOCK_STATUS != 0
-    THIS_THREAD->allowChildren = empty || !(THIS_THREAD->blocks.openedList.top().get().m_status & profiler::OFF_RECURSIVE);
+        THIS_THREAD->allowChildren = true;
+    }
+    else
+    {
+        THIS_THREAD->allowChildren = !(THIS_THREAD->blocks.openedList.top().get().m_status & profiler::OFF_RECURSIVE);
+    }
+#else
+    }
 #endif
 }
 
@@ -947,54 +944,43 @@ void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, processi
 
 //////////////////////////////////////////////////////////////////////////
 
-void ProfileManager::beginFrame(profiler::FrameCounterGuard& _frameCounter)
+void ProfileManager::beginFrame()
 {
-    if (THIS_THREAD == nullptr)
-        THIS_THREAD = &threadStorage(getCurrentThreadId());
-
-    if (THIS_THREAD->frameCounters.empty())
+    if (!THIS_THREAD_FRAME)
     {
         THIS_THREAD_FRAME_T = getCurrentTime();
-        _frameCounter.m_state = 3; // in thread list and started
+        THIS_THREAD_FRAME = true;
     }
-    else
-    {
-        _frameCounter.m_state = 2; // in thread list, but not started
-    }
-
-    THIS_THREAD->frameCounters.emplace_back(_frameCounter);
 }
 
 void ProfileManager::endFrame()
 {
-    assert(THIS_THREAD != nullptr && !THIS_THREAD->frameCounters.empty());
+    if (!THIS_THREAD_FRAME)
+        return;
 
-    profiler::FrameCounterGuard& frameCounter = THIS_THREAD->frameCounters.back();
-    if (frameCounter.m_state & 1)
+    const profiler::timestamp_t duration = getCurrentTime() - THIS_THREAD_FRAME_T;
+
+    THIS_THREAD_FRAME = false;
+
+    if (THIS_THREAD_FRAME_T_RESET)
     {
-        const profiler::timestamp_t duration = getCurrentTime() - THIS_THREAD_FRAME_T;
+        THIS_THREAD_FRAME_T_RESET = false;
+        THIS_THREAD_FRAME_T_MAX = 0;
+    }
 
-        frameCounter.m_state = 2; // stayed in thread list, but already finished
+    THIS_THREAD_FRAME_T_CUR = duration;
+    if (duration > THIS_THREAD_FRAME_T_MAX)
+        THIS_THREAD_FRAME_T_MAX = duration;
 
-        if (THIS_THREAD->frameTime.reset) {
-            THIS_THREAD->frameTime.reset = false;
-            THIS_THREAD->frameTime.maximum = 0;
-        }
+    if (THIS_THREAD_IS_MAIN)
+    {
+        auto maxDuration = m_frameMax.load(std::memory_order_acquire);
+        if (m_frameReset.exchange(false, std::memory_order_release))
+            maxDuration = 0;
 
-        THIS_THREAD->frameTime.current = duration;
-        if (duration > THIS_THREAD->frameTime.maximum)
-            THIS_THREAD->frameTime.maximum = duration;
-
-        if (THIS_THREAD_IS_MAIN)
-        {
-            auto maxDuration = m_frameMax.load(std::memory_order_acquire);
-            if (m_frameReset.exchange(false, std::memory_order_release))
-                maxDuration = 0;
-
-            if (duration > maxDuration)
-                m_frameMax.store(duration, std::memory_order_release);
-            m_frameCurr.store(duration, std::memory_order_release);
-        }
+        if (duration > maxDuration)
+            m_frameMax.store(duration, std::memory_order_release);
+        m_frameCurr.store(duration, std::memory_order_release);
     }
 }
 

@@ -19,7 +19,7 @@ int MODELLING_STEPS = 1500;
 int RENDER_STEPS = 1500;
 int RESOURCE_LOADING_COUNT = 50;
 
-//#define SAMPLE_NETWORK_TEST
+#define SAMPLE_NETWORK_TEST
 
 void localSleep(int magic=200000)
 {
@@ -158,9 +158,9 @@ void modellingThread(){
 #else
     for (int i = 0; i < MODELLING_STEPS; i++){
 #endif
-        EASY_FRAME_COUNTER;
+        //EASY_FRAME_COUNTER;
         modellingStep();
-        EASY_END_FRAME_COUNTER;
+        //EASY_END_FRAME_COUNTER;
 
         localSleep(1200000);
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));
@@ -231,7 +231,7 @@ int main(int argc, char* argv[])
     {
         while (!stop.load(std::memory_order_acquire))
         {
-            std::cout << "Frame time: " << profiler::main_thread::frameTimeLocalMax(profiler::MICROSECONDS) << " us\n";
+            std::cout << "Frame time: " << profiler::main_thread::frameTimeLocalMax() << " us\n";
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
     });
