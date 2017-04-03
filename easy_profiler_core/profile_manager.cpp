@@ -201,7 +201,10 @@ EASY_THREAD_LOCAL static bool THIS_THREAD_IS_MAIN = false;
 
 EASY_THREAD_LOCAL static profiler::timestamp_t THIS_THREAD_FRAME_T_MAX = 0ULL;
 EASY_THREAD_LOCAL static profiler::timestamp_t THIS_THREAD_FRAME_T_CUR = 0ULL;
-EASY_THREAD_LOCAL static bool THIS_THREAD_FRAME_T_RESET = false;
+EASY_THREAD_LOCAL static profiler::timestamp_t THIS_THREAD_FRAME_T_ACC = 0ULL;
+EASY_THREAD_LOCAL static uint32_t THIS_THREAD_N_FRAMES = 0;
+EASY_THREAD_LOCAL static bool THIS_THREAD_FRAME_T_RESET_MAX = false;
+EASY_THREAD_LOCAL static bool THIS_THREAD_FRAME_T_RESET_AVG = false;
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -353,15 +356,24 @@ extern "C" {
 
     PROFILER_API timestamp_t this_thread_frameTimeLocalMax(Duration _durationCast)
     {
-        THIS_THREAD_FRAME_T_RESET = true;
+        THIS_THREAD_FRAME_T_RESET_MAX = true;
         if (_durationCast == profiler::TICKS)
             return THIS_THREAD_FRAME_T_MAX;
         return TICKS_TO_US(THIS_THREAD_FRAME_T_MAX);
     }
 
+    PROFILER_API timestamp_t this_thread_frameTimeLocalAvg(Duration _durationCast)
+    {
+        THIS_THREAD_FRAME_T_RESET_AVG = true;
+        auto avgDuration = THIS_THREAD_N_FRAMES > 0 ? THIS_THREAD_FRAME_T_ACC / THIS_THREAD_N_FRAMES : 0;
+        if (_durationCast == profiler::TICKS)
+            return avgDuration;
+        return TICKS_TO_US(avgDuration);
+    }
+
     PROFILER_API timestamp_t main_thread_frameTime(Duration _durationCast)
     {
-        const auto ticks = THIS_THREAD_IS_MAIN ? THIS_THREAD_FRAME_T_CUR : MANAGER.frameDuration();
+        const auto ticks = THIS_THREAD_IS_MAIN ? THIS_THREAD_FRAME_T_CUR : MANAGER.curFrameDuration();
         if (_durationCast == profiler::TICKS)
             return ticks;
         return TICKS_TO_US(ticks);
@@ -371,7 +383,7 @@ extern "C" {
     {
         if (THIS_THREAD_IS_MAIN)
         {
-            THIS_THREAD_FRAME_T_RESET = true;
+            THIS_THREAD_FRAME_T_RESET_MAX = true;
             if (_durationCast == profiler::TICKS)
                 return THIS_THREAD_FRAME_T_MAX;
             return TICKS_TO_US(THIS_THREAD_FRAME_T_MAX);
@@ -380,6 +392,22 @@ extern "C" {
         if (_durationCast == profiler::TICKS)
             return MANAGER.maxFrameDuration();
         return TICKS_TO_US(MANAGER.maxFrameDuration());
+    }
+
+    PROFILER_API timestamp_t main_thread_frameTimeLocalAvg(Duration _durationCast)
+    {
+        if (THIS_THREAD_IS_MAIN)
+        {
+            THIS_THREAD_FRAME_T_RESET_AVG = true;
+            auto avgDuration = THIS_THREAD_N_FRAMES > 0 ? THIS_THREAD_FRAME_T_ACC / THIS_THREAD_N_FRAMES : 0;
+            if (_durationCast == profiler::TICKS)
+                return avgDuration;
+            return TICKS_TO_US(avgDuration);
+        }
+
+        if (_durationCast == profiler::TICKS)
+            return MANAGER.avgFrameDuration();
+        return TICKS_TO_US(MANAGER.avgFrameDuration());
     }
 
 #else
@@ -405,8 +433,10 @@ extern "C" {
     PROFILER_API bool isMainThread() { return false; }
     PROFILER_API timestamp_t this_thread_frameTime(Duration) { return 0; }
     PROFILER_API timestamp_t this_thread_frameTimeLocalMax(Duration) { return 0; }
+    PROFILER_API timestamp_t this_thread_frameTimeLocalAvg(Duration) { return 0; }
     PROFILER_API timestamp_t main_thread_frameTime(Duration) { return 0; }
     PROFILER_API timestamp_t main_thread_frameTimeLocalMax(Duration) { return 0; }
+    PROFILER_API timestamp_t main_thread_frameTimeLocalAvg(Duration) { return 0; }
 #endif
 
     PROFILER_API uint8_t versionMajor()
@@ -616,6 +646,12 @@ ProfileManager::ProfileManager() :
     m_isEventTracingEnabled = ATOMIC_VAR_INIT(EASY_OPTION_EVENT_TRACING_ENABLED);
     m_isAlreadyListening = ATOMIC_VAR_INIT(false);
     m_stopListen = ATOMIC_VAR_INIT(false);
+
+    m_frameMax = ATOMIC_VAR_INIT(0);
+    m_frameAvg = ATOMIC_VAR_INIT(0);
+    m_frameCur = ATOMIC_VAR_INIT(0);
+    m_frameMaxReset = ATOMIC_VAR_INIT(false);
+    m_frameAvgReset = ATOMIC_VAR_INIT(false);
 
 #if !defined(EASY_PROFILER_API_DISABLED) && EASY_OPTION_START_LISTEN_ON_STARTUP != 0
     startListen(profiler::DEFAULT_PORT);
@@ -962,9 +998,9 @@ void ProfileManager::endFrame()
 
     THIS_THREAD_FRAME = false;
 
-    if (THIS_THREAD_FRAME_T_RESET)
+    if (THIS_THREAD_FRAME_T_RESET_MAX)
     {
-        THIS_THREAD_FRAME_T_RESET = false;
+        THIS_THREAD_FRAME_T_RESET_MAX = false;
         THIS_THREAD_FRAME_T_MAX = 0;
     }
 
@@ -972,28 +1008,68 @@ void ProfileManager::endFrame()
     if (duration > THIS_THREAD_FRAME_T_MAX)
         THIS_THREAD_FRAME_T_MAX = duration;
 
+    if (THIS_THREAD_N_FRAMES > 10000)
+        THIS_THREAD_FRAME_T_RESET_AVG = true;
+
     if (THIS_THREAD_IS_MAIN)
     {
+        if (m_frameAvgReset.exchange(false, std::memory_order_release) || THIS_THREAD_FRAME_T_RESET_AVG)
+        {
+            if (THIS_THREAD_N_FRAMES > 0)
+                m_frameAvg.store(THIS_THREAD_FRAME_T_ACC / THIS_THREAD_N_FRAMES, std::memory_order_release);
+            THIS_THREAD_FRAME_T_RESET_AVG = false;
+            THIS_THREAD_FRAME_T_ACC = duration;
+            THIS_THREAD_N_FRAMES = 1;
+        }
+        else
+        {
+            THIS_THREAD_FRAME_T_ACC += duration;
+            ++THIS_THREAD_N_FRAMES;
+            m_frameAvg.store(THIS_THREAD_FRAME_T_ACC / THIS_THREAD_N_FRAMES, std::memory_order_release);
+        }
+
         auto maxDuration = m_frameMax.load(std::memory_order_acquire);
-        if (m_frameReset.exchange(false, std::memory_order_release))
+        if (m_frameMaxReset.exchange(false, std::memory_order_release))
             maxDuration = 0;
 
         if (duration > maxDuration)
             m_frameMax.store(duration, std::memory_order_release);
-        m_frameCurr.store(duration, std::memory_order_release);
+
+        if (m_frameMaxReset.exchange(false, std::memory_order_release))
+            maxDuration = 0;
+
+        m_frameCur.store(duration, std::memory_order_release);
+    }
+    else if (THIS_THREAD_FRAME_T_RESET_AVG)
+    {
+        THIS_THREAD_FRAME_T_RESET_AVG = false;
+        THIS_THREAD_FRAME_T_ACC = duration;
+        THIS_THREAD_N_FRAMES = 1;
+    }
+    else
+    {
+        THIS_THREAD_FRAME_T_ACC += duration;
+        ++THIS_THREAD_N_FRAMES;
     }
 }
 
 profiler::timestamp_t ProfileManager::maxFrameDuration()
 {
     auto duration = m_frameMax.load(std::memory_order_acquire);
-    m_frameReset.store(true, std::memory_order_release);
+    m_frameMaxReset.store(true, std::memory_order_release);
     return duration;
 }
 
-profiler::timestamp_t ProfileManager::frameDuration() const
+profiler::timestamp_t ProfileManager::avgFrameDuration()
 {
-    return m_frameCurr.load(std::memory_order_acquire);
+    auto duration = m_frameAvg.load(std::memory_order_acquire);
+    m_frameAvgReset.store(true, std::memory_order_release);
+    return duration;
+}
+
+profiler::timestamp_t ProfileManager::curFrameDuration() const
+{
+    return m_frameCur.load(std::memory_order_acquire);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1466,10 +1542,12 @@ void ProfileManager::listen(uint16_t _port)
                         break;
                     }
 
-                    case profiler::net::MESSAGE_TYPE_REQUEST_MAIN_FRAME_LOCAL_MAX_US:
+                    case profiler::net::MESSAGE_TYPE_REQUEST_MAIN_FRAME_TIME_MAX_AVG_US:
                     {
-                        const profiler::timestamp_t duration = TICKS_TO_US(MANAGER.maxFrameDuration());
-                        const profiler::net::TimestampMessage reply(profiler::net::MESSAGE_TYPE_REPLY_MAIN_FRAME_LOCAL_MAX_US, duration);
+                        profiler::timestamp_t maxDuration = maxFrameDuration(), avgDuration = avgFrameDuration();
+                        maxDuration = TICKS_TO_US(maxDuration);
+                        avgDuration = TICKS_TO_US(avgDuration);
+                        const profiler::net::TimestampMessage reply(profiler::net::MESSAGE_TYPE_REPLY_MAIN_FRAME_TIME_MAX_AVG_US, (uint32_t)maxDuration, (uint32_t)avgDuration);
                         bytes = socket.send(&reply, sizeof(profiler::net::TimestampMessage));
                         hasConnect = bytes > 0;
                         break;

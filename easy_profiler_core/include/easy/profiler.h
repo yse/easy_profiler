@@ -680,6 +680,14 @@ namespace profiler {
         */
         PROFILER_API timestamp_t this_thread_frameTimeLocalMax(Duration _durationCast = ::profiler::MICROSECONDS);
 
+        /** Returns local average of frame duration for current thread.
+
+        Local average is average frame duration since last frameTimeLocalAvg() call.
+
+        \param _durationCast desired duration units (could be cpu-ticks or microseconds)
+        */
+        PROFILER_API timestamp_t this_thread_frameTimeLocalAvg(Duration _durationCast = ::profiler::MICROSECONDS);
+
         /** Returns last frame duration for main thread.
 
         \param _durationCast desired duration units (could be cpu-ticks or microseconds)
@@ -693,6 +701,14 @@ namespace profiler {
         \param _durationCast desired duration units (could be cpu-ticks or microseconds)
         */
         PROFILER_API timestamp_t main_thread_frameTimeLocalMax(Duration _durationCast = ::profiler::MICROSECONDS);
+
+        /** Returns local average of frame duration for main thread.
+
+        Local average is average frame duration since last frameTimeLocalAvg() call.
+
+        \param _durationCast desired duration units (could be cpu-ticks or microseconds)
+        */
+        PROFILER_API timestamp_t main_thread_frameTimeLocalAvg(Duration _durationCast = ::profiler::MICROSECONDS);
 
     }
 #else
@@ -723,8 +739,10 @@ namespace profiler {
     inline bool isMainThread() { return false; }
     inline timestamp_t this_thread_frameTime(Duration = ::profiler::MICROSECONDS) { return 0; }
     inline timestamp_t this_thread_frameTimeLocalMax(Duration = ::profiler::MICROSECONDS) { return 0; }
+    inline timestamp_t this_thread_frameTimeLocalAvg(Duration = ::profiler::MICROSECONDS) { return 0; }
     inline timestamp_t main_thread_frameTime(Duration = ::profiler::MICROSECONDS) { return 0; }
     inline timestamp_t main_thread_frameTimeLocalMax(Duration = ::profiler::MICROSECONDS) { return 0; }
+    inline timestamp_t main_thread_frameTimeLocalAvg(Duration = ::profiler::MICROSECONDS) { return 0; }
 #endif
 
     /** API functions binded to current thread.
@@ -749,6 +767,10 @@ namespace profiler {
             return ::profiler::this_thread_frameTimeLocalMax(_durationCast);
         }
 
+        inline timestamp_t frameTimeLocalAvg(Duration _durationCast = ::profiler::MICROSECONDS) {
+            return ::profiler::this_thread_frameTimeLocalAvg(_durationCast);
+        }
+
         inline bool isMain() {
             return ::profiler::isMainThread();
         }
@@ -769,6 +791,10 @@ namespace profiler {
 
         inline timestamp_t frameTimeLocalMax(Duration _durationCast = ::profiler::MICROSECONDS) {
             return ::profiler::main_thread_frameTimeLocalMax(_durationCast);
+        }
+
+        inline timestamp_t frameTimeLocalAvg(Duration _durationCast = ::profiler::MICROSECONDS) {
+            return ::profiler::main_thread_frameTimeLocalAvg(_durationCast);
         }
 
         /** Always returns true.

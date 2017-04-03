@@ -379,14 +379,16 @@ class ProfileManager
     profiler::timestamp_t           m_beginTime;
     profiler::timestamp_t             m_endTime;
     std::atomic<profiler::timestamp_t>  m_frameMax;
-    std::atomic<profiler::timestamp_t> m_frameCurr;
+    std::atomic<profiler::timestamp_t>  m_frameAvg;
+    std::atomic<profiler::timestamp_t> m_frameCur;
     profiler::spin_lock                  m_spin;
     profiler::spin_lock            m_storedSpin;
     profiler::spin_lock              m_dumpSpin;
     std::atomic<char>          m_profilerStatus;
     std::atomic_bool    m_isEventTracingEnabled;
     std::atomic_bool       m_isAlreadyListening;
-    std::atomic_bool               m_frameReset;
+    std::atomic_bool            m_frameMaxReset;
+    std::atomic_bool            m_frameAvgReset;
 
     std::string m_csInfoFilename = "/tmp/cs_profiling_info.log";
 
@@ -416,7 +418,8 @@ public:
     void beginBlock(profiler::Block& _block);
     void endBlock();
     profiler::timestamp_t maxFrameDuration();
-    profiler::timestamp_t frameDuration() const;
+    profiler::timestamp_t avgFrameDuration();
+    profiler::timestamp_t curFrameDuration() const;
     void setEnabled(bool isEnable);
     bool isEnabled() const;
     void setEventTracingEnabled(bool _isEnable);
