@@ -245,6 +245,7 @@ EasyFrameRateViewer::~EasyFrameRateViewer()
 void EasyFrameRateViewer::clear()
 {
     m_fpsItem->clear();
+    scene()->update();
 }
 
 void EasyFrameRateViewer::addPoint(uint32_t _maxFrameTime, uint32_t _avgFrameTime)

@@ -85,6 +85,7 @@
 #include <QLabel>
 #include <QDialog>
 #include <QVBoxLayout>
+#include <QDialogButtonBox>
 #include <QFile>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
@@ -1215,7 +1216,7 @@ void EasyMainWindow::setDisconnected(bool _showMessage)
 
 void EasyMainWindow::onFrameTimeRequestTimeout()
 {
-    if (EASY_GLOBALS.fps_enabled && EASY_GLOBALS.connected && m_listener.regime() == LISTENER_IDLE)
+    if (EASY_GLOBALS.fps_enabled && EASY_GLOBALS.connected && (m_listener.regime() == LISTENER_IDLE || m_listener.regime() == LISTENER_CAPTURE))
     {
         if (m_listener.requestFrameTime())
         {
@@ -1226,7 +1227,7 @@ void EasyMainWindow::onFrameTimeRequestTimeout()
 
 void EasyMainWindow::checkFrameTimeReady()
 {
-    if (EASY_GLOBALS.fps_enabled && EASY_GLOBALS.connected && m_listener.regime() == LISTENER_IDLE)
+    if (EASY_GLOBALS.fps_enabled && EASY_GLOBALS.connected && (m_listener.regime() == LISTENER_IDLE || m_listener.regime() == LISTENER_CAPTURE))
     {
         uint32_t maxTime = 0, avgTime = 0;
         if (m_listener.frameTime(maxTime, avgTime))
@@ -1245,12 +1246,40 @@ void EasyMainWindow::checkFrameTimeReady()
 void EasyMainWindow::onListenerTimerTimeout()
 {
     if (!m_listener.connected())
+    {
+        if (m_listener.regime() == LISTENER_CAPTURE_RECEIVE)
+            m_listener.finalizeCapture();
         m_listenerDialog->reject();
+    }
+    else if (m_listener.regime() == LISTENER_CAPTURE_RECEIVE)
+    {
+        if (m_listener.captured())
+        {
+            if (m_listenerTimer.isActive())
+                m_listenerTimer.stop();
+
+            m_listenerDialog->reject();
+            m_listenerDialog = nullptr;
+
+            m_listener.finalizeCapture();
+
+            if (m_listener.size() != 0)
+            {
+                readStream(m_listener.data());
+                m_listener.clearData();
+            }
+        }
+    }
 }
 
 void EasyMainWindow::onListenerDialogClose(int)
 {
-    m_listenerTimer.stop();
+    if (m_listener.regime() != LISTENER_CAPTURE_RECEIVE || !m_listener.connected())
+    {
+        if (m_listenerTimer.isActive())
+            m_listenerTimer.stop();
+    }
+
     disconnect(m_listenerDialog, &QDialog::finished, this, &This::onListenerDialogClose);
     m_listenerDialog = nullptr;
 
@@ -1259,13 +1288,46 @@ void EasyMainWindow::onListenerDialogClose(int)
         case LISTENER_CAPTURE:
         {
             m_listenerDialog = new QMessageBox(QMessageBox::Information, "Receiving data...", "This process may take some time.", QMessageBox::NoButton, this);
+            connect(m_listenerDialog, &QDialog::finished, this, &This::onListenerDialogClose);
             m_listenerDialog->setAttribute(Qt::WA_DeleteOnClose, true);
             m_listenerDialog->show();
 
             m_listener.stopCapture();
 
-            m_listenerDialog->reject();
-            m_listenerDialog = nullptr;
+            if (m_listener.regime() != LISTENER_CAPTURE_RECEIVE)
+            {
+                m_listenerDialog->reject();
+                m_listenerDialog = nullptr;
+            }
+            else
+            {
+                m_listenerTimer.start(250);
+            }
+
+            //if (m_listener.size() != 0)
+            //{
+            //    readStream(m_listener.data());
+            //    m_listener.clearData();
+            //}
+
+            break;
+        }
+
+        case LISTENER_CAPTURE_RECEIVE:
+        {
+            if (!m_listener.captured())
+            {
+                m_listenerDialog = new QMessageBox(QMessageBox::Information, "Receiving data...", "This process may take some time.", QMessageBox::NoButton, this);
+                connect(m_listenerDialog, &QDialog::finished, this, &This::onListenerDialogClose);
+                m_listenerDialog->setAttribute(Qt::WA_DeleteOnClose, true);
+                m_listenerDialog->show();
+                break;
+            }
+
+            if (m_listenerTimer.isActive())
+                m_listenerTimer.stop();
+
+            m_listener.finalizeCapture();
 
             if (m_listener.size() != 0)
             {
@@ -1718,7 +1780,7 @@ void EasyMainWindow::onCaptureClicked(bool)
 
     if (m_listener.regime() != LISTENER_IDLE)
     {
-        if (m_listener.regime() == LISTENER_CAPTURE)
+        if (m_listener.regime() == LISTENER_CAPTURE || m_listener.regime() == LISTENER_CAPTURE_RECEIVE)
             QMessageBox::warning(this, "Warning", "Already capturing frames.\nFinish old capturing session first.", QMessageBox::Close);
         else
             QMessageBox::warning(this, "Warning", "Capturing blocks description.\nFinish old capturing session first.", QMessageBox::Close);
@@ -1915,6 +1977,7 @@ EasySocketListener::EasySocketListener() : m_receivedSize(0), m_port(0), m_regim
     m_bConnected = ATOMIC_VAR_INIT(false);
     m_bStopReceive = ATOMIC_VAR_INIT(false);
     m_bFrameTimeReady = ATOMIC_VAR_INIT(false);
+    m_bCaptureReady = ATOMIC_VAR_INIT(false);
     m_frameMax = ATOMIC_VAR_INIT(0);
     m_frameAvg = ATOMIC_VAR_INIT(0);
 }
@@ -1929,6 +1992,11 @@ EasySocketListener::~EasySocketListener()
 bool EasySocketListener::connected() const
 {
     return m_bConnected.load(::std::memory_order_acquire);
+}
+
+bool EasySocketListener::captured() const
+{
+    return m_bCaptureReady.load(::std::memory_order_acquire);
 }
 
 EasyListenerRegime EasySocketListener::regime() const
@@ -2041,12 +2109,12 @@ bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profile
 
 bool EasySocketListener::startCapture()
 {
-    if (m_thread.joinable())
-    {
-        m_bInterrupt.store(true, ::std::memory_order_release);
-        m_thread.join();
-        m_bInterrupt.store(false, ::std::memory_order_release);
-    }
+    //if (m_thread.joinable())
+    //{
+    //    m_bInterrupt.store(true, ::std::memory_order_release);
+    //    m_thread.join();
+    //    m_bInterrupt.store(false, ::std::memory_order_release);
+    //}
 
     clearData();
 
@@ -2059,27 +2127,59 @@ bool EasySocketListener::startCapture()
     }
 
     m_regime = LISTENER_CAPTURE;
-    m_thread = ::std::thread(&EasySocketListener::listenCapture, this);
+    m_bCaptureReady.store(false, ::std::memory_order_release);
+    //m_thread = ::std::thread(&EasySocketListener::listenCapture, this);
 
     return true;
 }
 
 void EasySocketListener::stopCapture()
 {
-    if (!m_thread.joinable() || m_regime != LISTENER_CAPTURE)
+    //if (!m_thread.joinable() || m_regime != LISTENER_CAPTURE)
+    //    return;
+
+    if (m_regime != LISTENER_CAPTURE)
         return;
 
-    m_bStopReceive.store(true, ::std::memory_order_release);
+    //m_bStopReceive.store(true, ::std::memory_order_release);
+    profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE);
+    m_easySocket.send(&request, sizeof(request));
 
-    //profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE);
-    //m_easySocket.send(&request, sizeof(request));
+    //m_thread.join();
 
-    m_thread.join();
-
-    if (m_easySocket.isDisconnected())
+    if (m_easySocket.isDisconnected()) {
         m_bConnected.store(false, ::std::memory_order_release);
+        m_bStopReceive.store(false, ::std::memory_order_release);
+        m_regime = LISTENER_IDLE;
+        m_bCaptureReady.store(true, ::std::memory_order_release);
+        return;
+    }
+
+    m_regime = LISTENER_CAPTURE_RECEIVE;
+    if (m_thread.joinable())
+    {
+        m_bInterrupt.store(true, ::std::memory_order_release);
+        m_thread.join();
+        m_bInterrupt.store(false, ::std::memory_order_release);
+    }
+
+    m_thread = ::std::thread(&EasySocketListener::listenCapture, this);
+
+    //m_regime = LISTENER_IDLE;
+    //m_bStopReceive.store(false, ::std::memory_order_release);
+}
+
+void EasySocketListener::finalizeCapture()
+{
+    if (m_thread.joinable())
+    {
+        m_bInterrupt.store(true, ::std::memory_order_release);
+        m_thread.join();
+        m_bInterrupt.store(false, ::std::memory_order_release);
+    }
 
     m_regime = LISTENER_IDLE;
+    m_bCaptureReady.store(false, ::std::memory_order_release);
     m_bStopReceive.store(false, ::std::memory_order_release);
 }
 
@@ -2120,7 +2220,7 @@ bool EasySocketListener::frameTime(uint32_t& _maxTime, uint32_t& _avgTime)
 
 bool EasySocketListener::requestFrameTime()
 {
-    if (m_regime != LISTENER_IDLE)
+    if (m_regime != LISTENER_IDLE && m_regime != LISTENER_CAPTURE)
         return false;
 
     if (m_thread.joinable())
@@ -2129,8 +2229,6 @@ bool EasySocketListener::requestFrameTime()
         m_thread.join();
         m_bInterrupt.store(false, ::std::memory_order_release);
     }
-
-    clearData();
 
     profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_MAIN_FRAME_TIME_MAX_AVG_US);
     m_easySocket.send(&request, sizeof(request));
@@ -2312,6 +2410,8 @@ void EasySocketListener::listenCapture()
         clearData();
 
     delete [] buffer;
+
+    m_bCaptureReady.store(true, ::std::memory_order_release);
 }
 
 void EasySocketListener::listenDescription()
@@ -2495,8 +2595,8 @@ void EasySocketListener::listenFrameTime()
             switch (message->type)
             {
                 case profiler::net::MESSAGE_TYPE_ACCEPTED_CONNECTION:
+                case profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING:
                 {
-                    //qInfo() << "Receive MESSAGE_TYPE_ACCEPTED_CONNECTION";
                     seek += sizeof(profiler::net::Message);
                     break;
                 }

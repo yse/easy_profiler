@@ -129,6 +129,7 @@ enum EasyListenerRegime : uint8_t
 {
     LISTENER_IDLE = 0,
     LISTENER_CAPTURE,
+    LISTENER_CAPTURE_RECEIVE,
     LISTENER_DESCRIBE
 };
 
@@ -145,6 +146,7 @@ class EasySocketListener Q_DECL_FINAL
     ::std::atomic_bool    m_bInterrupt; ///< 
     ::std::atomic_bool    m_bConnected; ///< 
     ::std::atomic_bool  m_bStopReceive; ///< 
+    ::std::atomic_bool m_bCaptureReady; ///<
     ::std::atomic_bool m_bFrameTimeReady; ///< 
     EasyListenerRegime        m_regime; ///< 
 
@@ -154,6 +156,7 @@ public:
     ~EasySocketListener();
 
     bool connected() const;
+    bool captured() const;
     EasyListenerRegime regime() const;
     uint64_t size() const;
     const ::std::string& address() const;
@@ -166,6 +169,7 @@ public:
 
     bool startCapture();
     void stopCapture();
+    void finalizeCapture();
     void requestBlocksDescription();
 
     bool frameTime(uint32_t& _maxTime, uint32_t& _avgTime);
