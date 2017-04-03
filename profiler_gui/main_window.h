@@ -140,9 +140,12 @@ class EasySocketListener Q_DECL_FINAL
     ::std::thread             m_thread; ///< 
     uint64_t            m_receivedSize; ///< 
     uint16_t                    m_port; ///< 
+    ::std::atomic<uint32_t> m_frameMax; ///< 
+    ::std::atomic<uint32_t> m_frameAvg; ///< 
     ::std::atomic_bool    m_bInterrupt; ///< 
     ::std::atomic_bool    m_bConnected; ///< 
     ::std::atomic_bool  m_bStopReceive; ///< 
+    ::std::atomic_bool m_bFrameTimeReady; ///< 
     EasyListenerRegime        m_regime; ///< 
 
 public:
@@ -165,6 +168,9 @@ public:
     void stopCapture();
     void requestBlocksDescription();
 
+    bool frameTime(uint32_t& _maxTime, uint32_t& _avgTime);
+    bool requestFrameTime();
+
     template <class T>
     inline void send(const T& _message) {
         m_easySocket.send(&_message, sizeof(T));
@@ -174,6 +180,7 @@ private:
 
     void listenCapture();
     void listenDescription();
+    void listenFrameTime();
 
 }; // END of class EasySocketListener.
 
@@ -192,6 +199,7 @@ protected:
     QString                              m_lastAddress;
     QDockWidget*                          m_treeWidget = nullptr;
     QDockWidget*                        m_graphicsView = nullptr;
+    QDockWidget*                           m_fpsViewer = nullptr;
 
 #if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
     QDockWidget*                      m_descTreeWidget = nullptr;
@@ -203,6 +211,7 @@ protected:
     class QMessageBox*                m_listenerDialog = nullptr;
     QTimer                               m_readerTimer;
     QTimer                             m_listenerTimer;
+    QTimer                           m_fpsRequestTimer;
     ::profiler::SerializedData      m_serializedBlocks;
     ::profiler::SerializedData m_serializedDescriptors;
     EasyFileReader                            m_reader;
@@ -257,7 +266,10 @@ protected slots:
     void onSpacingChange(int _value);
     void onMinSizeChange(int _value);
     void onNarrowSizeChange(int _value);
+    void onFpsIntervalChange(int _value);
+    void onFpsHistoryChange(int _value);
     void onFileReaderTimeout();
+    void onFrameTimeRequestTimeout();
     void onListenerTimerTimeout();
     void onFileReaderCancel();
     void onEditBlocksClicked(bool);
@@ -272,6 +284,8 @@ protected slots:
     void onFrameTimeChanged();
 
     void onBlockStatusChange(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status);
+
+    void checkFrameTimeReady();
 
 private:
 

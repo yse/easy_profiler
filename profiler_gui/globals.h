@@ -155,9 +155,12 @@ namespace profiler_gui {
         int                               blocks_spacing; ///< Minimum blocks spacing on diagram
         int                              blocks_size_min; ///< Minimum blocks size on diagram
         int                           blocks_narrow_size; ///< Width indicating narrow blocks
+        int                              max_fps_history; ///< Max frames history displayed in FPS Monitor
+        int                           fps_timer_interval; ///< Interval in milliseconds for sending network requests to the profiled application (used by FPS Monitor)
         ChronometerTextPosition     chrono_text_position; ///< Selected interval text position
         TimeUnits                             time_units; ///< Units type for time (milliseconds, microseconds, nanoseconds or auto-definition)
         bool                                   connected; ///< Is connected to source (to be able to capture profiling information)
+        bool                                 fps_enabled; ///< Is FPS Monitor enabled
         bool                   use_decorated_thread_name; ///< Add "Thread" to the name of each thread (if there is no one)
         bool                        enable_event_markers; ///< Enable event indicators painting (These are narrow rectangles at the bottom of each thread)
         bool                           enable_statistics; ///< Enable gathering and using statistics (Disable if you want to consume less memory)

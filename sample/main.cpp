@@ -226,24 +226,27 @@ int main(int argc, char* argv[])
     cv_m.unlock();
     cv.notify_all();
 
+#ifndef SAMPLE_NETWORK_TEST
     std::atomic_bool stop = ATOMIC_VAR_INIT(false);
     auto frame_time_printer_thread = std::thread([&stop]()
     {
         while (!stop.load(std::memory_order_acquire))
         {
-            std::cout << "Frame time: " << profiler::main_thread::frameTimeLocalMax() << " us\n";
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            std::cout << "Frame time: max " << profiler::main_thread::frameTimeLocalMax() << " us // avg " << profiler::main_thread::frameTimeLocalAvg() << " us\n";
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
         }
     });
+#endif
 
     modellingThread();
 
+#ifndef SAMPLE_NETWORK_TEST
     stop.store(true, std::memory_order_release);
+    frame_time_printer_thread.join();
+#endif
 
     for(auto& t : threads)
         t.join();
-
-    frame_time_printer_thread.join();
 
     auto end = std::chrono::system_clock::now();
     auto elapsed =

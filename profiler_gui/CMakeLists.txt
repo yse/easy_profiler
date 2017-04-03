@@ -35,6 +35,8 @@ add_executable(${PROJECT_NAME}
     descriptors_tree_widget.cpp
     easy_chronometer_item.h
     easy_chronometer_item.cpp
+    easy_frame_rate_viewer.h
+    easy_frame_rate_viewer.cpp
     easy_graphics_item.h
     easy_graphics_item.cpp
     easy_graphics_scrollbar.h

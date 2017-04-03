@@ -96,6 +96,7 @@
 #include "blocks_tree_widget.h"
 #include "blocks_graphics_view.h"
 #include "descriptors_tree_widget.h"
+#include "easy_frame_rate_viewer.h"
 #include "globals.h"
 
 #include <easy/easy_net.h>
@@ -156,8 +157,14 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     auto treeWidget = new EasyHierarchyWidget(this);
     m_treeWidget->setWidget(treeWidget);
 
+    m_fpsViewer = new QDockWidget("FPS Monitor", this);
+    m_fpsViewer->setObjectName("ProfilerGUI_FPS");
+    m_fpsViewer->setWidget(new EasyFrameRateViewer(this));
+    m_fpsViewer->setAllowedAreas(Qt::TopDockWidgetArea | Qt::BottomDockWidgetArea);
+
     addDockWidget(Qt::TopDockWidgetArea, m_graphicsView);
     addDockWidget(Qt::BottomDockWidgetArea, m_treeWidget);
+    addDockWidget(Qt::TopDockWidgetArea, m_fpsViewer);
 
 #if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
     auto descTree = new EasyDescWidget();
@@ -411,7 +418,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     l->setContentsMargins(33, 1, 1, 1);
     l->addWidget(new QLabel("Min blocks spacing, px", w), 0, Qt::AlignLeft);
     auto spinbox = new QSpinBox(w);
-    spinbox->setMinimum(0);
+    spinbox->setRange(0, 400);
     spinbox->setValue(EASY_GLOBALS.blocks_spacing);
     spinbox->setFixedWidth(50);
     connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onSpacingChange(int)));
@@ -426,7 +433,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     l->setContentsMargins(33, 1, 1, 1);
     l->addWidget(new QLabel("Min blocks size, px", w), 0, Qt::AlignLeft);
     spinbox = new QSpinBox(w);
-    spinbox->setMinimum(1);
+    spinbox->setRange(1, 400);
     spinbox->setValue(EASY_GLOBALS.blocks_size_min);
     spinbox->setFixedWidth(50);
     connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onMinSizeChange(int)));
@@ -441,7 +448,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     l->setContentsMargins(33, 1, 1, 1);
     l->addWidget(new QLabel("Blocks narrow size, px", w), 0, Qt::AlignLeft);
     spinbox = new QSpinBox(w);
-    spinbox->setMinimum(1);
+    spinbox->setRange(1, 400);
     spinbox->setValue(EASY_GLOBALS.blocks_narrow_size);
     spinbox->setFixedWidth(50);
     connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onNarrowSizeChange(int)));
@@ -450,6 +457,42 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     waction = new QWidgetAction(submenu);
     waction->setDefaultWidget(w);
     submenu->addAction(waction);
+
+
+
+
+    submenu = menu->addMenu("FPS Monitor");
+    w = new QWidget(submenu);
+    l = new QHBoxLayout(w);
+    l->setContentsMargins(33, 1, 1, 1);
+    l->addWidget(new QLabel("Request interval, ms", w), 0, Qt::AlignLeft);
+    spinbox = new QSpinBox(w);
+    spinbox->setRange(1, 600000);
+    spinbox->setValue(EASY_GLOBALS.fps_timer_interval);
+    spinbox->setFixedWidth(50);
+    connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onFpsIntervalChange(int)));
+    l->addWidget(spinbox);
+    w->setLayout(l);
+    waction = new QWidgetAction(submenu);
+    waction->setDefaultWidget(w);
+    submenu->addAction(waction);
+
+    w = new QWidget(submenu);
+    l = new QHBoxLayout(w);
+    l->setContentsMargins(33, 1, 1, 1);
+    l->addWidget(new QLabel("Max history size", w), 0, Qt::AlignLeft);
+    spinbox = new QSpinBox(w);
+    spinbox->setRange(2, 200);
+    spinbox->setValue(EASY_GLOBALS.max_fps_history);
+    spinbox->setFixedWidth(50);
+    connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onFpsHistoryChange(int)));
+    l->addWidget(spinbox);
+    w->setLayout(l);
+    waction = new QWidgetAction(submenu);
+    waction->setDefaultWidget(w);
+    submenu->addAction(waction);
+
+
 
 
     submenu = menu->addMenu("Units");
@@ -549,6 +592,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     connect(graphicsView->view(), &EasyGraphicsView::intervalChanged, treeWidget->tree(), &EasyTreeWidget::setTreeBlocks);
     connect(&m_readerTimer, &QTimer::timeout, this, &This::onFileReaderTimeout);
     connect(&m_listenerTimer, &QTimer::timeout, this, &This::onListenerTimerTimeout);
+    connect(&m_fpsRequestTimer, &QTimer::timeout, this, &This::onFrameTimeRequestTimeout);
     
 
     m_progress = new QProgressDialog("Loading file...", "Cancel", 0, 100, this);
@@ -907,6 +951,24 @@ void EasyMainWindow::onNarrowSizeChange(int _value)
 
 //////////////////////////////////////////////////////////////////////////
 
+void EasyMainWindow::onFpsIntervalChange(int _value)
+{
+    EASY_GLOBALS.fps_timer_interval = _value;
+
+    if (m_fpsRequestTimer.isActive())
+        m_fpsRequestTimer.stop();
+
+    if (EASY_GLOBALS.connected)
+        m_fpsRequestTimer.start(_value);
+}
+
+void EasyMainWindow::onFpsHistoryChange(int _value)
+{
+    EASY_GLOBALS.max_fps_history = _value;
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 void EasyMainWindow::onEditBlocksClicked(bool)
 {
     if (m_descTreeDialog != nullptr)
@@ -1056,6 +1118,14 @@ void EasyMainWindow::loadSettings()
     if (!flag.isNull())
         EASY_GLOBALS.use_decorated_thread_name = flag.toBool();
 
+    flag = settings.value("fps_timer_interval");
+    if (!flag.isNull())
+        EASY_GLOBALS.fps_timer_interval = flag.toInt();
+
+    flag = settings.value("max_fps_history");
+    if (!flag.isNull())
+        EASY_GLOBALS.max_fps_history = flag.toInt();
+
     flag = settings.value("enable_statistics");
     if (!flag.isNull())
         EASY_GLOBALS.enable_statistics = flag.toBool();
@@ -1115,6 +1185,8 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("auto_adjust_histogram_height", EASY_GLOBALS.auto_adjust_histogram_height);
     settings.setValue("use_decorated_thread_name", EASY_GLOBALS.use_decorated_thread_name);
     settings.setValue("enable_statistics", EASY_GLOBALS.enable_statistics);
+    settings.setValue("fps_timer_interval", EASY_GLOBALS.fps_timer_interval);
+    settings.setValue("max_fps_history", EASY_GLOBALS.max_fps_history);
     settings.setValue("encoding", QTextCodec::codecForLocale()->name());
 
     settings.endGroup();
@@ -1122,6 +1194,9 @@ void EasyMainWindow::saveSettingsAndGeometry()
 
 void EasyMainWindow::setDisconnected(bool _showMessage)
 {
+    if (m_fpsRequestTimer.isActive())
+        m_fpsRequestTimer.stop();
+
     if (_showMessage)
         QMessageBox::warning(this, "Warning", "Application was disconnected", QMessageBox::Close);
 
@@ -1134,6 +1209,35 @@ void EasyMainWindow::setDisconnected(bool _showMessage)
 
     emit EASY_GLOBALS.events.connectionChanged(false);
 
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void EasyMainWindow::onFrameTimeRequestTimeout()
+{
+    if (EASY_GLOBALS.fps_enabled && EASY_GLOBALS.connected && m_listener.regime() == LISTENER_IDLE)
+    {
+        if (m_listener.requestFrameTime())
+        {
+            QTimer::singleShot(100, this, &This::checkFrameTimeReady);
+        }
+    }
+}
+
+void EasyMainWindow::checkFrameTimeReady()
+{
+    if (EASY_GLOBALS.fps_enabled && EASY_GLOBALS.connected && m_listener.regime() == LISTENER_IDLE)
+    {
+        uint32_t maxTime = 0, avgTime = 0;
+        if (m_listener.frameTime(maxTime, avgTime))
+        {
+            static_cast<EasyFrameRateViewer*>(m_fpsViewer->widget())->addPoint(maxTime, avgTime);
+        }
+        else if (m_fpsRequestTimer.isActive())
+        {
+            QTimer::singleShot(100, this, &This::checkFrameTimeReady);
+        }
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1579,6 +1683,9 @@ void EasyMainWindow::onConnectClicked(bool)
     m_captureAction->setEnabled(true);
     SET_ICON(m_connectAction, ":/Connection-on");
 
+    if (!m_fpsRequestTimer.isActive())
+        m_fpsRequestTimer.start(EASY_GLOBALS.fps_timer_interval);
+
     disconnect(m_eventTracingEnableAction, &QAction::triggered, this, &This::onEventTracingEnableChange);
     disconnect(m_eventTracingPriorityAction, &QAction::triggered, this, &This::onEventTracingPriorityChange);
 
@@ -1807,6 +1914,9 @@ EasySocketListener::EasySocketListener() : m_receivedSize(0), m_port(0), m_regim
     m_bInterrupt = ATOMIC_VAR_INIT(false);
     m_bConnected = ATOMIC_VAR_INIT(false);
     m_bStopReceive = ATOMIC_VAR_INIT(false);
+    m_bFrameTimeReady = ATOMIC_VAR_INIT(false);
+    m_frameMax = ATOMIC_VAR_INIT(0);
+    m_frameAvg = ATOMIC_VAR_INIT(0);
 }
 
 EasySocketListener::~EasySocketListener()
@@ -1931,6 +2041,13 @@ bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profile
 
 bool EasySocketListener::startCapture()
 {
+    if (m_thread.joinable())
+    {
+        m_bInterrupt.store(true, ::std::memory_order_release);
+        m_thread.join();
+        m_bInterrupt.store(false, ::std::memory_order_release);
+    }
+
     clearData();
 
     profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE);
@@ -1968,6 +2085,13 @@ void EasySocketListener::stopCapture()
 
 void EasySocketListener::requestBlocksDescription()
 {
+    if (m_thread.joinable())
+    {
+        m_bInterrupt.store(true, ::std::memory_order_release);
+        m_thread.join();
+        m_bInterrupt.store(false, ::std::memory_order_release);
+    }
+
     clearData();
 
     profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_BLOCKS_DESCRIPTION);
@@ -1980,6 +2104,47 @@ void EasySocketListener::requestBlocksDescription()
     m_regime = LISTENER_DESCRIBE;
     listenDescription();
     m_regime = LISTENER_IDLE;
+}
+
+bool EasySocketListener::frameTime(uint32_t& _maxTime, uint32_t& _avgTime)
+{
+    if (m_bFrameTimeReady.exchange(false, ::std::memory_order_acquire))
+    {
+        _maxTime = m_frameMax.load(::std::memory_order_acquire);
+        _avgTime = m_frameAvg.load(::std::memory_order_acquire);
+        return true;
+    }
+
+    return false;
+}
+
+bool EasySocketListener::requestFrameTime()
+{
+    if (m_regime != LISTENER_IDLE)
+        return false;
+
+    if (m_thread.joinable())
+    {
+        m_bInterrupt.store(true, ::std::memory_order_release);
+        m_thread.join();
+        m_bInterrupt.store(false, ::std::memory_order_release);
+    }
+
+    clearData();
+
+    profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_MAIN_FRAME_TIME_MAX_AVG_US);
+    m_easySocket.send(&request, sizeof(request));
+
+    if (m_easySocket.isDisconnected())
+    {
+        m_bConnected.store(false, ::std::memory_order_release);
+        return false;
+    }
+
+    m_bFrameTimeReady.store(false, ::std::memory_order_release);
+    m_thread = ::std::thread(&EasySocketListener::listenFrameTime, this);
+
+    return true;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -2279,6 +2444,85 @@ void EasySocketListener::listenDescription()
         clearData();
 
     delete[] buffer;
+}
+
+void EasySocketListener::listenFrameTime()
+{
+    // TODO: Merge functions listenDescription() and listenCapture()
+
+    static const int buffer_size = sizeof(::profiler::net::TimestampMessage) << 2;
+    char buffer[buffer_size] = {};
+    int seek = 0, bytes = 0;
+
+    bool isListen = true;
+    while (isListen && !m_bInterrupt.load(::std::memory_order_acquire))
+    {
+        if ((bytes - seek) == 0)
+        {
+            bytes = m_easySocket.receive(buffer, buffer_size);
+
+            if (bytes == -1)
+            {
+                if (m_easySocket.isDisconnected())
+                {
+                    m_bConnected.store(false, ::std::memory_order_release);
+                    isListen = false;
+                }
+
+                seek = 0;
+                bytes = 0;
+
+                continue;
+            }
+
+            seek = 0;
+        }
+
+        if (bytes == 0)
+        {
+            isListen = false;
+            break;
+        }
+
+        char* buf = buffer + seek;
+
+        if (bytes > 0)
+        {
+            auto message = reinterpret_cast<const ::profiler::net::Message*>(buf);
+            if (!message->isEasyNetMessage())
+                continue;
+
+            switch (message->type)
+            {
+                case profiler::net::MESSAGE_TYPE_ACCEPTED_CONNECTION:
+                {
+                    //qInfo() << "Receive MESSAGE_TYPE_ACCEPTED_CONNECTION";
+                    seek += sizeof(profiler::net::Message);
+                    break;
+                }
+
+                case profiler::net::MESSAGE_TYPE_REPLY_MAIN_FRAME_TIME_MAX_AVG_US:
+                {
+                    //qInfo() << "Receive MESSAGE_TYPE_REPLY_MAIN_FRAME_TIME_MAX_AVG_US";
+
+                    seek += sizeof(profiler::net::TimestampMessage);
+                    if (seek <= buffer_size)
+                    {
+                        profiler::net::TimestampMessage* timestampMessage = (profiler::net::TimestampMessage*)message;
+                        m_frameMax.store(timestampMessage->maxValue, ::std::memory_order_release);
+                        m_frameAvg.store(timestampMessage->avgValue, ::std::memory_order_release);
+                        m_bFrameTimeReady.store(true, ::std::memory_order_release);
+                    }
+
+                    isListen = false;
+                    break;
+                }
+
+                default:
+                    break;
+            }
+        }
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////
