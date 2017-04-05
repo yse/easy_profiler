@@ -230,7 +230,7 @@ install(
 install(
     FILES
     version.info
-    LICENSE.GPL3
+    LICENSE.MIT
     LICENSE.APACHE
     DESTINATION
     .

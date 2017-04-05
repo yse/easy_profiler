@@ -340,6 +340,7 @@ struct ThreadStorage
     void storeBlock(const profiler::Block& _block);
     void storeCSwitch(const profiler::Block& _block);
     void clearClosed();
+    void popSilent();
 
     ThreadStorage();
 };

@@ -197,6 +197,7 @@ EASY_THREAD_LOCAL static ::ThreadStorage* THIS_THREAD = nullptr;
 EASY_THREAD_LOCAL static int32_t THIS_THREAD_STACK_SIZE = 0;
 EASY_THREAD_LOCAL static profiler::timestamp_t THIS_THREAD_FRAME_T = 0ULL;
 EASY_THREAD_LOCAL static bool THIS_THREAD_FRAME = false;
+EASY_THREAD_LOCAL static bool THIS_THREAD_HALT = false;
 EASY_THREAD_LOCAL static bool THIS_THREAD_IS_MAIN = false;
 
 EASY_THREAD_LOCAL static profiler::timestamp_t THIS_THREAD_FRAME_T_MAX = 0ULL;
@@ -498,7 +499,7 @@ BaseBlockDescriptor::BaseBlockDescriptor(block_id_t _id, EasyBlockStatus _status
 //////////////////////////////////////////////////////////////////////////
 
 #ifndef EASY_BLOCK_DESC_FULL_COPY
-# define EASY_BLOCK_DESC_FULL_COPY 0
+# define EASY_BLOCK_DESC_FULL_COPY 1
 #endif
 
 #if EASY_BLOCK_DESC_FULL_COPY == 0
@@ -612,6 +613,16 @@ void ThreadStorage::clearClosed()
 {
     blocks.clearClosed();
     sync.clearClosed();
+}
+
+void ThreadStorage::popSilent()
+{
+    if (!blocks.openedList.empty())
+    {
+        Block& top = blocks.openedList.top();
+        top.m_end = top.m_begin;
+        blocks.openedList.pop();
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -845,12 +856,20 @@ void ProfileManager::storeBlockForce2(ThreadStorage& _registeredThread, const pr
 
 void ProfileManager::beginBlock(Block& _block)
 {
+    if (THIS_THREAD == nullptr)
+        THIS_THREAD = &threadStorage(getCurrentThreadId());
+
     if (++THIS_THREAD_STACK_SIZE > 1)
+    {
+        THIS_THREAD->blocks.openedList.emplace(_block);
         return;
+    }
 
     const auto state = m_profilerStatus.load(std::memory_order_acquire);
     if (state == EASY_PROF_DISABLED)
     {
+        THIS_THREAD_HALT = false;
+        THIS_THREAD->blocks.openedList.emplace(_block);
         beginFrame();
         return;
     }
@@ -858,19 +877,27 @@ void ProfileManager::beginBlock(Block& _block)
     bool empty = true;
     if (state == EASY_PROF_DUMP)
     {
-        if (THIS_THREAD == nullptr || THIS_THREAD->blocks.openedList.empty())
+        if (THIS_THREAD_HALT || THIS_THREAD->blocks.openedList.empty())
+        {
+            THIS_THREAD->blocks.openedList.emplace(_block);
+
+            if (!THIS_THREAD_HALT)
+            {
+                THIS_THREAD_HALT = true;
+                beginFrame();
+            }
+
             return;
+        }
+
         empty = false;
-    }
-    else if (THIS_THREAD == nullptr)
-    {
-        THIS_THREAD = &threadStorage(getCurrentThreadId());
     }
     else
     {
         empty = THIS_THREAD->blocks.openedList.empty();
     }
 
+    THIS_THREAD_HALT = false;
     THIS_THREAD_STACK_SIZE = 0;
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
@@ -916,28 +943,32 @@ void ProfileManager::beginContextSwitch(profiler::thread_id_t _thread_id, profil
 void ProfileManager::endBlock()
 {
     if (--THIS_THREAD_STACK_SIZE > 0)
-        return;
-
-    if (m_profilerStatus.load(std::memory_order_acquire) == EASY_PROF_DISABLED)
     {
+        THIS_THREAD->popSilent();
+        return;
+    }
+
+    if (THIS_THREAD_HALT || m_profilerStatus.load(std::memory_order_acquire) == EASY_PROF_DISABLED)
+    {
+        THIS_THREAD->popSilent();
         endFrame();
         return;
     }
 
     THIS_THREAD_STACK_SIZE = 0;
-    if (THIS_THREAD == nullptr || THIS_THREAD->blocks.openedList.empty())
+    if (THIS_THREAD->blocks.openedList.empty())
         return;
 
-    Block& lastBlock = THIS_THREAD->blocks.openedList.top();
-    if (lastBlock.m_status & profiler::ON)
+    Block& top = THIS_THREAD->blocks.openedList.top();
+    if (top.m_status & profiler::ON)
     {
-        if (!lastBlock.finished())
-            lastBlock.finish();
-        THIS_THREAD->storeBlock(lastBlock);
+        if (!top.finished())
+            top.finish();
+        THIS_THREAD->storeBlock(top);
     }
     else
     {
-        lastBlock.m_end = lastBlock.m_begin; // this is to restrict endBlock() call inside ~Block()
+        top.m_end = top.m_begin; // this is to restrict endBlock() call inside ~Block()
     }
 
     THIS_THREAD->blocks.openedList.pop();

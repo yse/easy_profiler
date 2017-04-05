@@ -50,7 +50,16 @@ The Apache License, Version 2.0 (the "License");
 # pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
 #endif
 
-#ifdef BUILD_WITH_EASY_PROFILER
+//
+// BUILD_WITH_EASY_PROFILER is defined in CMakeLists.txt if your project is linked to easy_profiler.
+//
+
+//
+// DISABLE_EASY_PROFILER may be defined manually in source-file before #include <easy/profiler.h>
+//                       to disable profiler for certain source-file or project.
+//
+
+#if defined(BUILD_WITH_EASY_PROFILER) && !defined(DISABLE_EASY_PROFILER)
 
 /**
 \defgroup profiler EasyProfiler
