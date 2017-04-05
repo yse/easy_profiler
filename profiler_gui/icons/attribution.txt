@@ -17,7 +17,7 @@ wifi.svg           - Icon made by Freepik from www.flaticon.com
 wifi_on.svg        - Icon made by Freepik from www.flaticon.com
 play.svg           - Icon made by Google  from www.flaticon.com
 stop.svg           - Icon made by Google  from www.flaticon.com
-delete.svg         - Icon made by Freepik from www.flaticon.com
+delete.svg         - Icon made by Google  from www.flaticon.com
 list.svg           - Icon made by Freepik from www.flaticon.com
 search-prev.svg    - Icon made by Freepik from www.flaticon.com
 search-next.svg    - Icon made by Freepik from www.flaticon.com

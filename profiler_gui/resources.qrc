@@ -24,6 +24,6 @@
         <file alias="List">icons/list.svg</file>
         <file alias="Search-next">icons/search-next.svg</file>
         <file alias="Search-prev">icons/search-prev.svg</file>
-        <file alias="Settings">icons/settings.svg</file>
+        <file alias="Settings">icons/settings.svg</file> 
     </qresource>
 </RCC>
