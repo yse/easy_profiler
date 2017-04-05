@@ -98,7 +98,8 @@ void EasyFPSGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     if (m_frames.empty())
         return;
 
-    const int fontHeight = QFontMetrics(scene()->font()).height() + 2;
+    const auto fontMetrics = QFontMetrics(scene()->font());
+    const int fontHeight = fontMetrics.height() + 2;
     const qreal h = m_boundingRect.height() - (fontHeight << 1) - 4;
     if (h < 0)
         return;
@@ -149,17 +150,21 @@ void EasyFPSGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     const auto delta = std::max(localMax - localMin, 1e-3);
     _painter->setPen(Qt::black);
 
+    qreal frameTime = std::max(localMax, 1.);
     _painter->drawText(5, 0, m_boundingRect.width() - 10, fontHeight, Qt::AlignVCenter | Qt::AlignLeft, QString("Slowest   %1 FPS   (%2)")
-                       .arg(static_cast<quint64>(1e6 / localMax)).arg(::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, localMax, 1)));
+                       .arg(static_cast<quint64>(1e6 / frameTime)).arg(::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, localMax, 1)));
 
+    frameTime = std::max(m_frames.back().first, 1U);
     _painter->drawText(5, 0, xCurrent - 5, fontHeight, Qt::AlignVCenter | Qt::AlignRight, QString("Max current   %1 FPS   (%2)")
-                       .arg(static_cast<quint64>(1e6 / m_frames.back().first)).arg(::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, m_frames.back().first, 1)));
+                       .arg(static_cast<quint64>(1e6 / frameTime)).arg(::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, m_frames.back().first, 1)));
 
+    frameTime = std::max(m_frames.back().second, 1U);
     _painter->drawText(5, bottom, xCurrent - 5, fontHeight, Qt::AlignVCenter | Qt::AlignRight, QString("Avg current   %1 FPS   (%2)")
-                       .arg(static_cast<quint64>(1e6 / m_frames.back().second)).arg(::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, m_frames.back().second, 1)));
+                       .arg(static_cast<quint64>(1e6 / frameTime)).arg(::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, m_frames.back().second, 1)));
 
+    frameTime = std::max(localMin, 1.);
     _painter->drawText(5, bottom, m_boundingRect.width() - 10, fontHeight, Qt::AlignVCenter | Qt::AlignLeft, QString("Fastest   %1 FPS   (%2)")
-                       .arg(static_cast<quint64>(1e6 / localMin)).arg(::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, localMin, 1)));
+                       .arg(static_cast<quint64>(1e6 / frameTime)).arg(::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, localMin, 1)));
 
     if (localMin < EASY_GLOBALS.frame_time && EASY_GLOBALS.frame_time < localMax)
     {
@@ -177,21 +182,47 @@ void EasyFPSGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
         point2.setY(fontHeight + 2 + h * (1. - (point2.y() - localMin) / delta));
     }
 
-    _painter->setPen(QColor::fromRgba(0xa0ff0000));
+    _painter->setRenderHint(QPainter::Antialiasing, true);
+
+    QPen pen(QColor::fromRgba(0x80ff0000));
+    pen.setWidth(EASY_GLOBALS.fps_widget_line_width);
+    _painter->setPen(pen);
     if (n > 1)
     {
         _painter->drawPolyline(m_points1.data(), n);
 
-        _painter->setPen(QColor::fromRgba(0xa00000ff));
+        pen.setColor(QColor::fromRgba(0x800000ff));
+        _painter->setPen(pen);
         _painter->drawPolyline(m_points2.data(), n);
     }
     else
     {
         _painter->drawPoint(m_points1.back());
 
-        _painter->setPen(QColor::fromRgba(0xa00000ff));
+        pen.setColor(QColor::fromRgba(0x800000ff));
+        _painter->setPen(pen);
         _painter->drawPoint(m_points2.back());
     }
+
+    const auto txtTop = ::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, localMin + delta * 0.75, 1);
+    const auto txtMid = ::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, localMin + delta * 0.5, 1);
+    const auto txtBtm = ::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, localMin + delta * 0.25, 1);
+
+    _painter->setPen(Qt::NoPen);
+    _painter->setBrush(Qt::white);
+    _painter->drawRect(0, top + 1, std::max({fontMetrics.width(txtTop), fontMetrics.width(txtMid), fontMetrics.width(txtBtm)}) + 8, bottom - top - 1);
+
+    _painter->setPen(Qt::black);
+    _painter->setBrush(Qt::NoBrush);
+
+    y = m_boundingRect.height() * 0.5;
+    _painter->drawText(5, y - (fontHeight >> 1), m_boundingRect.width(), fontHeight, Qt::AlignVCenter | Qt::AlignLeft, txtMid);
+
+    y -= h * 0.25;
+    _painter->drawText(5, y - (fontHeight >> 1), m_boundingRect.width(), fontHeight, Qt::AlignVCenter | Qt::AlignLeft, txtTop);
+
+    y += h * 0.5;
+    _painter->drawText(5, y - (fontHeight >> 1), m_boundingRect.width(), fontHeight, Qt::AlignVCenter | Qt::AlignLeft, txtBtm);
 
     _painter->restore();
 
@@ -235,6 +266,14 @@ EasyFrameRateViewer::EasyFrameRateViewer(QWidget* _parent) : Parent(_parent), m_
     scene()->addItem(m_fpsItem);
 
     centerOn(0, 0);
+
+    // Dirty hack for QDockWidget stupid initial size policy :(
+    setMinimumHeight(5); // Set very small height to enable appropriate minimum height on the application startup
+    QTimer::singleShot(100, [this]()
+    {
+        // Now set appropriate minimum height
+        setMinimumHeight((QFontMetrics(scene()->font()).height() + 3) * 6);
+    });
 }
 
 EasyFrameRateViewer::~EasyFrameRateViewer()
@@ -258,7 +297,8 @@ void EasyFrameRateViewer::resizeEvent(QResizeEvent* _event)
 {
     Parent::resizeEvent(_event);
 
-    m_fpsItem->setBoundingRect(0, 0, _event->size().width(), _event->size().height());
+    auto size = _event->size();
+    m_fpsItem->setBoundingRect(0, 0, size.width(), size.height());
 
     scene()->setSceneRect(m_fpsItem->boundingRect());
     scene()->update();

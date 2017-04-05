@@ -85,7 +85,6 @@
 #include <QLabel>
 #include <QDialog>
 #include <QVBoxLayout>
-#include <QDialogButtonBox>
 #include <QFile>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
@@ -493,6 +492,21 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     waction->setDefaultWidget(w);
     submenu->addAction(waction);
 
+    w = new QWidget(submenu);
+    l = new QHBoxLayout(w);
+    l->setContentsMargins(33, 1, 1, 1);
+    l->addWidget(new QLabel("Line width, px", w), 0, Qt::AlignLeft);
+    spinbox = new QSpinBox(w);
+    spinbox->setRange(1, 6);
+    spinbox->setValue(EASY_GLOBALS.fps_widget_line_width);
+    spinbox->setFixedWidth(50);
+    connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onFpsMonitorLineWidthChange(int)));
+    l->addWidget(spinbox);
+    w->setLayout(l);
+    waction = new QWidgetAction(submenu);
+    waction->setDefaultWidget(w);
+    submenu->addAction(waction);
+
 
 
 
@@ -810,6 +824,9 @@ void EasyMainWindow::clear()
     m_saveAction->setEnabled(false);
     m_deleteAction->setEnabled(false);
 
+    if (m_bNetworkFileRegime)
+        QFile::remove(QString(NETWORK_CACHE_FILE));
+
     m_bNetworkFileRegime = false;
 }
 
@@ -824,7 +841,12 @@ void EasyMainWindow::refreshDiagram()
 
 void EasyMainWindow::onDeleteClicked(bool)
 {
-    auto button = QMessageBox::question(this, "Clear all profiled data", "All profiled data is going to be deleted!\nContinue?", QMessageBox::Yes, QMessageBox::No);
+    int button = 0;
+    if (m_bNetworkFileRegime)
+        button = QMessageBox::question(this, "Clear all profiled data", "All profiled data and network cache file\nare going to be deleted!\nContinue?", QMessageBox::Yes, QMessageBox::No);
+    else
+        button = QMessageBox::question(this, "Clear all profiled data", "All profiled data are going to be deleted!\nContinue?", QMessageBox::Yes, QMessageBox::No);
+
     if (button == QMessageBox::Yes)
         clear();
 }
@@ -966,6 +988,11 @@ void EasyMainWindow::onFpsIntervalChange(int _value)
 void EasyMainWindow::onFpsHistoryChange(int _value)
 {
     EASY_GLOBALS.max_fps_history = _value;
+}
+
+void EasyMainWindow::onFpsMonitorLineWidthChange(int _value)
+{
+    EASY_GLOBALS.fps_widget_line_width = _value;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1127,6 +1154,10 @@ void EasyMainWindow::loadSettings()
     if (!flag.isNull())
         EASY_GLOBALS.max_fps_history = flag.toInt();
 
+    flag = settings.value("fps_widget_line_width");
+    if (!flag.isNull())
+        EASY_GLOBALS.fps_widget_line_width = flag.toInt();
+
     flag = settings.value("enable_statistics");
     if (!flag.isNull())
         EASY_GLOBALS.enable_statistics = flag.toBool();
@@ -1188,6 +1219,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("enable_statistics", EASY_GLOBALS.enable_statistics);
     settings.setValue("fps_timer_interval", EASY_GLOBALS.fps_timer_interval);
     settings.setValue("max_fps_history", EASY_GLOBALS.max_fps_history);
+    settings.setValue("fps_widget_line_width", EASY_GLOBALS.fps_widget_line_width);
     settings.setValue("encoding", QTextCodec::codecForLocale()->name());
 
     settings.endGroup();
@@ -1221,6 +1253,10 @@ void EasyMainWindow::onFrameTimeRequestTimeout()
         if (m_listener.requestFrameTime())
         {
             QTimer::singleShot(100, this, &This::checkFrameTimeReady);
+        }
+        else if (!m_listener.connected())
+        {
+            setDisconnected();
         }
     }
 }
@@ -1258,10 +1294,10 @@ void EasyMainWindow::onListenerTimerTimeout()
             if (m_listenerTimer.isActive())
                 m_listenerTimer.stop();
 
-            m_listenerDialog->reject();
-            m_listenerDialog = nullptr;
-
             m_listener.finalizeCapture();
+
+            m_listenerDialog->accept();
+            m_listenerDialog = nullptr;
 
             if (m_listener.size() != 0)
             {
@@ -1272,7 +1308,7 @@ void EasyMainWindow::onListenerTimerTimeout()
     }
 }
 
-void EasyMainWindow::onListenerDialogClose(int)
+void EasyMainWindow::onListenerDialogClose(int _result)
 {
     if (m_listener.regime() != LISTENER_CAPTURE_RECEIVE || !m_listener.connected())
     {
@@ -1287,8 +1323,7 @@ void EasyMainWindow::onListenerDialogClose(int)
     {
         case LISTENER_CAPTURE:
         {
-            m_listenerDialog = new QMessageBox(QMessageBox::Information, "Receiving data...", "This process may take some time.", QMessageBox::NoButton, this);
-            connect(m_listenerDialog, &QDialog::finished, this, &This::onListenerDialogClose);
+            m_listenerDialog = new QMessageBox(QMessageBox::Information, "Receiving data...", "This process may take some time.", QMessageBox::Cancel, this);
             m_listenerDialog->setAttribute(Qt::WA_DeleteOnClose, true);
             m_listenerDialog->show();
 
@@ -1301,14 +1336,9 @@ void EasyMainWindow::onListenerDialogClose(int)
             }
             else
             {
+                connect(m_listenerDialog, &QDialog::finished, this, &This::onListenerDialogClose);
                 m_listenerTimer.start(250);
             }
-
-            //if (m_listener.size() != 0)
-            //{
-            //    readStream(m_listener.data());
-            //    m_listener.clearData();
-            //}
 
             break;
         }
@@ -1317,10 +1347,45 @@ void EasyMainWindow::onListenerDialogClose(int)
         {
             if (!m_listener.captured())
             {
-                m_listenerDialog = new QMessageBox(QMessageBox::Information, "Receiving data...", "This process may take some time.", QMessageBox::NoButton, this);
-                connect(m_listenerDialog, &QDialog::finished, this, &This::onListenerDialogClose);
-                m_listenerDialog->setAttribute(Qt::WA_DeleteOnClose, true);
-                m_listenerDialog->show();
+                if (_result == QDialog::Accepted)
+                {
+                    m_listenerDialog = new QMessageBox(QMessageBox::Information, "Receiving data...", "This process may take some time.", QMessageBox::Cancel, this);
+                    connect(m_listenerDialog, &QDialog::finished, this, &This::onListenerDialogClose);
+                    m_listenerDialog->setAttribute(Qt::WA_DeleteOnClose, true);
+                    m_listenerDialog->show();
+                }
+                else
+                {
+                    m_listener.finalizeCapture();
+                    m_listener.clearData();
+
+                    if (m_listener.connected())
+                    {
+                        // make reconnect to clear socket buffers
+                        std::string address = m_listener.address();
+
+                        profiler::net::EasyProfilerStatus reply(false, false, false);
+                        if (m_listener.connect(address.c_str(), m_listener.port(), reply))
+                        {
+                            disconnect(m_eventTracingEnableAction, &QAction::triggered, this, &This::onEventTracingEnableChange);
+                            disconnect(m_eventTracingPriorityAction, &QAction::triggered, this, &This::onEventTracingPriorityChange);
+
+                            m_eventTracingEnableAction->setChecked(reply.isEventTracingEnabled);
+                            m_eventTracingPriorityAction->setChecked(reply.isLowPriorityEventTracing);
+
+                            connect(m_eventTracingEnableAction, &QAction::triggered, this, &This::onEventTracingEnableChange);
+                            connect(m_eventTracingPriorityAction, &QAction::triggered, this, &This::onEventTracingPriorityChange);
+
+                            if (reply.isProfilerEnabled)
+                            {
+                                // Connected application is already profiling.
+                                // Show capture dialog immediately
+                                onCaptureClicked(true);
+                            }
+                        }
+                    }
+                }
+
                 break;
             }
 
@@ -2040,6 +2105,8 @@ bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profile
 
         m_bConnected.store(false, ::std::memory_order_release);
         m_bInterrupt.store(false, ::std::memory_order_release);
+        m_bCaptureReady.store(false, ::std::memory_order_release);
+        m_bStopReceive.store(false, ::std::memory_order_release);
     }
 
     m_address.clear();

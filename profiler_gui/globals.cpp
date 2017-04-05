@@ -78,6 +78,7 @@ namespace profiler_gui {
         , blocks_narrow_size(20)
         , max_fps_history(100)
         , fps_timer_interval(1000)
+        , fps_widget_line_width(2)
         , chrono_text_position(ChronoTextPosition_Center)
         , time_units(TimeUnits_ms)
         , connected(false)

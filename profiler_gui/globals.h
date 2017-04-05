@@ -157,6 +157,7 @@ namespace profiler_gui {
         int                           blocks_narrow_size; ///< Width indicating narrow blocks
         int                              max_fps_history; ///< Max frames history displayed in FPS Monitor
         int                           fps_timer_interval; ///< Interval in milliseconds for sending network requests to the profiled application (used by FPS Monitor)
+        int                        fps_widget_line_width; ///< Line width in pixels of FPS lines for FPS Monitor
         ChronometerTextPosition     chrono_text_position; ///< Selected interval text position
         TimeUnits                             time_units; ///< Units type for time (milliseconds, microseconds, nanoseconds or auto-definition)
         bool                                   connected; ///< Is connected to source (to be able to capture profiling information)

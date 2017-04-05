@@ -272,6 +272,7 @@ protected slots:
     void onNarrowSizeChange(int _value);
     void onFpsIntervalChange(int _value);
     void onFpsHistoryChange(int _value);
+    void onFpsMonitorLineWidthChange(int _value);
     void onFileReaderTimeout();
     void onFrameTimeRequestTimeout();
     void onListenerTimerTimeout();
