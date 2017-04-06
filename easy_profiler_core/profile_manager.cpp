@@ -938,7 +938,7 @@ void ProfileManager::beginContextSwitch(profiler::thread_id_t _thread_id, profil
     if (ts != nullptr)
         // Dirty hack: _target_thread_id will be written to the field "block_id_t m_id"
         // and will be available calling method id().
-        ts->sync.openedList.emplace(_time, _target_thread_id, _target_process);
+        ts->sync.openedList.emplace(_time, _time, _target_thread_id, _target_process);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1006,7 +1006,7 @@ void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, processi
         return;
 
     Block& lastBlock = ts->sync.openedList.top();
-    lastBlock.finish(_endtime);
+    lastBlock.m_end = _endtime;
 
     ts->storeCSwitch(lastBlock);
     ts->sync.openedList.pop();
@@ -1395,7 +1395,7 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
             t.blocks.closedList.serialize(_outputStream);
 
         t.clearClosed();
-        t.blocks.openedList.clear();
+        //t.blocks.openedList.clear();
         t.sync.openedList.clear();
 
         if (t.expired.load(std::memory_order_acquire) != 0)

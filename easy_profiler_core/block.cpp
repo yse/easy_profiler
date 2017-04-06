@@ -62,6 +62,14 @@ BaseBlockData::BaseBlockData(timestamp_t _begin_time, block_id_t _descriptor_id)
 
 }
 
+BaseBlockData::BaseBlockData(timestamp_t _begin_time, timestamp_t _end_time, block_id_t _descriptor_id)
+    : m_begin(_begin_time)
+    , m_end(_end_time)
+    , m_id(_descriptor_id)
+{
+
+}
+
 Block::Block(Block&& that)
     : BaseBlockData(that.m_begin, that.m_id)
     , m_name(that.m_name)
@@ -72,6 +80,14 @@ Block::Block(Block&& that)
 
 Block::Block(timestamp_t _begin_time, block_id_t _descriptor_id, const char* _runtimeName)
     : BaseBlockData(_begin_time, _descriptor_id)
+    , m_name(_runtimeName)
+    , m_status(::profiler::ON)
+{
+
+}
+
+Block::Block(timestamp_t _begin_time, timestamp_t _end_time, block_id_t _descriptor_id, const char* _runtimeName)
+    : BaseBlockData(_begin_time, _end_time, _descriptor_id)
     , m_name(_runtimeName)
     , m_status(::profiler::ON)
 {

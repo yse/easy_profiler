@@ -468,6 +468,7 @@ namespace profiler {
 
         BaseBlockData(const BaseBlockData&) = default;
         BaseBlockData(timestamp_t _begin_time, block_id_t _id);
+        BaseBlockData(timestamp_t _begin_time, timestamp_t _end_time, block_id_t _id);
 
         inline timestamp_t begin() const { return m_begin; }
         inline timestamp_t end() const { return m_end; }
@@ -508,6 +509,7 @@ namespace profiler {
         Block(Block&& that);
         Block(const BaseBlockDescriptor* _desc, const char* _runtimeName);
         Block(timestamp_t _begin_time, block_id_t _id, const char* _runtimeName);
+        Block(timestamp_t _begin_time, timestamp_t _end_time, block_id_t _id, const char* _runtimeName);
         ~Block();
 
         inline const char* name() const { return m_name; }
