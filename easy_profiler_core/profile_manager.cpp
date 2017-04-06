@@ -861,6 +861,7 @@ void ProfileManager::beginBlock(Block& _block)
 
     if (++THIS_THREAD_STACK_SIZE > 1)
     {
+        _block.m_status = profiler::OFF;
         THIS_THREAD->blocks.openedList.emplace(_block);
         return;
     }
@@ -869,6 +870,7 @@ void ProfileManager::beginBlock(Block& _block)
     if (state == EASY_PROF_DISABLED)
     {
         THIS_THREAD_HALT = false;
+        _block.m_status = profiler::OFF;
         THIS_THREAD->blocks.openedList.emplace(_block);
         beginFrame();
         return;
@@ -879,6 +881,7 @@ void ProfileManager::beginBlock(Block& _block)
     {
         if (THIS_THREAD_HALT || THIS_THREAD->blocks.openedList.empty())
         {
+            _block.m_status = profiler::OFF;
             THIS_THREAD->blocks.openedList.emplace(_block);
 
             if (!THIS_THREAD_HALT)
