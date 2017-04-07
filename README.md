@@ -50,7 +50,8 @@ You can see the results of measuring in simple GUI application which provides fu
 - Measuring over network
 - Capture thread context-switch events
 - Fully remove integration via defines
-- GUI could be connected to an application which is already profiling (so you can profile even initialization of your application)
+- GUI could be connected to an application which is already profiling (so you can profile initialization of your application)
+- Monitor main thread fps at real-time in GUI even if profiling is disabled or draw your own HUD/fps-plot directly in your application using data provided by profiler 
 
 # Usage
 
