@@ -1453,7 +1453,8 @@ const char* ProfileManager::registerThread(const char* name, ThreadGuard& thread
     if (!THIS_THREAD->named) {
         THIS_THREAD->named = true;
         THIS_THREAD->name = name;
-        THIS_THREAD_IS_MAIN = !strncmp(name, "Main", 4);
+        if (THIS_THREAD->name == "Main")
+            THIS_THREAD_IS_MAIN = true;
     }
 
     threadGuard.m_id = THIS_THREAD->id;
@@ -1469,7 +1470,8 @@ const char* ProfileManager::registerThread(const char* name)
     if (!THIS_THREAD->named) {
         THIS_THREAD->named = true;
         THIS_THREAD->name = name;
-        THIS_THREAD_IS_MAIN = !strncmp(name, "Main", 4);
+        if (THIS_THREAD->name == "Main")
+            THIS_THREAD_IS_MAIN = true;
     }
 
     return THIS_THREAD->name.c_str();
