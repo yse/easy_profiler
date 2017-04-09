@@ -371,25 +371,26 @@ class ProfileManager
     typedef std::unordered_map<profiler::hashed_stdstring, profiler::block_id_t> descriptors_map_t;
 #endif
 
-    const processid_t               m_processId;
+    const processid_t                     m_processId;
 
-    map_of_threads_stacks             m_threads;
-    block_descriptors_t           m_descriptors;
-    descriptors_map_t          m_descriptorsMap;
-    uint64_t                   m_usedMemorySize;
-    profiler::timestamp_t           m_beginTime;
-    profiler::timestamp_t             m_endTime;
-    std::atomic<profiler::timestamp_t>  m_frameMax;
-    std::atomic<profiler::timestamp_t>  m_frameAvg;
-    std::atomic<profiler::timestamp_t> m_frameCur;
-    profiler::spin_lock                  m_spin;
-    profiler::spin_lock            m_storedSpin;
-    profiler::spin_lock              m_dumpSpin;
-    std::atomic<char>          m_profilerStatus;
-    std::atomic_bool    m_isEventTracingEnabled;
-    std::atomic_bool       m_isAlreadyListening;
-    std::atomic_bool            m_frameMaxReset;
-    std::atomic_bool            m_frameAvgReset;
+    map_of_threads_stacks                   m_threads;
+    block_descriptors_t                 m_descriptors;
+    descriptors_map_t                m_descriptorsMap;
+    uint64_t                         m_usedMemorySize;
+    profiler::timestamp_t                 m_beginTime;
+    profiler::timestamp_t                   m_endTime;
+    std::atomic<profiler::timestamp_t>     m_frameMax;
+    std::atomic<profiler::timestamp_t>     m_frameAvg;
+    std::atomic<profiler::timestamp_t>     m_frameCur;
+    profiler::spin_lock                        m_spin;
+    profiler::spin_lock                  m_storedSpin;
+    profiler::spin_lock                    m_dumpSpin;
+    std::atomic<profiler::thread_id_t> m_mainThreadId;
+    std::atomic<char>                m_profilerStatus;
+    std::atomic_bool          m_isEventTracingEnabled;
+    std::atomic_bool             m_isAlreadyListening;
+    std::atomic_bool                  m_frameMaxReset;
+    std::atomic_bool                  m_frameAvgReset;
 
     std::string m_csInfoFilename = "/tmp/cs_profiling_info.log";
 

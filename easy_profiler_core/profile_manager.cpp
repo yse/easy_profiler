@@ -658,6 +658,7 @@ ProfileManager::ProfileManager() :
     m_isAlreadyListening = ATOMIC_VAR_INIT(false);
     m_stopListen = ATOMIC_VAR_INIT(false);
 
+    m_mainThreadId = ATOMIC_VAR_INIT(0);
     m_frameMax = ATOMIC_VAR_INIT(0);
     m_frameAvg = ATOMIC_VAR_INIT(0);
     m_frameCur = ATOMIC_VAR_INIT(0);
@@ -1304,6 +1305,8 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
     }
 #endif
 
+    bool mainThreadExpired = false;
+
     // Calculate used memory total size and total blocks number
     uint64_t usedMemorySize = 0;
     uint32_t blocks_number = 0;
@@ -1315,6 +1318,9 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
         const char expired = checkThreadExpired(t);
         if (num == 0 && (expired != 0 || !t.guarded)) {
             // Remove thread if it contains no profiled information and has been finished or is not guarded.
+            profiler::thread_id_t id = it->first;
+            if (!mainThreadExpired && m_mainThreadId.compare_exchange_weak(id, 0, std::memory_order_release, std::memory_order_acquire))
+                mainThreadExpired = true;
             m_threads.erase(it++);
             continue;
         }
@@ -1399,9 +1405,17 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
         t.sync.openedList.clear();
 
         if (t.expired.load(std::memory_order_acquire) != 0)
-            m_threads.erase(it++); // Remove expired thread after writing all profiled information
+        {
+            // Remove expired thread after writing all profiled information
+            profiler::thread_id_t id = it->first;
+            if (!mainThreadExpired && m_mainThreadId.compare_exchange_weak(id, 0, std::memory_order_release, std::memory_order_acquire))
+                mainThreadExpired = true;
+            m_threads.erase(it++);
+        }
         else
+        {
             ++it;
+        }
     }
 
     m_storedSpin.unlock();
@@ -1450,11 +1464,16 @@ const char* ProfileManager::registerThread(const char* name, ThreadGuard& thread
         THIS_THREAD = &threadStorage(getCurrentThreadId());
 
     THIS_THREAD->guarded = true;
-    if (!THIS_THREAD->named) {
+    if (!THIS_THREAD->named)
+    {
         THIS_THREAD->named = true;
         THIS_THREAD->name = name;
+
         if (THIS_THREAD->name == "Main")
-            THIS_THREAD_IS_MAIN = true;
+        {
+            profiler::thread_id_t id = 0;
+            THIS_THREAD_IS_MAIN = m_mainThreadId.compare_exchange_weak(id, THIS_THREAD->id, std::memory_order_release, std::memory_order_acquire);
+        }
     }
 
     threadGuard.m_id = THIS_THREAD->id;
@@ -1467,11 +1486,16 @@ const char* ProfileManager::registerThread(const char* name)
     if (THIS_THREAD == nullptr)
         THIS_THREAD = &threadStorage(getCurrentThreadId());
 
-    if (!THIS_THREAD->named) {
+    if (!THIS_THREAD->named)
+    {
         THIS_THREAD->named = true;
         THIS_THREAD->name = name;
+
         if (THIS_THREAD->name == "Main")
-            THIS_THREAD_IS_MAIN = true;
+        {
+            profiler::thread_id_t id = 0;
+            THIS_THREAD_IS_MAIN = m_mainThreadId.compare_exchange_weak(id, THIS_THREAD->id, std::memory_order_release, std::memory_order_acquire);
+        }
     }
 
     return THIS_THREAD->name.c_str();
