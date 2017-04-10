@@ -54,6 +54,7 @@
 
 #include <QGraphicsScene>
 #include <QFontMetricsF>
+#include <math.h>
 #include "blocks_graphics_view.h"
 #include "easy_chronometer_item.h"
 #include "globals.h"
