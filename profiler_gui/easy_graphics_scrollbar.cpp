@@ -348,7 +348,7 @@ void EasyHistogramItem::paintByPtr(QPainter* _painter)
 
     QRectF rect;
     QBrush brush(Qt::SolidPattern);
-    QRgb previousColor = 0;
+    //QRgb previousColor = 0;
 
     _painter->save();
     _painter->setTransform(QTransform::fromScale(1.0 / currentScale, 1), true);
@@ -538,7 +538,7 @@ void EasyHistogramItem::paintById(QPainter* _painter)
 
     QRectF rect;
     QBrush brush(Qt::SolidPattern);
-    QRgb previousColor = 0;
+    //QRgb previousColor = 0;
 
     _painter->save();
     _painter->setTransform(QTransform::fromScale(1.0 / currentScale, 1), true);

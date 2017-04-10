@@ -1205,8 +1205,6 @@ void EasyGraphicsView::mouseMoveEvent(QMouseEvent* _event)
 
         if (m_chronometerItemAux->isVisible())
         {
-            auto x = m_chronometerItemAux->toItem(mouseScenePos.x());
-
             auto prevValue = m_chronometerItemAux->hoverLeft();
             m_chronometerItemAux->setHoverLeft(m_chronometerItemAux->hoverLeft(mouseScenePos.x()));
             needUpdate = needUpdate || (prevValue != m_chronometerItemAux->hoverLeft());

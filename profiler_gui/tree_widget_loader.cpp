@@ -790,11 +790,10 @@ size_t EasyTreeWidgetLoader::setTreeInternalPlain(const ::profiler::BlocksTreeRo
         {
             ++total_items;
 
-            size_t children_items_number = 0;
             ::profiler::timestamp_t children_duration = 0;
             if (!child.children.empty())
             {
-                children_items_number = setTreeInternalPlain(_threadRoot, _firstCswitch, _beginTime, child.children, _frame, _frame, _left, _right, _strict, children_duration, _colorizeRows, _addZeroBlocks, _units);
+                setTreeInternalPlain(_threadRoot, _firstCswitch, _beginTime, child.children, _frame, _frame, _left, _right, _strict, children_duration, _colorizeRows, _addZeroBlocks, _units);
                 if (interrupted())
                     break;
             }

@@ -240,7 +240,7 @@ void EasyFPSGraphicsItem::clear()
 void EasyFPSGraphicsItem::addPoint(uint32_t _maxFrameTime, uint32_t _avgFrameTime)
 {
     m_frames.emplace_back(_maxFrameTime, _avgFrameTime);
-    if (m_frames.size() > EASY_GLOBALS.max_fps_history)
+    if (static_cast<int>(m_frames.size()) > EASY_GLOBALS.max_fps_history)
         m_frames.pop_front();
 }
 
