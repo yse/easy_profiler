@@ -71,6 +71,9 @@ class EasyGraphicsView;
 
 class EasyChronometerItem : public QGraphicsItem
 {
+    typedef QGraphicsItem Parent;
+    typedef EasyChronometerItem This;
+
     QPolygonF  m_indicator; ///< Indicator displayed when this chrono item is out of screen (displaying only for main item)
     QRectF  m_boundingRect; ///< boundingRect (see QGraphicsItem)
     QColor         m_color; ///< Color of the item
@@ -78,6 +81,8 @@ class EasyChronometerItem : public QGraphicsItem
     bool           m_bMain; ///< Is this chronometer main (true, by default)
     bool        m_bReverse; ///< 
     bool m_bHoverIndicator; ///< Mouse hover above indicator
+    bool  m_bHoverLeftBorder;
+    bool m_bHoverRightBorder;
 
 public:
 
@@ -93,6 +98,8 @@ public:
 
     // Public non-virtual methods
 
+    void hide();
+
     void setColor(const QColor& _color);
 
     void setBoundingRect(qreal x, qreal y, qreal w, qreal h);
@@ -102,13 +109,32 @@ public:
 
     void setReverse(bool _reverse);
 
-    void setHover(bool _hover);
+    void setHoverIndicator(bool _hover);
 
-    bool contains(const QPointF& _pos) const override;
+    bool indicatorContains(const QPointF& _pos) const;
+
+    void setHoverLeft(bool _hover);
+    void setHoverRight(bool _hover);
+
+    bool hoverLeft(qreal _x) const;
+    bool hoverRight(qreal _x) const;
+
+    QPointF toItem(const QPointF& _pos) const;
+    qreal toItem(qreal _x) const;
 
     inline bool hoverIndicator() const
     {
         return m_bHoverIndicator;
+    }
+
+    inline bool hoverLeft() const
+    {
+        return m_bHoverLeftBorder;
+    }
+
+    inline bool hoverRight() const
+    {
+        return m_bHoverRightBorder;
     }
 
     inline bool reverse() const

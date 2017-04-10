@@ -74,13 +74,15 @@ const auto CHRONOMETER_FONT = ::profiler_gui::EFont("Helvetica", 16, QFont::Bold
 //////////////////////////////////////////////////////////////////////////
 
 EasyChronometerItem::EasyChronometerItem(bool _main)
-    : QGraphicsItem()
+    : Parent()
     , m_color(::profiler_gui::CHRONOMETER_COLOR)
     , m_left(0)
     , m_right(0)
     , m_bMain(_main)
     , m_bReverse(false)
     , m_bHoverIndicator(false)
+    , m_bHoverLeftBorder(false)
+    , m_bHoverRightBorder(false)
 {
     m_indicator.reserve(3);
 }
@@ -191,9 +193,46 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     }
 
     if (m_left > sceneLeft)
+    {
+        if (m_bHoverLeftBorder)
+        {
+            // Set bold if border is hovered
+            QPen p = _painter->pen();
+            p.setWidth(3);
+            _painter->setPen(p);
+        }
+
         _painter->drawLine(QPointF(rect.left(), rect.top()), QPointF(rect.left(), rect.bottom()));
+    }
+
     if (m_right < sceneRight)
+    {
+        if (m_bHoverLeftBorder)
+        {
+            // Restore width
+            QPen p = _painter->pen();
+            p.setWidth(1);
+            _painter->setPen(p);
+        }
+        else if (m_bHoverRightBorder)
+        {
+            // Set bold if border is hovered
+            QPen p = _painter->pen();
+            p.setWidth(3);
+            _painter->setPen(p);
+        }
+
         _painter->drawLine(QPointF(rect.right(), rect.top()), QPointF(rect.right(), rect.bottom()));
+
+        // This is not necessary because another setPen() invoked for draw text
+        //if (m_bHoverRightBorder)
+        //{
+        //    // Restore width
+        //    QPen p = _painter->pen();
+        //    p.setWidth(1);
+        //    _painter->setPen(p);
+        //}
+    }
 
     // draw text
     _painter->setCompositionMode(QPainter::CompositionMode_Difference); // This lets the text to be visible on every background
@@ -252,13 +291,56 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     // END Paint!~~~~~~~~~~~~~~~~~~~~~~
 }
 
-bool EasyChronometerItem::contains(const QPointF& _pos) const
+void EasyChronometerItem::hide()
+{
+    m_bHoverIndicator = false;
+    m_bHoverLeftBorder = false;
+    m_bHoverRightBorder = false;
+    m_bReverse = false;
+    Parent::hide();
+}
+
+bool EasyChronometerItem::indicatorContains(const QPointF& _pos) const
+{
+    if (m_indicator.empty())
+        return false;
+
+    const auto itemX = toItem(_pos.x());
+    return m_indicator.containsPoint(QPointF(itemX, _pos.y()), Qt::OddEvenFill);
+}
+
+void EasyChronometerItem::setHoverLeft(bool _hover)
+{
+    m_bHoverLeftBorder = _hover;
+}
+
+void EasyChronometerItem::setHoverRight(bool _hover)
+{
+    m_bHoverRightBorder = _hover;
+}
+
+bool EasyChronometerItem::hoverLeft(qreal _x) const
+{
+    const auto dx = fabs(_x - m_left) * view()->scale();
+    return dx < 4;
+}
+
+bool EasyChronometerItem::hoverRight(qreal _x) const
+{
+    const auto dx = fabs(_x - m_right) * view()->scale();
+    return dx < 4;
+}
+
+QPointF EasyChronometerItem::toItem(const QPointF& _pos) const
 {
     const auto sceneView = view();
-    const auto clickX = (_pos.x() - sceneView->offset()) * sceneView->scale() - x();
-    if (!m_indicator.empty() && m_indicator.containsPoint(QPointF(clickX, _pos.y()), Qt::OddEvenFill))
-        return true;
-    return false;
+    return QPointF((_pos.x() - sceneView->offset()) * sceneView->scale() - x(), _pos.y());
+}
+
+qreal EasyChronometerItem::toItem(qreal _x) const
+{
+    const auto sceneView = view();
+    return (_x - sceneView->offset()) * sceneView->scale() - x();
 }
 
 void EasyChronometerItem::setColor(const QColor& _color)
@@ -295,7 +377,7 @@ void EasyChronometerItem::setReverse(bool _reverse)
     m_bReverse = _reverse;
 }
 
-void EasyChronometerItem::setHover(bool _hover)
+void EasyChronometerItem::setHoverIndicator(bool _hover)
 {
     m_bHoverIndicator = _hover;
 }

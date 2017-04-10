@@ -852,13 +852,34 @@ void EasyGraphicsView::mousePressEvent(QMouseEvent* _event)
     m_mouseButtons = _event->buttons();
     m_mousePressPos = _event->pos();
 
+    if (m_mouseButtons & Qt::LeftButton)
+    {
+        if (m_chronometerItemAux->isVisible() && (m_chronometerItemAux->hoverLeft() || m_chronometerItemAux->hoverRight()))
+        {
+            m_chronometerItemAux->setReverse(m_chronometerItemAux->hoverLeft());
+            m_bDoubleClick = true;
+        }
+        else if (m_chronometerItem->isVisible() && (m_chronometerItem->hoverLeft() || m_chronometerItem->hoverRight()))
+        {
+            m_chronometerItem->setReverse(m_chronometerItem->hoverLeft());
+            m_mouseButtons = Qt::RightButton;
+            return;
+        }
+    }
+
     if (m_mouseButtons & Qt::RightButton)
     {
-        const auto mouseX = m_offset + mapToScene(m_mousePressPos).x() / m_scale;
-        m_chronometerItem->setLeftRight(mouseX, mouseX);
-        m_chronometerItem->setReverse(false);
-        m_chronometerItem->hide();
-        m_pScrollbar->hideChrono();
+        if (m_chronometerItem->isVisible() && (m_chronometerItem->hoverLeft() || m_chronometerItem->hoverRight()))
+        {
+            m_chronometerItem->setReverse(m_chronometerItem->hoverLeft());
+        }
+        else
+        {
+            const auto mouseX = m_offset + mapToScene(m_mousePressPos).x() / m_scale;
+            m_chronometerItem->setLeftRight(mouseX, mouseX);
+            m_chronometerItem->hide();
+            m_pScrollbar->hideChrono();
+        }
     }
 
     _event->accept();
@@ -882,7 +903,6 @@ void EasyGraphicsView::mouseDoubleClickEvent(QMouseEvent* _event)
     {
         const auto mouseX = m_offset + mapToScene(m_mousePressPos).x() / m_scale;
         m_chronometerItemAux->setLeftRight(mouseX, mouseX);
-        m_chronometerItemAux->setReverse(false);
         m_chronometerItemAux->hide();
         emit sceneUpdated();
     }
@@ -909,7 +929,6 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
         if (m_chronometerItem->isVisible() && m_chronometerItem->width() < 1e-6)
         {
             m_chronometerItem->hide();
-            m_chronometerItem->setHover(false);
             m_pScrollbar->hideChrono();
         }
 
@@ -1054,6 +1073,12 @@ bool EasyGraphicsView::moveChrono(EasyChronometerItem* _chronometerItem, qreal _
         {
             _chronometerItem->setReverse(false);
             _chronometerItem->setLeftRight(_chronometerItem->right(), _mouseX);
+
+            if (_chronometerItem->hoverLeft())
+            {
+                _chronometerItem->setHoverLeft(false);
+                _chronometerItem->setHoverRight(true);
+            }
         }
         else
         {
@@ -1066,6 +1091,12 @@ bool EasyGraphicsView::moveChrono(EasyChronometerItem* _chronometerItem, qreal _
         {
             _chronometerItem->setReverse(true);
             _chronometerItem->setLeftRight(_mouseX, _chronometerItem->left());
+
+            if (_chronometerItem->hoverRight())
+            {
+                _chronometerItem->setHoverLeft(true);
+                _chronometerItem->setHoverRight(false);
+            }
         }
         else
         {
@@ -1086,7 +1117,7 @@ void EasyGraphicsView::mouseMoveEvent(QMouseEvent* _event)
 {
     m_idleTime = 0;
 
-    if (m_bEmpty || (m_mouseButtons == 0 && !m_chronometerItem->isVisible()))
+    if (m_bEmpty || (m_mouseButtons == 0 && !m_chronometerItem->isVisible() && !m_chronometerItemAux->isVisible()))
     {
         _event->accept();
         return;
@@ -1152,11 +1183,41 @@ void EasyGraphicsView::mouseMoveEvent(QMouseEvent* _event)
         needUpdate = true;
     }
 
-    if (m_chronometerItem->isVisible())
+    if (m_mouseButtons == 0)
     {
-        auto prevValue = m_chronometerItem->hoverIndicator();
-        m_chronometerItem->setHover(m_chronometerItem->contains(mouseScenePos));
-        needUpdate = needUpdate || (prevValue != m_chronometerItem->hoverIndicator());
+        if (m_chronometerItem->isVisible())
+        {
+            auto prevValue = m_chronometerItem->hoverIndicator();
+            m_chronometerItem->setHoverIndicator(m_chronometerItem->indicatorContains(mouseScenePos));
+            needUpdate = needUpdate || (prevValue != m_chronometerItem->hoverIndicator());
+
+            prevValue = m_chronometerItem->hoverLeft();
+            m_chronometerItem->setHoverLeft(m_chronometerItem->hoverLeft(mouseScenePos.x()));
+            needUpdate = needUpdate || (prevValue != m_chronometerItem->hoverLeft());
+
+            if (!m_chronometerItem->hoverLeft())
+            {
+                prevValue = m_chronometerItem->hoverRight();
+                m_chronometerItem->setHoverRight(m_chronometerItem->hoverRight(mouseScenePos.x()));
+                needUpdate = needUpdate || (prevValue != m_chronometerItem->hoverRight());
+            }
+        }
+
+        if (m_chronometerItemAux->isVisible())
+        {
+            auto x = m_chronometerItemAux->toItem(mouseScenePos.x());
+
+            auto prevValue = m_chronometerItemAux->hoverLeft();
+            m_chronometerItemAux->setHoverLeft(m_chronometerItemAux->hoverLeft(mouseScenePos.x()));
+            needUpdate = needUpdate || (prevValue != m_chronometerItemAux->hoverLeft());
+
+            if (!m_chronometerItemAux->hoverLeft())
+            {
+                prevValue = m_chronometerItemAux->hoverRight();
+                m_chronometerItemAux->setHoverRight(m_chronometerItemAux->hoverRight(mouseScenePos.x()));
+                needUpdate = needUpdate || (prevValue != m_chronometerItemAux->hoverRight());
+            }
+        }
     }
 
     if (needUpdate)
