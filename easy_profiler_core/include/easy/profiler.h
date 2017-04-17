@@ -75,7 +75,7 @@ The Apache License, Version 2.0 (the "License");
 
 // EasyProfiler core API:
 
-/** Macro for beginning of a block with custom name and color.
+/** Macro for beginning of a scoped block with custom name and color.
 
 \code
     #include <easy/profiler.h>
@@ -113,7 +113,44 @@ Block will be automatically completed by destructor.
         EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name), __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__),\
         ::std::is_base_of<::profiler::ForceConstStr, decltype(name)>::value));\
     ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name));\
-    ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
+    ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__));
+
+/** Macro for beginning of a non-scoped block with custom name and color.
+
+You must end such block manually with EASY_END_BLOCK.
+
+\code
+    #include <easy/profiler.h>
+    void foo() {
+        EASY_NONSCOPED_BLOCK("Callback"); // Begin block which would not be finished when function returns.
+
+        // some code ...
+    }
+
+    void bar() {
+        // some another code...
+
+        EASY_END_BLOCK; // This, as always, ends last opened block. You have to take care about blocks order by yourself.
+    }
+
+    void baz() {
+        foo(); // non-scoped block begins here
+
+        // some code...
+
+        bar(); // non-scoped block ends here
+    }
+\endcode
+
+Block will be automatically completed by destructor.
+
+\ingroup profiler
+*/
+#define EASY_NONSCOPED_BLOCK(name, ...)\
+    EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), ::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__),\
+        EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name), __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__),\
+        ::std::is_base_of<::profiler::ForceConstStr, decltype(name)>::value));\
+    ::profiler::beginNonScopedBlock(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name));
 
 /** Macro for beginning of a block with function name and custom color.
 
@@ -350,6 +387,7 @@ Otherwise, no log messages will be printed.
 #else // #ifdef BUILD_WITH_EASY_PROFILER
 
 # define EASY_BLOCK(...)
+# define EASY_NONSCOPED_BLOCK(...)
 # define EASY_FUNCTION(...)
 # define EASY_END_BLOCK 
 # define EASY_PROFILER_ENABLE 
@@ -395,6 +433,7 @@ Otherwise, no log messages will be printed.
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
+class NonscopedBlock;
 class ProfileManager;
 struct ThreadStorage;
 
@@ -486,13 +525,15 @@ namespace profiler {
 
     //***********************************************
 
-    class PROFILER_API Block EASY_FINAL : public BaseBlockData
+    class PROFILER_API Block : public BaseBlockData
     {
         friend ::ProfileManager;
         friend ::ThreadStorage;
+        friend ::NonscopedBlock;
 
         const char*       m_name;
         EasyBlockStatus m_status;
+        bool          m_isScoped;
 
     private:
 
@@ -507,7 +548,7 @@ namespace profiler {
     public:
 
         Block(Block&& that);
-        Block(const BaseBlockDescriptor* _desc, const char* _runtimeName);
+        Block(const BaseBlockDescriptor* _desc, const char* _runtimeName, bool _scoped = true);
         Block(timestamp_t _begin_time, block_id_t _id, const char* _runtimeName);
         Block(timestamp_t _begin_time, timestamp_t _end_time, block_id_t _id, const char* _runtimeName);
         ~Block();
@@ -537,10 +578,33 @@ namespace profiler {
 #ifdef BUILD_WITH_EASY_PROFILER
     extern "C" {
 
+        /** Returns current time in ticks.
+
+        You can use it if you want to store block explicitly.
+
+        \ingroup profiler
+        */
+        PROFILER_API timestamp_t currentTime();
+
+        /** Convert ticks to nanoseconds.
+
+        \ingroup profiler
+        */
+        PROFILER_API timestamp_t toNanoseconds(timestamp_t _ticks);
+
+        /** Convert ticks to microseconds.
+
+        \ingroup profiler
+        */
+        PROFILER_API timestamp_t toMicroseconds(timestamp_t _ticks);
+
         /** Registers static description of a block.
 
         It is general information which is common for all such blocks.
         Includes color, block type (see BlockType), file-name, line-number, compile-time name of a block and enable-flag.
+
+        \note This API function is used by EASY_EVENT, EASY_BLOCK, EASY_FUNCTION macros.
+        There is no need to invoke this function explicitly.
 
         \ingroup profiler
         */
@@ -550,18 +614,55 @@ namespace profiler {
 
         An event ends instantly and has zero duration.
 
+        \note There is no need to invoke this function explicitly - use EASY_EVENT macro instead.
+
         \param _desc Reference to the previously registered description.
         \param _runtimeName Standard zero-terminated string which will be copied to the events buffer.
+
+        \note _runtimeName must be an empty string ("") if you do not want to set name to the event at run-time.
         
         \ingroup profiler
         */
-        PROFILER_API void storeEvent(const BaseBlockDescriptor* _desc, const char* _runtimeName);
+        PROFILER_API void storeEvent(const BaseBlockDescriptor* _desc, const char* _runtimeName = "");
 
-        /** Begins block.
+        /** Stores block explicitly in the blocks list.
+
+        Use this function for additional flexibility if you want to set block duration manually.
+
+        \param _desc Reference to the previously registered description.
+        \param _runtimeName Standard zero-terminated string which will be copied to the events buffer.
+        \param _beginTime begin time of the block
+        \param _endTime end time of the block
+
+        \note _runtimeName must be an empty string ("") if you do not want to set name to the block at run-time.
+
+        \ingroup profiler
+        */
+        PROFILER_API void storeBlock(const BaseBlockDescriptor* _desc, const char* _runtimeName, timestamp_t _beginTime, timestamp_t _endTime);
+
+        /** Begins scoped block.
 
         \ingroup profiler
         */
         PROFILER_API void beginBlock(Block& _block);
+
+        /** Begins non-scoped block.
+
+        \param _desc Reference to the previously registered description (see registerDescription).
+        \param _runtimeName Standard zero-terminated string which will be copied to the block buffer when block will end.
+
+        \note There is no need to invoke this function explicitly - use EASY_NONSCOPED_BLOCK macro instead.
+        EASY_NONSCOPED_BLOCK macro could be used for higher flexibility if you have to begin block in one
+        function and end it in another one.
+
+        \note _runtimeName must be an empty string ("") if you do not want to set name to the block at run-time.
+        \note _runtimeName is copied only when block ends so you must ensure it's validity until block end.
+
+        \warning You have to end this block explicitly.
+
+        \ingroup profiler
+        */
+        PROFILER_API void beginNonScopedBlock(const BaseBlockDescriptor* _desc, const char* _runtimeName = "");
 
         /** Ends last started block.
 
@@ -723,13 +824,18 @@ namespace profiler {
 
     }
 #else
+    inline timestamp_t currentTime() { return 0; }
+    inline timestamp_t toNanoseconds(timestamp_t) { return 0; }
+    inline timestamp_t toMicroseconds(timestamp_t) { return 0; }
     inline const BaseBlockDescriptor* registerDescription(EasyBlockStatus, const char*, const char*, const char*, int, block_type_t, color_t, bool = false)
     { return reinterpret_cast<const BaseBlockDescriptor*>(0xbad); }
     inline void endBlock() { }
     inline void setEnabled(bool) { }
     inline bool isEnabled() { return false; }
-    inline void storeEvent(const BaseBlockDescriptor*, const char*) { }
+    inline void storeEvent(const BaseBlockDescriptor*, const char* = "") { }
+    inline void storeBlock(const BaseBlockDescriptor*, const char*, timestamp_t, timestamp_t) { }
     inline void beginBlock(Block&) { }
+    inline void beginNonScopedBlock(const BaseBlockDescriptor*, const char* = "") { }
     inline uint32_t dumpBlocksToFile(const char*) { return 0; }
     inline const char* registerThreadScoped(const char*, ThreadGuard&) { return ""; }
     inline const char* registerThread(const char*) { return ""; }

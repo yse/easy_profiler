@@ -55,7 +55,7 @@ The Apache License, Version 2.0 (the "License");
 #include <unordered_map>
 #include <thread>
 #include <atomic>
-//#include <list>
+#include <list>
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -67,6 +67,10 @@ The Apache License, Version 2.0 (the "License");
 #include <sys/syscall.h>
 #include <chrono>
 #include <time.h>
+#endif
+
+#ifdef max
+#undef max
 #endif
 
 inline uint32_t getCurrentThreadId()
@@ -159,6 +163,10 @@ class chunk_allocator
             *(uint16_t*)last->data = 0;
         }
 
+        /** Invert current chunks list to enable to iterate over chunks list in direct order.
+
+        This method is used by serialize().
+        */
         void invert()
         {
             chunk* next = nullptr;
@@ -187,6 +195,11 @@ public:
         m_chunks.emplace_back();
     }
 
+    /** Allocate n bytes.
+
+    Automatically checks if there is enough preserved memory to store additional n bytes
+    and allocates additional buffer if needed.
+    */
     void* allocate(uint16_t n)
     {
         ++m_size;
@@ -216,6 +229,8 @@ public:
         return data;
     }
 
+    /** Check if current storage is not enough to store additional n bytes.
+    */
     inline bool need_expand(uint16_t n) const
     {
         return (m_shift + n + sizeof(uint16_t)) > N;
@@ -245,8 +260,11 @@ public:
     */
     void serialize(profiler::OStream& _outputStream)
     {
+        // Chunks are stored in reversed order (stack).
+        // To be able to iterate them in direct order we have to invert chunks list.
         m_chunks.invert();
 
+        // Iterate over chunks and perform blocks serialization
         auto current = m_chunks.last;
         do {
             const int8_t* data = current->data;
@@ -262,55 +280,101 @@ public:
 
         clear();
     }
-};
+
+}; // END of class chunk_allocator.
 
 //////////////////////////////////////////////////////////////////////////
 
-const uint16_t SIZEOF_CSWITCH = sizeof(profiler::BaseBlockData) + 1 + sizeof(uint16_t);
+class NonscopedBlock : public profiler::Block
+{
+    std::string m_runtimeName; ///< a copy of _runtimeName to make it safe to begin block in one function and end it in another
 
-typedef std::vector<profiler::SerializedBlock*> serialized_list_t;
+    NonscopedBlock() = delete;
+    NonscopedBlock(const NonscopedBlock&) = delete;
+    NonscopedBlock(NonscopedBlock&&) = delete;
+    NonscopedBlock& operator = (const NonscopedBlock&) = delete;
+    NonscopedBlock& operator = (NonscopedBlock&&) = delete;
+
+public:
+
+    NonscopedBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, bool = false);
+    ~NonscopedBlock();
+
+    /** Copy string from m_name to m_runtimeName to make it safe to end block in another function.
+
+    Performs any work if block is ON and m_name != ""
+    */
+    void copyname();
+
+}; // END of class NonscopedBlock.
+
+//////////////////////////////////////////////////////////////////////////
+
+template <class T>
+class StackBuffer
+{
+    struct chunk { int8_t data[sizeof(T)]; };
+
+    std::list<chunk> m_overflow; ///< List of additional stack elements if current capacity of buffer is not enough
+    T*                 m_buffer; ///< Contiguous buffer used for stack
+    uint32_t             m_size; ///< Current size of stack
+    uint32_t         m_capacity; ///< Current capacity of m_buffer
+    uint32_t      m_maxcapacity; ///< Maximum used capacity including m_buffer and m_overflow
+
+public:
+
+    StackBuffer(uint32_t N) : m_buffer((T*)malloc(N * sizeof(T))), m_size(0), m_capacity(N), m_maxcapacity(N)
+    {
+    }
+
+    ~StackBuffer()
+    {
+        free(m_buffer);
+    }
+
+    template <class ... TArgs>
+    T& push(TArgs ... _args)
+    {
+        if (m_size < m_capacity)
+            return *(::new (m_buffer + m_size++) T(_args...));
+
+        m_overflow.emplace_back();
+        const uint32_t cap = m_capacity + (uint32_t)m_overflow.size();
+        if (m_maxcapacity < cap)
+            m_maxcapacity = cap;
+
+        return *(::new (m_overflow.back().data + 0) T(_args...));
+    }
+
+    void pop()
+    {
+        if (m_overflow.empty())
+        {
+            // m_size should not be equal to 0 here because ProfileManager behavior does not allow such situation
+            if (--m_size == 0 && m_maxcapacity > m_capacity)
+            {
+                // When stack gone empty we can resize buffer to use enough space in future
+                free(m_buffer);
+                m_maxcapacity = m_capacity = std::max(m_maxcapacity, m_capacity << 1);
+                m_buffer = (T*)malloc(m_capacity * sizeof(T));
+            }
+
+            return;
+        }
+
+        m_overflow.pop_back();
+    }
+
+}; // END of class StackBuffer.
+
+//////////////////////////////////////////////////////////////////////////
 
 template <class T, const uint16_t N>
 struct BlocksList
 {
     BlocksList() = default;
 
-    class Stack {
-        //std::stack<T> m_stack;
-        std::vector<T> m_stack;
-
-    public:
-
-        inline void clear() { m_stack.clear(); }
-        inline bool empty() const { return m_stack.empty(); }
-
-        inline void emplace(profiler::Block& _block) {
-            //m_stack.emplace(_block);
-            m_stack.emplace_back(_block);
-        }
-
-        inline void emplace(profiler::Block&& _block) {
-            //m_stack.emplace(_block);
-            m_stack.emplace_back(std::forward<profiler::Block&&>(_block));
-        }
-
-        template <class ... TArgs> inline void emplace(TArgs ... _args) {
-            //m_stack.emplace(_args);
-            m_stack.emplace_back(_args...);
-        }
-
-        inline T& top() {
-            //return m_stack.top();
-            return m_stack.back();
-        }
-
-        inline void pop() {
-            //m_stack.pop();
-            m_stack.pop_back();
-        }
-    };
-
-    Stack                     openedList;
+    std::vector<T>            openedList;
     chunk_allocator<N>        closedList;
     uint64_t          usedMemorySize = 0;
 
@@ -318,24 +382,31 @@ struct BlocksList
         //closedList.clear();
         usedMemorySize = 0;
     }
-};
+
+}; // END of struct BlocksList.
+
+//////////////////////////////////////////////////////////////////////////
+
+const uint16_t SIZEOF_CSWITCH = sizeof(profiler::BaseBlockData) + 1 + sizeof(uint16_t);
 
 struct ThreadStorage
 {
+    StackBuffer<NonscopedBlock>                                                 nonscopedBlocks;
     BlocksList<std::reference_wrapper<profiler::Block>, SIZEOF_CSWITCH * (uint16_t)128U> blocks;
     BlocksList<profiler::Block, SIZEOF_CSWITCH * (uint16_t)128U>                           sync;
-    std::string name;
+
+    std::string name; ///< Thread name
 
 #ifndef _WIN32
-    const pthread_t pthread_id;
+    const pthread_t pthread_id; ///< Thread pointer
 #endif
 
-    const profiler::thread_id_t id;
-    std::atomic<char> expired;
-    std::atomic_bool frame; ///< is new frame working
-    bool allowChildren;
-    bool named;
-    bool guarded;
+    const profiler::thread_id_t id; ///< Thread ID
+    std::atomic<char>      expired; ///< Is thread expired
+    std::atomic_bool         frame; ///< Is new frame opened
+    bool             allowChildren; ///< False if one of previously opened blocks has OFF_RECURSIVE or ON_WITHOUT_CHILDREN status
+    bool                     named; ///< True if thread name was set
+    bool                   guarded; ///< True if thread has been registered using ThreadGuard
 
     void storeBlock(const profiler::Block& _block);
     void storeCSwitch(const profiler::Block& _block);
@@ -343,7 +414,8 @@ struct ThreadStorage
     void popSilent();
 
     ThreadStorage();
-};
+
+}; // END of struct ThreadStorage.
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -417,7 +489,9 @@ public:
                                                             bool _copyName = false);
 
     bool storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName);
+    bool storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, profiler::timestamp_t _beginTime, profiler::timestamp_t _endTime);
     void beginBlock(profiler::Block& _block);
+    void beginNonScopedBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName);
     void endBlock();
     profiler::timestamp_t maxFrameDuration();
     profiler::timestamp_t avgFrameDuration();
@@ -474,6 +548,9 @@ private:
         guard_lock_t lock(m_spin);
         return _findThreadStorage(_thread_id);
     }
-};
+
+}; // END of class ProfileManager.
+
+//////////////////////////////////////////////////////////////////////////
 
 #endif // EASY_PROFILER_MANAGER_H

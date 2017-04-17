@@ -158,9 +158,9 @@ void modellingThread(){
 #else
     for (int i = 0; i < MODELLING_STEPS; i++){
 #endif
-        //EASY_FRAME_COUNTER;
+        EASY_END_BLOCK;
+        EASY_NONSCOPED_BLOCK("Frame");
         modellingStep();
-        //EASY_END_FRAME_COUNTER;
 
         localSleep(1200000);
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));
