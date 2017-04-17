@@ -165,6 +165,7 @@ public:
     ::std::stringstream& data();
     void clearData();
 
+    void disconnect();
     bool connect(const char* _ipaddress, uint16_t _port, ::profiler::net::EasyProfilerStatus& _reply);
 
     bool startCapture();

@@ -1231,11 +1231,12 @@ void EasyMainWindow::setDisconnected(bool _showMessage)
         m_fpsRequestTimer.stop();
 
     if (_showMessage)
-        QMessageBox::warning(this, "Warning", "Application was disconnected", QMessageBox::Close);
+        QMessageBox::warning(this, "Warning", "Connection has lost", QMessageBox::Close);
 
     EASY_GLOBALS.connected = false;
     m_captureAction->setEnabled(false);
     SET_ICON(m_connectAction, ":/Connection");
+    m_connectAction->setText(tr("Connect"));
 
     m_eventTracingEnableAction->setEnabled(false);
     m_eventTracingPriorityAction->setEnabled(false);
@@ -1739,20 +1740,28 @@ void EasyMainWindow::onConnectClicked(bool)
     const decltype(m_lastPort) port = m_portEdit->text().toUShort();
     //m_addressEdit->setText(address);
 
-    const bool isReconnecting = (EASY_GLOBALS.connected && m_listener.port() == port && address.toStdString() == m_listener.address());
+    const bool isSameAddress = (EASY_GLOBALS.connected && m_listener.port() == port && address.toStdString() == m_listener.address());
     if (EASY_GLOBALS.connected)
     {
-        if (QMessageBox::question(this, isReconnecting ? "Reconnect" : "New connection", QString("Current connection will be broken\n\n%1")
-            .arg(isReconnecting ? "Re-connect?" : "Establish new connection?"),
-            QMessageBox::Yes, QMessageBox::No) != QMessageBox::Yes)
-        {
-            if (!isReconnecting)
-            {
-                // Restore last values
-                m_addressEdit->setText(m_lastAddress);
-                m_portEdit->setText(QString::number(m_lastPort));
-            }
+        //if (QMessageBox::question(this, isSameAddress ? "Reconnect" : "New connection", QString("Current connection will be broken\n\n%1")
+        //    .arg(isSameAddress ? "Re-connect?" : "Establish new connection?"),
+        //    QMessageBox::Yes, QMessageBox::No) != QMessageBox::Yes)
+        //{
+        //    if (!isSameAddress)
+        //    {
+        //        // Restore last values
+        //        m_addressEdit->setText(m_lastAddress);
+        //        m_portEdit->setText(QString::number(m_lastPort));
+        //    }
+        //
+        //    return;
+        //}
 
+        if (isSameAddress)
+        {
+            // Disconnect if clicked "Connect" with the same address
+            m_listener.disconnect();
+            setDisconnected(false);
             return;
         }
     }
@@ -1760,7 +1769,7 @@ void EasyMainWindow::onConnectClicked(bool)
     profiler::net::EasyProfilerStatus reply(false, false, false);
     if (!m_listener.connect(address.toStdString().c_str(), port, reply))
     {
-        if (EASY_GLOBALS.connected && !isReconnecting)
+        if (EASY_GLOBALS.connected && !isSameAddress)
         {
             if (QMessageBox::warning(this, "Warning", QString("Cannot connect to %1\n\nRestore previous connection?").arg(address),
                 QMessageBox::Yes, QMessageBox::No) == QMessageBox::Yes)
@@ -1776,7 +1785,7 @@ void EasyMainWindow::onConnectClicked(bool)
                 {
                     m_addressEdit->setText(m_lastAddress);
                     m_portEdit->setText(QString::number(m_lastPort));
-                //    QMessageBox::information(this, "Information", "Previous connection restored", QMessageBox::Close);
+                    //QMessageBox::information(this, "Information", "Previous connection restored", QMessageBox::Close);
                 }
             }
             else
@@ -1792,7 +1801,7 @@ void EasyMainWindow::onConnectClicked(bool)
             if (EASY_GLOBALS.connected)
                 setDisconnected(false);
 
-            if (!isReconnecting)
+            if (!isSameAddress)
             {
                 m_lastAddress = ::std::move(address);
                 m_lastPort = port;
@@ -1809,6 +1818,10 @@ void EasyMainWindow::onConnectClicked(bool)
     EASY_GLOBALS.connected = true;
     m_captureAction->setEnabled(true);
     SET_ICON(m_connectAction, ":/Connection-on");
+    m_connectAction->setText(tr("Disconnect"));
+
+    if (m_fpsViewer->isVisible())
+        static_cast<EasyFrameRateViewer*>(m_fpsViewer->widget())->clear();
 
     if (!m_fpsRequestTimer.isActive())
         m_fpsRequestTimer.start(EASY_GLOBALS.fps_timer_interval);
@@ -2093,6 +2106,27 @@ void EasySocketListener::clearData()
 {
     clear_stream(m_receivedData);
     m_receivedSize = 0;
+}
+
+void EasySocketListener::disconnect()
+{
+    if (connected())
+    {
+        m_bInterrupt.store(true, ::std::memory_order_release);
+        if (m_thread.joinable())
+            m_thread.join();
+
+        m_bConnected.store(false, ::std::memory_order_release);
+        m_bInterrupt.store(false, ::std::memory_order_release);
+        m_bCaptureReady.store(false, ::std::memory_order_release);
+        m_bStopReceive.store(false, ::std::memory_order_release);
+    }
+
+    m_address.clear();
+    m_port = 0;
+
+    m_easySocket.flush();
+    m_easySocket.init();
 }
 
 bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profiler::net::EasyProfilerStatus& _reply)
