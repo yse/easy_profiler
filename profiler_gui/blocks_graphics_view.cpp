@@ -1511,8 +1511,19 @@ void EasyGraphicsView::onIdleTimeout()
                     lay->addWidget(new EasyBoldLabel(name, widget), row, 0, 1, 5, Qt::AlignHCenter);
                     ++row;
 
+                    const auto duration = itemBlock.node->duration();
                     lay->addWidget(new QLabel("Duration:", widget), row, 0, Qt::AlignRight);
-                    lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, itemBlock.node->duration(), 3), widget), row, 1, 1, 3, Qt::AlignLeft);
+                    lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, duration, 3), widget), row, 1, 1, 3, Qt::AlignLeft);
+                    ++row;
+
+                    ::profiler::timestamp_t children_duration = 0;
+                    for (auto child : itemBlock.children)
+                        children_duration += easyBlock(child).tree.node->duration();
+
+                    const auto self_duration = duration - children_duration;
+                    const auto self_percent = duration == 0 ? 100. : ::profiler_gui::percentReal(self_duration, duration);
+                    lay->addWidget(new QLabel("Self:", widget), row, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel(QString("%1 (%2%)").arg(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, self_duration, 3)).arg(QString::number(self_percent, 'g', 3)), widget), row, 1, 1, 3, Qt::AlignLeft);
                     ++row;
                 }
                 else
@@ -1569,8 +1580,8 @@ void EasyGraphicsView::onIdleTimeout()
                                     idleTime += cs->duration();
                             }
 
-                            auto active_time = duration - idleTime;
-                            auto active_percent = duration == 0 ? 100. : ::profiler_gui::percentReal(active_time, duration);
+                            const auto active_time = duration - idleTime;
+                            const auto active_percent = duration == 0 ? 100. : ::profiler_gui::percentReal(active_time, duration);
                             lay->addWidget(new QLabel("Active time:", widget), row, 0, Qt::AlignRight);
                             lay->addWidget(new QLabel(QString("%1 (%2%)").arg(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, active_time, 3)).arg(QString::number(active_percent, 'g', 3)), widget), row, 1, 1, 3, Qt::AlignLeft);
                             ++row;
