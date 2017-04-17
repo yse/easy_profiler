@@ -260,7 +260,7 @@ extern "C" {
 #elif defined(USE_STD_CHRONO)
         return _ticks;
 #else
-        return _ticks / CPU_FREQUENCY.load(std::memory_order_acquire)
+        return _ticks / CPU_FREQUENCY.load(std::memory_order_acquire);
 #endif
     }
 
@@ -271,7 +271,7 @@ extern "C" {
 #elif defined(USE_STD_CHRONO)
         return _ticks / 1000;
 #else
-        return _ticks * 1000 / CPU_FREQUENCY.load(std::memory_order_acquire)
+        return _ticks * 1000 / CPU_FREQUENCY.load(std::memory_order_acquire);
 #endif
     }
 
@@ -608,6 +608,11 @@ void NonscopedBlock::copyname()
         m_runtimeName = m_name;
         m_name = m_runtimeName.c_str();
     }
+}
+
+void NonscopedBlock::destroy()
+{
+    m_runtimeName.std::string::~string(); // free memory used by m_runtimeName
 }
 
 //////////////////////////////////////////////////////////////////////////

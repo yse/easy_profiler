@@ -306,9 +306,22 @@ public:
     */
     void copyname();
 
+    void destroy();
+
 }; // END of class NonscopedBlock.
 
 //////////////////////////////////////////////////////////////////////////
+
+template <class T>
+inline void destroy_elem(T*)
+{
+
+}
+
+inline void destroy_elem(NonscopedBlock* _elem)
+{
+    _elem->destroy();
+}
 
 template <class T>
 class StackBuffer
@@ -329,7 +342,13 @@ public:
 
     ~StackBuffer()
     {
+        for (uint32_t i = 0; i < m_size; ++i)
+            destroy_elem(m_buffer + i);
+
         free(m_buffer);
+
+        for (auto& elem : m_overflow)
+            destroy_elem(reinterpret_cast<T*>(elem.data + 0));
     }
 
     template <class ... TArgs>
@@ -351,9 +370,11 @@ public:
         if (m_overflow.empty())
         {
             // m_size should not be equal to 0 here because ProfileManager behavior does not allow such situation
-            if (--m_size == 0 && m_maxcapacity > m_capacity)
+            destroy_elem(m_buffer + --m_size);
+
+            if (m_size == 0 && m_maxcapacity > m_capacity)
             {
-                // When stack gone empty we can resize buffer to use enough space in future
+                // When stack gone empty we can resize buffer to use enough space in the future
                 free(m_buffer);
                 m_maxcapacity = m_capacity = std::max(m_maxcapacity, m_capacity << 1);
                 m_buffer = (T*)malloc(m_capacity * sizeof(T));
@@ -362,6 +383,7 @@ public:
             return;
         }
 
+        destroy_elem(reinterpret_cast<T*>(m_overflow.back().data + 0));
         m_overflow.pop_back();
     }
 
