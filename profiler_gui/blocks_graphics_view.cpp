@@ -575,7 +575,7 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
     _item->reserve(level, n);
 
     _maxDepthChild = 0;
-    uint16_t maxDepth = 0;
+    uint8_t maxDepth = 0;
     const short next_level = _level + 1;
     bool warned = false;
     qreal total_duration = 0, prev_end = 0, maxh = 0;
@@ -1591,7 +1591,8 @@ void EasyGraphicsView::onIdleTimeout()
                         lay->addWidget(new QLabel("per ", widget), row + 1, 0, Qt::AlignRight);
                         lay->addWidget(new QLabel("This %:", widget), row + 2, 0, Qt::AlignRight);
                         lay->addWidget(new QLabel("Sum %:", widget), row + 3, 0, Qt::AlignRight);
-                        lay->addWidget(new QLabel("N Calls:", widget), row + 4, 0, Qt::AlignRight);
+                        lay->addWidget(new QLabel("Sum self %:", widget), row + 4, 0, Qt::AlignRight);
+                        lay->addWidget(new QLabel("N Calls:", widget), row + 5, 0, Qt::AlignRight);
 
                         lay->addWidget(new QLabel("Thread", widget), row + 1, 1, Qt::AlignHCenter);
 
@@ -1600,7 +1601,9 @@ void EasyGraphicsView::onIdleTimeout()
 
                         lay->addWidget(new QLabel(QString::number(::profiler_gui::percent(itemBlock.per_thread_stats->total_duration, item->root()->profiled_time)), widget), row + 3, 1, Qt::AlignHCenter);
 
-                        lay->addWidget(new QLabel(QString::number(itemBlock.per_thread_stats->calls_number), widget), row + 4, 1, Qt::AlignHCenter);
+                        lay->addWidget(new QLabel(QString::number(::profiler_gui::percent(itemBlock.per_thread_stats->total_duration - itemBlock.per_thread_stats->total_children_duration, item->root()->profiled_time)), widget), row + 4, 1, Qt::AlignHCenter);
+
+                        lay->addWidget(new QLabel(QString::number(itemBlock.per_thread_stats->calls_number), widget), row + 5, 1, Qt::AlignHCenter);
 
                         int col = 1;
 
@@ -1617,7 +1620,10 @@ void EasyGraphicsView::onIdleTimeout()
                             percent = ::profiler_gui::percentReal(itemBlock.per_frame_stats->total_duration, frame_duration);
                             lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 3, col, Qt::AlignHCenter);
 
-                            lay->addWidget(new QLabel(QString::number(itemBlock.per_frame_stats->calls_number), widget), row + 4, col, Qt::AlignHCenter);
+                            percent = ::profiler_gui::percentReal(itemBlock.per_frame_stats->total_duration - itemBlock.per_frame_stats->total_children_duration, frame_duration);
+                            lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 4, col, Qt::AlignHCenter);
+
+                            lay->addWidget(new QLabel(QString::number(itemBlock.per_frame_stats->calls_number), widget), row + 5, col, Qt::AlignHCenter);
                         }
 
                         if (itemBlock.per_parent_stats->parent_block != item->threadId())
@@ -1633,7 +1639,10 @@ void EasyGraphicsView::onIdleTimeout()
                             percent = ::profiler_gui::percentReal(itemBlock.per_parent_stats->total_duration, parent_duration);
                             lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 3, col, Qt::AlignHCenter);
 
-                            lay->addWidget(new QLabel(QString::number(itemBlock.per_parent_stats->calls_number), widget), row + 4, col, Qt::AlignHCenter);
+                            percent = ::profiler_gui::percentReal(itemBlock.per_parent_stats->total_duration - itemBlock.per_parent_stats->total_children_duration, parent_duration);
+                            lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 4, col, Qt::AlignHCenter);
+
+                            lay->addWidget(new QLabel(QString::number(itemBlock.per_parent_stats->calls_number), widget), row + 5, col, Qt::AlignHCenter);
 
                             ++col;
                         }
