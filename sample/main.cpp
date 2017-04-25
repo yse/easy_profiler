@@ -165,6 +165,7 @@ void modellingThread(){
         localSleep(1200000);
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
+    EASY_END_BLOCK;
 }
 
 void renderThread(){
