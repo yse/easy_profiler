@@ -612,7 +612,7 @@ void NonscopedBlock::copyname()
 
 void NonscopedBlock::destroy()
 {
-    m_runtimeName.std::string::~string(); // free memory used by m_runtimeName
+    std::string().swap(m_runtimeName); // free memory used by m_runtimeName
 }
 
 //////////////////////////////////////////////////////////////////////////
