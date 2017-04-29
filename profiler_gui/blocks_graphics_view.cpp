@@ -1130,8 +1130,8 @@ void EasyGraphicsView::mouseMoveEvent(QMouseEvent* _event)
 
     if (m_mouseButtons != 0)
     {
-        m_mouseMovePath.setX(m_mouseMovePath.x() + ::std::abs(delta.x()));
-        m_mouseMovePath.setY(m_mouseMovePath.y() + ::std::abs(delta.y()));
+        m_mouseMovePath.setX(m_mouseMovePath.x() + abs(delta.x()));
+        m_mouseMovePath.setY(m_mouseMovePath.y() + abs(delta.y()));
     }
 
     auto mouseScenePos = mapToScene(m_mousePressPos);
@@ -1740,9 +1740,10 @@ void EasyGraphicsView::onIdleTimeout()
 
             auto br = m_csInfoWidget->boundingRect();
             if (scenePos.y() + br.height() > m_visibleSceneRect.bottom())
-                scenePos.setY(scenePos.y() - br.height());
+                scenePos.setY(::std::max(scenePos.y() - br.height(), m_visibleSceneRect.top()));
+
             if (scenePos.x() + br.width() > m_visibleSceneRect.right())
-                scenePos.setX(scenePos.x() - br.width());
+                scenePos.setX(::std::max(scenePos.x() - br.width(), m_visibleSceneRect.left()));
 
             m_csInfoWidget->setPos(scenePos);
             m_csInfoWidget->setOpacity(0.9);
