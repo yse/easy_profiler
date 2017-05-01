@@ -91,6 +91,7 @@ protected:
     QTreeWidgetItem*             m_lastFound;
     ::profiler::timestamp_t      m_beginTime;
     class QProgressDialog*        m_progress;
+    class QLabel*                m_hintLabel;
     EasyTreeMode                      m_mode;
     bool                        m_bColorRows;
     bool                           m_bLocked;
