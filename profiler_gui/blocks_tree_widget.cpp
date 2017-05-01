@@ -82,7 +82,11 @@
 
 #ifdef _WIN32
 #include <Windows.h>
+
+#ifdef __MINGW32__
 #include <processthreadsapi.h>
+#endif
+
 #endif
 
 #ifdef max
