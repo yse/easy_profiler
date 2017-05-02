@@ -86,11 +86,13 @@
 #include <QDialog>
 #include <QVBoxLayout>
 #include <QFile>
+#include <QFileInfo>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDragLeaveEvent>
 #include <QDropEvent>
 #include <QMimeData>
+#include <QDateTime>
 
 #include "main_window.h"
 #include "blocks_tree_widget.h"
@@ -110,6 +112,8 @@
 #endif
 
 //////////////////////////////////////////////////////////////////////////
+
+#define EASY_DEFAULT_WINDOW_TITLE "EasyProfiler"
 
 const int LOADER_TIMER_INTERVAL = 40;
 const auto NETWORK_CACHE_FILE = "easy_profiler_stream.cache";
@@ -134,7 +138,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     { QIcon icon(":/logo"); if (!icon.isNull()) QApplication::setWindowIcon(icon); }
 
     setObjectName("ProfilerGUI_MainWindow");
-    setWindowTitle("EasyProfiler");
+    setWindowTitle(EASY_DEFAULT_WINDOW_TITLE);
     setDockNestingEnabled(true);
     setAcceptDrops(true);
     resize(800, 600);
@@ -612,7 +616,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
 
     m_progress = new QProgressDialog("Loading file...", "Cancel", 0, 100, this);
     m_progress->setFixedWidth(300);
-    m_progress->setWindowTitle("EasyProfiler");
+    m_progress->setWindowTitle(EASY_DEFAULT_WINDOW_TITLE);
     m_progress->setModal(true);
     m_progress->setValue(100);
     //m_progress->hide();
@@ -658,7 +662,24 @@ void EasyMainWindow::dropEvent(QDropEvent* drop_event)
 {
     const auto& urls = drop_event->mimeData()->urls();
     if (!urls.empty())
+    {
+        if (m_bNetworkFileRegime)
+        {
+            // Warn user about unsaved network information and suggest to save
+            auto result = QMessageBox::question(this, "Unsaved session", "You have unsaved data!\nSave before opening new file?", QMessageBox::Yes, QMessageBox::No, QMessageBox::Cancel);
+            if (result == QMessageBox::Yes)
+            {
+                onSaveFileClicked(true);
+            }
+            else if (result != QMessageBox::No)
+            {
+                // User cancelled opening new file
+                return;
+            }
+        }
+
         loadFile(urls.front().toLocalFile());
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -669,15 +690,31 @@ void EasyMainWindow::onOpenFileClicked(bool)
     if (action == nullptr)
         return;
 
+    QString filename;
+
     if (action == m_loadActionMenu->menuAction())
-    {
-        auto filename = QFileDialog::getOpenFileName(this, "Open profiler log", m_lastFiles.empty() ? QString() : m_lastFiles.front(), "Profiler Log File (*.prof);;All Files (*.*)");
-        if (!filename.isEmpty())
-            loadFile(filename);
-    }
+        filename = QFileDialog::getOpenFileName(this, "Open EasyProfiler File", m_lastFiles.empty() ? QString() : m_lastFiles.front(), "EasyProfiler File (*.prof);;All Files (*.*)");
     else
+        filename = action->text();
+
+    if (!filename.isEmpty())
     {
-        loadFile(action->text());
+        if (m_bNetworkFileRegime)
+        {
+            // Warn user about unsaved network information and suggest to save
+            auto result = QMessageBox::question(this, "Unsaved session", "You have unsaved data!\nSave before opening new file?", QMessageBox::Yes, QMessageBox::No, QMessageBox::Cancel);
+            if (result == QMessageBox::Yes)
+            {
+                onSaveFileClicked(true);
+            }
+            else if (result != QMessageBox::No)
+            {
+                // User cancelled opening new file
+                return;
+            }
+        }
+
+        loadFile(filename);
     }
 }
 
@@ -702,6 +739,13 @@ void EasyMainWindow::addFileToList(const QString& filename)
         m_loadActionMenu->removeAction(fileActions.back());
         delete fileActions.back();
     }
+
+    m_bOpenedCacheFile = filename.contains(NETWORK_CACHE_FILE);
+
+    if (m_bOpenedCacheFile)
+        setWindowTitle(QString(EASY_DEFAULT_WINDOW_TITLE " - [%1] - UNSAVED network cache file").arg(m_lastFiles.front()));
+    else
+        setWindowTitle(QString(EASY_DEFAULT_WINDOW_TITLE " - [%1]").arg(m_lastFiles.front()));
 }
 
 void EasyMainWindow::loadFile(const QString& filename)
@@ -743,9 +787,57 @@ void EasyMainWindow::onSaveFileClicked(bool)
     if (k > 0)
         dir = lastFile.mid(0, ++k);
 
-    auto filename = QFileDialog::getSaveFileName(this, "Save profiler log", dir, "Profiler Log File (*.prof);;All Files (*.*)");
+    if (m_bNetworkFileRegime)
+    {
+        // Current file is network cache file, use current system time as output file name
+
+        if (!dir.isEmpty())
+            dir += QDateTime::currentDateTime().toString("/yyyy-MM-dd_HH-mm-ss.prof");
+        else
+            dir = QDateTime::currentDateTime().toString("yyyy-MM-dd_HH-mm-ss.prof");
+    }
+    else if (m_bOpenedCacheFile)
+    {
+        // Opened old network cache file, use it's last modification time as output file name
+
+        QFileInfo fileInfo(lastFile);
+        if (!fileInfo.exists())
+        {
+            // Can not open the file!
+
+            QMessageBox::warning(this, "Warning", "Can not open source file.\nSaving incomplete.", QMessageBox::Close);
+
+            m_lastFiles.pop_front();
+            auto action = m_loadActionMenu->actions().front();
+            m_loadActionMenu->removeAction(action);
+            delete action;
+
+            return;
+        }
+
+        if (!dir.isEmpty())
+            dir += fileInfo.lastModified().toString("/yyyy-MM-dd_HH-mm-ss.prof");
+        else
+            dir = fileInfo.lastModified().toString("yyyy-MM-dd_HH-mm-ss.prof");
+    }
+    else
+    {
+        dir = lastFile;
+    }
+
+    auto filename = QFileDialog::getSaveFileName(this, "Save EasyProfiler File", dir, "EasyProfiler File (*.prof);;All Files (*.*)");
     if (!filename.isEmpty())
     {
+        // Check if the same file has been selected
+        {
+            QFileInfo fileInfo1(m_bNetworkFileRegime ? QString(NETWORK_CACHE_FILE) : lastFile), fileInfo2(filename);
+            if (fileInfo1.exists() && fileInfo2.exists() && fileInfo1 == fileInfo2)
+            {
+                // Selected the same file - do nothing
+                return;
+            }
+        }
+
         bool inOk = false, outOk = false;
         int8_t retry1 = -1;
         while (++retry1 < 4)
@@ -780,8 +872,24 @@ void EasyMainWindow::onSaveFileClicked(bool)
         if (outOk)
         {
             if (m_bNetworkFileRegime)
+            {
+                // Remove temporary network cahche file
                 QFile::remove(QString(NETWORK_CACHE_FILE));
+            }
+            else if (m_bOpenedCacheFile)
+            {
+                // Remove old temporary network cahche file
+
+                QFile::remove(lastFile.toStdString().c_str());
+
+                m_lastFiles.pop_front();
+                auto action = m_loadActionMenu->actions().front();
+                m_loadActionMenu->removeAction(action);
+                delete action;
+            }
+
             addFileToList(filename);
+
             m_bNetworkFileRegime = false;
         }
         else if (inOk)
@@ -828,6 +936,9 @@ void EasyMainWindow::clear()
         QFile::remove(QString(NETWORK_CACHE_FILE));
 
     m_bNetworkFileRegime = false;
+    m_bOpenedCacheFile = false;
+
+    setWindowTitle(EASY_DEFAULT_WINDOW_TITLE);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -841,11 +952,9 @@ void EasyMainWindow::refreshDiagram()
 
 void EasyMainWindow::onDeleteClicked(bool)
 {
-    int button = 0;
+    int button = QMessageBox::Yes;
     if (m_bNetworkFileRegime)
         button = QMessageBox::question(this, "Clear all profiled data", "All profiled data and network cache file\nare going to be deleted!\nContinue?", QMessageBox::Yes, QMessageBox::No);
-    else
-        button = QMessageBox::question(this, "Clear all profiled data", "All profiled data are going to be deleted!\nContinue?", QMessageBox::Yes, QMessageBox::No);
 
     if (button == QMessageBox::Yes)
         clear();
@@ -1007,7 +1116,7 @@ void EasyMainWindow::onEditBlocksClicked(bool)
 
     m_descTreeDialog = new QDialog();
     m_descTreeDialog->setAttribute(Qt::WA_DeleteOnClose, true);
-    m_descTreeDialog->setWindowTitle("EasyProfiler");
+    m_descTreeDialog->setWindowTitle(EASY_DEFAULT_WINDOW_TITLE);
     m_descTreeDialog->resize(800, 600);
     connect(m_descTreeDialog, &QDialog::finished, this, &This::onDescTreeDialogClose);
 
@@ -1031,6 +1140,15 @@ void EasyMainWindow::onDescTreeDialogClose(int)
 
 void EasyMainWindow::closeEvent(QCloseEvent* close_event)
 {
+    if (m_bNetworkFileRegime)
+    {
+        // Warn user about unsaved network information and suggest to save
+        if (QMessageBox::Yes == QMessageBox::question(this, "Unsaved session", "You unsaved data!\nSave before exit?", QMessageBox::Yes, QMessageBox::No))
+        {
+            onSaveFileClicked(true);
+        }
+    }
+
     saveSettingsAndGeometry();
 
     if (m_descTreeDialog != nullptr)
@@ -1458,16 +1576,32 @@ void EasyMainWindow::onFileReaderTimeout()
                     // This file is totally new. Add it to the list.
                     addFileToList(filename);
                 }
-                else if (index != 0)
+                else
                 {
-                    // This file has been already loaded. Move it to the front.
-                    m_lastFiles.move(index, 0);
-                    auto fileActions = m_loadActionMenu->actions();
-                    auto action = fileActions.at(index);
-                    m_loadActionMenu->removeAction(action);
-                    m_loadActionMenu->insertAction(fileActions.front(), action);
+                    if (index != 0)
+                    {
+                        // This file has been already loaded. Move it to the front.
+                        m_lastFiles.move(index, 0);
+                        auto fileActions = m_loadActionMenu->actions();
+                        auto action = fileActions.at(index);
+                        m_loadActionMenu->removeAction(action);
+                        m_loadActionMenu->insertAction(fileActions.front(), action);
+                    }
+
+                    m_bOpenedCacheFile = filename.contains(NETWORK_CACHE_FILE);
+
+                    if (m_bOpenedCacheFile)
+                        setWindowTitle(QString(EASY_DEFAULT_WINDOW_TITLE " - [%1] - UNSAVED network cache file").arg(filename));
+                    else
+                        setWindowTitle(QString(EASY_DEFAULT_WINDOW_TITLE " - [%1]").arg(filename));
                 }
             }
+            else
+            {
+                m_bOpenedCacheFile = false;
+                setWindowTitle(EASY_DEFAULT_WINDOW_TITLE " - UNSAVED network cache");
+            }
+
             m_serializedBlocks = ::std::move(serialized_blocks);
             m_serializedDescriptors = ::std::move(serialized_descriptors);
             m_descriptorsNumberInFile = descriptorsNumberInFile;
