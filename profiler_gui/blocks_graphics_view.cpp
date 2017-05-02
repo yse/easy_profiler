@@ -1508,7 +1508,7 @@ void EasyGraphicsView::onIdleTimeout()
                 if (itemDesc.type() == ::profiler::BLOCK_TYPE_BLOCK)
                 {
                     //lay->addWidget(new QLabel("Name:", widget), row, 0, Qt::AlignRight);
-                    lay->addWidget(new EasyBoldLabel(name, widget), row, 0, 1, 5, Qt::AlignHCenter);
+                    lay->addWidget(new EasyBoldLabel(::profiler_gui::toUnicode(name), widget), row, 0, 1, 5, Qt::AlignHCenter);
                     ++row;
 
                     const auto duration = itemBlock.node->duration();
@@ -1532,7 +1532,7 @@ void EasyGraphicsView::onIdleTimeout()
                     ++row;
 
                     lay->addWidget(new QLabel("Name:", widget), row, 0, Qt::AlignRight);
-                    lay->addWidget(new QLabel(name, widget), row, 1, Qt::AlignLeft);
+                    lay->addWidget(new QLabel(::profiler_gui::toUnicode(name), widget), row, 1, Qt::AlignLeft);
                     ++row;
                 }
 
