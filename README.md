@@ -41,6 +41,7 @@ duration, target thread id, thread owner process id, thread owner process name.
 You can see the results of measuring in simple GUI application which provides full statistics and renders beautiful time-line.
 
 ![GUI screenshot](https://cloud.githubusercontent.com/assets/1775230/24852044/a0b1edd0-1dde-11e7-8736-7052b840ad06.png)
+_Profiling example of CryEngine SDK sample_
 
 # Key features
 
