@@ -1615,7 +1615,7 @@ const char* ProfileManager::registerThread(const char* name)
 
 void ProfileManager::setBlockStatus(block_id_t _id, EasyBlockStatus _status)
 {
-    if (m_profilerStatus.load(std::memory_order_acquire) != EASY_PROF_ENABLED)
+    if (m_profilerStatus.load(std::memory_order_acquire) != EASY_PROF_DISABLED)
         return; // Changing blocks statuses is restricted while profile session is active
 
     guard_lock_t lock(m_storedSpin);
