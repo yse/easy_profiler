@@ -147,11 +147,12 @@ extern const uint32_t EASY_CURRENT_VERSION = EASY_VERSION_INT(EASY_PROFILER_VERS
 # define MANAGER ProfileManager::instance()
 const uint8_t FORCE_ON_FLAG = profiler::FORCE_ON & ~profiler::ON;
 
-#ifdef _WIN32
-decltype(LARGE_INTEGER::QuadPart) const CPU_FREQUENCY = ([](){ LARGE_INTEGER freq; QueryPerformanceFrequency(&freq); return freq.QuadPart; })();
+#if defined(EASY_CHRONO_CLOCK)
+const int64_t CPU_FREQUENCY = EASY_CHRONO_CLOCK::period::den / EASY_CHRONO_CLOCK::period::num;
 # define TICKS_TO_US(ticks) ticks * 1000000LL / CPU_FREQUENCY
-#elif defined(USE_STD_CHRONO)
-# define TICKS_TO_US(ticks) ticks / 1000
+#elif defined(_WIN32)
+const decltype(LARGE_INTEGER::QuadPart) CPU_FREQUENCY = ([](){ LARGE_INTEGER freq; QueryPerformanceFrequency(&freq); return freq.QuadPart; })();
+# define TICKS_TO_US(ticks) ticks * 1000000LL / CPU_FREQUENCY
 #else
 int64_t calculate_cpu_frequency()
 {
@@ -255,10 +256,8 @@ extern "C" {
 
     PROFILER_API timestamp_t toNanoseconds(timestamp_t _ticks)
     {
-#ifdef _WIN32
+#if defined(EASY_CHRONO_CLOCK) || defined(_WIN32)
         return _ticks * 1000000000LL / CPU_FREQUENCY;
-#elif defined(USE_STD_CHRONO)
-        return _ticks;
 #else
         return _ticks / CPU_FREQUENCY.load(std::memory_order_acquire);
 #endif
@@ -266,13 +265,7 @@ extern "C" {
 
     PROFILER_API timestamp_t toMicroseconds(timestamp_t _ticks)
     {
-#ifdef _WIN32
-        return _ticks * 1000000LL / CPU_FREQUENCY;
-#elif defined(USE_STD_CHRONO)
-        return _ticks / 1000;
-#else
-        return _ticks * 1000 / CPU_FREQUENCY.load(std::memory_order_acquire);
-#endif
+        return TICKS_TO_US(_ticks);
     }
 
     PROFILER_API const BaseBlockDescriptor* registerDescription(EasyBlockStatus _status, const char* _autogenUniqueId, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color, bool _copyName)
@@ -740,7 +733,7 @@ ProfileManager::ProfileManager() :
     startListen(profiler::DEFAULT_PORT);
 #endif
 
-#if !defined(EASY_PROFILER_API_DISABLED) && !defined(_WIN32) && !defined(USE_STD_CHRONO)
+#if !defined(EASY_PROFILER_API_DISABLED) && !defined(EASY_CHRONO_CLOCK) && !defined(_WIN32)
     const int64_t cpu_frequency = calculate_cpu_frequency();
     CPU_FREQUENCY.store(cpu_frequency, std::memory_order_release);
 #endif
@@ -1453,20 +1446,15 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
     _outputStream.write(m_processId);
 
     // Write CPU frequency to let GUI calculate real time value from CPU clocks
-#ifdef _WIN32
+#if defined(EASY_CHRONO_CLOCK) || defined(_WIN32)
     _outputStream.write(CPU_FREQUENCY);
 #else
-
-#if !defined(USE_STD_CHRONO)
     EASY_LOGMSG("Calculating CPU frequency\n");
     const int64_t cpu_frequency = calculate_cpu_frequency();
     _outputStream.write(cpu_frequency * 1000LL);
     EASY_LOGMSG("Done calculating CPU frequency\n");
 
     CPU_FREQUENCY.store(cpu_frequency, std::memory_order_release);
-#else
-    _outputStream.write(0LL);
-#endif
 #endif
 
     // Write begin and end time
