@@ -1,3 +1,4 @@
+#!/bin/bash
 TEMP_FILE_ENABLE="enable.info"
 TEMP_FILE_DISABLE="disable.info"
 OBJECTS="1000"

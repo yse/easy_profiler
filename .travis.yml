@@ -34,7 +34,7 @@ script:
   - cmake -DCMAKE_CXX_COMPILER=$CXX_COMPILER -DCMAKE_C_COMPILER=$C_COMPILER  .. && make -j3
 after_success:
   - cd ../sample && $CXX_COMPILER -std=c++11 -O3 main_clock.cpp -o test_clock && ./test_clock
-  - sh build_express_test.sh
+  - ./build_express_test.sh
 before_install:
   - sudo add-apt-repository --yes ppa:beineri/opt-qt551-trusty
   - sudo apt-get update -qq
