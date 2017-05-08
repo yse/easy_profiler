@@ -23,8 +23,6 @@ void modellingThread(){
     }
 
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(16));
-
         EASY_BLOCK("Collisions");
         volatile int i, j;
         volatile double dist;
