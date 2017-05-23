@@ -445,7 +445,7 @@ namespace profiler {
     const uint16_t DEFAULT_PORT = EASY_DEFAULT_PORT;
 
     typedef uint64_t timestamp_t;
-    typedef uint32_t thread_id_t;
+    typedef size_t thread_id_t;
     typedef uint32_t  block_id_t;
 
     enum BlockType : uint8_t

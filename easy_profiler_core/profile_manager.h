@@ -61,6 +61,9 @@ The Apache License, Version 2.0 (the "License");
 
 #ifdef _WIN32
 #include <Windows.h>
+#elif defined(__APPLE__)
+#include <pthread.h>
+#include <Availability.h>
 #else
 #include <sys/types.h>
 #include <unistd.h>
@@ -73,13 +76,22 @@ The Apache License, Version 2.0 (the "License");
 #undef max
 #endif
 
-inline uint32_t getCurrentThreadId()
+inline profiler::thread_id_t getCurrentThreadId()
 {
 #ifdef _WIN32
-    return (uint32_t)::GetCurrentThreadId();
+    return (profiler::thread_id_t)::GetCurrentThreadId();
+#elif defined(__APPLE__)
+#   if (defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED >= __MAC_10_6) || \
+       (defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_8_0)
+        EASY_THREAD_LOCAL static uint64_t _id = 0;
+        if (!_id)
+            pthread_threadid_np(NULL, &_id);
+        return (profiler::thread_id_t)_id;
+#   else
+        return (profiler::thread_id_t)pthread_self();
+#   endif
 #else
-    EASY_THREAD_LOCAL static const pid_t x = syscall(__NR_gettid);
-    EASY_THREAD_LOCAL static const uint32_t _id = (uint32_t)x;//std::hash<std::thread::id>()(std::this_thread::get_id());
+    EASY_THREAD_LOCAL static const profiler::thread_id_t _id = (profiler::thread_id_t)syscall(__NR_gettid);
     return _id;
 #endif
 }

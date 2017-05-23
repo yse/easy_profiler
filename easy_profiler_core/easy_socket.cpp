@@ -204,7 +204,7 @@ int EasySocket::send(const void *buf, size_t nbyte)
 {
     if(!checkSocket(m_replySocket))  return -1;
     int res = 0;
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__APPLE__)
     res = ::send(m_replySocket, (const char*)buf, (int)nbyte, 0);
 #else
     res = ::send(m_replySocket,buf,nbyte,MSG_NOSIGNAL);
