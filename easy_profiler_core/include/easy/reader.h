@@ -263,7 +263,12 @@ namespace profiler {
     }; // END of class BlocksTreeRoot.
 
     typedef ::profiler::BlocksTree::blocks_t blocks_t;
+
+#ifdef _WIN64
     typedef ::std::unordered_map<::profiler::thread_id_t, ::profiler::BlocksTreeRoot, ::profiler::passthrough_hash> thread_blocks_tree_t;
+#else
+    typedef ::std::unordered_map<::profiler::thread_id_t, ::profiler::BlocksTreeRoot> thread_blocks_tree_t;
+#endif
 
     //////////////////////////////////////////////////////////////////////////
 

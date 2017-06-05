@@ -100,42 +100,43 @@ inline qreal microseconds2units(qreal _value)
 
 namespace profiler_gui {
 
-template <const size_t SIZEOF_T>
-struct no_hasher {
-    template <class T> inline size_t operator () (const T& _data) const {
-        return (size_t)_data;
-    }
+template <class T, const size_t SIZEOF_T>
+struct no_hasher : public ::std::hash<T> {
+    using ::std::hash<T>::operator ();
+    //inline size_t operator () (const T& _data) const {
+    //    return ::std::hash<T>::operator () (_data);
+    //}
 };
 
 #ifdef _WIN64
-template <> struct no_hasher<8> {
-    template <class T> inline size_t operator () (T _data) const {
+template <class T> struct no_hasher<T, 8> {
+    inline size_t operator () (T _data) const {
         return (size_t)_data;
     }
 };
 #endif
 
-template <> struct no_hasher<4> {
-    template <class T> inline size_t operator () (T _data) const {
+template <class T> struct no_hasher<T, 4> {
+    inline size_t operator () (T _data) const {
         return (size_t)_data;
     }
 };
 
-template <> struct no_hasher<2> {
-    template <class T> inline size_t operator () (T _data) const {
+template <class T> struct no_hasher<T, 2> {
+    inline size_t operator () (T _data) const {
         return (size_t)_data;
     }
 };
 
-template <> struct no_hasher<1> {
-    template <class T> inline size_t operator () (T _data) const {
+template <class T> struct no_hasher<T, 1> {
+    inline size_t operator () (T _data) const {
         return (size_t)_data;
     }
 };
 
 template <class T>
 struct do_no_hash {
-    typedef no_hasher<sizeof(T)> hasher_t;
+    typedef no_hasher<T, sizeof(T)> hasher_t;
 };
 
 //////////////////////////////////////////////////////////////////////////

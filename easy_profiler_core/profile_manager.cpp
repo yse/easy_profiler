@@ -1041,7 +1041,10 @@ void ProfileManager::beginContextSwitch(profiler::thread_id_t _thread_id, profil
     if (ts != nullptr)
         // Dirty hack: _target_thread_id will be written to the field "block_id_t m_id"
         // and will be available calling method id().
-        ts->sync.openedList.emplace_back(_time, _time, _target_thread_id, _target_process);
+#ifndef _WIN32
+#pragma message "WARNING: Fix saving thread_id_t as block_id_t for Context-Switch events !!!!"
+#endif
+        ts->sync.openedList.emplace_back(_time, _time, (profiler::block_id_t)_target_thread_id, _target_process);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1284,7 +1287,7 @@ char ProfileManager::checkThreadExpired(ThreadStorage& _registeredThread)
     // Check thread for Windows
 
     DWORD exitCode = 0;
-    auto hThread = OpenThread(THREAD_QUERY_LIMITED_INFORMATION, FALSE, _registeredThread.id);
+    auto hThread = OpenThread(THREAD_QUERY_LIMITED_INFORMATION, FALSE, (DWORD)_registeredThread.id);
     if (hThread == nullptr || GetExitCodeThread(hThread, &exitCode) == FALSE || exitCode != STILL_ACTIVE)
     {
         // Thread has been expired

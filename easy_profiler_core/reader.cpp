@@ -540,7 +540,11 @@ extern "C" {
             }
         }
 
+#ifdef _WIN64
         typedef ::std::unordered_map<::profiler::thread_id_t, StatsMap, ::profiler::passthrough_hash> PerThreadStats;
+#else
+        typedef ::std::unordered_map<::profiler::thread_id_t, StatsMap> PerThreadStats;
+#endif
         PerThreadStats parent_statistics, frame_statistics;
         IdMap identification_table;
 
