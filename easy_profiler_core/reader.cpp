@@ -87,6 +87,7 @@ extern const uint32_t EASY_CURRENT_VERSION;
 # define EASY_VERSION_INT(v_major, v_minor, v_patch) ((static_cast<uint32_t>(v_major) << 24) | (static_cast<uint32_t>(v_minor) << 16) | static_cast<uint32_t>(v_patch))
 const uint32_t MIN_COMPATIBLE_VERSION = EASY_VERSION_INT(0, 1, 0); ///< minimal compatible version (.prof file format was not changed seriously since this version)
 const uint32_t EASY_V_100 = EASY_VERSION_INT(1, 0, 0); ///< in v1.0.0 some additional data were added into .prof file
+const uint32_t EASY_V_130 = EASY_VERSION_INT(1, 3, 0); ///< in v1.3.0 changed sizeof(thread_id_t) uint32_t -> uint64_t
 # undef EASY_VERSION_INT
 
 const uint64_t TIME_FACTOR = 1000000000ULL;
@@ -557,7 +558,10 @@ extern "C" {
             EASY_BLOCK("Read thread data", ::profiler::colors::DarkGreen);
 
             ::profiler::thread_id_t thread_id = 0;
-            inFile.read((char*)&thread_id, sizeof(decltype(thread_id)));
+            long thread_id_t_size = sizeof(decltype(thread_id));
+            if (version < EASY_V_130)
+                thread_id_t_size = sizeof(uint32_t);
+            inFile.read((char*)&thread_id, thread_id_t_size);
 
             auto& root = threaded_trees[thread_id];
 
