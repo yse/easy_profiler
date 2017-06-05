@@ -204,7 +204,7 @@ int EasySocket::send(const void *buf, size_t nbyte)
 {
     if(!checkSocket(m_replySocket))  return -1;
     int res = 0;
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__APPLE__)
     res = ::send(m_replySocket, (const char*)buf, (int)nbyte, 0);
 #else
     res = ::send(m_replySocket,buf,nbyte,MSG_NOSIGNAL);
@@ -268,6 +268,12 @@ int EasySocket::accept()
         //int flag = 1;
         //int result = setsockopt(m_replySocket,IPPROTO_TCP,TCP_NODELAY,(char *)&flag,sizeof(int));
 
+        // Apple doesn't have MSG_NOSIGNAL, work around it
+#ifdef __APPLE__
+        int value = 1;
+        setsockopt(m_replySocket, SOL_SOCKET, SO_NOSIGPIPE, &value, sizeof(value));
+#endif
+
         //setBlocking(m_replySocket,true);
     }
     return (int)m_replySocket;
@@ -309,6 +315,15 @@ int EasySocket::connect()
     {
         res = ::connect(m_socket,(struct sockaddr *) &serv_addr,sizeof(serv_addr));
 
+        // on Apple, treat EISCONN error as success
+#ifdef __APPLE__
+        if (res == -1 && errno == EISCONN)
+        {
+            res = 0;
+            break;
+        }
+#endif
+
         checkResult(res);
 
         if (res == 0)
@@ -338,6 +353,12 @@ int EasySocket::connect()
         tv.tv_usec = 0;
 
         setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
+
+#ifdef __APPLE__
+        // Apple doesn't have MSG_NOSIGNAL, work around it
+        int value = 1;
+        setsockopt(m_socket, SOL_SOCKET, SO_NOSIGPIPE, &value, sizeof(value));
+#endif
 
         m_replySocket = m_socket;
     }

@@ -1130,8 +1130,8 @@ void EasyGraphicsView::mouseMoveEvent(QMouseEvent* _event)
 
     if (m_mouseButtons != 0)
     {
-        m_mouseMovePath.setX(m_mouseMovePath.x() + abs(delta.x()));
-        m_mouseMovePath.setY(m_mouseMovePath.y() + abs(delta.y()));
+        m_mouseMovePath.setX(m_mouseMovePath.x() + ::std::abs((double)delta.x()));
+        m_mouseMovePath.setY(m_mouseMovePath.y() + ::std::abs((double)delta.y()));
     }
 
     auto mouseScenePos = mapToScene(m_mousePressPos);
