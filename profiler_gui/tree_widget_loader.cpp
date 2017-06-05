@@ -176,7 +176,7 @@ void EasyTreeWidgetLoader::fillTree(::profiler::timestamp_t& _beginTime, const u
     m_mode = _mode;
     m_thread = ::std::thread(&EasyTreeWidgetLoader::setTreeInternal1, this,
         ::std::ref(_beginTime), _blocksNumber, ::std::ref(_blocksTree), _colorizeRows,
-        EASY_GLOBALS.add_zero_blocks_to_hierarchy, EASY_GLOBALS.use_decorated_thread_name, EASY_GLOBALS.time_units);
+        EASY_GLOBALS.add_zero_blocks_to_hierarchy, EASY_GLOBALS.use_decorated_thread_name, EASY_GLOBALS.hex_thread_id, EASY_GLOBALS.time_units);
 }
 
 void EasyTreeWidgetLoader::fillTreeBlocks(const::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _beginTime, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, bool _colorizeRows, EasyTreeMode _mode)
@@ -185,12 +185,12 @@ void EasyTreeWidgetLoader::fillTreeBlocks(const::profiler_gui::TreeBlocks& _bloc
     m_mode = _mode;
     m_thread = ::std::thread(&EasyTreeWidgetLoader::setTreeInternal2, this,
         _beginTime, ::std::ref(_blocks), _left, _right, _strict, _colorizeRows,
-        EASY_GLOBALS.add_zero_blocks_to_hierarchy, EASY_GLOBALS.use_decorated_thread_name, EASY_GLOBALS.time_units);
+        EASY_GLOBALS.add_zero_blocks_to_hierarchy, EASY_GLOBALS.use_decorated_thread_name, EASY_GLOBALS.hex_thread_id, EASY_GLOBALS.time_units);
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyTreeWidgetLoader::setTreeInternal1(::profiler::timestamp_t& _beginTime, const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, bool _colorizeRows, bool _addZeroBlocks, bool _decoratedThreadNames, ::profiler_gui::TimeUnits _units)
+void EasyTreeWidgetLoader::setTreeInternal1(::profiler::timestamp_t& _beginTime, const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, bool _colorizeRows, bool _addZeroBlocks, bool _decoratedThreadNames, bool _hexThreadId, ::profiler_gui::TimeUnits _units)
 {
     m_items.reserve(_blocksNumber + _blocksTree.size()); // _blocksNumber does not include Thread root blocks
 
@@ -219,7 +219,7 @@ void EasyTreeWidgetLoader::setTreeInternal1(::profiler::timestamp_t& _beginTime,
 
         const auto& root = threadTree.second;
         auto item = new EasyTreeWidgetItem();
-        item->setText(COL_NAME, ::profiler_gui::decoratedThreadName(_decoratedThreadNames, root, u_thread));
+        item->setText(COL_NAME, ::profiler_gui::decoratedThreadName(_decoratedThreadNames, root, u_thread, _hexThreadId));
 
         ::profiler::timestamp_t duration = 0;
         if (!root.children.empty())
@@ -268,7 +268,7 @@ void EasyTreeWidgetLoader::setTreeInternal1(::profiler::timestamp_t& _beginTime,
 
 typedef ::std::unordered_map<::profiler::thread_id_t, ::profiler::block_index_t, ::profiler_gui::do_no_hash<::profiler::thread_id_t>::hasher_t> BeginEndIndicesMap;
 
-void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _beginTime, const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, bool _colorizeRows, bool _addZeroBlocks, bool _decoratedThreadNames, ::profiler_gui::TimeUnits _units)
+void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _beginTime, const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, bool _colorizeRows, bool _addZeroBlocks, bool _decoratedThreadNames, bool _hexThreadId, ::profiler_gui::TimeUnits _units)
 {
     //size_t blocksNumber = 0;
     //for (const auto& block : _blocks)
@@ -309,7 +309,7 @@ void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _begi
         else
         {
             thread_item = new EasyTreeWidgetItem();
-            thread_item->setText(COL_NAME, ::profiler_gui::decoratedThreadName(_decoratedThreadNames, *block.root, u_thread));
+            thread_item->setText(COL_NAME, ::profiler_gui::decoratedThreadName(_decoratedThreadNames, *block.root, u_thread, _hexThreadId));
 
             if (!block.root->children.empty())
                 duration = blocksTree(block.root->children.back()).node->end() - blocksTree(block.root->children.front()).node->begin();

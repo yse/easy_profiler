@@ -84,6 +84,7 @@ namespace profiler_gui {
         , connected(false)
         , fps_enabled(true)
         , use_decorated_thread_name(false)
+        , hex_thread_id(false)
         , enable_event_markers(true)
         , enable_statistics(true)
         , enable_zero_length(true)

@@ -222,6 +222,7 @@ private slots:
     void onSelectedThreadChange(::profiler::thread_id_t _id);
     void onSelectedBlockChange(unsigned int _block_index);
     void onRefreshRequired();
+    void onThreadViewChanged();
 
 public:
 

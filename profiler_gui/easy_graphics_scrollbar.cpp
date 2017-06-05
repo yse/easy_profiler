@@ -253,6 +253,7 @@ EasyHistogramItem::EasyHistogramItem() : Parent(nullptr)
     , m_workerImageScale(1)
     , m_workerTopDuration(0)
     , m_workerBottomDuration(0)
+    , m_blockTotalDuraion(0)
     , m_timer(::std::bind(&This::onTimeout, this))
     , m_boundaryTimer([this](){ updateImage(); }, true)
     , m_pProfilerThread(nullptr)
@@ -749,26 +750,15 @@ void EasyHistogramItem::paintById(QPainter* _painter)
     _painter->setPen(Qt::black);
     rect.setRect(0, bottom + 2, width, widget->defaultFontHeight());
 
-    const auto* item = !::profiler_gui::is_max(EASY_GLOBALS.selected_block) ? &easyBlock(EASY_GLOBALS.selected_block) : (!m_selectedBlocks.empty() ? &easyBlock(m_selectedBlocks.front()) : nullptr);
-    if (item != nullptr)
+    if (!m_selectedBlocks.empty())
     {
-        const auto name = *item->tree.node->name() != 0 ? item->tree.node->name() : easyDescriptor(item->tree.node->id()).name();
-        if (item->tree.per_thread_stats != nullptr)
-        {
-            _painter->drawText(rect, Qt::AlignHCenter | Qt::TextDontClip, QString("%1  |  %2  |  %3 calls  |  %4% of thread profiled time").arg(m_threadName).arg(::profiler_gui::toUnicode(name))
-                               .arg(item->tree.per_thread_stats->calls_number)
-                               .arg(m_threadProfiledTime ? QString::number(100. * (double)item->tree.per_thread_stats->total_duration / (double)m_threadProfiledTime, 'f', 2) : QString("100")));
-        }
-        else
-        {
-            _painter->drawText(rect, Qt::AlignHCenter | Qt::TextDontClip, QString("%1  |  %2  |  %3 calls").arg(m_threadName).arg(::profiler_gui::toUnicode(name))
-                               .arg(m_selectedBlocks.size()));
-        }
+        _painter->drawText(rect, Qt::AlignHCenter | Qt::TextDontClip, QString("%1  |  %2  |  %3 calls  |  %4% of thread profiled time")
+                           .arg(m_threadName).arg(m_blockName).arg(m_selectedBlocks.size())
+                           .arg(m_threadProfiledTime ? QString::number(100. * (double)m_blockTotalDuraion / (double)m_threadProfiledTime, 'f', 2) : QString("100")));
     }
     else
     {
-        _painter->drawText(rect, Qt::AlignHCenter | Qt::TextDontClip, QString("%1  |  %2  |  %3 calls").arg(m_threadName).arg(::profiler_gui::toUnicode(easyDescriptor(m_blockId).name()))
-                           .arg(m_selectedBlocks.size()));
+        _painter->drawText(rect, Qt::AlignHCenter | Qt::TextDontClip, QString("%1  |  %2  |  0 calls").arg(m_threadName).arg(m_blockName));
     }
 
     _painter->drawText(rect, Qt::AlignLeft, bindMode ? " MODE: zoom" : " MODE: overview");
@@ -803,13 +793,16 @@ void EasyHistogramItem::setSource(::profiler::thread_id_t _thread_id, const ::pr
     if (m_workerThread.joinable())
         m_workerThread.join();
 
+    m_blockName.clear();
+    m_blockTotalDuraion = 0;
+
     delete m_workerImage;
     m_workerImage = nullptr;
     m_imageOriginUpdate = m_imageOrigin = 0;
     m_imageScaleUpdate = m_imageScale = 1;
 
     m_selectedBlocks.clear();
-    ::profiler::BlocksTree::children_t().swap(m_selectedBlocks);
+    { ::profiler::BlocksTree::children_t().swap(m_selectedBlocks); }
 
     m_bPermitImageUpdate = false;
     m_regime = Hist_Pointer;
@@ -826,7 +819,7 @@ void EasyHistogramItem::setSource(::profiler::thread_id_t _thread_id, const ::pr
         else
         {
             const auto& root = EASY_GLOBALS.profiler_blocks[_thread_id];
-            m_threadName = ::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, root);
+            m_threadName = ::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, root, EASY_GLOBALS.hex_thread_id);
 
             if (root.children.empty())
                 m_threadDuration = 0;
@@ -918,9 +911,6 @@ void EasyHistogramItem::setSource(::profiler::thread_id_t _thread_id, ::profiler
 
     m_bPermitImageUpdate = false; // Set to false because m_workerThread have to parse input data first. This will be set to true when m_workerThread finish - see onTimeout()
     m_regime = Hist_Id;
-    m_pSource = nullptr;
-    m_topDurationStr.clear();
-    m_bottomDurationStr.clear();
 
     m_timer.stop();
     m_boundaryTimer.stop();
@@ -929,138 +919,173 @@ void EasyHistogramItem::setSource(::profiler::thread_id_t _thread_id, ::profiler
     if (m_workerThread.joinable())
         m_workerThread.join();
 
+    m_pSource = nullptr;
+    m_topDurationStr.clear();
+    m_bottomDurationStr.clear();
+    m_blockName.clear();
+    m_blockTotalDuraion = 0;
+
     delete m_workerImage;
     m_workerImage = nullptr;
     m_imageOriginUpdate = m_imageOrigin = 0;
     m_imageScaleUpdate = m_imageScale = 1;
 
     m_selectedBlocks.clear();
-    ::profiler::BlocksTree::children_t().swap(m_selectedBlocks);
+    { ::profiler::BlocksTree::children_t().swap(m_selectedBlocks); }
 
     m_threadId = _thread_id;
     m_blockId = _block_id;
 
     if (m_threadId != 0 && !::profiler_gui::is_max(m_blockId))
     {
+        m_blockName = ::profiler_gui::toUnicode(easyDescriptor(m_blockId).name());
+
         const auto& root = EASY_GLOBALS.profiler_blocks[_thread_id];
-        m_threadName = ::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, root);
-
-        if (root.children.empty())
-            m_threadDuration = 0;
-        else
-            m_threadDuration = easyBlock(root.children.back()).tree.node->end() - easyBlock(root.children.front()).tree.node->begin();
-
-        m_threadProfiledTime = root.profiled_time;
-        m_threadWaitTime = root.wait_time;
+        m_threadName = ::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, root, EASY_GLOBALS.hex_thread_id);
         m_pProfilerThread = &root;
         m_timeUnits = EASY_GLOBALS.time_units;
 
-        m_bReady.store(false, ::std::memory_order_release);
-        m_workerThread = ::std::thread([this](decltype(root) profiler_thread)
+        if (root.children.empty())
         {
-            typedef ::std::vector<::std::pair<::profiler::block_index_t, ::profiler::block_index_t> > Stack;
+            m_threadDuration = 0;
+            m_threadProfiledTime = 0;
+            m_threadWaitTime = 0;
 
-            m_maxDuration = 0;
-            m_minDuration = 1e30;
-            //const auto& profiler_thread = EASY_GLOBALS.profiler_blocks[m_threadId];
-            Stack stack;
-            stack.reserve(profiler_thread.depth);
+            m_topDuration = m_maxDuration = 0;
+            m_bottomDuration = m_minDuration = 1e30;
 
-            for (auto frame : profiler_thread.children)
+            m_bPermitImageUpdate = true;
+
+            m_bReady.store(true, ::std::memory_order_release);
+        }
+        else
+        {
+            m_threadDuration = easyBlock(root.children.back()).tree.node->end() - easyBlock(root.children.front()).tree.node->begin();
+            m_threadProfiledTime = root.profiled_time;
+            m_threadWaitTime = root.wait_time;
+
+            m_bReady.store(false, ::std::memory_order_release);
+            m_workerThread = ::std::thread([this](decltype(root) profiler_thread, ::profiler::block_index_t selected_block)
             {
-                const auto& frame_block = easyBlock(frame).tree;
-                if (frame_block.node->id() == m_blockId)
+                typedef ::std::vector<::std::pair<::profiler::block_index_t, ::profiler::block_index_t> > Stack;
+
+                m_maxDuration = 0;
+                m_minDuration = 1e30;
+                //const auto& profiler_thread = EASY_GLOBALS.profiler_blocks[m_threadId];
+                Stack stack;
+                stack.reserve(profiler_thread.depth);
+
+                const bool has_selected_block = !::profiler_gui::is_max(selected_block);
+
+                for (auto frame : profiler_thread.children)
                 {
-                    m_selectedBlocks.push_back(frame);
+                    const auto& frame_block = easyBlock(frame).tree;
+                    if (frame_block.node->id() == m_blockId || (!has_selected_block && m_blockId == easyDescriptor(frame_block.node->id()).id()))
+                    {
+                        m_selectedBlocks.push_back(frame);
 
-                    const auto w = frame_block.node->duration();
-                    if (w > m_maxDuration)
-                        m_maxDuration = w;
+                        const auto w = frame_block.node->duration();
+                        if (w > m_maxDuration)
+                            m_maxDuration = w;
 
-                    if (w < m_minDuration)
-                        m_minDuration = w;
-                }
+                        if (w < m_minDuration)
+                            m_minDuration = w;
 
-                stack.push_back(::std::make_pair(frame, 0U));
-                while (!stack.empty())
-                {
-                    if (m_bReady.load(::std::memory_order_acquire))
-                        return;
+                        m_blockTotalDuraion += w;
+                    }
 
-                    auto& top = stack.back();
-                    const auto& top_children = easyBlock(top.first).tree.children;
-                    const auto stack_size = stack.size();
-                    for (auto end = top_children.size(); top.second < end; ++top.second)
+                    stack.push_back(::std::make_pair(frame, 0U));
+                    while (!stack.empty())
                     {
                         if (m_bReady.load(::std::memory_order_acquire))
                             return;
 
-                        const auto child_index = top_children[top.second];
-                        const auto& child = easyBlock(child_index).tree;
-                        if (child.node->id() == m_blockId)
+                        auto& top = stack.back();
+                        const auto& top_children = easyBlock(top.first).tree.children;
+                        const auto stack_size = stack.size();
+                        for (auto end = top_children.size(); top.second < end; ++top.second)
                         {
-                            m_selectedBlocks.push_back(child_index);
+                            if (m_bReady.load(::std::memory_order_acquire))
+                                return;
 
-                            const auto w = child.node->duration();
-                            if (w > m_maxDuration)
-                                m_maxDuration = w;
-                            if (w < m_minDuration)
-                                m_minDuration = w;
+                            const auto child_index = top_children[top.second];
+                            const auto& child = easyBlock(child_index).tree;
+                            if (child.node->id() == m_blockId || (!has_selected_block && m_blockId == easyDescriptor(child.node->id()).id()))
+                            {
+                                m_selectedBlocks.push_back(child_index);
+
+                                const auto w = child.node->duration();
+                                if (w > m_maxDuration)
+                                    m_maxDuration = w;
+
+                                if (w < m_minDuration)
+                                    m_minDuration = w;
+
+                                m_blockTotalDuraion += w;
+                            }
+
+                            if (!child.children.empty())
+                            {
+                                ++top.second;
+                                stack.push_back(::std::make_pair(child_index, 0U));
+                                break;
+                            }
                         }
 
-                        if (!child.children.empty())
+                        if (stack_size == stack.size())
                         {
-                            ++top.second;
-                            stack.push_back(::std::make_pair(child_index, 0U));
-                            break;
+                            stack.pop_back();
                         }
-                    }
-
-                    if (stack_size == stack.size())
-                    {
-                        stack.pop_back();
                     }
                 }
-            }
 
-            if (m_selectedBlocks.empty())
-            {
-                m_topDurationStr.clear();
-                m_bottomDurationStr.clear();
-            }
-            else
-            {
-                m_maxDuration *= 1e-3;
-                m_minDuration *= 1e-3;
-
-                if ((m_maxDuration - m_minDuration) < 1e-3)
+                if (m_selectedBlocks.empty())
                 {
-                    if (m_minDuration > 0.1)
+                    m_topDurationStr.clear();
+                    m_bottomDurationStr.clear();
+                }
+                else
+                {
+                    if (has_selected_block)
                     {
-                        m_minDuration -= 0.1;
+                        const auto& item = easyBlock(selected_block).tree;
+                        if (*item.node->name() != 0)
+                            m_blockName = ::profiler_gui::toUnicode(item.node->name());
                     }
-                    else
+
+                    m_maxDuration *= 1e-3;
+                    m_minDuration *= 1e-3;
+
+                    if ((m_maxDuration - m_minDuration) < 1e-3)
                     {
-                        m_maxDuration = 0.1;
-                        m_minDuration = 0;
+                        if (m_minDuration > 0.1)
+                        {
+                            m_minDuration -= 0.1;
+                        }
+                        else
+                        {
+                            m_maxDuration = 0.1;
+                            m_minDuration = 0;
+                        }
                     }
+
+                    m_topDurationStr = ::profiler_gui::timeStringReal(m_timeUnits, m_maxDuration, 3);
+                    m_bottomDurationStr = ::profiler_gui::timeStringReal(m_timeUnits, m_minDuration, 3);
                 }
 
-                m_topDurationStr = ::profiler_gui::timeStringReal(m_timeUnits, m_maxDuration, 3);
-                m_bottomDurationStr = ::profiler_gui::timeStringReal(m_timeUnits, m_minDuration, 3);
-            }
 
 
+                m_topDuration = m_maxDuration;
+                m_bottomDuration = m_minDuration;
 
-            m_topDuration = m_maxDuration;
-            m_bottomDuration = m_minDuration;
+                m_bReady.store(true, ::std::memory_order_release);
 
-            m_bReady.store(true, ::std::memory_order_release);
+            }, std::ref(root), EASY_GLOBALS.selected_block);
 
-        }, std::ref(root));
+            m_timeouts = 3;
+            m_timer.start(WORKER_THREAD_CHECK_INTERVAL);
+        }
 
-        m_timeouts = 3;
-        m_timer.start(WORKER_THREAD_CHECK_INTERVAL);
         show();
     }
     else
@@ -1077,7 +1102,7 @@ void EasyHistogramItem::validateName()
 {
     if (m_threadName.isEmpty())
         return;
-    m_threadName = ::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, EASY_GLOBALS.profiler_blocks[m_threadId]);
+    m_threadName = ::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, EASY_GLOBALS.profiler_blocks[m_threadId], EASY_GLOBALS.hex_thread_id);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1712,14 +1737,8 @@ EasyGraphicsScrollbar::EasyGraphicsScrollbar(QWidget* _parent)
             m_histogramItem->onModeChanged();
     });
 
-    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::threadNameDecorationChanged, [this]()
-    {
-        if (m_histogramItem->isVisible())
-        {
-            m_histogramItem->validateName();
-            scene()->update();
-        }
-    });
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::threadNameDecorationChanged, this, &This::onThreadViewChanged);
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::hexThreadIdChanged, this, &This::onThreadViewChanged);
 
     centerOn(0, 0);
 }
@@ -1727,6 +1746,17 @@ EasyGraphicsScrollbar::EasyGraphicsScrollbar(QWidget* _parent)
 EasyGraphicsScrollbar::~EasyGraphicsScrollbar()
 {
 
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void EasyGraphicsScrollbar::onThreadViewChanged()
+{
+    if (m_histogramItem->isVisible())
+    {
+        m_histogramItem->validateName();
+        scene()->update();
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -2001,54 +2031,6 @@ void EasyGraphicsScrollbar::resizeEvent(QResizeEvent* _event)
     onWindowWidthChange(_event->size().width());
     if (m_histogramItem->isVisible())
         m_histogramItem->updateImage();
-}
-
-//////////////////////////////////////////////////////////////////////////
-/*
-void EasyGraphicsScrollbar::contextMenuEvent(QContextMenuEvent* _event)
-{
-    if (EASY_GLOBALS.profiler_blocks.empty())
-    {
-        return;
-    }
-
-    QMenu menu;
-
-    for (const auto& it : EASY_GLOBALS.profiler_blocks)
-    {
-        QString label;
-        if (it.second.got_name())
-            label = ::std::move(QString("%1 Thread %2").arg(it.second.name()).arg(it.first));
-        else
-            label = ::std::move(QString("Thread %1").arg(it.first));
-
-        auto action = new QAction(label, nullptr);
-        action->setData(it.first);
-        action->setCheckable(true);
-        action->setChecked(it.first == EASY_GLOBALS.selected_thread);
-        connect(action, &QAction::triggered, this, &This::onThreadActionClicked);
-
-        menu.addAction(action);
-    }
-
-    menu.exec(QCursor::pos());
-    _event->accept();
-}
-*/
-//////////////////////////////////////////////////////////////////////////
-
-void EasyGraphicsScrollbar::onThreadActionClicked(bool)
-{
-    auto action = qobject_cast<QAction*>(sender());
-    if (action == nullptr)
-        return;
-
-    const auto thread_id = action->data().toUInt();
-    if (thread_id != EASY_GLOBALS.selected_thread)
-    {
-        EASY_GLOBALS.selected_thread = thread_id;
-        emit EASY_GLOBALS.events.selectedThreadChanged(thread_id);
-    }
 }
 
 //////////////////////////////////////////////////////////////////////////

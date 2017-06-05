@@ -1368,27 +1368,32 @@ void EasyGraphicsView::initMode()
         onRefreshRequired();
     });
 
-    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::threadNameDecorationChanged, [this]()
-    {
-        if (m_bEmpty)
-            return;
-
-        for (auto item : m_items)
-            item->validateName();
-
-        emit treeChanged();
-
-        updateVisibleSceneRect();
-        onHierarchyFlagChange(EASY_GLOBALS.only_current_thread_hierarchy);
-
-        repaintScene();
-    });
+    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::threadNameDecorationChanged, this, &This::onThreadViewChanged);
+    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::hexThreadIdChanged, this, &This::onThreadViewChanged);
 
     connect(globalSignals, &::profiler_gui::EasyGlobalSignals::blocksTreeModeChanged, [this]()
     {
         if (!m_selectedBlocks.empty())
             emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_chronometerItem->left()), position2time(m_chronometerItem->right()), m_chronometerItem->reverse());
     });
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void EasyGraphicsView::onThreadViewChanged()
+{
+    if (m_bEmpty)
+        return;
+
+    for (auto item : m_items)
+        item->validateName();
+
+    emit treeChanged();
+
+    updateVisibleSceneRect();
+    onHierarchyFlagChange(EASY_GLOBALS.only_current_thread_hierarchy);
+
+    repaintScene();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1675,7 +1680,14 @@ void EasyGraphicsView::onIdleTimeout()
                 lay->addWidget(new QLabel("Thread:", widget), row, 0, Qt::AlignRight);
                 auto it = EASY_GLOBALS.profiler_blocks.find(cse->tree.node->id());
                 if (it != EASY_GLOBALS.profiler_blocks.end())
-                    lay->addWidget(new QLabel(QString("%1 %2").arg(cse->tree.node->id()).arg(it->second.name()), widget), row, 1, 1, 2, Qt::AlignLeft);
+                {
+                    if (EASY_GLOBALS.hex_thread_id)
+                        lay->addWidget(new QLabel(QString("0x%1 %2").arg(cse->tree.node->id(), 0, 16).arg(it->second.name()), widget), row, 1, 1, 2, Qt::AlignLeft);
+                    else
+                        lay->addWidget(new QLabel(QString("%1 %2").arg(cse->tree.node->id()).arg(it->second.name()), widget), row, 1, 1, 2, Qt::AlignLeft);
+                }
+                else if (EASY_GLOBALS.hex_thread_id)
+                    lay->addWidget(new QLabel(QString("0x%1").arg(cse->tree.node->id(), 0, 16), widget), row, 1, 1, 2, Qt::AlignLeft);
                 else
                     lay->addWidget(new QLabel(QString::number(cse->tree.node->id()), widget), row, 1, 1, 2, Qt::AlignLeft);
                 ++row;

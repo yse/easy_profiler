@@ -96,7 +96,7 @@ const auto SELECTED_ITEM_FONT = ::profiler_gui::EFont("Helvetica", 10, QFont::Bo
 
 EasyGraphicsItem::EasyGraphicsItem(uint8_t _index, const::profiler::BlocksTreeRoot& _root)
     : QGraphicsItem(nullptr)
-    , m_threadName(::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, _root))
+    , m_threadName(::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, _root, EASY_GLOBALS.hex_thread_id))
     , m_pRoot(&_root)
     , m_index(_index)
 {
@@ -108,7 +108,7 @@ EasyGraphicsItem::~EasyGraphicsItem()
 
 void EasyGraphicsItem::validateName()
 {
-    m_threadName = ::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, *m_pRoot);
+    m_threadName = ::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, *m_pRoot, EASY_GLOBALS.hex_thread_id);
 }
 
 const EasyGraphicsView* EasyGraphicsItem::view() const

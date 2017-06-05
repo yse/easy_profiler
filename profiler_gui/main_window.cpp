@@ -385,6 +385,16 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
         emit EASY_GLOBALS.events.threadNameDecorationChanged();
     });
 
+    action = submenu->addAction("Display hex thread id");
+    action->setToolTip("Display hex thread id instead of decimal.");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.hex_thread_id);
+    connect(action, &QAction::triggered, [this](bool _checked)
+    {
+        EASY_GLOBALS.hex_thread_id = _checked;
+        emit EASY_GLOBALS.events.hexThreadIdChanged();
+    });
+
     submenu->addSeparator();
     auto actionGroup = new QActionGroup(this);
     actionGroup->setExclusive(true);
@@ -1264,6 +1274,10 @@ void EasyMainWindow::loadSettings()
     if (!flag.isNull())
         EASY_GLOBALS.use_decorated_thread_name = flag.toBool();
 
+    flag = settings.value("hex_thread_id");
+    if (!flag.isNull())
+        EASY_GLOBALS.hex_thread_id = flag.toBool();
+
     flag = settings.value("fps_timer_interval");
     if (!flag.isNull())
         EASY_GLOBALS.fps_timer_interval = flag.toInt();
@@ -1334,6 +1348,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("enable_event_indicators", EASY_GLOBALS.enable_event_markers);
     settings.setValue("auto_adjust_histogram_height", EASY_GLOBALS.auto_adjust_histogram_height);
     settings.setValue("use_decorated_thread_name", EASY_GLOBALS.use_decorated_thread_name);
+    settings.setValue("hex_thread_id", EASY_GLOBALS.hex_thread_id);
     settings.setValue("enable_statistics", EASY_GLOBALS.enable_statistics);
     settings.setValue("fps_timer_interval", EASY_GLOBALS.fps_timer_interval);
     settings.setValue("max_fps_history", EASY_GLOBALS.max_fps_history);

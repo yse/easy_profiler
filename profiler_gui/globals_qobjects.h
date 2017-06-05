@@ -82,6 +82,7 @@ namespace profiler_gui {
         void autoAdjustHistogramChanged();
         void hierarchyFlagChanged(bool);
         void threadNameDecorationChanged();
+        void hexThreadIdChanged();
         void refreshRequired();
         void blocksTreeModeChanged();
 

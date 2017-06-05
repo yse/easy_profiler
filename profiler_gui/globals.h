@@ -101,29 +101,47 @@ namespace profiler_gui {
 
     //////////////////////////////////////////////////////////////////////////
 
-    inline QString decoratedThreadName(bool _use_decorated_thread_name, const::profiler::BlocksTreeRoot& _root, const QString& _unicodeThreadWord)
+    inline QString decoratedThreadName(bool _use_decorated_thread_name, const::profiler::BlocksTreeRoot& _root, const QString& _unicodeThreadWord, bool _hex = false)
     {
         if (_root.got_name())
         {
             QString rootname(toUnicode(_root.name()));
             if (!_use_decorated_thread_name || rootname.contains(_unicodeThreadWord, Qt::CaseInsensitive))
+            {
+                if (_hex)
+                    return QString("%1 0x%2").arg(rootname).arg(_root.thread_id, 0, 16);
                 return QString("%1 %2").arg(rootname).arg(_root.thread_id);
+            }
+
+            if (_hex)
+                return QString("%1 Thread 0x%2").arg(rootname).arg(_root.thread_id, 0, 16);
             return QString("%1 Thread %2").arg(rootname).arg(_root.thread_id);
         }
 
+        if (_hex)
+            return QString("Thread 0x%1").arg(_root.thread_id, 0, 16);
         return QString("Thread %1").arg(_root.thread_id);
     }
 
-    inline QString decoratedThreadName(bool _use_decorated_thread_name, const ::profiler::BlocksTreeRoot& _root)
+    inline QString decoratedThreadName(bool _use_decorated_thread_name, const ::profiler::BlocksTreeRoot& _root, bool _hex = false)
     {
         if (_root.got_name())
         {
             QString rootname(toUnicode(_root.name()));
             if (!_use_decorated_thread_name || rootname.contains(toUnicode("thread"), Qt::CaseInsensitive))
+            {
+                if (_hex)
+                    return QString("%1 0x%2").arg(rootname).arg(_root.thread_id, 0, 16);
                 return QString("%1 %2").arg(rootname).arg(_root.thread_id);
+            }
+
+            if (_hex)
+                return QString("%1 Thread 0x%2").arg(rootname).arg(_root.thread_id, 0, 16);
             return QString("%1 Thread %2").arg(rootname).arg(_root.thread_id);
         }
 
+        if (_hex)
+            return QString("Thread 0x%1").arg(_root.thread_id, 0, 16);
         return QString("Thread %1").arg(_root.thread_id);
     }
 
@@ -163,6 +181,7 @@ namespace profiler_gui {
         bool                                   connected; ///< Is connected to source (to be able to capture profiling information)
         bool                                 fps_enabled; ///< Is FPS Monitor enabled
         bool                   use_decorated_thread_name; ///< Add "Thread" to the name of each thread (if there is no one)
+        bool                               hex_thread_id; ///< Use hex view for thread-id instead of decimal
         bool                        enable_event_markers; ///< Enable event indicators painting (These are narrow rectangles at the bottom of each thread)
         bool                           enable_statistics; ///< Enable gathering and using statistics (Disable if you want to consume less memory)
         bool                          enable_zero_length; ///< Enable zero length blocks (if true, then such blocks will have width == 1 pixel on each scale)

@@ -157,9 +157,11 @@ class EasyHistogramItem : public QGraphicsItem
     qreal                            m_workerImageScale;
     qreal                           m_workerTopDuration;
     qreal                        m_workerBottomDuration;
+    ::profiler::timestamp_t         m_blockTotalDuraion;
     QString                            m_topDurationStr;
     QString                         m_bottomDurationStr;
     QString                                m_threadName;
+    QString                                 m_blockName;
     ::profiler::BlocksTree::children_t m_selectedBlocks;
     QImage                                  m_mainImage;
     EasyQTimer                                  m_timer;
@@ -270,7 +272,6 @@ public:
     void mouseMoveEvent(QMouseEvent* _event) override;
     void wheelEvent(QWheelEvent* _event) override;
     void resizeEvent(QResizeEvent* _event) override;
-    //void contextMenuEvent(QContextMenuEvent* _event) override;
 
     void dragEnterEvent(QDragEnterEvent*) override {}
 
@@ -325,7 +326,7 @@ signals:
 
 private slots:
 
-    void onThreadActionClicked(bool);
+    void onThreadViewChanged();
     void onWindowWidthChange(qreal _width);
 
 }; // END of class EasyGraphicsScrollbar.
