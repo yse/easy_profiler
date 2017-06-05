@@ -394,7 +394,7 @@ void EasyDescTreeWidget::build()
             if (p.item == nullptr)
             {
                 p.item = new QTreeWidgetItem();
-                p.item->setText(DESC_COL_FILE_LINE, desc->file());
+                p.item->setText(DESC_COL_FILE_LINE, QString(desc->file()).remove(QRegExp("^(\\.{2}\\\\+|\\/+)+")));
                 p.item->setText(DESC_COL_TYPE, "F");
                 p.item->setToolTip(DESC_COL_TYPE, "File");
             }
