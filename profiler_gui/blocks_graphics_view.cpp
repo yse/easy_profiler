@@ -64,6 +64,7 @@
 *                   : limitations under the License.
 ************************************************************************/
 
+#include <math.h>
 #include <QGraphicsScene>
 #include <QGraphicsProxyWidget>
 #include <QWheelEvent>
@@ -73,7 +74,6 @@
 #include <QGridLayout>
 #include <QDebug>
 #include <QSignalBlocker>
-#include <math.h>
 #include "blocks_graphics_view.h"
 #include "easy_graphics_item.h"
 #include "easy_chronometer_item.h"
@@ -1130,8 +1130,8 @@ void EasyGraphicsView::mouseMoveEvent(QMouseEvent* _event)
 
     if (m_mouseButtons != 0)
     {
-        m_mouseMovePath.setX(m_mouseMovePath.x() + ::std::abs((double)delta.x()));
-        m_mouseMovePath.setY(m_mouseMovePath.y() + ::std::abs((double)delta.y()));
+        m_mouseMovePath.setX(m_mouseMovePath.x() + qAbs(delta.x()));
+        m_mouseMovePath.setY(m_mouseMovePath.y() + qAbs(delta.y()));
     }
 
     auto mouseScenePos = mapToScene(m_mousePressPos);
