@@ -553,14 +553,14 @@ extern "C" {
         uint32_t read_number = 0;
         ::profiler::block_index_t blocks_counter = 0;
         ::std::vector<char> name;
+
+        const size_t thread_id_t_size = version < EASY_V_130 ? sizeof(uint32_t) : sizeof(::profiler::thread_id_t);
+
         while (!inFile.eof() && read_number < total_blocks_number)
         {
             EASY_BLOCK("Read thread data", ::profiler::colors::DarkGreen);
 
             ::profiler::thread_id_t thread_id = 0;
-            long thread_id_t_size = sizeof(decltype(thread_id));
-            if (version < EASY_V_130)
-                thread_id_t_size = sizeof(uint32_t);
             inFile.read((char*)&thread_id, thread_id_t_size);
 
             auto& root = threaded_trees[thread_id];
