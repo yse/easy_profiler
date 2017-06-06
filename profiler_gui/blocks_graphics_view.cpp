@@ -1711,7 +1711,19 @@ void EasyGraphicsView::onIdleTimeout()
 
             lay->addWidget(new QLabel("Thread:", widget), row, 0, Qt::AlignRight);
 
-            const ::profiler::thread_id_t tid = EASY_GLOBALS.version < ::profiler_gui::V130 ? cse->tree.node->id() : static_cast<const ::profiler::SerializedCSwitch*>(cse->tree.node)->tid();
+            const char* process_name = "";
+            ::profiler::thread_id_t tid = 0;
+            if (EASY_GLOBALS.version < ::profiler_gui::V130)
+            {
+                tid = cse->tree.node->id();
+                process_name = cse->tree.node->name();
+            }
+            else
+            {
+                tid = cse->tree.cs->tid();
+                process_name = cse->tree.cs->name();
+            }
+
             auto it = EASY_GLOBALS.profiler_blocks.find(tid);
 
             if (it != EASY_GLOBALS.profiler_blocks.end())
@@ -1728,7 +1740,7 @@ void EasyGraphicsView::onIdleTimeout()
             ++row;
 
             lay->addWidget(new QLabel("Process:", widget), row, 0, Qt::AlignRight);
-            lay->addWidget(new QLabel(cse->tree.node->name(), widget), row, 1, 1, 2, Qt::AlignLeft);
+            lay->addWidget(new QLabel(process_name, widget), row, 1, 1, 2, Qt::AlignLeft);
             ++row;
 
             const auto duration = itemBlock.node->duration();
@@ -2139,10 +2151,7 @@ void EasyThreadNamesWidget::removePopup(bool _removeFromScene)
         delete widget;
 
         if (_removeFromScene)
-        {
             scene()->removeItem(m_popupWidget);
-            setFixedWidth(m_maxLength);
-        }
 
         m_popupWidget = nullptr;
     }
@@ -2221,22 +2230,38 @@ void EasyThreadNamesWidget::onIdleTimeout()
     auto scenePos = mapToScene(mapFromGlobal(QCursor::pos()));
 
     if (scenePos.x() < visibleSceneRect.left() || scenePos.x() > visibleSceneRect.right())
+    {
+        if (m_idleTime > 3000)
+            setFixedWidth(m_maxLength);
         return;
+    }
 
     if (scenePos.y() < visibleSceneRect.top() || scenePos.y() > visibleSceneRect.bottom())
+    {
+        if (m_idleTime > 3000)
+            setFixedWidth(m_maxLength);
         return;
+    }
 
     auto const parentView = static_cast<EasyThreadNamesWidget*>(scene()->parent());
     const auto view = parentView->view();
 
     if (scenePos.y() > view->visibleSceneRect().bottom())
+    {
+        if (m_idleTime > 3000)
+            setFixedWidth(m_maxLength);
         return;
+    }
 
     const qreal y = scenePos.y() - visibleSceneRect.top();
 
     const auto& items = view->getItems();
     if (items.empty())
+    {
+        if (m_idleTime > 3000)
+            setFixedWidth(m_maxLength);
         return;
+    }
 
     EasyGraphicsItem* intersectingItem = nullptr;
     for (auto item : items)
@@ -2332,7 +2357,7 @@ void EasyThreadNamesWidget::onIdleTimeout()
 
             auto br = m_popupWidget->boundingRect();
 
-            if (m_maxLength < br.width())
+            if (maximumWidth() < br.width())
             {
                 setFixedWidth(static_cast<int>(br.width()));
                 visibleSceneRect.setWidth(br.width());

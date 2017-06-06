@@ -609,7 +609,7 @@ extern "C" {
                 char* data = serialized_blocks[i];
                 inFile.read(data, sz);
                 i += sz;
-                auto baseData = reinterpret_cast<::profiler::SerializedBlock*>(data);
+                auto baseData = reinterpret_cast<::profiler::SerializedCSwitch*>(data);
                 auto t_begin = reinterpret_cast<::profiler::timestamp_t*>(data);
                 auto t_end = t_begin + 1;
 
@@ -626,7 +626,7 @@ extern "C" {
 
                     blocks.emplace_back();
                     ::profiler::BlocksTree& tree = blocks.back();
-                    tree.node = baseData;
+                    tree.cs = baseData;
                     const auto block_index = blocks_counter++;
 
                     root.wait_time += baseData->duration();

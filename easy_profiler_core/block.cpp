@@ -54,17 +54,25 @@
 using namespace profiler;
 
 #ifndef EASY_PROFILER_API_DISABLED
+Event::Event(timestamp_t _begin_time) : m_begin(_begin_time), m_end(0)
+{
+
+}
+
+Event::Event(timestamp_t _begin_time, timestamp_t _end_time) : m_begin(_begin_time), m_end(_end_time)
+{
+
+}
+
 BaseBlockData::BaseBlockData(timestamp_t _begin_time, block_id_t _descriptor_id)
-    : m_begin(_begin_time)
-    , m_end(0)
+    : Event(_begin_time)
     , m_id(_descriptor_id)
 {
 
 }
 
 BaseBlockData::BaseBlockData(timestamp_t _begin_time, timestamp_t _end_time, block_id_t _descriptor_id)
-    : m_begin(_begin_time)
-    , m_end(_end_time)
+    : Event(_begin_time, _end_time)
     , m_id(_descriptor_id)
 {
 
@@ -133,9 +141,25 @@ Block::~Block()
         ::profiler::endBlock();
 }
 #else
+Event::Event(timestamp_t) : m_begin(0), m_end(0)
+{
+
+}
+
+Event::Event(timestamp_t, timestamp_t) : m_begin(0), m_end(0)
+{
+
+}
+
 BaseBlockData::BaseBlockData(timestamp_t, block_id_t)
-    : m_begin(0)
-    , m_end(0)
+    : Event(0, 0)
+    , m_id(~0U)
+{
+
+}
+
+BaseBlockData::BaseBlockData(timestamp_t, timestamp_t, block_id_t)
+    : Event(0, 0)
     , m_id(~0U)
 {
 
@@ -199,16 +223,16 @@ Block::~Block()
 
 //////////////////////////////////////////////////////////////////////////
 
-CSwitchBlock::CSwitchBlock(timestamp_t _begin_time, thread_id_t _tid, const char* _runtimeName)
-    : Block(_begin_time, _begin_time, 0, _runtimeName)
+CSwitchEvent::CSwitchEvent(timestamp_t _begin_time, thread_id_t _tid)
+    : Event(_begin_time)
     , m_thread_id(_tid)
 {
 
 }
 
-CSwitchBlock::CSwitchBlock(CSwitchBlock&& _that)
-    : Block(std::forward<Block>(_that))
-    , m_thread_id(_that.m_thread_id)
+CSwitchBlock::CSwitchBlock(timestamp_t _begin_time, thread_id_t _tid, const char* _runtimeName)
+    : CSwitchEvent(_begin_time, _tid)
+    , m_name(_runtimeName)
 {
 
 }

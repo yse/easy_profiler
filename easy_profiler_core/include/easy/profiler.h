@@ -493,7 +493,7 @@ namespace profiler {
 
     //***********************************************
 
-    class PROFILER_API BaseBlockData
+    class PROFILER_API Event
     {
         friend ::ProfileManager;
 
@@ -501,7 +501,30 @@ namespace profiler {
 
         timestamp_t m_begin;
         timestamp_t   m_end;
-        block_id_t     m_id;
+
+    public:
+
+        Event(const Event&) = default;
+        Event(timestamp_t _begin_time);
+        Event(timestamp_t _begin_time, timestamp_t _end_time);
+
+        inline timestamp_t begin() const { return m_begin; }
+        inline timestamp_t end() const { return m_end; }
+        inline timestamp_t duration() const { return m_end - m_begin; }
+
+    private:
+
+        Event() = delete;
+
+    }; // END class Event.
+
+    class PROFILER_API BaseBlockData : public Event
+    {
+        friend ::ProfileManager;
+
+    protected:
+
+        block_id_t m_id;
 
     public:
 
@@ -509,11 +532,7 @@ namespace profiler {
         BaseBlockData(timestamp_t _begin_time, block_id_t _id);
         BaseBlockData(timestamp_t _begin_time, timestamp_t _end_time, block_id_t _id);
 
-        inline timestamp_t begin() const { return m_begin; }
-        inline timestamp_t end() const { return m_end; }
         inline block_id_t id() const { return m_id; }
-        inline timestamp_t duration() const { return m_end - m_begin; }
-
         inline void setId(block_id_t _id) { m_id = _id; }
 
     private:
@@ -521,6 +540,20 @@ namespace profiler {
         BaseBlockData() = delete;
 
     }; // END of class BaseBlockData.
+
+    class PROFILER_API CSwitchEvent : public Event
+    {
+        thread_id_t m_thread_id;
+
+    public:
+
+        CSwitchEvent() = default;
+        CSwitchEvent(const CSwitchEvent&) = default;
+        CSwitchEvent(timestamp_t _begin_time, thread_id_t _tid);
+
+        inline thread_id_t tid() const { return m_thread_id; }
+
+    }; // END of class CSwitchEvent.
 #pragma pack(pop)
 
     //***********************************************

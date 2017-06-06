@@ -421,29 +421,20 @@ struct BlocksList
 
 //////////////////////////////////////////////////////////////////////////
 
-class CSwitchBlock : public ::profiler::Block
+class CSwitchBlock : public profiler::CSwitchEvent
 {
-    ::profiler::thread_id_t m_thread_id;
+    const char* m_name;
 
 public:
 
-    CSwitchBlock(::profiler::timestamp_t _begin_time, ::profiler::thread_id_t _tid, const char* _runtimeName);
-    CSwitchBlock(CSwitchBlock&& _that);
-
-    inline ::profiler::thread_id_t tid() const {
-        return m_thread_id;
-    }
-
-private:
-
-    CSwitchBlock(const CSwitchBlock&) = delete;
-    CSwitchBlock& operator = (const CSwitchBlock&) = delete;
+    CSwitchBlock(profiler::timestamp_t _begin_time, profiler::thread_id_t _tid, const char* _runtimeName);
+    inline const char* name() const { return m_name; }
 };
 
 //////////////////////////////////////////////////////////////////////////
 
 const uint16_t SIZEOF_BLOCK = sizeof(profiler::BaseBlockData) + 1 + sizeof(uint16_t); // SerializedBlock stores BaseBlockData + at least 1 character for name ('\0') + 2 bytes for size of serialized data
-const uint16_t SIZEOF_CSWITCH = SIZEOF_BLOCK + 4; // SerializedCSwitch also stores additional 4 bytes to be able to save 64-bit thread_id
+const uint16_t SIZEOF_CSWITCH = sizeof(profiler::CSwitchEvent) + 1 + sizeof(uint16_t); // SerializedCSwitch also stores additional 4 bytes to be able to save 64-bit thread_id
 
 struct ThreadStorage
 {

@@ -1013,7 +1013,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 if (width < MIN_SYNC_SIZE)
                     width = MIN_SYNC_SIZE;
 
-                const ::profiler::thread_id_t tid = EASY_GLOBALS.version < ::profiler_gui::V130 ? item.node->id() : static_cast<const ::profiler::SerializedCSwitch*>(item.node)->tid();
+                const ::profiler::thread_id_t tid = EASY_GLOBALS.version < ::profiler_gui::V130 ? item.node->id() : item.cs->tid();
                 const bool self_thread = tid != 0 && EASY_GLOBALS.profiler_blocks.find(tid) != EASY_GLOBALS.profiler_blocks.end();
 
                 ::profiler::color_t color = 0;

@@ -519,17 +519,9 @@ SerializedBlock::SerializedBlock(const Block& block, uint16_t name_length)
     pName[name_length] = 0;
 }
 
-SerializedBlock::SerializedBlock(const Block& block)
-    : BaseBlockData(block)
-{
-
-}
-
 SerializedCSwitch::SerializedCSwitch(const CSwitchBlock& block, uint16_t name_length)
-    : SerializedBlock(block)
+    : CSwitchEvent(block)
 {
-    *reinterpret_cast<thread_id_t*>(&m_id) = block.tid();
-
     auto pName = const_cast<char*>(name());
     if (name_length) strncpy(pName, block.name(), name_length);
     pName[name_length] = 0;
@@ -681,7 +673,7 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
 void ThreadStorage::storeCSwitch(const CSwitchBlock& block)
 {
     auto name_length = static_cast<uint16_t>(strlen(block.name()));
-    auto size = static_cast<uint16_t>(sizeof(BaseBlockData) + name_length + 5);
+    auto size = static_cast<uint16_t>(sizeof(CSwitchEvent) + name_length + 1);
     auto data = sync.closedList.allocate(size);
     ::new (data) SerializedCSwitch(block, name_length);
     sync.usedMemorySize += size;
