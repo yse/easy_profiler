@@ -63,13 +63,15 @@ namespace profiler {
         ///< Run-time block name is stored right after main BaseBlockData data
         inline const char* name() const { return data() + sizeof(BaseBlockData); }
 
-    private:
+    protected:
 
         SerializedBlock(const ::profiler::Block& block, uint16_t name_length);
 
         SerializedBlock(const SerializedBlock&) = delete;
         SerializedBlock& operator = (const SerializedBlock&) = delete;
-        ~SerializedBlock() = delete;
+
+        //TODO yse: reason of deleted
+        //~SerializedBlock() = delete;
 
     protected:
 
