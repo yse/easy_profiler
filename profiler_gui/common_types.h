@@ -99,48 +99,7 @@ inline qreal microseconds2units(qreal _value)
 //////////////////////////////////////////////////////////////////////////
 
 namespace profiler_gui {
-
-template <class T, const size_t SIZEOF_T>
-struct no_hasher : public ::std::hash<T> {
-    using ::std::hash<T>::operator ();
-    //inline size_t operator () (const T& _data) const {
-    //    return ::std::hash<T>::operator () (_data);
-    //}
-};
-
-#ifdef _WIN64
-template <class T> struct no_hasher<T, 8> {
-    inline size_t operator () (T _data) const {
-        return (size_t)_data;
-    }
-};
-#endif
-
-template <class T> struct no_hasher<T, 4> {
-    inline size_t operator () (T _data) const {
-        return (size_t)_data;
-    }
-};
-
-template <class T> struct no_hasher<T, 2> {
-    inline size_t operator () (T _data) const {
-        return (size_t)_data;
-    }
-};
-
-template <class T> struct no_hasher<T, 1> {
-    inline size_t operator () (T _data) const {
-        return (size_t)_data;
-    }
-};
-
-template <class T>
-struct do_no_hash {
-    typedef no_hasher<T, sizeof(T)> hasher_t;
-};
-
-//////////////////////////////////////////////////////////////////////////
-
+    
 inline QRgb toRgb(uint32_t _red, uint32_t _green, uint32_t _blue)
 {
     return (_red << 16) + (_green << 8) + _blue;

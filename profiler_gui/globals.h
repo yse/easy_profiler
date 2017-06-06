@@ -79,6 +79,8 @@ namespace profiler_gui {
     const qreal SCALING_COEFFICIENT = 1.25;
     const qreal SCALING_COEFFICIENT_INV = 1.0 / SCALING_COEFFICIENT;
 
+    const uint32_t V130 = 0x01030000;
+
     const QSize ICONS_SIZE(28, 28);
     const uint16_t GRAPHICS_ROW_SIZE = 18;
     const uint16_t GRAPHICS_ROW_SPACING = 0;
@@ -169,6 +171,7 @@ namespace profiler_gui {
         ::profiler::thread_id_t          selected_thread; ///< Current selected thread id
         ::profiler::block_index_t         selected_block; ///< Current selected profiler block index
         ::profiler::block_id_t         selected_block_id; ///< Current selected profiler block id
+        uint32_t                                 version; ///< Opened file version (files may have different format)
         float                                 frame_time; ///< Expected frame time value in microseconds to be displayed at minimap on graphics scrollbar
         int                               blocks_spacing; ///< Minimum blocks spacing on diagram
         int                              blocks_size_min; ///< Minimum blocks size on diagram

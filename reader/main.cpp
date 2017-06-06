@@ -115,8 +115,9 @@ int main(int argc, char* argv[])
     ::profiler::blocks_t blocks;
     ::std::stringstream errorMessage;
     uint32_t descriptorsNumberInFile = 0;
+    uint32_t version = 0;
     auto blocks_counter = fillTreesFromFile(filename.c_str(), serialized_blocks, serialized_descriptors, descriptors, blocks,
-                                            threaded_trees, descriptorsNumberInFile, true, errorMessage);
+                                            threaded_trees, descriptorsNumberInFile, version, true, errorMessage);
     if (blocks_counter == 0)
         std::cout << "Can not read blocks from file " << filename.c_str() << "\nReason: " << errorMessage.str();
 

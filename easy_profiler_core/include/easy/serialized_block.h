@@ -45,11 +45,13 @@ The Apache License, Version 2.0 (the "License");
 
 #include <easy/profiler.h>
 
+class CSwitchBlock;
+
 namespace profiler {
 
     //////////////////////////////////////////////////////////////////////////
 
-    class PROFILER_API SerializedBlock EASY_FINAL : public BaseBlockData
+    class PROFILER_API SerializedBlock : public BaseBlockData
     {
         friend ::ProfileManager;
         friend ::ThreadStorage;
@@ -57,6 +59,8 @@ namespace profiler {
     public:
 
         inline const char* data() const { return reinterpret_cast<const char*>(this); }
+
+        ///< Run-time block name is stored right after main BaseBlockData data
         inline const char* name() const { return data() + sizeof(BaseBlockData); }
 
     private:
@@ -67,14 +71,61 @@ namespace profiler {
         SerializedBlock& operator = (const SerializedBlock&) = delete;
         ~SerializedBlock() = delete;
 
+    protected:
+
+        SerializedBlock(const ::profiler::Block& block);
+
     }; // END of SerializedBlock.
 
     //////////////////////////////////////////////////////////////////////////
 
 #pragma pack(push, 1)
+
+    /** This is serious work-around to be able to read/write valid
+    thread ids after changing thread_id_t from 32-bit to 64-bit.
+    
+    Before v1.3.0 thread_id_t was uint32_t and has been stored in BaseBlockData::m_id.
+    After v1.3.0 we have to allocate additional 4 bytes per context switch block to
+    be able to store 64-bit value.
+
+    This is bad design decision at first look, but it has backward compatibility,
+    does not require serious changes to Core API (except this particular class)
+    and saves 4 bytes per context switch block.
+
+    TODO: think about better solution.
+    */
+    class PROFILER_API SerializedCSwitch : public SerializedBlock
+    {
+        friend ::ProfileManager;
+        friend ::ThreadStorage;
+
+        uint32_t m_reserve; /** Additional 4 bytes used to store second part of thread_id_t
+                            (first part is stored in BaseBlockData::m_id as it was before
+                            changing thread_id_t to 64-bit) */
+
+    public:
+
+        ///< Thread id is stored in m_id + m_reserve
+        inline thread_id_t tid() const { return *reinterpret_cast<const thread_id_t*>(&m_id); }
+
+        ///< Run-time block name is stored right after main BaseBlockData data and reserved 4 bytes block
+        inline const char* name() const { return data() + sizeof(BaseBlockData) + 4; }
+
+    private:
+
+        SerializedCSwitch(const CSwitchBlock& block, uint16_t name_length);
+
+        SerializedCSwitch(const SerializedBlock&) = delete;
+        SerializedCSwitch& operator = (const SerializedBlock&) = delete;
+        ~SerializedCSwitch() = delete;
+
+    }; // END of SerializedCSwitch.
+
+    //////////////////////////////////////////////////////////////////////////
+
     class PROFILER_API SerializedBlockDescriptor EASY_FINAL : public BaseBlockDescriptor
     {
-        uint16_t m_nameLength;
+        uint16_t m_nameLength; ///< Length of the name including trailing '\0' sybmol
 
     public:
 
@@ -82,17 +133,18 @@ namespace profiler {
             return reinterpret_cast<const char*>(this);
         }
 
+        ///< Name is stored right after m_nameLength
         inline const char* name() const {
             static const auto shift = sizeof(BaseBlockDescriptor) + sizeof(decltype(m_nameLength));
             return data() + shift;
         }
 
+        ///< File name is stored right after the name
         inline const char* file() const {
             return name() + m_nameLength;
         }
 
-        inline void setStatus(EasyBlockStatus _status)
-        {
+        inline void setStatus(EasyBlockStatus _status) {
             m_status = _status;
         }
 

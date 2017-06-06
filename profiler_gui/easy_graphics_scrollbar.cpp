@@ -510,14 +510,14 @@ void EasyHistogramItem::paintByPtr(QPainter* _painter)
     _painter->setPen(Qt::black);
     rect.setRect(0, bottom + 2, width, widget->defaultFontHeight());
     const auto eventsSize = m_pProfilerThread->events.size();
-    _painter->drawText(rect, Qt::AlignHCenter | Qt::TextDontClip, QString("%1  |  duration: %2  |  profiled time: %3 (%4%)  |  wait time: %5 (%6%)  |  %7 frames  |  %8 blocks  |  %9 event markers")
+    _painter->drawText(rect, Qt::AlignHCenter | Qt::TextDontClip, QString("%1  |  duration: %2  |  profiled: %3 (%4%)  |  wait: %5 (%6%)  |  %7 frames  |  %8 blocks  |  %9 markers")
                        .arg(m_threadName)
                        .arg(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, m_threadDuration))
                        .arg(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, m_threadProfiledTime))
                        .arg(m_threadDuration ? QString::number(100. * (double)m_threadProfiledTime / (double)m_threadDuration, 'f', 2) : QString("0"))
                        .arg(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, m_threadWaitTime))
                        .arg(m_threadDuration ? QString::number(100. * (double)m_threadWaitTime / (double)m_threadDuration, 'f', 2) : QString("0"))
-                       .arg(m_pProfilerThread->children.size() - eventsSize)
+                       .arg(m_pProfilerThread->frames_number)
                        .arg(m_pProfilerThread->blocks_number - eventsSize)
                        .arg(eventsSize));
 

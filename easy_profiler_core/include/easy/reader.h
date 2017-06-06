@@ -60,6 +60,23 @@ namespace profiler {
     typedef uint32_t calls_number_t;
     typedef uint32_t block_index_t;
 
+    template <class T, bool greater_than_size_t>
+    struct hash : public ::std::hash<T> {
+        using ::std::hash<T>::operator();
+    };
+
+    template <class T>
+    struct hash<T, false> {
+        inline size_t operator () (T _value) const {
+            return static_cast<size_t>(_value);
+        }
+    };
+
+    template <class T>
+    struct passthrough_hash : public hash<T, (sizeof(T) > sizeof(size_t))> {
+        using hash<T, (sizeof(T) > sizeof(size_t))>::operator();
+    };
+
 #pragma pack(push, 1)
     struct BlockStatistics EASY_FINAL
     {
@@ -206,10 +223,11 @@ namespace profiler {
         ::profiler::timestamp_t   profiled_time; ///< Profiled time of this thread (sum of all children duration)
         ::profiler::timestamp_t       wait_time; ///< Wait time of this thread (sum of all context switches)
         ::profiler::thread_id_t       thread_id; ///< System Id of this thread
+        ::profiler::block_index_t frames_number; ///< Total frames number (top-level blocks)
         ::profiler::block_index_t blocks_number; ///< Total blocks number including their children
         uint8_t                           depth; ///< Maximum stack depth (number of levels)
 
-        BlocksTreeRoot() : profiled_time(0), wait_time(0), thread_id(0), blocks_number(0), depth(0)
+        BlocksTreeRoot() : profiled_time(0), wait_time(0), thread_id(0), frames_number(0), blocks_number(0), depth(0)
         {
         }
 
@@ -221,6 +239,7 @@ namespace profiler {
             , profiled_time(that.profiled_time)
             , wait_time(that.wait_time)
             , thread_id(that.thread_id)
+            , frames_number(that.frames_number)
             , blocks_number(that.blocks_number)
             , depth(that.depth)
         {
@@ -235,6 +254,7 @@ namespace profiler {
             profiled_time = that.profiled_time;
             wait_time = that.wait_time;
             thread_id = that.thread_id;
+            frames_number = that.frames_number;
             blocks_number = that.blocks_number;
             depth = that.depth;
             return *this;
@@ -264,11 +284,7 @@ namespace profiler {
 
     typedef ::profiler::BlocksTree::blocks_t blocks_t;
 
-#ifdef _WIN64
-    typedef ::std::unordered_map<::profiler::thread_id_t, ::profiler::BlocksTreeRoot, ::profiler::passthrough_hash> thread_blocks_tree_t;
-#else
-    typedef ::std::unordered_map<::profiler::thread_id_t, ::profiler::BlocksTreeRoot> thread_blocks_tree_t;
-#endif
+    typedef ::std::unordered_map<::profiler::thread_id_t, ::profiler::BlocksTreeRoot, ::profiler::passthrough_hash<::profiler::thread_id_t> > thread_blocks_tree_t;
 
     //////////////////////////////////////////////////////////////////////////
 
@@ -376,6 +392,7 @@ extern "C" {
                                                              ::profiler::blocks_t& _blocks,
                                                              ::profiler::thread_blocks_tree_t& threaded_trees,
                                                              uint32_t& total_descriptors_number,
+                                                             uint32_t& version,
                                                              bool gather_statistics,
                                                              ::std::stringstream& _log);
 
@@ -386,6 +403,7 @@ extern "C" {
                                                                ::profiler::blocks_t& _blocks,
                                                                ::profiler::thread_blocks_tree_t& threaded_trees,
                                                                uint32_t& total_descriptors_number,
+                                                               uint32_t& version,
                                                                bool gather_statistics,
                                                                ::std::stringstream& _log);
 
@@ -400,11 +418,12 @@ inline ::profiler::block_index_t fillTreesFromFile(const char* filename, ::profi
                                                    ::profiler::descriptors_list_t& descriptors, ::profiler::blocks_t& _blocks,
                                                    ::profiler::thread_blocks_tree_t& threaded_trees,
                                                    uint32_t& total_descriptors_number,
+                                                   uint32_t& version,
                                                    bool gather_statistics,
                                                    ::std::stringstream& _log)
 {
     ::std::atomic<int> progress = ATOMIC_VAR_INIT(0);
-    return fillTreesFromFile(progress, filename, serialized_blocks, serialized_descriptors, descriptors, _blocks, threaded_trees, total_descriptors_number, gather_statistics, _log);
+    return fillTreesFromFile(progress, filename, serialized_blocks, serialized_descriptors, descriptors, _blocks, threaded_trees, total_descriptors_number, version, gather_statistics, _log);
 }
 
 inline bool readDescriptionsFromStream(::std::stringstream& str,

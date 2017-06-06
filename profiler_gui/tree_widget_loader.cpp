@@ -266,7 +266,7 @@ void EasyTreeWidgetLoader::setTreeInternal1(::profiler::timestamp_t& _beginTime,
 //     return children_number;
 // }
 
-typedef ::std::unordered_map<::profiler::thread_id_t, ::profiler::block_index_t, ::profiler_gui::do_no_hash<::profiler::thread_id_t>::hasher_t> BeginEndIndicesMap;
+typedef ::std::unordered_map<::profiler::thread_id_t, ::profiler::block_index_t, ::profiler::passthrough_hash<::profiler::thread_id_t> > BeginEndIndicesMap;
 
 void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _beginTime, const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, bool _colorizeRows, bool _addZeroBlocks, bool _decoratedThreadNames, bool _hexThreadId, ::profiler_gui::TimeUnits _units)
 {
@@ -398,8 +398,8 @@ void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _begi
 
             if (per_thread_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_THREAD, _units, easyBlock(per_thread_stats->min_duration_block).tree.node->duration(), "min ");
-                item->setTimeSmart(COL_MAX_PER_THREAD, _units, easyBlock(per_thread_stats->max_duration_block).tree.node->duration(), "max ");
+                item->setTimeSmart(COL_MIN_PER_THREAD, _units, easyBlock(per_thread_stats->min_duration_block).tree.node->duration());
+                item->setTimeSmart(COL_MAX_PER_THREAD, _units, easyBlock(per_thread_stats->max_duration_block).tree.node->duration());
                 item->setTimeSmart(COL_AVERAGE_PER_THREAD, _units, per_thread_stats->average_duration());
                 item->setTimeSmart(COL_DURATION_SUM_PER_THREAD, _units, per_thread_stats->total_duration);
             }
@@ -414,8 +414,8 @@ void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _begi
 
             if (per_parent_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_PARENT, _units, easyBlock(per_parent_stats->min_duration_block).tree.node->duration(), "min ");
-                item->setTimeSmart(COL_MAX_PER_PARENT, _units, easyBlock(per_parent_stats->max_duration_block).tree.node->duration(), "max ");
+                item->setTimeSmart(COL_MIN_PER_PARENT, _units, easyBlock(per_parent_stats->min_duration_block).tree.node->duration());
+                item->setTimeSmart(COL_MAX_PER_PARENT, _units, easyBlock(per_parent_stats->max_duration_block).tree.node->duration());
                 item->setTimeSmart(COL_AVERAGE_PER_PARENT, _units, per_parent_stats->average_duration());
                 item->setTimeSmart(COL_DURATION_SUM_PER_PARENT, _units, per_parent_stats->total_duration);
             }
@@ -426,8 +426,8 @@ void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _begi
 
             if (per_frame_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_FRAME, _units, easyBlock(per_frame_stats->min_duration_block).tree.node->duration(), "min ");
-                item->setTimeSmart(COL_MAX_PER_FRAME, _units, easyBlock(per_frame_stats->max_duration_block).tree.node->duration(), "max ");
+                item->setTimeSmart(COL_MIN_PER_FRAME, _units, easyBlock(per_frame_stats->min_duration_block).tree.node->duration());
+                item->setTimeSmart(COL_MAX_PER_FRAME, _units, easyBlock(per_frame_stats->max_duration_block).tree.node->duration());
                 item->setTimeSmart(COL_AVERAGE_PER_FRAME, _units, per_frame_stats->average_duration());
                 item->setTimeSmart(COL_DURATION_SUM_PER_FRAME, _units, per_frame_stats->total_duration);
             }
@@ -638,8 +638,8 @@ size_t EasyTreeWidgetLoader::setTreeInternal(const ::profiler::BlocksTreeRoot& _
 
             if (per_thread_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_THREAD, _units, easyBlock(per_thread_stats->min_duration_block).tree.node->duration(), "min ");
-                item->setTimeSmart(COL_MAX_PER_THREAD, _units, easyBlock(per_thread_stats->max_duration_block).tree.node->duration(), "max ");
+                item->setTimeSmart(COL_MIN_PER_THREAD, _units, easyBlock(per_thread_stats->min_duration_block).tree.node->duration());
+                item->setTimeSmart(COL_MAX_PER_THREAD, _units, easyBlock(per_thread_stats->max_duration_block).tree.node->duration());
                 item->setTimeSmart(COL_AVERAGE_PER_THREAD, _units, per_thread_stats->average_duration());
                 item->setTimeSmart(COL_DURATION_SUM_PER_THREAD, _units, per_thread_stats->total_duration);
             }
@@ -654,8 +654,8 @@ size_t EasyTreeWidgetLoader::setTreeInternal(const ::profiler::BlocksTreeRoot& _
 
             if (per_parent_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_PARENT, _units, easyBlock(per_parent_stats->min_duration_block).tree.node->duration(), "min ");
-                item->setTimeSmart(COL_MAX_PER_PARENT, _units, easyBlock(per_parent_stats->max_duration_block).tree.node->duration(), "max ");
+                item->setTimeSmart(COL_MIN_PER_PARENT, _units, easyBlock(per_parent_stats->min_duration_block).tree.node->duration());
+                item->setTimeSmart(COL_MAX_PER_PARENT, _units, easyBlock(per_parent_stats->max_duration_block).tree.node->duration());
                 item->setTimeSmart(COL_AVERAGE_PER_PARENT, _units, per_parent_stats->average_duration());
                 item->setTimeSmart(COL_DURATION_SUM_PER_PARENT, _units, per_parent_stats->total_duration);
             }
@@ -666,8 +666,8 @@ size_t EasyTreeWidgetLoader::setTreeInternal(const ::profiler::BlocksTreeRoot& _
 
             if (per_frame_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_FRAME, _units, easyBlock(per_frame_stats->min_duration_block).tree.node->duration(), "min ");
-                item->setTimeSmart(COL_MAX_PER_FRAME, _units, easyBlock(per_frame_stats->max_duration_block).tree.node->duration(), "max ");
+                item->setTimeSmart(COL_MIN_PER_FRAME, _units, easyBlock(per_frame_stats->min_duration_block).tree.node->duration());
+                item->setTimeSmart(COL_MAX_PER_FRAME, _units, easyBlock(per_frame_stats->max_duration_block).tree.node->duration());
                 item->setTimeSmart(COL_AVERAGE_PER_FRAME, _units, per_frame_stats->average_duration());
                 item->setTimeSmart(COL_DURATION_SUM_PER_FRAME, _units, per_frame_stats->total_duration);
             }
@@ -895,8 +895,8 @@ size_t EasyTreeWidgetLoader::setTreeInternalPlain(const ::profiler::BlocksTreeRo
             const ::profiler::BlockStatistics* per_thread_stats = child.per_thread_stats;
             if (per_thread_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_THREAD, _units, easyBlock(per_thread_stats->min_duration_block).tree.node->duration(), "min ");
-                item->setTimeSmart(COL_MAX_PER_THREAD, _units, easyBlock(per_thread_stats->max_duration_block).tree.node->duration(), "max ");
+                item->setTimeSmart(COL_MIN_PER_THREAD, _units, easyBlock(per_thread_stats->min_duration_block).tree.node->duration());
+                item->setTimeSmart(COL_MAX_PER_THREAD, _units, easyBlock(per_thread_stats->max_duration_block).tree.node->duration());
                 item->setTimeSmart(COL_AVERAGE_PER_THREAD, _units, per_thread_stats->average_duration());
             }
 
@@ -915,8 +915,8 @@ size_t EasyTreeWidgetLoader::setTreeInternalPlain(const ::profiler::BlocksTreeRo
 
             if (per_frame_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_FRAME, _units, easyBlock(per_frame_stats->min_duration_block).tree.node->duration(), "min ");
-                item->setTimeSmart(COL_MAX_PER_FRAME, _units, easyBlock(per_frame_stats->max_duration_block).tree.node->duration(), "max ");
+                item->setTimeSmart(COL_MIN_PER_FRAME, _units, easyBlock(per_frame_stats->min_duration_block).tree.node->duration());
+                item->setTimeSmart(COL_MAX_PER_FRAME, _units, easyBlock(per_frame_stats->max_duration_block).tree.node->duration());
                 item->setTimeSmart(COL_AVERAGE_PER_FRAME, _units, per_frame_stats->average_duration());
             }
 

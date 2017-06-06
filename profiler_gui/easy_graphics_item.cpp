@@ -1013,7 +1013,9 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 if (width < MIN_SYNC_SIZE)
                     width = MIN_SYNC_SIZE;
 
-                const bool self_thread = item.node->id() != 0 && EASY_GLOBALS.profiler_blocks.find(item.node->id()) != EASY_GLOBALS.profiler_blocks.end();
+                const ::profiler::thread_id_t tid = EASY_GLOBALS.version < ::profiler_gui::V130 ? item.node->id() : static_cast<const ::profiler::SerializedCSwitch*>(item.node)->tid();
+                const bool self_thread = tid != 0 && EASY_GLOBALS.profiler_blocks.find(tid) != EASY_GLOBALS.profiler_blocks.end();
+
                 ::profiler::color_t color = 0;
                 if (self_thread)
                     color = ::profiler::colors::Coral;

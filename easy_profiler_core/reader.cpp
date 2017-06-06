@@ -79,7 +79,7 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-typedef uint32_t processid_t;
+typedef uint64_t processid_t;
 
 extern const uint32_t PROFILER_SIGNATURE;
 extern const uint32_t EASY_CURRENT_VERSION;
@@ -186,7 +186,7 @@ namespace profiler {
 
 #ifdef EASY_PROFILER_HASHED_CSTR_DEFINED
 
-typedef ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, ::profiler::passthrough_hash> StatsMap;
+typedef ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, ::profiler::passthrough_hash<::profiler::block_id_t> > StatsMap;
 
 /** \note It is absolutely safe to use hashed_cstr (which simply stores pointer) because std::unordered_map,
 which uses it as a key, exists only inside fillTreesFromFile function. */
@@ -197,7 +197,7 @@ typedef ::std::unordered_map<::profiler::hashed_cstr, ::profiler::BlockStatistic
 #else
 
 // TODO: Create optimized version of profiler::hashed_cstr for Linux too.
-typedef ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, ::profiler::passthrough_hash> StatsMap;
+typedef ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, ::profiler::passthrough_hash<::profiler::block_id_t> > StatsMap;
 typedef ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::block_id_t> IdMap;
 typedef ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::BlockStatistics*> CsStatsMap;
 
@@ -383,6 +383,7 @@ extern "C" {
                                                              ::profiler::blocks_t& blocks,
                                                              ::profiler::thread_blocks_tree_t& threaded_trees,
                                                              uint32_t& total_descriptors_number,
+                                                             uint32_t& version,
                                                              bool gather_statistics,
                                                              ::std::stringstream& _log)
     {
@@ -409,7 +410,7 @@ extern "C" {
         
         // Read data from file
         auto result = fillTreesFromStream(progress, str, serialized_blocks, serialized_descriptors, descriptors, blocks,
-                                          threaded_trees, total_descriptors_number, gather_statistics, _log);
+                                          threaded_trees, total_descriptors_number, version, gather_statistics, _log);
 
         // Restore old str buffer to avoid possible second memory free on stringstream destructor
         s.rdbuf(oldbuf);
@@ -426,6 +427,7 @@ extern "C" {
                                                                ::profiler::blocks_t& blocks,
                                                                ::profiler::thread_blocks_tree_t& threaded_trees,
                                                                uint32_t& total_descriptors_number,
+                                                               uint32_t& version,
                                                                bool gather_statistics,
                                                                ::std::stringstream& _log)
     {
@@ -446,7 +448,7 @@ extern "C" {
             return 0;
         }
 
-        uint32_t version = 0;
+        version = 0;
         inFile.read((char*)&version, sizeof(uint32_t));
         if (!isCompatibleVersion(version))
         {
@@ -456,7 +458,18 @@ extern "C" {
 
         processid_t pid = 0;
         if (version > EASY_V_100)
-            inFile.read((char*)&pid, sizeof(processid_t));
+        {
+            if (version < EASY_V_130)
+            {
+                uint32_t old_pid = 0;
+                inFile.read((char*)&old_pid, sizeof(uint32_t));
+                pid = old_pid;
+            }
+            else
+            {
+                inFile.read((char*)&pid, sizeof(processid_t));
+            }
+        }
 
         int64_t file_cpu_frequency = 0LL;
         inFile.read((char*)&file_cpu_frequency, sizeof(int64_t));
@@ -540,11 +553,7 @@ extern "C" {
             }
         }
 
-#ifdef _WIN64
-        typedef ::std::unordered_map<::profiler::thread_id_t, StatsMap, ::profiler::passthrough_hash> PerThreadStats;
-#else
-        typedef ::std::unordered_map<::profiler::thread_id_t, StatsMap> PerThreadStats;
-#endif
+        typedef ::std::unordered_map<::profiler::thread_id_t, StatsMap, ::profiler::passthrough_hash<::profiler::thread_id_t> > PerThreadStats;
         PerThreadStats parent_statistics, frame_statistics;
         IdMap identification_table;
 
@@ -626,7 +635,7 @@ extern "C" {
                     if (gather_statistics)
                     {
                         EASY_BLOCK("Gather per thread statistics", ::profiler::colors::Coral);
-                        tree.per_thread_stats = update_statistics(per_thread_statistics_cs, tree, block_index, thread_id, blocks);
+                        tree.per_thread_stats = update_statistics(per_thread_statistics_cs, tree, block_index, ~0U, blocks);//, thread_id, blocks);
                     }
                 }
 
@@ -792,7 +801,7 @@ extern "C" {
                     if (gather_statistics)
                     {
                         EASY_BLOCK("Gather per thread statistics", ::profiler::colors::Coral);
-                        tree.per_thread_stats = update_statistics(per_thread_statistics, tree, block_index, thread_id, blocks);
+                        tree.per_thread_stats = update_statistics(per_thread_statistics, tree, block_index, ~0U, blocks);//, thread_id, blocks);
                     }
                 }
 
@@ -827,7 +836,7 @@ extern "C" {
                 auto& per_parent_statistics = parent_statistics[it.first];
                 per_parent_statistics.clear();
 
-                statistics_threads.emplace_back(::std::thread([&per_parent_statistics, &per_frame_statistics, &blocks](::profiler::BlocksTreeRoot& root)
+                statistics_threads.emplace_back(::std::thread([&per_parent_statistics, &per_frame_statistics, &blocks, &descriptors](::profiler::BlocksTreeRoot& root)
                 {
                     //::std::sort(root.sync.begin(), root.sync.end(), [&blocks](::profiler::block_index_t left, ::profiler::block_index_t right)
                     //{
@@ -838,7 +847,11 @@ extern "C" {
                     for (auto i : root.children)
                     {
                         auto& frame = blocks[i];
-                        frame.per_parent_stats = update_statistics(per_parent_statistics, frame, i, root.thread_id, blocks);
+
+                        if (descriptors[frame.node->id()]->type() == ::profiler::BLOCK_TYPE_BLOCK)
+                            ++root.frames_number;
+
+                        frame.per_parent_stats = update_statistics(per_parent_statistics, frame, i, ~0U, blocks);//, root.thread_id, blocks);
 
                         per_frame_statistics.clear();
                         update_statistics_recursive(per_frame_statistics, frame, i, i, blocks);
@@ -893,8 +906,13 @@ extern "C" {
                 for (auto i : root.children)
                 {
                     auto& frame = blocks[i];
+
+                    if (descriptors[frame.node->id()]->type() == ::profiler::BLOCK_TYPE_BLOCK)
+                        ++root.frames_number;
+
                     if (root.depth < frame.depth)
                         root.depth = frame.depth;
+
                     root.profiled_time += frame.node->duration();
                 }
 

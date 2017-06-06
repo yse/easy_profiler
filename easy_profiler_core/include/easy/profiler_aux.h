@@ -73,12 +73,6 @@ namespace profiler {
         FORCE_ON_WITHOUT_CHILDREN = FORCE_ON | OFF_RECURSIVE, ///< The block is ALWAYS ON but all of it's children are OFF.
     };
 
-    struct passthrough_hash EASY_FINAL {
-        template <class T> inline size_t operator () (T _value) const {
-            return static_cast<size_t>(_value);
-        }
-    };
-
 }
 
 //////////////////////////////////////////////////////////////////////////

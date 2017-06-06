@@ -1571,7 +1571,8 @@ void EasyMainWindow::onFileReaderTimeout()
             ::profiler::thread_blocks_tree_t threads_map;
             QString filename;
             uint32_t descriptorsNumberInFile = 0;
-            m_reader.get(serialized_blocks, serialized_descriptors, descriptors, blocks, threads_map, descriptorsNumberInFile, filename);
+            uint32_t version = 0;
+            m_reader.get(serialized_blocks, serialized_descriptors, descriptors, blocks, threads_map, descriptorsNumberInFile, version, filename);
 
             if (threads_map.size() > 0xff)
             {
@@ -1621,6 +1622,7 @@ void EasyMainWindow::onFileReaderTimeout()
             m_serializedDescriptors = ::std::move(serialized_descriptors);
             m_descriptorsNumberInFile = descriptorsNumberInFile;
             EASY_GLOBALS.selected_thread = 0;
+            EASY_GLOBALS.version = version;
             ::profiler_gui::set_max(EASY_GLOBALS.selected_block);
             ::profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
             EASY_GLOBALS.profiler_blocks.swap(threads_map);
@@ -1736,7 +1738,7 @@ void EasyFileReader::load(const QString& _filename)
     m_filename = _filename;
     m_thread = ::std::thread([this](bool _enableStatistics) {
         m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_serializedBlocks, m_serializedDescriptors,
-            m_descriptors, m_blocks, m_blocksTree, m_descriptorsNumberInFile, _enableStatistics, m_errorMessage), ::std::memory_order_release);
+            m_descriptors, m_blocks, m_blocksTree, m_descriptorsNumberInFile, m_version, _enableStatistics, m_errorMessage), ::std::memory_order_release);
         m_progress.store(100, ::std::memory_order_release);
         m_bDone.store(true, ::std::memory_order_release);
     }, EASY_GLOBALS.enable_statistics);
@@ -1766,7 +1768,7 @@ void EasyFileReader::load(::std::stringstream& _stream)
             cache_file.close();
         }
         m_size.store(fillTreesFromStream(m_progress, m_stream, m_serializedBlocks, m_serializedDescriptors, m_descriptors,
-            m_blocks, m_blocksTree, m_descriptorsNumberInFile, _enableStatistics, m_errorMessage), ::std::memory_order_release);
+            m_blocks, m_blocksTree, m_descriptorsNumberInFile, m_version, _enableStatistics, m_errorMessage), ::std::memory_order_release);
         m_progress.store(100, ::std::memory_order_release);
         m_bDone.store(true, ::std::memory_order_release);
     }, EASY_GLOBALS.enable_statistics);
@@ -1787,6 +1789,7 @@ void EasyFileReader::interrupt()
     m_blocks.clear();
     m_blocksTree.clear();
     m_descriptorsNumberInFile = 0;
+    m_version = 0;
 
     clear_stream(m_stream);
     clear_stream(m_errorMessage);
@@ -1794,7 +1797,7 @@ void EasyFileReader::interrupt()
 
 void EasyFileReader::get(::profiler::SerializedData& _serializedBlocks, ::profiler::SerializedData& _serializedDescriptors,
                          ::profiler::descriptors_list_t& _descriptors, ::profiler::blocks_t& _blocks,
-                         ::profiler::thread_blocks_tree_t& _tree, uint32_t& _descriptorsNumberInFile, QString& _filename)
+                         ::profiler::thread_blocks_tree_t& _tree, uint32_t& _descriptorsNumberInFile, uint32_t& _version, QString& _filename)
 {
     if (done())
     {
@@ -1805,6 +1808,7 @@ void EasyFileReader::get(::profiler::SerializedData& _serializedBlocks, ::profil
         m_blocksTree.swap(_tree);
         m_filename.swap(_filename);
         _descriptorsNumberInFile = m_descriptorsNumberInFile;
+        _version = m_version;
     }
 }
 

@@ -519,6 +519,22 @@ SerializedBlock::SerializedBlock(const Block& block, uint16_t name_length)
     pName[name_length] = 0;
 }
 
+SerializedBlock::SerializedBlock(const Block& block)
+    : BaseBlockData(block)
+{
+
+}
+
+SerializedCSwitch::SerializedCSwitch(const CSwitchBlock& block, uint16_t name_length)
+    : SerializedBlock(block)
+{
+    *reinterpret_cast<thread_id_t*>(&m_id) = block.tid();
+
+    auto pName = const_cast<char*>(name());
+    if (name_length) strncpy(pName, block.name(), name_length);
+    pName[name_length] = 0;
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 BaseBlockDescriptor::BaseBlockDescriptor(block_id_t _id, EasyBlockStatus _status, int _line, block_type_t _block_type, color_t _color)
@@ -662,12 +678,12 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
 #endif
 }
 
-void ThreadStorage::storeCSwitch(const profiler::Block& block)
+void ThreadStorage::storeCSwitch(const CSwitchBlock& block)
 {
     auto name_length = static_cast<uint16_t>(strlen(block.name()));
-    auto size = static_cast<uint16_t>(sizeof(BaseBlockData) + name_length + 1);
+    auto size = static_cast<uint16_t>(sizeof(BaseBlockData) + name_length + 5);
     auto data = sync.closedList.allocate(size);
-    ::new (data) SerializedBlock(block, name_length);
+    ::new (data) SerializedCSwitch(block, name_length);
     sync.usedMemorySize += size;
 }
 
@@ -1041,10 +1057,7 @@ void ProfileManager::beginContextSwitch(profiler::thread_id_t _thread_id, profil
     if (ts != nullptr)
         // Dirty hack: _target_thread_id will be written to the field "block_id_t m_id"
         // and will be available calling method id().
-#ifndef _WIN32
-#pragma message "WARNING: Fix saving thread_id_t as block_id_t for Context-Switch events !!!!"
-#endif
-        ts->sync.openedList.emplace_back(_time, _time, (profiler::block_id_t)_target_thread_id, _target_process);
+        ts->sync.openedList.emplace_back(_time, _target_thread_id, _target_process);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1114,7 +1127,7 @@ void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, processi
     if (ts == nullptr || ts->sync.openedList.empty())
         return;
 
-    Block& lastBlock = ts->sync.openedList.back();
+    CSwitchBlock& lastBlock = ts->sync.openedList.back();
     lastBlock.m_end = _endtime;
 
     ts->storeCSwitch(lastBlock);
@@ -1388,7 +1401,7 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
         EASY_LOGMSG("Writing context switch events...\n");
 
         uint64_t timestamp = 0;
-        uint32_t thread_from = 0, thread_to = 0;
+        profiler::thread_id_t thread_from = 0, thread_to = 0;
 
         std::ifstream infile(m_csInfoFilename.c_str());
         if(infile.is_open())

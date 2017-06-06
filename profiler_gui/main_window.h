@@ -95,6 +95,7 @@ class EasyFileReader Q_DECL_FINAL
     ::std::stringstream                 m_errorMessage; ///< 
     QString                                 m_filename; ///< 
     uint32_t             m_descriptorsNumberInFile = 0; ///< 
+    uint32_t                             m_version = 0; ///< 
     ::std::thread                             m_thread; ///< 
     ::std::atomic_bool                         m_bDone; ///< 
     ::std::atomic<int>                      m_progress; ///< 
@@ -117,7 +118,7 @@ public:
     void interrupt();
     void get(::profiler::SerializedData& _serializedBlocks, ::profiler::SerializedData& _serializedDescriptors,
              ::profiler::descriptors_list_t& _descriptors, ::profiler::blocks_t& _blocks, ::profiler::thread_blocks_tree_t& _tree,
-             uint32_t& _descriptorsNumberInFile, QString& _filename);
+             uint32_t& _descriptorsNumberInFile, uint32_t& _version, QString& _filename);
 
     QString getError();
 

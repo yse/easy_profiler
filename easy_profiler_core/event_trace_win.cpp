@@ -195,7 +195,7 @@ namespace profiler {
         if (time > TRACING_END_TIME.load(::std::memory_order_acquire))
             return;
 
-        processid_t pid = 0;
+        DWORD pid = 0;
         const char* process_name = "";
 
         // Trying to get target process name and id

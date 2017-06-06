@@ -71,14 +71,14 @@
 class EasyTreeWidgetItem;
 
 #ifndef EASY_TREE_WIDGET__USE_VECTOR
-typedef ::std::unordered_map<::profiler::block_index_t, EasyTreeWidgetItem*, ::profiler_gui::do_no_hash<::profiler::block_index_t>::hasher_t> Items;
+typedef ::std::unordered_map<::profiler::block_index_t, EasyTreeWidgetItem*, ::profiler::passthrough_hash<::profiler::block_index_t> > Items;
 #else
 typedef ::std::vector<EasyTreeWidgetItem*> Items;
 #endif
 
 typedef ::std::vector<::std::pair<::profiler::thread_id_t, EasyTreeWidgetItem*> > ThreadedItems;
-typedef ::std::unordered_map<::profiler::thread_id_t, EasyTreeWidgetItem*, ::profiler_gui::do_no_hash<::profiler::thread_id_t>::hasher_t> RootsMap;
-typedef ::std::unordered_map<::profiler::block_id_t, EasyTreeWidgetItem*, ::profiler_gui::do_no_hash<::profiler::block_index_t>::hasher_t> IdItems;
+typedef ::std::unordered_map<::profiler::thread_id_t, EasyTreeWidgetItem*, ::profiler::passthrough_hash<::profiler::thread_id_t> > RootsMap;
+typedef ::std::unordered_map<::profiler::block_id_t, EasyTreeWidgetItem*, ::profiler::passthrough_hash<::profiler::block_index_t> > IdItems;
 
 //////////////////////////////////////////////////////////////////////////
 

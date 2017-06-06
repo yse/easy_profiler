@@ -196,3 +196,21 @@ Block::~Block()
 {
 }
 #endif
+
+//////////////////////////////////////////////////////////////////////////
+
+CSwitchBlock::CSwitchBlock(timestamp_t _begin_time, thread_id_t _tid, const char* _runtimeName)
+    : Block(_begin_time, _begin_time, 0, _runtimeName)
+    , m_thread_id(_tid)
+{
+
+}
+
+CSwitchBlock::CSwitchBlock(CSwitchBlock&& _that)
+    : Block(std::forward<Block>(_that))
+    , m_thread_id(_that.m_thread_id)
+{
+
+}
+
+//////////////////////////////////////////////////////////////////////////

@@ -68,10 +68,11 @@ namespace profiler_gui {
     }
 
     EasyGlobals::EasyGlobals()
-        : selected_thread(0U)
+        : begin_time(0)
+        , selected_thread(0U)
         , selected_block(::profiler_gui::numeric_max<decltype(selected_block)>())
         , selected_block_id(::profiler_gui::numeric_max<decltype(selected_block_id)>())
-        , begin_time(0)
+        , version(0)
         , frame_time(16700)
         , blocks_spacing(0)
         , blocks_size_min(2)
