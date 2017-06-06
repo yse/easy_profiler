@@ -63,9 +63,7 @@ int EasySocket::_close(EasySocket::socket_t s)
 #ifdef _WIN32
     return ::closesocket(s);
 #else
-    //TODO
-    //return close(s);
-    return 0;
+    return ::close(s);
 #endif
 }
 
