@@ -1298,7 +1298,7 @@ void EasyGraphicsView::keyPressEvent(QKeyEvent* _event)
 
 void EasyGraphicsView::keyReleaseEvent(QKeyEvent* _event)
 {
-    const int key = _event->key();
+    //const int key = _event->key();
     m_idleTime = 0;
 
     //m_keys.erase(key);
