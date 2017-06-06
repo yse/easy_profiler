@@ -63,6 +63,8 @@ namespace profiler_gui {
 
     EasyGlobals& EasyGlobals::instance()
     {
+        // It's okay even without C++11 "magic statics" feature because first call happens
+        // on application initialization - there is only one thread and no data races occur.
         static EasyGlobals globals;
         return globals;
     }
@@ -100,6 +102,7 @@ namespace profiler_gui {
         , highlight_blocks_with_same_id(true)
         , selecting_block_changes_thread(true)
         , auto_adjust_histogram_height(true)
+        , display_only_frames_on_histogram(false)
         , bind_scene_and_tree_expand_status(true)
     {
 

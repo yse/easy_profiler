@@ -781,6 +781,26 @@ void EasyHistogramItem::setBoundingRect(qreal x, qreal y, qreal w, qreal h)
     m_boundingRect.setRect(x, y, w, h);
 }
 
+void EasyHistogramItem::rebuildSource(HistRegime _regime)
+{
+    if (m_regime == _regime)
+        rebuildSource();
+}
+
+void EasyHistogramItem::rebuildSource()
+{
+    if (m_regime == Hist_Id)
+    {
+        m_regime = Hist_Pointer;
+        setSource(m_threadId, m_blockId);
+    }
+    else
+    {
+        m_regime = Hist_Id;
+        setSource(m_threadId, m_pSource);
+    }
+}
+
 void EasyHistogramItem::setSource(::profiler::thread_id_t _thread_id, const ::profiler_gui::EasyItems* _items)
 {
     if (m_regime == Hist_Pointer && m_threadId == _thread_id && m_pSource == _items)
@@ -965,7 +985,7 @@ void EasyHistogramItem::setSource(::profiler::thread_id_t _thread_id, ::profiler
             m_threadWaitTime = root.wait_time;
 
             m_bReady.store(false, ::std::memory_order_release);
-            m_workerThread = ::std::thread([this](decltype(root) profiler_thread, ::profiler::block_index_t selected_block)
+            m_workerThread = ::std::thread([this](decltype(root) profiler_thread, ::profiler::block_index_t selected_block, bool _showOnlyTopLevelBlocks)
             {
                 typedef ::std::vector<::std::pair<::profiler::block_index_t, ::profiler::block_index_t> > Stack;
 
@@ -993,6 +1013,9 @@ void EasyHistogramItem::setSource(::profiler::thread_id_t _thread_id, ::profiler
 
                         m_blockTotalDuraion += w;
                     }
+
+                    if (_showOnlyTopLevelBlocks)
+                        continue;
 
                     stack.push_back(::std::make_pair(frame, 0U));
                     while (!stack.empty())
@@ -1080,7 +1103,7 @@ void EasyHistogramItem::setSource(::profiler::thread_id_t _thread_id, ::profiler
 
                 m_bReady.store(true, ::std::memory_order_release);
 
-            }, std::ref(root), EASY_GLOBALS.selected_block);
+            }, std::ref(root), EASY_GLOBALS.selected_block, EASY_GLOBALS.display_only_frames_on_histogram);
 
             m_timeouts = 3;
             m_timer.start(WORKER_THREAD_CHECK_INTERVAL);
@@ -1735,6 +1758,12 @@ EasyGraphicsScrollbar::EasyGraphicsScrollbar(QWidget* _parent)
     {
         if (m_histogramItem->isVisible())
             m_histogramItem->onModeChanged();
+    });
+
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::displayOnlyFramesOnHistogramChanged, [this]()
+    {
+        if (m_histogramItem->isVisible())
+            m_histogramItem->rebuildSource(EasyHistogramItem::Hist_Id);
     });
 
     connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::threadNameDecorationChanged, this, &This::onThreadViewChanged);

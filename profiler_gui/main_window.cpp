@@ -258,6 +258,8 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
 
     toolbar->addSeparator();
     auto menu = new QMenu("Settings", this);
+    menu->setToolTipsVisible(true);
+
     QToolButton* toolButton = new QToolButton(toolbar);
     toolButton->setIcon(QIcon(":/Settings"));
     toolButton->setMenu(menu);
@@ -280,6 +282,17 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
         action->setText("Statistics disabled");
         SET_ICON(action, ":/Stats-off");
     }
+
+
+    action = menu->addAction("Only frames on histogram");
+    action->setToolTip("Display only top-level blocks on histogram.");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.display_only_frames_on_histogram);
+    connect(action, &QAction::triggered, [this](bool _checked)
+    {
+        EASY_GLOBALS.display_only_frames_on_histogram = _checked;
+        emit EASY_GLOBALS.events.displayOnlyFramesOnHistogramChanged();
+    });
 
 
     menu->addSeparator();
@@ -1270,6 +1283,10 @@ void EasyMainWindow::loadSettings()
     if (!flag.isNull())
         EASY_GLOBALS.auto_adjust_histogram_height = flag.toBool();
 
+    flag = settings.value("display_only_frames_on_histogram");
+    if (!flag.isNull())
+        EASY_GLOBALS.display_only_frames_on_histogram = flag.toBool();
+
     flag = settings.value("use_decorated_thread_name");
     if (!flag.isNull())
         EASY_GLOBALS.use_decorated_thread_name = flag.toBool();
@@ -1347,6 +1364,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("selecting_block_changes_thread", EASY_GLOBALS.selecting_block_changes_thread);
     settings.setValue("enable_event_indicators", EASY_GLOBALS.enable_event_markers);
     settings.setValue("auto_adjust_histogram_height", EASY_GLOBALS.auto_adjust_histogram_height);
+    settings.setValue("display_only_frames_on_histogram", EASY_GLOBALS.display_only_frames_on_histogram);
     settings.setValue("use_decorated_thread_name", EASY_GLOBALS.use_decorated_thread_name);
     settings.setValue("hex_thread_id", EASY_GLOBALS.hex_thread_id);
     settings.setValue("enable_statistics", EASY_GLOBALS.enable_statistics);

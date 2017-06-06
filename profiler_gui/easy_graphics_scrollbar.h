@@ -141,7 +141,11 @@ class EasyHistogramItem : public QGraphicsItem
     typedef QGraphicsItem Parent;
     typedef EasyHistogramItem This;
 
+public:
+
     enum HistRegime : uint8_t { Hist_Pointer, Hist_Id };
+
+private:
 
     QRectF                               m_boundingRect;
     qreal                                 m_topDuration;
@@ -203,6 +207,8 @@ public:
 
     void setSource(::profiler::thread_id_t _thread_id, const ::profiler_gui::EasyItems* _items);
     void setSource(::profiler::thread_id_t _thread_id, ::profiler::block_id_t _block_id);
+    void rebuildSource(HistRegime _regime);
+    void rebuildSource();
     void validateName();
     void updateImage();
     void cancelImageUpdate();

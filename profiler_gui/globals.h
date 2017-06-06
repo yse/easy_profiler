@@ -199,6 +199,7 @@ namespace profiler_gui {
         bool               highlight_blocks_with_same_id; ///< Highlight all blocks with same id on diagram
         bool              selecting_block_changes_thread; ///< If true then current selected thread will change every time you select block
         bool                auto_adjust_histogram_height; ///< Automatically adjust histogram height to the visible region
+        bool            display_only_frames_on_histogram; ///< Display only top-level blocks on histogram when drawing histogram by block id
         bool           bind_scene_and_tree_expand_status; /** \brief If true then items on graphics scene and in the tree (blocks hierarchy) are binded on each other
                                                                 so expanding/collapsing items on scene also expands/collapse items in the tree. */
 

@@ -80,6 +80,7 @@ namespace profiler_gui {
         void blocksRefreshRequired(bool);
         void expectedFrameTimeChanged();
         void autoAdjustHistogramChanged();
+        void displayOnlyFramesOnHistogramChanged();
         void hierarchyFlagChanged(bool);
         void threadNameDecorationChanged();
         void hexThreadIdChanged();
