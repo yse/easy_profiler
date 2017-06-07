@@ -592,28 +592,50 @@ public:
 //////////////////////////////////////////////////////////////////////////
 
 NonscopedBlock::NonscopedBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, bool)
-    : profiler::Block(_desc, _runtimeName, false)
+    : profiler::Block(_desc, _runtimeName, false), m_runtimeName(nullptr)
 {
 
 }
 
 NonscopedBlock::~NonscopedBlock()
 {
+    // Actually destructor should not be invoked because StackBuffer do manual memory management
+
     m_end = m_begin; // to restrict profiler::Block to invoke profiler::endBlock() on destructor.
+    free(m_runtimeName);
 }
 
 void NonscopedBlock::copyname()
 {
-    if ((m_status & profiler::ON) != 0 && m_name[0] != 0)
+    // Here we need to copy m_name to m_runtimeName to ensure that
+    // it would be alive to the moment we will serialize the block
+
+    if ((m_status & profiler::ON) == 0)
+        return;
+
+    if (*m_name != 0)
     {
-        m_runtimeName = m_name;
-        m_name = m_runtimeName.c_str();
+        auto len = strlen(m_name);
+        m_runtimeName = static_cast<char*>(malloc(len + 1));
+
+        // memcpy should be faster than strncpy because we know
+        // actual bytes number and both strings have the same size
+        memcpy(m_runtimeName, m_name, len);
+
+        m_runtimeName[len] = 0;
+        m_name = m_runtimeName;
+    }
+    else
+    {
+        m_name = "";
     }
 }
 
 void NonscopedBlock::destroy()
 {
-    std::string().swap(m_runtimeName); // free memory used by m_runtimeName
+    // free memory used by m_runtimeName
+    free(m_runtimeName);
+    m_name = "";
 }
 
 //////////////////////////////////////////////////////////////////////////

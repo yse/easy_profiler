@@ -299,7 +299,7 @@ public:
 
 class NonscopedBlock : public profiler::Block
 {
-    std::string m_runtimeName; ///< a copy of _runtimeName to make it safe to begin block in one function and end it in another
+    char* m_runtimeName; ///< a copy of _runtimeName to make it safe to begin block in one function and end it in another
 
     NonscopedBlock() = delete;
     NonscopedBlock(const NonscopedBlock&) = delete;
@@ -348,7 +348,7 @@ class StackBuffer
 
 public:
 
-    StackBuffer(uint32_t N) : m_buffer((T*)malloc(N * sizeof(T))), m_size(0), m_capacity(N), m_maxcapacity(N)
+    StackBuffer(uint32_t N) : m_buffer(static_cast<T*>(malloc(N * sizeof(T)))), m_size(0), m_capacity(N), m_maxcapacity(N)
     {
     }
 
@@ -370,7 +370,7 @@ public:
             return *(::new (m_buffer + m_size++) T(_args...));
 
         m_overflow.emplace_back();
-        const uint32_t cap = m_capacity + (uint32_t)m_overflow.size();
+        const uint32_t cap = m_capacity + static_cast<uint32_t>(m_overflow.size());
         if (m_maxcapacity < cap)
             m_maxcapacity = cap;
 
@@ -389,7 +389,7 @@ public:
                 // When stack gone empty we can resize buffer to use enough space in the future
                 free(m_buffer);
                 m_maxcapacity = m_capacity = std::max(m_maxcapacity, m_capacity << 1);
-                m_buffer = (T*)malloc(m_capacity * sizeof(T));
+                m_buffer = static_cast<T*>(malloc(m_buffer, m_capacity * sizeof(T)));
             }
 
             return;
