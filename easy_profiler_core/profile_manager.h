@@ -389,7 +389,7 @@ public:
                 // When stack gone empty we can resize buffer to use enough space in the future
                 free(m_buffer);
                 m_maxcapacity = m_capacity = std::max(m_maxcapacity, m_capacity << 1);
-                m_buffer = static_cast<T*>(malloc(m_buffer, m_capacity * sizeof(T)));
+                m_buffer = static_cast<T*>(malloc(m_capacity * sizeof(T)));
             }
 
             return;
