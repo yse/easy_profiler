@@ -48,18 +48,18 @@ The Apache License, Version 2.0 (the "License");
 #if defined(_WIN32) && defined(_MSC_VER) && _MSC_VER <= 1800
 // std::chrono for MSVC2013 is broken - it has very low resolution of 16ms
 // restrict usage of std::chrono
-# ifdef EASY_CHRONO_HIGHRES_CLOCK
+# if EASY_CHRONO_HIGHRES_CLOCK
 #  undef EASY_CHRONO_HIGHRES_CLOCK
 # endif
-# ifdef EASY_CHRONO_STEADY_CLOCK
+# if EASY_CHRONO_STEADY_CLOCK
 #  undef EASY_CHRONO_STEADY_CLOCK
 # endif
 #endif
 
-#if defined(EASY_CHRONO_HIGHRES_CLOCK)
+#if EASY_CHRONO_HIGHRES_CLOCK
 # include <chrono>
 # define EASY_CHRONO_CLOCK std::chrono::high_resolution_clock
-#elif defined(EASY_CHRONO_STEADY_CLOCK)
+#elif EASY_CHRONO_STEADY_CLOCK
 # include <chrono>
 # define EASY_CHRONO_CLOCK std::chrono::steady_clock
 #elif defined(_WIN32)
@@ -74,7 +74,7 @@ The Apache License, Version 2.0 (the "License");
 
 static inline profiler::timestamp_t getCurrentTime()
 {
-#if defined(EASY_CHRONO_HIGHRES_CLOCK) || defined(EASY_CHRONO_STEADY_CLOCK)
+#if EASY_CHRONO_HIGHRES_CLOCK || EASY_CHRONO_STEADY_CLOCK
     return (profiler::timestamp_t)EASY_CHRONO_CLOCK::now().time_since_epoch().count();
 #elif defined(_WIN32)
     //see https://msdn.microsoft.com/library/windows/desktop/dn553408(v=vs.85).aspx
