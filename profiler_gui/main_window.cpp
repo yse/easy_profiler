@@ -2317,8 +2317,8 @@ bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profile
     m_address.clear();
     m_port = 0;
 
-    m_easySocket.flush();
-    m_easySocket.init();
+    //m_easySocket.flush();
+    //m_easySocket.init();
     int res = m_easySocket.setAddress(_ipaddress, _port);
     res = m_easySocket.connect();
 
