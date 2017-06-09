@@ -1392,6 +1392,9 @@ void EasyMainWindow::setDisconnected(bool _showMessage)
     m_eventTracingEnableAction->setEnabled(false);
     m_eventTracingPriorityAction->setEnabled(false);
 
+    m_addressEdit->setEnabled(true);
+    m_portEdit->setEnabled(true);
+
     emit EASY_GLOBALS.events.connectionChanged(false);
 
 }
@@ -1876,71 +1879,22 @@ void EasyMainWindow::onFrameTimeChanged()
 
 void EasyMainWindow::onConnectClicked(bool)
 {
-    auto text = m_addressEdit->text();
-//     auto parts = text.split(QChar('.'));
-//     if (parts.size() != 4)
-//     {
-//         QMessageBox::warning(this, "Warning", "Invalid IP-Address", QMessageBox::Close);
-// 
-//         if (EASY_GLOBALS.connected)
-//         {
-//             // Restore last values
-//             m_addressEdit->setText(m_lastAddress);
-//             m_portEdit->setText(QString::number(m_lastPort));
-//         }
-// 
-//         return;
-//     }
-// 
-//     for (auto& part : parts)
-//     {
-//         int i = 0;
-//         for (; i < part.size(); ++i)
-//         {
-//             if (part[i] != QChar('0'))
-//                 break;
-//         }
-// 
-//         if (i < part.size())
-//             part = part.mid(i);
-//         else
-//             part = "0";
-//     }
-
-    QString& address = text;// parts.join(QChar('.'));
-    const decltype(m_lastPort) port = m_portEdit->text().toUShort();
-    //m_addressEdit->setText(address);
-
-    const bool isSameAddress = (EASY_GLOBALS.connected && m_listener.port() == port && address.toStdString() == m_listener.address());
     if (EASY_GLOBALS.connected)
     {
-        //if (QMessageBox::question(this, isSameAddress ? "Reconnect" : "New connection", QString("Current connection will be broken\n\n%1")
-        //    .arg(isSameAddress ? "Re-connect?" : "Establish new connection?"),
-        //    QMessageBox::Yes, QMessageBox::No) != QMessageBox::Yes)
-        //{
-        //    if (!isSameAddress)
-        //    {
-        //        // Restore last values
-        //        m_addressEdit->setText(m_lastAddress);
-        //        m_portEdit->setText(QString::number(m_lastPort));
-        //    }
-        //
-        //    return;
-        //}
-
-        if (isSameAddress)
-        {
-            // Disconnect if clicked "Connect" with the same address
-            m_listener.disconnect();
-            setDisconnected(false);
-            return;
-        }
+        // Disconnect if already connected
+        m_listener.disconnect();
+        setDisconnected(false);
+        return;
     }
+
+    QString address = m_addressEdit->text();
+    const decltype(m_lastPort) port = m_portEdit->text().toUShort();
+    const bool isSameAddress = (EASY_GLOBALS.connected && m_listener.port() == port && address.toStdString() == m_listener.address());
 
     profiler::net::EasyProfilerStatus reply(false, false, false);
     if (!m_listener.connect(address.toStdString().c_str(), port, reply))
     {
-        if (EASY_GLOBALS.connected && !isSameAddress)
+        /*if (EASY_GLOBALS.connected && !isSameAddress)
         {
             if (QMessageBox::warning(this, "Warning", QString("Cannot connect to %1\n\nRestore previous connection?").arg(address),
                 QMessageBox::Yes, QMessageBox::No) == QMessageBox::Yes)
@@ -1966,7 +1920,7 @@ void EasyMainWindow::onConnectClicked(bool)
                 m_lastPort = port;
             }
         }
-        else
+        else*/
         {
             QMessageBox::warning(this, "Warning", QString("Cannot connect to %1").arg(address), QMessageBox::Close);
             if (EASY_GLOBALS.connected)
@@ -2008,6 +1962,9 @@ void EasyMainWindow::onConnectClicked(bool)
 
     connect(m_eventTracingEnableAction, &QAction::triggered, this, &This::onEventTracingEnableChange);
     connect(m_eventTracingPriorityAction, &QAction::triggered, this, &This::onEventTracingPriorityChange);
+
+    m_addressEdit->setEnabled(false);
+    m_portEdit->setEnabled(false);
 
     emit EASY_GLOBALS.events.connectionChanged(true);
 
