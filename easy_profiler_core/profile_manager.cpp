@@ -1706,8 +1706,6 @@ void ProfileManager::listen(uint16_t _port)
 
         while (hasConnect && !m_stopListen.load(std::memory_order_acquire))
         {
-            EASY_LOGMSG("GUI-client connected\n");
-
             char buffer[256] = {};
 
             bytes = socket.receive(buffer, 255);
