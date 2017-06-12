@@ -7,7 +7,7 @@ set(EASY_OPTION_LISTEN                 OFF    CACHE BOOL   "Enable automatic sta
 set(EASY_OPTION_PROFILE_SELF           OFF    CACHE BOOL   "Enable self profiling (measure time for internal storage expand)")
 set(EASY_OPTION_PROFILE_SELF_BLOCKS_ON OFF    CACHE BOOL   "Storage expand default status (profiler::ON or profiler::OFF)")
 set(EASY_OPTION_LOG                    OFF    CACHE BOOL   "Print errors to stderr")
-set(EASY_OPTION_PREDEFINED_COLORS      OFF    CACHE BOOL   "Use predefined set of colors (see profiler_colors.h). If you want to use your own colors palette you can turn this option OFF")
+set(EASY_OPTION_PREDEFINED_COLORS      ON     CACHE BOOL   "Use predefined set of colors (see profiler_colors.h). If you want to use your own colors palette you can turn this option OFF")
 set(EASY_OPTION_LIB_TYPE               SHARED CACHE BOOL   "easy_profiler library type. SHARED or STATIC")
 if (WIN32)
     set(EASY_OPTION_EVENT_TRACING      ON     CACHE BOOL   "Enable event tracing by default")
