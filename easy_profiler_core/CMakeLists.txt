@@ -186,7 +186,6 @@ install(
 
 install(
     FILES
-    version.info
     LICENSE.MIT
     LICENSE.APACHE
     DESTINATION
