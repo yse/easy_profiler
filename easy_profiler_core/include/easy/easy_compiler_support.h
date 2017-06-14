@@ -55,7 +55,7 @@
 
 //#define EASY_CODE_WRAP(Code) Code
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(EASY_PROFILER_STATIC)
 // Visual Studio and MinGW
 # ifdef _BUILD_PROFILER
 #  define PROFILER_API __declspec(dllexport)
