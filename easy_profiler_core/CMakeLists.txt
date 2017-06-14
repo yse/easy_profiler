@@ -134,11 +134,18 @@ endif ()
 if (APPLE)
     target_compile_options(easy_profiler PUBLIC -std=gnu++11)
 else ()
-    if (NOT MSVC)
-        target_compile_options(easy_profiler PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=gnu++11>)
-    endif ()
+    
 
-    if (NOT CMAKE_VERSION VERSION_LESS "3.1")
+    if (CMAKE_VERSION VERSION_LESS "3.1")
+        if (NOT MSVC)
+            target_compile_options(easy_profiler PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=gnu++11>)
+        endif ()
+    else()
+    
+        if (NOT MSVC)
+            target_compile_options(easy_profiler PUBLIC -std=gnu++11)
+        endif ()
+        
         set_target_properties(easy_profiler PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
     endif ()
 endif ()
