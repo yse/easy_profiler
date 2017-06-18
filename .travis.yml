@@ -5,15 +5,23 @@ cache: ccache
 matrix:
   include:
     - compiler: gcc
+      os: linux
       addons:
         apt:
           sources:
             - ubuntu-toolchain-r-test
           packages:
             - g++-5
+            - cmake
+            - cmake-data
       env:
         -CXX_COMPILER=g++-5
         -C_COMPILER=gcc-5
+    - os: osx
+      compiler: clang
+      env:
+        -CXX_COMPILER=clang++
+        -C_COMPILER=clang
 #    - compiler: clang
 #      addons:
 #        apt:
@@ -29,23 +37,29 @@ script:
   - mkdir build
   - cd build
   - cmake --version
-  - source /opt/qt55/bin/qt55-env.sh
-  - qmake -v
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then
+        source /opt/qt55/bin/qt55-env.sh;
+        qmake -v;
+    fi
   - cmake -DCMAKE_CXX_COMPILER=$CXX_COMPILER -DCMAKE_C_COMPILER=$C_COMPILER  .. && make -j3
 after_success:
   - cd ../sample && $CXX_COMPILER -std=c++11 -O3 main_clock.cpp -o test_clock && ./test_clock
   - ./build_express_test.sh
 before_install:
-  - sudo add-apt-repository --yes ppa:beineri/opt-qt551-trusty
-  - sudo apt-get update -qq
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then
+        sudo add-apt-repository --yes ppa:beineri/opt-qt551-trusty;
+        sudo apt-get update -qq;
+    else
+        brew update
+    fi
 install:
-  - sudo apt-get -y install qt55tools qt55script qt55base qt55svg
-addons:
-  apt:
-    sources:
-      - ubuntu-toolchain-r-test
-    packages:
-      - cmake
-      - cmake-data
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then
+        sudo apt-get -y install qt55tools qt55script qt55base qt55svg;
+    else
+        brew install qt55;
+        brew link --force qt55;
+    fi
+
+      
 
 
