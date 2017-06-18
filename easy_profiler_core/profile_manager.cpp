@@ -60,6 +60,11 @@
 #include "event_trace_win.h"
 #include "current_time.h"
 
+#ifdef __APPLE__
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
+
 #if EASY_OPTION_LOG_ENABLED != 0
 # include <iostream>
 
@@ -90,19 +95,19 @@
 #else
 
 # ifndef EASY_ERROR
-#  define EASY_ERROR(LOG_MSG) 
+#  define EASY_ERROR(LOG_MSG)
 # endif
 
 # ifndef EASY_WARNING
-#  define EASY_WARNING(LOG_MSG) 
+#  define EASY_WARNING(LOG_MSG)
 # endif
 
 # ifndef EASY_LOGMSG
-#  define EASY_LOGMSG(LOG_MSG) 
+#  define EASY_LOGMSG(LOG_MSG)
 # endif
 
 # ifndef EASY_LOG_ONLY
-#  define EASY_LOG_ONLY(CODE) 
+#  define EASY_LOG_ONLY(CODE)
 # endif
 
 #endif
@@ -157,14 +162,26 @@ const decltype(LARGE_INTEGER::QuadPart) CPU_FREQUENCY = ([](){ LARGE_INTEGER fre
 int64_t calculate_cpu_frequency()
 {
     double g_TicksPerNanoSec;
-    struct timespec begints, endts;
     uint64_t begin = 0, end = 0;
+#ifdef __APPLE__
+    clock_serv_t cclock;
+    mach_timespec_t begints, endts;
+    host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &cclock);
+    clock_get_time(cclock, &begints);
+#else
+    struct timespec begints, endts;
     clock_gettime(CLOCK_MONOTONIC, &begints);
+#endif
     begin = getCurrentTime();
     volatile uint64_t i;
     for (i = 0; i < 100000000; i++); /* must be CPU intensive */
     end = getCurrentTime();
+#ifdef __APPLE__
+    clock_get_time(cclock, &endts);
+    mach_port_deallocate(mach_task_self(), cclock);
+#else
     clock_gettime(CLOCK_MONOTONIC, &endts);
+#endif
     struct timespec tmpts;
     const int NANO_SECONDS_IN_SEC = 1000000000;
     tmpts.tv_sec = endts.tv_sec - begints.tv_sec;
@@ -238,10 +255,10 @@ EASY_THREAD_LOCAL static bool THIS_THREAD_FRAME_T_RESET_AVG = false;
 # ifndef EASY_PROFILER_API_DISABLED
 #  define EASY_PROFILER_API_DISABLED
 # endif
-# define EASY_EVENT_RES(res, name, ...) 
-# define EASY_FORCE_EVENT(timestamp, name, ...) 
-# define EASY_FORCE_EVENT2(timestamp, name, ...) 
-# define EASY_FORCE_EVENT3(ts, timestamp, name, ...) 
+# define EASY_EVENT_RES(res, name, ...)
+# define EASY_FORCE_EVENT(timestamp, name, ...)
+# define EASY_FORCE_EVENT2(timestamp, name, ...)
+# define EASY_FORCE_EVENT3(ts, timestamp, name, ...)
 #endif
 
 //////////////////////////////////////////////////////////////////////////
@@ -1034,7 +1051,7 @@ void ProfileManager::beginBlock(Block& _block)
             _block.start();
 #if EASY_ENABLE_BLOCK_STATUS != 0
         THIS_THREAD->allowChildren = !(_block.m_status & profiler::OFF_RECURSIVE);
-    } 
+    }
     else if (_block.m_status & FORCE_ON_FLAG)
     {
         _block.start();
@@ -1926,7 +1943,7 @@ void ProfileManager::listen(uint16_t _port)
             }
         }
 
-        
+
 
     }
 
