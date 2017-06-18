@@ -50,7 +50,7 @@ before_install:
         sudo add-apt-repository --yes ppa:beineri/opt-qt551-trusty;
         sudo apt-get update -qq;
     else
-        brew update
+        brew update;
     fi
 install:
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then
