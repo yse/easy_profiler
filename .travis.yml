@@ -56,8 +56,12 @@ install:
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then
         sudo apt-get -y install qt55tools qt55script qt55base qt55svg;
     else
-        brew install qt55;
-        brew link --force qt55;
+        brew install qt5;
+        brew link --force qt5;
+        brew linkapps qt5;
+        export HOMEBREW_QT5_VERSION=$(brew list --versions qt5 | rev | cut -d' ' -f1 | rev);
+        ln -s /usr/local/Cellar/qt5/$HOMEBREW_QT5_VERSION/mkspecs /usr/local/mkspecs;
+        ln -s /usr/local/Cellar/qt5/$HOMEBREW_QT5_VERSION/plugins /usr/local/plugins;
     fi
 
       
