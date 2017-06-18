@@ -18,21 +18,13 @@ matrix:
         -CXX_COMPILER=g++-5
         -C_COMPILER=gcc-5
     - os: osx
-      compiler: clang
+      osx_image: xcode8
+      #compiler: clang
       env:
-        -CXX_COMPILER=clang++
-        -C_COMPILER=clang
-#    - compiler: clang
-#      addons:
-#        apt:
-#          sources:
-#            - ubuntu-toolchain-r-test
-#            - llvm-toolchain-precise-3.7
-#          packages:
-#            - clang-3.7
-#      env:
-#        -CXX_COMPILER=clang++-3.7
-#        -C_COMPILER=clang-3.7
+        #-CXX_COMPILER=clang++
+        #-C_COMPILER=clang
+        -CXX_COMPILER=g++-5
+        -C_COMPILER=gcc-5
 script:
   - mkdir build
   - cd build
@@ -58,6 +50,7 @@ install:
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then
         sudo apt-get -y install qt55tools qt55script qt55base qt55svg;
     else
+        brew install gcc5;
         brew install qt5;
         brew link --force qt5;
         export HOMEBREW_QT5_VERSION=$(brew list --versions qt5 | rev | cut -d' ' -f1 | rev);
