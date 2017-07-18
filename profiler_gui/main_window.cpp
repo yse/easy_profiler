@@ -828,7 +828,7 @@ void EasyMainWindow::onSaveFileClicked(bool)
         {
             // Can not open the file!
 
-            QMessageBox::warning(this, "Warning", "Can not open source file.\nSaving incomplete.", QMessageBox::Close);
+            QMessageBox::warning(this, "Warning", "Cannot open source file.\nSaving incomplete.", QMessageBox::Close);
 
             m_lastFiles.pop_front();
             auto action = m_loadActionMenu->actions().front();
@@ -917,14 +917,14 @@ void EasyMainWindow::onSaveFileClicked(bool)
         }
         else if (inOk)
         {
-            QMessageBox::warning(this, "Warning", "Can not open destination file.\nSaving incomplete.", QMessageBox::Close);
+            QMessageBox::warning(this, "Warning", "Cannot open destination file.\nSaving incomplete.", QMessageBox::Close);
         }
         else
         {
             if (m_bNetworkFileRegime)
-                QMessageBox::warning(this, "Warning", "Can not open network cache file.\nSaving incomplete.", QMessageBox::Close);
+                QMessageBox::warning(this, "Warning", "Cannot open network cache file.\nSaving incomplete.", QMessageBox::Close);
             else
-                QMessageBox::warning(this, "Warning", "Can not open source file.\nSaving incomplete.", QMessageBox::Close);
+                QMessageBox::warning(this, "Warning", "Cannot open source file.\nSaving incomplete.", QMessageBox::Close);
         }
     }
 }
@@ -1382,7 +1382,7 @@ void EasyMainWindow::setDisconnected(bool _showMessage)
         m_fpsRequestTimer.stop();
 
     if (_showMessage)
-        QMessageBox::warning(this, "Warning", "Connection has lost", QMessageBox::Close);
+        QMessageBox::warning(this, "Warning", "Connection was lost", QMessageBox::Close);
 
     EASY_GLOBALS.connected = false;
     m_captureAction->setEnabled(false);
@@ -1673,7 +1673,7 @@ void EasyMainWindow::onFileReaderTimeout()
         }
         else
         {
-            QMessageBox::warning(this, "Warning", QString("Can not read profiled blocks.\n\nReason:\n%1").arg(m_reader.getError()), QMessageBox::Close);
+            QMessageBox::warning(this, "Warning", QString("Cannot read profiled blocks.\n\nReason:\n%1").arg(m_reader.getError()), QMessageBox::Close);
 
             if (m_reader.isFile())
             {
@@ -2041,7 +2041,7 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
         if (m_listener.regime() == LISTENER_DESCRIBE)
             QMessageBox::warning(this, "Warning", "Already capturing blocks description.\nFinish old capturing session first.", QMessageBox::Close);
         else
-            QMessageBox::warning(this, "Warning", "Capturing capturing frames.\nFinish old capturing session first.", QMessageBox::Close);
+            QMessageBox::warning(this, "Warning", "Already capturing frames.\nFinish old capturing session first.", QMessageBox::Close);
         return;
     }
 
@@ -2155,7 +2155,7 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
         }
         else
         {
-            QMessageBox::warning(this, "Warning", QString("Can not read blocks description from stream.\n\nReason:\n%1").arg(errorMessage.str().c_str()), QMessageBox::Close);
+            QMessageBox::warning(this, "Warning", QString("Cannot read blocks description from stream.\n\nReason:\n%1").arg(errorMessage.str().c_str()), QMessageBox::Close);
         }
 
         m_listener.clearData();
