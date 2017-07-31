@@ -70,6 +70,7 @@ The Apache License, Version 2.0 (the "License");
 #include <sys/syscall.h>
 #include <chrono>
 #include <time.h>
+#include <malloc.h>
 #endif
 
 #ifdef max
@@ -133,9 +134,13 @@ namespace profiler {
 #  define EASY_MALLOC(MEMSIZE, A) _aligned_malloc(MEMSIZE, A)
 #  define EASY_FREE(MEMPTR) _aligned_free(MEMPTR)
 # elif defined(__GNUC__)
-#  define EASY_ALIGNED(TYPE, VAR, A) TYPE VAR __attribute__(aligned(A))
+#  define EASY_ALIGNED(TYPE, VAR, A) TYPE VAR __attribute__((aligned(A)))
+#  define EASY_MALLOC(MEMSIZE, A) memalign(A, MEMSIZE)
+#  define EASY_FREE(MEMPTR) free(MEMPTR)
 # else
 #  define EASY_ALIGNED(TYPE, VAR, A) TYPE VAR
+#  define EASY_MALLOC(MEMSIZE, A) malloc(MEMSIZE)
+#  define EASY_FREE(MEMPTR) free(MEMPTR)
 # endif
 #endif
 
