@@ -248,7 +248,7 @@ int EasySocket::accept()
     fdexcl = fdread;
     tv.tv_sec = 0; tv.tv_usec = 500;
 
-    int rc =select (m_socket+1, &fdread, &fdwrite, &fdexcl, &tv);
+    int rc =select ((int)m_socket+1, &fdread, &fdwrite, &fdexcl, &tv);
 
     if(rc <= 0){
         //there is no connection for accept

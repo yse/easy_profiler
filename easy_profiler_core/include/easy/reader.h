@@ -370,7 +370,7 @@ namespace profiler {
             other.m_size = m_size;
 
             m_data = d;
-            m_size = sz;
+            m_size = (size_t)sz;
         }
 
     private:
