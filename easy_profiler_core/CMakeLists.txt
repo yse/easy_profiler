@@ -131,6 +131,10 @@ if (MINGW)
     target_compile_definitions(easy_profiler PRIVATE -DSTRSAFE_NO_DEPRECATE)
 endif ()
 
+if (MSVC)
+    target_compile_options(easy_profiler PRIVATE /WX)
+endif()
+
 if (APPLE)
     target_compile_options(easy_profiler PUBLIC -std=gnu++11)
 else ()
