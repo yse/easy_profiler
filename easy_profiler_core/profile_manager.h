@@ -223,13 +223,13 @@ public:
 
         if (!need_expand(n))
         {
-            int8_t* data = m_chunks.back().data + m_shift;
+            int8_t* data = &m_chunks.back().data[0] + m_shift;
             m_shift += n + sizeof(uint16_t);
 
             *(uint16_t*)data = n;
-            data = data + sizeof(uint16_t);
+            data += sizeof(uint16_t);
 
-            if (m_shift + 1 < N)
+            if (m_shift < N-1)
                 *(uint16_t*)(data + n) = 0;
 
             return data;
@@ -237,10 +237,10 @@ public:
 
         m_shift = n + sizeof(uint16_t);
         m_chunks.emplace_back();
-        auto data = m_chunks.back().data;
+        int8_t* data = m_chunks.back().data;
 
         *(uint16_t*)data = n;
-        data = data + sizeof(uint16_t);
+        data += sizeof(uint16_t);
 
         *(uint16_t*)(data + n) = 0;
         return data;
@@ -278,22 +278,36 @@ public:
     void serialize(profiler::OStream& _outputStream)
     {
         // Chunks are stored in reversed order (stack).
-        // To be able to iterate them in direct order we have to invert chunks list.
+        // To be able to iterate them in direct order we have to invert the chunks list.
         m_chunks.invert();
 
-        // Iterate over chunks and perform blocks serialization
-        auto current = m_chunks.last;
-        do {
+        // Each chunk is an array of N bytes that can hold between
+        // 1(if the list isn't empty) and however many elements can fit in a chunk,
+        // where an element consists of a payload size + a payload as follows:
+        // data[0..1]: size as a uint16_t
+        // data[2..?<(N-sizeof(uint16_t)-1): payload.
+
+        // Note: if elements don't completely fill a chunk:
+        // 1. If there is space for a uint16_t after the last element,
+        //    a uint16_t of 0 is placed after it.
+        // 2. If there ISN'T space for a uint16_t after the last element,
+        //    the last bytes contents are undefined.
+
+        chunk* current = m_chunks.last;
+        while (current != nullptr) {
             const int8_t* data = current->data;
-            uint16_t i = 0;
-            while (i + 1 < N && *(uint16_t*)data != 0) {
-                const uint16_t size = sizeof(uint16_t) + *(uint16_t*)data;
-                _outputStream.write((const char*)data, size);
-                data = data + size;
-                i += size;
+            int_fast32_t chunkOffset = 0;
+            uint16_t payloadSize = *(uint16_t*)data;
+            // @Incomplete: doesn't handle the case where an element is one off from N-1!
+            while (chunkOffset < N-1 && payloadSize != 0) {
+                const uint16_t chunkSize = sizeof(uint16_t) + payloadSize;
+                _outputStream.write((const char*)data, chunkSize);
+                chunkOffset += (int16_t)chunkSize;
+                data += chunkSize;
+                payloadSize = *(uint16_t*)data;
             }
             current = current->prev;
-        } while (current != nullptr);
+        }
 
         clear();
     }
