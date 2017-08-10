@@ -56,6 +56,7 @@ The Apache License, Version 2.0 (the "License");
 #include <thread>
 #include <atomic>
 #include <list>
+#include <cstring>
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -177,7 +178,7 @@ class chunk_allocator
             auto prev = last;
             last = ::new (EASY_MALLOC(sizeof(chunk), EASY_ALIGNMENT_SIZE)) chunk();
             last->prev = prev;
-            *(uint16_t*)last->data = 0;
+            std::memset(last->data, 0, sizeof(uint16_t));
         }
 
         /** Invert current chunks list to enable to iterate over chunks list in direct order.
