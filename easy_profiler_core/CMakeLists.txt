@@ -8,7 +8,7 @@ set(EASY_OPTION_PROFILE_SELF           OFF    CACHE BOOL   "Enable self profilin
 set(EASY_OPTION_PROFILE_SELF_BLOCKS_ON OFF    CACHE BOOL   "Storage expand default status (profiler::ON or profiler::OFF)")
 set(EASY_OPTION_LOG                    OFF    CACHE BOOL   "Print errors to stderr")
 set(EASY_OPTION_PREDEFINED_COLORS      ON     CACHE BOOL   "Use predefined set of colors (see profiler_colors.h). If you want to use your own colors palette you can turn this option OFF")
-set(BUILD_SHARED_LIBS                  OFF    CACHE BOOL   "Build easy_profiler as static library.")
+set(BUILD_SHARED_LIBS                  ON    CACHE BOOL    "Build easy_profiler as shared library.")
 if (WIN32)
     set(EASY_OPTION_EVENT_TRACING      ON     CACHE BOOL   "Enable event tracing by default")
     set(EASY_OPTION_LOW_PRIORITY_EVENT_TRACING ON CACHE BOOL "Set low priority for event tracing thread")
