@@ -60,6 +60,7 @@
 #include <QColor>
 #include <QTextCodec>
 #include <QSize>
+#include <QFont>
 #include "common_types.h"
 #include "globals_qobjects.h"
 
@@ -202,7 +203,10 @@ namespace profiler_gui {
         bool            display_only_frames_on_histogram; ///< Display only top-level blocks on histogram when drawing histogram by block id
         bool           bind_scene_and_tree_expand_status; /** \brief If true then items on graphics scene and in the tree (blocks hierarchy) are binded on each other
                                                                 so expanding/collapsing items on scene also expands/collapse items in the tree. */
-
+        QFont                                    bg_font; ///< Font for blocks_graphics_view
+        QFont                           chronometer_font; ///< Font for easy_chronometer_item
+        QFont                                 items_font; ///< Font for easy_graphics_item
+        QFont                         selected_item_font; ///< Font for easy_graphics_item
     private:
 
         EasyGlobals();
@@ -214,7 +218,7 @@ namespace profiler_gui {
 } // END of namespace profiler_gui.
 
 #ifndef IGNORE_GLOBALS_DECLARATION
-static ::profiler_gui::EasyGlobals& EASY_GLOBALS = ::profiler_gui::EasyGlobals::instance();
+#define EASY_GLOBALS ::profiler_gui::EasyGlobals::instance()
 
 inline ::profiler_gui::EasyBlock& easyBlock(::profiler::block_index_t i) {
     return EASY_GLOBALS.gui_blocks[i];

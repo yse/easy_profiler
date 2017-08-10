@@ -100,9 +100,6 @@ const uint64_t IDLE_TIME = 400;
 const int FLICKER_INTERVAL = 10; // 100Hz
 const qreal FLICKER_FACTOR = 16.0 / FLICKER_INTERVAL;
 
-const auto BG_FONT = ::profiler_gui::EFont("Helvetica", 10, QFont::Bold);
-const auto CHRONOMETER_FONT = ::profiler_gui::EFont("Helvetica", 16, QFont::Bold);
-
 #ifdef max
 #undef max
 #endif
@@ -284,7 +281,7 @@ void EasyTimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGrap
     _painter->drawLine(QLineF(visibleSceneRect.width() - 10, visibleSceneRect.height() - 6, visibleSceneRect.width() - 10, visibleSceneRect.height() - 14));
 
     _painter->setPen(Qt::black);
-    _painter->setFont(BG_FONT);
+    _painter->setFont(EASY_GLOBALS.bg_font);
     _painter->drawText(QRectF(visibleSceneRect.width() - 10 - step, visibleSceneRect.height() - 63, step, 50), Qt::AlignRight | Qt::AlignBottom | Qt::TextDontClip, text);
 
     _painter->restore();
@@ -2027,7 +2024,7 @@ void EasyThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
 
     // Draw thread names
     auto default_font = _painter->font();
-    _painter->setFont(BG_FONT);
+    _painter->setFont(EASY_GLOBALS.bg_font);
     for (auto item : items)
     {
         ++i;
@@ -2082,8 +2079,8 @@ void EasyThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
     _painter->drawLine(QLineF(0, h + 2, w, h + 2));
 
     // Draw information
-    _painter->setFont(CHRONOMETER_FONT);
-    QFontMetricsF fm(CHRONOMETER_FONT, parentView);
+    _painter->setFont(EASY_GLOBALS.chronometer_font);
+    QFontMetricsF fm(EASY_GLOBALS.chronometer_font, parentView);
     const qreal th = fm.height(); // Calculate displayed text height
     const qreal time1 = view->chronoTime();
     const qreal time2 = view->chronoTimeAux();
@@ -2184,7 +2181,7 @@ void EasyThreadNamesWidget::onTreeChange()
     m_idleTimer.stop();
     m_idleTime = 0;
 
-    QFontMetricsF fm(BG_FONT, this);
+    QFontMetricsF fm(EASY_GLOBALS.bg_font, this);
     qreal maxLength = 100;
     const auto& graphicsItems = m_view->getItems();
     for (auto graphicsItem : graphicsItems)

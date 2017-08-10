@@ -81,8 +81,6 @@ inline QRgb selectedItemBorderColor(::profiler::color_t _color) {
 }
 
 const QPen HIGHLIGHTER_PEN = ([]() -> QPen { QPen p(::profiler::colors::Black); p.setStyle(Qt::DotLine); p.setWidth(2); return p; })();
-const auto ITEMS_FONT = ::profiler_gui::EFont("Helvetica", 10, QFont::Medium);
-const auto SELECTED_ITEM_FONT = ::profiler_gui::EFont("Helvetica", 10, QFont::Bold);
 
 #ifdef max
 #undef max
@@ -418,7 +416,7 @@ void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSiz
         _painter->setPen(p.textColor);
 
         if (item.block == EASY_GLOBALS.selected_block)
-            _painter->setFont(SELECTED_ITEM_FONT);
+            _painter->setFont(EASY_GLOBALS.selected_item_font);
 
         // drawing text
         auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : itemDesc.name();
@@ -436,7 +434,7 @@ void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSiz
 
         // restore font
         if (item.block == EASY_GLOBALS.selected_block)
-            _painter->setFont(ITEMS_FONT);
+            _painter->setFont(EASY_GLOBALS.items_font);
         // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         if (do_paint_children)
@@ -458,7 +456,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     EasyPainterInformation p(view());
 
     _painter->save();
-    _painter->setFont(ITEMS_FONT);
+    _painter->setFont(EASY_GLOBALS.items_font);
     
     // Reset indices of first visible item for each layer
     const auto levelsNumber = levels();
@@ -837,7 +835,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 _painter->setPen(p.textColor);
 
                 if (item.block == EASY_GLOBALS.selected_block)
-                    _painter->setFont(SELECTED_ITEM_FONT);
+                    _painter->setFont(EASY_GLOBALS.selected_item_font);
 
                 // drawing text
                 auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : itemDesc.name();
@@ -855,7 +853,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
                 // restore font
                 if (item.block == EASY_GLOBALS.selected_block)
-                    _painter->setFont(ITEMS_FONT);
+                    _painter->setFont(EASY_GLOBALS.items_font);
                 // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #ifdef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
@@ -944,7 +942,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                             p.textColor = ::profiler_gui::textColorForRgb(itemDesc.color());// SELECTED_ITEM_COLOR);
                             _painter->setPen(p.textColor);
 
-                            _painter->setFont(SELECTED_ITEM_FONT);
+                            _painter->setFont(EASY_GLOBALS.selected_item_font);
 
                             // drawing text
                             auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : itemDesc.name();
