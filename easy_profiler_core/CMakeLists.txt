@@ -8,7 +8,7 @@ set(EASY_OPTION_PROFILE_SELF           OFF    CACHE BOOL   "Enable self profilin
 set(EASY_OPTION_PROFILE_SELF_BLOCKS_ON OFF    CACHE BOOL   "Storage expand default status (profiler::ON or profiler::OFF)")
 set(EASY_OPTION_LOG                    OFF    CACHE BOOL   "Print errors to stderr")
 set(EASY_OPTION_PREDEFINED_COLORS      ON     CACHE BOOL   "Use predefined set of colors (see profiler_colors.h). If you want to use your own colors palette you can turn this option OFF")
-set(EASY_OPTION_LIB_STATIC             OFF    CACHE BOOL   "Build easy_profiler as static library.")
+set(BUILD_SHARED_LIBS                  ON    CACHE BOOL    "Build easy_profiler as shared library.")
 if (WIN32)
     set(EASY_OPTION_EVENT_TRACING      ON     CACHE BOOL   "Enable event tracing by default")
     set(EASY_OPTION_LOW_PRIORITY_EVENT_TRACING ON CACHE BOOL "Set low priority for event tracing thread")
@@ -43,12 +43,7 @@ if (WIN32)
 endif (WIN32)
 message(STATUS "  Log messages = ${EASY_OPTION_LOG}")
 message(STATUS "  Use EasyProfiler colors palette = ${EASY_OPTION_PREDEFINED_COLORS}")
-if (EASY_OPTION_LIB_STATIC)
-    set(EASY_OPTION_LIB_TYPE STATIC)
-else ()
-    set(EASY_OPTION_LIB_TYPE SHARED)
-endif ()
-message(STATUS "  Library type: ${EASY_OPTION_LIB_TYPE}")
+message(STATUS "  Shared library: ${BUILD_SHARED_LIBS}")
 message(STATUS "------ END EASY_PROFILER OPTIONS -------")
 message(STATUS "")
 
@@ -87,7 +82,7 @@ set(SOURCES
     ${INCLUDE_FILES}
 )
 
-add_library(easy_profiler ${EASY_OPTION_LIB_TYPE} ${SOURCES} resources.rc)
+add_library(easy_profiler ${SOURCES} resources.rc)
 target_include_directories(easy_profiler PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>  # <prefix>/include
