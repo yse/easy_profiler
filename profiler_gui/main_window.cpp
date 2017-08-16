@@ -1166,7 +1166,7 @@ void EasyMainWindow::closeEvent(QCloseEvent* close_event)
     if (m_bNetworkFileRegime)
     {
         // Warn user about unsaved network information and suggest to save
-        if (QMessageBox::Yes == QMessageBox::question(this, "Unsaved session", "You unsaved data!\nSave before exit?", QMessageBox::Yes, QMessageBox::No))
+        if (QMessageBox::Yes == QMessageBox::question(this, "Unsaved session", "You have unsaved data!\nSave before exit?", QMessageBox::Yes, QMessageBox::No))
         {
             onSaveFileClicked(true);
         }
