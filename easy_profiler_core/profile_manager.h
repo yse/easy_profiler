@@ -57,6 +57,7 @@ The Apache License, Version 2.0 (the "License");
 #include <atomic>
 #include <list>
 #include <cstring>
+#include <cstddef>
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -121,7 +122,7 @@ namespace profiler {
 #endif
 
 #ifndef EASY_ALIGNMENT_SIZE
-# define EASY_ALIGNMENT_SIZE 64
+# define EASY_ALIGNMENT_SIZE alignof(std::max_align_t)
 #endif
 
 
@@ -145,10 +146,14 @@ namespace profiler {
 # endif
 #endif
 
-template <const uint16_t N>
+template <uint16_t N>
 class chunk_allocator
 {
-    struct chunk { EASY_ALIGNED(int8_t, data[N], EASY_ALIGNMENT_SIZE); chunk* prev = nullptr; };
+    struct chunk 
+    { 
+        EASY_ALIGNED(char, data[N], EASY_ALIGNMENT_SIZE); 
+        chunk* prev = nullptr; 
+    };
 
     struct chunk_list
     {
@@ -224,42 +229,41 @@ public:
 
         if (!need_expand(n))
         {
-            int8_t* data = &m_chunks.back().data[0] + m_shift;
+            char* data = (char*)&m_chunks.back().data[0] + m_shift;
             m_shift += n + sizeof(uint16_t);
 
-            *(uint16_t*)data = n;
+            std::memcpy(data, &n, sizeof(uint16_t));
             data += sizeof(uint16_t);
-
-            if (m_shift < N-1)
-                *(uint16_t*)(data + n) = 0;
-
+            std::memset(data + n, 0, sizeof(uint16_t));
             return data;
         }
 
         m_shift = n + sizeof(uint16_t);
         m_chunks.emplace_back();
-        int8_t* data = m_chunks.back().data;
+        char* data = (char*)&m_chunks.back().data[0];
 
-        *(uint16_t*)data = n;
+        std::memcpy(data, &n, sizeof(uint16_t));
         data += sizeof(uint16_t);
+        std::memset(data + n, 0, sizeof(uint16_t));
 
-        *(uint16_t*)(data + n) = 0;
         return data;
     }
 
     /** Check if current storage is not enough to store additional n bytes.
     */
-    inline bool need_expand(uint16_t n) const
+    bool need_expand(uint16_t n) const
     {
-        return (m_shift + n + sizeof(uint16_t)) > N;
+        // We need to make sure that there is always room for a sentinel element (payload size = 0)
+        // for parsing later.
+        return (m_shift + n + 2*sizeof(uint16_t)) > N;
     }
 
-    inline uint32_t size() const
+    uint32_t size() const
     {
         return m_size;
     }
 
-    inline bool empty() const
+    bool empty() const
     {
         return m_size == 0;
     }
@@ -287,25 +291,22 @@ public:
         // where an element consists of a payload size + a payload as follows:
         // data[0..1]: size as a uint16_t
         // data[2..?<(N-sizeof(uint16_t)-1): payload.
+        // Note that all chunks end with an element that has a payload size of 0.
 
-        // Note: if elements don't completely fill a chunk:
-        // 1. If there is space for a uint16_t after the last element,
-        //    a uint16_t of 0 is placed after it.
-        // 2. If there ISN'T space for a uint16_t after the last element,
-        //    the last bytes contents are undefined.
-
+        // For each chunk...
         chunk* current = m_chunks.last;
         while (current != nullptr) {
-            const int8_t* data = current->data;
-            int_fast32_t chunkOffset = 0;
-            uint16_t payloadSize = *(uint16_t*)data;
-            // @Incomplete: doesn't handle the case where an element is one off from N-1!
-            while (chunkOffset < N-1 && payloadSize != 0) {
+            const char* data = (char*)current->data;
+            uint16_t payloadSize = 0;
+            std::memcpy(&payloadSize, data, sizeof(uint16_t));
+
+            // Loop through chunk elements, writing them 
+            // one by one to the output stream (Potential for some kind of buffering?).
+            while (payloadSize != 0) {
                 const uint16_t chunkSize = sizeof(uint16_t) + payloadSize;
-                _outputStream.write((const char*)data, chunkSize);
-                chunkOffset += (int16_t)chunkSize;
+                _outputStream.write(data, chunkSize);
                 data += chunkSize;
-                payloadSize = *(uint16_t*)data;
+                std::memcpy(&payloadSize, data, sizeof(uint16_t));
             }
             current = current->prev;
         }
