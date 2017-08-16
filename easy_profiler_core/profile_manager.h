@@ -149,11 +149,7 @@ namespace profiler {
 template <uint16_t N>
 class chunk_allocator
 {
-    struct chunk 
-    { 
-        EASY_ALIGNED(char, data[N], EASY_ALIGNMENT_SIZE); 
-        chunk* prev = nullptr; 
-    };
+    struct chunk { EASY_ALIGNED(int8_t, data[N], EASY_ALIGNMENT_SIZE); chunk* prev = nullptr; };
 
     struct chunk_list
     {
@@ -207,13 +203,13 @@ class chunk_allocator
 
     //typedef std::list<chunk> chunk_list;
 
-    chunk_list m_chunks;
-    uint32_t     m_size;
-    uint16_t    m_shift;
+    chunk_list m_chunks; ///< List of chunks.
+    uint32_t   m_size; ///< Number of elements stored(# of times allocate() has been called.)
+    uint16_t   m_chunkOffset; ///< Number of bytes used in the current chunk.
 
 public:
 
-    chunk_allocator() : m_size(0), m_shift(0)
+    chunk_allocator() : m_size(0), m_chunkOffset(0)
     {
         m_chunks.emplace_back();
     }
@@ -229,8 +225,8 @@ public:
 
         if (!need_expand(n))
         {
-            char* data = (char*)&m_chunks.back().data[0] + m_shift;
-            m_shift += n + sizeof(uint16_t);
+            char* data = (char*)&m_chunks.back().data[0] + m_chunkOffset;
+            m_chunkOffset += n + sizeof(uint16_t);
 
             std::memcpy(data, &n, sizeof(uint16_t));
             data += sizeof(uint16_t);
@@ -238,7 +234,7 @@ public:
             return data;
         }
 
-        m_shift = n + sizeof(uint16_t);
+        m_chunkOffset = n + sizeof(uint16_t);
         m_chunks.emplace_back();
         char* data = (char*)&m_chunks.back().data[0];
 
@@ -255,7 +251,7 @@ public:
     {
         // We need to make sure that there is always room for a sentinel element (payload size = 0)
         // for parsing later.
-        return (m_shift + n + 2*sizeof(uint16_t)) > N;
+        return (m_chunkOffset + n + 2*sizeof(uint16_t)) > N;
     }
 
     uint32_t size() const
@@ -271,7 +267,7 @@ public:
     void clear()
     {
         m_size = 0;
-        m_shift = 0;
+        m_chunkOffset = 0;
         m_chunks.clear();
         m_chunks.emplace_back();
     }
