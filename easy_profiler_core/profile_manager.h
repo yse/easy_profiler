@@ -149,7 +149,9 @@ namespace profiler {
 template <uint16_t N>
 class chunk_allocator
 {
-    struct chunk { EASY_ALIGNED(int8_t, data[N], EASY_ALIGNMENT_SIZE); chunk* prev = nullptr; };
+    static constexpr uint16_t chunk_size_with_sentinel() { return N + sizeof(uint16_t); }
+
+    struct chunk { EASY_ALIGNED(int8_t, data[chunk_size_with_sentinel()], EASY_ALIGNMENT_SIZE); chunk* prev = nullptr; };
 
     struct chunk_list
     {
@@ -203,8 +205,8 @@ class chunk_allocator
 
     //typedef std::list<chunk> chunk_list;
 
-    chunk_list m_chunks; ///< List of chunks.
-    uint32_t   m_size; ///< Number of elements stored(# of times allocate() has been called.)
+    chunk_list      m_chunks; ///< List of chunks.
+    uint32_t          m_size; ///< Number of elements stored(# of times allocate() has been called.)
     uint16_t   m_chunkOffset; ///< Number of bytes used in the current chunk.
 
 public:
@@ -251,7 +253,7 @@ public:
     {
         // We need to make sure that there is always room for a sentinel element (payload size = 0)
         // for parsing later.
-        return (m_chunkOffset + n + 2*sizeof(uint16_t)) > N;
+        return (m_chunkOffset + n + 2*sizeof(uint16_t)) > chunk_size_with_sentinel();
     }
 
     uint32_t size() const
@@ -287,7 +289,7 @@ public:
         // where an element consists of a payload size + a payload as follows:
         // data[0..1]: size as a uint16_t
         // data[2..?<(N-sizeof(uint16_t)-1): payload.
-        // Note that all chunks end with an element that has a payload size of 0.
+        // Note that all chunks end with a sentinel element that has a payload size of 0.
 
         // For each chunk...
         chunk* current = m_chunks.last;
