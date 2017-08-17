@@ -117,14 +117,13 @@ namespace profiler {
 # define EASY_ENABLE_BLOCK_STATUS 1
 #endif
 
-#ifndef EASY_ENABLE_ALIGNMENT
+#ifndef EASY_ENABLE_ALIGNMENT 
 # define EASY_ENABLE_ALIGNMENT 0
 #endif
 
 #ifndef EASY_ALIGNMENT_SIZE
 # define EASY_ALIGNMENT_SIZE alignof(std::max_align_t)
 #endif
-
 
 #if EASY_ENABLE_ALIGNMENT == 0
 # define EASY_ALIGNED(TYPE, VAR, A) TYPE VAR
@@ -146,12 +145,56 @@ namespace profiler {
 # endif
 #endif
 
+// Useful on architectures that don't allow unaligned access (e.g. ARMv5).
+// If this isn't defined, expressions like: *(uint16_t*)data = 0, will be used 
+// as usual, which is what you want on something like x86.
+#ifdef EASY_ENABLE_STRICT_ALIGNMENT
+# define EASY_UA_ZERO16(dst)\
+do {\
+    ((char*)dst)[0] = 0;\
+    ((char*)dst)[1] = 0;\
+} while(false)
+
+# define EASY_UA_ZERO32(dst)\
+do {\
+    ((char*)dst)[0] = 0;\
+    ((char*)dst)[1] = 0;\
+    ((char*)dst)[2] = 0;\
+    ((char*)dst)[3] = 0;\
+} while(false)
+
+// Assumes that unaligned access is more common.
+# define EASY_UA_ZERO64(dst)\
+do {\
+    if (((unsigned long)dst & 7) != 0) {\
+        ((char*)dst)[0] = 0;\
+        ((char*)dst)[1] = 0;\
+        ((char*)dst)[2] = 0;\
+        ((char*)dst)[3] = 0;\
+        ((char*)dst)[4] = 0;\
+        ((char*)dst)[5] = 0;\
+        ((char*)dst)[6] = 0;\
+        ((char*)dst)[7] = 0;\
+    }\
+    else {\
+        *(uint64_t*)dst = 0;\
+    }\
+} while(false)
+
+# define EASY_UA_SET16(dst, val, type)
+# define EASY_UA_SET32(dst, val, type)
+# define EASY_UA_SET64(dst, val, type)
+
+# define EASY_UA_LOAD16(dst)
+# define EASY_UA_LOAD32(dst)
+# define EASY_UA_LOAD64(dst)
+#endif
+
+
 template <uint16_t N>
 class chunk_allocator
 {
-    static constexpr uint16_t chunk_size_with_sentinel() { return N + sizeof(uint16_t); }
-
-    struct chunk { EASY_ALIGNED(int8_t, data[chunk_size_with_sentinel()], EASY_ALIGNMENT_SIZE); chunk* prev = nullptr; };
+    struct chunk { EASY_ALIGNED(int8_t, data[N], EASY_ALIGNMENT_SIZE); chunk* prev = nullptr; };
 
     struct chunk_list
     {
@@ -181,7 +224,12 @@ class chunk_allocator
             auto prev = last;
             last = ::new (EASY_MALLOC(sizeof(chunk), EASY_ALIGNMENT_SIZE)) chunk();
             last->prev = prev;
-            std::memset(last->data, 0, sizeof(uint16_t));
+            // Although there is no need for unaligned access stuff b/c a new chunk will
+            // usually be at least 8 byte aligned (and we only need 2 byte alignment),
+            // this is the only way I have been able to get rid of the GCC strict-aliasing warning
+            // without using std::memset.
+            char* temp = (char*)&last->data[0];
+            *(uint16_t*)temp = 0;
         }
 
         /** Invert current chunks list to enable to iterate over chunks list in direct order.
@@ -227,8 +275,10 @@ public:
 
         if (!need_expand(n))
         {
-            char* data = (char*)&m_chunks.back().data[0] + m_chunkOffset;
-            m_chunkOffset += n + sizeof(uint16_t);
+            // Temp to avoid extra load due to this* aliasing.
+            uint16_t chunkOffset = m_chunkOffset;
+            char* data = (char*)&m_chunks.back().data[0] + chunkOffset;
+            m_chunkOffset = chunkOffset + n + sizeof(uint16_t);
 
             std::memcpy(data, &n, sizeof(uint16_t));
             data += sizeof(uint16_t);
@@ -236,13 +286,19 @@ public:
             return data;
         }
 
-        m_chunkOffset = n + sizeof(uint16_t);
+        // Temp to avoid extra load due to this* aliasing.
+        uint16_t chunkOffset = n + sizeof(uint16_t);
+        m_chunkOffset = chunkOffset;
         m_chunks.emplace_back();
-        char* data = (char*)&m_chunks.back().data[0];
 
+        char* data = (char*)&m_chunks.back().data[0];
         std::memcpy(data, &n, sizeof(uint16_t));
         data += sizeof(uint16_t);
-        std::memset(data + n, 0, sizeof(uint16_t));
+
+        // If there is enough space for at least another payload size,
+        // set it to zero.
+        if (chunkOffset < N-1)
+            std::memset(data + n, 0, sizeof(uint16_t));
 
         return data;
     }
@@ -251,9 +307,7 @@ public:
     */
     bool need_expand(uint16_t n) const
     {
-        // We need to make sure that there is always room for a sentinel element (payload size = 0)
-        // for parsing later.
-        return (m_chunkOffset + n + 2*sizeof(uint16_t)) > chunk_size_with_sentinel();
+        return (m_chunkOffset + n + sizeof(uint16_t)) > N;
     }
 
     uint32_t size() const
@@ -287,27 +341,31 @@ public:
         // Each chunk is an array of N bytes that can hold between
         // 1(if the list isn't empty) and however many elements can fit in a chunk,
         // where an element consists of a payload size + a payload as follows:
-        // data[0..1]: size as a uint16_t
-        // data[2..?<(N-sizeof(uint16_t)-1): payload.
-        // Note that all chunks end with a sentinel element that has a payload size of 0.
+        // elementStart[0..1]: size as a uint16_t
+        // elementStart[2..size-1]: payload.
+        
+        // The maximum chunk offset is N-sizeof(uint16_t) b/c, if we hit that (or go past),
+        // there is either no space left, 1 byte left, or 2 bytes left, all of which are
+        // too small to cary more than a zero-sized element.
+        constexpr int_fast32_t MAX_CHUNK_OFFSET = (int_fast32_t)N-sizeof(uint16_t);
 
-        // For each chunk...
         chunk* current = m_chunks.last;
-        while (current != nullptr) {
+        do {
             const char* data = (char*)current->data;
+            int_fast32_t chunkOffset = 0; // signed int so overflow is not checked.
             uint16_t payloadSize = 0;
             std::memcpy(&payloadSize, data, sizeof(uint16_t));
-
-            // Loop through chunk elements, writing them 
-            // one by one to the output stream (Potential for some kind of buffering?).
-            while (payloadSize != 0) {
+            while (chunkOffset < MAX_CHUNK_OFFSET && payloadSize != 0) {
                 const uint16_t chunkSize = sizeof(uint16_t) + payloadSize;
                 _outputStream.write(data, chunkSize);
+
                 data += chunkSize;
+                chunkOffset += chunkSize;
                 std::memcpy(&payloadSize, data, sizeof(uint16_t));
             }
+
             current = current->prev;
-        }
+        } while (current != nullptr);
 
         clear();
     }
