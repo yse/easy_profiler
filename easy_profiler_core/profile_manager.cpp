@@ -375,12 +375,12 @@ extern "C" {
         return MANAGER.getContextSwitchLogFilename();
     }
 
-    PROFILER_API void   startListen(uint16_t _port)
+    PROFILER_API void startListen(uint16_t _port)
     {
         return MANAGER.startListen(_port);
     }
 
-    PROFILER_API void   stopListen()
+    PROFILER_API void stopListen()
     {
         return MANAGER.stopListen();
     }
@@ -388,6 +388,36 @@ extern "C" {
     PROFILER_API bool isListening()
     {
         return MANAGER.isListening();
+    }
+
+    PROFILER_API bool hasConnection()
+    {
+        return MANAGER.hasConnection();
+    }
+
+    PROFILER_API void waitForConnection()
+    {
+        return MANAGER.waitForConnection();
+    }
+
+    PROFILER_API void waitForConnectionEnd()
+    {
+        return MANAGER.waitForConnectionEnd();
+    }
+
+    PROFILER_API bool hasCapture()
+    {
+        return MANAGER.hasCapture();
+    }
+
+    PROFILER_API void waitForCapture()
+    {
+        return MANAGER.waitForCapture();
+    }
+
+    PROFILER_API void waitForCaptureEnd()
+    {
+        return MANAGER.waitForCaptureEnd();
     }
 
     PROFILER_API bool isMainThread()
@@ -775,6 +805,8 @@ ProfileManager::ProfileManager() :
     m_frameCur = ATOMIC_VAR_INIT(0);
     m_frameMaxReset = ATOMIC_VAR_INIT(false);
     m_frameAvgReset = ATOMIC_VAR_INIT(false);
+    m_hasConn = ATOMIC_VAR_INIT(false);
+    m_hasCapture = ATOMIC_VAR_INIT(false);
 
 #if !defined(EASY_PROFILER_API_DISABLED) && EASY_OPTION_START_LISTEN_ON_STARTUP != 0
     startListen(profiler::DEFAULT_PORT);
@@ -1686,6 +1718,36 @@ bool ProfileManager::isListening() const
     return m_isAlreadyListening.load(std::memory_order_acquire);
 }
 
+bool ProfileManager::hasConnection() const
+{
+    return m_hasConn;
+}
+
+void ProfileManager::waitForConnection() const
+{
+    while (!hasConnection()) {}
+}
+
+void ProfileManager::waitForConnectionEnd() const
+{
+    while (hasConnection()) {}
+}
+
+bool ProfileManager::hasCapture() const
+{
+    return m_hasCapture;
+}
+
+void ProfileManager::waitForCapture() const
+{
+    while (!hasCapture()) {}
+}
+
+void ProfileManager::waitForCaptureEnd() const
+{
+    while (hasCapture()) {}
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 void ProfileManager::listen(uint16_t _port)
@@ -1701,12 +1763,11 @@ void ProfileManager::listen(uint16_t _port)
     int bytes = 0;
     while (!m_stopListen.load(std::memory_order_acquire))
     {
-        bool hasConnect = false;
+        m_hasCapture = false;
+        m_hasConn = false;
 
         socket.listen();
         socket.accept();
-
-        hasConnect = true;
 
         // Send reply
         {
@@ -1718,16 +1779,16 @@ void ProfileManager::listen(uint16_t _port)
 #endif
             const profiler::net::EasyProfilerStatus connectionReply(m_profilerStatus.load(std::memory_order_acquire) == EASY_PROF_ENABLED, m_isEventTracingEnabled.load(std::memory_order_acquire), wasLowPriorityET);
             bytes = socket.send(&connectionReply, sizeof(profiler::net::EasyProfilerStatus));
-            hasConnect = bytes > 0;
+            m_hasConn = bytes > 0;
         }
 
-        while (hasConnect && !m_stopListen.load(std::memory_order_acquire))
+        while (m_hasConn && !m_stopListen.load(std::memory_order_acquire))
         {
             char buffer[256] = {};
 
             bytes = socket.receive(buffer, 255);
 
-            hasConnect = bytes > 0;
+            m_hasConn = bytes > 0;
 
             char *buf = &buffer[0];
 
@@ -1753,7 +1814,7 @@ void ProfileManager::listen(uint16_t _port)
                         avgDuration = TICKS_TO_US(avgDuration);
                         const profiler::net::TimestampMessage reply(profiler::net::MESSAGE_TYPE_REPLY_MAIN_FRAME_TIME_MAX_AVG_US, (uint32_t)maxDuration, (uint32_t)avgDuration);
                         bytes = socket.send(&reply, sizeof(profiler::net::TimestampMessage));
-                        hasConnect = bytes > 0;
+                        m_hasConn = bytes > 0;
                         break;
                     }
 
@@ -1774,7 +1835,8 @@ void ProfileManager::listen(uint16_t _port)
 
                         replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING;
                         bytes = socket.send(&replyMessage, sizeof(replyMessage));
-                        hasConnect = bytes > 0;
+                        m_hasConn = bytes > 0;
+                        m_hasCapture = true;
 
                         break;
                     }
@@ -1816,7 +1878,7 @@ void ProfileManager::listen(uint16_t _port)
                                 os.clear();
 
                                 bytes = socket.send(sendbuf.c_str(), packet_size);
-                                hasConnect = bytes > 0;
+                                m_hasConn = bytes > 0;
                             }
                             else
                             {
@@ -1830,7 +1892,8 @@ void ProfileManager::listen(uint16_t _port)
 
                         replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_BLOCKS_END;
                         bytes = socket.send(&replyMessage, sizeof(replyMessage));
-                        hasConnect = bytes > 0;
+                        m_hasConn = bytes > 0;
+                        m_hasCapture= false;
 
                         break;
                     }
@@ -1881,7 +1944,7 @@ void ProfileManager::listen(uint16_t _port)
                                 os.clear();
 
                                 bytes = socket.send(sendbuf.c_str(), packet_size);
-                                hasConnect = bytes > 0;
+                                m_hasConn = bytes > 0;
                             }
                             else
                             {
@@ -1895,7 +1958,7 @@ void ProfileManager::listen(uint16_t _port)
 
                         replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_BLOCKS_DESCRIPTION_END;
                         bytes = socket.send(&replyMessage, sizeof(replyMessage));
-                        hasConnect = bytes > 0;
+                        m_hasConn = bytes > 0;
 
                         break;
                     }
