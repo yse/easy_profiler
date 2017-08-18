@@ -515,6 +515,8 @@ class ProfileManager
     std::atomic_bool             m_isAlreadyListening;
     std::atomic_bool                  m_frameMaxReset;
     std::atomic_bool                  m_frameAvgReset;
+    std::atomic_bool                        m_hasConn;
+    std::atomic_bool                     m_hasCapture;
 
     std::string m_csInfoFilename = "/tmp/cs_profiling_info.log";
 
@@ -571,6 +573,14 @@ public:
     void startListen(uint16_t _port);
     void stopListen();
     bool isListening() const;
+
+    bool hasConnection() const;
+    void waitForConnection() const;
+    void waitForConnectionEnd() const;
+
+    bool hasCapture() const;
+    void waitForCapture() const;
+    void waitForCaptureEnd() const;
 
 private:
 

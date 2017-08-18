@@ -776,6 +776,14 @@ namespace profiler {
         PROFILER_API void stopListen();
         PROFILER_API bool isListening();
 
+        PROFILER_API bool hasConnection();
+        PROFILER_API void waitForConnection();
+        PROFILER_API void waitForConnectionEnd();
+
+        PROFILER_API bool hasCapture();
+        PROFILER_API void waitForCapture();
+        PROFILER_API void waitForCaptureEnd();
+
         /** Returns current major version.
         
         \ingroup profiler
@@ -881,6 +889,12 @@ namespace profiler {
     inline void startListen(uint16_t = ::profiler::DEFAULT_PORT) { }
     inline void stopListen() { }
     inline bool isListening() { return false; }
+    inline bool hasConnection() { return false; }
+    inline void waitForConnection() { }
+    inline void waitForConnectionEnd() { }
+    inline bool hasCapture() { return false; }
+    inline void waitForCapture() { }
+    inline void waitForCaptureEnd() { }
     inline uint8_t versionMajor() { return 0; }
     inline uint8_t versionMinor() { return 0; }
     inline uint16_t versionPatch() { return 0; }
