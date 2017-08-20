@@ -56,6 +56,7 @@ The Apache License, Version 2.0 (the "License");
 #include <thread>
 #include <atomic>
 #include <list>
+#include <type_traits>
 #include <cstring>
 #include <cstddef>
 
@@ -145,50 +146,227 @@ namespace profiler {
 # endif
 #endif
 
-// Useful on architectures that don't allow unaligned access (e.g. ARMv5).
-// If this isn't defined, expressions like: *(uint16_t*)data = 0, will be used 
-// as usual, which is what you want on something like x86.
-#ifdef EASY_ENABLE_STRICT_ALIGNMENT
-# define EASY_UA_ZERO16(dst)\
-do {\
-    ((char*)dst)[0] = 0;\
-    ((char*)dst)[1] = 0;\
-} while(false)
 
-# define EASY_UA_ZERO32(dst)\
-do {\
-    ((char*)dst)[0] = 0;\
-    ((char*)dst)[1] = 0;\
-    ((char*)dst)[2] = 0;\
-    ((char*)dst)[3] = 0;\
-} while(false)
+template <typename T>
+struct False : std::false_type {};
 
-// Assumes that unaligned access is more common.
-# define EASY_UA_ZERO64(dst)\
-do {\
-    if (((unsigned long)dst & 7) != 0) {\
-        ((char*)dst)[0] = 0;\
-        ((char*)dst)[1] = 0;\
-        ((char*)dst)[2] = 0;\
-        ((char*)dst)[3] = 0;\
-        ((char*)dst)[4] = 0;\
-        ((char*)dst)[5] = 0;\
-        ((char*)dst)[6] = 0;\
-        ((char*)dst)[7] = 0;\
-    }\
-    else {\
-        *(uint64_t*)dst = 0;\
-    }\
-} while(false)
+//! Checks if a pointer is aligned.
+//! \param ptr The pointer to check.
+//! \param alignment The alignement (must be a power of 2)
+//! \returns true if the memory is aligned.
+//!
+template <uint32_t ALIGNMENT>
+EASY_FORCE_INLINE bool is_aligned(void* ptr)
+{
+    static_assert(ALIGNMENT % 2 == 0, "Alignment must be a power of two.");
+    return (uintptr_t)ptr & (ALIGNMENT-1) == 0;
+}
 
-# define EASY_UA_SET16(dst, val, type)
-# define EASY_UA_SET32(dst, val, type)
-# define EASY_UA_SET64(dst, val, type)
-
-# define EASY_UA_LOAD16(dst)
-# define EASY_UA_LOAD32(dst)
-# define EASY_UA_LOAD64(dst)
+EASY_FORCE_INLINE void unaligned_zero16(void* ptr)
+{
+#ifndef EASY_ENABLE_STRICT_ALIGNMENT
+    *(uint16_t*)ptr = 0;
+#else
+    ((char*)ptr)[0] = 0;
+    ((char*)ptr)[1] = 0;
 #endif
+}
+
+EASY_FORCE_INLINE void unaligned_zero32(void* ptr)
+{
+#ifndef EASY_ENABLE_STRICT_ALIGNMENT
+    *(uint32_t*)ptr = 0;
+#else
+    ((char*)ptr)[0] = 0;
+    ((char*)ptr)[1] = 0;
+    ((char*)ptr)[2] = 0;
+    ((char*)ptr)[3] = 0;
+#endif
+}
+
+EASY_FORCE_INLINE void unaligned_zero64(void* ptr)
+{
+#ifndef EASY_ENABLE_STRICT_ALIGNMENT
+    *(uint64_t*)ptr = 0;
+#else
+    // Assume unaligned is more common.
+    if (!is_aligned<alignof(uint64_t)>(ptr)) {
+        ((char*)ptr)[0] = 0;
+        ((char*)ptr)[1] = 0;
+        ((char*)ptr)[2] = 0;
+        ((char*)ptr)[3] = 0;
+        ((char*)ptr)[4] = 0;
+        ((char*)ptr)[5] = 0;
+        ((char*)ptr)[6] = 0;
+        ((char*)ptr)[7] = 0;
+    }
+    else {
+        *(uint64_t*)ptr = 0;
+    }
+#endif
+}
+
+template <typename T>
+EASY_FORCE_INLINE void unaligned_store16(void* ptr, T val)
+{
+    static_assert(sizeof(T) == 2, "16 bit type required.");
+#ifndef EASY_ENABLE_STRICT_ALIGNMENT
+    *(T*)ptr = val;
+#else
+    const char* const temp = &val;
+    ((char*)ptr)[0] = temp[0];
+    ((char*)ptr)[1] = temp[1];
+#endif
+}
+
+template <typename T>
+EASY_FORCE_INLINE void unaligned_store32(void* ptr, T val)
+{
+    static_assert(sizeof(T) == 4, "32 bit type required.");
+#ifndef EASY_ENABLE_STRICT_ALIGNMENT
+    *(T*)ptr = val;
+#else
+    const char* const temp = &val;
+    ((char*)ptr)[0] = temp[0];
+    ((char*)ptr)[1] = temp[1];
+    ((char*)ptr)[2] = temp[2];
+    ((char*)ptr)[3] = temp[3];
+#endif
+}
+
+template <typename T>
+EASY_FORCE_INLINE void unaligned_store64(void* ptr, T val)
+{
+    static_assert(sizeof(T) == 8, "64 bit type required.");
+#ifndef EASY_ENABLE_STRICT_ALIGNMENT
+    *(T*)ptr = val;
+#else
+    const char* const temp = &val;
+    // Assume unaligned is more common.
+    if (!is_aligned<alignof(T)>(ptr)) {
+        ((char*)ptr)[0] = temp[0];
+        ((char*)ptr)[1] = temp[1];
+        ((char*)ptr)[2] = temp[2];
+        ((char*)ptr)[3] = temp[3];
+        ((char*)ptr)[4] = temp[4];
+        ((char*)ptr)[5] = temp[5];
+        ((char*)ptr)[6] = temp[6];
+        ((char*)ptr)[7] = temp[7];
+    }
+    else {
+        *(T*)ptr = val;
+    }
+#endif
+}
+
+template <typename T>
+EASY_FORCE_INLINE T unaligned_load16(const void* ptr)
+{
+    static_assert(sizeof(T) == 2, "16 bit type required.");
+#ifndef EASY_ENABLE_STRICT_ALIGNMENT
+    return *(T*)ptr;
+#else
+    T value;
+    ((char*)&value)[0] = ((char*)ptr)[0];
+    ((char*)&value)[1] = ((char*)ptr)[1];
+    return value;
+#endif
+}
+
+template <typename T>
+EASY_FORCE_INLINE T unaligned_load16(const void* ptr, T* val)
+{
+    static_assert(sizeof(T) == 2, "16 bit type required.");
+#ifndef EASY_ENABLE_STRICT_ALIGNMENT
+    *val = *(T*)ptr;
+    return *val;
+#else
+    ((char*)val)[0] = ((char*)ptr)[0];
+    ((char*)val)[1] = ((char*)ptr)[1];
+    return *val;
+#endif
+}
+
+template <typename T>
+EASY_FORCE_INLINE T unaligned_load32(const void* ptr)
+{
+    static_assert(sizeof(T) == 4, "32 bit type required.");
+#ifndef EASY_ENABLE_STRICT_ALIGNMENT
+    return *(T*)ptr;
+#else
+    T value;
+    ((char*)&value)[0] = ((char*)ptr)[0];
+    ((char*)&value)[1] = ((char*)ptr)[1];
+    ((char*)&value)[2] = ((char*)ptr)[2];
+    ((char*)&value)[3] = ((char*)ptr)[3];
+    return value;
+#endif
+}
+
+template <typename T>
+EASY_FORCE_INLINE T unaligned_load32(const void* ptr, T* val)
+{
+    static_assert(sizeof(T) == 4, "32 bit type required.");
+#ifndef EASY_ENABLE_STRICT_ALIGNMENT
+    *val = *(T*)ptr;
+#else
+    ((char*)&val)[0] = ((char*)ptr)[0];
+    ((char*)&val)[1] = ((char*)ptr)[1];
+    ((char*)&val)[2] = ((char*)ptr)[2];
+    ((char*)&val)[3] = ((char*)ptr)[3];
+    return *val;
+#endif
+}
+
+template <typename T>
+EASY_FORCE_INLINE T unaligned_load64(const void* ptr)
+{
+    static_assert(sizeof(T) == 8, "64 bit type required.");
+#ifndef EASY_ENABLE_STRICT_ALIGNMENT
+    return *(T*)ptr;
+#else
+    if (!is_aligned<alignof(T)>(ptr)) {
+        T value;
+        ((char*)&value)[0] = ((char*)ptr)[0];
+        ((char*)&value)[1] = ((char*)ptr)[1];
+        ((char*)&value)[2] = ((char*)ptr)[2];
+        ((char*)&value)[3] = ((char*)ptr)[3];
+        ((char*)&value)[4] = ((char*)ptr)[4];
+        ((char*)&value)[5] = ((char*)ptr)[5];
+        ((char*)&value)[6] = ((char*)ptr)[6];
+        ((char*)&value)[7] = ((char*)ptr)[7];
+        return value;
+    }
+    else {
+        return *(T*)ptr;
+    }
+#endif
+}
+
+template <typename T>
+EASY_FORCE_INLINE T unaligned_load64(const void* ptr, T* val)
+{
+    static_assert(sizeof(T) == 8, "64 bit type required.");
+#ifndef EASY_ENABLE_STRICT_ALIGNMENT
+    *val = *(T*)ptr;
+#else
+    if (!is_aligned<alignof(T)>(ptr)) {
+        ((char*)&val)[0] = ((char*)ptr)[0];
+        ((char*)&val)[1] = ((char*)ptr)[1];
+        ((char*)&val)[2] = ((char*)ptr)[2];
+        ((char*)&val)[3] = ((char*)ptr)[3];
+        ((char*)&val)[4] = ((char*)ptr)[4];
+        ((char*)&val)[5] = ((char*)ptr)[5];
+        ((char*)&val)[6] = ((char*)ptr)[6];
+        ((char*)&val)[7] = ((char*)ptr)[7];
+        return *val;
+    }
+    else {
+        *val = *(T*)ptr;
+        return *val;
+    }
+#endif
+}
 
 
 template <uint16_t N>
@@ -227,9 +405,9 @@ class chunk_allocator
             // Although there is no need for unaligned access stuff b/c a new chunk will
             // usually be at least 8 byte aligned (and we only need 2 byte alignment),
             // this is the only way I have been able to get rid of the GCC strict-aliasing warning
-            // without using std::memset.
-            char* temp = (char*)&last->data[0];
-            *(uint16_t*)temp = 0;
+            // without using std::memset. It's an extra line, but is just as fast as *(uint16_t*)last->data = 0;
+            char* const data = (char*)&last->data;
+            *(uint16_t*)data = 0;
         }
 
         /** Invert current chunks list to enable to iterate over chunks list in direct order.
@@ -280,9 +458,14 @@ public:
             char* data = (char*)&m_chunks.back().data[0] + chunkOffset;
             m_chunkOffset = chunkOffset + n + sizeof(uint16_t);
 
-            std::memcpy(data, &n, sizeof(uint16_t));
+            unaligned_store16(data, n);
             data += sizeof(uint16_t);
-            std::memset(data + n, 0, sizeof(uint16_t));
+
+            // If there is enough space for at least another payload size,
+            // set it to zero.
+            if (chunkOffset < N-1)
+                unaligned_zero16(data + n);
+
             return data;
         }
 
@@ -293,12 +476,13 @@ public:
 
         char* data = (char*)&m_chunks.back().data[0];
         std::memcpy(data, &n, sizeof(uint16_t));
+        unaligned_store16(data, n);
         data += sizeof(uint16_t);
 
         // If there is enough space for at least another payload size,
         // set it to zero.
         if (chunkOffset < N-1)
-            std::memset(data + n, 0, sizeof(uint16_t));
+            unaligned_zero16(data + n);
 
         return data;
     }
@@ -353,15 +537,12 @@ public:
         do {
             const char* data = (char*)current->data;
             int_fast32_t chunkOffset = 0; // signed int so overflow is not checked.
-            uint16_t payloadSize = 0;
-            std::memcpy(&payloadSize, data, sizeof(uint16_t));
-            while (chunkOffset < MAX_CHUNK_OFFSET && payloadSize != 0) {
+            uint16_t payloadSize = unaligned_load16<uint16_t>(data);
+            while (chunkOffset < MAX_CHUNK_OFFSET && unaligned_load16(data, &payloadSize) != 0) {
                 const uint16_t chunkSize = sizeof(uint16_t) + payloadSize;
                 _outputStream.write(data, chunkSize);
-
                 data += chunkSize;
                 chunkOffset += chunkSize;
-                std::memcpy(&payloadSize, data, sizeof(uint16_t));
             }
 
             current = current->prev;
