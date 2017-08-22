@@ -456,7 +456,8 @@ public:
             // Temp to avoid extra load due to this* aliasing.
             uint16_t chunkOffset = m_chunkOffset;
             char* data = (char*)&m_chunks.back().data[0] + chunkOffset;
-            m_chunkOffset = chunkOffset + n + sizeof(uint16_t);
+            chunkOffset += n + sizeof(uint16_t);
+            m_chunkOffset = chunkOffset;
 
             unaligned_store16(data, n);
             data += sizeof(uint16_t);
@@ -475,14 +476,11 @@ public:
         m_chunks.emplace_back();
 
         char* data = (char*)&m_chunks.back().data[0];
-        std::memcpy(data, &n, sizeof(uint16_t));
         unaligned_store16(data, n);
         data += sizeof(uint16_t);
-
-        // If there is enough space for at least another payload size,
-        // set it to zero.
-        if (chunkOffset < N-1)
-            unaligned_zero16(data + n);
+        
+        // We assume here that it takes more than one element to fill a chunk.
+        unaligned_zero16(data + n);
 
         return data;
     }
@@ -538,11 +536,12 @@ public:
             const char* data = (char*)current->data;
             int_fast32_t chunkOffset = 0; // signed int so overflow is not checked.
             uint16_t payloadSize = unaligned_load16<uint16_t>(data);
-            while (chunkOffset < MAX_CHUNK_OFFSET && unaligned_load16(data, &payloadSize) != 0) {
+            while ((chunkOffset < MAX_CHUNK_OFFSET) & (payloadSize != 0)) {
                 const uint16_t chunkSize = sizeof(uint16_t) + payloadSize;
                 _outputStream.write(data, chunkSize);
                 data += chunkSize;
                 chunkOffset += chunkSize;
+                unaligned_load16(data, &payloadSize);
             }
 
             current = current->prev;
