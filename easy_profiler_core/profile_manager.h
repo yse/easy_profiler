@@ -146,10 +146,6 @@ namespace profiler {
 # endif
 #endif
 
-
-template <typename T>
-struct False : std::false_type {};
-
 //! Checks if a pointer is aligned.
 //! \param ptr The pointer to check.
 //! \param alignment The alignement (must be a power of 2)
