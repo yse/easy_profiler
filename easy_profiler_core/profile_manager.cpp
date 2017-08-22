@@ -711,9 +711,9 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
 
 void ThreadStorage::storeCSwitch(const CSwitchBlock& block)
 {
-    auto name_length = static_cast<uint16_t>(strlen(block.name()));
-    auto size = static_cast<uint16_t>(sizeof(CSwitchEvent) + name_length + 1);
-    auto data = sync.closedList.allocate(size);
+    uint16_t name_length = static_cast<uint16_t>(strlen(block.name()));
+    uint16_t size = static_cast<uint16_t>(sizeof(CSwitchEvent) + name_length + 1);
+    void* data = sync.closedList.allocate(size);
     ::new (data) SerializedCSwitch(block, name_length);
     sync.usedMemorySize += size;
 }
