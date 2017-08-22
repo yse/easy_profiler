@@ -159,7 +159,7 @@ template <uint32_t ALIGNMENT>
 EASY_FORCE_INLINE bool is_aligned(void* ptr)
 {
     static_assert(ALIGNMENT % 2 == 0, "Alignment must be a power of two.");
-    return (uintptr_t)ptr & (ALIGNMENT-1) == 0;
+    return ((uintptr_t)ptr & (ALIGNMENT-1)) == 0;
 }
 
 EASY_FORCE_INLINE void unaligned_zero16(void* ptr)
@@ -213,7 +213,7 @@ EASY_FORCE_INLINE void unaligned_store16(void* ptr, T val)
 #ifndef EASY_ENABLE_STRICT_ALIGNMENT
     *(T*)ptr = val;
 #else
-    const char* const temp = &val;
+    const char* const temp = (char*)&val;
     ((char*)ptr)[0] = temp[0];
     ((char*)ptr)[1] = temp[1];
 #endif
@@ -226,7 +226,7 @@ EASY_FORCE_INLINE void unaligned_store32(void* ptr, T val)
 #ifndef EASY_ENABLE_STRICT_ALIGNMENT
     *(T*)ptr = val;
 #else
-    const char* const temp = &val;
+    const char* const temp = (char*)&val;
     ((char*)ptr)[0] = temp[0];
     ((char*)ptr)[1] = temp[1];
     ((char*)ptr)[2] = temp[2];
@@ -241,7 +241,7 @@ EASY_FORCE_INLINE void unaligned_store64(void* ptr, T val)
 #ifndef EASY_ENABLE_STRICT_ALIGNMENT
     *(T*)ptr = val;
 #else
-    const char* const temp = &val;
+    const char* const temp = (char*)&val;
     // Assume unaligned is more common.
     if (!is_aligned<alignof(T)>(ptr)) {
         ((char*)ptr)[0] = temp[0];
