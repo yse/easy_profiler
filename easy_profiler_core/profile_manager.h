@@ -466,9 +466,7 @@ public:
             return data;
         }
 
-        // Temp to avoid extra load due to this* aliasing.
-        uint16_t chunkOffset = n + sizeof(uint16_t);
-        m_chunkOffset = chunkOffset;
+        m_chunkOffset = n + sizeof(uint16_t);
         m_chunks.emplace_back();
 
         char* data = (char*)&m_chunks.back().data[0];
