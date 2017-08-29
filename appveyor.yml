@@ -8,7 +8,7 @@ environment:
   matrix:
     - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2013
       Qt5Widgets_DIR: "C:\\Qt\\5.5\\msvc2013_64\\lib\\cmake\\Qt5Widgets"
-      GENERATOR: "Visual Studio 13 Win64"
+      GENERATOR: "Visual Studio 12 2013 Win64"
 
 test: off
 
