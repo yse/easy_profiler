@@ -23,6 +23,8 @@ macro(easy_define_target_option TARGET SOURCE_OPTION TARGET_DEFINITION)
     target_compile_options(${TARGET} PUBLIC -D${TARGET_DEFINITION}=${_VALUE})
 endmacro()
 
+SET(CMAKE_INSTALL_RPATH "$ORIGIN")
+
 add_subdirectory(easy_profiler_core)
 add_subdirectory(profiler_gui)
 

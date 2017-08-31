@@ -47,6 +47,16 @@ if (Qt5Widgets_FOUND)
     if (MINGW)
         target_compile_definitions(profiler_gui PRIVATE -DSTRSAFE_NO_DEPRECATE)
     endif ()
+
+    install(
+        TARGETS
+        profiler_gui
+        RUNTIME
+        DESTINATION
+        bin
+    )
+
+    set_property(TARGET profiler_gui PROPERTY INSTALL_RPATH_USE_LINK_PATH TRUE)
 else ()
     message(STATUS "INFO\n\n\tQt5 not found! Generating EasyProfiler projects without GUI.\n")
 endif ()
