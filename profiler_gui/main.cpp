@@ -50,16 +50,8 @@
 
 #include <chrono>
 #include <QApplication>
-#include <QFontDatabase>
-#include <QImageReader>
-#include <iostream>
-#include <QtPlugin>
-
 #include "main_window.h"
 #include "globals.h"
-
-#include <easy/reader.h>
-
 
 #if defined(_WIN32) && defined (_BUILD_RELEASE_)
 #pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
