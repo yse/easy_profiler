@@ -451,7 +451,7 @@ public:
         {
             // Temp to avoid extra load due to this* aliasing.
             uint16_t chunkOffset = m_chunkOffset;
-            char* data = (char*)&m_chunks.back().data[0] + chunkOffset;
+            char* data = (char*)m_chunks.back().data + chunkOffset;
             chunkOffset += n + sizeof(uint16_t);
             m_chunkOffset = chunkOffset;
 
@@ -523,14 +523,13 @@ public:
         // The maximum chunk offset is N-sizeof(uint16_t) b/c, if we hit that (or go past),
         // there is either no space left, 1 byte left, or 2 bytes left, all of which are
         // too small to cary more than a zero-sized element.
-        constexpr int_fast32_t MAX_CHUNK_OFFSET = (int_fast32_t)N-sizeof(uint16_t);
 
         chunk* current = m_chunks.last;
         do {
             const char* data = (char*)current->data;
             int_fast32_t chunkOffset = 0; // signed int so overflow is not checked.
             uint16_t payloadSize = unaligned_load16<uint16_t>(data);
-            while ((chunkOffset < MAX_CHUNK_OFFSET) & (payloadSize != 0)) {
+            while ((chunkOffset < (N-sizeof(uint16_t))) & (payloadSize != 0)) {
                 const uint16_t chunkSize = sizeof(uint16_t) + payloadSize;
                 _outputStream.write(data, chunkSize);
                 data += chunkSize;
