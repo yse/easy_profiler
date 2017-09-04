@@ -427,6 +427,9 @@ class chunk_allocator
 
     //typedef std::list<chunk> chunk_list;
 
+    // Used in serialize(): workaround for no constexpr support in MSVC 2013.
+    static const int_fast32_t MAX_CHUNK_OFFSET = N-sizeof(uint16_t);
+
     chunk_list      m_chunks; ///< List of chunks.
     uint32_t          m_size; ///< Number of elements stored(# of times allocate() has been called.)
     uint16_t   m_chunkOffset; ///< Number of bytes used in the current chunk.
@@ -529,7 +532,7 @@ public:
             const char* data = (char*)current->data;
             int_fast32_t chunkOffset = 0; // signed int so overflow is not checked.
             uint16_t payloadSize = unaligned_load16<uint16_t>(data);
-            while ((chunkOffset < (N-sizeof(uint16_t))) & (payloadSize != 0)) {
+            while ((chunkOffset < MAX_CHUNK_OFFSET) & (payloadSize != 0)) {
                 const uint16_t chunkSize = sizeof(uint16_t) + payloadSize;
                 _outputStream.write(data, chunkSize);
                 data += chunkSize;
