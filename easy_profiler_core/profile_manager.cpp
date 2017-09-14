@@ -531,7 +531,7 @@ extern "C" {
 SerializedBlock::SerializedBlock(const Block& block, uint16_t name_length)
     : BaseBlockData(block)
 {
-    auto pName = const_cast<char*>(name());
+    char* pName = const_cast<char*>(name());
     if (name_length) strncpy(pName, block.name(), name_length);
     pName[name_length] = 0;
 }
@@ -539,7 +539,7 @@ SerializedBlock::SerializedBlock(const Block& block, uint16_t name_length)
 SerializedCSwitch::SerializedCSwitch(const CSwitchBlock& block, uint16_t name_length)
     : CSwitchEvent(block)
 {
-    auto pName = const_cast<char*>(name());
+    char* pName = const_cast<char*>(name());
     if (name_length) strncpy(pName, block.name(), name_length);
     pName[name_length] = 0;
 }
@@ -678,15 +678,15 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
     EASY_THREAD_LOCAL static profiler::timestamp_t endTime = 0ULL;
 #endif
 
-    auto name_length = static_cast<uint16_t>(strlen(block.name()));
-    auto size = static_cast<uint16_t>(sizeof(BaseBlockData) + name_length + 1);
+    uint16_t name_length = static_cast<uint16_t>(strlen(block.name()));
+    uint16_t size = static_cast<uint16_t>(sizeof(BaseBlockData) + name_length + 1);
 
 #if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
     const bool expanded = (desc->m_status & profiler::ON) && blocks.closedList.need_expand(size);
     if (expanded) beginTime = getCurrentTime();
 #endif
 
-    auto data = blocks.closedList.allocate(size);
+    char* data = (char*)blocks.closedList.allocate(size);
 
 #if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
     if (expanded) endTime = getCurrentTime();
@@ -711,9 +711,9 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
 
 void ThreadStorage::storeCSwitch(const CSwitchBlock& block)
 {
-    auto name_length = static_cast<uint16_t>(strlen(block.name()));
-    auto size = static_cast<uint16_t>(sizeof(CSwitchEvent) + name_length + 1);
-    auto data = sync.closedList.allocate(size);
+    uint16_t name_length = static_cast<uint16_t>(strlen(block.name()));
+    uint16_t size = static_cast<uint16_t>(sizeof(CSwitchEvent) + name_length + 1);
+    void* data = sync.closedList.allocate(size);
     ::new (data) SerializedCSwitch(block, name_length);
     sync.usedMemorySize += size;
 }

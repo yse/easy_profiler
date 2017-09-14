@@ -407,7 +407,7 @@ namespace profiler {
                         p.base = m_properties.base; // Use copy of m_properties to make sure m_properties will not be changed
 
                         // Stop another session
-                        ControlTrace(NULL, KERNEL_LOGGER_NAME, reinterpret_cast<EVENT_TRACE_PROPERTIES*>(&p), EVENT_TRACE_CONTROL_STOP);
+                        ControlTrace((TRACEHANDLE)NULL, KERNEL_LOGGER_NAME, reinterpret_cast<EVENT_TRACE_PROPERTIES*>(&p), EVENT_TRACE_CONTROL_STOP);
 
                         // Console window variant:
                         //if (32 >= (int)ShellExecute(NULL, NULL, "logman", "stop \"" KERNEL_LOGGER_NAME "\" -ets", NULL, SW_HIDE))
