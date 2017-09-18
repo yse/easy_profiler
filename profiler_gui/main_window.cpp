@@ -1440,7 +1440,8 @@ void EasyMainWindow::onListenerTimerTimeout()
     {
         if (m_listener.regime() == LISTENER_CAPTURE_RECEIVE)
             m_listener.finalizeCapture();
-        m_listenerDialog->reject();
+        if (m_listenerDialog)
+            m_listenerDialog->reject();
     }
     else if (m_listener.regime() == LISTENER_CAPTURE_RECEIVE)
     {
