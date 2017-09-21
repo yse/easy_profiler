@@ -4,7 +4,7 @@
 ///this
 #include "reader.h"
 
-using namespace reader;
+using namespace profiler::reader;
 
 FileHeader SimpleReader::getFileHeader()
 {

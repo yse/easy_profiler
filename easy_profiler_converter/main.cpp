@@ -3,7 +3,7 @@
 ///this
 #include "reader.h"
 
-using namespace reader;
+using namespace profiler::reader;
 
 int main(int argc, char* argv[])
 {
