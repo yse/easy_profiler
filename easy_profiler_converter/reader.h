@@ -16,7 +16,7 @@ struct BlocksDescriptorsInfo
     uint64_t descriptors_memory;
 };
 
-class FileHeader
+struct FileHeader
 {
   uint32_t signature;
   uint32_t version;
@@ -49,7 +49,7 @@ class SimpleReader : public IReader
 public:
     SimpleReader(): fileHeader(nullptr),
                     blocksDescriptors(nullptr)
-    {}
+    { }
 
     FileHeader*         getFileHeader() override;
     BlocksDescriptors*  getBlockDescriptors() override;
