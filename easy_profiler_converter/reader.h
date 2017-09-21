@@ -1,7 +1,14 @@
 #ifndef EASY_PROFILER_CONVERTER____H
 #define EASY_PROFILER_CONVERTER____H
 
+///this
 #include <easy/serialized_block.h>
+
+using namespace std;
+
+namespace reader {
+
+
 
 #pragma pack(push, 1)
 struct SerializedBlocksInfo
@@ -38,24 +45,26 @@ struct BlocksDescriptors
 
 
 
-class IReader
+struct IReader
 {
-    virtual FileHeader*         getFileHeader() = 0;
-    virtual BlocksDescriptors*  getBlockDescriptors() = 0;
+    virtual FileHeader         getFileHeader() = 0;
+    virtual BlocksDescriptors  getBlockDescriptors() = 0;
 };
 
-class SimpleReader : public IReader
+class SimpleReader EASY_FINAL : public IReader
 {
 public:
-    SimpleReader(): fileHeader(nullptr),
-                    blocksDescriptors(nullptr)
+    SimpleReader(std::string inputFilePath): inputFilePath("")
     { }
 
-    FileHeader*         getFileHeader() override;
-    BlocksDescriptors*  getBlockDescriptors() override;
+    FileHeader         getFileHeader() override;
+    BlocksDescriptors  getBlockDescriptors() override;
 private:
-    FileHeader*         fileHeader;
-    BlocksDescriptors*  blocksDescriptors;
+    std::string        inputFilePath;
+    FileHeader         fileHeader;
+    BlocksDescriptors  blocksDescriptors;
 };
+
+} //reader
 
 #endif

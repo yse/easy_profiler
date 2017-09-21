@@ -4,12 +4,15 @@
 ///std
 #include<string>
 
+///this
+#include "reader.h"
+
 struct IConverter
 {
     virtual void convert() = 0;
 };
 
-class JSONConverter : public IConverter
+class JSONConverter EASY_FINAL : public IConverter
 {
 public:
     JSONConverter(std::string file_in, std::string file_out);
