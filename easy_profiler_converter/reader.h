@@ -1,9 +1,14 @@
 #ifndef EASY_PROFILER_CONVERTER____H
 #define EASY_PROFILER_CONVERTER____H
+///std
+#include <fstream>
+#include <vector>
+#include <memory>
 
 ///this
-#include <easy/serialized_block.h>
 #include <easy/easy_protocol.h>
+#include <easy/reader.h>
+
 
 using namespace std;
 
@@ -11,24 +16,32 @@ namespace profiler{
 
 namespace reader {
 
-struct IReader
-{
-    virtual FileHeader         getFileHeader() = 0;
-    virtual BlocksDescriptors  getBlockDescriptors() = 0;
-};
+typedef vector<SerializedBlockDescriptor*> descriptors_t;
 
-class SimpleReader EASY_FINAL : public IReader
+class FileReader EASY_FINAL
 {
 public:
-    SimpleReader(std::string inputFilePath): inputFilePath("")
+    FileReader()
     { }
 
-    FileHeader         getFileHeader() override;
-    BlocksDescriptors  getBlockDescriptors() override;
+    ~FileReader()
+    {
+        close();
+    }
+
+    bool               open(const string& filename);
+    void               close();
+    const bool         is_open() const;
+
+    SerializedBlocksInfo    getSerializedBlocksInfo();
+    BlocksDescriptorsInfo   getBlockDescriptorsInfo();
+    FileHeader              getFileHeader();
+    void                    getSerializedBlockDescriptors(descriptors_t& descriptors);
+    void                    getThreadEvents(thread_blocks_tree_t& threaded_trees);
 private:
-    std::string        inputFilePath;
+    uint16_t getShiftThreadEvents();
+    ifstream           m_file;
     FileHeader         fileHeader;
-    BlocksDescriptors  blocksDescriptors;
 };
 
 } //namespace reader

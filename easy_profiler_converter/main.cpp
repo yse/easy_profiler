@@ -1,5 +1,6 @@
 ///std
 #include <iostream>
+#include <memory>
 ///this
 #include "reader.h"
 
@@ -24,8 +25,31 @@ int main(int argc, char* argv[])
         std::getline(std::cin, filename);
     }
 
-    IReader *reader = new SimpleReader(filename);
-    BlocksDescriptors bdsc = reader->getBlockDescriptors();
-    std::cout << bdsc.size << endl;
+//    IReader *reader = new SimpleReader(filename);
+//    BlocksDescriptors bdsc = reader->getBlockDescriptors();
+//    std::cout << bdsc.size << endl;
+    FileReader fr;
+    if(!fr.open(filename))
+    {
+        cout << "Shit happens" << endl;
+        cout << fr.is_open();
+    }
+
+    cout << endl;
+    cout << "=====================";
+    cout << EASY_SHIFT_BLOCK_DESCRIPTORS_INFO;
+    cout << "=====================";
+    cout << endl;
+
+    //vector<std::unique_ptr<profiler::SerializedBlockDescriptor>> vv = fr.getSerializedBlockDescriptors();
+    //BlocksDescriptorsInfo bdi = fr.getBlockDescriptorsInfo();
+
+    cout << endl;
+    cout << "=====================";
+    //cout << "SerializedBlockDescriptor count: " << vv.size();
+    cout << "=====================";
+    cout << endl;
+
+
     return 0;
 }

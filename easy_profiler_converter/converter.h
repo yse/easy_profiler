@@ -7,15 +7,23 @@
 ///this
 #include "reader.h"
 
-struct IConverter
+class IConverter
 {
+public:
     virtual void convert() = 0;
+    virtual ~IConverter();
 };
 
 class JSONConverter EASY_FINAL : public IConverter
 {
 public:
-    JSONConverter(std::string file_in, std::string file_out);
+    JSONConverter(std::string file_in,
+                  std::string file_out):
+                  m_file_in(file_in),
+                  m_file_out(file_out)
+    {}
+
+    ~JSONConverter();
     void convert() override;    
 private:
     std::string m_file_in;
