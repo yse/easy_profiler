@@ -225,6 +225,10 @@ EASY_THREAD_LOCAL static uint32_t THIS_THREAD_N_FRAMES = 0;
 EASY_THREAD_LOCAL static bool THIS_THREAD_FRAME_T_RESET_MAX = false;
 EASY_THREAD_LOCAL static bool THIS_THREAD_FRAME_T_RESET_AVG = false;
 
+#ifdef EASY_THREAD_LOCAL_CPP11
+thread_local static profiler::ThreadGuard THIS_THREAD_GUARD; // thread guard for monitoring thread life time
+#endif
+
 //////////////////////////////////////////////////////////////////////////
 
 #ifdef BUILD_WITH_EASY_PROFILER
@@ -686,7 +690,7 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
     if (expanded) beginTime = getCurrentTime();
 #endif
 
-    char* data = (char*)blocks.closedList.allocate(size);
+    void* data = blocks.closedList.allocate(size);
 
 #if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
     if (expanded) endTime = getCurrentTime();
@@ -898,7 +902,7 @@ bool ProfileManager::storeBlock(const profiler::BaseBlockDescriptor* _desc, cons
     }
     else if (THIS_THREAD == nullptr)
     {
-        THIS_THREAD = &threadStorage(getCurrentThreadId());
+        registerThread();
     }
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
@@ -928,7 +932,7 @@ bool ProfileManager::storeBlock(const profiler::BaseBlockDescriptor* _desc, cons
     }
     else if (THIS_THREAD == nullptr)
     {
-        THIS_THREAD = &threadStorage(getCurrentThreadId());
+        registerThread();
     }
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
@@ -951,7 +955,7 @@ void ProfileManager::storeBlockForce(const profiler::BaseBlockDescriptor* _desc,
         return;
 
     if (THIS_THREAD == nullptr)
-        THIS_THREAD = &threadStorage(getCurrentThreadId());
+        registerThread();
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
     if (!THIS_THREAD->allowChildren && !(_desc->m_status & FORCE_ON_FLAG))
@@ -972,7 +976,7 @@ void ProfileManager::storeBlockForce2(const profiler::BaseBlockDescriptor* _desc
         return;
 
     if (THIS_THREAD == nullptr)
-        THIS_THREAD = &threadStorage(getCurrentThreadId());
+        registerThread();
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
     if (!THIS_THREAD->allowChildren && !(_desc->m_status & FORCE_ON_FLAG))
@@ -997,7 +1001,7 @@ void ProfileManager::storeBlockForce2(ThreadStorage& _registeredThread, const pr
 void ProfileManager::beginBlock(Block& _block)
 {
     if (THIS_THREAD == nullptr)
-        THIS_THREAD = &threadStorage(getCurrentThreadId());
+        registerThread();
 
     if (++THIS_THREAD_STACK_SIZE > 1)
     {
@@ -1075,7 +1079,7 @@ void ProfileManager::beginBlock(Block& _block)
 void ProfileManager::beginNonScopedBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName)
 {
     if (THIS_THREAD == nullptr)
-        THIS_THREAD = &threadStorage(getCurrentThreadId());
+        registerThread();
 
     NonscopedBlock& b = THIS_THREAD->nonscopedBlocks.push(_desc, _runtimeName, false);
     beginBlock(b);
@@ -1149,11 +1153,25 @@ void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, processi
 {
     ThreadStorage* ts = nullptr;
     if (_process_id == m_processId)
+    {
+        // Implicit thread registration.
         // If thread owned by current process then create new ThreadStorage if there is no one
+#if defined(EASY_OPTION_IMPLICIT_THREAD_REGISTRATION) && EASY_OPTION_IMPLICIT_THREAD_REGISTRATION != 0
         ts = _lockSpin ? &threadStorage(_thread_id) : &_threadStorage(_thread_id);
+# ifndef _WIN32
+#  if defined(EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS) && EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS != 0
+#   pragma message "Warning: Implicit thread registration may cause application crash because there is no possibility to check thread state (dead or alive) in Unix systems."
+#  else
+#   pragma message "Warning: Implicit thread registration may lead to memory leak because there is no possibility to check thread state (dead or alive) in Unix systems."
+#  endif
+# endif
+#endif
+    }
     else
+    {
         // If thread owned by another process OR _process_id IS UNKNOWN then do not create ThreadStorage for this
         ts = _lockSpin ? findThreadStorage(_thread_id) : _findThreadStorage(_thread_id);
+    }
 
     if (ts == nullptr || ts->sync.openedList.empty())
         return;
@@ -1327,8 +1345,7 @@ char ProfileManager::checkThreadExpired(ThreadStorage& _registeredThread)
         return 0;
 
 #ifdef _WIN32
-
-    // Check thread for Windows
+    // Check thread state for Windows
 
     DWORD exitCode = 0;
     auto hThread = OpenThread(THREAD_QUERY_LIMITED_INFORMATION, FALSE, (DWORD)_registeredThread.id);
@@ -1345,13 +1362,20 @@ char ProfileManager::checkThreadExpired(ThreadStorage& _registeredThread)
         CloseHandle(hThread);
 
     return 0;
-
 #else
+    // Check thread state for Linux and MacOS/iOS
 
-    return 0;//pthread_kill(_registeredThread.pthread_id, 0) != 0;
+    // This would drop the application if pthread already died
+    //return pthread_kill(_registeredThread.pthread_id, 0) != 0 ? 1 : 0;
 
+    // There is no function to check external pthread state in Linux! :((
+
+#ifndef EASY_THREAD_LOCAL_CPP11
+#pragma message "Warning: Your compiler does not support thread_local C++11 feature. Please use EASY_THREAD_SCOPE as much as possible. Otherwise, there is a possibility of memory leak if there are a lot of rapidly created and destroyed threads."
 #endif
 
+    return 0;
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1466,10 +1490,19 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
     {
         auto& t = it->second;
         uint32_t num = static_cast<uint32_t>(t.blocks.closedList.size()) + static_cast<uint32_t>(t.sync.closedList.size());
+        const char expired = ProfileManager::checkThreadExpired(t);
 
-        const char expired = checkThreadExpired(t);
-        if (num == 0 && (expired != 0 || !t.guarded)) {
-            // Remove thread if it contains no profiled information and has been finished or is not guarded.
+#if !defined(_WIN32) && defined(EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS) && EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS != 0
+#pragma message "Warning: Removing !guarded thread may cause an application crash, but fixes potential memory leak on Unix systems."
+        if (num == 0 && (expired != 0
+            || !t.guarded)) // Removing !guarded thread may cause an application crash if a thread would start to write blocks after ThreadStorage remove.
+
+            // TODO: Find solution to check thread state on Unix systems or to nullify THIS_THREAD pointer for removed ThreadStorage
+#else
+        if (num == 0 && expired != 0)
+#endif
+        {
+            // Remove thread if it contains no profiled information and has been finished (or is not guarded --deprecated).
             profiler::thread_id_t id = it->first;
             if (!mainThreadExpired && m_mainThreadId.compare_exchange_weak(id, 0, std::memory_order_release, std::memory_order_acquire))
                 mainThreadExpired = true;
@@ -1477,7 +1510,8 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
             continue;
         }
 
-        if (expired == 1) {
+        if (expired == 1)
+        {
             EASY_FORCE_EVENT3(t, endtime, "ThreadExpired", EASY_COLOR_THREAD_END);
             ++num;
         }
@@ -1605,6 +1639,16 @@ uint32_t ProfileManager::dumpBlocksToFile(const char* _filename)
     return blocksNumber;
 }
 
+void ProfileManager::registerThread()
+{
+    THIS_THREAD = &threadStorage(getCurrentThreadId());
+
+#ifdef EASY_THREAD_LOCAL_CPP11
+    THIS_THREAD->guarded = true;
+    THIS_THREAD_GUARD.m_id = THIS_THREAD->id;
+#endif
+}
+
 const char* ProfileManager::registerThread(const char* name, ThreadGuard& threadGuard)
 {
     if (THIS_THREAD == nullptr)
@@ -1621,9 +1665,17 @@ const char* ProfileManager::registerThread(const char* name, ThreadGuard& thread
             profiler::thread_id_t id = 0;
             THIS_THREAD_IS_MAIN = m_mainThreadId.compare_exchange_weak(id, THIS_THREAD->id, std::memory_order_release, std::memory_order_acquire);
         }
+
+#ifdef EASY_THREAD_LOCAL_CPP11
+        THIS_THREAD_GUARD.m_id = THIS_THREAD->id;
+    }
+
+    threadGuard; // this is just to prevent from warning about unused variable
+#else
     }
 
     threadGuard.m_id = THIS_THREAD->id;
+#endif
 
     return THIS_THREAD->name.c_str();
 }
@@ -1643,6 +1695,11 @@ const char* ProfileManager::registerThread(const char* name)
             profiler::thread_id_t id = 0;
             THIS_THREAD_IS_MAIN = m_mainThreadId.compare_exchange_weak(id, THIS_THREAD->id, std::memory_order_release, std::memory_order_acquire);
         }
+
+#ifdef EASY_THREAD_LOCAL_CPP11
+        THIS_THREAD->guarded = true;
+        THIS_THREAD_GUARD.m_id = THIS_THREAD->id;
+#endif
     }
 
     return THIS_THREAD->name.c_str();

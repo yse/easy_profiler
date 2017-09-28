@@ -3,40 +3,40 @@ Lightweight profiler library for c++
 Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
 
 Licensed under either of
-	* MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
+    * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
     * Apache License, Version 2.0, (LICENSE.APACHE or http://www.apache.org/licenses/LICENSE-2.0)
 at your option.
 
 The MIT License
-	Permission is hereby granted, free of charge, to any person obtaining a copy
-	of this software and associated documentation files (the "Software"), to deal
-	in the Software without restriction, including without limitation the rights 
-	to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
-	of the Software, and to permit persons to whom the Software is furnished 
-	to do so, subject to the following conditions:
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights 
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
+    of the Software, and to permit persons to whom the Software is furnished 
+    to do so, subject to the following conditions:
 
-	The above copyright notice and this permission notice shall be included in all 
-	copies or substantial portions of the Software.
+    The above copyright notice and this permission notice shall be included in all 
+    copies or substantial portions of the Software.
 
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR 
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE 
-	LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
-	TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE 
-	USE OR OTHER DEALINGS IN THE SOFTWARE.
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+    INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR 
+    PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE 
+    LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+    TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE 
+    USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 The Apache License, Version 2.0 (the "License");
-	You may not use this file except in compliance with the License.
-	You may obtain a copy of the License at
+    You may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
-	Unless required by applicable law or agreed to in writing, software
-	distributed under the License is distributed on an "AS IS" BASIS,
-	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	See the License for the specific language governing permissions and
-	limitations under the License.
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
 
 **/
 
@@ -368,29 +368,28 @@ EASY_FORCE_INLINE T unaligned_load64(const void* ptr, T* val)
 template <uint16_t N>
 class chunk_allocator
 {
-    struct chunk { EASY_ALIGNED(int8_t, data[N], EASY_ALIGNMENT_SIZE); chunk* prev = nullptr; };
+    struct chunk { EASY_ALIGNED(char, data[N], EASY_ALIGNMENT_SIZE); chunk* prev = nullptr; };
 
     struct chunk_list
     {
-        chunk* last = nullptr;
+        chunk* last;
+
+        chunk_list() : last(nullptr)
+        {
+            static_assert(sizeof(char) == 1, "easy_profiler logic error: sizeof(char) != 1 for this platform! Please, contact easy_profiler authors to resolve your problem.");
+            emplace_back();
+        }
 
         ~chunk_list()
         {
-            clear();
+            do free_last(); while (last != nullptr);
         }
 
-        void clear()
+        void clear_all_except_last()
         {
-            do {
-                auto p = last;
-                last = last->prev;
-                EASY_FREE(p);
-            } while (last != nullptr);
-        }
-
-        chunk& back()
-        {
-            return *last;
+            while (last->prev != nullptr)
+                free_last();
+            zero_last_chunk_size();
         }
 
         void emplace_back()
@@ -398,12 +397,7 @@ class chunk_allocator
             auto prev = last;
             last = ::new (EASY_MALLOC(sizeof(chunk), EASY_ALIGNMENT_SIZE)) chunk();
             last->prev = prev;
-            // Although there is no need for unaligned access stuff b/c a new chunk will
-            // usually be at least 8 byte aligned (and we only need 2 byte alignment),
-            // this is the only way I have been able to get rid of the GCC strict-aliasing warning
-            // without using std::memset. It's an extra line, but is just as fast as *(uint16_t*)last->data = 0;
-            char* const data = (char*)&last->data;
-            *(uint16_t*)data = 0;
+            zero_last_chunk_size();
         }
 
         /** Invert current chunks list to enable to iterate over chunks list in direct order.
@@ -423,12 +417,33 @@ class chunk_allocator
 
             last->prev = next;
         }
+
+    private:
+
+        chunk_list(const chunk_list&) = delete;
+        chunk_list(chunk_list&&) = delete;
+
+        void free_last()
+        {
+            auto p = last;
+            last = last->prev;
+            EASY_FREE(p);
+        }
+
+        void zero_last_chunk_size()
+        {
+            // Although there is no need for unaligned access stuff b/c a new chunk will
+            // usually be at least 8 byte aligned (and we only need 2 byte alignment),
+            // this is the only way I have been able to get rid of the GCC strict-aliasing warning
+            // without using std::memset. It's an extra line, but is just as fast as *(uint16_t*)last->data = 0;
+            char* const data = last->data;
+            *(uint16_t*)data = (uint16_t)0;
+        }
     };
 
-    //typedef std::list<chunk> chunk_list;
-
     // Used in serialize(): workaround for no constexpr support in MSVC 2013.
-    static const int_fast32_t MAX_CHUNK_OFFSET = N-sizeof(uint16_t);
+    static const int_fast32_t MAX_CHUNK_OFFSET = N - sizeof(uint16_t);
+    static const uint16_t N_MINUS_ONE = N - 1;
 
     chunk_list      m_chunks; ///< List of chunks.
     uint32_t          m_size; ///< Number of elements stored(# of times allocate() has been called.)
@@ -438,7 +453,6 @@ public:
 
     chunk_allocator() : m_size(0), m_chunkOffset(0)
     {
-        m_chunks.emplace_back();
     }
 
     /** Allocate n bytes.
@@ -454,7 +468,7 @@ public:
         {
             // Temp to avoid extra load due to this* aliasing.
             uint16_t chunkOffset = m_chunkOffset;
-            char* data = (char*)m_chunks.back().data + chunkOffset;
+            char* data = m_chunks.last->data + chunkOffset;
             chunkOffset += n + sizeof(uint16_t);
             m_chunkOffset = chunkOffset;
 
@@ -463,7 +477,7 @@ public:
 
             // If there is enough space for at least another payload size,
             // set it to zero.
-            if (chunkOffset < N-1)
+            if (chunkOffset < N_MINUS_ONE)
                 unaligned_zero16(data + n);
 
             return data;
@@ -472,7 +486,7 @@ public:
         m_chunkOffset = n + sizeof(uint16_t);
         m_chunks.emplace_back();
 
-        char* data = (char*)&m_chunks.back().data[0];
+        char* data = m_chunks.last->data;
         unaligned_store16(data, n);
         data += sizeof(uint16_t);
         
@@ -503,8 +517,7 @@ public:
     {
         m_size = 0;
         m_chunkOffset = 0;
-        m_chunks.clear();
-        m_chunks.emplace_back();
+        m_chunks.clear_all_except_last(); // There is always at least one chunk
     }
 
     /** Serialize data to stream.
@@ -529,10 +542,10 @@ public:
 
         chunk* current = m_chunks.last;
         do {
-            const char* data = (char*)current->data;
+            const char* data = current->data;
             int_fast32_t chunkOffset = 0; // signed int so overflow is not checked.
             uint16_t payloadSize = unaligned_load16<uint16_t>(data);
-            while ((chunkOffset < MAX_CHUNK_OFFSET) & (payloadSize != 0)) {
+            while (chunkOffset < MAX_CHUNK_OFFSET && payloadSize != 0) {
                 const uint16_t chunkSize = sizeof(uint16_t) + payloadSize;
                 _outputStream.write(data, chunkSize);
                 data += chunkSize;
@@ -545,6 +558,11 @@ public:
 
         clear();
     }
+
+private:
+
+    chunk_allocator(const chunk_allocator&) = delete;
+    chunk_allocator(chunk_allocator&&) = delete;
 
 }; // END of class chunk_allocator.
 
@@ -652,6 +670,11 @@ public:
         m_overflow.pop_back();
     }
 
+private:
+
+    StackBuffer(const StackBuffer&) = delete;
+    StackBuffer(StackBuffer&&) = delete;
+
 }; // END of class StackBuffer.
 
 //////////////////////////////////////////////////////////////////////////
@@ -669,6 +692,11 @@ struct BlocksList
         //closedList.clear();
         usedMemorySize = 0;
     }
+
+private:
+
+    BlocksList(const BlocksList&) = delete;
+    BlocksList(BlocksList&&) = delete;
 
 }; // END of struct BlocksList.
 
@@ -714,6 +742,11 @@ struct ThreadStorage
     void popSilent();
 
     ThreadStorage();
+
+private:
+
+    ThreadStorage(const ThreadStorage&) = delete;
+    ThreadStorage(ThreadStorage&&) = delete;
 
 }; // END of struct ThreadStorage.
 
@@ -822,13 +855,15 @@ public:
 
 private:
 
+    void registerThread();
+
     void beginFrame();
     void endFrame();
 
     void enableEventTracer();
     void disableEventTracer();
 
-    char checkThreadExpired(ThreadStorage& _registeredThread);
+    static char checkThreadExpired(ThreadStorage& _registeredThread);
 
     void storeBlockForce(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t& _timestamp);
     void storeBlockForce2(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t _timestamp);

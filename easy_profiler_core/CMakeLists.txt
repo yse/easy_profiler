@@ -2,20 +2,35 @@ message(STATUS "")
 message(STATUS "EASY_PROFILER.Core version = ${EASY_PRODUCT_VERSION_STRING}")
 message(STATUS "")
 
+
+
+###########################################################
+# EasyProfiler options:
+set(EASY_OPTION_IMPLICIT_THREAD_REGISTER_TEXT "Enable new threads registration when collecting context switch events")
 set(EASY_DEFAULT_PORT                  28077  CACHE STRING "Default listening port")
 set(EASY_OPTION_LISTEN                 OFF    CACHE BOOL   "Enable automatic startListen on startup")
 set(EASY_OPTION_PROFILE_SELF           OFF    CACHE BOOL   "Enable self profiling (measure time for internal storage expand)")
 set(EASY_OPTION_PROFILE_SELF_BLOCKS_ON OFF    CACHE BOOL   "Storage expand default status (profiler::ON or profiler::OFF)")
 set(EASY_OPTION_LOG                    OFF    CACHE BOOL   "Print errors to stderr")
 set(EASY_OPTION_PREDEFINED_COLORS      ON     CACHE BOOL   "Use predefined set of colors (see profiler_colors.h). If you want to use your own colors palette you can turn this option OFF")
-set(BUILD_SHARED_LIBS                  ON    CACHE BOOL    "Build easy_profiler as shared library.")
+set(BUILD_SHARED_LIBS                  ON     CACHE BOOL   "Build easy_profiler as shared library.")
 if (WIN32)
-    set(EASY_OPTION_EVENT_TRACING      ON     CACHE BOOL   "Enable event tracing by default")
-    set(EASY_OPTION_LOW_PRIORITY_EVENT_TRACING ON CACHE BOOL "Set low priority for event tracing thread")
-endif (WIN32)
-set(BUILD_WITH_CHRONO_STEADY_CLOCK     OFF    CACHE BOOL   "Use std::chrono::steady_clock as a timer" )
+    set(EASY_OPTION_IMPLICIT_THREAD_REGISTRATION ON CACHE BOOL ${EASY_OPTION_IMPLICIT_THREAD_REGISTER_TEXT})
+    set(EASY_OPTION_EVENT_TRACING                ON CACHE BOOL "Enable event tracing by default")
+    set(EASY_OPTION_LOW_PRIORITY_EVENT_TRACING   ON CACHE BOOL "Set low priority for event tracing thread")
+else ()
+    set(EASY_OPTION_IMPLICIT_THREAD_REGISTRATION   OFF CACHE BOOL ${EASY_OPTION_IMPLICIT_THREAD_REGISTER_TEXT})
+    set(EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS OFF CACHE BOOL "Enable easy_profiler to remove empty unguarded threads. This fixes potential memory leak on Unix systems, but may lead to an application crash! This is used if your compiler does not support C++11 thread_local feature or EASY_OPTION_IMPLICIT_THREAD_REGISTER is ON")
+endif ()
+set(BUILD_WITH_CHRONO_STEADY_CLOCK OFF CACHE BOOL "Use std::chrono::steady_clock as a timer" )
 set(BUILD_WITH_CHRONO_HIGH_RESOLUTION_CLOCK OFF CACHE BOOL "Use std::chrono::high_resolution_clock as a timer")
+# End EasyProfiler options.
+###########################################################
 
+
+
+#####################################################################
+# Print EasyProfiler options status:
 message(STATUS "-------- EASY_PROFILER OPTIONS: --------")
 if (BUILD_WITH_CHRONO_STEADY_CLOCK)
     message(STATUS "  Use std::chrono::steady_clock as a timer")
@@ -33,20 +48,39 @@ message(STATUS "  Default listening port = ${EASY_DEFAULT_PORT}")
 message(STATUS "  Auto-start listening = ${EASY_OPTION_LISTEN}")
 message(STATUS "  Profile self = ${EASY_OPTION_PROFILE_SELF}")
 message(STATUS "  Profile self blocks initial status = ${EASY_OPTION_PROFILE_SELF_BLOCKS_ON}")
+message(STATUS "  Implicit thread registration = ${EASY_OPTION_IMPLICIT_THREAD_REGISTRATION}")
+if (EASY_OPTION_IMPLICIT_THREAD_REGISTRATION)
+    message(STATUS "    WARNING! Implicit thread registration for Unix systems can lead to memory leak")
+    message(STATUS "             because there is no possibility to check if thread is alive and remove dead threads.")
+endif ()
 if (WIN32)
     message(STATUS "  Event tracing = ${EASY_OPTION_EVENT_TRACING}")
-    if (EASY_OPTION_LOW_PRIORITY_EVENT_TRACING)
-        message(STATUS "  Event tracing has low priority = Yes")
+    message(STATUS "  Event tracing has low priority = ${EASY_OPTION_LOW_PRIORITY_EVENT_TRACING}")
+else ()
+    message(STATUS "    WARNING! Implicit thread registration for Unix systems can lead to memory leak")
+    message(STATUS "             because there is no possibility to check if thread is alive and remove dead threads.")
+    message(STATUS "  Removing empty unguarded threads = ${EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS}")
+    if (EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS)
+        message(STATUS "    WARNING! Removing empty unguarded threads may lead to an application crash!")
+        message(STATUS "             But fixes potential memory leak on Unix systems.")
     else ()
-        message(STATUS "  Event tracing has low priority = No")
-    endif (EASY_OPTION_LOW_PRIORITY_EVENT_TRACING)
-endif (WIN32)
+        message(STATUS "    WARNING! There is a possibility of memory leak without removing empty unguarded threads.")
+    endif ()
+    message(STATUS "        If implicit thread registration is OFF and your compiler supports C++11 thread_local feature")
+    message(STATUS "          then You can ignore this warning. But beware if it's not so!")
+endif ()
 message(STATUS "  Log messages = ${EASY_OPTION_LOG}")
 message(STATUS "  Use EasyProfiler colors palette = ${EASY_OPTION_PREDEFINED_COLORS}")
 message(STATUS "  Shared library: ${BUILD_SHARED_LIBS}")
 message(STATUS "------ END EASY_PROFILER OPTIONS -------")
 message(STATUS "")
+# End printing EasyProfiler options status.
+#####################################################################
 
+
+
+#################################################
+# Add source files:
 set(CPP_FILES
     block.cpp
     profile_manager.cpp
@@ -83,6 +117,11 @@ set(SOURCES
 )
 
 add_library(easy_profiler ${SOURCES} resources.rc)
+# End adding source files.
+#################################################
+
+
+
 target_include_directories(easy_profiler PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>  # <prefix>/include
@@ -102,18 +141,31 @@ target_compile_definitions(easy_profiler PUBLIC
     -DBUILD_WITH_EASY_PROFILER=1
 )
 
+
+
+#####################################################################
+# Add EasyProfiler options definitions:
 easy_define_target_option(easy_profiler BUILD_WITH_CHRONO_STEADY_CLOCK EASY_CHRONO_STEADY_CLOCK)
 easy_define_target_option(easy_profiler BUILD_WITH_CHRONO_HIGH_RESOLUTION_CLOCK EASY_CHRONO_HIGHRES_CLOCK)
 easy_define_target_option(easy_profiler EASY_OPTION_LISTEN EASY_OPTION_START_LISTEN_ON_STARTUP)
 easy_define_target_option(easy_profiler EASY_OPTION_PROFILE_SELF EASY_OPTION_MEASURE_STORAGE_EXPAND)
 easy_define_target_option(easy_profiler EASY_OPTION_PROFILE_SELF_BLOCKS_ON EASY_OPTION_STORAGE_EXPAND_BLOCKS_ON)
+easy_define_target_option(easy_profiler EASY_OPTION_IMPLICIT_THREAD_REGISTRATION EASY_OPTION_IMPLICIT_THREAD_REGISTRATION)
 if (WIN32)
     easy_define_target_option(easy_profiler EASY_OPTION_EVENT_TRACING EASY_OPTION_EVENT_TRACING_ENABLED)
     easy_define_target_option(easy_profiler EASY_OPTION_LOW_PRIORITY_EVENT_TRACING EASY_OPTION_LOW_PRIORITY_EVENT_TRACING)
+else ()
+    easy_define_target_option(easy_profiler EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS)
 endif ()
 easy_define_target_option(easy_profiler EASY_OPTION_LOG EASY_OPTION_LOG_ENABLED)
 easy_define_target_option(easy_profiler EASY_OPTION_PREDEFINED_COLORS EASY_OPTION_BUILTIN_COLORS)
+# End adding EasyProfiler options definitions.
+#####################################################################
 
+
+
+###############################################################################
+# Add platform specific compile options:
 if (UNIX)
     target_compile_options(easy_profiler PRIVATE -Wall -Wno-long-long -Wno-reorder -Wno-braced-scalar-init -pedantic)
     target_link_libraries(easy_profiler pthread)
@@ -128,29 +180,29 @@ endif ()
 
 if (MSVC)
     target_compile_options(easy_profiler PRIVATE /WX)
-endif()
+endif ()
 
 if (APPLE)
     target_compile_options(easy_profiler PUBLIC -std=gnu++11)
 else ()
-    
-
     if (CMAKE_VERSION VERSION_LESS "3.1")
         if (NOT MSVC)
             target_compile_options(easy_profiler PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=gnu++11>)
         endif ()
-    else()
-    
+    else ()
         if (NOT MSVC)
             target_compile_options(easy_profiler PUBLIC -std=gnu++11)
         endif ()
-        
         set_target_properties(easy_profiler PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
     endif ()
 endif ()
+# End adding platform specific compile options.
+###############################################################################
 
-####
-# Installation 
+
+
+#########################################################################################
+# Installation:
 set(config_install_dir "lib/cmake/${PROJECT_NAME}")
 set(include_install_dir "include")
 
