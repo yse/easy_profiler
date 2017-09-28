@@ -267,16 +267,16 @@ inline QString autoTimeStringReal(qreal _interval, int _precision = 1)
 inline QString autoTimeStringInt(qreal _interval)
 {
     if (_interval < 1) // interval in nanoseconds
-        return QString("%1 ns").arg(static_cast<quint64>(_interval * 1e3));
+        return QString("%1 ns").arg(static_cast<quint64>(_interval * 1e3 + 0.5));
 
     if (_interval < 1e3) // interval in microseconds
-        return QString("%1 us").arg(static_cast<quint32>(_interval));
+        return QString("%1 us").arg(static_cast<quint32>(_interval + 0.5));
 
     if (_interval < 1e6) // interval in milliseconds
-        return QString("%1 ms").arg(static_cast<quint32>(_interval * 1e-3));
+        return QString("%1 ms").arg(static_cast<quint32>(_interval * 1e-3 + 0.5));
 
     // interval in seconds
-    return QString("%1 s").arg(static_cast<quint32>(_interval * 1e-6));
+    return QString("%1 s").arg(static_cast<quint32>(_interval * 1e-6 + 0.5));
 }
 
 inline QString autoTimeStringRealNs(::profiler::timestamp_t _interval, int _precision = 1)
@@ -300,13 +300,13 @@ inline QString autoTimeStringIntNs(::profiler::timestamp_t _interval)
         return QString("%1 ns").arg(_interval);
 
     if (_interval < 1000000) // interval in microseconds
-        return QString("%1 us").arg(static_cast<quint32>(_interval * 1e-3));
+        return QString("%1 us").arg(static_cast<quint32>(_interval * 1e-3 + 0.5));
 
     if (_interval < 1000000000U) // interval in milliseconds
-        return QString("%1 ms").arg(static_cast<quint32>(_interval * 1e-6));
+        return QString("%1 ms").arg(static_cast<quint32>(_interval * 1e-6 + 0.5));
 
     // interval in seconds
-    return QString("%1 s").arg(static_cast<quint32>(_interval * 1e-9));
+    return QString("%1 s").arg(static_cast<quint32>(_interval * 1e-9 + 0.5));
 }
 
 inline QString timeStringReal(TimeUnits _units, qreal _interval, int _precision = 1)
@@ -322,7 +322,7 @@ inline QString timeStringReal(TimeUnits _units, qreal _interval, int _precision 
             return QString("%1 us").arg(_interval, 0, 'f', _precision);
 
         case TimeUnits_ns:
-            return QString("%1 ns").arg(static_cast<quint64>(_interval * 1e3));
+            return QString("%1 ns").arg(static_cast<quint64>(_interval * 1e3 + 0.5));
 
         case TimeUnits_auto:
         default:
@@ -360,13 +360,13 @@ inline QString timeStringInt(TimeUnits _units, qreal _interval)
     switch (_units)
     {
         case TimeUnits_ms:
-            return QString("%1 ms").arg(static_cast<quint32>(_interval * 1e-3));
+            return QString("%1 ms").arg(static_cast<quint32>(_interval * 1e-3 + 0.5));
 
         case TimeUnits_us:
-            return QString("%1 us").arg(static_cast<quint32>(_interval));
+            return QString("%1 us").arg(static_cast<quint32>(_interval + 0.5));
 
         case TimeUnits_ns:
-            return QString("%1 ns").arg(static_cast<quint64>(_interval * 1e3));
+            return QString("%1 ns").arg(static_cast<quint64>(_interval * 1e3 + 0.5));
 
         case TimeUnits_auto:
         default:
@@ -381,10 +381,10 @@ inline QString timeStringIntNs(TimeUnits _units, ::profiler::timestamp_t _interv
     switch (_units)
     {
         case TimeUnits_ms:
-            return QString("%1 ms").arg(static_cast<quint32>(_interval * 1e-6));
+            return QString("%1 ms").arg(static_cast<quint32>(_interval * 1e-6 + 0.5));
 
         case TimeUnits_us:
-            return QString("%1 us").arg(static_cast<quint32>(_interval * 1e-3));
+            return QString("%1 us").arg(static_cast<quint32>(_interval * 1e-3 + 0.5));
 
         case TimeUnits_ns:
             return QString("%1 ns").arg(_interval);
