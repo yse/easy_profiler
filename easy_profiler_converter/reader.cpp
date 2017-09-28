@@ -1,6 +1,11 @@
+///std
 #include <functional>
+#include <iostream>
 ///this
 #include "reader.h"
+
+
+
 
 using namespace profiler::reader;
 
@@ -82,6 +87,9 @@ BlocksDescriptorsInfo FileReader::getBlockDescriptorsInfo()
 
 bool FileReader::open(const string &filename)
 {
+
+//    auto blocks_counter = fillTreesFromFile(filename.c_str(), serialized_blocks, serialized_descriptors, descriptors, blocks,
+//                                            threaded_trees, descriptorsNumberInFile, version, true, errorMessage);
     m_file.open(filename,ifstream::binary);
     return m_file.good();
 }
@@ -95,6 +103,7 @@ const bool FileReader::is_open() const
 {
     return m_file.is_open() && m_file.good();
 }
+
 
 SerializedBlocksInfo FileReader::getSerializedBlocksInfo()
 {

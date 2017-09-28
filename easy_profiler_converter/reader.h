@@ -9,6 +9,8 @@
 #include <easy/easy_protocol.h>
 #include <easy/reader.h>
 
+///////
+#include <easy/reader.h>
 
 using namespace std;
 
@@ -38,10 +40,23 @@ public:
     FileHeader              getFileHeader();
     void                    getSerializedBlockDescriptors(descriptors_t& descriptors);
     void                    getThreadEvents(thread_blocks_tree_t& threaded_trees);
+    void                    getSerializedBlocks();
+
+    ///
+    ::profiler::thread_blocks_tree_t threaded_trees;
+    ::profiler::SerializedData serialized_blocks, serialized_descriptors;
+    ::profiler::descriptors_list_t descriptors;
+    ::profiler::blocks_t blocks;
+    ::std::stringstream errorMessage;
+    uint32_t descriptorsNumberInFile;
+    uint32_t version;
+    ///
 private:
     uint16_t getShiftThreadEvents();
     ifstream           m_file;
     FileHeader         fileHeader;
+
+
 };
 
 } //namespace reader
