@@ -29,15 +29,13 @@ int main(int argc, char* argv[])
 //    BlocksDescriptors bdsc = reader->getBlockDescriptors();
 //    std::cout << bdsc.size << endl;
     FileReader fr;
-    if(!fr.open(filename))
-    {
-        cout << "Shit happens" << endl;
-        cout << fr.is_open();
-    }
+    fr.readFile(filename);
+    std::vector<InfoBlock> v_blocks;
+    fr.getInfoBlocks(v_blocks);
 
     cout << endl;
     cout << "=====================";
-    cout << EASY_SHIFT_BLOCK_DESCRIPTORS_INFO;
+    //cout << EASY_SHIFT_BLOCK_DESCRIPTORS_INFO;
     cout << "=====================";
     cout << endl;
 
