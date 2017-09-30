@@ -171,8 +171,14 @@ namespace profiler {
 
     //////////////////////////////////////////////////////////////////////////
 
-    typedef ::std::unordered_map<decltype(CSwitch::NewThreadId), ProcessInfo*, ::profiler::do_not_calc_hash> thread_process_info_map;
-    typedef ::std::unordered_map<processid_t, ProcessInfo, ::profiler::do_not_calc_hash> process_info_map;
+    struct do_not_calc_hash {
+        template <class T> inline size_t operator()(T _value) const {
+            return static_cast<size_t>(_value);
+        }
+    };
+
+    typedef ::std::unordered_map<decltype(CSwitch::NewThreadId), ProcessInfo*, do_not_calc_hash> thread_process_info_map;
+    typedef ::std::unordered_map<processid_t, ProcessInfo, do_not_calc_hash> process_info_map;
 
     // Using static is safe because processTraceEvent() is called from one thread
     process_info_map PROCESS_INFO_TABLE;

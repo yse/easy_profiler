@@ -59,6 +59,7 @@
 
 #include "event_trace_win.h"
 #include "current_time.h"
+#include "current_thread.h"
 
 #ifdef __APPLE__
 #include <mach/clock.h>
@@ -116,6 +117,10 @@
 # undef min
 #endif
 
+#ifndef EASY_ENABLE_BLOCK_STATUS
+# define EASY_ENABLE_BLOCK_STATUS 1
+#endif
+
 #if !defined(_WIN32) && !defined(EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS)
 # define EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS 0
 #endif
@@ -161,12 +166,16 @@ extern const uint32_t EASY_CURRENT_VERSION = EASY_VERSION_INT(EASY_PROFILER_VERS
 const uint8_t FORCE_ON_FLAG = profiler::FORCE_ON & ~profiler::ON;
 
 #if defined(EASY_CHRONO_CLOCK)
+#include <chrono>
 const int64_t CPU_FREQUENCY = EASY_CHRONO_CLOCK::period::den / EASY_CHRONO_CLOCK::period::num;
 # define TICKS_TO_US(ticks) ticks * 1000000LL / CPU_FREQUENCY
 #elif defined(_WIN32)
 const decltype(LARGE_INTEGER::QuadPart) CPU_FREQUENCY = ([](){ LARGE_INTEGER freq; QueryPerformanceFrequency(&freq); return freq.QuadPart; })();
 # define TICKS_TO_US(ticks) ticks * 1000000LL / CPU_FREQUENCY
 #else
+# ifndef __APPLE__
+#  include <time.h>
+# endif
 int64_t calculate_cpu_frequency()
 {
     double g_TicksPerNanoSec;
@@ -617,136 +626,6 @@ public:
     }
 
 }; // END of class BlockDescriptor.
-
-//////////////////////////////////////////////////////////////////////////
-
-NonscopedBlock::NonscopedBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, bool)
-    : profiler::Block(_desc, _runtimeName, false), m_runtimeName(nullptr)
-{
-
-}
-
-NonscopedBlock::~NonscopedBlock()
-{
-    // Actually destructor should not be invoked because StackBuffer do manual memory management
-
-    m_end = m_begin; // to restrict profiler::Block to invoke profiler::endBlock() on destructor.
-    free(m_runtimeName);
-}
-
-void NonscopedBlock::copyname()
-{
-    // Here we need to copy m_name to m_runtimeName to ensure that
-    // it would be alive to the moment we will serialize the block
-
-    if ((m_status & profiler::ON) == 0)
-        return;
-
-    if (*m_name != 0)
-    {
-        auto len = strlen(m_name);
-        m_runtimeName = static_cast<char*>(malloc(len + 1));
-
-        // memcpy should be faster than strncpy because we know
-        // actual bytes number and both strings have the same size
-        memcpy(m_runtimeName, m_name, len);
-
-        m_runtimeName[len] = 0;
-        m_name = m_runtimeName;
-    }
-    else
-    {
-        m_name = "";
-    }
-}
-
-void NonscopedBlock::destroy()
-{
-    // free memory used by m_runtimeName
-    free(m_runtimeName);
-    m_name = "";
-}
-
-//////////////////////////////////////////////////////////////////////////
-
-ThreadStorage::ThreadStorage() : nonscopedBlocks(16), id(getCurrentThreadId()), allowChildren(true), named(false), guarded(false)
-#ifndef _WIN32
-, pthread_id(pthread_self())
-#endif
-
-{
-    expired = ATOMIC_VAR_INIT(0);
-    frame = ATOMIC_VAR_INIT(false);
-}
-
-void ThreadStorage::storeBlock(const profiler::Block& block)
-{
-#if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
-    EASY_LOCAL_STATIC_PTR(const BaseBlockDescriptor*, desc,\
-        MANAGER.addBlockDescriptor(EASY_OPTION_STORAGE_EXPAND_BLOCKS_ON ? profiler::ON : profiler::OFF, EASY_UNIQUE_LINE_ID, "EasyProfiler.ExpandStorage",\
-            __FILE__, __LINE__, profiler::BLOCK_TYPE_BLOCK, EASY_COLOR_INTERNAL_EVENT));
-
-    EASY_THREAD_LOCAL static profiler::timestamp_t beginTime = 0ULL;
-    EASY_THREAD_LOCAL static profiler::timestamp_t endTime = 0ULL;
-#endif
-
-    uint16_t name_length = static_cast<uint16_t>(strlen(block.name()));
-    uint16_t size = static_cast<uint16_t>(sizeof(BaseBlockData) + name_length + 1);
-
-#if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
-    const bool expanded = (desc->m_status & profiler::ON) && blocks.closedList.need_expand(size);
-    if (expanded) beginTime = getCurrentTime();
-#endif
-
-    void* data = blocks.closedList.allocate(size);
-
-#if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
-    if (expanded) endTime = getCurrentTime();
-#endif
-
-    ::new (data) SerializedBlock(block, name_length);
-    blocks.usedMemorySize += size;
-
-#if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
-    if (expanded)
-    {
-        profiler::Block b(beginTime, desc->id(), "");
-        b.finish(endTime);
-
-        size = static_cast<uint16_t>(sizeof(BaseBlockData) + 1);
-        data = blocks.closedList.allocate(size);
-        ::new (data) SerializedBlock(b, 0);
-        blocks.usedMemorySize += size;
-    }
-#endif
-}
-
-void ThreadStorage::storeCSwitch(const CSwitchBlock& block)
-{
-    uint16_t name_length = static_cast<uint16_t>(strlen(block.name()));
-    uint16_t size = static_cast<uint16_t>(sizeof(CSwitchEvent) + name_length + 1);
-    void* data = sync.closedList.allocate(size);
-    ::new (data) SerializedCSwitch(block, name_length);
-    sync.usedMemorySize += size;
-}
-
-void ThreadStorage::clearClosed()
-{
-    blocks.clearClosed();
-    sync.clearClosed();
-}
-
-void ThreadStorage::popSilent()
-{
-    if (!blocks.openedList.empty())
-    {
-        Block& top = blocks.openedList.back();
-        top.m_end = top.m_begin;
-        if (!top.m_isScoped)
-            nonscopedBlocks.pop();
-        blocks.openedList.pop_back();
-    }
-}
 
 //////////////////////////////////////////////////////////////////////////
 

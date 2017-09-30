@@ -109,25 +109,31 @@ message(STATUS "")
 # Add source files:
 set(CPP_FILES
     block.cpp
+    easy_socket.cpp
+    event_trace_win.cpp
+    nonscoped_block.cpp
     profile_manager.cpp
     reader.cpp
-    event_trace_win.cpp
-    easy_socket.cpp
+    thread_storage.cpp
 )
 
 set(H_FILES
-    profile_manager.h
-    spin_lock.h
-    event_trace_win.h
+    chunk_allocator.h
     current_time.h
+    current_thread.h
+    event_trace_win.h
+    nonscoped_block.h
+    profile_manager.h
+    thread_storage.h
+    spin_lock.h
+    stack_buffer.h
 )
 
 set(INCLUDE_FILES
-    include/easy/profiler.h
-    include/easy/reader.h
     include/easy/easy_net.h
     include/easy/easy_socket.h
     include/easy/easy_compiler_support.h
+    include/easy/profiler.h
     include/easy/profiler_aux.h
     include/easy/profiler_colors.h
     include/easy/reader.h
