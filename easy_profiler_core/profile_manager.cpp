@@ -113,7 +113,15 @@
 #endif
 
 #ifdef min
-#undef min
+# undef min
+#endif
+
+#if !defined(_WIN32) && !defined(EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS)
+# define EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS 0
+#endif
+
+#ifndef EASY_OPTION_IMPLICIT_THREAD_REGISTRATION
+# define EASY_OPTION_IMPLICIT_THREAD_REGISTRATION 0
 #endif
 
 //////////////////////////////////////////////////////////////////////////
@@ -1156,13 +1164,13 @@ void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, processi
     {
         // Implicit thread registration.
         // If thread owned by current process then create new ThreadStorage if there is no one
-#if defined(EASY_OPTION_IMPLICIT_THREAD_REGISTRATION) && EASY_OPTION_IMPLICIT_THREAD_REGISTRATION != 0
+#if EASY_OPTION_IMPLICIT_THREAD_REGISTRATION != 0
         ts = _lockSpin ? &threadStorage(_thread_id) : &_threadStorage(_thread_id);
-# ifndef _WIN32
-#  if defined(EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS) && EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS != 0
-#   pragma message "Warning: Implicit thread registration may cause application crash because there is no possibility to check thread state (dead or alive) in Unix systems."
+# if !defined(_WIN32) && !defined(EASY_THREAD_LOCAL_CPP11)
+#  if EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS != 0
+#   pragma message "Warning: Implicit thread registration together with removing empty unguarded threads may cause application crash because there is no possibility to check thread state (dead or alive) for pthreads and removed ThreadStorage may be reused if thread is still alive."
 #  else
-#   pragma message "Warning: Implicit thread registration may lead to memory leak because there is no possibility to check thread state (dead or alive) in Unix systems."
+#   pragma message "Warning: Implicit thread registration without removing empty unguarded threads may lead to memory leak because there is no possibility to check thread state (dead or alive) for pthreads."
 #  endif
 # endif
 #endif
@@ -1492,13 +1500,18 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
         uint32_t num = static_cast<uint32_t>(t.blocks.closedList.size()) + static_cast<uint32_t>(t.sync.closedList.size());
         const char expired = ProfileManager::checkThreadExpired(t);
 
-#if !defined(_WIN32) && defined(EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS) && EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS != 0
-#pragma message "Warning: Removing !guarded thread may cause an application crash, but fixes potential memory leak on Unix systems."
-        if (num == 0 && (expired != 0
-            || !t.guarded)) // Removing !guarded thread may cause an application crash if a thread would start to write blocks after ThreadStorage remove.
-
-            // TODO: Find solution to check thread state on Unix systems or to nullify THIS_THREAD pointer for removed ThreadStorage
+#ifdef _WIN32
+        if (num == 0 && expired != 0)
+#elif defined(EASY_THREAD_LOCAL_CPP11)
+        // Removing !guarded thread when thread_local feature is supported is safe.
+        if (num == 0 && (expired != 0 || !t.guarded))
+#elif EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS != 0
+# pragma message "Warning: Removing !guarded thread without thread_local support may cause an application crash, but fixes potential memory leak when using pthreads."
+        // Removing !guarded thread may cause an application crash if a thread would start to write blocks after ThreadStorage remove.
+        // TODO: Find solution to check thread state for pthread or to nullify THIS_THREAD pointer for removed ThreadStorage
+        if (num == 0 && (expired != 0 || !t.guarded))
 #else
+# pragma message "Warning: Can not check pthread state (dead or alive). This may cause memory leak because ThreadStorage-s would not be removed ever during an application launched."
         if (num == 0 && expired != 0)
 #endif
         {

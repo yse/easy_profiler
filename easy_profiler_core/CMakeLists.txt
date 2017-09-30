@@ -4,6 +4,30 @@ message(STATUS "")
 
 
 
+#####################################################################
+# Checking c++11 thread_local support
+if (NOT WIN32)
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.8")
+            set(NO_CXX11_THREAD_LOCAL_SUPPORT TRUE)
+        endif ()
+    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "3.3")
+            set(NO_CXX11_THREAD_LOCAL_SUPPORT TRUE)
+        endif ()
+    endif ()
+    
+    # TODO: Check thread_local keyword support for other compilers for Unix
+    
+    if (NO_CXX11_THREAD_LOCAL_SUPPORT)
+        message(WARNING "  Your compiler does not support C++11 thread_local feature.")
+        message(WARNING "  Without C++11 thread_local feature you may face to possible memory leak or application crash if using implicit thread registration and using EASY_THREAD instead of EASY_THREAD_SCOPE.")
+    endif ()
+endif ()
+#####################################################################
+
+
+
 ###########################################################
 # EasyProfiler options:
 set(EASY_OPTION_IMPLICIT_THREAD_REGISTER_TEXT "Enable new threads registration when collecting context switch events")
@@ -19,8 +43,12 @@ if (WIN32)
     set(EASY_OPTION_EVENT_TRACING                ON CACHE BOOL "Enable event tracing by default")
     set(EASY_OPTION_LOW_PRIORITY_EVENT_TRACING   ON CACHE BOOL "Set low priority for event tracing thread")
 else ()
-    set(EASY_OPTION_IMPLICIT_THREAD_REGISTRATION   OFF CACHE BOOL ${EASY_OPTION_IMPLICIT_THREAD_REGISTER_TEXT})
-    set(EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS OFF CACHE BOOL "Enable easy_profiler to remove empty unguarded threads. This fixes potential memory leak on Unix systems, but may lead to an application crash! This is used if your compiler does not support C++11 thread_local feature or EASY_OPTION_IMPLICIT_THREAD_REGISTER is ON")
+    if (NO_CXX11_THREAD_LOCAL_SUPPORT)
+        set(EASY_OPTION_IMPLICIT_THREAD_REGISTRATION OFF CACHE BOOL ${EASY_OPTION_IMPLICIT_THREAD_REGISTER_TEXT})
+        set(EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS OFF CACHE BOOL "Enable easy_profiler to remove empty unguarded threads. This fixes potential memory leak on Unix systems, but may lead to an application crash! This is used when C++11 thread_local is unavailable.")
+    else ()
+        set(EASY_OPTION_IMPLICIT_THREAD_REGISTRATION ON CACHE BOOL ${EASY_OPTION_IMPLICIT_THREAD_REGISTER_TEXT})
+    endif ()
 endif ()
 set(BUILD_WITH_CHRONO_STEADY_CLOCK OFF CACHE BOOL "Use std::chrono::steady_clock as a timer" )
 set(BUILD_WITH_CHRONO_HIGH_RESOLUTION_CLOCK OFF CACHE BOOL "Use std::chrono::high_resolution_clock as a timer")
@@ -57,15 +85,15 @@ else ()
         message(STATUS "    WARNING! Implicit thread registration for Unix systems can lead to memory leak")
         message(STATUS "             because there is no possibility to check if thread is alive and remove dead threads.")
     endif ()
-    message(STATUS "  Removing empty unguarded threads = ${EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS}")
-    if (EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS)
-        message(STATUS "    WARNING! Removing empty unguarded threads may lead to an application crash!")
-        message(STATUS "             But fixes potential memory leak on Unix systems.")
-    else ()
-        message(STATUS "    WARNING! There is a possibility of memory leak without removing empty unguarded threads.")
+    if (NO_CXX11_THREAD_LOCAL_SUPPORT)
+        message(STATUS "  Removing empty unguarded threads = ${EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS}")
+        if (EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS)
+            message(STATUS "    WARNING! Removing empty unguarded threads may lead to an application crash!")
+            message(STATUS "             But fixes potential memory leak on Unix systems.")
+        else ()
+            message(STATUS "    WARNING! There is a possibility of memory leak without removing empty unguarded threads.")
+        endif ()
     endif ()
-    message(STATUS "        If implicit thread registration is OFF and your compiler supports C++11 thread_local feature")
-    message(STATUS "          then You can ignore this warning. But beware if it's not so!")
 endif ()
 message(STATUS "  Log messages = ${EASY_OPTION_LOG}")
 message(STATUS "  Use EasyProfiler colors palette = ${EASY_OPTION_PREDEFINED_COLORS}")
