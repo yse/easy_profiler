@@ -47,6 +47,7 @@ The Apache License, Version 2.0 (the "License");
 #include <vector>
 #include <string>
 #include <atomic>
+#include <type_traits>
 #include "stack_buffer.h"
 #include "chunk_allocator.h"
 
@@ -96,19 +97,25 @@ struct ThreadStorage
     BlocksList<std::reference_wrapper<profiler::Block>, SIZEOF_BLOCK * (uint16_t)128U>   blocks;
     BlocksList<CSwitchBlock, SIZEOF_CSWITCH * (uint16_t)128U>                              sync;
 
-    std::string name; ///< Thread name
-
-    const profiler::thread_id_t id; ///< Thread ID
-    std::atomic<char>      expired; ///< Is thread expired
-    std::atomic_bool         frame; ///< Is new frame opened
-    bool             allowChildren; ///< False if one of previously opened blocks has OFF_RECURSIVE or ON_WITHOUT_CHILDREN status
-    bool                     named; ///< True if thread name was set
-    bool                   guarded; ///< True if thread has been registered using ThreadGuard
+    std::string                     name; ///< Thread name
+    profiler::timestamp_t frameStartTime; ///< Current frame start time. Used to calculate FPS.
+    const profiler::thread_id_t       id; ///< Thread ID
+    std::atomic<char>            expired; ///< Is thread expired
+    std::atomic_bool profiledFrameOpened; ///< Is new profiled frame opened (this is true when profiling is enabled and there is an opened frame) \sa frameOpened
+    int32_t                    stackSize; ///< Current thread stack depth. Used when switching profiler state to begin collecting blocks only when new frame would be opened.
+    bool                   allowChildren; ///< False if one of previously opened blocks has OFF_RECURSIVE or ON_WITHOUT_CHILDREN status
+    bool                           named; ///< True if thread name was set
+    bool                         guarded; ///< True if thread has been registered using ThreadGuard
+    bool                     frameOpened; ///< Is new frame opened (this does not depend on profiling status) \sa profiledFrameOpened
+    bool                            halt; ///< This is set to true when new frame started while dumping blocks. Used to restrict collecting blocks during dumping process.
 
     void storeBlock(const profiler::Block& _block);
     void storeCSwitch(const CSwitchBlock& _block);
     void clearClosed();
     void popSilent();
+
+    void beginFrame();
+    profiler::timestamp_t endFrame();
 
     ThreadStorage();
 

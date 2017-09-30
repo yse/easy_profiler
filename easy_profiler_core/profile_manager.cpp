@@ -229,10 +229,6 @@ const profiler::color_t EASY_COLOR_END = 0xfff44336; // profiler::colors::Red
 //////////////////////////////////////////////////////////////////////////
 
 EASY_THREAD_LOCAL static ::ThreadStorage* THIS_THREAD = nullptr;
-EASY_THREAD_LOCAL static int32_t THIS_THREAD_STACK_SIZE = 0;
-EASY_THREAD_LOCAL static profiler::timestamp_t THIS_THREAD_FRAME_T = 0ULL;
-EASY_THREAD_LOCAL static bool THIS_THREAD_FRAME = false;
-EASY_THREAD_LOCAL static bool THIS_THREAD_HALT = false;
 EASY_THREAD_LOCAL static bool THIS_THREAD_IS_MAIN = false;
 
 EASY_THREAD_LOCAL static profiler::timestamp_t THIS_THREAD_FRAME_T_MAX = 0ULL;
@@ -636,7 +632,7 @@ ThreadGuard::~ThreadGuard()
     {
         bool isMarked = false;
         EASY_EVENT_RES(isMarked, "ThreadFinished", EASY_COLOR_THREAD_END, ::profiler::FORCE_ON);
-        THIS_THREAD->frame.store(false, std::memory_order_release);
+        THIS_THREAD->profiledFrameOpened.store(false, std::memory_order_release);
         THIS_THREAD->expired.store(isMarked ? 2 : 1, std::memory_order_release);
         THIS_THREAD = nullptr;
     }
@@ -890,7 +886,7 @@ void ProfileManager::beginBlock(Block& _block)
     if (THIS_THREAD == nullptr)
         registerThread();
 
-    if (++THIS_THREAD_STACK_SIZE > 1)
+    if (++THIS_THREAD->stackSize > 1)
     {
         _block.m_status = profiler::OFF;
         THIS_THREAD->blocks.openedList.emplace_back(_block);
@@ -900,8 +896,8 @@ void ProfileManager::beginBlock(Block& _block)
     const auto state = m_profilerStatus.load(std::memory_order_acquire);
     if (state == EASY_PROF_DISABLED)
     {
-        THIS_THREAD_HALT = false;
         _block.m_status = profiler::OFF;
+        THIS_THREAD->halt = false;
         THIS_THREAD->blocks.openedList.emplace_back(_block);
         beginFrame();
         return;
@@ -910,14 +906,15 @@ void ProfileManager::beginBlock(Block& _block)
     bool empty = true;
     if (state == EASY_PROF_DUMP)
     {
-        if (THIS_THREAD_HALT || THIS_THREAD->blocks.openedList.empty())
+        const bool halt = THIS_THREAD->halt;
+        if (halt || THIS_THREAD->blocks.openedList.empty())
         {
             _block.m_status = profiler::OFF;
             THIS_THREAD->blocks.openedList.emplace_back(_block);
 
-            if (!THIS_THREAD_HALT)
+            if (!halt)
             {
-                THIS_THREAD_HALT = true;
+                THIS_THREAD->halt = true;
                 beginFrame();
             }
 
@@ -931,8 +928,8 @@ void ProfileManager::beginBlock(Block& _block)
         empty = THIS_THREAD->blocks.openedList.empty();
     }
 
-    THIS_THREAD_HALT = false;
-    THIS_THREAD_STACK_SIZE = 0;
+    THIS_THREAD->stackSize = 0;
+    THIS_THREAD->halt = false;
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
     if (THIS_THREAD->allowChildren)
@@ -957,7 +954,7 @@ void ProfileManager::beginBlock(Block& _block)
     if (empty)
     {
         beginFrame();
-        THIS_THREAD->frame.store(true, std::memory_order_release);
+        THIS_THREAD->profiledFrameOpened.store(true, std::memory_order_release);
     }
 
     THIS_THREAD->blocks.openedList.emplace_back(_block);
@@ -986,14 +983,14 @@ void ProfileManager::beginContextSwitch(profiler::thread_id_t _thread_id, profil
 
 void ProfileManager::endBlock()
 {
-    if (--THIS_THREAD_STACK_SIZE > 0)
+    if (--THIS_THREAD->stackSize > 0)
     {
         THIS_THREAD->popSilent();
         return;
     }
 
-    THIS_THREAD_STACK_SIZE = 0;
-    if (THIS_THREAD_HALT || m_profilerStatus.load(std::memory_order_acquire) == EASY_PROF_DISABLED)
+    THIS_THREAD->stackSize = 0;
+    if (THIS_THREAD->halt || m_profilerStatus.load(std::memory_order_acquire) == EASY_PROF_DISABLED)
     {
         THIS_THREAD->popSilent();
         endFrame();
@@ -1022,7 +1019,7 @@ void ProfileManager::endBlock()
     const bool empty = THIS_THREAD->blocks.openedList.empty();
     if (empty)
     {
-        THIS_THREAD->frame.store(false, std::memory_order_release);
+        THIS_THREAD->profiledFrameOpened.store(false, std::memory_order_release);
         endFrame();
 #if EASY_ENABLE_BLOCK_STATUS != 0
         THIS_THREAD->allowChildren = true;
@@ -1074,21 +1071,15 @@ void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, processi
 
 void ProfileManager::beginFrame()
 {
-    if (!THIS_THREAD_FRAME)
-    {
-        THIS_THREAD_FRAME_T = getCurrentTime();
-        THIS_THREAD_FRAME = true;
-    }
+    THIS_THREAD->beginFrame();
 }
 
 void ProfileManager::endFrame()
 {
-    if (!THIS_THREAD_FRAME)
+    if (!THIS_THREAD->frameOpened)
         return;
 
-    const profiler::timestamp_t duration = getCurrentTime() - THIS_THREAD_FRAME_T;
-
-    THIS_THREAD_FRAME = false;
+    const profiler::timestamp_t duration = THIS_THREAD->endFrame();
 
     if (THIS_THREAD_FRAME_T_RESET_MAX)
     {
@@ -1301,7 +1292,7 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
     EASY_LOG_ONLY(bool logged = false);
     for (auto it = m_threads.begin(), end = m_threads.end(); it != end;)
     {
-        if (!it->second.frame.load(std::memory_order_acquire))
+        if (!it->second.profiledFrameOpened.load(std::memory_order_acquire))
         {
             ++it;
             EASY_LOG_ONLY(logged = false);

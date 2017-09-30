@@ -45,10 +45,19 @@ The Apache License, Version 2.0 (the "License");
 #include "current_thread.h"
 #include "current_time.h"
 
-ThreadStorage::ThreadStorage() : nonscopedBlocks(16), id(getCurrentThreadId()), allowChildren(true), named(false), guarded(false)
+ThreadStorage::ThreadStorage()
+    : nonscopedBlocks(16)
+    , frameStartTime(0)
+    , id(getCurrentThreadId())
+    , stackSize(0)
+    , allowChildren(true)
+    , named(false)
+    , guarded(false)
+    , frameOpened(false)
+    , halt(false)
 {
     expired = ATOMIC_VAR_INIT(0);
-    frame = ATOMIC_VAR_INIT(false);
+    profiledFrameOpened = ATOMIC_VAR_INIT(false);
 }
 
 void ThreadStorage::storeBlock(const profiler::Block& block)
@@ -118,4 +127,19 @@ void ThreadStorage::popSilent()
             nonscopedBlocks.pop();
         blocks.openedList.pop_back();
     }
+}
+
+void ThreadStorage::beginFrame()
+{
+    if (!frameOpened)
+    {
+        frameStartTime = getCurrentTime();
+        frameOpened = true;
+    }
+}
+
+profiler::timestamp_t ThreadStorage::endFrame()
+{
+    frameOpened = false;
+    return getCurrentTime() - frameStartTime;
 }
