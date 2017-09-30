@@ -47,7 +47,7 @@ The Apache License, Version 2.0 (the "License");
 #include <vector>
 #include <string>
 #include <atomic>
-#include <type_traits>
+#include <functional>
 #include "stack_buffer.h"
 #include "chunk_allocator.h"
 
