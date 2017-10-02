@@ -176,7 +176,7 @@ APPLICATION_NAME - name of profiling application
 
 * CMake 3.0 or higher
 * Compiler with c++11 support
-  * for Unix systems compiler with `thread_local` support is **highly recommended**: _GCC >=4.8_, _Clang >=3.3_
+  * for Unix systems: compiler with `thread_local` support is **highly recommended**: _GCC >=4.8_, _Clang >=3.3_
 
 Additional requirements for GUI:
 * Qt 5.3.0 or higher
