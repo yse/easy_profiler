@@ -569,12 +569,14 @@ extern "C" {
 
         const size_t thread_id_t_size = version < EASY_V_130 ? sizeof(uint32_t) : sizeof(::profiler::thread_id_t);
 
-        while (!inFile.eof() && read_number < total_blocks_number)
+        while (!inFile.eof())
         {
             EASY_BLOCK("Read thread data", ::profiler::colors::DarkGreen);
 
             ::profiler::thread_id_t thread_id = 0;
             inFile.read((char*)&thread_id, thread_id_t_size);
+            if (inFile.eof())
+                break;
 
             auto& root = threaded_trees[thread_id];
 
