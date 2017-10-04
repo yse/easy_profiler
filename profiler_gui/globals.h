@@ -233,8 +233,6 @@ inline ::profiler::BlocksTree& blocksTree(::profiler::block_index_t i) {
 }
 #endif
 
-#define SET_ICON(objectName, iconName) { QIcon icon(iconName); if (!icon.isNull()) objectName->setIcon(icon); }
-
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 

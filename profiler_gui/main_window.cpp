@@ -275,12 +275,12 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
         auto f = action->font();
         f.setBold(true);
         action->setFont(f);
-        SET_ICON(action, ":/Stats");
+        action->setIcon(QIcon(":/Stats"));
     }
     else
     {
         action->setText("Statistics disabled");
-        SET_ICON(action, ":/Stats-off");
+        action->setIcon(QIcon(":/Stats-off"));
     }
 
 
@@ -1027,12 +1027,12 @@ void EasyMainWindow::onEnableDisableStatistics(bool _checked)
         if (_checked)
         {
             action->setText("Statistics enabled");
-            SET_ICON(action, ":/Stats");
+            action->setIcon(QIcon(":/Stats"));
         }
         else
         {
             action->setText("Statistics disabled");
-            SET_ICON(action, ":/Stats-off");
+            action->setIcon(QIcon(":/Stats-off"));
         }
     }
 }
@@ -1386,7 +1386,7 @@ void EasyMainWindow::setDisconnected(bool _showMessage)
 
     EASY_GLOBALS.connected = false;
     m_captureAction->setEnabled(false);
-    SET_ICON(m_connectAction, ":/Connection");
+    m_connectAction->setIcon(QIcon(":/Connection"));
     m_connectAction->setText(tr("Connect"));
 
     m_eventTracingEnableAction->setEnabled(false);
@@ -1943,7 +1943,7 @@ void EasyMainWindow::onConnectClicked(bool)
     qInfo() << "Connected successfully";
     EASY_GLOBALS.connected = true;
     m_captureAction->setEnabled(true);
-    SET_ICON(m_connectAction, ":/Connection-on");
+    m_connectAction->setIcon(QIcon(":/Connection-on"));
     m_connectAction->setText(tr("Disconnect"));
 
     if (m_fpsViewer->isVisible())

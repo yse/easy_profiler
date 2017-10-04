@@ -261,11 +261,11 @@ void EasyDescTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     QMenu menu;
     menu.setToolTipsVisible(true);
     auto action = menu.addAction("Expand all");
-    SET_ICON(action, ":/Expand");
+    action->setIcon(QIcon(":/Expand"));
     connect(action, &QAction::triggered, this, &This::expandAll);
 
     action = menu.addAction("Collapse all");
-    SET_ICON(action, ":/Collapse");
+    action->setIcon(QIcon(":/Collapse"));
     connect(action, &QAction::triggered, this, &This::collapseAll);
 
     menu.addSeparator();
