@@ -1411,6 +1411,7 @@ void EasyMainWindow::onFrameTimeRequestTimeout()
         }
         else if (!m_listener.connected())
         {
+            m_listener.closeSocket();
             setDisconnected();
         }
     }
@@ -1518,10 +1519,11 @@ void EasyMainWindow::onListenerDialogClose(int _result)
                     if (m_listener.connected())
                     {
                         // make reconnect to clear socket buffers
-                        std::string address = m_listener.address();
+                        const std::string address = m_listener.address();
+                        const auto port = m_listener.port();
 
                         profiler::net::EasyProfilerStatus reply(false, false, false);
-                        if (m_listener.connect(address.c_str(), m_listener.port(), reply))
+                        if (m_listener.reconnect(address.c_str(), port, reply))
                         {
                             disconnect(m_eventTracingEnableAction, &QAction::triggered, this, &This::onEventTracingEnableChange);
                             disconnect(m_eventTracingPriorityAction, &QAction::triggered, this, &This::onEventTracingPriorityChange);
@@ -1570,6 +1572,7 @@ void EasyMainWindow::onListenerDialogClose(int _result)
 
     if (!m_listener.connected())
     {
+        m_listener.closeSocket();
         setDisconnected();
     }
 }
@@ -1925,7 +1928,10 @@ void EasyMainWindow::onConnectClicked(bool)
         {
             QMessageBox::warning(this, "Warning", QString("Cannot connect to %1").arg(address), QMessageBox::Close);
             if (EASY_GLOBALS.connected)
+            {
+                m_listener.closeSocket();
                 setDisconnected(false);
+            }
 
             if (!isSameAddress)
             {
@@ -2001,12 +2007,14 @@ void EasyMainWindow::onCaptureClicked(bool)
         profiler::net::EasyProfilerStatus reply(false, false, false);
         if (!m_listener.connect(m_lastAddress.toStdString().c_str(), m_lastPort, reply))
         {
+            m_listener.closeSocket();
             setDisconnected();
             return;
         }
 
         if (!m_listener.startCapture())
         {
+            m_listener.closeSocket();
             setDisconnected();
             return;
         }
@@ -2164,6 +2172,7 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
 
     if (!m_listener.connected())
     {
+        m_listener.closeSocket();
         setDisconnected();
     }
 }
@@ -2254,11 +2263,16 @@ void EasySocketListener::disconnect()
     m_address.clear();
     m_port = 0;
 
+    closeSocket();
+}
+
+void EasySocketListener::closeSocket()
+{
     m_easySocket.flush();
     m_easySocket.init();
 }
 
-bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profiler::net::EasyProfilerStatus& _reply)
+bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profiler::net::EasyProfilerStatus& _reply, bool _disconnectFirst)
 {
     if (connected())
     {
@@ -2275,8 +2289,9 @@ bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profile
     m_address.clear();
     m_port = 0;
 
-    //m_easySocket.flush();
-    //m_easySocket.init();
+    if (_disconnectFirst)
+        closeSocket();
+
     int res = m_easySocket.setAddress(_ipaddress, _port);
     res = m_easySocket.connect();
 
@@ -2335,6 +2350,11 @@ bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profile
 
     m_bConnected.store(isConnected, ::std::memory_order_release);
     return isConnected;
+}
+
+bool EasySocketListener::reconnect(const char* _ipaddress, uint16_t _port, ::profiler::net::EasyProfilerStatus& _reply)
+{
+    return connect(_ipaddress, _port, _reply, true);
 }
 
 bool EasySocketListener::startCapture()

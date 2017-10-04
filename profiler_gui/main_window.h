@@ -167,7 +167,9 @@ public:
     void clearData();
 
     void disconnect();
-    bool connect(const char* _ipaddress, uint16_t _port, ::profiler::net::EasyProfilerStatus& _reply);
+    void closeSocket();
+    bool connect(const char* _ipaddress, uint16_t _port, ::profiler::net::EasyProfilerStatus& _reply, bool _disconnectFirst = false);
+    bool reconnect(const char* _ipaddress, uint16_t _port, ::profiler::net::EasyProfilerStatus& _reply);
 
     bool startCapture();
     void stopCapture();
@@ -178,7 +180,8 @@ public:
     bool requestFrameTime();
 
     template <class T>
-    inline void send(const T& _message) {
+    inline void send(const T& _message)
+    {
         m_easySocket.send(&_message, sizeof(T));
     }
 
