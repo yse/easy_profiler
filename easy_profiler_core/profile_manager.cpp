@@ -1553,7 +1553,7 @@ const char* ProfileManager::registerThread(const char* name, ThreadGuard& thread
         THIS_THREAD_GUARD.m_id = THIS_THREAD->id;
     }
 
-    threadGuard; // this is just to prevent from warning about unused variable
+    (void)threadGuard; // this is just to prevent from warning about unused variable
 #else
     }
 
