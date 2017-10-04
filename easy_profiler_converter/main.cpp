@@ -31,7 +31,7 @@ int main(int argc, char* argv[])
     FileReader fr;
     fr.readFile(filename);
     std::vector<InfoBlock> v_blocks;
-    fr.getInfoBlocks(v_blocks);
+    //fr.getInfoBlocks(v_blocks);
 
     cout << endl;
     cout << "=====================";

@@ -6,6 +6,7 @@
 #include <memory>
 ///this
 #include <easy/serialized_block.h>
+#include <easy/profiler.h>
 
 ///for actual version vistit https://github.com/yse/easy_profiler/wiki/.prof-file-format-v1.3.0
 
@@ -44,7 +45,9 @@ struct InfoBlock
     uint64_t                         beginTime;
     uint64_t                         endTime;
     uint32_t                         blockId;
+    uint32_t                         parentBlockId;
     std::string                      runTimeBlockName;
+    std::string                      thread_name;       ///< Name of parent thread
     std::shared_ptr<BlockDescriptor> descriptor;
 };
 
@@ -61,7 +64,7 @@ struct BlockDescriptor
     uint32_t        blockId;
     int             lineNumber;
     uint32_t        argbColor;
-    uint8_t         blockType;
+    BlockType         blockType;
     uint8_t         status;
     std::string     compileTimeName;
     std::string     fileName;
