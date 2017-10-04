@@ -430,6 +430,26 @@ Otherwise, no log messages will be printed.
 #  define EASY_DEFAULT_PORT 28077
 # endif
 
+/** Alias for EASY_PROFILER_ENABLE.
+
+Added for clarification.
+
+\sa EASY_PROFILER_ENABLE
+
+\ingroup profiler
+*/
+#define EASY_START_CAPTURE EASY_PROFILER_ENABLE
+
+/** Alias for EASY_PROFILER_DISABLE.
+
+Added for clarification.
+
+\sa EASY_PROFILER_DISABLE
+
+\ingroup profiler
+*/
+#define EASY_STOP_CAPTURE EASY_PROFILER_DISABLE
+
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
@@ -954,6 +974,36 @@ namespace profiler {
         }
 
     } // END of namespace main_thread.
+
+    /** Alias for isEnabled().
+
+    Added for clarification.
+
+    \sa isEnabled
+
+    \ingroup profiler
+    */
+    EASY_FORCE_INLINE bool isCapturing() { return isEnabled(); }
+
+    /** Alias for EASY_PROFILER_ENABLE.
+
+    Added for clarification.
+
+    \sa EASY_PROFILER_ENABLE
+
+    \ingroup profiler
+    */
+    EASY_FORCE_INLINE void startCapture() { EASY_PROFILER_ENABLE; }
+
+    /** Alias for EASY_PROFILER_DISABLE.
+
+    Added for clarification.
+
+    \sa EASY_PROFILER_DISABLE
+
+    \ingroup profiler
+    */
+    EASY_FORCE_INLINE void stopCapture() { EASY_PROFILER_DISABLE; }
 
     //////////////////////////////////////////////////////////////////////
 
