@@ -27,7 +27,10 @@ struct BlocksTreeNode
 class FileReader EASY_FINAL
 {
 public:
-    typedef ::std::vector<shared_ptr<BlocksTreeNode> >  TreeNodes;
+    typedef ::std::vector<shared_ptr<BlocksTreeNode> >      TreeNodes;
+    typedef ::std::vector<shared_ptr<ContextSwitchEvent> >  ContextSwitches;
+    typedef ::std::vector<shared_ptr<InfoEvent> >           Events;
+
 
     FileReader()
     { }
@@ -36,7 +39,11 @@ public:
 
     ///call fillTreesFromFile(...) function
     void               readFile(const string& filename);
-    const TreeNodes &getInfoBlocks();
+    const TreeNodes&   getBlocks();
+    const TreeNodes&   getBlocksByThreadName();
+    const Events&      getEvents();
+    const Events&      getEventsByThreadName(std::string thread_name);
+
 protected:
     /*! Operate with data after fillTreesFromFile(...) function call*/
     void               prepareData();
@@ -46,6 +53,7 @@ protected:
     \param Id block id in a common set of blocks
     */
     void               makeInfoBlocksTree(::std::shared_ptr<BlocksTreeNode> &element, uint32_t Id);
+    void               makeEventsVector(const::std::vector<uint32_t> &events);
 
 private:
     ///all data from file(from fillTreesFromFile function)
@@ -57,7 +65,9 @@ private:
     uint32_t                                               descriptorsNumberInFile;
     uint32_t                                               version;
     ///
-    TreeNodes              m_BlocksTree;
+    TreeNodes                                              m_BlocksTree;
+    ContextSwitches                                        m_ContextSwitches;
+    Events                                                 m_events;
 };
 
 } //namespace reader

@@ -14,14 +14,24 @@ void FileReader::readFile(const string &filename)
     prepareData();
 }
 
-const FileReader::TreeNodes &FileReader::getInfoBlocks()
+const FileReader::TreeNodes &FileReader::getBlocks()
 {
     return m_BlocksTree;
 }
 
+const FileReader::Events &FileReader::getEvents()
+{
+    ///todo
+}
+
+const FileReader::Events &FileReader::getEventsByThreadName(::std::string thread_name)
+{
+    ///todo
+}
+
 void FileReader::prepareData()
 {
-    vector<uint32_t> indexes_vector;
+    vector<uint32_t> tmp_indexes_vector;
 
     for(auto& kv : m_threaded_trees)
     {
@@ -29,8 +39,8 @@ void FileReader::prepareData()
         sort(kv.second.events.begin(),kv.second.events.end());
         ::std::set_difference(kv.second.children.begin(),kv.second.children.end(),
                               kv.second.events.begin(),kv.second.events.end(),
-                              ::std::back_inserter(indexes_vector));
-        for(auto& value : indexes_vector)
+                              ::std::back_inserter(tmp_indexes_vector));
+        for(auto& value : tmp_indexes_vector)
         {
             ::std::shared_ptr<BlocksTreeNode> element = ::std::make_shared<BlocksTreeNode>();
             element->current_block = ::std::make_shared<InfoBlock>();
@@ -39,7 +49,8 @@ void FileReader::prepareData()
             makeInfoBlocksTree(element, value);
             m_BlocksTree.push_back(::std::move(element));
         }
-        indexes_vector.clear();
+        tmp_indexes_vector.clear();
+        makeEventsVector(kv.second.events);
     }
 }
 
@@ -71,5 +82,16 @@ void FileReader::makeInfoBlocksTree(::std::shared_ptr<BlocksTreeNode> &element, 
 
         element->children.push_back(btElement);
         makeInfoBlocksTree(btElement,value);
+    }
+}
+
+void FileReader::makeEventsVector(const ::std::vector<uint32_t>& events)
+{
+    for(auto Id : events)
+    {
+        m_events.push_back(::std::make_shared<InfoEvent>());
+        m_events.back()->beginTime = m_blocks[Id].cs->begin();
+        m_events.back()->endTime = m_blocks[Id].cs->end();
+        //m_events.back()->blockId = m_blocks[Id].node->id();
     }
 }

@@ -11,7 +11,7 @@ void test(std::string filename, vector<::std::shared_ptr<BlocksTreeNode> >& bloc
     FileReader fr;
     fr.readFile(filename);
     std::vector<InfoBlock> v_blocks;
-    blocks = fr.getInfoBlocks();
+    blocks = fr.getBlocks();
 }
 
 int main(int argc, char* argv[])

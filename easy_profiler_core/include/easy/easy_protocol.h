@@ -6,7 +6,7 @@
 #include <memory>
 ///this
 #include <easy/serialized_block.h>
-#include <easy/profiler.h>
+//#include <easy/profiler.h>
 
 ///for actual version vistit https://github.com/yse/easy_profiler/wiki/.prof-file-format-v1.3.0
 
@@ -51,6 +51,16 @@ struct InfoBlock
     std::shared_ptr<BlockDescriptor> descriptor;
 };
 
+struct InfoEvent
+{
+    uint64_t                         beginTime;
+    uint64_t                         endTime;
+    uint32_t                         blockId;
+    std::string                      runTimeEventName;
+    std::string                      thread_name;        ///< Name of parent thread
+    std::shared_ptr<BlockDescriptor> descriptor;
+};
+
 struct ContextSwitchEvent{
     uint64_t                            beginTime;
     uint64_t                            endTime;
@@ -64,19 +74,12 @@ struct BlockDescriptor
     uint32_t        blockId;
     int             lineNumber;
     uint32_t        argbColor;
-    BlockType         blockType;
+    uint8_t         blockType;
     uint8_t         status;
     std::string     compileTimeName;
     std::string     fileName;
 };
 
-struct ThreadEventsAndBlocks
-{
-    uint64_t                            threadId;
-    std::string                         threadName;
-    std::vector<ContextSwitchEvent>     switchEvents;
-    std::vector<InfoBlock>              infoBlocks;
-};
 
 } //namespace reader
 } //namespace profiler
