@@ -40,7 +40,7 @@ struct FileHeader                                   //64
     DescriptorsInfo    blocksDescriptorInfo;   //12
 };
 
-struct InfoBlock
+struct BlockInfo
 {
     uint64_t                         beginTime;
     uint64_t                         endTime;
@@ -51,22 +51,11 @@ struct InfoBlock
     std::shared_ptr<BlockDescriptor> descriptor;
 };
 
-struct InfoEvent
-{
-    uint64_t                         beginTime;
-    uint64_t                         endTime;
-    uint32_t                         blockId;
-    std::string                      runTimeEventName;
-    std::string                      thread_name;        ///< Name of parent thread
-    std::shared_ptr<BlockDescriptor> descriptor;
-};
-
 struct ContextSwitchEvent{
     uint64_t                            beginTime;
     uint64_t                            endTime;
     uint64_t                            targetThreadId;
-    std::string                         targetProcessIdName;
-    std::shared_ptr<BlockDescriptor>    descriptor;
+    std::string                         switchName;
 };
 
 struct BlockDescriptor

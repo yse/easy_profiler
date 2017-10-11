@@ -10,7 +10,7 @@ void test(std::string filename, vector<::std::shared_ptr<BlocksTreeNode> >& bloc
 {
     FileReader fr;
     fr.readFile(filename);
-    std::vector<InfoBlock> v_blocks;
+    std::vector<BlockInfo> v_blocks;
     blocks = fr.getBlocks();
 }
 

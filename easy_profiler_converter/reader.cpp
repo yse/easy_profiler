@@ -21,7 +21,12 @@ const FileReader::TreeNodes &FileReader::getBlocks()
 
 const FileReader::Events &FileReader::getEvents()
 {
-    ///todo
+    return m_events;
+}
+
+const FileReader::ContextSwitches &FileReader::getContextSwitches()
+{
+    return m_ContextSwitches;
 }
 
 const FileReader::Events &FileReader::getEventsByThreadName(::std::string thread_name)
@@ -43,55 +48,74 @@ void FileReader::prepareData()
         for(auto& value : tmp_indexes_vector)
         {
             ::std::shared_ptr<BlocksTreeNode> element = ::std::make_shared<BlocksTreeNode>();
-            element->current_block = ::std::make_shared<InfoBlock>();
+            element->current_block = ::std::make_shared<BlockInfo>();
             element->parent = nullptr;
             element->current_block->thread_name = kv.second.thread_name;
-            makeInfoBlocksTree(element, value);
+            prepareBlocksInfo(element, value);
             m_BlocksTree.push_back(::std::move(element));
         }
         tmp_indexes_vector.clear();
-        makeEventsVector(kv.second.events);
+
+        prepareEventsInfo(kv.second.events);
+        prepareCSInfo(kv.second.sync);
     }
 }
 
-void FileReader::makeInfoBlocksTree(::std::shared_ptr<BlocksTreeNode> &element, uint32_t Id)
+void FileReader::prepareBlocksInfo(::std::shared_ptr<BlocksTreeNode> &element, uint32_t Id)
 {
-    ///block info
-    element->current_block->beginTime = m_blocks[Id].node->begin();
-    element->current_block->endTime = m_blocks[Id].node->end();
-    element->current_block->blockId = m_blocks[Id].node->id();
-    element->current_block->runTimeBlockName = m_blocks[Id].node->name();
+    getBlockInfo(element->current_block, Id);
 
-    ///descriptor
-    element->current_block->descriptor = ::std::make_shared<BlockDescriptor>();
-    element->current_block->descriptor->argbColor = m_descriptors[element->current_block->blockId]->color();
-    element->current_block->descriptor->lineNumber = m_descriptors[element->current_block->blockId]->line();
-    element->current_block->descriptor->blockId = m_descriptors[element->current_block->blockId]->id();
-    element->current_block->descriptor->blockType = m_descriptors[element->current_block->blockId]->type();
-    element->current_block->descriptor->status = m_descriptors[element->current_block->blockId]->status();
-    element->current_block->descriptor->compileTimeName = m_descriptors[element->current_block->blockId]->name();
-    element->current_block->descriptor->fileName = m_descriptors[element->current_block->blockId]->file();
-
-    ///children block info
+    ///block's children info
     for(auto& value : m_blocks[element->current_block->blockId].children)
     {
         ::std::shared_ptr<BlocksTreeNode> btElement = ::std::make_shared<BlocksTreeNode>();
-        btElement->current_block = ::std::make_shared<InfoBlock>();
+        btElement->current_block = ::std::make_shared<BlockInfo>();
         btElement->parent = element;
         btElement->current_block->thread_name = element->current_block->thread_name;
 
         element->children.push_back(btElement);
-        makeInfoBlocksTree(btElement,value);
+        prepareBlocksInfo(btElement,value);
     }
 }
 
-void FileReader::makeEventsVector(const ::std::vector<uint32_t>& events)
+
+
+void FileReader::prepareEventsInfo(const ::std::vector<uint32_t>& events)
 {
     for(auto Id : events)
     {
-        m_events.push_back(::std::make_shared<InfoEvent>());
-        m_events.back()->beginTime = m_blocks[Id].cs->begin();
-        m_events.back()->endTime = m_blocks[Id].cs->end();
-        //m_events.back()->blockId = m_blocks[Id].node->id();
+        m_events.push_back(::std::make_shared<BlockInfo>());
+        getBlockInfo(m_events.back(), Id);
     }
+}
+
+void FileReader::prepareCSInfo(const::std::vector<uint32_t> &cs)
+{
+    for(auto Id : cs)
+    {
+        m_ContextSwitches.push_back(::std::make_shared<ContextSwitchEvent>());
+        m_ContextSwitches.back()->switchName = m_blocks[Id].cs->name();
+        m_ContextSwitches.back()->targetThreadId = m_blocks[Id].cs->tid();
+        m_ContextSwitches.back()->beginTime = m_blocks[Id].cs->begin();
+        m_ContextSwitches.back()->endTime = m_blocks[Id].cs->end();
+    }
+}
+
+void FileReader::getBlockInfo(shared_ptr<BlockInfo> &current_block, uint32_t Id)
+{
+    ///block info
+    current_block->beginTime = m_blocks[Id].node->begin();
+    current_block->endTime = m_blocks[Id].node->end();
+    current_block->blockId = m_blocks[Id].node->id();
+    current_block->runTimeBlockName = m_blocks[Id].node->name();
+
+    ///descriptor
+    current_block->descriptor = ::std::make_shared<BlockDescriptor>();
+    current_block->descriptor->argbColor = m_descriptors.at(current_block->blockId)->color();
+    current_block->descriptor->lineNumber = m_descriptors.at(current_block->blockId)->line();
+    current_block->descriptor->blockId = m_descriptors.at(current_block->blockId)->id();
+    current_block->descriptor->blockType = m_descriptors.at(current_block->blockId)->type();
+    current_block->descriptor->status = m_descriptors.at(current_block->blockId)->status();
+    current_block->descriptor->compileTimeName = m_descriptors.at(current_block->blockId)->name();
+    current_block->descriptor->fileName = m_descriptors.at(current_block->blockId)->file();
 }

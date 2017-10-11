@@ -19,7 +19,7 @@ namespace reader {
 
 struct BlocksTreeNode
 {
-    shared_ptr<InfoBlock> current_block;
+    shared_ptr<BlockInfo> current_block;
     shared_ptr<BlocksTreeNode> parent;
     vector<shared_ptr<BlocksTreeNode>> children;
 };
@@ -29,7 +29,7 @@ class FileReader EASY_FINAL
 public:
     typedef ::std::vector<shared_ptr<BlocksTreeNode> >      TreeNodes;
     typedef ::std::vector<shared_ptr<ContextSwitchEvent> >  ContextSwitches;
-    typedef ::std::vector<shared_ptr<InfoEvent> >           Events;
+    typedef ::std::vector<shared_ptr<BlockInfo> >           Events;
 
 
     FileReader()
@@ -37,14 +37,14 @@ public:
     ~FileReader()
     { }
 
-    ///call fillTreesFromFile(...) function
-    void               readFile(const string& filename);
-    const TreeNodes&   getBlocks();
-    const TreeNodes&   getBlocksByThreadName();
-    const Events&      getEvents();
-    const Events&      getEventsByThreadName(std::string thread_name);
+    void                        readFile(const string& filename);
+    const TreeNodes&            getBlocks();
+    const TreeNodes&            getBlocksByThreadName();
+    const Events&               getEvents();
+    const Events&               getEventsByThreadName(std::string thread_name);
+    const ContextSwitches&      getContextSwitches();
 
-protected:
+private:
     /*! Operate with data after fillTreesFromFile(...) function call*/
     void               prepareData();
 
@@ -52,10 +52,12 @@ protected:
     \param &element root element where we shall insert other elements
     \param Id block id in a common set of blocks
     */
-    void               makeInfoBlocksTree(::std::shared_ptr<BlocksTreeNode> &element, uint32_t Id);
-    void               makeEventsVector(const::std::vector<uint32_t> &events);
+    void               prepareBlocksInfo(::std::shared_ptr<BlocksTreeNode> &element, uint32_t Id);
+    void               prepareEventsInfo(const::std::vector<uint32_t> &events);
+    void               prepareCSInfo(const::std::vector<uint32_t> &cs);
+    void               getBlockInfo(shared_ptr<BlockInfo> &current_block, uint32_t Id);
 
-private:
+
     ///all data from file(from fillTreesFromFile function)
     ::profiler::thread_blocks_tree_t                       m_threaded_trees;
     ::profiler::SerializedData                             serialized_blocks, serialized_descriptors;
