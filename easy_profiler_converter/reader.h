@@ -1,5 +1,6 @@
-#ifndef EASY_PROFILER_CONVERTER____H
-#define EASY_PROFILER_CONVERTER____H
+#ifndef EASY_PROFILER_CONVERTER_H
+#define EASY_PROFILER_CONVERTER_H
+
 ///std
 #include <fstream>
 #include <vector>
@@ -11,25 +12,23 @@
 #include <easy/easy_protocol.h>
 #include <easy/reader.h>
 
-using namespace std;
-
 namespace profiler{
 
 namespace reader {
 
 struct BlocksTreeNode
 {
-    shared_ptr<BlockInfo> current_block;
-    shared_ptr<BlocksTreeNode> parent;
-    vector<shared_ptr<BlocksTreeNode>> children;
+    ::std::shared_ptr<BlockInfo> current_block;
+    BlocksTreeNode* parent;
+    ::std::vector<::std::shared_ptr<BlocksTreeNode>> children;
 };
 
 class FileReader EASY_FINAL
 {
 public:
-    typedef ::std::vector<shared_ptr<BlocksTreeNode> >      TreeNodes;
-    typedef ::std::vector<shared_ptr<ContextSwitchEvent> >  ContextSwitches;
-    typedef ::std::vector<shared_ptr<BlockInfo> >           Events;
+    typedef ::std::vector<::std::shared_ptr<BlocksTreeNode> >      TreeNodes;
+    typedef ::std::vector<::std::shared_ptr<ContextSwitchEvent> >  ContextSwitches;
+    typedef ::std::vector<::std::shared_ptr<BlockInfo> >           Events;
 
 
     FileReader()
@@ -37,11 +36,11 @@ public:
     ~FileReader()
     { }
 
-    void                        readFile(const string& filename);
+    void                        readFile(const ::std::string& filename);
     const TreeNodes&            getBlocks();
     const TreeNodes&            getBlocksByThreadName();
     const Events&               getEvents();
-    const Events&               getEventsByThreadName(std::string thread_name);
+    const Events&               getEventsByThreadName(::std::string thread_name);
     const ContextSwitches&      getContextSwitches();
 
 private:
@@ -55,7 +54,7 @@ private:
     void               prepareBlocksInfo(::std::shared_ptr<BlocksTreeNode> &element, uint32_t Id);
     void               prepareEventsInfo(const::std::vector<uint32_t> &events);
     void               prepareCSInfo(const::std::vector<uint32_t> &cs);
-    void               getBlockInfo(shared_ptr<BlockInfo> &current_block, uint32_t Id);
+    void               getBlockInfo(::std::shared_ptr<BlockInfo> &current_block, uint32_t Id);
 
 
     ///all data from file(from fillTreesFromFile function)

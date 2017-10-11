@@ -1,5 +1,5 @@
-#ifndef CONVERTER____H
-#define CONVERTER____H
+#ifndef CONVERTER_H
+#define CONVERTER_H
 
 ///std
 #include<string>

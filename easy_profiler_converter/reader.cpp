@@ -6,6 +6,7 @@
 #include "reader.h"
 
 using namespace profiler::reader;
+using namespace std;
 
 void FileReader::readFile(const string &filename)
 {
@@ -40,8 +41,7 @@ void FileReader::prepareData()
 
     for(auto& kv : m_threaded_trees)
     {
-        sort(kv.second.children.begin(),kv.second.children.end());
-        sort(kv.second.events.begin(),kv.second.events.end());
+        //children & events are already sorted !!!
         ::std::set_difference(kv.second.children.begin(),kv.second.children.end(),
                               kv.second.events.begin(),kv.second.events.end(),
                               ::std::back_inserter(tmp_indexes_vector));
@@ -70,7 +70,7 @@ void FileReader::prepareBlocksInfo(::std::shared_ptr<BlocksTreeNode> &element, u
     {
         ::std::shared_ptr<BlocksTreeNode> btElement = ::std::make_shared<BlocksTreeNode>();
         btElement->current_block = ::std::make_shared<BlockInfo>();
-        btElement->parent = element;
+        btElement->parent = element.get();
         btElement->current_block->thread_name = element->current_block->thread_name;
 
         element->children.push_back(btElement);

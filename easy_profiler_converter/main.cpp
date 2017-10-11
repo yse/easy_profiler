@@ -5,6 +5,7 @@
 #include "reader.h"
 
 using namespace profiler::reader;
+using namespace std;
 
 void test(std::string filename, vector<::std::shared_ptr<BlocksTreeNode> >& blocks)
 {

@@ -1,9 +1,10 @@
-#ifndef EASY_PROPROTOCOL____H
-#define EASY_PROPROTOCOL____H
+#ifndef EASY_PROPROTOCOL_H
+#define EASY_PROPROTOCOL_H
 ///C++
 #include <string>
 #include <vector>
 #include <memory>
+
 ///this
 #include <easy/serialized_block.h>
 //#include <easy/profiler.h>
@@ -37,7 +38,7 @@ struct FileHeader                                   //64
     uint64_t                beginTime;                            //8
     uint64_t                endTime;                              //8
     BlocksInfo              serializedBlocksInfo;    //12
-    DescriptorsInfo    blocksDescriptorInfo;   //12
+    DescriptorsInfo         blocksDescriptorInfo;   //12
 };
 
 struct BlockInfo
