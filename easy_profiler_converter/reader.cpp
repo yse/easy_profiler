@@ -30,11 +30,6 @@ const FileReader::ContextSwitches &FileReader::getContextSwitches()
     return m_ContextSwitches;
 }
 
-const FileReader::Events &FileReader::getEventsByThreadName(::std::string thread_name)
-{
-    ///todo
-}
-
 void FileReader::prepareData()
 {
     vector<uint32_t> tmp_indexes_vector;

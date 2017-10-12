@@ -38,9 +38,11 @@ public:
 
     void                        readFile(const ::std::string& filename);
     const TreeNodes&            getBlocks();
-    const TreeNodes&            getBlocksByThreadName();
+    ///todo this func. interface depends on data struct
+///    const TreeNodes&            getBlocksByThreadName();
     const Events&               getEvents();
-    const Events&               getEventsByThreadName(::std::string thread_name);
+    ///todo this func. interface depends on data struct
+///    const Events&               getEventsByThreadName(::std::string thread_name);
     const ContextSwitches&      getContextSwitches();
 
 private:
