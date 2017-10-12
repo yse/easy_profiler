@@ -136,6 +136,7 @@ set(INCLUDE_FILES
     include/easy/profiler_colors.h
     include/easy/reader.h
     include/easy/serialized_block.h
+    include/easy/profiler_public_types.h
 )
 
 source_group(include FILES ${INCLUDE_FILES})
