@@ -30,7 +30,6 @@ public:
     typedef ::std::vector<::std::shared_ptr<ContextSwitchEvent> >  ContextSwitches;
     typedef ::std::vector<::std::shared_ptr<BlockInfo> >           Events;
 
-
     FileReader()
     { }
     ~FileReader()
@@ -57,6 +56,12 @@ private:
     void               prepareEventsInfo(const::std::vector<uint32_t> &events);
     void               prepareCSInfo(const::std::vector<uint32_t> &cs);
     void               getBlockInfo(::std::shared_ptr<BlockInfo> &current_block, uint32_t Id);
+    ::profiler::block_index_t fillTreesFromStream2(::std::stringstream& inFile,
+                                           ::std::vector<::std::shared_ptr<BlockDescriptor> > &descriptors,
+                                           ::profiler::blocks_t& blocks,
+                                           ::profiler::thread_blocks_tree_t& threaded_trees,
+                                           uint32_t& version,
+                                           ::std::stringstream& _log);
 
 
     ///all data from file(from fillTreesFromFile function)
