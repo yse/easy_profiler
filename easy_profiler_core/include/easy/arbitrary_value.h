@@ -75,15 +75,15 @@ namespace profiler
 
     class ValueId EASY_FINAL {
         size_t m_id;
-        ValueId() = delete;
     public:
-        inline ValueId(const ValueId& _another) : m_id(_another.m_id) {}
-        explicit inline template <class T> ValueId(const T& _member) : m_id(static_cast<size_t>(&_member)) {}
+        inline explicit ValueId() : m_id(0) {}
+        inline ValueId(const ValueId&) = default;
+        template <class T> ValueId(const T& _member) : m_id(reinterpret_cast<size_t>(&_member)) {}
         inline size_t id() const { return m_id; }
     };
 
     inline ValueId extract_value_id() {
-        return ValueId(0);
+        return ValueId();
     }
 
     template <class T, class ... TArgs>
@@ -99,7 +99,7 @@ namespace profiler
     template <class ... TArgs>
     inline ValueId extract_value_id(TArgs...) {
         static_assert(sizeof...(TArgs) < 2, "No EasyBlockStatus in arguments list for EASY_BLOCK(name, ...)!");
-        return ValueId(0);
+        return ValueId();
     }
 
     enum DataType : uint8_t
@@ -167,7 +167,7 @@ namespace profiler
 
         uint16_t size() const { return m_end16[0]; }
         DataType type() const { return static_cast<DataType>(m_end8[2]); }
-        bool isArray() const { return static_cast<bool>(m_end8[3]); }
+        bool isArray() const { return m_end8[3] != 0; }
 
         ArbitraryValue(block_id_t _id, uint16_t _size, DataType _type, bool _isArray) : BaseBlockData(0, 0, _id)
         {
