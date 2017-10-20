@@ -54,13 +54,13 @@ The Apache License, Version 2.0 (the "License");
     EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), ::profiler::registerDescription(\
         ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
             __FILE__, __LINE__, ::profiler::BLOCK_TYPE_VALUE, ::profiler::extract_color(__VA_ARGS__), false));\
-    ::profiler::setValue(EASY_UNIQUE_DESC(__LINE__), value);
+    ::profiler::setValue(EASY_UNIQUE_DESC(__LINE__), value, ::profiler::extract_value_id(__VA_ARGS__));
 
 # define EASY_TEXT(name, text, ...)\
     EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), ::profiler::registerDescription(\
         ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
             __FILE__, __LINE__, ::profiler::BLOCK_TYPE_VALUE, ::profiler::extract_color(__VA_ARGS__), false));\
-    ::profiler::setValue(EASY_UNIQUE_DESC(__LINE__), text);
+    ::profiler::setValue(EASY_UNIQUE_DESC(__LINE__), text, ::profiler::extract_value_id(__VA_ARGS__));
 
 #else
 
@@ -73,13 +73,16 @@ The Apache License, Version 2.0 (the "License");
 namespace profiler
 {
 
-    class ValueId EASY_FINAL {
+    class ValueId EASY_FINAL
+    {
+        friend ::ThreadStorage;
         size_t m_id;
+
     public:
-        inline explicit ValueId() : m_id(0) {}
+
+        explicit inline ValueId() : m_id(0) {}
+        template <class T> explicit inline ValueId(const T& _member) : m_id(reinterpret_cast<size_t>(&_member)) {}
         inline ValueId(const ValueId&) = default;
-        template <class T> ValueId(const T& _member) : m_id(reinterpret_cast<size_t>(&_member)) {}
-        inline size_t id() const { return m_id; }
     };
 
     inline ValueId extract_value_id() {
@@ -91,6 +94,11 @@ namespace profiler
         return _vin;
     }
 
+    template <class T, class U, class ... TArgs>
+    inline ValueId extract_value_id(T, U, ::profiler::ValueId _vin, TArgs...) {
+        return _vin;
+    }
+
     template <class ... TArgs>
     inline ValueId extract_value_id(::profiler::ValueId _vin, TArgs...) {
         return _vin;
@@ -98,7 +106,7 @@ namespace profiler
 
     template <class ... TArgs>
     inline ValueId extract_value_id(TArgs...) {
-        static_assert(sizeof...(TArgs) < 2, "No EasyBlockStatus in arguments list for EASY_BLOCK(name, ...)!");
+        static_assert(sizeof...(TArgs) < 2, "No ValueId in arguments list for EASY_VALUE(name, value, ...)!");
         return ValueId();
     }
 
@@ -161,19 +169,15 @@ namespace profiler
 
     protected:
 
-        void setSize(uint16_t _size) { m_end16[3] = _size; }
-        void setType(DataType _type) { m_end8[2] = static_cast<uint8_t>(_type); }
-        void setArray(bool _isArray) { m_end8[3] = static_cast<uint8_t>(_isArray); }
+        uint16_t m_size;
+        DataType m_type;
+        bool  m_isArray;
 
-        uint16_t size() const { return m_end16[0]; }
-        DataType type() const { return static_cast<DataType>(m_end8[2]); }
-        bool isArray() const { return m_end8[3] != 0; }
-
-        ArbitraryValue(block_id_t _id, uint16_t _size, DataType _type, bool _isArray) : BaseBlockData(0, 0, _id)
+        ArbitraryValue(size_t _vin, block_id_t _id, uint16_t _size, DataType _type, bool _isArray) : BaseBlockData(0, static_cast<timestamp_t>(_vin), _id)
+            , m_size(_size)
+            , m_type(_type)
+            , m_isArray(_isArray)
         {
-            setSize(_size);
-            setType(_type);
-            setArray(_isArray);
         }
 
     public:
@@ -182,9 +186,13 @@ namespace profiler
             return reinterpret_cast<const char*>(this) + sizeof(ArbitraryValue);
         }
 
+        size_t value_id() const {
+            return static_cast<size_t>(m_end);
+        }
+
         template <DataType dataType>
         const Value<dataType, false>* convertToValue() const {
-            return type() == dataType ? static_cast<const Value<dataType, false>*>(this) : nullptr;
+            return m_type == dataType ? static_cast<const Value<dataType, false>*>(this) : nullptr;
         }
 
         template <class T>
@@ -194,18 +202,12 @@ namespace profiler
 
         template <DataType dataType>
         const Value<dataType, true>* convertToArray() const {
-            return isArray() && type() == dataType ? static_cast<const Value<dataType, true>*>(this) : nullptr;
+            return m_isArray && m_type == dataType ? static_cast<const Value<dataType, true>*>(this) : nullptr;
         }
 
         template <class T>
         const Value<StdToDataType<T>::data_type, true>* convertToArray() const {
             return convertToArray<StdToDataType<T>::data_type>();
-        }
-
-    private:
-
-        char* data() {
-            return reinterpret_cast<char*>(this) + sizeof(ArbitraryValue);
         }
     };
 #pragma pack(pop)
@@ -218,14 +220,14 @@ namespace profiler
     template <DataType dataType> struct Value<dataType, true> : public ArbitraryValue {
         using value_type = typename StdType<dataType>::value_type;
         const value_type* value() const { return reinterpret_cast<const value_type*>(data()); }
-        uint16_t size() const { return ArbitraryValue::size() / sizeof(value_type); }
+        uint16_t size() const { return m_size / sizeof(value_type); }
         value_type operator [] (int i) const { return value()[i]; }
     };
 
     template <> struct Value<DATA_STR, true> : public ArbitraryValue {
         using value_type = char;
         const char* value() const { return data(); }
-        uint16_t size() const { return ArbitraryValue::size(); }
+        uint16_t size() const { return m_size; }
         char operator [] (int i) const { return data()[i]; }
         const char* c_str() const { return data(); }
     };
@@ -240,38 +242,38 @@ namespace profiler
 
 #ifdef USING_EASY_PROFILER
     extern "C" {
-        PROFILER_API void storeValue(const BaseBlockDescriptor* _desc, DataType _type, const void* _data, size_t _size, bool _isArray);
+        PROFILER_API void storeValue(const BaseBlockDescriptor* _desc, DataType _type, const void* _data, size_t _size, bool _isArray, ValueId _vin);
     }
 #else
-    inline void storeValue(const BaseBlockDescriptor*, DataType, const void*, size_t, bool) {}
+    inline void storeValue(const BaseBlockDescriptor*, DataType, const void*, size_t, bool, ValueId) {}
 #endif
 
     template <class T>
-    inline void setValue(const BaseBlockDescriptor* _desc, T _value)
+    inline void setValue(const BaseBlockDescriptor* _desc, T _value, ValueId _vin)
     {
-        storeValue(_desc, StdToDataType<T>::data_type, &_value, sizeof(T), false);
+        storeValue(_desc, StdToDataType<T>::data_type, &_value, sizeof(T), false, _vin);
     }
 
     template <class T, size_t N>
-    inline void setValue(const BaseBlockDescriptor* _desc, const T (&_value)[N])
+    inline void setValue(const BaseBlockDescriptor* _desc, const T (&_value)[N], ValueId _vin)
     {
-        storeValue(_desc, StdToDataType<T>::data_type, &_value[0], sizeof(_value), true);
+        storeValue(_desc, StdToDataType<T>::data_type, &_value[0], sizeof(_value), true, _vin);
     }
 
-    inline void setText(const BaseBlockDescriptor* _desc, const char* _text)
+    inline void setText(const BaseBlockDescriptor* _desc, const char* _text, ValueId _vin)
     {
-        storeValue(_desc, DATA_STR, _text, strlen(_text) + 1, true);
+        storeValue(_desc, DATA_STR, _text, strlen(_text) + 1, true, _vin);
     }
 
-    inline void setText(const BaseBlockDescriptor* _desc, const std::string& _text)
+    inline void setText(const BaseBlockDescriptor* _desc, const std::string& _text, ValueId _vin)
     {
-        storeValue(_desc, DATA_STR, _text.c_str(), _text.size() + 1, true);
+        storeValue(_desc, DATA_STR, _text.c_str(), _text.size() + 1, true, _vin);
     }
 
     template <size_t N>
-    inline void setText(const BaseBlockDescriptor* _desc, const char (&_text)[N])
+    inline void setText(const BaseBlockDescriptor* _desc, const char (&_text)[N], ValueId _vin)
     {
-        storeValue(_desc, DATA_STR, &_text[0], N, true);
+        storeValue(_desc, DATA_STR, &_text[0], N, true, _vin);
     }
 
 } // END of namespace profiler.

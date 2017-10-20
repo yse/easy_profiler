@@ -107,17 +107,8 @@ namespace profiler {
 
     protected:
 
-        union {
-            timestamp_t m_begin;
-            uint16_t m_begin16[4];
-            uint8_t m_begin8[8];
-        };
-
-        union {
-            timestamp_t m_end;
-            uint16_t m_end16[4];
-            uint8_t m_end8[8];
-        };
+        timestamp_t m_begin;
+        timestamp_t   m_end;
 
     public:
 

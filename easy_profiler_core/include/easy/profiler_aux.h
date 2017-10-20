@@ -155,6 +155,11 @@ namespace profiler {
         return _color;
     }
 
+    template <class T, class U, class ... TArgs>
+    inline color_t extract_color(T, U, color_t _color, TArgs...) {
+        return _color;
+    }
+
     template <class ... TArgs>
     inline color_t extract_color(TArgs...) {
         static_assert(sizeof...(TArgs) < 2, "No profiler::color_t in arguments list for EASY_BLOCK(name, ...)!");
@@ -169,6 +174,11 @@ namespace profiler {
 
     template <class T, class ... TArgs>
     inline EasyBlockStatus extract_enable_flag(T, ::profiler::EasyBlockStatus _flag, TArgs...) {
+        return _flag;
+    }
+
+    template <class T, class U, class ... TArgs>
+    inline EasyBlockStatus extract_enable_flag(T, U, ::profiler::EasyBlockStatus _flag, TArgs...) {
         return _flag;
     }
 

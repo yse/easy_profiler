@@ -110,7 +110,7 @@ struct ThreadStorage EASY_FINAL
     bool                     frameOpened; ///< Is new frame opened (this does not depend on profiling status) \sa profiledFrameOpened
     bool                            halt; ///< This is set to true when new frame started while dumping blocks. Used to restrict collecting blocks during dumping process.
 
-    void storeValue(profiler::block_id_t _id, profiler::DataType _type, const void* _data, size_t _size, bool _isArray);
+    void storeValue(profiler::block_id_t _id, profiler::DataType _type, const void* _data, size_t _size, bool _isArray, profiler::ValueId _vin);
     void storeBlock(const profiler::Block& _block);
     void storeCSwitch(const CSwitchBlock& _block);
     void clearClosed();

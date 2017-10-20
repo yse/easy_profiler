@@ -322,9 +322,9 @@ extern "C" {
         return MANAGER.isEnabled();
     }
 
-    PROFILER_API void storeValue(const BaseBlockDescriptor* _desc, DataType _type, const void* _data, size_t _size, bool _isArray)
+    PROFILER_API void storeValue(const BaseBlockDescriptor* _desc, DataType _type, const void* _data, size_t _size, bool _isArray, ValueId _vin)
     {
-        MANAGER.storeValue(_desc, _type, _data, _size, _isArray);
+        MANAGER.storeValue(_desc, _type, _data, _size, _isArray, _vin);
     }
 
     PROFILER_API void storeEvent(const BaseBlockDescriptor* _desc, const char* _runtimeName)
@@ -488,7 +488,7 @@ extern "C" {
     PROFILER_API void endBlock() { }
     PROFILER_API void setEnabled(bool) { }
     PROFILER_API bool isEnabled() { return false; }
-    PROFILER_API void storeValue(const BaseBlockDescriptor*, DataType, const void*, size_t, bool) {}
+    PROFILER_API void storeValue(const BaseBlockDescriptor*, DataType, const void*, size_t, bool, ValueId) {}
     PROFILER_API void storeEvent(const BaseBlockDescriptor*, const char*) { }
     PROFILER_API void storeBlock(const BaseBlockDescriptor*, const char*, timestamp_t, timestamp_t) { }
     PROFILER_API void beginBlock(Block&) { }
@@ -778,7 +778,7 @@ const BaseBlockDescriptor* ProfileManager::addBlockDescriptor(EasyBlockStatus _d
 
 //////////////////////////////////////////////////////////////////////////
 
-void ProfileManager::storeValue(const BaseBlockDescriptor* _desc, DataType _type, const void* _data, size_t _size, bool _isArray)
+void ProfileManager::storeValue(const BaseBlockDescriptor* _desc, DataType _type, const void* _data, size_t _size, bool _isArray, ValueId _vin)
 {
     const auto state = m_profilerStatus.load(std::memory_order_acquire);
     if (state == EASY_PROF_DISABLED || !(_desc->m_status & profiler::ON))
@@ -803,6 +803,7 @@ void ProfileManager::storeValue(const BaseBlockDescriptor* _desc, DataType _type
     (void)_data;
     (void)_size;
     (void)_isArray;
+    (void)_vin;
 }
 
 //////////////////////////////////////////////////////////////////////////

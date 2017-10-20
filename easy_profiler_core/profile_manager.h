@@ -130,7 +130,7 @@ public:
                                                             profiler::color_t _color,
                                                             bool _copyName = false);
 
-    void storeValue(const profiler::BaseBlockDescriptor* _desc, profiler::DataType _type, const void* _data, size_t _size, bool _isArray);
+    void storeValue(const profiler::BaseBlockDescriptor* _desc, profiler::DataType _type, const void* _data, size_t _size, bool _isArray, profiler::ValueId _vin);
     bool storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName);
     bool storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, profiler::timestamp_t _beginTime, profiler::timestamp_t _endTime);
     void beginBlock(profiler::Block& _block);
