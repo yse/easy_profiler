@@ -60,6 +60,14 @@ ThreadStorage::ThreadStorage()
     profiledFrameOpened = ATOMIC_VAR_INIT(false);
 }
 
+void ThreadStorage::storeValue(profiler::block_id_t _id, profiler::DataType _type, const void* _data, size_t _size, bool _isArray)
+{
+    uint16_t serializedDataSize = static_cast<uint16_t>(sizeof(profiler::ArbitraryValue) + _size);
+    void* data = blocks.closedList.allocate(serializedDataSize);
+    ::new (data) profiler::ArbitraryValue(_id, static_cast<uint16_t>(_size), _type, _isArray);
+    blocks.usedMemorySize += serializedDataSize;
+}
+
 void ThreadStorage::storeBlock(const profiler::Block& block)
 {
 #if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
@@ -71,22 +79,22 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
     EASY_THREAD_LOCAL static profiler::timestamp_t endTime = 0ULL;
 #endif
 
-    uint16_t name_length = static_cast<uint16_t>(strlen(block.name()));
-    uint16_t size = static_cast<uint16_t>(sizeof(profiler::BaseBlockData) + name_length + 1);
+    uint16_t nameLength = static_cast<uint16_t>(strlen(block.name()));
+    uint16_t serializedDataSize = static_cast<uint16_t>(sizeof(profiler::BaseBlockData) + nameLength + 1);
 
 #if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
-    const bool expanded = (desc->m_status & profiler::ON) && blocks.closedList.need_expand(size);
+    const bool expanded = (desc->m_status & profiler::ON) && blocks.closedList.need_expand(serializedDataSize);
     if (expanded) beginTime = getCurrentTime();
 #endif
 
-    void* data = blocks.closedList.allocate(size);
+    void* data = blocks.closedList.allocate(serializedDataSize);
 
 #if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
     if (expanded) endTime = getCurrentTime();
 #endif
 
-    ::new (data) profiler::SerializedBlock(block, name_length);
-    blocks.usedMemorySize += size;
+    ::new (data) profiler::SerializedBlock(block, nameLength);
+    blocks.usedMemorySize += serializedDataSize;
 
 #if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
     if (expanded)
@@ -94,21 +102,21 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
         profiler::Block b(beginTime, desc->id(), "");
         b.finish(endTime);
 
-        size = static_cast<uint16_t>(sizeof(profiler::BaseBlockData) + 1);
-        data = blocks.closedList.allocate(size);
+        serializedDataSize = static_cast<uint16_t>(sizeof(profiler::BaseBlockData) + 1);
+        data = blocks.closedList.allocate(serializedDataSize);
         ::new (data) profiler::SerializedBlock(b, 0);
-        blocks.usedMemorySize += size;
+        blocks.usedMemorySize += serializedDataSize;
     }
 #endif
 }
 
 void ThreadStorage::storeCSwitch(const CSwitchBlock& block)
 {
-    uint16_t name_length = static_cast<uint16_t>(strlen(block.name()));
-    uint16_t size = static_cast<uint16_t>(sizeof(profiler::CSwitchEvent) + name_length + 1);
-    void* data = sync.closedList.allocate(size);
-    ::new (data) profiler::SerializedCSwitch(block, name_length);
-    sync.usedMemorySize += size;
+    uint16_t nameLength = static_cast<uint16_t>(strlen(block.name()));
+    uint16_t serializedDataSize = static_cast<uint16_t>(sizeof(profiler::CSwitchEvent) + nameLength + 1);
+    void* data = sync.closedList.allocate(serializedDataSize);
+    ::new (data) profiler::SerializedCSwitch(block, nameLength);
+    sync.usedMemorySize += serializedDataSize;
 }
 
 void ThreadStorage::clearClosed()

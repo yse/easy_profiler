@@ -322,6 +322,11 @@ extern "C" {
         return MANAGER.isEnabled();
     }
 
+    PROFILER_API void storeValue(const BaseBlockDescriptor* _desc, DataType _type, const void* _data, size_t _size, bool _isArray)
+    {
+        MANAGER.storeValue(_desc, _type, _data, _size, _isArray);
+    }
+
     PROFILER_API void storeEvent(const BaseBlockDescriptor* _desc, const char* _runtimeName)
     {
         MANAGER.storeBlock(_desc, _runtimeName);
@@ -483,6 +488,7 @@ extern "C" {
     PROFILER_API void endBlock() { }
     PROFILER_API void setEnabled(bool) { }
     PROFILER_API bool isEnabled() { return false; }
+    PROFILER_API void storeValue(const BaseBlockDescriptor*, DataType, const void*, size_t, bool) {}
     PROFILER_API void storeEvent(const BaseBlockDescriptor*, const char*) { }
     PROFILER_API void storeBlock(const BaseBlockDescriptor*, const char*, timestamp_t, timestamp_t) { }
     PROFILER_API void beginBlock(Block&) { }
@@ -768,6 +774,35 @@ const BaseBlockDescriptor* ProfileManager::addBlockDescriptor(EasyBlockStatus _d
     m_descriptorsMap.emplace(key, desc->id());
 
     return desc;
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void ProfileManager::storeValue(const BaseBlockDescriptor* _desc, DataType _type, const void* _data, size_t _size, bool _isArray)
+{
+    const auto state = m_profilerStatus.load(std::memory_order_acquire);
+    if (state == EASY_PROF_DISABLED || !(_desc->m_status & profiler::ON))
+        return;
+
+    if (state == EASY_PROF_DUMP)
+    {
+        if (THIS_THREAD == nullptr || THIS_THREAD->blocks.openedList.empty())
+            return;
+    }
+    else if (THIS_THREAD == nullptr)
+    {
+        registerThread();
+    }
+
+#if EASY_ENABLE_BLOCK_STATUS != 0
+    if (!THIS_THREAD->allowChildren && !(_desc->m_status & FORCE_ON_FLAG))
+        return;
+#endif
+
+    (void)_type;
+    (void)_data;
+    (void)_size;
+    (void)_isArray;
 }
 
 //////////////////////////////////////////////////////////////////////////

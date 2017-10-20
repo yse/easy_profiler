@@ -44,6 +44,7 @@ The Apache License, Version 2.0 (the "License");
 #define EASY_PROFILER_THREAD_STORAGE_H
 
 #include <easy/profiler.h>
+#include <easy/arbitrary_value.h>
 #include <vector>
 #include <string>
 #include <atomic>
@@ -91,7 +92,7 @@ public:
 const uint16_t SIZEOF_BLOCK = sizeof(profiler::BaseBlockData) + 1 + sizeof(uint16_t); // SerializedBlock stores BaseBlockData + at least 1 character for name ('\0') + 2 bytes for size of serialized data
 const uint16_t SIZEOF_CSWITCH = sizeof(profiler::CSwitchEvent) + 1 + sizeof(uint16_t); // SerializedCSwitch also stores additional 4 bytes to be able to save 64-bit thread_id
 
-struct ThreadStorage
+struct ThreadStorage EASY_FINAL
 {
     StackBuffer<NonscopedBlock>                                                 nonscopedBlocks;
     BlocksList<std::reference_wrapper<profiler::Block>, SIZEOF_BLOCK * (uint16_t)128U>   blocks;
@@ -109,6 +110,7 @@ struct ThreadStorage
     bool                     frameOpened; ///< Is new frame opened (this does not depend on profiling status) \sa profiledFrameOpened
     bool                            halt; ///< This is set to true when new frame started while dumping blocks. Used to restrict collecting blocks during dumping process.
 
+    void storeValue(profiler::block_id_t _id, profiler::DataType _type, const void* _data, size_t _size, bool _isArray);
     void storeBlock(const profiler::Block& _block);
     void storeCSwitch(const CSwitchBlock& _block);
     void clearClosed();

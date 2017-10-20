@@ -462,7 +462,7 @@ namespace profiler {
     // Note: It is better to use macros defined above than a direct calls to API.
     //       But some API functions does not have macro wrappers...
 
-#ifdef BUILD_WITH_EASY_PROFILER
+#ifdef USING_EASY_PROFILER
     extern "C" {
 
         /** Returns current time in ticks.

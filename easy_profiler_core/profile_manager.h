@@ -44,6 +44,7 @@ The Apache License, Version 2.0 (the "License");
 #define EASY_PROFILER_MANAGER_H
 
 #include <easy/profiler.h>
+#include <easy/arbitrary_value.h>
 #include <easy/easy_socket.h>
 
 #include "spin_lock.h"
@@ -129,6 +130,7 @@ public:
                                                             profiler::color_t _color,
                                                             bool _copyName = false);
 
+    void storeValue(const profiler::BaseBlockDescriptor* _desc, profiler::DataType _type, const void* _data, size_t _size, bool _isArray);
     bool storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName);
     bool storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, profiler::timestamp_t _beginTime, profiler::timestamp_t _endTime);
     void beginBlock(profiler::Block& _block);
