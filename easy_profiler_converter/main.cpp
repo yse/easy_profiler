@@ -7,14 +7,6 @@
 using namespace profiler::reader;
 using namespace std;
 
-void test(std::string filename, vector<::std::shared_ptr<BlocksTreeNode> >& blocks)
-{
-    FileReader fr;
-    fr.readFile(filename);
-    std::vector<BlockInfo> v_blocks;
-    blocks = fr.getBlocks();
-}
-
 int main(int argc, char* argv[])
 {
     std::string filename;
@@ -27,7 +19,10 @@ int main(int argc, char* argv[])
         std::cout << "prof file path: ";
         std::getline(std::cin, filename);
     }
-    vector<::std::shared_ptr<BlocksTreeNode> > blocks;
-    test(filename,blocks);
+    FileReader fr;
+    fr.readFile(filename);
+
+    const profiler::reader::thread_blocks_tree_t &blocks_tree = fr.getBlocksTreeData();
+
     return 0;
 }

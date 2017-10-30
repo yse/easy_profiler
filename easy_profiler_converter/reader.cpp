@@ -2,6 +2,8 @@
 #include <memory>
 #include <algorithm>
 #include <iostream>
+#include <fstream>
+#include <sstream>
 ///this
 #include "reader.h"
 
@@ -79,117 +81,35 @@ using namespace std;
 
 void FileReader::readFile(const string &filename)
 {
-    fillTreesFromFile(filename.c_str(), serialized_blocks, serialized_descriptors, m_descriptors, m_blocks,
-                      m_threaded_trees, descriptorsNumberInFile, version, true, errorMessage);
-    prepareData();
+//   fillTreesFromFile(filename.c_str(), serialized_blocks, serialized_descriptors, m_descriptors, m_blocks,
+//                      m_threaded_trees, descriptorsNumberInFile, version, true, errorMessage);
+//    fillTreesFromFile(filename.c_str(), serialized_blocks, serialized_descriptors, m_descriptors, m_blocks,
+//                      m_threaded_trees, descriptorsNumberInFile, version, true, errorMessage);
+
+    parseLogInfo(filename, errorMessage);
+
 }
 
-const FileReader::TreeNodes &FileReader::getBlocks()
+const thread_blocks_tree_t &FileReader::getBlocksTreeData()
 {
-    return m_BlocksTree;
+    return m_BlocksTree2;
 }
 
-const FileReader::Events &FileReader::getEvents()
-{
-    return m_events;
-}
-
-const FileReader::ContextSwitches &FileReader::getContextSwitches()
-{
-    return m_ContextSwitches;
-}
-
-void FileReader::prepareData()
-{
-    vector<uint32_t> tmp_indexes_vector;
-
-    for(auto& kv : m_threaded_trees)
-    {
-        //children & events are already sorted !!!
-        ::std::set_difference(kv.second.children.begin(),kv.second.children.end(),
-                              kv.second.events.begin(),kv.second.events.end(),
-                              ::std::back_inserter(tmp_indexes_vector));
-        for(auto& value : tmp_indexes_vector)
-        {
-            ::std::shared_ptr<BlocksTreeNode> element = ::std::make_shared<BlocksTreeNode>();
-            element->current_block = ::std::make_shared<BlockInfo>();
-            element->parent = nullptr;
-            element->current_block->thread_name = kv.second.thread_name;
-            prepareBlocksInfo(element, value);
-            m_BlocksTree.push_back(::std::move(element));
-        }
-        tmp_indexes_vector.clear();
-
-        prepareEventsInfo(kv.second.events);
-        prepareCSInfo(kv.second.sync);
-    }
-}
-
-void FileReader::prepareBlocksInfo(::std::shared_ptr<BlocksTreeNode> &element, uint32_t Id)
-{
-    getBlockInfo(element->current_block, Id);
-
-    ///block's children info
-    for(auto& value : m_blocks[element->current_block->blockId].children)
-    {
-        ::std::shared_ptr<BlocksTreeNode> btElement = ::std::make_shared<BlocksTreeNode>();
-        btElement->current_block = ::std::make_shared<BlockInfo>();
-        btElement->parent = element.get();
-        btElement->current_block->thread_name = element->current_block->thread_name;
-
-        element->children.push_back(btElement);
-        prepareBlocksInfo(btElement,value);
-    }
-}
-
-void FileReader::prepareEventsInfo(const ::std::vector<uint32_t>& events)
-{
-    for(auto Id : events)
-    {
-        m_events.push_back(::std::make_shared<BlockInfo>());
-        getBlockInfo(m_events.back(), Id);
-    }
-}
-
-void FileReader::prepareCSInfo(const::std::vector<uint32_t> &cs)
-{
-    for(auto Id : cs)
-    {
-        m_ContextSwitches.push_back(::std::make_shared<ContextSwitchEvent>());
-        m_ContextSwitches.back()->switchName = m_blocks[Id].cs->name();
-        m_ContextSwitches.back()->targetThreadId = m_blocks[Id].cs->tid();
-        m_ContextSwitches.back()->beginTime = m_blocks[Id].cs->begin();
-        m_ContextSwitches.back()->endTime = m_blocks[Id].cs->end();
-    }
-}
-
-void FileReader::getBlockInfo(shared_ptr<BlockInfo> &current_block, uint32_t Id)
-{
-    ///block info
-    current_block->beginTime = m_blocks[Id].node->begin();
-    current_block->endTime = m_blocks[Id].node->end();
-    current_block->blockId = m_blocks[Id].node->id();
-    current_block->runTimeBlockName = m_blocks[Id].node->name();
-
-    ///descriptor
-    current_block->descriptor = ::std::make_shared<BlockDescriptor>();
-    current_block->descriptor->argbColor = m_descriptors.at(current_block->blockId)->color();
-    current_block->descriptor->lineNumber = m_descriptors.at(current_block->blockId)->line();
-    current_block->descriptor->blockId = m_descriptors.at(current_block->blockId)->id();
-    current_block->descriptor->blockType = m_descriptors.at(current_block->blockId)->type();
-    current_block->descriptor->status = m_descriptors.at(current_block->blockId)->status();
-    current_block->descriptor->compileTimeName = m_descriptors.at(current_block->blockId)->name();
-    current_block->descriptor->fileName = m_descriptors.at(current_block->blockId)->file();
-}
-
-
-::profiler::block_index_t FileReader::fillTreesFromStream2(::std::stringstream& inFile,
-                                                           ::std::vector<::std::shared_ptr<BlockDescriptor>>& descriptors,
-                                                           ::profiler::blocks_t& blocks,
-                                                           ::profiler::thread_blocks_tree_t& threaded_trees,
-                                                           uint32_t& version,
+::profiler::block_index_t FileReader::parseLogInfo(const ::std::string& filename,
                                                            ::std::stringstream& _log)
 {
+    ::std::ifstream file(filename, ::std::fstream::binary);
+    if (!file.is_open())
+    {
+        _log << "Can not open file " << filename;
+        return 0;
+    }
+
+    ::std::stringstream inFile;
+
+    inFile << file.rdbuf();
+    file.close();
+
     uint32_t signature = 0;
     inFile.read((char*)&signature, sizeof(uint32_t));
     if (signature != PROFILER_SIGNATURE)
@@ -198,18 +118,18 @@ void FileReader::getBlockInfo(shared_ptr<BlockInfo> &current_block, uint32_t Id)
         return 0;
     }
 
-    version = 0;
-    inFile.read((char*)&version, sizeof(uint32_t));
-    if (!isCompatibleVersion(version))
+    m_version = 0;
+    inFile.read((char*)&m_version, sizeof(uint32_t));
+    if (!isCompatibleVersion(m_version))
     {
-        _log << "Incompatible version: v" << (version >> 24) << "." << ((version & 0x00ff0000) >> 16) << "." << (version & 0x0000ffff);
+        _log << "Incompatible version: v" << (m_version >> 24) << "." << ((m_version & 0x00ff0000) >> 16) << "." << (m_version & 0x0000ffff);
         return 0;
     }
 
     processid_t pid = 0;
-    if (version > EASY_V_100)
+    if (m_version > EASY_V_100)
     {
-        if (version < EASY_V_130)
+        if (m_version < EASY_V_130)
         {
             uint32_t old_pid = 0;
             inFile.read((char*)&old_pid, sizeof(uint32_t));
@@ -268,18 +188,18 @@ void FileReader::getBlockInfo(shared_ptr<BlockInfo> &current_block, uint32_t Id)
         return 0;
     }
 
-    descriptors.reserve(total_descriptors_number);
+    m_BlockDescriptors.reserve(total_descriptors_number);
+    serialized_descriptors.set(descriptors_memory_size);
 
     ///read descriptors data
-    ::std::make_shared<BlockDescriptor>();
     uint64_t i = 0;
-    while (!inFile.eof() && descriptors.size() < total_descriptors_number)
+    while (!inFile.eof() && m_BlockDescriptors.size() < total_descriptors_number)
     {
         uint16_t sz = 0;
         inFile.read((char*)&sz, sizeof(sz));
         if (sz == 0)
         {
-            descriptors.push_back(nullptr);
+            m_BlockDescriptors.push_back(nullptr);
             continue;
         }
 
@@ -287,23 +207,18 @@ void FileReader::getBlockInfo(shared_ptr<BlockInfo> &current_block, uint32_t Id)
         inFile.read(data, sz);
         auto descriptor = reinterpret_cast<::profiler::SerializedBlockDescriptor*>(data);
 
-        descriptors.push_back(::std::make_shared<BlockDescriptor>());
-        descriptors.back()->lineNumber = descriptor->line();
-        descriptors.back()->blockId = descriptor->id();
-        descriptors.back()->argbColor = descriptor->color();
-        descriptors.back()->blockType = descriptor->type();
-        descriptors.back()->status = descriptor->status();
-        descriptors.back()->compileTimeName = descriptor->name();
-        descriptors.back()->fileName = descriptor->file();
+        m_BlockDescriptors.push_back(::std::make_shared<BlockDescriptor>());
+        m_BlockDescriptors.back()->lineNumber = descriptor->line();
+        m_BlockDescriptors.back()->blockId = descriptor->id();
+        m_BlockDescriptors.back()->argbColor = descriptor->color();
+        m_BlockDescriptors.back()->blockType = descriptor->type();
+        m_BlockDescriptors.back()->status = descriptor->status();
+        m_BlockDescriptors.back()->compileTimeName = descriptor->name();
+        m_BlockDescriptors.back()->fileName = descriptor->file();
 
         i += sz;
     }
-    ////////////////////some magic stuff(how to get rid of it???)/////////////////
-    typedef ::std::unordered_map<::profiler::thread_id_t, StatsMap, ::profiler::passthrough_hash<::profiler::thread_id_t> > PerThreadStats;
-    PerThreadStats parent_statistics;
-    IdMap identification_table;
 
-    blocks.reserve(total_blocks_number);
     serialized_blocks.set(memory_size);
 
     i = 0;
@@ -311,14 +226,15 @@ void FileReader::getBlockInfo(shared_ptr<BlockInfo> &current_block, uint32_t Id)
     ::profiler::block_index_t blocks_counter = 0;
     ::std::vector<char> name;
 
-    const size_t thread_id_t_size = version < EASY_V_130 ? sizeof(uint32_t) : sizeof(::profiler::thread_id_t);
+    const size_t thread_id_t_size = m_version < EASY_V_130 ? sizeof(uint32_t) : sizeof(::profiler::thread_id_t);
 
     while (!inFile.eof() && read_number < total_blocks_number)
     {
         ::profiler::thread_id_t thread_id = 0;
         inFile.read((char*)&thread_id, thread_id_t_size);
 
-        auto& root = threaded_trees[thread_id];
+        //auto& root = threaded_trees[thread_id];
+        auto& root = m_BlocksTree2[thread_id];
 
         uint16_t name_size = 0;
         inFile.read((char*)&name_size, sizeof(uint16_t));
@@ -326,10 +242,8 @@ void FileReader::getBlockInfo(shared_ptr<BlockInfo> &current_block, uint32_t Id)
         {
             name.resize(name_size);
             inFile.read(name.data(), name_size);
-            root.thread_name = name.data();
+            //root.thread_name = name.data();
         }
-
-        CsStatsMap per_thread_statistics_cs;
 
         uint32_t blocks_number_in_thread = 0;
         inFile.read((char*)&blocks_number_in_thread, sizeof(decltype(blocks_number_in_thread)));
@@ -366,14 +280,14 @@ void FileReader::getBlockInfo(shared_ptr<BlockInfo> &current_block, uint32_t Id)
                 if (*t_begin < begin_time)
                     *t_begin = begin_time;
 
-                blocks.emplace_back();
-                ::profiler::BlocksTree& tree = blocks.back();
-                tree.cs = baseData;
+                m_ContextSwitches.emplace_back();
+                ::std::shared_ptr<ContextSwitchEvent>& cs = m_ContextSwitches.back();
+                cs->switchName = baseData->name();
+                cs->targetThreadId = baseData->tid();
+                cs->beginTime = baseData->begin();
+                cs->endTime = baseData->end();
+
                 const auto block_index = blocks_counter++;
-
-                root.wait_time += baseData->duration();
-                root.sync.emplace_back(block_index);
-
             }
 
         }
@@ -381,14 +295,20 @@ void FileReader::getBlockInfo(shared_ptr<BlockInfo> &current_block, uint32_t Id)
         if (inFile.eof())
             break;
 
-        StatsMap per_thread_statistics;
-
         blocks_number_in_thread = 0;
         inFile.read((char*)&blocks_number_in_thread, sizeof(decltype(blocks_number_in_thread)));
         threshold = read_number + blocks_number_in_thread;
+        ::std::vector<::std::shared_ptr<BlocksTreeNode>> siblings;
+        ::std::shared_ptr<BlocksTreeNode> prev_node = ::std::make_shared<BlocksTreeNode>();
+        prev_node->current_block = ::std::make_shared<BlockInfo>();
+
+        ::std::shared_ptr<BlocksTreeNode> element;
+        uint level = 0;
+
         while (!inFile.eof() && read_number < threshold)
         {
-            EASY_BLOCK("Read block", ::profiler::colors::Green);
+            element = ::std::make_shared<BlocksTreeNode>();
+            element->current_block = ::std::make_shared<BlockInfo>();
 
             ++read_number;
 
@@ -409,13 +329,15 @@ void FileReader::getBlockInfo(shared_ptr<BlockInfo> &current_block, uint32_t Id)
                 _log << "Bad block id == " << baseData->id();
                 return 0;
             }
+            element->current_block->blockId = baseData->id();
 
-            auto desc = descriptors[baseData->id()];
+            auto desc = m_BlockDescriptors[baseData->id()];
             if (desc == nullptr)
             {
                 _log << "Bad block id == " << baseData->id() << ". Description is null.";
                 return 0;
             }
+            element->current_block->descriptor = m_BlockDescriptors[baseData->id()];
 
             auto t_begin = reinterpret_cast<::profiler::timestamp_t*>(data);
             auto t_end = t_begin + 1;
@@ -431,92 +353,47 @@ void FileReader::getBlockInfo(shared_ptr<BlockInfo> &current_block, uint32_t Id)
                 if (*t_begin < begin_time)
                     *t_begin = begin_time;
 
-                blocks.emplace_back();
-                ::profiler::BlocksTree& tree = blocks.back();
-                tree.node = baseData;
+                element->current_block->beginTime = baseData->begin();
+                element->current_block->endTime = baseData->end();
+
+                ///sibling
+                if(element->current_block->beginTime >= prev_node->current_block->endTime)
+                {
+                    prev_node = element;
+                    ///siblings
+                    root.children.push_back(element);
+                }
+                else
+                {
+                    auto iter = root.children.begin();
+                    for(;iter != root.children.end(); ++iter)
+                    {
+                        if(iter->get()->current_block->beginTime >= element->current_block->beginTime)
+                        {
+                            ::std::move(iter,root.children.end(),::std::back_inserter(element->children));
+                            root.children.erase(std::remove(begin(root.children), end(root.children), nullptr),
+                                                end(root.children));
+                            root.children.emplace_back(element);
+                            break;
+                        }
+                    }
+                }
+
                 const auto block_index = blocks_counter++;
 
-                if (*tree.node->name() != 0)
-                {
-                    // If block has runtime name then generate new id for such block.
-                    // Blocks with the same name will have same id.
-
-                    IdMap::key_type key(tree.node->name());
-                    auto it = identification_table.find(key);
-                    if (it != identification_table.end())
-                    {
-                        // There is already block with such name, use it's id
-                        baseData->setId(it->second);
-                    }
-                    else
-                    {
-                        // There were no blocks with such name, generate new id and save it in the table for further usage.
-                        auto id = static_cast<::profiler::block_id_t>(descriptors.size());
-                        identification_table.emplace(key, id);
-                        if (descriptors.capacity() == descriptors.size())
-                            descriptors.reserve((descriptors.size() * 3) >> 1);
-                        descriptors.push_back(descriptors[baseData->id()]);
-                        baseData->setId(id);
-                    }
-                }
-
-                if (!root.children.empty())
-                {
-                    auto& back = blocks[root.children.back()];
-                    auto t1 = back.node->end();
-                    auto mt0 = tree.node->begin();
-                    if (mt0 < t1)//parent - starts earlier than last ends
-                    {
-                        //auto lower = ::std::lower_bound(root.children.begin(), root.children.end(), tree);
-                        /**/
-                        EASY_BLOCK("Find children", ::profiler::colors::Blue);
-                        auto rlower1 = ++root.children.rbegin();
-                        for (; rlower1 != root.children.rend() && !(mt0 > blocks[*rlower1].node->begin()); ++rlower1);
-                        auto lower = rlower1.base();
-                        ::std::move(lower, root.children.end(), ::std::back_inserter(tree.children));
-
-                        root.children.erase(lower, root.children.end());
-                        EASY_END_BLOCK;
-
-
-                            for (auto i : tree.children)
-                            {
-                                const auto& child = blocks[i];
-                                if (tree.depth < child.depth)
-                                    tree.depth = child.depth;
-                            }
-
-
-                        if (tree.depth == 254)
-                        {
-                            // 254 because we need 1 additional level for root (thread).
-                            // In other words: real stack depth = 1 root block + 254 children
-
-                            if (*tree.node->name() != 0)
-                                _log << "Stack depth exceeded value of 254\nfor block \"" << desc->compileTimeName << "\"";
-                            else
-                                _log << "Stack depth exceeded value of 254\nfor block \"" << desc->compileTimeName << "\"\nfrom file \"" << desc->fileName << "\":" << desc->lineNumber;
-
-                            return 0;
-                        }
-
-                        ++tree.depth;
-                    }
-                }
-
-                ++root.blocks_number;
-                root.children.emplace_back(block_index);// ::std::move(tree));
                 if (desc->blockType == ::profiler::BLOCK_TYPE_EVENT)
-                    root.events.emplace_back(block_index);
-
-            }
+                {
+                    root.children.emplace_back(element);
+                }
+            }            
         }
+//        if(element)
+//        {
+//            m_BlocksTree.push_back(std::move(element));
 
+//            ::std::move(m_BlocksTree.begin(), m_BlocksTree.end(), ::std::back_inserter(root.children));
+//            m_BlocksTree.clear();
+//        }
     }
-
-    ////////////////////end of some magic stuff/////////////////
-
-
-
     return blocks_counter;
 }
