@@ -39,8 +39,8 @@ The Apache License, Version 2.0 (the "License");
 	limitations under the License.
 
 **/
-#ifndef EASY________SOCKET_________H
-#define EASY________SOCKET_________H
+#ifndef EASY_PROFILER_SOCKET_H
+#define EASY_PROFILER_SOCKET_H
 
 #include <stdint.h>
 #include <easy/profiler.h>
@@ -72,40 +72,37 @@ public:
     typedef int socket_t;
 #endif
 
-    enum ConnectionState
+    enum class ConnectionState : int8_t
     {
-        CONNECTION_STATE_UNKNOWN,
-        CONNECTION_STATE_SUCCESS,
-
-        CONNECTION_STATE_DISCONNECTED,
-        CONNECTION_STATE_IN_PROGRESS
+        Disconnected = -1,
+        Unknown,
+        Connected,
+        Connecting
     };
 
 private:
-    
-    void checkResult(int result);
-    bool checkSocket(socket_t s) const;
-    static int _close(socket_t s);
-    void setBlocking(socket_t s, bool blocking);
-    
+
     socket_t m_socket = 0;
     socket_t m_replySocket = 0;
 
-    int wsaret = -1;
+    int m_receiveTimeoutMs = 0;
+    int m_wsaret = -1;
 
-    struct hostent * server;
-    struct sockaddr_in serv_addr;
+    struct hostent* m_server = nullptr;
+    struct sockaddr_in m_serverAddress;
 
-    ConnectionState m_state = CONNECTION_STATE_UNKNOWN;
+    ConnectionState m_state = ConnectionState::Unknown;
 
 public:
 
     EasySocket();
     ~EasySocket();
 
-    int send(const void *buf, size_t nbyte);
-    int receive(void *buf, size_t nbyte);
-    int listen(int count=5);
+    void setReceiveTimeout(int milliseconds);
+
+    int send(const void* buf, size_t nbyte);
+    int receive(void* buf, size_t nbyte);
+    int listen(int count = 5);
     int accept();
     int bind(uint16_t portno);
 
@@ -115,14 +112,16 @@ public:
     void flush();
     void init();
 
-    void setState(ConnectionState state){m_state=state;}
-    ConnectionState state() const{return m_state;}
+    ConnectionState state() const;
+    bool isDisconnected() const;
+    bool isConnected() const;
 
-    bool isDisconnected() const
-    {
-        return  m_state == CONNECTION_STATE_UNKNOWN ||
-                m_state == CONNECTION_STATE_DISCONNECTED;
-    }
-};
+private:
 
-#endif // EASY________SOCKET_________H
+    void checkResult(int result);
+    bool checkSocket(socket_t s) const;
+    void setBlocking(socket_t s, bool blocking);
+
+}; // end of class EasySocket.
+
+#endif // EASY_PROFILER_SOCKET_H
