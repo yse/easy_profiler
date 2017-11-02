@@ -40,281 +40,342 @@ limitations under the License.
 **/
 
 #include <easy/easy_socket.h>
-
 #include <string.h>
 #include <thread>
 
-#ifdef _WIN32
-#pragma comment (lib, "Ws2_32.lib")
-#pragma comment (lib, "Mswsock.lib")
-#pragma comment (lib, "AdvApi32.lib")
+#if defined(_WIN32)
+# pragma comment (lib, "Ws2_32.lib")
+# pragma comment (lib, "Mswsock.lib")
+# pragma comment (lib, "AdvApi32.lib")
 #else
-#include <errno.h>
-#include <sys/ioctl.h>
+# include <errno.h>
+# include <sys/ioctl.h>
 #endif
 
-bool EasySocket::checkSocket(socket_t s) const
-{
-    return s > 0;
-}
+/////////////////////////////////////////////////////////////////
 
-int EasySocket::_close(EasySocket::socket_t s)
+#if defined(_WIN32)
+const int SOCK_ABORTED = WSAECONNABORTED;
+const int SOCK_RESET = WSAECONNRESET;
+const int SOCK_IN_PROGRESS = WSAEINPROGRESS;
+#else
+const int SOCK_ABORTED = ECONNABORTED;
+const int SOCK_RESET = ECONNRESET;
+const int SOCK_IN_PROGRESS = EINPROGRESS;
+const int SOCK_BROKEN_PIPE = EPIPE;
+const int SOCK_ENOENT = ENOENT;
+#endif
+
+const int SEND_BUFFER_SIZE = 64 * 1024 * 1024;
+
+/////////////////////////////////////////////////////////////////
+
+static int closeSocket(EasySocket::socket_t s)
 {
-#ifdef _WIN32
+#if defined(_WIN32)
     return ::closesocket(s);
 #else
     return ::close(s);
 #endif
 }
 
+/////////////////////////////////////////////////////////////////
+
+bool EasySocket::checkSocket(socket_t s) const
+{
+    return s > 0;
+}
+
 void EasySocket::setBlocking(EasySocket::socket_t s, bool blocking)
 {
-
-#ifdef _WIN32
+#if defined(_WIN32)
     u_long iMode = blocking ? 0 : 1;//0 - blocking, 1 - non blocking
-    ioctlsocket(s, FIONBIO, &iMode);
+    ::ioctlsocket(s, FIONBIO, &iMode);
 #else
-    const int iMode = blocking ? 0 : 1;//0 - blocking, 1 - non blocking
-    ioctl(s, FIONBIO, (char *)&iMode);
+    int iMode = blocking ? 0 : 1;//0 - blocking, 1 - non blocking
+    ::ioctl(s, FIONBIO, (char*)&iMode);
 #endif
 }
 
-int EasySocket::bind(uint16_t portno)
+int EasySocket::bind(uint16_t port)
 {
-    if (!checkSocket(m_socket)) return -1;
+    if (!checkSocket(m_socket))
+        return -1;
 
     struct sockaddr_in serv_addr;
     memset(&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = INADDR_ANY;
-    serv_addr.sin_port = htons(portno);
-    auto res = ::bind(m_socket, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
+    serv_addr.sin_port = htons(port);
+    auto res = ::bind(m_socket, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+
     return res;
 }
 
 void EasySocket::flush()
 {
-    if (m_socket){
-        _close(m_socket);
-    }
-    if (m_replySocket != m_socket){
-        _close(m_replySocket);
-    }
-#ifdef _WIN32
+    if (m_socket)
+        closeSocket(m_socket);
+
+    if (m_replySocket != m_socket)
+        closeSocket(m_replySocket);
+
+#if defined(_WIN32)
     m_socket = 0;
     m_replySocket = 0;
 #else
-    wsaret = 0;
+    m_wsaret = 0;
 #endif
 }
 
 void EasySocket::checkResult(int result)
 {
-    //printf("Errno: %s\n", strerror(errno));
-    if(result >= 0){
-        m_state = CONNECTION_STATE_SUCCESS;
+    if (result >= 0)
+    {
+        m_state = ConnectionState::Connected;
         return;
-    }else if(result == -1){
+    }
 
-
-        int error_code = 0;
-
-#ifdef _WIN32
-        error_code = WSAGetLastError();
-        const int CONNECTION_ABORTED = WSAECONNABORTED;
-        const int CONNECTION_RESET = WSAECONNRESET;
-        const int CONNECTION_IN_PROGRESS = WSAEINPROGRESS;
+    if (result == -1) // is this check necessary?
+    {
+#if defined(_WIN32)
+        const int error_code = WSAGetLastError();
 #else
-        error_code = errno;
-        const int CONNECTION_ABORTED = ECONNABORTED;
-        const int CONNECTION_RESET = ECONNRESET;
-        const int CONNECTION_IN_PROGRESS = EINPROGRESS;
-        const int CONNECTION_BROKEN_PIPE = EPIPE;
-        const int CONNECTION_ENOENT = ENOENT;
+        const int error_code = errno;
 #endif
 
-        switch(error_code)
+        switch (error_code)
         {
-        case CONNECTION_ABORTED:
-        case CONNECTION_RESET:
-#ifndef _WIN32
-        case CONNECTION_BROKEN_PIPE:
-        case CONNECTION_ENOENT:
+            case SOCK_ABORTED:
+            case SOCK_RESET:
+#if !defined(_WIN32)
+            case SOCK_BROKEN_PIPE:
+            case SOCK_ENOENT:
 #endif
-            m_state = CONNECTION_STATE_DISCONNECTED;
-            break;
-        case CONNECTION_IN_PROGRESS:
-            m_state = CONNECTION_STATE_IN_PROGRESS;
-            break;
-        default:
-            break;
+                m_state = ConnectionState::Disconnected;
+                break;
+
+            case SOCK_IN_PROGRESS:
+                m_state = ConnectionState::Connecting;
+                break;
+
+            default:
+                break;
         }
     }
 }
 
 void EasySocket::init()
 {
-    if (wsaret == 0)
-    {
-        int protocol = 0;
-#ifdef _WIN32
-        protocol = IPPROTO_TCP;
-#endif
-        m_socket = socket(AF_INET, SOCK_STREAM, protocol);
-        if (!checkSocket(m_socket)) {
-            return;
-        }
-    }else
+    if (m_wsaret != 0)
         return;
 
-    setBlocking(m_socket,true);
-#ifndef _WIN32
-        wsaret = 1;
+#if !defined(_WIN32)
+    const int protocol = 0;
+#else
+    const int protocol = IPPROTO_TCP;
 #endif
-    int opt = 1;
-    setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt));
+
+    m_socket = ::socket(AF_INET, SOCK_STREAM, protocol);
+    if (!checkSocket(m_socket))
+        return;
+
+    setBlocking(m_socket, true);
+
+#if !defined(_WIN32)
+    m_wsaret = 1;
+#endif
+
+    const int opt = 1;
+    ::setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(int));
+}
+
+EasySocket::ConnectionState EasySocket::state() const
+{
+    return m_state;
+}
+
+bool EasySocket::isDisconnected() const
+{
+    return static_cast<int>(m_state) <= 0;
+}
+
+bool EasySocket::isConnected() const
+{
+    return m_state == ConnectionState::Connected;
 }
 
 EasySocket::EasySocket()
 {
-#ifdef _WIN32
+#if defined(_WIN32)
     WSADATA wsaData;
-    wsaret = WSAStartup(0x101, &wsaData);
+    m_wsaret = WSAStartup(0x101, &wsaData);
 #else
-    wsaret = 0;
+    m_wsaret = 0;
 #endif
+
     init();
-#ifndef _WIN32
-    wsaret = 1;
-#endif
 }
 
 EasySocket::~EasySocket()
 {
     flush();
-#ifdef _WIN32
-    if (wsaret == 0)
+
+#if defined(_WIN32)
+    if (m_wsaret == 0)
         WSACleanup();
 #endif
 }
 
-int EasySocket::send(const void *buf, size_t nbyte)
+void EasySocket::setReceiveTimeout(int milliseconds)
 {
-    if(!checkSocket(m_replySocket))  return -1;
-    int res = 0;
-#if defined(_WIN32) || defined(__APPLE__)
-    res = ::send(m_replySocket, (const char*)buf, (int)nbyte, 0);
+    if (!isConnected() || !checkSocket(m_replySocket))
+        return;
+
+    if (milliseconds <= 0)
+        milliseconds = std::numeric_limits<int>::max() / 1000;
+
+#if defined(_WIN32)
+    const DWORD timeout = static_cast<DWORD>(milliseconds);
+    ::setsockopt(m_replySocket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(DWORD));
 #else
-    res = ::send(m_replySocket,buf,nbyte,MSG_NOSIGNAL);
+    struct timeval tv;
+    if (milliseconds >= 1000)
+    {
+        const int s = milliseconds / 1000;
+        const int us = (milliseconds - s * 1000) * 1000;
+        tv.tv_sec = s;
+        tv.tv_usec = us;
+    }
+    else
+    {
+        tv.tv_sec = 0;
+        tv.tv_usec = milliseconds * 1000;
+    }
+
+    ::setsockopt(m_replySocket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof (struct timeval));
 #endif
+}
+
+int EasySocket::send(const void* buffer, size_t nbytes)
+{
+    if (!checkSocket(m_replySocket))
+        return -1;
+
+#if defined(_WIN32) || defined(__APPLE__)
+    const int res = ::send(m_replySocket, (const char*)buffer, (int)nbytes, 0);
+#else
+    const int res = (int)::send(m_replySocket, buffer, nbytes, MSG_NOSIGNAL);
+#endif
+
     checkResult(res);
+
     return res;
 }
 
-int EasySocket::receive(void *buf, size_t nbyte)
+int EasySocket::receive(void* buffer, size_t nbytes)
 {
-    if(!checkSocket(m_replySocket))  return -1;
-    int res = 0;
-#ifdef _WIN32
-    res = ::recv(m_replySocket, (char*)buf, (int)nbyte, 0);
+    if (!checkSocket(m_replySocket))
+        return -1;
+
+#if defined(_WIN32)
+    const int res = ::recv(m_replySocket, (char*)buffer, (int)nbytes, 0);
 #else
-    res = ::read(m_replySocket,buf,nbyte);
+    const int res = (int)::read(m_replySocket, buffer, nbytes);
 #endif
 
     checkResult(res);
-    if (res == 0){
-        m_state = CONNECTION_STATE_DISCONNECTED;
-    }
+    if (res == 0)
+        m_state = ConnectionState::Disconnected;
+
     return res;
 }
 
 int EasySocket::listen(int count)
 {
-    if(!checkSocket(m_socket)) return -1;
-    int res = ::listen(m_socket,count);
+    if (!checkSocket(m_socket))
+        return -1;
+
+    const int res = ::listen(m_socket, count);
     checkResult(res);
+
     return res;
 }
 
 int EasySocket::accept()
 {
-    if(!checkSocket(m_socket)) return -1;
+    if (!checkSocket(m_socket))
+        return -1;
 
-    fd_set fdread, fdwrite, fdexcl;
-    timeval tv = { 0 };
+    fd_set fdread;
     FD_ZERO (&fdread);
     FD_SET (m_socket, &fdread);
-    fdwrite = fdread;
-    fdexcl = fdread;
-    tv.tv_sec = 0; tv.tv_usec = 500;
 
-    int rc =select ((int)m_socket+1, &fdread, &fdwrite, &fdexcl, &tv);
+    fd_set fdwrite = fdread;
+    fd_set fdexcl = fdread;
 
-    if(rc <= 0){
-        //there is no connection for accept
-        return -1;
-    }
-    m_replySocket = ::accept(m_socket,nullptr,nullptr);
+    struct timeval tv { 0, 500 };
+    const int rc = ::select((int)m_socket + 1, &fdread, &fdwrite, &fdexcl, &tv);
+    if (rc <= 0)
+        return -1; // there is no connection for accept
 
+    m_replySocket = ::accept(m_socket, nullptr, nullptr);
     checkResult((int)m_replySocket);
-    if(checkSocket(m_replySocket))
-    {
-        int send_buffer = 64*1024*1024;
-        int send_buffer_sizeof = sizeof(int);
-        setsockopt(m_replySocket, SOL_SOCKET, SO_SNDBUF, (char*)&send_buffer, send_buffer_sizeof);
-        
-        //int flag = 1;
-        //int result = setsockopt(m_replySocket,IPPROTO_TCP,TCP_NODELAY,(char *)&flag,sizeof(int));
 
+    if (checkSocket(m_replySocket))
+    {
+        ::setsockopt(m_replySocket, SOL_SOCKET, SO_SNDBUF, (char*)&SEND_BUFFER_SIZE, sizeof(int));
+        
+        //const int flag = 1;
+        //const int result = setsockopt(m_replySocket,IPPROTO_TCP,TCP_NODELAY,(char *)&flag,sizeof(int));
+
+#if defined(__APPLE__)
         // Apple doesn't have MSG_NOSIGNAL, work around it
-#ifdef __APPLE__
-        int value = 1;
-        setsockopt(m_replySocket, SOL_SOCKET, SO_NOSIGPIPE, &value, sizeof(value));
+        const int value = 1;
+        ::setsockopt(m_replySocket, SOL_SOCKET, SO_NOSIGPIPE, &value, sizeof(value));
 #endif
 
         //setBlocking(m_replySocket,true);
     }
+
     return (int)m_replySocket;
 }
 
-bool EasySocket::setAddress(const char *serv, uint16_t portno)
+bool EasySocket::setAddress(const char* address, uint16_t port)
 {
-    server = gethostbyname(serv);
-    if (server == NULL) {
+    m_server = ::gethostbyname(address);
+    if (m_server == nullptr)
         return false;
-        //fprintf(stderr,"ERROR, no such host\n");
-    }
-    memset((char *)&serv_addr, 0, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    memcpy((char *)&serv_addr.sin_addr.s_addr, (char *)server->h_addr, server->h_length);
 
-    serv_addr.sin_port = htons(portno);
+    memset((char*)&m_serverAddress, 0, sizeof(m_serverAddress));
+    m_serverAddress.sin_family = AF_INET;
+    memcpy((char*)&m_serverAddress.sin_addr.s_addr, (char*)m_server->h_addr, (size_t)m_server->h_length);
+
+    m_serverAddress.sin_port = htons(port);
 
     return true;
 }
 
 int EasySocket::connect()
 {
-    if (server == NULL || m_socket <=0 ) {
+    if (m_server == nullptr || m_socket <= 0)
         return -1;
-        //fprintf(stderr,"ERROR, no such host\n");
-    }
+
     int res = 0;
     //TODO: more intelligence
-#ifndef _WIN32
-    setBlocking(m_socket,false);
+#if !defined(_WIN32)
+    setBlocking(m_socket, false);
 
-    int counter = 0;
-    int sleepMs = 20;
-    int waitSec = 1;
-    int waitMs = waitSec*1000/sleepMs;
-    
-    while(counter++ < waitMs)
+    const int sleepMs = 20;
+    const int waitSec = 1;
+    const int waitMs = waitSec * 1000 / sleepMs;
+
+    for (int counter = 0; counter++ < waitMs;)
     {
-        res = ::connect(m_socket,(struct sockaddr *) &serv_addr,sizeof(serv_addr));
+        res = ::connect(m_socket, (struct sockaddr*)&m_serverAddress, sizeof(m_serverAddress));
 
+#if defined(__APPLE__)
         // on Apple, treat EISCONN error as success
-#ifdef __APPLE__
         if (res == -1 && errno == EISCONN)
         {
             res = 0;
@@ -323,42 +384,44 @@ int EasySocket::connect()
 #endif
 
         checkResult(res);
-
         if (res == 0)
+        {
             break;
+        }
 
-        if (m_state == CONNECTION_STATE_IN_PROGRESS)
+        if (m_state == ConnectionState::Connecting)
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(sleepMs));
             continue;
         }
 
-
-        if(m_state != CONNECTION_STATE_IN_PROGRESS && m_state != CONNECTION_STATE_SUCCESS )
+        if (isDisconnected())
+        {
             break;
+        }
     }
 
-    setBlocking(m_socket,true);
+    setBlocking(m_socket, true);
 #else
-    res = ::connect(m_socket, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
+    res = ::connect(m_socket, (struct sockaddr*)&m_serverAddress, sizeof(m_serverAddress));
     checkResult(res);
 #endif
-    if(res == 0){
 
+    if (res == 0)
+    {
         struct timeval tv;
-
         tv.tv_sec = 1;
         tv.tv_usec = 0;
+        ::setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, sizeof(struct timeval));
 
-        setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
-
-#ifdef __APPLE__
+#if defined(__APPLE__)
         // Apple doesn't have MSG_NOSIGNAL, work around it
-        int value = 1;
+        const int value = 1;
         setsockopt(m_socket, SOL_SOCKET, SO_NOSIGPIPE, &value, sizeof(value));
 #endif
 
         m_replySocket = m_socket;
     }
+
     return res;
 }

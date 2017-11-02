@@ -104,10 +104,11 @@ class ProfileManager
     std::atomic_bool             m_isAlreadyListening;
     std::atomic_bool                  m_frameMaxReset;
     std::atomic_bool                  m_frameAvgReset;
+    std::atomic_bool                    m_stopDumping;
 
     std::string m_csInfoFilename = "/tmp/cs_profiling_info.log";
 
-    uint32_t dumpBlocksToStream(profiler::OStream& _outputStream, bool _lockSpin);
+    uint32_t dumpBlocksToStream(profiler::OStream& _outputStream, bool _lockSpin, bool _async);
     void setBlockStatus(profiler::block_id_t _id, profiler::EasyBlockStatus _status);
 
     std::thread m_listenThread;
