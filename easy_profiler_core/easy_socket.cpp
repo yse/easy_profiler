@@ -42,11 +42,15 @@ limitations under the License.
 #include <easy/easy_socket.h>
 #include <string.h>
 #include <thread>
+#include <limits>
 
 #if defined(_WIN32)
 # pragma comment (lib, "Ws2_32.lib")
 # pragma comment (lib, "Mswsock.lib")
 # pragma comment (lib, "AdvApi32.lib")
+# ifdef max
+#  undef max
+# endif
 #else
 # include <errno.h>
 # include <sys/ioctl.h>
