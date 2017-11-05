@@ -161,7 +161,7 @@ target_compile_definitions(easy_profiler PRIVATE
     -D_BUILD_PROFILER=1
     #-DEASY_PROFILER_API_DISABLED # uncomment this to disable profiler api only (you will have to rebuild only easy_profiler)
 )
-if (EASY_OPTION_LIB_STATIC)
+if (NOT BUILD_SHARED_LIBS)
     target_compile_definitions(easy_profiler PUBLIC -DEASY_PROFILER_STATIC=1)
 endif ()
 target_compile_definitions(easy_profiler PUBLIC
