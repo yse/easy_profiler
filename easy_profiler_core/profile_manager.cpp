@@ -800,11 +800,7 @@ void ProfileManager::storeValue(const BaseBlockDescriptor* _desc, DataType _type
         return;
 #endif
 
-    (void)_type;
-    (void)_data;
-    (void)_size;
-    (void)_isArray;
-    (void)_vin;
+    THIS_THREAD->storeValue(_desc->id(), _type, _data, _size, _isArray, _vin);
 }
 
 //////////////////////////////////////////////////////////////////////////

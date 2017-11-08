@@ -43,24 +43,24 @@ The Apache License, Version 2.0 (the "License");
 #ifndef EASY_PROFILER_ARBITRARY_VALUE_H
 #define EASY_PROFILER_ARBITRARY_VALUE_H
 
-#include <easy/profiler.h>
+#include <easy/arbitrary_value_aux.h>
 #include <string.h>
 
 #ifdef USING_EASY_PROFILER
 
-# define EASY_VIN(member) ::profiler::ValueId(member) 
+# define EASY_VIN(member) ::profiler::ValueId(member)
 
 # define EASY_VALUE(name, value, ...)\
     EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), ::profiler::registerDescription(\
         ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
             __FILE__, __LINE__, ::profiler::BLOCK_TYPE_VALUE, ::profiler::extract_color(__VA_ARGS__), false));\
-    ::profiler::setValue(EASY_UNIQUE_DESC(__LINE__), value, ::profiler::extract_value_id(__VA_ARGS__));
+    ::profiler::setValue(EASY_UNIQUE_DESC(__LINE__), value, ::profiler::extract_value_id(value , ## __VA_ARGS__));
 
 # define EASY_TEXT(name, text, ...)\
     EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), ::profiler::registerDescription(\
         ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
             __FILE__, __LINE__, ::profiler::BLOCK_TYPE_VALUE, ::profiler::extract_color(__VA_ARGS__), false));\
-    ::profiler::setValue(EASY_UNIQUE_DESC(__LINE__), text, ::profiler::extract_value_id(__VA_ARGS__));
+    ::profiler::setValue(EASY_UNIQUE_DESC(__LINE__), text, ::profiler::extract_value_id(text , ## __VA_ARGS__));
 
 #else
 
@@ -73,94 +73,65 @@ The Apache License, Version 2.0 (the "License");
 namespace profiler
 {
 
-    class ValueId EASY_FINAL
+    enum class DataType : uint8_t
     {
-        friend ::ThreadStorage;
-        size_t m_id;
+        Bool = 0,
+        Char,
+        Int8,
+        Uint8,
+        Int16,
+        Uint16,
+        Int32,
+        Uint32,
+        Int64,
+        Uint64,
+        Float,
+        Double,
+        String,
 
-    public:
-
-        explicit inline ValueId() : m_id(0) {}
-        template <class T> explicit inline ValueId(const T& _member) : m_id(reinterpret_cast<size_t>(&_member)) {}
-        inline ValueId(const ValueId&) = default;
+        TypesCount
     };
 
-    inline ValueId extract_value_id() {
-        return ValueId();
+    namespace {
+        template <DataType dataType> struct StdType;
+        template <class T>           struct StdToDataType;
+
+        template <> struct StdType<DataType::Bool  > { using value_type = bool    ; };
+        template <> struct StdType<DataType::Char  > { using value_type = char    ; };
+        template <> struct StdType<DataType::Int8  > { using value_type = int8_t  ; };
+        template <> struct StdType<DataType::Uint8 > { using value_type = uint8_t ; };
+        template <> struct StdType<DataType::Int16 > { using value_type = int16_t ; };
+        template <> struct StdType<DataType::Uint16> { using value_type = uint16_t; };
+        template <> struct StdType<DataType::Int32 > { using value_type = int32_t ; };
+        template <> struct StdType<DataType::Uint32> { using value_type = uint32_t; };
+        template <> struct StdType<DataType::Int64 > { using value_type = int64_t ; };
+        template <> struct StdType<DataType::Uint64> { using value_type = uint64_t; };
+        template <> struct StdType<DataType::Float > { using value_type = float   ; };
+        template <> struct StdType<DataType::Double> { using value_type = double  ; };
+        template <> struct StdType<DataType::String> { using value_type = char    ; };
+
+        template <> struct StdToDataType<bool       > { EASY_STATIC_CONSTEXPR auto data_type = DataType::Bool  ; };
+        template <> struct StdToDataType<char       > { EASY_STATIC_CONSTEXPR auto data_type = DataType::Char  ; };
+        template <> struct StdToDataType<int8_t     > { EASY_STATIC_CONSTEXPR auto data_type = DataType::Int8  ; };
+        template <> struct StdToDataType<uint8_t    > { EASY_STATIC_CONSTEXPR auto data_type = DataType::Uint8 ; };
+        template <> struct StdToDataType<int16_t    > { EASY_STATIC_CONSTEXPR auto data_type = DataType::Int16 ; };
+        template <> struct StdToDataType<uint16_t   > { EASY_STATIC_CONSTEXPR auto data_type = DataType::Uint16; };
+        template <> struct StdToDataType<int32_t    > { EASY_STATIC_CONSTEXPR auto data_type = DataType::Int32 ; };
+        template <> struct StdToDataType<uint32_t   > { EASY_STATIC_CONSTEXPR auto data_type = DataType::Uint32; };
+        template <> struct StdToDataType<int64_t    > { EASY_STATIC_CONSTEXPR auto data_type = DataType::Int64 ; };
+        template <> struct StdToDataType<uint64_t   > { EASY_STATIC_CONSTEXPR auto data_type = DataType::Uint64; };
+        template <> struct StdToDataType<float      > { EASY_STATIC_CONSTEXPR auto data_type = DataType::Float ; };
+        template <> struct StdToDataType<double     > { EASY_STATIC_CONSTEXPR auto data_type = DataType::Double; };
+        template <> struct StdToDataType<const char*> { EASY_STATIC_CONSTEXPR auto data_type = DataType::String; };
     }
 
-    template <class T, class ... TArgs>
-    inline ValueId extract_value_id(T, ::profiler::ValueId _vin, TArgs...) {
-        return _vin;
-    }
+    template <DataType dataType, bool isArray>
+    struct Value;
 
-    template <class T, class U, class ... TArgs>
-    inline ValueId extract_value_id(T, U, ::profiler::ValueId _vin, TArgs...) {
-        return _vin;
-    }
+    template <bool isArray>
+    struct Value<DataType::TypesCount, isArray>;
 
-    template <class ... TArgs>
-    inline ValueId extract_value_id(::profiler::ValueId _vin, TArgs...) {
-        return _vin;
-    }
 
-    template <class ... TArgs>
-    inline ValueId extract_value_id(TArgs...) {
-        static_assert(sizeof...(TArgs) < 2, "No ValueId in arguments list for EASY_VALUE(name, value, ...)!");
-        return ValueId();
-    }
-
-    enum DataType : uint8_t
-    {
-        DATA_BOOL = 0,
-        DATA_CHAR,
-        DATA_INT8,
-        DATA_UINT8,
-        DATA_INT16,
-        DATA_UINT16,
-        DATA_INT32,
-        DATA_UINT32,
-        DATA_INT64,
-        DATA_UINT64,
-        DATA_FLOAT,
-        DATA_DOUBLE,
-        DATA_STR,
-
-        DATA_TYPES_NUMBER
-    };
-
-    template <DataType dataType> struct StdType;
-    template <> struct StdType<DATA_BOOL  > { using value_type = bool    ; };
-    template <> struct StdType<DATA_CHAR  > { using value_type = char    ; };
-    template <> struct StdType<DATA_INT8  > { using value_type = int8_t  ; };
-    template <> struct StdType<DATA_UINT8 > { using value_type = uint8_t ; };
-    template <> struct StdType<DATA_INT16 > { using value_type = int16_t ; };
-    template <> struct StdType<DATA_UINT16> { using value_type = uint16_t; };
-    template <> struct StdType<DATA_INT32 > { using value_type = int32_t ; };
-    template <> struct StdType<DATA_UINT32> { using value_type = uint32_t; };
-    template <> struct StdType<DATA_INT64 > { using value_type = int64_t ; };
-    template <> struct StdType<DATA_UINT64> { using value_type = uint64_t; };
-    template <> struct StdType<DATA_FLOAT > { using value_type = float   ; };
-    template <> struct StdType<DATA_DOUBLE> { using value_type = double  ; };
-    template <> struct StdType<DATA_STR   > { using value_type = char    ; };
-
-    template <class T> struct StdToDataType;
-    template <> struct StdToDataType<bool       > { static const DataType data_type = DATA_BOOL  ; };
-    template <> struct StdToDataType<char       > { static const DataType data_type = DATA_CHAR  ; };
-    template <> struct StdToDataType<int8_t     > { static const DataType data_type = DATA_INT8  ; };
-    template <> struct StdToDataType<uint8_t    > { static const DataType data_type = DATA_UINT8 ; };
-    template <> struct StdToDataType<int16_t    > { static const DataType data_type = DATA_INT16 ; };
-    template <> struct StdToDataType<uint16_t   > { static const DataType data_type = DATA_UINT16; };
-    template <> struct StdToDataType<int32_t    > { static const DataType data_type = DATA_INT32 ; };
-    template <> struct StdToDataType<uint32_t   > { static const DataType data_type = DATA_UINT32; };
-    template <> struct StdToDataType<int64_t    > { static const DataType data_type = DATA_INT64 ; };
-    template <> struct StdToDataType<uint64_t   > { static const DataType data_type = DATA_UINT64; };
-    template <> struct StdToDataType<float      > { static const DataType data_type = DATA_FLOAT ; };
-    template <> struct StdToDataType<double     > { static const DataType data_type = DATA_DOUBLE; };
-    template <> struct StdToDataType<const char*> { static const DataType data_type = DATA_STR   ; };
-
-    template <DataType dataType, bool isArray> struct Value;
-    template <bool isArray> struct Value<DATA_TYPES_NUMBER, isArray>;
 
 #pragma pack(push, 1)
     class PROFILER_API ArbitraryValue : protected BaseBlockData
@@ -173,7 +144,8 @@ namespace profiler
         DataType m_type;
         bool  m_isArray;
 
-        ArbitraryValue(size_t _vin, block_id_t _id, uint16_t _size, DataType _type, bool _isArray) : BaseBlockData(0, static_cast<timestamp_t>(_vin), _id)
+        ArbitraryValue(vin_t _vin, block_id_t _id, uint16_t _size, DataType _type, bool _isArray)
+            : BaseBlockData(0, static_cast<timestamp_t>(_vin), _id)
             , m_size(_size)
             , m_type(_type)
             , m_isArray(_isArray)
@@ -186,8 +158,8 @@ namespace profiler
             return reinterpret_cast<const char*>(this) + sizeof(ArbitraryValue);
         }
 
-        size_t value_id() const {
-            return static_cast<size_t>(m_end);
+        vin_t value_id() const {
+            return static_cast<vin_t>(m_end);
         }
 
         template <DataType dataType>
@@ -212,10 +184,13 @@ namespace profiler
     };
 #pragma pack(pop)
 
+
+
     template <DataType dataType> struct Value<dataType, false> : public ArbitraryValue {
         using value_type = typename StdType<dataType>::value_type;
         value_type value() const { return *reinterpret_cast<const value_type*>(data()); }
     };
+
 
     template <DataType dataType> struct Value<dataType, true> : public ArbitraryValue {
         using value_type = typename StdType<dataType>::value_type;
@@ -224,7 +199,8 @@ namespace profiler
         value_type operator [] (int i) const { return value()[i]; }
     };
 
-    template <> struct Value<DATA_STR, true> : public ArbitraryValue {
+
+    template <> struct Value<DataType::String, true> : public ArbitraryValue {
         using value_type = char;
         const char* value() const { return data(); }
         uint16_t size() const { return m_size; }
@@ -232,13 +208,18 @@ namespace profiler
         const char* c_str() const { return data(); }
     };
 
+
     template <DataType dataType>
     using SingleValue = Value<dataType, false>;
+
 
     template <DataType dataType>
     using ArrayValue = Value<dataType, true>;
 
-    using StringValue = Value<DATA_STR, true>;
+
+    using StringValue = Value<DataType::String, true>;
+
+
 
 #ifdef USING_EASY_PROFILER
     extern "C" {
@@ -248,11 +229,14 @@ namespace profiler
     inline void storeValue(const BaseBlockDescriptor*, DataType, const void*, size_t, bool, ValueId) {}
 #endif
 
+
+
     template <class T>
     inline void setValue(const BaseBlockDescriptor* _desc, T _value, ValueId _vin)
     {
         storeValue(_desc, StdToDataType<T>::data_type, &_value, sizeof(T), false, _vin);
     }
+
 
     template <class T, size_t N>
     inline void setValue(const BaseBlockDescriptor* _desc, const T (&_value)[N], ValueId _vin)
@@ -260,22 +244,25 @@ namespace profiler
         storeValue(_desc, StdToDataType<T>::data_type, &_value[0], sizeof(_value), true, _vin);
     }
 
+
     inline void setText(const BaseBlockDescriptor* _desc, const char* _text, ValueId _vin)
     {
-        storeValue(_desc, DATA_STR, _text, strlen(_text) + 1, true, _vin);
+        storeValue(_desc, DataType::String, _text, strlen(_text) + 1, true, _vin);
     }
+
 
     inline void setText(const BaseBlockDescriptor* _desc, const std::string& _text, ValueId _vin)
     {
-        storeValue(_desc, DATA_STR, _text.c_str(), _text.size() + 1, true, _vin);
+        storeValue(_desc, DataType::String, _text.c_str(), _text.size() + 1, true, _vin);
     }
+
 
     template <size_t N>
     inline void setText(const BaseBlockDescriptor* _desc, const char (&_text)[N], ValueId _vin)
     {
-        storeValue(_desc, DATA_STR, &_text[0], N, true, _vin);
+        storeValue(_desc, DataType::String, &_text[0], N, true, _vin);
     }
 
-} // END of namespace profiler.
+} // end of namespace profiler.
 
 #endif // EASY_PROFILER_ARBITRARY_VALUE_H
