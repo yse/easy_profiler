@@ -53,8 +53,6 @@
 
 #include <cstddef>
 
-//#define EASY_CODE_WRAP(Code) Code
-
 #if defined(_WIN32) && !defined(EASY_PROFILER_STATIC)
 // Visual Studio and MinGW
 # ifdef _BUILD_PROFILER
@@ -66,7 +64,7 @@
 
 
 
-#if defined (_MSC_VER)
+#if defined(_MSC_VER)
 //////////////////////////////////////////////////////////////////////////
 // Visual Studio
 
@@ -80,17 +78,29 @@
                                             __declspec(thread) static VarType VarName = 0;\
                                             if (!VarName)\
                                                 VarName = VarInitializer
+
+// No constexpr support before Visual Studio 2015
+#  define EASY_CONSTEXPR static const
+#  define EASY_STATIC_CONSTEXPR static const
+#  define EASY_CONSTEXPR_FCN
 # endif
 
 #define EASY_FORCE_INLINE __forceinline
 
-#elif defined (__clang__)
+#elif defined(__clang__)
 //////////////////////////////////////////////////////////////////////////
 // Clang Compiler
 
 # if (__clang_major__ == 3 && __clang_minor__ < 3) || (__clang_major__ < 3)
-// There is no support for C++11 thread_local keyword prior to clang 3.3. Use __thread instead.
+// There is no support for C++11 thread_local keyword prior to Clang v3.3. Use __thread instead.
 #  define EASY_THREAD_LOCAL __thread
+# endif
+
+# if (__clang_major__ == 3 && __clang_minor__ < 1) || (__clang_major__ < 3)
+// No constexpr support before Clang v3.1
+#  define EASY_CONSTEXPR static const
+#  define EASY_STATIC_CONSTEXPR static const
+#  define EASY_CONSTEXPR_FCN
 # endif
 
 # if (__clang_major__ == 2 && __clang_minor__ < 9) || (__clang_major__ < 2)
@@ -100,7 +110,7 @@
                                             if (!VarName)\
                                                 VarName = VarInitializer
 
-// There is no support for C++11 final keyword prior to clang 2.9
+// There is no support for C++11 final keyword prior to Clang v2.9
 #  define EASY_FINAL 
 # endif
 
@@ -113,6 +123,13 @@
 # if (__GNUC__ == 4 && __GNUC_MINOR__ < 8) || (__GNUC__ < 4)
 // There is no support for C++11 thread_local keyword prior to gcc 4.8. Use __thread instead.
 #  define EASY_THREAD_LOCAL __thread
+# endif
+
+# if (__GNUC__ == 4 && __GNUC_MINOR__ < 6) || (__GNUC__ < 4)
+// No constexpr support before GCC v4.6
+#  define EASY_CONSTEXPR static const
+#  define EASY_STATIC_CONSTEXPR static const
+#  define EASY_CONSTEXPR_FCN
 # endif
 
 # if (__GNUC__ == 4 && __GNUC_MINOR__ < 3) || (__GNUC__ < 4)
@@ -130,8 +147,13 @@
 
 #define EASY_FORCE_INLINE inline __attribute__((always_inline))
 
+#else
+//////////////////////////////////////////////////////////////////////////
+// TODO: Add other compilers support
+
+static_assert(false, "EasyProfiler is not configured yet for using your compiler type.");
 #endif
-// END // TODO: Add other compilers support
+// END
 //////////////////////////////////////////////////////////////////////////
 
 
@@ -155,6 +177,13 @@
 
 #ifndef EASY_FORCE_INLINE
 # define EASY_FORCE_INLINE inline
+#endif
+
+#ifndef EASY_CONSTEXPR
+# define EASY_CONSTEXPR constexpr
+# define EASY_STATIC_CONSTEXPR static constexpr
+# define EASY_CONSTEXPR_FCN constexpr
+# define EASY_CONSTEXPR_CPP11
 #endif
 
 #ifndef PROFILER_API

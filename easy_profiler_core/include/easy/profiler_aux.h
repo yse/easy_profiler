@@ -136,61 +136,62 @@ namespace profiler {
 
     //***********************************************
 
-    inline color_t extract_color() {
+    template <class ... TArgs>
+    inline EASY_CONSTEXPR_FCN color_t extract_color(TArgs...);
+
+    template <>
+    inline EASY_CONSTEXPR_FCN color_t extract_color<>() {
         return ::profiler::colors::Default;
     }
 
-    template <class ... TArgs>
-    inline color_t extract_color(::profiler::EasyBlockStatus, TArgs...) {
+    template <class T>
+    inline EASY_CONSTEXPR_FCN color_t extract_color(T) {
         return ::profiler::colors::Default;
     }
 
+    template <>
+    inline EASY_CONSTEXPR_FCN color_t extract_color<color_t>(color_t _color) {
+        return _color;
+    }
+
     template <class ... TArgs>
-    inline color_t extract_color(color_t _color, TArgs...) {
+    inline EASY_CONSTEXPR_FCN color_t extract_color(color_t _color, TArgs...) {
         return _color;
     }
 
     template <class T, class ... TArgs>
-    inline color_t extract_color(T, color_t _color, TArgs...) {
-        return _color;
-    }
-
-    template <class T, class U, class ... TArgs>
-    inline color_t extract_color(T, U, color_t _color, TArgs...) {
-        return _color;
-    }
-
-    template <class ... TArgs>
-    inline color_t extract_color(TArgs...) {
-        static_assert(sizeof...(TArgs) < 2, "No profiler::color_t in arguments list for EASY_BLOCK(name, ...)!");
-        return ::profiler::colors::Default;
+    inline EASY_CONSTEXPR_FCN color_t extract_color(T, TArgs... _args) {
+        return extract_color(_args...);
     }
 
     //***********************************************
 
-    inline EasyBlockStatus extract_enable_flag() {
+    template <class ... TArgs>
+    inline EASY_CONSTEXPR_FCN EasyBlockStatus extract_enable_flag(TArgs...);
+
+    template <>
+    inline EASY_CONSTEXPR_FCN EasyBlockStatus extract_enable_flag<>() {
         return ::profiler::ON;
+    }
+
+    template <class T>
+    inline EASY_CONSTEXPR_FCN EasyBlockStatus extract_enable_flag(T) {
+        return ::profiler::ON;
+    }
+
+    template <>
+    inline EASY_CONSTEXPR_FCN EasyBlockStatus extract_enable_flag(EasyBlockStatus _flag) {
+        return _flag;
+    }
+
+    template <class ... TArgs>
+    inline EASY_CONSTEXPR_FCN EasyBlockStatus extract_enable_flag(EasyBlockStatus _flag, TArgs...) {
+        return _flag;
     }
 
     template <class T, class ... TArgs>
-    inline EasyBlockStatus extract_enable_flag(T, ::profiler::EasyBlockStatus _flag, TArgs...) {
-        return _flag;
-    }
-
-    template <class T, class U, class ... TArgs>
-    inline EasyBlockStatus extract_enable_flag(T, U, ::profiler::EasyBlockStatus _flag, TArgs...) {
-        return _flag;
-    }
-
-    template <class ... TArgs>
-    inline EasyBlockStatus extract_enable_flag(::profiler::EasyBlockStatus _flag, TArgs...) {
-        return _flag;
-    }
-
-    template <class ... TArgs>
-    inline EasyBlockStatus extract_enable_flag(TArgs...) {
-        static_assert(sizeof...(TArgs) < 2, "No EasyBlockStatus in arguments list for EASY_BLOCK(name, ...)!");
-        return ::profiler::ON;
+    inline EASY_CONSTEXPR_FCN EasyBlockStatus extract_enable_flag(T, TArgs... _args) {
+        return extract_enable_flag(_args...);
     }
 
     //***********************************************
