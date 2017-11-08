@@ -62,7 +62,13 @@ namespace profiler {
 
     template <class T, bool greater_than_size_t>
     struct hash : public ::std::hash<T> {
+#if defined(_MSC_VER) && _MSC_VER >= 1910
+        inline size_t operator () (const T& value) const {
+            return ::std::hash<T>::operator()(value);
+        }
+#else
         using ::std::hash<T>::operator();
+#endif
     };
 
     template <class T>
