@@ -83,8 +83,8 @@ class CSwitchBlock : public profiler::CSwitchEvent
 
 public:
 
-    CSwitchBlock(profiler::timestamp_t _begin_time, profiler::thread_id_t _tid, const char* _runtimeName);
-    inline const char* name() const { return m_name; }
+    CSwitchBlock(profiler::timestamp_t _begin_time, profiler::thread_id_t _tid, const char* _runtimeName) EASY_NOEXCEPT;
+    inline const char* name() const EASY_NOEXCEPT { return m_name; }
 };
 
 //////////////////////////////////////////////////////////////////////////

@@ -863,7 +863,7 @@ void EasyHistogramItem::setSource(::profiler::thread_id_t _thread_id, const ::pr
                     if (m_bReady.load(::std::memory_order_acquire))
                         return;
 
-                    if (easyDescriptor(easyBlock(item.block).tree.node->id()).type() == ::profiler::BLOCK_TYPE_EVENT)
+                    if (easyDescriptor(easyBlock(item.block).tree.node->id()).type() == ::profiler::BlockType::Event)
                         continue;
 
                     const auto w = item.width();

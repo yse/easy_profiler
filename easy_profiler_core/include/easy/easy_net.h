@@ -43,68 +43,74 @@ The Apache License, Version 2.0 (the "License");
 #ifndef EASY_NET_H
 #define EASY_NET_H
 
+#include <easy/details/easy_compiler_support.h>
 #include <stdint.h>
 
-namespace profiler {
-namespace net {
+namespace profiler { namespace net {
 
-const uint32_t EASY_MESSAGE_SIGN = 20160909;
+EASY_CONSTEXPR uint32_t EASY_MESSAGE_SIGN = 20160909;
 
 #pragma pack(push,1)
 
-enum MessageType : uint8_t
+enum class MessageType : uint8_t
 {
-    MESSAGE_TYPE_ZERO = 0,
+    Undefined = 0,
 
-    MESSAGE_TYPE_REQUEST_START_CAPTURE,
-    MESSAGE_TYPE_REPLY_START_CAPTURING,
-    MESSAGE_TYPE_REQUEST_STOP_CAPTURE,
+    Request_Start_Capture,
+    Reply_Capturing_Started,
+    Request_Stop_Capture,
 
-    MESSAGE_TYPE_REPLY_BLOCKS,
-    MESSAGE_TYPE_REPLY_BLOCKS_END,
+    Reply_Blocks,
+    Reply_Blocks_End,
 
-    MESSAGE_TYPE_ACCEPTED_CONNECTION,
+    Connection_Accepted,
 
-    MESSAGE_TYPE_REQUEST_BLOCKS_DESCRIPTION,
-    MESSAGE_TYPE_REPLY_BLOCKS_DESCRIPTION,
-    MESSAGE_TYPE_REPLY_BLOCKS_DESCRIPTION_END,
+    Request_Blocks_Description,
+    Reply_Blocks_Description,
+    Reply_Blocks_Description_End,
 
-    MESSAGE_TYPE_EDIT_BLOCK_STATUS,
+    Change_Block_Status,
+    Change_Event_Tracing_Status,
+    Change_Event_Tracing_Priority,
 
-    MESSAGE_TYPE_EVENT_TRACING_STATUS,
-    MESSAGE_TYPE_EVENT_TRACING_PRIORITY,
-    MESSAGE_TYPE_CHECK_CONNECTION,
+    Ping,
 
-    MESSAGE_TYPE_REQUEST_MAIN_FRAME_TIME_MAX_AVG_US,
-    MESSAGE_TYPE_REPLY_MAIN_FRAME_TIME_MAX_AVG_US,
+    Request_MainThread_FPS,
+    Reply_MainThread_FPS,
 };
 
 struct Message
 {
-    uint32_t  magic_number = EASY_MESSAGE_SIGN;
-    MessageType type = MESSAGE_TYPE_ZERO;
+    uint32_t magic_number = EASY_MESSAGE_SIGN;
+    MessageType type = MessageType::Undefined;
 
-    bool isEasyNetMessage() const
-    {
+    bool isEasyNetMessage() const EASY_NOEXCEPT {
         return EASY_MESSAGE_SIGN == magic_number;
     }
 
+    explicit Message(MessageType _t) EASY_NOEXCEPT : type(_t) { }
+
     Message() = default;
-    Message(MessageType _t):type(_t){}
 };
 
-struct DataMessage : public Message {
+struct DataMessage : public Message
+{
     uint32_t size = 0; // bytes
-    DataMessage(MessageType _t = MESSAGE_TYPE_REPLY_BLOCKS) : Message(_t) {}
-    DataMessage(uint32_t _s, MessageType _t = MESSAGE_TYPE_REPLY_BLOCKS) : Message(_t), size(_s) {}
+
+    explicit DataMessage(MessageType _t = MessageType::Reply_Blocks) : Message(_t) {}
+    explicit DataMessage(uint32_t _s, MessageType _t = MessageType::Reply_Blocks) : Message(_t), size(_s) {}
+
     const char* data() const { return reinterpret_cast<const char*>(this) + sizeof(DataMessage); }
 };
 
-struct BlockStatusMessage : public Message {
+struct BlockStatusMessage : public Message
+{
     uint32_t    id;
     uint8_t status;
-    BlockStatusMessage(uint32_t _id, uint8_t _status) : Message(MESSAGE_TYPE_EDIT_BLOCK_STATUS), id(_id), status(_status) { }
-private:
+
+    explicit BlockStatusMessage(uint32_t _id, uint8_t _status)
+        : Message(MessageType::Change_Block_Status), id(_id), status(_status) { }
+
     BlockStatusMessage() = delete;
 };
 
@@ -114,29 +120,35 @@ struct EasyProfilerStatus : public Message
     bool     isEventTracingEnabled;
     bool isLowPriorityEventTracing;
 
-    EasyProfilerStatus(bool _enabled, bool _ETenabled, bool _ETlowp)
-        : Message(MESSAGE_TYPE_ACCEPTED_CONNECTION)
+    explicit EasyProfilerStatus(bool _enabled, bool _ETenabled, bool _ETlowp)
+        : Message(MessageType::Connection_Accepted)
         , isProfilerEnabled(_enabled)
         , isEventTracingEnabled(_ETenabled)
         , isLowPriorityEventTracing(_ETlowp)
     {
     }
 
-private:
-
     EasyProfilerStatus() = delete;
 };
 
-struct BoolMessage : public Message {
+struct BoolMessage : public Message
+{
     bool flag = false;
-    BoolMessage(MessageType _t, bool _flag = false) : Message(_t), flag(_flag) { }
+
+    explicit BoolMessage(MessageType _t, bool _flag = false)
+        : Message(_t), flag(_flag) { }
+
     BoolMessage() = default;
 };
 
-struct TimestampMessage : public Message {
+struct TimestampMessage : public Message
+{
     uint32_t maxValue = 0;
     uint32_t avgValue = 0;
-    TimestampMessage(MessageType _t, uint32_t _maxValue, uint32_t _avgValue) : Message(_t), maxValue(_maxValue), avgValue(_avgValue) { }
+
+    explicit TimestampMessage(MessageType _t, uint32_t _maxValue, uint32_t _avgValue)
+        : Message(_t), maxValue(_maxValue), avgValue(_avgValue) { }
+
     TimestampMessage() = default;
 };
 

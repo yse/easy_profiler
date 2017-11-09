@@ -49,13 +49,13 @@ class NonscopedBlock : public profiler::Block
 {
     char* m_runtimeName; ///< A copy of _runtimeName to make it safe to begin block in one function and end it in another
 
-    NonscopedBlock() = delete;
-    NonscopedBlock(const NonscopedBlock&) = delete;
-    NonscopedBlock(NonscopedBlock&&) = delete;
-    NonscopedBlock& operator = (const NonscopedBlock&) = delete;
-    NonscopedBlock& operator = (NonscopedBlock&&) = delete;
-
 public:
+
+    NonscopedBlock()                                   = delete;
+    NonscopedBlock(const NonscopedBlock&)              = delete;
+    NonscopedBlock(NonscopedBlock&&)                   = delete;
+    NonscopedBlock& operator = (const NonscopedBlock&) = delete;
+    NonscopedBlock& operator = (NonscopedBlock&&)      = delete;
 
     NonscopedBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, bool = false);
     ~NonscopedBlock();

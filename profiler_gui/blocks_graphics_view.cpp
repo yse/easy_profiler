@@ -1531,7 +1531,7 @@ void EasyGraphicsView::onIdleTimeout()
                 return;
 
             int row = 0;
-            if (itemDesc.type() == ::profiler::BLOCK_TYPE_BLOCK)
+            if (itemDesc.type() == ::profiler::BlockType::Block)
             {
                 //lay->addWidget(new QLabel("Name:", widget), row, 0, Qt::AlignRight);
                 lay->addWidget(new EasyBoldLabel(::profiler_gui::toUnicode(name), widget), row, 0, 1, 5, Qt::AlignHCenter);
@@ -1564,7 +1564,7 @@ void EasyGraphicsView::onIdleTimeout()
 
             if (itemBlock.per_thread_stats)
             {
-                if (itemDesc.type() == ::profiler::BLOCK_TYPE_BLOCK)
+                if (itemDesc.type() == ::profiler::BlockType::Block)
                 {
                     const auto duration = itemBlock.node->duration();
 

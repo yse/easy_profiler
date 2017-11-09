@@ -291,7 +291,7 @@ namespace profiler {
 
     //////////////////////////////////////////////////////////////////////////
 
-#ifndef EASY_MAGIC_STATIC_CPP11
+#ifndef EASY_MAGIC_STATIC_AVAILABLE
     class EasyEventTracerInstance {
         friend EasyEventTracer;
         EasyEventTracer instance;
@@ -300,7 +300,7 @@ namespace profiler {
 
     EasyEventTracer& EasyEventTracer::instance()
     {
-#ifndef EASY_MAGIC_STATIC_CPP11
+#ifndef EASY_MAGIC_STATIC_AVAILABLE
         return EASY_EVENT_TRACER.instance;
 #else
         static EasyEventTracer tracer;

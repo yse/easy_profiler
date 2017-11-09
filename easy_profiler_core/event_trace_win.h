@@ -75,7 +75,7 @@ namespace profiler {
 
     class EasyEventTracer EASY_FINAL
     {
-#ifndef EASY_MAGIC_STATIC_CPP11
+#ifndef EASY_MAGIC_STATIC_AVAILABLE
         friend class EasyEventTracerInstance;
 #endif
 

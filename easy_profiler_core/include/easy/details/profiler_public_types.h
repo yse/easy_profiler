@@ -51,19 +51,19 @@ struct ThreadStorage;
 
 namespace profiler {
 
-    typedef uint64_t timestamp_t;
-    typedef uint64_t thread_id_t;
-    typedef uint32_t  block_id_t;
+    using timestamp_t = uint64_t;
+    using thread_id_t = uint64_t;
+    using block_id_t  = uint32_t;
 
-    enum BlockType : uint8_t
+    enum class BlockType : uint8_t
     {
-        BLOCK_TYPE_EVENT = 0,
-        BLOCK_TYPE_BLOCK,
-        BLOCK_TYPE_VALUE,
+        Event = 0,
+        Block,
+        Value,
 
-        BLOCK_TYPES_NUMBER
+        TypesCount
     };
-    typedef BlockType block_type_t;
+    using block_type_t = BlockType;
 
     enum Duration : uint8_t
     {
@@ -87,15 +87,17 @@ namespace profiler {
         block_type_t      m_type; ///< Type of the block (See BlockType)
         EasyBlockStatus m_status; ///< If false then blocks with such id() will not be stored by profiler during profile session
 
-        BaseBlockDescriptor(block_id_t _id, EasyBlockStatus _status, int _line, block_type_t _block_type, color_t _color);
+        explicit BaseBlockDescriptor(block_id_t _id, EasyBlockStatus _status, int _line, block_type_t _block_type, color_t _color) EASY_NOEXCEPT;
 
     public:
 
-        inline block_id_t id() const { return m_id; }
-        inline int line() const { return m_line; }
-        inline color_t color() const { return m_color; }
-        inline block_type_t type() const { return m_type; }
-        inline EasyBlockStatus status() const { return m_status; }
+        BaseBlockDescriptor() = delete;
+
+        inline block_id_t id() const EASY_NOEXCEPT { return m_id; }
+        inline int line() const EASY_NOEXCEPT { return m_line; }
+        inline color_t color() const EASY_NOEXCEPT { return m_color; }
+        inline block_type_t type() const EASY_NOEXCEPT { return m_type; }
+        inline EasyBlockStatus status() const EASY_NOEXCEPT { return m_status; }
 
     }; // END of class BaseBlockDescriptor.
 
@@ -112,17 +114,15 @@ namespace profiler {
 
     public:
 
-        Event(const Event&) = default;
-        Event(timestamp_t _begin_time);
-        Event(timestamp_t _begin_time, timestamp_t _end_time);
-
-        inline timestamp_t begin() const { return m_begin; }
-        inline timestamp_t end() const { return m_end; }
-        inline timestamp_t duration() const { return m_end - m_begin; }
-
-    private:
-
         Event() = delete;
+
+        Event(const Event&) = default;
+        explicit Event(timestamp_t _begin_time) EASY_NOEXCEPT;
+        explicit Event(timestamp_t _begin_time, timestamp_t _end_time) EASY_NOEXCEPT;
+
+        inline timestamp_t begin() const EASY_NOEXCEPT { return m_begin; }
+        inline timestamp_t end() const EASY_NOEXCEPT { return m_end; }
+        inline timestamp_t duration() const EASY_NOEXCEPT { return m_end - m_begin; }
 
     }; // END class Event.
 
@@ -136,16 +136,14 @@ namespace profiler {
 
     public:
 
-        BaseBlockData(const BaseBlockData&) = default;
-        BaseBlockData(timestamp_t _begin_time, block_id_t _id);
-        BaseBlockData(timestamp_t _begin_time, timestamp_t _end_time, block_id_t _id);
-
-        inline block_id_t id() const { return m_id; }
-        inline void setId(block_id_t _id) { m_id = _id; }
-
-    private:
-
         BaseBlockData() = delete;
+
+        BaseBlockData(const BaseBlockData&) = default;
+        explicit BaseBlockData(timestamp_t _begin_time, block_id_t _id) EASY_NOEXCEPT;
+        explicit BaseBlockData(timestamp_t _begin_time, timestamp_t _end_time, block_id_t _id) EASY_NOEXCEPT;
+
+        inline block_id_t id() const EASY_NOEXCEPT { return m_id; }
+        inline void setId(block_id_t _id) EASY_NOEXCEPT { m_id = _id; }
 
     }; // END of class BaseBlockData.
 
@@ -157,9 +155,9 @@ namespace profiler {
 
         CSwitchEvent() = default;
         CSwitchEvent(const CSwitchEvent&) = default;
-        CSwitchEvent(timestamp_t _begin_time, thread_id_t _tid);
+        explicit CSwitchEvent(timestamp_t _begin_time, thread_id_t _tid) EASY_NOEXCEPT;
 
-        inline thread_id_t tid() const { return m_thread_id; }
+        inline thread_id_t tid() const EASY_NOEXCEPT { return m_thread_id; }
 
     }; // END of class CSwitchEvent.
 #pragma pack(pop)
@@ -179,27 +177,25 @@ namespace profiler {
     private:
 
         void start();
-        void start(timestamp_t _time);
+        void start(timestamp_t _time) EASY_NOEXCEPT;
         void finish();
-        void finish(timestamp_t _time);
-        inline bool finished() const { return m_end >= m_begin; }
-        inline EasyBlockStatus status() const { return m_status; }
-        inline void setStatus(EasyBlockStatus _status) { m_status = _status; }
+        void finish(timestamp_t _time) EASY_NOEXCEPT;
+        inline bool finished() const EASY_NOEXCEPT { return m_end >= m_begin; }
+        inline EasyBlockStatus status() const EASY_NOEXCEPT { return m_status; }
+        inline void setStatus(EasyBlockStatus _status) EASY_NOEXCEPT { m_status = _status; }
 
     public:
 
-        Block(Block&& that);
-        Block(const BaseBlockDescriptor* _desc, const char* _runtimeName, bool _scoped = true);
-        Block(timestamp_t _begin_time, block_id_t _id, const char* _runtimeName);
-        Block(timestamp_t _begin_time, timestamp_t _end_time, block_id_t _id, const char* _runtimeName);
+        Block(const Block&)              = delete;
+        Block& operator = (const Block&) = delete;
+
+        Block(Block&& that) EASY_NOEXCEPT;
+        Block(const BaseBlockDescriptor* _desc, const char* _runtimeName, bool _scoped = true) EASY_NOEXCEPT;
+        Block(timestamp_t _begin_time, block_id_t _id, const char* _runtimeName) EASY_NOEXCEPT;
+        Block(timestamp_t _begin_time, timestamp_t _end_time, block_id_t _id, const char* _runtimeName) EASY_NOEXCEPT;
         ~Block();
 
-        inline const char* name() const { return m_name; }
-
-    private:
-
-        Block(const Block&) = delete;
-        Block& operator = (const Block&) = delete;
+        inline const char* name() const EASY_NOEXCEPT { return m_name; }
 
     }; // END of class Block.
 

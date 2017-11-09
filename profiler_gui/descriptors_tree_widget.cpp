@@ -407,7 +407,7 @@ void EasyDescTreeWidget::build()
                 item->setData(DESC_COL_FILE_LINE, Qt::UserRole, desc->line());
                 item->setText(DESC_COL_NAME, desc->name());
 
-                if (desc->type() == ::profiler::BLOCK_TYPE_BLOCK)
+                if (desc->type() == ::profiler::BlockType::Block)
                 {
                     item->setText(DESC_COL_TYPE, "B");
                     item->setToolTip(DESC_COL_TYPE, "Block");

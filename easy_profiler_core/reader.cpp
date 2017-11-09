@@ -796,7 +796,7 @@ extern "C" {
 
                     ++root.blocks_number;
                     root.children.emplace_back(block_index);// ::std::move(tree));
-                    if (desc->type() == ::profiler::BLOCK_TYPE_EVENT)
+                    if (desc->type() == ::profiler::BlockType::Event)
                         root.events.emplace_back(block_index);
 
 
@@ -850,7 +850,7 @@ extern "C" {
                     {
                         auto& frame = blocks[i];
 
-                        if (descriptors[frame.node->id()]->type() == ::profiler::BLOCK_TYPE_BLOCK)
+                        if (descriptors[frame.node->id()]->type() == ::profiler::BlockType::Block)
                             ++root.frames_number;
 
                         frame.per_parent_stats = update_statistics(per_parent_statistics, frame, i, ~0U, blocks);//, root.thread_id, blocks);
@@ -909,7 +909,7 @@ extern "C" {
                 {
                     auto& frame = blocks[i];
 
-                    if (descriptors[frame.node->id()]->type() == ::profiler::BLOCK_TYPE_BLOCK)
+                    if (descriptors[frame.node->id()]->type() == ::profiler::BlockType::Block)
                         ++root.frames_number;
 
                     if (root.depth < frame.depth)

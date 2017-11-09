@@ -43,7 +43,7 @@ The Apache License, Version 2.0 (the "License");
 #ifndef EASY_PROFILER_SERIALIZED_BLOCK_H
 #define EASY_PROFILER_SERIALIZED_BLOCK_H
 
-#include <easy/profiler.h>
+#include <easy/details/profiler_public_types.h>
 
 class CSwitchBlock;
 
@@ -63,13 +63,15 @@ namespace profiler {
         ///< Run-time block name is stored right after main BaseBlockData data
         inline const char* name() const { return data() + sizeof(BaseBlockData); }
 
+        SerializedBlock(const SerializedBlock&)              = delete;
+        SerializedBlock& operator = (const SerializedBlock&) = delete;
+        SerializedBlock(SerializedBlock&&)                   = delete;
+        SerializedBlock& operator = (SerializedBlock&&)      = delete;
+        ~SerializedBlock()                                   = delete;
+
     private:
 
-        SerializedBlock(const Block& block, uint16_t name_length);
-
-        SerializedBlock(const SerializedBlock&) = delete;
-        SerializedBlock& operator = (const SerializedBlock&) = delete;
-        ~SerializedBlock() = delete;
+        explicit SerializedBlock(const Block& block, uint16_t name_length);
 
     }; // END of SerializedBlock.
 
@@ -87,13 +89,15 @@ namespace profiler {
         ///< Run-time block name is stored right after main CSwitchEvent data
         inline const char* name() const { return data() + sizeof(CSwitchEvent); }
 
+        SerializedCSwitch(const SerializedCSwitch&)              = delete;
+        SerializedCSwitch& operator = (const SerializedCSwitch&) = delete;
+        SerializedCSwitch(SerializedCSwitch&&)                   = delete;
+        SerializedCSwitch& operator = (SerializedCSwitch&&)      = delete;
+        ~SerializedCSwitch()                                     = delete;
+
     private:
 
-        SerializedCSwitch(const CSwitchBlock& block, uint16_t name_length);
-
-        SerializedCSwitch(const SerializedCSwitch&) = delete;
-        SerializedCSwitch& operator = (const SerializedCSwitch&) = delete;
-        ~SerializedCSwitch() = delete;
+        explicit SerializedCSwitch(const CSwitchBlock& block, uint16_t name_length);
 
     }; // END of SerializedCSwitch.
 
@@ -121,15 +125,17 @@ namespace profiler {
             return name() + m_nameLength;
         }
 
-        inline void setStatus(EasyBlockStatus _status) {
+        inline void setStatus(EasyBlockStatus _status) EASY_NOEXCEPT {
             m_status = _status;
         }
 
-    private:
-
-        SerializedBlockDescriptor(const SerializedBlockDescriptor&) = delete;
+        // Instances of this class can not be created or destroyed directly
+        SerializedBlockDescriptor()                                              = delete;
+        SerializedBlockDescriptor(const SerializedBlockDescriptor&)              = delete;
         SerializedBlockDescriptor& operator = (const SerializedBlockDescriptor&) = delete;
-        ~SerializedBlockDescriptor() = delete;
+        SerializedBlockDescriptor(SerializedBlockDescriptor&&)                   = delete;
+        SerializedBlockDescriptor& operator = (SerializedBlockDescriptor&&)      = delete;
+        ~SerializedBlockDescriptor()                                             = delete;
 
     }; // END of SerializedBlockDescriptor.
 #pragma pack(pop)

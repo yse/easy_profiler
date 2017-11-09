@@ -57,13 +57,13 @@ The Apache License, Version 2.0 (the "License");
 # define EASY_VALUE(name, value, ...)\
     EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), ::profiler::registerDescription(\
         ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
-            __FILE__, __LINE__, ::profiler::BLOCK_TYPE_VALUE, ::profiler::extract_color(__VA_ARGS__), false));\
+            __FILE__, __LINE__, ::profiler::BlockType::Value, ::profiler::extract_color(__VA_ARGS__), false));\
     ::profiler::setValue(EASY_UNIQUE_DESC(__LINE__), value, ::profiler::extract_value_id(value , ## __VA_ARGS__));
 
 # define EASY_TEXT(name, text, ...)\
     EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), ::profiler::registerDescription(\
         ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
-            __FILE__, __LINE__, ::profiler::BLOCK_TYPE_VALUE, ::profiler::extract_color(__VA_ARGS__), false));\
+            __FILE__, __LINE__, ::profiler::BlockType::Value, ::profiler::extract_color(__VA_ARGS__), false));\
     ::profiler::setValue(EASY_UNIQUE_DESC(__LINE__), text, ::profiler::extract_value_id(text , ## __VA_ARGS__));
 
 namespace profiler

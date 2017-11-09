@@ -67,13 +67,11 @@ class BlockDescriptor;
 
 class ProfileManager
 {
-#ifndef EASY_MAGIC_STATIC_CPP11
+#ifndef EASY_MAGIC_STATIC_AVAILABLE
     friend class ProfileManagerInstance;
 #endif
 
     ProfileManager();
-    ProfileManager(const ProfileManager& p) = delete;
-    ProfileManager& operator=(const ProfileManager&) = delete;
 
     typedef profiler::guard_lock<profiler::spin_lock> guard_lock_t;
     typedef std::map<profiler::thread_id_t, ThreadStorage> map_of_threads_stacks;
@@ -118,6 +116,11 @@ class ProfileManager
     std::atomic_bool m_stopListen;
 
 public:
+
+    ProfileManager(const ProfileManager&)              = delete;
+    ProfileManager(ProfileManager&&)                   = delete;
+    ProfileManager& operator = (const ProfileManager&) = delete;
+    ProfileManager& operator = (ProfileManager&&)      = delete;
 
     static ProfileManager& instance();
     ~ProfileManager();

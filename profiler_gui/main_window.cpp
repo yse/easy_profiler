@@ -1847,13 +1847,13 @@ QString EasyFileReader::getError()
 void EasyMainWindow::onEventTracingPriorityChange(bool _checked)
 {
     if (EASY_GLOBALS.connected)
-        m_listener.send(profiler::net::BoolMessage(profiler::net::MESSAGE_TYPE_EVENT_TRACING_PRIORITY, _checked));
+        m_listener.send(profiler::net::BoolMessage(profiler::net::MessageType::Change_Event_Tracing_Priority, _checked));
 }
 
 void EasyMainWindow::onEventTracingEnableChange(bool _checked)
 {
     if (EASY_GLOBALS.connected)
-        m_listener.send(profiler::net::BoolMessage(profiler::net::MESSAGE_TYPE_EVENT_TRACING_STATUS, _checked));
+        m_listener.send(profiler::net::BoolMessage(profiler::net::MessageType::Change_Event_Tracing_Status, _checked));
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1869,9 +1869,13 @@ void EasyMainWindow::onFrameTimeEditFinish()
 
     EASY_GLOBALS.frame_time = text.toFloat() * 1e3f;
 
-    disconnect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::expectedFrameTimeChanged, this, &This::onFrameTimeChanged);
+    disconnect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::expectedFrameTimeChanged,
+               this, &This::onFrameTimeChanged);
+
     emit EASY_GLOBALS.events.expectedFrameTimeChanged();
-    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::expectedFrameTimeChanged, this, &This::onFrameTimeChanged);
+
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::expectedFrameTimeChanged,
+            this, &This::onFrameTimeChanged);
 }
 
 void EasyMainWindow::onFrameTimeChanged()
@@ -1893,51 +1897,24 @@ void EasyMainWindow::onConnectClicked(bool)
 
     QString address = m_addressEdit->text();
     const decltype(m_lastPort) port = m_portEdit->text().toUShort();
-    const bool isSameAddress = (EASY_GLOBALS.connected && m_listener.port() == port && address.toStdString() == m_listener.address());
+
+    const bool isSameAddress = (EASY_GLOBALS.connected && m_listener.port() == port &&
+        address.toStdString() == m_listener.address());
 
     profiler::net::EasyProfilerStatus reply(false, false, false);
     if (!m_listener.connect(address.toStdString().c_str(), port, reply))
     {
-        /*if (EASY_GLOBALS.connected && !isSameAddress)
+        QMessageBox::warning(this, "Warning", QString("Cannot connect to %1").arg(address), QMessageBox::Close);
+        if (EASY_GLOBALS.connected)
         {
-            if (QMessageBox::warning(this, "Warning", QString("Cannot connect to %1\n\nRestore previous connection?").arg(address),
-                QMessageBox::Yes, QMessageBox::No) == QMessageBox::Yes)
-            {
-                if (!m_listener.connect(m_lastAddress.toStdString().c_str(), m_lastPort, reply))
-                {
-                    QMessageBox::warning(this, "Warning", "Cannot restore previous connection", QMessageBox::Close);
-                    setDisconnected(false);
-                    m_lastAddress = ::std::move(address);
-                    m_lastPort = port;
-                }
-                else
-                {
-                    m_addressEdit->setText(m_lastAddress);
-                    m_portEdit->setText(QString::number(m_lastPort));
-                    //QMessageBox::information(this, "Information", "Previous connection restored", QMessageBox::Close);
-                }
-            }
-            else
-            {
-                setDisconnected(false);
-                m_lastAddress = ::std::move(address);
-                m_lastPort = port;
-            }
+            m_listener.closeSocket();
+            setDisconnected(false);
         }
-        else*/
-        {
-            QMessageBox::warning(this, "Warning", QString("Cannot connect to %1").arg(address), QMessageBox::Close);
-            if (EASY_GLOBALS.connected)
-            {
-                m_listener.closeSocket();
-                setDisconnected(false);
-            }
 
-            if (!isSameAddress)
-            {
-                m_lastAddress = ::std::move(address);
-                m_lastPort = port;
-            }
+        if (!isSameAddress)
+        {
+            m_lastAddress = ::std::move(address);
+            m_lastPort = port;
         }
 
         return;
@@ -2341,7 +2318,7 @@ bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profile
         }
 
         auto message = reinterpret_cast<const ::profiler::net::EasyProfilerStatus*>(buffer);
-        if (message->isEasyNetMessage() && message->type == profiler::net::MESSAGE_TYPE_ACCEPTED_CONNECTION)
+        if (message->isEasyNetMessage() && message->type == profiler::net::MessageType::Connection_Accepted)
             _reply = *message;
 
         m_address = _ipaddress;
@@ -2368,7 +2345,7 @@ bool EasySocketListener::startCapture()
 
     clearData();
 
-    profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE);
+    profiler::net::Message request(profiler::net::MessageType::Request_Start_Capture);
     m_easySocket.send(&request, sizeof(request));
 
     if (m_easySocket.isDisconnected()) {
@@ -2392,7 +2369,7 @@ void EasySocketListener::stopCapture()
         return;
 
     //m_bStopReceive.store(true, ::std::memory_order_release);
-    profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE);
+    profiler::net::Message request(profiler::net::MessageType::Request_Stop_Capture);
     m_easySocket.send(&request, sizeof(request));
 
     //m_thread.join();
@@ -2444,7 +2421,7 @@ void EasySocketListener::requestBlocksDescription()
 
     clearData();
 
-    profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_BLOCKS_DESCRIPTION);
+    profiler::net::Message request(profiler::net::MessageType::Request_Blocks_Description);
     m_easySocket.send(&request, sizeof(request));
 
     if(m_easySocket.isDisconnected()  ){
@@ -2480,7 +2457,7 @@ bool EasySocketListener::requestFrameTime()
         m_bInterrupt.store(false, ::std::memory_order_release);
     }
 
-    profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_MAIN_FRAME_TIME_MAX_AVG_US);
+    profiler::net::Message request(profiler::net::MessageType::Request_MainThread_FPS);
     m_easySocket.send(&request, sizeof(request));
 
     if (m_easySocket.isDisconnected())
@@ -2499,9 +2476,8 @@ bool EasySocketListener::requestFrameTime()
 
 void EasySocketListener::listenCapture()
 {
-    // TODO: Merge functions listenCapture() and listenDescription()
+    EASY_STATIC_CONSTEXPR int buffer_size = 8 * 1024 * 1024;
 
-    static const int buffer_size = 8 * 1024 * 1024;
     char* buffer = new char[buffer_size];
     int seek = 0, bytes = 0;
     auto timeBegin = ::std::chrono::system_clock::now();
@@ -2511,7 +2487,7 @@ void EasySocketListener::listenCapture()
     {
         if (m_bStopReceive.load(::std::memory_order_acquire))
         {
-            profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE);
+            profiler::net::Message request(profiler::net::MessageType::Request_Stop_Capture);
             m_easySocket.send(&request, sizeof(request));
             m_bStopReceive.store(false, ::std::memory_order_release);
         }
@@ -2554,24 +2530,24 @@ void EasySocketListener::listenCapture()
 
             switch (message->type)
             {
-                case profiler::net::MESSAGE_TYPE_ACCEPTED_CONNECTION:
+                case profiler::net::MessageType::Connection_Accepted:
                 {
-                    qInfo() << "Receive MESSAGE_TYPE_ACCEPTED_CONNECTION";
+                    qInfo() << "Receive MessageType::Connection_Accepted";
                     //m_easySocket.send(&request, sizeof(request));
                     seek += sizeof(profiler::net::Message);
                     break;
                 }
 
-                case profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING:
+                case profiler::net::MessageType::Reply_Capturing_Started:
                 {
-                    qInfo() << "Receive MESSAGE_TYPE_REPLY_START_CAPTURING";
+                    qInfo() << "Receive MessageType::Reply_Capturing_Started";
                     seek += sizeof(profiler::net::Message);
                     break;
                 }
 
-                case profiler::net::MESSAGE_TYPE_REPLY_BLOCKS_END:
+                case profiler::net::MessageType::Reply_Blocks_End:
                 {
-                    qInfo() << "Receive MESSAGE_TYPE_REPLY_BLOCKS_END";
+                    qInfo() << "Receive MessageType::Reply_Blocks_End";
                     seek += sizeof(profiler::net::Message);
 
                     const auto dt = ::std::chrono::duration_cast<std::chrono::milliseconds>(::std::chrono::system_clock::now() - timeBegin);
@@ -2586,12 +2562,12 @@ void EasySocketListener::listenCapture()
                     break;
                 }
 
-                case profiler::net::MESSAGE_TYPE_REPLY_BLOCKS:
+                case profiler::net::MessageType::Reply_Blocks:
                 {
-                    qInfo() << "Receive MESSAGE_TYPE_REPLY_BLOCKS";
+                    qInfo() << "Receive MessageType::Reply_Blocks";
 
                     seek += sizeof(profiler::net::DataMessage);
-                    profiler::net::DataMessage* dm = (profiler::net::DataMessage*)message;
+                    auto dm = (profiler::net::DataMessage*)message;
                     timeBegin = std::chrono::system_clock::now();
 
                     int neededSize = dm->size;
@@ -2641,7 +2617,7 @@ void EasySocketListener::listenCapture()
 
                     if (m_bStopReceive.load(::std::memory_order_acquire))
                     {
-                        profiler::net::Message request(profiler::net::MESSAGE_TYPE_REQUEST_STOP_CAPTURE);
+                        profiler::net::Message request(profiler::net::MessageType::Request_Stop_Capture);
                         m_easySocket.send(&request, sizeof(request));
                         m_bStopReceive.store(false, ::std::memory_order_release);
                     }
@@ -2666,9 +2642,8 @@ void EasySocketListener::listenCapture()
 
 void EasySocketListener::listenDescription()
 {
-    // TODO: Merge functions listenDescription() and listenCapture()
+    EASY_STATIC_CONSTEXPR int buffer_size = 8 * 1024 * 1024;
 
-    static const int buffer_size = 8 * 1024 * 1024;
     char* buffer = new char[buffer_size];
     int seek = 0, bytes = 0;
 
@@ -2713,16 +2688,16 @@ void EasySocketListener::listenDescription()
 
             switch (message->type)
             {
-                case profiler::net::MESSAGE_TYPE_ACCEPTED_CONNECTION:
+                case profiler::net::MessageType::Connection_Accepted:
                 {
-                    qInfo() << "Receive MESSAGE_TYPE_ACCEPTED_CONNECTION";
+                    qInfo() << "Receive MessageType::Connection_Accepted";
                     seek += sizeof(profiler::net::Message);
                     break;
                 }
 
-                case profiler::net::MESSAGE_TYPE_REPLY_BLOCKS_DESCRIPTION_END:
+                case profiler::net::MessageType::Reply_Blocks_Description_End:
                 {
-                    qInfo() << "Receive MESSAGE_TYPE_REPLY_BLOCKS_DESCRIPTION_END";
+                    qInfo() << "Receive MessageType::Reply_Blocks_Description_End";
                     seek += sizeof(profiler::net::Message);
 
                     seek = 0;
@@ -2733,12 +2708,12 @@ void EasySocketListener::listenDescription()
                     break;
                 }
 
-                case profiler::net::MESSAGE_TYPE_REPLY_BLOCKS_DESCRIPTION:
+                case profiler::net::MessageType::Reply_Blocks_Description:
                 {
-                    qInfo() << "Receive MESSAGE_TYPE_REPLY_BLOCKS";
+                    qInfo() << "Receive MessageType::Reply_Blocks_Description";
 
                     seek += sizeof(profiler::net::DataMessage);
-                    profiler::net::DataMessage* dm = (profiler::net::DataMessage*)message;
+                    auto dm = (profiler::net::DataMessage*)message;
                     int neededSize = dm->size;
 
                     buf = buffer + seek;
@@ -2798,9 +2773,8 @@ void EasySocketListener::listenDescription()
 
 void EasySocketListener::listenFrameTime()
 {
-    // TODO: Merge functions listenDescription() and listenCapture()
+    EASY_STATIC_CONSTEXPR size_t buffer_size = sizeof(::profiler::net::TimestampMessage) << 2;
 
-    static const int buffer_size = sizeof(::profiler::net::TimestampMessage) << 2;
     char buffer[buffer_size] = {};
     int seek = 0, bytes = 0;
 
@@ -2844,21 +2818,21 @@ void EasySocketListener::listenFrameTime()
 
             switch (message->type)
             {
-                case profiler::net::MESSAGE_TYPE_ACCEPTED_CONNECTION:
-                case profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING:
+                case profiler::net::MessageType::Connection_Accepted:
+                case profiler::net::MessageType::Reply_Capturing_Started:
                 {
                     seek += sizeof(profiler::net::Message);
                     break;
                 }
 
-                case profiler::net::MESSAGE_TYPE_REPLY_MAIN_FRAME_TIME_MAX_AVG_US:
+                case profiler::net::MessageType::Reply_MainThread_FPS:
                 {
-                    //qInfo() << "Receive MESSAGE_TYPE_REPLY_MAIN_FRAME_TIME_MAX_AVG_US";
+                    //qInfo() << "Receive MessageType::Reply_MainThread_FPS";
 
                     seek += sizeof(profiler::net::TimestampMessage);
                     if (seek <= buffer_size)
                     {
-                        profiler::net::TimestampMessage* timestampMessage = (profiler::net::TimestampMessage*)message;
+                        auto timestampMessage = (profiler::net::TimestampMessage*)message;
                         m_frameMax.store(timestampMessage->maxValue, ::std::memory_order_release);
                         m_frameAvg.store(timestampMessage->avgValue, ::std::memory_order_release);
                         m_bFrameTimeReady.store(true, ::std::memory_order_release);
