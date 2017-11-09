@@ -60,7 +60,7 @@
 #include <memory.h>
 #include <chrono>
 #include <unordered_map>
-#include <easy/details/profiler_public_types.h>
+#include <easy/profiler.h>
 #include "profile_manager.h"
 #include "current_time.h"
 
