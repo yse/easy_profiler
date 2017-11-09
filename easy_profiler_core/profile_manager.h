@@ -45,6 +45,12 @@ The Apache License, Version 2.0 (the "License");
 
 #include <easy/details/profiler_public_types.h>
 
+#ifdef _WIN32
+// Do not move this include to other place!
+// It should be included before Windows.h which is included in spin_lock.h
+# include <easy/easy_socket.h>
+#endif // _WIN32
+
 #include "spin_lock.h"
 #include "outstream.h"
 #include "hashed_cstr.h"

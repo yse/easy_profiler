@@ -57,7 +57,10 @@
 #include <easy/arbitrary_value.h>
 #include <easy/serialized_block.h>
 #include <easy/easy_net.h>
-#include <easy/easy_socket.h>
+
+#ifndef _WIN32
+# include <easy/easy_socket.h>
+#endif
 
 #include "event_trace_win.h"
 #include "current_time.h"

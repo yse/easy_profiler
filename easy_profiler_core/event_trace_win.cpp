@@ -61,7 +61,6 @@
 #include <chrono>
 #include <unordered_map>
 #include <easy/profiler.h>
-#include <easy/easy_socket.h>
 #include "profile_manager.h"
 #include "current_time.h"
 
