@@ -43,7 +43,7 @@ The Apache License, Version 2.0 (the "License");
 #ifndef EASY_PROFILER_NONSCOPED_BLOCK_H
 #define EASY_PROFILER_NONSCOPED_BLOCK_H
 
-#include <easy/profiler.h>
+#include <easy/details/profiler_public_types.h>
 
 class NonscopedBlock : public profiler::Block
 {

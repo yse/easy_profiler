@@ -48,6 +48,7 @@
 *                   : limitations under the License.
 ************************************************************************/
 
+#include <easy/profiler.h>
 #include "profile_manager.h"
 #include "current_time.h"
 

@@ -62,7 +62,7 @@
 #include <vector>
 #include <unordered_set>
 
-#include <easy/profiler.h>
+#include <easy/details/profiler_public_types.h>
 
 //////////////////////////////////////////////////////////////////////////
 

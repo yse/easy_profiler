@@ -43,8 +43,8 @@ The Apache License, Version 2.0 (the "License");
 #ifndef EASY_PROFILER_THREAD_STORAGE_H
 #define EASY_PROFILER_THREAD_STORAGE_H
 
-#include <easy/profiler.h>
-#include <easy/arbitrary_value.h>
+#include <easy/details/profiler_public_types.h>
+#include <easy/details/arbitrary_value_public_types.h>
 #include <vector>
 #include <string>
 #include <atomic>

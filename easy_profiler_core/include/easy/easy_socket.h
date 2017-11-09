@@ -43,26 +43,31 @@ The Apache License, Version 2.0 (the "License");
 #define EASY_PROFILER_SOCKET_H
 
 #include <stdint.h>
-#include <easy/profiler.h>
+#include <easy/details/easy_compiler_support.h>
+
 #ifndef _WIN32
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <netinet/in.h> //for android-build
+
+// Unix
+# include <sys/types.h>
+# include <sys/socket.h>
+# include <netdb.h>
+# include <stdio.h>
+# include <unistd.h>
+# include <fcntl.h>
+# include <netinet/in.h> //for android-build
+
 #else
 
-#define WIN32_LEAN_AND_MEAN
+// Windows
+# define WIN32_LEAN_AND_MEAN
+# include <winsock2.h>
+# include <windows.h>
+# include <ws2tcpip.h>
+# include <stdlib.h>
 
-#include <winsock2.h>
-#include <windows.h>
-#include <ws2tcpip.h>
-#include <stdlib.h>
 #endif
 
-class PROFILER_API EasySocket
+class PROFILER_API EasySocket EASY_FINAL
 {
 public:
 
@@ -84,8 +89,6 @@ private:
 
     socket_t m_socket = 0;
     socket_t m_replySocket = 0;
-
-    int m_receiveTimeoutMs = 0;
     int m_wsaret = -1;
 
     struct hostent* m_server = nullptr;

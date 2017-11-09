@@ -67,6 +67,7 @@
 ************************************************************************/
 
 #include <easy/reader.h>
+#include <easy/profiler.h>
 
 #include "hashed_cstr.h"
 

@@ -102,6 +102,7 @@
 #include "globals.h"
 
 #include <easy/easy_net.h>
+#include <easy/profiler.h>
 
 #ifdef max
 #undef max

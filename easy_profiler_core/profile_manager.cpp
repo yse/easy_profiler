@@ -53,6 +53,8 @@
 #include <future>
 #include "profile_manager.h"
 
+#include <easy/profiler.h>
+#include <easy/arbitrary_value.h>
 #include <easy/serialized_block.h>
 #include <easy/easy_net.h>
 #include <easy/easy_socket.h>

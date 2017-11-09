@@ -43,7 +43,7 @@ The Apache License, Version 2.0 (the "License");
 #ifndef EASY_PROFILER_CURRENT_TIME_H
 #define EASY_PROFILER_CURRENT_TIME_H
 
-#include <easy/profiler.h>
+#include <easy/details/profiler_public_types.h>
 
 #if defined(_MSC_VER) && _MSC_VER <= 1800
 // std::chrono for MSVC2013 is broken - it has very low resolution of 16ms

@@ -43,9 +43,7 @@ The Apache License, Version 2.0 (the "License");
 #ifndef EASY_PROFILER_MANAGER_H
 #define EASY_PROFILER_MANAGER_H
 
-#include <easy/profiler.h>
-#include <easy/arbitrary_value.h>
-#include <easy/easy_socket.h>
+#include <easy/details/profiler_public_types.h>
 
 #include "spin_lock.h"
 #include "outstream.h"
@@ -64,6 +62,8 @@ The Apache License, Version 2.0 (the "License");
 typedef uint64_t processid_t;
 
 class BlockDescriptor;
+
+namespace profiler { class ValueId; }
 
 class ProfileManager
 {

@@ -43,7 +43,7 @@ The Apache License, Version 2.0 (the "License");
 #ifndef EASY_PROFILER_CURRENT_THREAD_H
 #define EASY_PROFILER_CURRENT_THREAD_H
 
-#include <easy/profiler.h>
+#include <easy/details/profiler_public_types.h>
 
 #ifdef _WIN32
 # include <Windows.h>
