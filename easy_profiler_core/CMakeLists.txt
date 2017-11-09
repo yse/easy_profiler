@@ -128,15 +128,18 @@ set(H_FILES
 )
 
 set(INCLUDE_FILES
+    include/easy/arbitrary_value.h
     include/easy/easy_net.h
     include/easy/easy_socket.h
-    include/easy/easy_compiler_support.h
     include/easy/profiler.h
-    include/easy/profiler_aux.h
-    include/easy/profiler_colors.h
     include/easy/reader.h
     include/easy/serialized_block.h
-    include/easy/profiler_public_types.h
+    include/easy/details/arbitrary_value_aux.h
+    include/easy/details/arbitrary_value_public_types.h
+    include/easy/details/easy_compiler_support.h
+    include/easy/details/profiler_aux.h
+    include/easy/details/profiler_colors.h
+    include/easy/details/profiler_public_types.h
 )
 
 source_group(include FILES ${INCLUDE_FILES})

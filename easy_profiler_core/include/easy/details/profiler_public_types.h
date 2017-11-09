@@ -43,7 +43,7 @@ The Apache License, Version 2.0 (the "License");
 #ifndef EASY_PROFILER_PUBLIC_TYPES_H
 #define EASY_PROFILER_PUBLIC_TYPES_H
 
-#include <easy/profiler_aux.h>
+#include <easy/details/profiler_aux.h>
 
 class NonscopedBlock;
 class ProfileManager;

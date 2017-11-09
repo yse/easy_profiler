@@ -43,7 +43,7 @@ The Apache License, Version 2.0 (the "License");
 #ifndef EASY_PROFILER_CHUNK_ALLOCATOR_H
 #define EASY_PROFILER_CHUNK_ALLOCATOR_H
 
-#include <easy/easy_compiler_support.h>
+#include <easy/details/easy_compiler_support.h>
 #include <cstring>
 #include <cstddef>
 #include <stdint.h>

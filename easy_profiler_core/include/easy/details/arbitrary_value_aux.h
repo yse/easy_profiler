@@ -43,7 +43,8 @@ The Apache License, Version 2.0 (the "License");
 #ifndef EASY_PROFILER_ARBITRARY_VALUE_AUX_H
 #define EASY_PROFILER_ARBITRARY_VALUE_AUX_H
 
-#include <easy/profiler.h>
+#include <easy/details/easy_compiler_support.h>
+#include <stdint.h>
 
 namespace profiler
 {
@@ -92,7 +93,7 @@ namespace profiler
             template <class T, class ... TArgs>
             static EASY_CONSTEXPR_FCN ValueId get(const T&, TArgs... _args) { return subextract_value_id(_args...); }
         };
-    }
+    } // end of noname namespace.
 
     template <class T, class ... TArgs>
     inline EASY_CONSTEXPR_FCN ValueId extract_value_id(const T& _first, TArgs... _args) {

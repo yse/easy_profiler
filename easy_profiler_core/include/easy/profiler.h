@@ -43,7 +43,7 @@ The Apache License, Version 2.0 (the "License");
 #ifndef EASY_PROFILER_H
 #define EASY_PROFILER_H
 
-#include <easy/profiler_public_types.h>
+#include <easy/details/profiler_public_types.h>
 
 #if defined ( __clang__ )
 # pragma clang diagnostic push
