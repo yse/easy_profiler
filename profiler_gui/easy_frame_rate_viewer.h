@@ -60,6 +60,8 @@
 #include <QTimer>
 #include <vector>
 #include <deque>
+#include <utility>
+#include <stdint.h>
 
 //////////////////////////////////////////////////////////////////////////
 
