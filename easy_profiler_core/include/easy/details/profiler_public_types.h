@@ -82,7 +82,7 @@ namespace profiler {
     protected:
 
         block_id_t          m_id; ///< This descriptor id (We can afford this spending because there are much more blocks than descriptors)
-        int               m_line; ///< Line number in the source file
+        int32_t           m_line; ///< Line number in the source file
         color_t          m_color; ///< Color of the block packed into 1-byte structure
         block_type_t      m_type; ///< Type of the block (See BlockType)
         EasyBlockStatus m_status; ///< If false then blocks with such id() will not be stored by profiler during profile session
@@ -94,7 +94,7 @@ namespace profiler {
         BaseBlockDescriptor() = delete;
 
         inline block_id_t id() const EASY_NOEXCEPT { return m_id; }
-        inline int line() const EASY_NOEXCEPT { return m_line; }
+        inline int32_t line() const EASY_NOEXCEPT { return m_line; }
         inline color_t color() const EASY_NOEXCEPT { return m_color; }
         inline block_type_t type() const EASY_NOEXCEPT { return m_type; }
         inline EasyBlockStatus status() const EASY_NOEXCEPT { return m_status; }
@@ -146,20 +146,6 @@ namespace profiler {
         inline void setId(block_id_t _id) EASY_NOEXCEPT { m_id = _id; }
 
     }; // END of class BaseBlockData.
-
-    class PROFILER_API CSwitchEvent : public Event
-    {
-        thread_id_t m_thread_id;
-
-    public:
-
-        CSwitchEvent() = default;
-        CSwitchEvent(const CSwitchEvent&) = default;
-        explicit CSwitchEvent(timestamp_t _begin_time, thread_id_t _tid) EASY_NOEXCEPT;
-
-        inline thread_id_t tid() const EASY_NOEXCEPT { return m_thread_id; }
-
-    }; // END of class CSwitchEvent.
 #pragma pack(pop)
 
     //***********************************************

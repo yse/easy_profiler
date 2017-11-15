@@ -797,7 +797,7 @@ extern "C" {
 
                     ++root.blocks_number;
                     root.children.emplace_back(block_index);// ::std::move(tree));
-                    if (desc->type() == ::profiler::BlockType::Event)
+                    if (desc->type() != ::profiler::BlockType::Block)
                         root.events.emplace_back(block_index);
 
 

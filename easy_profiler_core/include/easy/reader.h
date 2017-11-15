@@ -46,6 +46,7 @@ The Apache License, Version 2.0 (the "License");
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include <easy/serialized_block.h>
+#include <easy/details/arbitrary_value_public_types.h>
 #include <unordered_map>
 #include <vector>
 #include <string>
@@ -55,8 +56,8 @@ The Apache License, Version 2.0 (the "License");
 
 namespace profiler {
 
-    typedef uint32_t calls_number_t;
-    typedef uint32_t block_index_t;
+    using calls_number_t = uint32_t;
+    using block_index_t  = uint32_t;
 
     template <class T, bool greater_than_size_t>
     struct hash : public ::std::hash<T> {
@@ -117,24 +118,28 @@ namespace profiler {
 
     class BlocksTree EASY_FINAL
     {
-        typedef BlocksTree This;
+        using This = BlocksTree;
 
     public:
 
-        typedef ::std::vector<This> blocks_t;
-        typedef ::std::vector<::profiler::block_index_t> children_t;
+        using blocks_t = ::std::vector<This>;
+        using children_t = ::std::vector<::profiler::block_index_t>;
 
-        children_t                           children; ///< List of children blocks. May be empty.
+        children_t children; ///< List of children blocks. May be empty.
 
         union {
-            ::profiler::SerializedBlock*   node; ///< Pointer to serilized data for regular block (id, name, begin, end etc.)
-            ::profiler::SerializedCSwitch*   cs; ///< Pointer to serilized data for context switch (thread_id, name, begin, end etc.)
+            ::profiler::SerializedBlock*   node; ///< Pointer to serialized data for regular block (id, name, begin, end etc.)
+            ::profiler::SerializedCSwitch*   cs; ///< Pointer to serialized data for context switch (thread_id, name, begin, end etc.)
+            ::profiler::ArbitraryValue*   value; ///< Pointer to serialized data for arbitrary value
         };
 
         ::profiler::BlockStatistics* per_parent_stats; ///< Pointer to statistics for this block within the parent (may be nullptr for top-level blocks)
         ::profiler::BlockStatistics*  per_frame_stats; ///< Pointer to statistics for this block within the frame (may be nullptr for top-level blocks)
         ::profiler::BlockStatistics* per_thread_stats; ///< Pointer to statistics for this block within the bounds of all frames per current thread
         uint8_t                                 depth; ///< Maximum number of sublevels (maximum children depth)
+
+        BlocksTree(const This&) = delete;
+        This& operator = (const This&) = delete;
 
         BlocksTree()
             : node(nullptr)
@@ -166,7 +171,7 @@ namespace profiler {
 
         bool operator < (const This& other) const
         {
-            if (!node || !other.node)
+            if (node == nullptr || other.node == nullptr)
                 return false;
             return node->begin() < other.node->begin();
         }
@@ -187,9 +192,6 @@ namespace profiler {
         }
 
     private:
-
-        BlocksTree(const This&) = delete;
-        This& operator = (const This&) = delete;
 
         void make_move(This&& that)
         {
@@ -221,7 +223,7 @@ namespace profiler {
 
     class BlocksTreeRoot EASY_FINAL
     {
-        typedef BlocksTreeRoot This;
+        using This = BlocksTreeRoot;
 
     public:
 
@@ -235,6 +237,9 @@ namespace profiler {
         ::profiler::block_index_t frames_number; ///< Total frames number (top-level blocks)
         ::profiler::block_index_t blocks_number; ///< Total blocks number including their children
         uint8_t                           depth; ///< Maximum stack depth (number of levels)
+
+        BlocksTreeRoot(const This&) = delete;
+        This& operator = (const This&) = delete;
 
         BlocksTreeRoot() : profiled_time(0), wait_time(0), thread_id(0), frames_number(0), blocks_number(0), depth(0)
         {
@@ -284,11 +289,6 @@ namespace profiler {
             return thread_id < other.thread_id;
         }
 
-    private:
-
-        BlocksTreeRoot(const This&) = delete;
-        This& operator = (const This&) = delete;
-
     }; // END of class BlocksTreeRoot.
 
     typedef ::profiler::BlocksTree::blocks_t blocks_t;
@@ -303,6 +303,9 @@ namespace profiler {
         size_t m_size;
 
     public:
+
+        SerializedData(const SerializedData&) = delete;
+        SerializedData& operator = (const SerializedData&) = delete;
 
         SerializedData() : m_data(nullptr), m_size(0)
         {
@@ -380,9 +383,6 @@ namespace profiler {
     private:
 
         void set(char* _data, uint64_t _size);
-
-        SerializedData(const SerializedData&) = delete;
-        SerializedData& operator = (const SerializedData&) = delete;
 
     }; // END of class SerializedData.
 

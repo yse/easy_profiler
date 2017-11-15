@@ -44,10 +44,17 @@ The Apache License, Version 2.0 (the "License");
 #define EASY_PROFILER_SERIALIZED_BLOCK_H
 
 #include <easy/details/profiler_public_types.h>
+#include <easy/details/arbitrary_value_public_types.h>
 
 class CSwitchBlock;
 
 namespace profiler {
+
+    template <DataType dataType, bool isArray>
+    struct Value;
+
+    template <bool isArray>
+    struct Value<DataType::TypesCount, isArray>;
 
     //////////////////////////////////////////////////////////////////////////
 
@@ -76,6 +83,22 @@ namespace profiler {
     }; // END of SerializedBlock.
 
     //////////////////////////////////////////////////////////////////////////
+
+#pragma pack(push, 1)
+    class PROFILER_API CSwitchEvent : public Event
+    {
+        thread_id_t m_thread_id;
+
+    public:
+
+        CSwitchEvent() = default;
+        CSwitchEvent(const CSwitchEvent&) = default;
+        explicit CSwitchEvent(timestamp_t _begin_time, thread_id_t _tid) EASY_NOEXCEPT;
+
+        inline thread_id_t tid() const EASY_NOEXCEPT { return m_thread_id; }
+
+    }; // END of class CSwitchEvent.
+#pragma pack(pop)
 
     class PROFILER_API SerializedCSwitch EASY_FINAL : public CSwitchEvent
     {
@@ -138,7 +161,118 @@ namespace profiler {
         ~SerializedBlockDescriptor()                                             = delete;
 
     }; // END of SerializedBlockDescriptor.
+//#pragma pack(pop)
+
+    //////////////////////////////////////////////////////////////////////////
+
+//#pragma pack(push, 1)
+    class PROFILER_API ArbitraryValue : protected BaseBlockData
+    {
+        friend ::ThreadStorage;
+
+    protected:
+
+        char     m_nameStub; ///< Artificial padding which is used to imitate SerializedBlock::name() == 0 behavior
+        char      m_padding; ///< Padding to the bound of 2 bytes
+        uint16_t     m_size;
+        DataType     m_type;
+        bool      m_isArray;
+        vin_t    m_value_id;
+
+        explicit ArbitraryValue(timestamp_t _timestamp, vin_t _vin, block_id_t _id,
+                                uint16_t _size, DataType _type, bool _isArray)
+            : BaseBlockData(_timestamp, _timestamp, _id)
+            , m_nameStub(0)
+            , m_padding(0)
+            , m_size(_size)
+            , m_type(_type)
+            , m_isArray(_isArray)
+            , m_value_id(_vin)
+        {
+        }
+
+    public:
+
+        ~ArbitraryValue() = delete;
+
+        const char* data() const {
+            return reinterpret_cast<const char*>(this) + sizeof(ArbitraryValue);
+        }
+
+        vin_t value_id() const {
+            return m_value_id;
+        }
+
+        DataType type() const {
+            return m_type;
+        }
+
+        bool isArray() const {
+            return m_isArray;
+        }
+
+        template <DataType dataType>
+        const Value<dataType, false>* convertToValue() const {
+            return m_type == dataType ? static_cast<const Value<dataType, false>*>(this) : nullptr;
+        }
+
+        template <class T>
+        const Value<StdToDataType<T>::data_type, false>* convertToValue() const {
+            static_assert(StdToDataType<T>::data_type != DataType::TypesCount,
+                          "You should use standard builtin scalar types as profiler::Value type!");
+            return convertToValue<StdToDataType<T>::data_type>();
+        }
+
+        template <DataType dataType>
+        const Value<dataType, true>* convertToArray() const {
+            return m_isArray && m_type == dataType ? static_cast<const Value<dataType, true>*>(this) : nullptr;
+        }
+
+        template <class T>
+        const Value<StdToDataType<T>::data_type, true>* convertToArray() const {
+            static_assert(StdToDataType<T>::data_type != DataType::TypesCount,
+                          "You should use standard builtin scalar types as profiler::Value type!");
+            return convertToArray<StdToDataType<T>::data_type>();
+        }
+    }; // end of class ArbitraryValue.
 #pragma pack(pop)
+
+    //////////////////////////////////////////////////////////////////////////
+
+    template <DataType dataType>
+    struct Value<dataType, false> EASY_FINAL : public ArbitraryValue {
+        using value_type = typename StdType<dataType>::value_type;
+        value_type value() const { return *reinterpret_cast<const value_type*>(data()); }
+    };
+
+
+    template <DataType dataType>
+    struct Value<dataType, true> EASY_FINAL : public ArbitraryValue {
+        using value_type = typename StdType<dataType>::value_type;
+        const value_type* value() const { return reinterpret_cast<const value_type*>(data()); }
+        uint16_t size() const { return m_size / sizeof(value_type); }
+        value_type operator [] (int i) const { return value()[i]; }
+    };
+
+
+    template <>
+    struct Value<DataType::String, true> EASY_FINAL : public ArbitraryValue {
+        using value_type = char;
+        const char* value() const { return data(); }
+        uint16_t size() const { return m_size; }
+        char operator [] (int i) const { return data()[i]; }
+        const char* c_str() const { return data(); }
+    };
+
+    //////////////////////////////////////////////////////////////////////////
+
+    template <DataType dataType>
+    using SingleValue = Value<dataType, false>;
+
+    template <DataType dataType>
+    using ArrayValue = Value<dataType, true>;
+
+    using StringValue = Value<DataType::String, true>;
 
     //////////////////////////////////////////////////////////////////////////
 

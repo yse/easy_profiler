@@ -72,9 +72,9 @@ enum BlockItemState : int8_t
 
 //////////////////////////////////////////////////////////////////////////
 
-const int MIN_SYNC_SPACING = 1;
-const int MIN_SYNC_SIZE = 3;
-const QRgb BORDERS_COLOR = ::profiler::colors::Grey600 & 0x00ffffff;// 0x00686868;
+EASY_CONSTEXPR int MIN_SYNC_SPACING = 1;
+EASY_CONSTEXPR int MIN_SYNC_SIZE = 3;
+EASY_CONSTEXPR QRgb BORDERS_COLOR = ::profiler::colors::Grey600 & 0x00ffffff;// 0x00686868;
 
 inline QRgb selectedItemBorderColor(::profiler::color_t _color) {
     return ::profiler_gui::isLightColor(_color, 192) ? ::profiler::colors::Black : ::profiler::colors::RichRed;

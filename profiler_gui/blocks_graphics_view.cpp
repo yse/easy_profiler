@@ -88,17 +88,17 @@ const qreal MIN_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT_INV, 70); // Up 
 const qreal MAX_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT, 45); // ~23000 --- Up to 10 ns scale
 const qreal BASE_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT_INV, 25); // ~0.003
 
-const uint16_t TIMELINE_ROW_SIZE = 20;
+EASY_CONSTEXPR uint16_t TIMELINE_ROW_SIZE = 20;
 
-const QRgb BACKGROUND_1 = ::profiler::colors::Grey300;
-const QRgb BACKGROUND_2 = ::profiler::colors::White;
-const QRgb TIMELINE_BACKGROUND = 0x20000000 | (::profiler::colors::Grey800 & 0x00ffffff);// 0x20303030;
+EASY_CONSTEXPR QRgb BACKGROUND_1 = ::profiler::colors::Grey300;
+EASY_CONSTEXPR QRgb BACKGROUND_2 = ::profiler::colors::White;
+EASY_CONSTEXPR QRgb TIMELINE_BACKGROUND = 0x20000000 | (::profiler::colors::Grey800 & 0x00ffffff);// 0x20303030;
 
-const int IDLE_TIMER_INTERVAL = 200; // 5Hz
-const uint64_t IDLE_TIME = 400;
+EASY_CONSTEXPR int IDLE_TIMER_INTERVAL = 200; // 5Hz
+EASY_CONSTEXPR uint64_t IDLE_TIME = 400;
 
-const int FLICKER_INTERVAL = 10; // 100Hz
-const qreal FLICKER_FACTOR = 16.0 / FLICKER_INTERVAL;
+EASY_CONSTEXPR int FLICKER_INTERVAL = 10; // 100Hz
+EASY_CONSTEXPR qreal FLICKER_FACTOR = 16.0 / FLICKER_INTERVAL;
 
 #ifdef max
 #undef max
@@ -1517,7 +1517,6 @@ void EasyGraphicsView::onIdleTimeout()
         {
             const auto& itemBlock = block->tree;
             const auto& itemDesc = easyDescriptor(itemBlock.node->id());
-            auto name = *itemBlock.node->name() != 0 ? itemBlock.node->name() : itemDesc.name();
 
             auto widget = new QWidget(nullptr, Qt::FramelessWindowHint);
             if (widget == nullptr)
@@ -1531,38 +1530,83 @@ void EasyGraphicsView::onIdleTimeout()
                 return;
 
             int row = 0;
-            if (itemDesc.type() == ::profiler::BlockType::Block)
+            switch (itemDesc.type())
             {
-                //lay->addWidget(new QLabel("Name:", widget), row, 0, Qt::AlignRight);
-                lay->addWidget(new EasyBoldLabel(::profiler_gui::toUnicode(name), widget), row, 0, 1, 5, Qt::AlignHCenter);
-                ++row;
+                case ::profiler::BlockType::Block:
+                {
+                    const auto name = *itemBlock.node->name() != 0 ? itemBlock.node->name() : itemDesc.name();
 
-                const auto duration = itemBlock.node->duration();
-                lay->addWidget(new QLabel("Duration:", widget), row, 0, Qt::AlignRight);
-                lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, duration, 3), widget), row, 1, 1, 3, Qt::AlignLeft);
-                ++row;
+                    //lay->addWidget(new QLabel("Name:", widget), row, 0, Qt::AlignRight);
+                    lay->addWidget(new EasyBoldLabel(::profiler_gui::toUnicode(name), widget), row, 0, 1, 5,
+                                   Qt::AlignHCenter);
+                    ++row;
 
-                ::profiler::timestamp_t children_duration = 0;
-                for (auto child : itemBlock.children)
-                    children_duration += easyBlock(child).tree.node->duration();
+                    const auto duration = itemBlock.node->duration();
+                    lay->addWidget(new QLabel("Duration:", widget), row, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, duration, 3),
+                                              widget), row, 1, 1, 3, Qt::AlignLeft);
+                    ++row;
 
-                const auto self_duration = duration - children_duration;
-                const auto self_percent = duration == 0 ? 100. : ::profiler_gui::percentReal(self_duration, duration);
-                lay->addWidget(new QLabel("Self:", widget), row, 0, Qt::AlignRight);
-                lay->addWidget(new QLabel(QString("%1 (%2%)").arg(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, self_duration, 3)).arg(QString::number(self_percent, 'g', 3)), widget), row, 1, 1, 3, Qt::AlignLeft);
-                ++row;
+                    ::profiler::timestamp_t children_duration = 0;
+                    for (auto child : itemBlock.children)
+                        children_duration += easyBlock(child).tree.node->duration();
+
+                    const auto self_duration = duration - children_duration;
+                    const auto self_percent =
+                        duration == 0 ? 100. : ::profiler_gui::percentReal(self_duration, duration);
+                    lay->addWidget(new QLabel("Self:", widget), row, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel(QString("%1 (%2%)")
+                                                  .arg(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units,
+                                                                                    self_duration, 3))
+                                                  .arg(QString::number(self_percent, 'g', 3)), widget),
+                                   row, 1, 1, 3, Qt::AlignLeft);
+                    ++row;
+
+                    break;
+                }
+
+                case ::profiler::BlockType::Event:
+                {
+                    const auto name = *itemBlock.node->name() != 0 ? itemBlock.node->name() : itemDesc.name();
+
+                    lay->addWidget(new EasyBoldLabel("User defined event", widget), row, 0, 1, 2, Qt::AlignHCenter);
+                    ++row;
+
+                    lay->addWidget(new QLabel("Name:", widget), row, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel(::profiler_gui::toUnicode(name), widget), row, 1, Qt::AlignLeft);
+                    ++row;
+
+                    break;
+                }
+
+                case ::profiler::BlockType::Value:
+                {
+                    lay->addWidget(new EasyBoldLabel("Arbitrary Value", widget), row, 0, 1, 2, Qt::AlignHCenter);
+                    ++row;
+
+                    lay->addWidget(new QLabel("Name:", widget), row, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel(::profiler_gui::toUnicode(itemDesc.name()), widget), row, 1, Qt::AlignLeft);
+                    ++row;
+
+                    lay->addWidget(new QLabel("Value:", widget), row, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel(::profiler_gui::valueString(*itemBlock.value), widget), row, 1, Qt::AlignLeft);
+                    ++row;
+
+                    lay->addWidget(new QLabel("VIN:", widget), row, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel(QString::number(itemBlock.value->value_id(), 16), widget), row, 1, Qt::AlignLeft);
+                    ++row;
+
+                    break;
+                }
+
+                default:
+                {
+                    delete widget;
+                    return;
+                }
             }
-            else
-            {
-                lay->addWidget(new EasyBoldLabel("User defined event", widget), row, 0, 1, 2, Qt::AlignHCenter);
-                ++row;
 
-                lay->addWidget(new QLabel("Name:", widget), row, 0, Qt::AlignRight);
-                lay->addWidget(new QLabel(::profiler_gui::toUnicode(name), widget), row, 1, Qt::AlignLeft);
-                ++row;
-            }
-
-            if (itemBlock.per_thread_stats)
+            if (itemBlock.per_thread_stats != nullptr)
             {
                 if (itemDesc.type() == ::profiler::BlockType::Block)
                 {
@@ -1584,7 +1628,7 @@ void EasyGraphicsView::onIdleTimeout()
 
                         if (it != threadRoot->sync.end())
                         {
-                            ind = it - threadRoot->sync.begin();
+                            ind = static_cast<::profiler::block_index_t>(it - threadRoot->sync.begin());
                             if (ind > 0)
                                 --ind;
                         }
@@ -1594,7 +1638,7 @@ void EasyGraphicsView::onIdleTimeout()
                         }
 
                         ::profiler::timestamp_t idleTime = 0;
-                        for (::profiler::block_index_t ncs = static_cast<::profiler::block_index_t>(threadRoot->sync.size()); ind < ncs; ++ind)
+                        for (auto ncs = static_cast<::profiler::block_index_t>(threadRoot->sync.size()); ind < ncs; ++ind)
                         {
                             auto cs_index = threadRoot->sync[ind];
                             const auto cs = EASY_GLOBALS.gui_blocks[cs_index].tree.node;

@@ -446,6 +446,36 @@ inline QFont EFont(const char* _family, int _size, int _weight = -1)
 
 //////////////////////////////////////////////////////////////////////////
 
+inline QString valueString(const ::profiler::ArbitraryValue& _serializedValue)
+{
+    if (_serializedValue.isArray())
+    {
+        if (_serializedValue.type() == ::profiler::DataType::String)
+            return _serializedValue.data();
+        return QStringLiteral("[...] array");
+    }
+
+    switch (_serializedValue.type())
+    {
+        case ::profiler::DataType::Bool:   return _serializedValue.convertToValue<bool>()->value() ? QStringLiteral("true") : QStringLiteral("false");
+        case ::profiler::DataType::Char:   return QChar(_serializedValue.convertToValue<char>()->value());
+        case ::profiler::DataType::Int8:   return QChar(_serializedValue.convertToValue<int8_t>()->value());
+        case ::profiler::DataType::Uint8:  return QString::number(_serializedValue.convertToValue<uint8_t>()->value());
+        case ::profiler::DataType::Int16:  return QString::number(_serializedValue.convertToValue<int16_t>()->value());
+        case ::profiler::DataType::Uint16: return QString::number(_serializedValue.convertToValue<uint16_t>()->value());
+        case ::profiler::DataType::Int32:  return QString::number(_serializedValue.convertToValue<int32_t>()->value());
+        case ::profiler::DataType::Uint32: return QString::number(_serializedValue.convertToValue<uint32_t>()->value());
+        case ::profiler::DataType::Int64:  return QString::number(_serializedValue.convertToValue<int64_t>()->value());
+        case ::profiler::DataType::Uint64: return QString::number(_serializedValue.convertToValue<uint64_t>()->value());
+        case ::profiler::DataType::Float:  return QString::number(_serializedValue.convertToValue<float>()->value());
+        case ::profiler::DataType::Double: return QString::number(_serializedValue.convertToValue<double>()->value());
+        case ::profiler::DataType::String: return _serializedValue.data();
+        default: QStringLiteral("Unknown");
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 } // END of namespace profiler_gui.
 
 //////////////////////////////////////////////////////////////////////////

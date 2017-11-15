@@ -806,7 +806,7 @@ void ProfileManager::storeValue(const BaseBlockDescriptor* _desc, DataType _type
         return;
 #endif
 
-    THIS_THREAD->storeValue(_desc->id(), _type, _data, _size, _isArray, _vin);
+    THIS_THREAD->storeValue(getCurrentTime(), _desc->id(), _type, _data, _size, _isArray, _vin);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -832,11 +832,8 @@ bool ProfileManager::storeBlock(const profiler::BaseBlockDescriptor* _desc, cons
         return false;
 #endif
 
-    profiler::Block b(_desc, _runtimeName);
-    b.start();
-    b.m_end = b.m_begin;
-
-    THIS_THREAD->storeBlock(b);
+    const auto time = getCurrentTime();
+    THIS_THREAD->storeBlock(profiler::Block(time, time, _desc->id(), _runtimeName));
 
     return true;
 }
@@ -884,12 +881,8 @@ void ProfileManager::storeBlockForce(const profiler::BaseBlockDescriptor* _desc,
         return;
 #endif
 
-    profiler::Block b(_desc, _runtimeName);
-    b.start();
-    b.m_end = b.m_begin;
-
-    _timestamp = b.m_begin;
-    THIS_THREAD->storeBlock(b);
+    _timestamp = getCurrentTime();
+    THIS_THREAD->storeBlock(profiler::Block(_timestamp, _timestamp, _desc->id(), _runtimeName));
 }
 
 void ProfileManager::storeBlockForce2(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t _timestamp)
@@ -905,17 +898,12 @@ void ProfileManager::storeBlockForce2(const profiler::BaseBlockDescriptor* _desc
         return;
 #endif
 
-    profiler::Block b(_desc, _runtimeName);
-    b.m_end = b.m_begin = _timestamp;
-
-    THIS_THREAD->storeBlock(b);
+    THIS_THREAD->storeBlock(profiler::Block(_timestamp, _timestamp, _desc->id(), _runtimeName));
 }
 
 void ProfileManager::storeBlockForce2(ThreadStorage& _registeredThread, const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t _timestamp)
 {
-    profiler::Block b(_desc, _runtimeName);
-    b.m_end = b.m_begin = _timestamp;
-    _registeredThread.storeBlock(b);
+    _registeredThread.storeBlock(profiler::Block(_timestamp, _timestamp, _desc->id(), _runtimeName));
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -932,54 +920,61 @@ void ProfileManager::beginBlock(Block& _block)
         return;
     }
 
-    const auto state = m_profilerStatus.load(std::memory_order_acquire);
-    if (state == EASY_PROF_DISABLED)
-    {
-        _block.m_status = profiler::OFF;
-        THIS_THREAD->halt = false;
-        THIS_THREAD->blocks.openedList.emplace_back(_block);
-        beginFrame();
-        return;
-    }
-
     bool empty = true;
-    if (state == EASY_PROF_DUMP)
+    const auto state = m_profilerStatus.load(std::memory_order_acquire);
+    switch (state)
     {
-        const bool halt = THIS_THREAD->halt;
-        if (halt || THIS_THREAD->blocks.openedList.empty())
+        case EASY_PROF_DISABLED:
         {
             _block.m_status = profiler::OFF;
+            THIS_THREAD->halt = false;
             THIS_THREAD->blocks.openedList.emplace_back(_block);
-
-            if (!halt)
-            {
-                THIS_THREAD->halt = true;
-                beginFrame();
-            }
-
+            beginFrame();
             return;
         }
 
-        empty = false;
-    }
-    else
-    {
-        empty = THIS_THREAD->blocks.openedList.empty();
+        case EASY_PROF_DUMP:
+        {
+            const bool halt = THIS_THREAD->halt;
+            if (halt || THIS_THREAD->blocks.openedList.empty())
+            {
+                _block.m_status = profiler::OFF;
+                THIS_THREAD->blocks.openedList.emplace_back(_block);
+
+                if (!halt)
+                {
+                    THIS_THREAD->halt = true;
+                    beginFrame();
+                }
+
+                return;
+            }
+
+            empty = false;
+            break;
+        }
+
+        default:
+        {
+            empty = THIS_THREAD->blocks.openedList.empty();
+            break;
+        }
     }
 
     THIS_THREAD->stackSize = 0;
     THIS_THREAD->halt = false;
 
+    auto blockStatus = _block.m_status;
 #if EASY_ENABLE_BLOCK_STATUS != 0
     if (THIS_THREAD->allowChildren)
     {
 #endif
-        if (_block.m_status & profiler::ON)
+        if (blockStatus & profiler::ON)
             _block.start();
 #if EASY_ENABLE_BLOCK_STATUS != 0
-        THIS_THREAD->allowChildren = ((_block.m_status & profiler::OFF_RECURSIVE) == 0);
+        THIS_THREAD->allowChildren = ((blockStatus & profiler::OFF_RECURSIVE) == 0);
     }
-    else if (_block.m_status & FORCE_ON_FLAG)
+    else if (blockStatus & FORCE_ON_FLAG)
     {
         _block.start();
         _block.m_status = profiler::FORCE_ON_WITHOUT_CHILDREN;
@@ -1121,18 +1116,14 @@ void ProfileManager::endFrame()
 
     const profiler::timestamp_t duration = THIS_THREAD->endFrame();
 
-    if (THIS_THREAD_FRAME_T_RESET_MAX)
-    {
-        THIS_THREAD_FRAME_T_RESET_MAX = false;
-        THIS_THREAD_FRAME_T_MAX = 0;
-    }
+    if (THIS_THREAD_FRAME_T_RESET_MAX) THIS_THREAD_FRAME_T_MAX = 0;
+    THIS_THREAD_FRAME_T_RESET_MAX = false;
 
     THIS_THREAD_FRAME_T_CUR = duration;
     if (duration > THIS_THREAD_FRAME_T_MAX)
         THIS_THREAD_FRAME_T_MAX = duration;
 
-    if (THIS_THREAD_N_FRAMES > 10000)
-        THIS_THREAD_FRAME_T_RESET_AVG = true;
+    THIS_THREAD_FRAME_T_RESET_AVG = THIS_THREAD_FRAME_T_RESET_AVG || THIS_THREAD_N_FRAMES > 10000;
 
     if (THIS_THREAD_IS_MAIN)
     {
@@ -1151,29 +1142,19 @@ void ProfileManager::endFrame()
             m_frameAvg.store(THIS_THREAD_FRAME_T_ACC / THIS_THREAD_N_FRAMES, std::memory_order_release);
         }
 
-        auto maxDuration = m_frameMax.load(std::memory_order_acquire);
-        if (m_frameMaxReset.exchange(false, std::memory_order_release))
-            maxDuration = 0;
-
-        if (duration > maxDuration)
+        const auto maxDuration = m_frameMax.load(std::memory_order_acquire);
+        if (m_frameMaxReset.exchange(false, std::memory_order_release) || duration > maxDuration)
             m_frameMax.store(duration, std::memory_order_release);
 
-        if (m_frameMaxReset.exchange(false, std::memory_order_release))
-            maxDuration = 0;
-
         m_frameCur.store(duration, std::memory_order_release);
+
+        return;
     }
-    else if (THIS_THREAD_FRAME_T_RESET_AVG)
-    {
-        THIS_THREAD_FRAME_T_RESET_AVG = false;
-        THIS_THREAD_FRAME_T_ACC = duration;
-        THIS_THREAD_N_FRAMES = 1;
-    }
-    else
-    {
-        THIS_THREAD_FRAME_T_ACC += duration;
-        ++THIS_THREAD_N_FRAMES;
-    }
+
+    const auto reset = (uint32_t)!THIS_THREAD_FRAME_T_RESET_AVG;
+    THIS_THREAD_FRAME_T_RESET_AVG = false;
+    THIS_THREAD_N_FRAMES = 1 + reset * THIS_THREAD_N_FRAMES;
+    THIS_THREAD_FRAME_T_ACC = duration + reset * THIS_THREAD_FRAME_T_ACC;
 }
 
 profiler::timestamp_t ProfileManager::maxFrameDuration()

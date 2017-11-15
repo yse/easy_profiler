@@ -69,129 +69,33 @@ namespace profiler
         TypesCount
     }; // end of enum class DataType.
 
-    namespace {
-        template <DataType dataType> struct StdType;
-        template <class T>           struct StdToDataType;
+    template <DataType dataType> struct StdType;
+
+    template <class T> struct StdToDataType {
+        EASY_STATIC_CONSTEXPR auto data_type = DataType::TypesCount;
+    };
 
 # define EASY_DATATYPE_CONVERSION(DataTypeName, StdTypeName)\
-        template <> struct StdType<DataTypeName> { using value_type = StdTypeName; };\
-        template <> struct StdToDataType<StdTypeName> { EASY_STATIC_CONSTEXPR auto data_type = DataTypeName; }
+    template <> struct StdType<DataTypeName> { using value_type = StdTypeName; };\
+    template <> struct StdToDataType<StdTypeName> { EASY_STATIC_CONSTEXPR auto data_type = DataTypeName; }
 
-        EASY_DATATYPE_CONVERSION(DataType::Bool  , bool    );
-        EASY_DATATYPE_CONVERSION(DataType::Char  , char    );
-        EASY_DATATYPE_CONVERSION(DataType::Int8  , int8_t  );
-        EASY_DATATYPE_CONVERSION(DataType::Uint8 , uint8_t );
-        EASY_DATATYPE_CONVERSION(DataType::Int16 , int16_t );
-        EASY_DATATYPE_CONVERSION(DataType::Uint16, uint16_t);
-        EASY_DATATYPE_CONVERSION(DataType::Int32 , int32_t );
-        EASY_DATATYPE_CONVERSION(DataType::Uint32, uint32_t);
-        EASY_DATATYPE_CONVERSION(DataType::Int64 , int64_t );
-        EASY_DATATYPE_CONVERSION(DataType::Uint64, uint64_t);
-        EASY_DATATYPE_CONVERSION(DataType::Float , float   );
-        EASY_DATATYPE_CONVERSION(DataType::Double, double  );
+    EASY_DATATYPE_CONVERSION(DataType::Bool  , bool    );
+    EASY_DATATYPE_CONVERSION(DataType::Char  , char    );
+    EASY_DATATYPE_CONVERSION(DataType::Int8  , int8_t  );
+    EASY_DATATYPE_CONVERSION(DataType::Uint8 , uint8_t );
+    EASY_DATATYPE_CONVERSION(DataType::Int16 , int16_t );
+    EASY_DATATYPE_CONVERSION(DataType::Uint16, uint16_t);
+    EASY_DATATYPE_CONVERSION(DataType::Int32 , int32_t );
+    EASY_DATATYPE_CONVERSION(DataType::Uint32, uint32_t);
+    EASY_DATATYPE_CONVERSION(DataType::Int64 , int64_t );
+    EASY_DATATYPE_CONVERSION(DataType::Uint64, uint64_t);
+    EASY_DATATYPE_CONVERSION(DataType::Float , float   );
+    EASY_DATATYPE_CONVERSION(DataType::Double, double  );
 
 # undef EASY_DATATYPE_CONVERSION
 
-        template <> struct StdType<DataType::String> { using value_type = char; };
-        template <> struct StdToDataType<const char*> { EASY_STATIC_CONSTEXPR auto data_type = DataType::String; };
-    } // end of noname namespace.
-
-
-
-    template <DataType dataType, bool isArray>
-    struct Value;
-
-    template <bool isArray>
-    struct Value<DataType::TypesCount, isArray>;
-
-
-
-#pragma pack(push, 1)
-    class PROFILER_API ArbitraryValue : protected BaseBlockData
-    {
-        friend ::ThreadStorage;
-
-    protected:
-
-        uint16_t m_size;
-        DataType m_type;
-        bool  m_isArray;
-
-        ArbitraryValue(vin_t _vin, block_id_t _id, uint16_t _size, DataType _type, bool _isArray)
-            : BaseBlockData(0, static_cast<timestamp_t>(_vin), _id)
-            , m_size(_size)
-            , m_type(_type)
-            , m_isArray(_isArray)
-        {
-        }
-
-    public:
-
-        const char* data() const {
-            return reinterpret_cast<const char*>(this) + sizeof(ArbitraryValue);
-        }
-
-        vin_t value_id() const {
-            return static_cast<vin_t>(m_end);
-        }
-
-        template <DataType dataType>
-        const Value<dataType, false>* convertToValue() const {
-            return m_type == dataType ? static_cast<const Value<dataType, false>*>(this) : nullptr;
-        }
-
-        template <class T>
-        const Value<StdToDataType<T>::data_type, false>* convertToValue() const {
-            return convertToValue<StdToDataType<T>::data_type>();
-        }
-
-        template <DataType dataType>
-        const Value<dataType, true>* convertToArray() const {
-            return m_isArray && m_type == dataType ? static_cast<const Value<dataType, true>*>(this) : nullptr;
-        }
-
-        template <class T>
-        const Value<StdToDataType<T>::data_type, true>* convertToArray() const {
-            return convertToArray<StdToDataType<T>::data_type>();
-        }
-    }; // end of class ArbitraryValue.
-#pragma pack(pop)
-
-
-
-    template <DataType dataType>
-    struct Value<dataType, false> EASY_FINAL : public ArbitraryValue {
-        using value_type = typename StdType<dataType>::value_type;
-        value_type value() const { return *reinterpret_cast<const value_type*>(data()); }
-    };
-
-
-    template <DataType dataType>
-    struct Value<dataType, true> EASY_FINAL : public ArbitraryValue {
-        using value_type = typename StdType<dataType>::value_type;
-        const value_type* value() const { return reinterpret_cast<const value_type*>(data()); }
-        uint16_t size() const { return m_size / sizeof(value_type); }
-        value_type operator [] (int i) const { return value()[i]; }
-    };
-
-
-    template <>
-    struct Value<DataType::String, true> EASY_FINAL : public ArbitraryValue {
-        using value_type = char;
-        const char* value() const { return data(); }
-        uint16_t size() const { return m_size; }
-        char operator [] (int i) const { return data()[i]; }
-        const char* c_str() const { return data(); }
-    };
-
-
-    template <DataType dataType>
-    using SingleValue = Value<dataType, false>;
-
-    template <DataType dataType>
-    using ArrayValue = Value<dataType, true>;
-
-    using StringValue = Value<DataType::String, true>;
+    template <> struct StdType<DataType::String> { using value_type = char; };
+    template <> struct StdToDataType<const char*> { EASY_STATIC_CONSTEXPR auto data_type = DataType::String; };
 
 } // end of namespace profiler.
 

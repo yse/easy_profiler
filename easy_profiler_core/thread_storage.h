@@ -45,6 +45,7 @@ The Apache License, Version 2.0 (the "License");
 
 #include <easy/details/profiler_public_types.h>
 #include <easy/details/arbitrary_value_public_types.h>
+#include <easy/serialized_block.h>
 #include <vector>
 #include <string>
 #include <atomic>
@@ -110,7 +111,7 @@ struct ThreadStorage EASY_FINAL
     bool                     frameOpened; ///< Is new frame opened (this does not depend on profiling status) \sa profiledFrameOpened
     bool                            halt; ///< This is set to true when new frame started while dumping blocks. Used to restrict collecting blocks during dumping process.
 
-    void storeValue(profiler::block_id_t _id, profiler::DataType _type, const void* _data, size_t _size, bool _isArray, profiler::ValueId _vin);
+    void storeValue(profiler::timestamp_t _timestamp, profiler::block_id_t _id, profiler::DataType _type, const void* _data, size_t _size, bool _isArray, profiler::ValueId _vin);
     void storeBlock(const profiler::Block& _block);
     void storeCSwitch(const CSwitchBlock& _block);
     void clearClosed();

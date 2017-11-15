@@ -176,11 +176,7 @@ Name of the block automatically created with function name.
 
 \ingroup profiler
 */
-# define EASY_FUNCTION(...)\
-    EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), ::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__),\
-        EASY_UNIQUE_LINE_ID, __func__, __FILE__, __LINE__, ::profiler::BlockType::Block, ::profiler::extract_color(__VA_ARGS__), false));\
-    ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(EASY_UNIQUE_DESC(__LINE__), "");\
-    ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
+# define EASY_FUNCTION(...) EASY_BLOCK(__func__, ## __VA_ARGS__)
 
 /** Macro for completion of last opened block explicitly.
 

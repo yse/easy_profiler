@@ -59,9 +59,18 @@ namespace profiler
     public:
 
         inline EASY_CONSTEXPR_FCN ValueId(const ValueId&) = default;
+        inline EASY_CONSTEXPR_FCN ValueId(ValueId&&) = default;
         explicit inline EASY_CONSTEXPR_FCN ValueId() : m_id(0) {}
         explicit inline EASY_CONSTEXPR_FCN ValueId(const void* _member) : m_id(reinterpret_cast<vin_t>(_member)) {}
-        template <class T> explicit inline EASY_CONSTEXPR_FCN ValueId(const T& _member) : m_id(reinterpret_cast<vin_t>(&_member)) {}
+
+        template <class T>
+        explicit inline EASY_CONSTEXPR_FCN ValueId(const T& _member) : m_id(reinterpret_cast<vin_t>(&_member)) {}
+
+        template <class T, size_t N>
+        explicit inline EASY_CONSTEXPR_FCN ValueId(const T (&_member)[N]) : m_id(reinterpret_cast<vin_t>((void*)_member)) {}
+
+        ValueId& operator = (const ValueId&) = delete;
+        ValueId& operator = (ValueId&&) = delete;
     };
 
     namespace {
@@ -87,6 +96,9 @@ namespace profiler
         struct GetFirst {
             template <class T, class ... TArgs>
             static EASY_CONSTEXPR_FCN ValueId get(const T& _first, TArgs...) { return ValueId(_first); }
+
+            template <class T, size_t N, class ... TArgs>
+            static EASY_CONSTEXPR_FCN ValueId get(const T (&_first)[N], TArgs...) { return ValueId(_first); }
         };
 
         struct GetRest {
@@ -97,7 +109,13 @@ namespace profiler
 
     template <class T, class ... TArgs>
     inline EASY_CONSTEXPR_FCN ValueId extract_value_id(const T& _first, TArgs... _args) {
-        return ::std::conditional<::std::is_same<bool, decltype(subextract_value_id(_args...))>::value, GetFirst, GetRest>
+        return ::std::conditional<::std::is_same<ValueId, decltype(subextract_value_id(_args...))>::value, GetRest, GetFirst>
+            ::type::get(_first, _args...);
+    }
+
+    template <class T, size_t N, class ... TArgs>
+    inline EASY_CONSTEXPR_FCN ValueId extract_value_id(const T (&_first)[N], TArgs... _args) {
+        return ::std::conditional<::std::is_same<ValueId, decltype(subextract_value_id(_args...))>::value, GetRest, GetFirst>
             ::type::get(_first, _args...);
     }
 
