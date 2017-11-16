@@ -64,11 +64,11 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QStatusBar>
-#include <QDockWidget>
 #include <QFileDialog>
 #include <QAction>
 #include <QMenu>
 #include <QMenuBar>
+#include <QPushButton>
 #include <QCloseEvent>
 #include <QSettings>
 #include <QTextCodec>
@@ -134,6 +134,38 @@ inline void clear_stream(std::stringstream& _stream)
 
 //////////////////////////////////////////////////////////////////////////
 
+EasyDockWidget::EasyDockWidget(const QString& title, QWidget* parent) : QDockWidget(title, parent)
+{
+    auto floatingButton = new QPushButton();
+    floatingButton->setObjectName("EasyDockWidgetFloatButton");
+    connect(floatingButton, &QPushButton::clicked, [this] {
+        setFloating(!isFloating());
+    });
+
+    auto closeButton = new QPushButton();
+    closeButton->setObjectName("EasyDockWidgetCloseButton");
+    connect(closeButton, &QPushButton::clicked, [this] {
+        close();
+    });
+
+    auto caption = new QWidget(this);
+    caption->setObjectName("EasyDockWidgetTitle");
+
+    auto lay = new QHBoxLayout(caption);
+    lay->setContentsMargins(0, 0, 0, 0);
+    lay->setSpacing(2);
+    lay->addWidget(new QLabel(title));
+    lay->addStretch(100);
+    lay->addWidget(floatingButton);
+    lay->addWidget(closeButton);
+
+    setTitleBarWidget(caption);
+}
+
+EasyDockWidget::~EasyDockWidget()
+{
+}
+
 EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastPort(::profiler::DEFAULT_PORT)
 {
     { QIcon icon(":/logo"); if (!icon.isNull()) QApplication::setWindowIcon(icon); }
@@ -146,7 +178,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     
     setStatusBar(nullptr);
 
-    m_graphicsView = new QDockWidget("Diagram", this);
+    m_graphicsView = new EasyDockWidget("Diagram", this);
     m_graphicsView->setObjectName("ProfilerGUI_Diagram");
     m_graphicsView->setMinimumHeight(50);
     m_graphicsView->setAllowedAreas(Qt::AllDockWidgetAreas);
@@ -154,7 +186,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     auto graphicsView = new EasyGraphicsViewWidget(this);
     m_graphicsView->setWidget(graphicsView);
 
-    m_treeWidget = new QDockWidget("Hierarchy", this);
+    m_treeWidget = new EasyDockWidget("Hierarchy", this);
     m_treeWidget->setObjectName("ProfilerGUI_Hierarchy");
     m_treeWidget->setMinimumHeight(50);
     m_treeWidget->setAllowedAreas(Qt::AllDockWidgetAreas);
@@ -162,7 +194,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     auto treeWidget = new EasyHierarchyWidget(this);
     m_treeWidget->setWidget(treeWidget);
 
-    m_fpsViewer = new QDockWidget("FPS Monitor", this);
+    m_fpsViewer = new EasyDockWidget("FPS Monitor", this);
     m_fpsViewer->setObjectName("ProfilerGUI_FPS");
     m_fpsViewer->setWidget(new EasyFrameRateViewer(this));
     m_fpsViewer->setAllowedAreas(Qt::TopDockWidgetArea | Qt::BottomDockWidgetArea);
@@ -173,7 +205,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
 
 #if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
     auto descTree = new EasyDescWidget();
-    m_descTreeWidget = new QDockWidget("Blocks");
+    m_descTreeWidget = new EasyDockWidget("Blocks");
     m_descTreeWidget->setObjectName("ProfilerGUI_Blocks");
     m_descTreeWidget->setMinimumHeight(50);
     m_descTreeWidget->setAllowedAreas(Qt::AllDockWidgetAreas);
@@ -443,12 +475,12 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     submenu->addSeparator();
     auto w = new QWidget(submenu);
     auto l = new QHBoxLayout(w);
-    l->setContentsMargins(33, 1, 1, 1);
+    l->setContentsMargins(26, 1, 16, 1);
     l->addWidget(new QLabel("Min blocks spacing, px", w), 0, Qt::AlignLeft);
     auto spinbox = new QSpinBox(w);
     spinbox->setRange(0, 400);
     spinbox->setValue(EASY_GLOBALS.blocks_spacing);
-    spinbox->setFixedWidth(50);
+    spinbox->setFixedWidth(70);
     connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onSpacingChange(int)));
     l->addWidget(spinbox);
     w->setLayout(l);
@@ -458,12 +490,12 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
 
     w = new QWidget(submenu);
     l = new QHBoxLayout(w);
-    l->setContentsMargins(33, 1, 1, 1);
+    l->setContentsMargins(26, 1, 16, 1);
     l->addWidget(new QLabel("Min blocks size, px", w), 0, Qt::AlignLeft);
     spinbox = new QSpinBox(w);
     spinbox->setRange(1, 400);
     spinbox->setValue(EASY_GLOBALS.blocks_size_min);
-    spinbox->setFixedWidth(50);
+    spinbox->setFixedWidth(70);
     connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onMinSizeChange(int)));
     l->addWidget(spinbox);
     w->setLayout(l);
@@ -473,12 +505,12 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
 
     w = new QWidget(submenu);
     l = new QHBoxLayout(w);
-    l->setContentsMargins(33, 1, 1, 1);
+    l->setContentsMargins(26, 1, 16, 1);
     l->addWidget(new QLabel("Blocks narrow size, px", w), 0, Qt::AlignLeft);
     spinbox = new QSpinBox(w);
     spinbox->setRange(1, 400);
     spinbox->setValue(EASY_GLOBALS.blocks_narrow_size);
-    spinbox->setFixedWidth(50);
+    spinbox->setFixedWidth(70);
     connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onNarrowSizeChange(int)));
     l->addWidget(spinbox);
     w->setLayout(l);
@@ -492,12 +524,12 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     submenu = menu->addMenu("FPS Monitor");
     w = new QWidget(submenu);
     l = new QHBoxLayout(w);
-    l->setContentsMargins(33, 1, 1, 1);
+    l->setContentsMargins(26, 1, 16, 1);
     l->addWidget(new QLabel("Request interval, ms", w), 0, Qt::AlignLeft);
     spinbox = new QSpinBox(w);
     spinbox->setRange(1, 600000);
     spinbox->setValue(EASY_GLOBALS.fps_timer_interval);
-    spinbox->setFixedWidth(50);
+    spinbox->setFixedWidth(70);
     connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onFpsIntervalChange(int)));
     l->addWidget(spinbox);
     w->setLayout(l);
@@ -507,12 +539,12 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
 
     w = new QWidget(submenu);
     l = new QHBoxLayout(w);
-    l->setContentsMargins(33, 1, 1, 1);
+    l->setContentsMargins(26, 1, 16, 1);
     l->addWidget(new QLabel("Max history size", w), 0, Qt::AlignLeft);
     spinbox = new QSpinBox(w);
     spinbox->setRange(2, 200);
     spinbox->setValue(EASY_GLOBALS.max_fps_history);
-    spinbox->setFixedWidth(50);
+    spinbox->setFixedWidth(70);
     connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onFpsHistoryChange(int)));
     l->addWidget(spinbox);
     w->setLayout(l);
@@ -522,12 +554,12 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
 
     w = new QWidget(submenu);
     l = new QHBoxLayout(w);
-    l->setContentsMargins(33, 1, 1, 1);
+    l->setContentsMargins(26, 1, 16, 1);
     l->addWidget(new QLabel("Line width, px", w), 0, Qt::AlignLeft);
     spinbox = new QSpinBox(w);
     spinbox->setRange(1, 6);
     spinbox->setValue(EASY_GLOBALS.fps_widget_line_width);
-    spinbox->setFixedWidth(50);
+    spinbox->setFixedWidth(70);
     connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onFpsMonitorLineWidthChange(int)));
     l->addWidget(spinbox);
     w->setLayout(l);

@@ -1,5 +1,6 @@
 <!DOCTYPE RCC><RCC version="1.0">
     <qresource>
+        <file alias="DefaultTheme">default.css</file>
         <file alias="logo">icons/logo.svg</file>
         <file alias="Exit">icons/off.svg</file>
         <file alias="Open">icons/open-folder2.svg</file>
@@ -24,6 +25,14 @@
         <file alias="List">icons/list.svg</file>
         <file alias="Search-next">icons/search-next.svg</file>
         <file alias="Search-prev">icons/search-prev.svg</file>
-        <file alias="Settings">icons/settings.svg</file> 
+        <file alias="Settings">icons/settings.svg</file>
+        <file alias="CheckIndicator">icons/check.svg</file>
+        <file alias="CheckIndicatorDisabled">icons/check-disabled.svg</file>
+        <file alias="RadioIndicator">icons/radio-indicator.svg</file>
+        <file alias="RadioIndicatorDisabled">icons/radio-indicator-disabled.svg</file>
+        <file alias="DockMaximizeWhite">icons/maximize-white.svg</file>
+        <file alias="DockMaximizeWhiteHover">icons/maximize-white-hover.svg</file>
+        <file alias="DockCloseWhite">icons/close-white.svg</file>
+        <file alias="DockCloseWhiteHover">icons/close-white-hover.svg</file>
     </qresource>
 </RCC>

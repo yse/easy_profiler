@@ -269,7 +269,7 @@ EasyFrameRateViewer::EasyFrameRateViewer(QWidget* _parent) : Parent(_parent), m_
 
     // Dirty hack for QDockWidget stupid initial size policy :(
     setFixedHeight(10); // Set very small height to enable appropriate minimum height on the application startup
-    QTimer::singleShot(100, [this]()
+    QTimer::singleShot(100, [this]
     {
         // Now set appropriate minimum height
         setMinimumHeight((QFontMetrics(scene()->font()).height() + 3) * 6);

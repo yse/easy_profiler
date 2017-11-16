@@ -60,6 +60,7 @@
 #include <sstream>
 
 #include <QMainWindow>
+#include <QDockWidget>
 #include <QTimer>
 #include <QStringList>
 
@@ -77,8 +78,6 @@
 //////////////////////////////////////////////////////////////////////////
 
 #define EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW 0
-
-class QDockWidget;
 
 namespace profiler { namespace net { struct EasyProfilerStatus; } }
 
@@ -194,6 +193,12 @@ private:
 }; // END of class EasySocketListener.
 
 //////////////////////////////////////////////////////////////////////////
+
+struct EasyDockWidget : public QDockWidget
+{
+    EasyDockWidget(const QString& title, QWidget* parent = nullptr);
+    virtual ~EasyDockWidget();
+};
 
 class EasyMainWindow : public QMainWindow
 {

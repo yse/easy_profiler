@@ -104,10 +104,10 @@ namespace profiler_gui {
         , auto_adjust_histogram_height(true)
         , display_only_frames_on_histogram(false)
         , bind_scene_and_tree_expand_status(true)
-        , bg_font(::profiler_gui::EFont("Helvetica", 10, QFont::Bold))
-        , chronometer_font(::profiler_gui::EFont("Helvetica", 16, QFont::Bold))
-        , items_font(::profiler_gui::EFont("Helvetica", 10, QFont::Medium))
-        , selected_item_font(::profiler_gui::EFont("Helvetica", 10, QFont::Medium))
+        , bg_font(::profiler_gui::EFont("DejaVu Sans", 10, QFont::Bold))
+        , chronometer_font(::profiler_gui::EFont("DejaVu Sans", 16, QFont::Bold))
+        , items_font(::profiler_gui::EFont("DejaVu Sans", 10, QFont::Medium))
+        , selected_item_font(::profiler_gui::EFont("DejaVu Sans", 10, QFont::Medium))
     {
 
     }

@@ -1522,12 +1522,15 @@ void EasyGraphicsView::onIdleTimeout()
             if (widget == nullptr)
                 return;
 
+            widget->setObjectName(QStringLiteral("DiagramPopup"));
             widget->setAttribute(Qt::WA_ShowWithoutActivating, true);
             widget->setFocusPolicy(Qt::NoFocus);
 
             auto lay = new QGridLayout(widget);
             if (lay == nullptr)
                 return;
+
+            lay->setSpacing(2);
 
             int row = 0;
             switch (itemDesc.type())
@@ -2326,6 +2329,7 @@ void EasyThreadNamesWidget::onIdleTimeout()
         if (widget == nullptr)
             return;
 
+        widget->setObjectName(QStringLiteral("ThreadsPopup"));
         widget->setAttribute(Qt::WA_ShowWithoutActivating, true);
         widget->setFocusPolicy(Qt::NoFocus);
 
@@ -2335,6 +2339,7 @@ void EasyThreadNamesWidget::onIdleTimeout()
 
         int row = 0;
 
+        lay->setSpacing(2);
         lay->addWidget(new EasyBoldLabel(intersectingItem->threadName(), widget), row, 0, 1, 2, Qt::AlignHCenter);
         ++row;
 

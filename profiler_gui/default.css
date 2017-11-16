@@ -1,0 +1,187 @@
+/**********************************
+*                                 *
+*  Light theme for EasyProfiler.  *
+*                                 *
+***********************************/
+
+
+/* ****************************************************************************************************************** */
+* {
+    font-family: "DejaVu Sans";
+    font-size: 13px;
+    color: #606070;
+}
+
+*:disabled {
+    color: #b0b0c0;
+}
+
+
+
+
+
+/* ****************************************************************************************************************** */
+QLineEdit, QPushButton {
+    height: 24px;
+    border: 1px solid #cccccc;
+    background-color: white;
+}
+
+QPushButton {
+    padding: 2px 5px 2px 5px;
+}
+
+QPushButton:hover {
+    border: 1px solid #f4a386;
+    color: #806070;
+}
+
+QPushButton:pressed {
+    border: 1px solid #d47366;
+    color: #705060;
+}
+
+/* ****************************************************************************************************************** */
+QMenu {
+    background-color: white;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+QMenu::item {
+    height: 22px;
+    padding: 0 16px 0 25px;
+    border: 1px solid transparent; /* reserve space for selection border */
+}
+
+QMenu::item:selected {
+    border-color: rgba(96, 112, 208, 128);
+    background: rgba(96, 112, 208, 64);
+}
+
+QMenu::icon {
+    width: 12px;
+    height: 12px;
+    background: none;
+    border: 1px inset transparent;
+    padding: 1px;
+    margin-left: 2px;
+}
+
+QMenu::icon:checked { /* appearance of a 'checked' icon */
+    background-color: #dddddd;
+    border: 1px inset #aaaaaa;
+}
+
+QMenu::separator {
+    height: 1px;
+    background: #cccccc;
+    margin-left: 5px;
+    margin-right: 5px;
+}
+
+QMenu::indicator {
+    width: 14px;
+    height: 14px;
+    background-color: white;
+    border: 1px solid #cccccc;
+    margin-left: 2px;
+    padding: 1px;
+}
+
+QMenu::indicator:non-exclusive:checked { image: url(":/CheckIndicator"); }
+QMenu::indicator:non-exclusive:checked:disabled { image: url(":/CheckIndicatorDisabled"); }
+
+QMenu::indicator:exclusive { border-radius: 8px; }
+QMenu::indicator:exclusive:checked { image: url(":/RadioIndicator"); }
+QMenu::indicator:exclusive:checked:disabled { image: url(":/RadioIndicatorDisabled"); }
+
+
+
+
+/* ****************************************************************************************************************** */
+/*QToolButton {
+    border: 1px solid transparent;
+    background: none;
+    padding: 2px;
+}
+
+QToolButton:hover {
+    border: 1px solid #cccccc;
+}
+
+QToolButton[popupMode="1"] {
+    padding-right: 13px;
+}
+
+QToolButton:pressed {
+    background-color: #808080;
+}
+
+QToolButton::menu-button {
+    border: none;
+    border-left: 1px solid transparent;
+    width: 12px;
+}
+
+QToolButton::menu-button:hover {
+    border-left: 1px solid #cccccc;
+    background-color: #bbbbbb;
+}
+
+QToolButton::menu-button:pressed {
+    border-left: 1px solid #cccccc;
+    background-color: #808080;
+}*/
+
+
+
+
+
+
+/* ****************************************************************************************************************** */
+QHeaderView::section {
+    height: 28px;
+    width: 96px;
+    min-width: 64px;
+    background: #eeeeee;
+}
+
+
+
+
+
+/* ****************************************************************************************************************** */
+QDockWidget QWidget#EasyDockWidgetTitle {
+    background-color: #666666;
+}
+
+QDockWidget QWidget#EasyDockWidgetTitle QLabel {
+    color: white;
+    margin-left: 4px;
+}
+
+QDockWidget QWidget#EasyDockWidgetTitle QPushButton {
+    background: none;
+    border: none;
+    max-height: 12px;
+    max-width: 12px;
+    margin-right: 4px;
+    padding: 0;
+}
+
+QDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton { image: url(":/DockMaximizeWhite"); }
+QDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton:hover { image: url(":/DockMaximizeWhiteHover"); }
+QDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetCloseButton { image: url(":/DockCloseWhite"); }
+QDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetCloseButton:hover { image: url(":/DockCloseWhiteHover"); }
+
+
+
+/* ****************************************************************************************************************** */
+QWidget#DiagramPopup, QWidget#ThreadsPopup {
+    background-color: white;
+    border: 1px solid #cccccc;
+}
+
+
+
