@@ -27,18 +27,16 @@ QLineEdit, QPushButton {
     background-color: white;
 }
 
-QPushButton {
-    padding: 2px 5px 2px 5px;
-}
+QLineEdit:focus { border: 1px ridge #f44336; }
 
-QPushButton:hover {
-    border: 1px solid #f4a386;
-    color: #806070;
-}
+QPushButton { padding: 2px 5px 2px 5px; }
+QPushButton:hover { border: 1px solid #f4a386; color: #806070; }
+QPushButton:pressed { border: 1px solid #d47366; color: #705060; }
 
-QPushButton:pressed {
-    border: 1px solid #d47366;
-    color: #705060;
+QComboBox QListView {
+    background-color: white;
+    border: 1px solid #cccccc;
+    selection-background-color: rgba(96, 112, 208, 64);
 }
 
 /* ****************************************************************************************************************** */
@@ -152,16 +150,16 @@ QHeaderView::section {
 
 
 /* ****************************************************************************************************************** */
-QDockWidget QWidget#EasyDockWidgetTitle {
+EasyDockWidget QWidget#EasyDockWidgetTitle {
     background-color: #666666;
 }
 
-QDockWidget QWidget#EasyDockWidgetTitle QLabel {
+EasyDockWidget QWidget#EasyDockWidgetTitle QLabel {
     color: white;
     margin-left: 4px;
 }
 
-QDockWidget QWidget#EasyDockWidgetTitle QPushButton {
+EasyDockWidget QWidget#EasyDockWidgetTitle QPushButton {
     background: none;
     border: none;
     max-height: 12px;
@@ -170,10 +168,17 @@ QDockWidget QWidget#EasyDockWidgetTitle QPushButton {
     padding: 0;
 }
 
-QDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton { image: url(":/DockMaximizeWhite"); }
-QDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton:hover { image: url(":/DockMaximizeWhiteHover"); }
-QDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetCloseButton { image: url(":/DockCloseWhite"); }
-QDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetCloseButton:hover { image: url(":/DockCloseWhiteHover"); }
+EasyDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton { image: url(":/DockMaximizeWhite"); }
+EasyDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton:hover { image: url(":/DockMaximizeWhiteHover"); }
+EasyDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton:pressed { image: url(":/DockMaximizeWhitePressed"); }
+
+EasyDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton[floating=true] { image: url(":/DockMinimizeWhite"); }
+EasyDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton[floating=true]:hover { image: url(":/DockMinimizeWhiteHover"); }
+EasyDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton[floating=true]:pressed { image: url(":/DockMinimizeWhitePressed"); }
+
+EasyDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetCloseButton { image: url(":/DockCloseWhite"); }
+EasyDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetCloseButton:hover { image: url(":/DockCloseWhiteHover"); }
+EasyDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetCloseButton:pressed { image: url(":/DockCloseWhitePressed"); }
 
 
 

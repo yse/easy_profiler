@@ -194,10 +194,12 @@ private:
 
 //////////////////////////////////////////////////////////////////////////
 
-struct EasyDockWidget : public QDockWidget
+class EasyDockWidget : public QDockWidget
 {
-    EasyDockWidget(const QString& title, QWidget* parent = nullptr);
-    virtual ~EasyDockWidget();
+    Q_OBJECT
+public:
+    explicit EasyDockWidget(const QString& title, QWidget* parent = nullptr);
+    ~EasyDockWidget() override;
 };
 
 class EasyMainWindow : public QMainWindow
@@ -252,7 +254,7 @@ protected:
 public:
 
     explicit EasyMainWindow();
-    virtual ~EasyMainWindow();
+    ~EasyMainWindow() override;
 
     // Public virtual methods
 

@@ -138,8 +138,13 @@ EasyDockWidget::EasyDockWidget(const QString& title, QWidget* parent) : QDockWid
 {
     auto floatingButton = new QPushButton();
     floatingButton->setObjectName("EasyDockWidgetFloatButton");
-    connect(floatingButton, &QPushButton::clicked, [this] {
+    floatingButton->setProperty("floating", isFloating());
+    connect(floatingButton, &QPushButton::clicked, [this, floatingButton] {
         setFloating(!isFloating());
+        floatingButton->setProperty("floating", isFloating());
+        floatingButton->style()->unpolish(floatingButton);
+        floatingButton->style()->polish(floatingButton);
+        floatingButton->update();
     });
 
     auto closeButton = new QPushButton();

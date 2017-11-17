@@ -32,7 +32,12 @@
         <file alias="RadioIndicatorDisabled">icons/radio-indicator-disabled.svg</file>
         <file alias="DockMaximizeWhite">icons/maximize-white.svg</file>
         <file alias="DockMaximizeWhiteHover">icons/maximize-white-hover.svg</file>
+        <file alias="DockMaximizeWhitePressed">icons/maximize-white-pressed.svg</file>
+        <file alias="DockMinimizeWhite">icons/minimize-white.svg</file>
+        <file alias="DockMinimizeWhiteHover">icons/minimize-white-hover.svg</file>
+        <file alias="DockMinimizeWhitePressed">icons/minimize-white-pressed.svg</file>
         <file alias="DockCloseWhite">icons/close-white.svg</file>
         <file alias="DockCloseWhiteHover">icons/close-white-hover.svg</file>
+        <file alias="DockCloseWhitePressed">icons/close-white-pressed.svg</file>
     </qresource>
 </RCC>
