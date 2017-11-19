@@ -88,7 +88,7 @@
 //////////////////////////////////////////////////////////////////////////
 // Clang Compiler
 
-# if (__clang_major__ == 3 && __clang_minor__ < 3) || (__clang_major__ < 3)
+# if (EASY_OPTION_THREAD_LOCAL_SUPPORT_ENABLED == 0)
 // There is no support for C++11 thread_local keyword prior to clang 3.3. Use __thread instead.
 #  define EASY_THREAD_LOCAL __thread
 # endif
@@ -110,7 +110,7 @@
 //////////////////////////////////////////////////////////////////////////
 // GNU Compiler
 
-# if (__GNUC__ == 4 && __GNUC_MINOR__ < 8) || (__GNUC__ < 4)
+# if (EASY_OPTION_THREAD_LOCAL_SUPPORT_ENABLED == 0)
 // There is no support for C++11 thread_local keyword prior to gcc 4.8. Use __thread instead.
 #  define EASY_THREAD_LOCAL __thread
 # endif

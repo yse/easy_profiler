@@ -46,6 +46,7 @@ The Apache License, Version 2.0 (the "License");
 #include "nonscoped_block.h"
 #include <list>
 #include <algorithm>
+#include <cstdlib>
 
 #ifdef max
 #undef max
