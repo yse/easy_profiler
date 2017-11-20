@@ -212,27 +212,27 @@ namespace profiler {
         }
 
         template <DataType dataType>
-        const Value<dataType, false>* convertToValue() const {
+        const Value<dataType, false>* toValue() const {
             return m_type == dataType ? static_cast<const Value<dataType, false>*>(this) : nullptr;
         }
 
         template <class T>
-        const Value<StdToDataType<T>::data_type, false>* convertToValue() const {
+        const Value<StdToDataType<T>::data_type, false>* toValue() const {
             static_assert(StdToDataType<T>::data_type != DataType::TypesCount,
                           "You should use standard builtin scalar types as profiler::Value type!");
-            return convertToValue<StdToDataType<T>::data_type>();
+            return toValue<StdToDataType<T>::data_type>();
         }
 
         template <DataType dataType>
-        const Value<dataType, true>* convertToArray() const {
+        const Value<dataType, true>* toArray() const {
             return m_isArray && m_type == dataType ? static_cast<const Value<dataType, true>*>(this) : nullptr;
         }
 
         template <class T>
-        const Value<StdToDataType<T>::data_type, true>* convertToArray() const {
+        const Value<StdToDataType<T>::data_type, true>* toArray() const {
             static_assert(StdToDataType<T>::data_type != DataType::TypesCount,
                           "You should use standard builtin scalar types as profiler::Value type!");
-            return convertToArray<StdToDataType<T>::data_type>();
+            return toArray<StdToDataType<T>::data_type>();
         }
     }; // end of class ArbitraryValue.
 #pragma pack(pop)

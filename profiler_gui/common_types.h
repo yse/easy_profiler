@@ -457,18 +457,18 @@ inline QString valueString(const ::profiler::ArbitraryValue& _serializedValue)
 
     switch (_serializedValue.type())
     {
-        case ::profiler::DataType::Bool:   return _serializedValue.convertToValue<bool>()->value() ? QStringLiteral("true") : QStringLiteral("false");
-        case ::profiler::DataType::Char:   return QChar(_serializedValue.convertToValue<char>()->value());
-        case ::profiler::DataType::Int8:   return QChar(_serializedValue.convertToValue<int8_t>()->value());
-        case ::profiler::DataType::Uint8:  return QString::number(_serializedValue.convertToValue<uint8_t>()->value());
-        case ::profiler::DataType::Int16:  return QString::number(_serializedValue.convertToValue<int16_t>()->value());
-        case ::profiler::DataType::Uint16: return QString::number(_serializedValue.convertToValue<uint16_t>()->value());
-        case ::profiler::DataType::Int32:  return QString::number(_serializedValue.convertToValue<int32_t>()->value());
-        case ::profiler::DataType::Uint32: return QString::number(_serializedValue.convertToValue<uint32_t>()->value());
-        case ::profiler::DataType::Int64:  return QString::number(_serializedValue.convertToValue<int64_t>()->value());
-        case ::profiler::DataType::Uint64: return QString::number(_serializedValue.convertToValue<uint64_t>()->value());
-        case ::profiler::DataType::Float:  return QString::number(_serializedValue.convertToValue<float>()->value());
-        case ::profiler::DataType::Double: return QString::number(_serializedValue.convertToValue<double>()->value());
+        case ::profiler::DataType::Bool:   return _serializedValue.toValue<bool>()->value() ? QStringLiteral("true") : QStringLiteral("false");
+        case ::profiler::DataType::Char:   return QChar(_serializedValue.toValue<char>()->value());
+        case ::profiler::DataType::Int8:   return QChar(_serializedValue.toValue<int8_t>()->value());
+        case ::profiler::DataType::Uint8:  return QString::number(_serializedValue.toValue<uint8_t>()->value());
+        case ::profiler::DataType::Int16:  return QString::number(_serializedValue.toValue<int16_t>()->value());
+        case ::profiler::DataType::Uint16: return QString::number(_serializedValue.toValue<uint16_t>()->value());
+        case ::profiler::DataType::Int32:  return QString::number(_serializedValue.toValue<int32_t>()->value());
+        case ::profiler::DataType::Uint32: return QString::number(_serializedValue.toValue<uint32_t>()->value());
+        case ::profiler::DataType::Int64:  return QString::number(_serializedValue.toValue<int64_t>()->value());
+        case ::profiler::DataType::Uint64: return QString::number(_serializedValue.toValue<uint64_t>()->value());
+        case ::profiler::DataType::Float:  return QString::number(_serializedValue.toValue<float>()->value());
+        case ::profiler::DataType::Double: return QString::number(_serializedValue.toValue<double>()->value());
         case ::profiler::DataType::String: return _serializedValue.data();
         default: return QStringLiteral("Unknown");
     }
