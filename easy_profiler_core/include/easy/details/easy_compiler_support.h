@@ -96,8 +96,8 @@
 
 # define EASY_COMPILER_VERSION (__clang_major__ * 10 + __clang_minor__)
 
-# if EASY_COMPILER_VERSION < 33
-// There is no support for C++11 thread_local keyword prior to Clang v3.3. Use __thread instead.
+# if EASY_COMPILER_VERSION < 33 || (defined(__APPLE_CC__) && __APPLE_CC__ < 8000)
+// There is no support for C++11 thread_local keyword prior to Clang v3.3 and Apple LLVM clang 8.0. Use __thread instead.
 #  define EASY_THREAD_LOCAL __thread
 # endif
 

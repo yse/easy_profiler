@@ -15,6 +15,10 @@ if (NOT WIN32)
         if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "3.3")
             set(NO_CXX11_THREAD_LOCAL_SUPPORT TRUE)
         endif ()
+    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+        if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "8.0")
+            set(NO_CXX11_THREAD_LOCAL_SUPPORT TRUE)
+        endif ()
     endif ()
     
     # TODO: Check thread_local keyword support for other compilers for Unix
