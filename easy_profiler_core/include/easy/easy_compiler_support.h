@@ -88,8 +88,8 @@
 //////////////////////////////////////////////////////////////////////////
 // Clang Compiler
 
-# if (__clang_major__ == 3 && __clang_minor__ < 3) || (__clang_major__ < 3)
-// There is no support for C++11 thread_local keyword prior to clang 3.3. Use __thread instead.
+# if (__clang_major__ == 3 && __clang_minor__ < 3) || (__clang_major__ < 3) || (defined __APPLE_CC__ && __APPLE_CC__ < 8000)
+// There is no support for C++11 thread_local keyword prior to clang 3.3 and Apple LLVM clang 8.0. Use __thread instead.
 #  define EASY_THREAD_LOCAL __thread
 # endif
 
