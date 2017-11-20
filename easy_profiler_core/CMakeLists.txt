@@ -6,21 +6,24 @@ message(STATUS "")
 
 #####################################################################
 # Checking c++11 thread_local support
-
 if (NOT WIN32)
     if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.8")
-            set(CXX11_THREAD_LOCAL_SUPPORT OFF)
+            set(NO_CXX11_THREAD_LOCAL_SUPPORT TRUE)
         endif ()
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "3.3")
-            set(NOT CXX11_THREAD_LOCAL_SUPPORT OFF)
+            set(NO_CXX11_THREAD_LOCAL_SUPPORT TRUE)
+        endif ()
+    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+        if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "8.0")
+            set(NO_CXX11_THREAD_LOCAL_SUPPORT TRUE)
         endif ()
     endif ()
     
     # TODO: Check thread_local keyword support for other compilers for Unix
     
-    if (NOT CXX11_THREAD_LOCAL_SUPPORT)
+    if (NO_CXX11_THREAD_LOCAL_SUPPORT)
         message(WARNING "  Your compiler does not support C++11 thread_local feature.")
         message(WARNING "  Without C++11 thread_local feature you may face to possible memory leak or application crash if using implicit thread registration and using EASY_THREAD instead of EASY_THREAD_SCOPE.")
     endif ()
@@ -44,7 +47,7 @@ if (WIN32)
     set(EASY_OPTION_EVENT_TRACING                ON CACHE BOOL "Enable event tracing by default")
     set(EASY_OPTION_LOW_PRIORITY_EVENT_TRACING   ON CACHE BOOL "Set low priority for event tracing thread")
 else ()
-    if (NOT CXX11_THREAD_LOCAL_SUPPORT)
+    if (NO_CXX11_THREAD_LOCAL_SUPPORT)
         set(EASY_OPTION_IMPLICIT_THREAD_REGISTRATION OFF CACHE BOOL ${EASY_OPTION_IMPLICIT_THREAD_REGISTER_TEXT})
         set(EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS OFF CACHE BOOL "Enable easy_profiler to remove empty unguarded threads. This fixes potential memory leak on Unix systems, but may lead to an application crash! This is used when C++11 thread_local is unavailable.")
     else ()
@@ -81,7 +84,7 @@ message(STATUS "  Implicit thread registration = ${EASY_OPTION_IMPLICIT_THREAD_R
 if (WIN32)
     message(STATUS "  Event tracing = ${EASY_OPTION_EVENT_TRACING}")
     message(STATUS "  Event tracing has low priority = ${EASY_OPTION_LOW_PRIORITY_EVENT_TRACING}")
-elseif (NOT CXX11_THREAD_LOCAL_SUPPORT)
+elseif (NO_CXX11_THREAD_LOCAL_SUPPORT)
     if (EASY_OPTION_IMPLICIT_THREAD_REGISTRATION)
         message(STATUS "    WARNING! Implicit thread registration for Unix systems can lead to memory leak")
         message(STATUS "             because there is no possibility to check if thread is alive and remove dead threads.")
@@ -175,7 +178,6 @@ target_compile_definitions(easy_profiler PUBLIC
 
 
 
-
 #####################################################################
 # Add EasyProfiler options definitions:
 easy_define_target_option(easy_profiler BUILD_WITH_CHRONO_STEADY_CLOCK EASY_CHRONO_STEADY_CLOCK)
@@ -192,8 +194,6 @@ else ()
 endif ()
 easy_define_target_option(easy_profiler EASY_OPTION_LOG EASY_OPTION_LOG_ENABLED)
 easy_define_target_option(easy_profiler EASY_OPTION_PREDEFINED_COLORS EASY_OPTION_BUILTIN_COLORS)
-easy_define_target_option(easy_profiler CXX11_THREAD_LOCAL_SUPPORT EASY_OPTION_THREAD_LOCAL_SUPPORT_ENABLED)
-
 # End adding EasyProfiler options definitions.
 #####################################################################
 
