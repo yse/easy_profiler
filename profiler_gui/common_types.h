@@ -470,7 +470,7 @@ inline QString valueString(const ::profiler::ArbitraryValue& _serializedValue)
         case ::profiler::DataType::Float:  return QString::number(_serializedValue.convertToValue<float>()->value());
         case ::profiler::DataType::Double: return QString::number(_serializedValue.convertToValue<double>()->value());
         case ::profiler::DataType::String: return _serializedValue.data();
-        default: QStringLiteral("Unknown");
+        default: return QStringLiteral("Unknown");
     }
 }
 
