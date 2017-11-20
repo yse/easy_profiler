@@ -32,4 +32,5 @@ maximize-white-hover.svg   - Icon made by Freepik from www.flaticon.com
 maximize-white-pressed.svg - Icon made by Freepik from www.flaticon.com
 minimize-white.svg         - Icon made by Freepik from www.flaticon.com
 minimize-white-pressed.svg - Icon made by Freepik from www.flaticon.com
-
+combo-arrow.svg            - Icon made by Freepik from www.flaticon.com
+combo-arrow-disabled.svg   - Icon made by Freepik from www.flaticon.com

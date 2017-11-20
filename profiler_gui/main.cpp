@@ -63,7 +63,7 @@ int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
 
-    QFile file(":/DefaultTheme");
+    QFile file(":/themes/default");
     if (file.open(QFile::ReadOnly | QFile::Text))
     {
         QTextStream in(&file);

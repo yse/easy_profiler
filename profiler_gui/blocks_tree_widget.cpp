@@ -590,11 +590,11 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     {
         action = menu.addAction("Expand all");
         connect(action, &QAction::triggered, this, &This::onExpandAllClicked);
-        action->setIcon(QIcon(":/Expand"));
+        action->setIcon(QIcon(":/images/expand"));
 
         action = menu.addAction("Collapse all");
         connect(action, &QAction::triggered, this, &This::onCollapseAllClicked);
-        action->setIcon(QIcon(":/Collapse"));
+        action->setIcon(QIcon(":/images/collapse"));
 
         if (item != nullptr && col >= 0)
         {
@@ -602,11 +602,11 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 
             action = menu.addAction("Expand all children");
             connect(action, &QAction::triggered, this, &This::onExpandAllChildrenClicked);
-            action->setIcon(QIcon(":/Expand"));
+            action->setIcon(QIcon(":/images/expand"));
 
             action = menu.addAction("Collapse all children");
             connect(action, &QAction::triggered, this, &This::onCollapseAllChildrenClicked);
-            action->setIcon(QIcon(":/Collapse"));
+            action->setIcon(QIcon(":/images/collapse"));
         }
 
         menu.addSeparator();
@@ -638,11 +638,11 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
         auto f = action->font();
         f.setBold(true);
         action->setFont(f);
-        action->setIcon(QIcon(":/Color"));
+        action->setIcon(QIcon(":/images/color"));
     }
     else
     {
-        action->setIcon(QIcon(":/NoColor"));
+        action->setIcon(QIcon(":/images/no-color"));
     }
 
     if (item != nullptr && item->parent() != nullptr)
@@ -1156,7 +1156,7 @@ EasyHierarchyWidget::EasyHierarchyWidget(QWidget* _parent) : Parent(_parent)
     QMenu* menu = new QMenu(this);
     m_searchButton = menu->menuAction();
     m_searchButton->setText("Find next");
-    m_searchButton->setIcon(QIcon(":/Search-next"));
+    m_searchButton->setIcon(QIcon(":/images/find-next"));
     m_searchButton->setData(true);
     connect(m_searchButton, &QAction::triggered, this, &This::findNext);
 
@@ -1296,7 +1296,7 @@ void EasyHierarchyWidget::findNextFromMenu(bool _checked)
     {
         m_searchButton->setData(true);
         m_searchButton->setText(tr("Find next"));
-        m_searchButton->setIcon(QIcon(":/Search-next"));
+        m_searchButton->setIcon(QIcon(":/images/find-next"));
         disconnect(m_searchButton, &QAction::triggered, this, &This::findPrev);
         connect(m_searchButton, &QAction::triggered, this, &This::findNext);
     }
@@ -1313,7 +1313,7 @@ void EasyHierarchyWidget::findPrevFromMenu(bool _checked)
     {
         m_searchButton->setData(false);
         m_searchButton->setText(tr("Find prev"));
-        m_searchButton->setIcon(QIcon(":/Search-prev"));
+        m_searchButton->setIcon(QIcon(":/images/find-prev"));
         disconnect(m_searchButton, &QAction::triggered, this, &This::findNext);
         connect(m_searchButton, &QAction::triggered, this, &This::findPrev);
     }

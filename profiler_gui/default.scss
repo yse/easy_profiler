@@ -1,0 +1,265 @@
+/**********************************
+*                                 *
+*  Light theme for EasyProfiler.  *
+*                                 *
+*  Automatically generated from   *
+*  default.scss by pysassc tool   *
+*                                 *
+***********************************/
+
+/* ****************************************************************************************************************** */
+/* Functions */
+@function rgb_a($color, $opacity) {
+    @return fade_out($color, 1.0 - $opacity);
+}
+
+/* ****************************************************************************************************************** */
+/* Constants */
+$TextColor: #686060;
+$DisabledTextColor: #b8b0b0;
+$BorderColor: #cccccc;
+$MainColor: #f44336;
+$HoveredMenuRowColor: rgb_a(#98CE98, 0.4);
+$BackgroundColor: white;
+$DisabledBackgroundColor: #dddddd;
+$ButtonHoverColor: #d77d7d;
+$ButtonPressedColor: #922c2c;
+
+/* ****************************************************************************************************************** */
+/* StyleSheet */
+
+* {
+    font-family: "DejaVu Sans";
+    font-size: 13px;
+    color: $TextColor;
+}
+
+*:disabled {
+    color: $DisabledTextColor;
+}
+
+EasyMainWindow, QToolBar, QDialog {
+    background-color: #fffbfb;
+}
+
+
+
+/* ****************************************************************************************************************** */
+QLineEdit, QComboBox {
+    height: 24px;
+    border: 1px solid $BorderColor;
+    background-color: $BackgroundColor;
+    selection-background-color: $HoveredMenuRowColor;
+    selection-color: $TextColor;
+}
+
+QLineEdit:disabled, QComboBox:disabled {
+    background-color: $DisabledBackgroundColor;
+    color: $DisabledTextColor;
+    selection-background-color: $HoveredMenuRowColor;
+    selection-color: $DisabledTextColor;
+}
+
+QLineEdit:focus { border: 1px solid #ffbcbc; }
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 20px;
+    border-left: none;
+    margin-left: 0;
+}
+
+QComboBox::down-arrow { image: url(":/images/combo-arrow"); height: 8px; width: 8px; }
+QComboBox::down-arrow:disabled { image: url(":/images/combo-arrow-disabled"); height: 8px; width: 8px; }
+
+QPushButton {
+    height: 24px;
+    border: 1px solid $BorderColor;
+    background-color: $BackgroundColor;
+    padding: 0 5px 0 5px;
+}
+
+QPushButton:hover {
+    border: 1px solid #ffbcbc;
+    color: $ButtonHoverColor;
+}
+
+QPushButton:pressed {
+    border: 1px solid $ButtonHoverColor;
+    color: $ButtonPressedColor;
+}
+
+QComboBox QListView {
+    background-color: $BackgroundColor;
+    border: 1px solid $BorderColor;
+    selection-background-color: $HoveredMenuRowColor;
+    selection-color: $TextColor;
+}
+
+/* ****************************************************************************************************************** */
+QMenu {
+    background-color: $BackgroundColor;
+    border: 1px solid $BorderColor;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+QMenu::item {
+    height: 22px;
+    padding: 0 16px 0 25px;
+    border: 1px solid transparent; /* reserve space for selection border */
+}
+
+QMenu::item:selected {
+    border: 1px solid $HoveredMenuRowColor;
+    background-color: $HoveredMenuRowColor;
+}
+
+QMenu::icon {
+    width: 12px;
+    height: 12px;
+    background: none;
+    border: 1px inset transparent;
+    padding: 1px;
+    margin-left: 2px;
+}
+
+QMenu::icon:checked { /* appearance of a 'checked' icon */
+    background-color: #dddddd;
+    border: 1px inset #aaaaaa;
+}
+
+QMenu::separator {
+    height: 1px;
+    background: $BorderColor;
+    margin-left: 5px;
+    margin-right: 5px;
+}
+
+QMenu::indicator {
+    width: 14px;
+    height: 14px;
+    background-color: $BackgroundColor;
+    border: 1px solid $BorderColor;
+    margin-left: 2px;
+    padding: 1px;
+}
+
+QMenu::indicator:non-exclusive:checked { image: url(":/images/check"); }
+QMenu::indicator:non-exclusive:checked:disabled { image: url(":/images/check-disabled"); }
+
+QMenu::indicator:exclusive { border-radius: 8px; }
+QMenu::indicator:exclusive:checked { image: url(":/images/radio-check"); }
+QMenu::indicator:exclusive:checked:disabled { image: url(":/images/radio-check-disabled"); }
+
+
+
+
+/* ****************************************************************************************************************** */
+/*QToolButton {
+    border: 1px solid transparent;
+    background: none;
+    padding: 2px;
+}
+
+QToolButton:hover {
+    border: 1px solid $BorderColor;
+}
+
+QToolButton[popupMode="1"] {
+    padding-right: 13px;
+}
+
+QToolButton:pressed {
+    background-color: #808080;
+}
+
+QToolButton::menu-button {
+    border: none;
+    border-left: 1px solid transparent;
+    width: 12px;
+}
+
+QToolButton::menu-button:hover {
+    border-left: 1px solid $BorderColor;
+    background-color: #bbbbbb;
+}
+
+QToolButton::menu-button:pressed {
+    border-left: 1px solid $BorderColor;
+    background-color: #808080;
+}*/
+
+
+
+
+
+
+/* ****************************************************************************************************************** */
+QHeaderView::section {
+    height: 28px;
+    width: 96px;
+    min-width: 64px;
+    background: #eeeeee;
+}
+
+
+
+
+
+/* ****************************************************************************************************************** */
+EasyDockWidget
+{
+    QWidget#EasyDockWidgetTitle
+    {
+        background-color: #686464;
+
+        QLabel {
+            color: white;
+            margin-left: 4px;
+        }
+
+        QPushButton {
+            background: none;
+            border: none;
+            max-height: 12px;
+            max-width: 12px;
+            margin-right: 4px;
+            padding: 0;
+        }
+
+        QPushButton#EasyDockWidgetFloatButton { image: url(":/images/dock-maximize-white"); }
+        QPushButton#EasyDockWidgetFloatButton:hover { image: url(":/images/dock-maximize-white-hover"); }
+        QPushButton#EasyDockWidgetFloatButton:pressed { image: url(":/images/dock-maximize-white-pressed"); }
+
+        QPushButton#EasyDockWidgetFloatButton[floating=true] { image: url(":/images/dock-minimize-white"); }
+        QPushButton#EasyDockWidgetFloatButton[floating=true]:hover { image: url(":/images/dock-minimize-white-hover"); }
+        QPushButton#EasyDockWidgetFloatButton[floating=true]:pressed { image: url(":/images/dock-minimize-white-pressed"); }
+
+        QPushButton#EasyDockWidgetCloseButton { image: url(":/images/dock-close-white"); }
+        QPushButton#EasyDockWidgetCloseButton:hover { image: url(":/images/dock-close-white-hover"); }
+        QPushButton#EasyDockWidgetCloseButton:pressed { image: url(":/images/dock-close-white-pressed"); }
+    }
+}
+
+/* ****************************************************************************************************************** */
+QWidget#DiagramPopup, QWidget#ThreadsPopup {
+    background-color: $BackgroundColor;
+    border: 1px solid $BorderColor;
+}
+
+/* ****************************************************************************************************************** */
+QProgressBar {
+    height: 24px;
+    background-color: $BackgroundColor;
+    border: 1px solid #64BC64;
+    color: #0B530B;
+    text-align: center;
+}
+
+QProgressBar::chunk {
+    background-color: #98DE98;
+    width: 2px;
+    margin: 0;
+}

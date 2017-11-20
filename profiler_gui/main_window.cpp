@@ -173,7 +173,7 @@ EasyDockWidget::~EasyDockWidget()
 
 EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastPort(::profiler::DEFAULT_PORT)
 {
-    { QIcon icon(":/logo"); if (!icon.isNull()) QApplication::setWindowIcon(icon); }
+    { QIcon icon(":/images/logo"); if (!icon.isNull()) QApplication::setWindowIcon(icon); }
 
     setObjectName("ProfilerGUI_MainWindow");
     setWindowTitle(EASY_DEFAULT_WINDOW_TITLE);
@@ -230,7 +230,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     m_loadActionMenu = new QMenu(this);
     auto action = m_loadActionMenu->menuAction();
     action->setText("Open file");
-    action->setIcon(QIcon(":/Open"));
+    action->setIcon(QIcon(":/images/open"));
     connect(action, &QAction::triggered, this, &This::onOpenFileClicked);
     toolbar->addAction(action);
 
@@ -241,8 +241,8 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
         m_loadActionMenu->addAction(action);
     }
 
-    m_saveAction = toolbar->addAction(QIcon(":/Save"), tr("Save"), this, SLOT(onSaveFileClicked(bool)));
-    m_deleteAction = toolbar->addAction(QIcon(":/Delete"), tr("Clear all"), this, SLOT(onDeleteClicked(bool)));
+    m_saveAction = toolbar->addAction(QIcon(":/images/save"), tr("Save"), this, SLOT(onSaveFileClicked(bool)));
+    m_deleteAction = toolbar->addAction(QIcon(":/images/delete"), tr("Clear all"), this, SLOT(onDeleteClicked(bool)));
 
     m_saveAction->setEnabled(false);
     m_deleteAction->setEnabled(false);
@@ -254,12 +254,12 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     toolbar->setObjectName("ProfilerGUI_ProfileToolbar");
     toolbar->setContentsMargins(1, 0, 1, 0);
 
-    toolbar->addAction(QIcon(":/List"), tr("Blocks"), this, SLOT(onEditBlocksClicked(bool)));
-    m_captureAction = toolbar->addAction(QIcon(":/Start"), tr("Capture"), this, SLOT(onCaptureClicked(bool)));
+    toolbar->addAction(QIcon(":/images/list"), tr("Blocks"), this, SLOT(onEditBlocksClicked(bool)));
+    m_captureAction = toolbar->addAction(QIcon(":/images/start"), tr("Capture"), this, SLOT(onCaptureClicked(bool)));
     m_captureAction->setEnabled(false);
 
     toolbar->addSeparator();
-    m_connectAction = toolbar->addAction(QIcon(":/Connection"), tr("Connect"), this, SLOT(onConnectClicked(bool)));
+    m_connectAction = toolbar->addAction(QIcon(":/images/connect"), tr("Connect"), this, SLOT(onConnectClicked(bool)));
 
     auto lbl = new QLabel("Address:", toolbar);
     lbl->setContentsMargins(5, 0, 2, 0);
@@ -291,15 +291,15 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     toolbar->setObjectName("ProfilerGUI_SetupToolbar");
     toolbar->setContentsMargins(1, 0, 1, 0);
 
-    toolbar->addAction(QIcon(":/Expand"), "Expand all", this, SLOT(onExpandAllClicked(bool)));
-    toolbar->addAction(QIcon(":/Collapse"), "Collapse all", this, SLOT(onCollapseAllClicked(bool)));
+    toolbar->addAction(QIcon(":/images/expand"), "Expand all", this, SLOT(onExpandAllClicked(bool)));
+    toolbar->addAction(QIcon(":/images/collapse"), "Collapse all", this, SLOT(onCollapseAllClicked(bool)));
 
     toolbar->addSeparator();
     auto menu = new QMenu("Settings", this);
     menu->setToolTipsVisible(true);
 
     QToolButton* toolButton = new QToolButton(toolbar);
-    toolButton->setIcon(QIcon(":/Settings"));
+    toolButton->setIcon(QIcon(":/images/settings"));
     toolButton->setMenu(menu);
     toolButton->setPopupMode(QToolButton::InstantPopup);
     toolbar->addWidget(toolButton);
@@ -313,12 +313,12 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
         auto f = action->font();
         f.setBold(true);
         action->setFont(f);
-        action->setIcon(QIcon(":/Stats"));
+        action->setIcon(QIcon(":/images/stats"));
     }
     else
     {
         action->setText("Statistics disabled");
-        action->setIcon(QIcon(":/Stats-off"));
+        action->setIcon(QIcon(":/images/stats-off"));
     }
 
 
@@ -1065,12 +1065,12 @@ void EasyMainWindow::onEnableDisableStatistics(bool _checked)
         if (_checked)
         {
             action->setText("Statistics enabled");
-            action->setIcon(QIcon(":/Stats"));
+            action->setIcon(QIcon(":/images/stats"));
         }
         else
         {
             action->setText("Statistics disabled");
-            action->setIcon(QIcon(":/Stats-off"));
+            action->setIcon(QIcon(":/images/stats-off"));
         }
     }
 }
@@ -1424,7 +1424,7 @@ void EasyMainWindow::setDisconnected(bool _showMessage)
 
     EASY_GLOBALS.connected = false;
     m_captureAction->setEnabled(false);
-    m_connectAction->setIcon(QIcon(":/Connection"));
+    m_connectAction->setIcon(QIcon(":/images/connect"));
     m_connectAction->setText(tr("Connect"));
 
     m_eventTracingEnableAction->setEnabled(false);
@@ -1964,7 +1964,7 @@ void EasyMainWindow::onConnectClicked(bool)
     qInfo() << "Connected successfully";
     EASY_GLOBALS.connected = true;
     m_captureAction->setEnabled(true);
-    m_connectAction->setIcon(QIcon(":/Connection-on"));
+    m_connectAction->setIcon(QIcon(":/images/connected"));
     m_connectAction->setText(tr("Disconnect"));
 
     if (m_fpsViewer->isVisible())
@@ -2043,7 +2043,7 @@ void EasyMainWindow::onCaptureClicked(bool)
     button->setAutoRaise(true);
     button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     button->setIconSize(::profiler_gui::ICONS_SIZE);
-    button->setIcon(QIcon(":/Stop"));
+    button->setIcon(QIcon(":/images/stop"));
     button->setText("Stop");
     m_listenerDialog->addButton(button, QMessageBox::AcceptRole);
 
