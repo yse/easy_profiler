@@ -243,6 +243,7 @@ namespace profiler {
     struct Value<dataType, false> EASY_FINAL : public ArbitraryValue {
         using value_type = typename StdType<dataType>::value_type;
         value_type value() const { return *reinterpret_cast<const value_type*>(data()); }
+        ~Value() = delete;
     };
 
 
@@ -252,6 +253,7 @@ namespace profiler {
         const value_type* value() const { return reinterpret_cast<const value_type*>(data()); }
         uint16_t size() const { return m_size / sizeof(value_type); }
         value_type operator [] (int i) const { return value()[i]; }
+        ~Value() = delete;
     };
 
 
@@ -262,6 +264,7 @@ namespace profiler {
         uint16_t size() const { return m_size; }
         char operator [] (int i) const { return data()[i]; }
         const char* c_str() const { return data(); }
+        ~Value() = delete;
     };
 
     //////////////////////////////////////////////////////////////////////////

@@ -58,8 +58,14 @@ namespace profiler
 
     public:
 
+#if defined(_MSC_VER) && _MSC_VER <= 1800
+        inline EASY_CONSTEXPR_FCN ValueId(const ValueId& _another) : m_id(_another.m_id) {}
+        inline EASY_CONSTEXPR_FCN ValueId(ValueId&& _another) : m_id(_another.m_id) {}
+#else
         inline EASY_CONSTEXPR_FCN ValueId(const ValueId&) = default;
         inline EASY_CONSTEXPR_FCN ValueId(ValueId&&) = default;
+#endif
+
         explicit inline EASY_CONSTEXPR_FCN ValueId() : m_id(0) {}
         explicit inline EASY_CONSTEXPR_FCN ValueId(const void* _member) : m_id(reinterpret_cast<vin_t>(_member)) {}
 
