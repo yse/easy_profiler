@@ -739,7 +739,7 @@ EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
 {
     loadSettings();
 
-    m_searchBox->setFixedWidth(200);
+    m_searchBox->setFixedWidth(300);
     m_searchBox->setContentsMargins(5, 0, 0, 0);
 
     auto tb = new QToolBar(this);

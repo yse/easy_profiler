@@ -1142,10 +1142,10 @@ EasyHierarchyWidget::EasyHierarchyWidget(QWidget* _parent) : Parent(_parent)
 {
     loadSettings();
 
-    m_searchBox->setFixedWidth(200);
+    m_searchBox->setFixedWidth(300);
     m_searchBox->setContentsMargins(5, 0, 0, 0);
 
-    QMenu* menu = new QMenu(this);
+    auto menu = new QMenu(this);
     m_searchButton = menu->menuAction();
     m_searchButton->setText("Find next");
     m_searchButton->setIcon(QIcon(":/images/find-next"));
