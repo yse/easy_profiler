@@ -63,6 +63,7 @@
 
 #include <QMenu>
 #include <QAction>
+#include <QActionGroup>
 #include <QHeaderView>
 #include <QContextMenuEvent>
 #include <QSignalBlocker>
@@ -153,6 +154,7 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
     setAnimated(true);
     setSortingEnabled(false);
     setColumnCount(COL_COLUMNS_NUMBER);
+    setSelectionBehavior(QAbstractItemView::SelectRows);
 
     auto header_item = new QTreeWidgetItem();
     auto f = header()->font();
@@ -612,19 +614,25 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
         menu.addSeparator();
     }
 
-    action = menu.addAction("Hierarchy mode");
-    action->setToolTip("Display full blocks hierarchy");
-    action->setCheckable(true);
-    action->setChecked(m_mode == EasyTreeMode_Full);
-    action->setData((quint32)EasyTreeMode_Full);
-    connect(action, &QAction::triggered, this, &This::onModeChange);
+    auto actionGroup = new QActionGroup(&menu);
+    actionGroup->setExclusive(true);
 
-    action = menu.addAction("Plain mode");
-    action->setToolTip("Display plain list of blocks per frame.\nSome columns are disabled with this mode.");
-    action->setCheckable(true);
-    action->setChecked(m_mode == EasyTreeMode_Plain);
-    action->setData((quint32)EasyTreeMode_Plain);
-    connect(action, &QAction::triggered, this, &This::onModeChange);
+    auto actionHierarchy = new QAction("Hierarchy mode", actionGroup);
+    actionHierarchy->setCheckable(true);
+    actionHierarchy->setChecked(m_mode == EasyTreeMode_Full);
+    actionHierarchy->setToolTip("Display full blocks hierarchy");
+    actionHierarchy->setData((quint32)EasyTreeMode_Full);
+    menu.addAction(actionHierarchy);
+
+    auto actionPlain = new QAction("Plain mode", actionGroup);
+    actionPlain->setCheckable(true);
+    actionPlain->setChecked(m_mode == EasyTreeMode_Plain);
+    actionPlain->setToolTip("Display plain list of blocks per frame.\nSome columns are disabled with this mode.");
+    actionPlain->setData((quint32)EasyTreeMode_Plain);
+    menu.addAction(actionPlain);
+
+    connect(actionHierarchy, &QAction::triggered, this, &This::onModeChange);
+    connect(actionPlain, &QAction::triggered, this, &This::onModeChange);
 
     menu.addSeparator();
 
@@ -904,11 +912,7 @@ void EasyTreeWidget::onItemCollapse(QTreeWidgetItem* _item)
 void EasyTreeWidget::onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidgetItem* _previous)
 {
     if (_previous != nullptr)
-    {
-        auto f = font();
-        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
-            _previous->setFont(i, f);
-    }
+        static_cast<EasyTreeWidgetItem*>(_previous)->setBold(false);
 
     if (_item == nullptr)
     {
@@ -917,12 +921,10 @@ void EasyTreeWidget::onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidgetItem
     }
     else
     {
-        auto f = font();
-        f.setBold(true);
-        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
-            _item->setFont(i, f);
+        auto item = static_cast<EasyTreeWidgetItem*>(_item);
+        item->setBold(true);
 
-        EASY_GLOBALS.selected_block = static_cast<EasyTreeWidgetItem*>(_item)->block_index();
+        EASY_GLOBALS.selected_block = item->block_index();
         if (EASY_GLOBALS.selected_block < EASY_GLOBALS.gui_blocks.size())
             EASY_GLOBALS.selected_block_id = easyBlock(EASY_GLOBALS.selected_block).tree.node->id();
         else
@@ -997,13 +999,13 @@ void EasyTreeWidget::onSelectedBlockChange(uint32_t _block_index)
 #endif
     }
 
+    auto previous = static_cast<EasyTreeWidgetItem*>(currentItem());
+    if (previous != nullptr)
+        previous->setBold(false);
+
     if (item != nullptr)
     {
         //const QSignalBlocker b(this);
-        auto previous = currentItem();
-        auto f = font();
-        if (previous != nullptr) for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
-            previous->setFont(i, f);
 
         if (EASY_GLOBALS.bind_scene_and_tree_expand_status)
         {
@@ -1028,20 +1030,10 @@ void EasyTreeWidget::onSelectedBlockChange(uint32_t _block_index)
             connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
         }
 
-        f.setBold(true);
-        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
-            item->setFont(i, f);
+        item->setBold(true);
     }
     else
     {
-        auto previous = currentItem();
-        if (previous != nullptr)
-        {
-            auto f = font();
-            for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
-                previous->setFont(i, f);
-        }
-
         setCurrentItem(item);
     }
 

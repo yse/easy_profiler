@@ -58,11 +58,13 @@
 
 //////////////////////////////////////////////////////////////////////////
 
+EASY_CONSTEXPR QRgb TEXT_RGB = 0xff504040;
+
 EasyTreeWidgetItem::EasyTreeWidgetItem(const ::profiler::block_index_t _treeBlock, Parent* _parent)
     : Parent(_parent)
     , m_block(_treeBlock)
     , m_customBGColor(0)
-    , m_customTextColor(0)
+    , m_customTextColor(TEXT_RGB)
 {
 
 }
@@ -211,17 +213,18 @@ void EasyTreeWidgetItem::colorize(bool _colorize)
     {
         for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
         {
-            setBackground(i, QColor::fromRgb(m_customBGColor));
+            setBackground(i, QColor::fromRgba(m_customBGColor));
             setForeground(i, QColor::fromRgb(m_customTextColor));
         }
     }
     else
     {
         const QBrush nobrush;
+        const QBrush textbrush(::profiler_gui::TEXT_COLOR);
         for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
         {
             setBackground(i, nobrush);
-            setForeground(i, nobrush);
+            setForeground(i, textbrush);
         }
     }
 }
@@ -248,6 +251,14 @@ void EasyTreeWidgetItem::expandAll()
     setExpanded(true);
     if (parent() != nullptr)
         guiBlock().expanded = true;
+}
+
+void EasyTreeWidgetItem::setBold(bool _bold)
+{
+    auto f = font(0);
+    f.setBold(_bold);
+    for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+        setFont(i, f);
 }
 
 //////////////////////////////////////////////////////////////////////////

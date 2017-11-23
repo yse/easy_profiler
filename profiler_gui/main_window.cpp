@@ -629,17 +629,28 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     actionGroup->setExclusive(true);
 
     auto default_codec_mib = QTextCodec::codecForLocale()->mibEnum();
-    foreach(int mib, QTextCodec::availableMibs())
     {
-        auto codec = QTextCodec::codecForMib(mib)->name();
+        QList<QAction*> actions;
 
-        action = new QAction(codec, actionGroup);
-        action->setCheckable(true);
-        if (mib == default_codec_mib)
-            action->setChecked(true);
+        for (int mib : QTextCodec::availableMibs())
+        {
+            auto codec = QTextCodec::codecForMib(mib)->name();
 
-        submenu->addAction(action);
-        connect(action, &QAction::triggered, this, &This::onEncodingChanged);
+            action = new QAction(codec, actionGroup);
+            action->setData(mib);
+            action->setCheckable(true);
+            if (mib == default_codec_mib)
+                action->setChecked(true);
+
+            actions.push_back(action);
+            connect(action, &QAction::triggered, this, &This::onEncodingChanged);
+        }
+
+        qSort(actions.begin(), actions.end(), [](QAction* lhs, QAction* rhs) {
+            return lhs->text().compare(rhs->text(), Qt::CaseInsensitive) < 0;
+        });
+
+        submenu->addActions(actions);
     }
 
     auto tb_height = toolbar->height() + 4;
@@ -1032,10 +1043,14 @@ void EasyMainWindow::onExitClicked(bool)
 
 void EasyMainWindow::onEncodingChanged(bool)
 {
-   auto _sender = qobject_cast<QAction*>(sender());
-   auto name = _sender->text();
-   QTextCodec *codec = QTextCodec::codecForName(name.toStdString().c_str());
-   QTextCodec::setCodecForLocale(codec);
+    auto action = qobject_cast<QAction*>(sender());
+    if (action == nullptr)
+        return;
+
+    const int mib = action->data().toInt();
+    auto codec = QTextCodec::codecForMib(mib);
+    if (codec != nullptr)
+        QTextCodec::setCodecForLocale(codec);
 }
 
 void EasyMainWindow::onChronoTextPosChanged(bool)

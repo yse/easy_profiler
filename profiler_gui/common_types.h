@@ -478,6 +478,38 @@ inline QString valueString(const ::profiler::ArbitraryValue& _serializedValue)
 
 } // END of namespace profiler_gui.
 
+template <typename ... Args>
+struct Overload
+{
+    template <typename TClass, typename TReturn>
+    static EASY_CONSTEXPR_FCN auto of(TReturn (TClass::*method)(Args...)) -> decltype(method)
+    {
+        return method;
+    }
+
+    template <typename TReturn>
+    static EASY_CONSTEXPR_FCN auto of(TReturn (*func)(Args...)) -> decltype(func)
+    {
+        return func;
+    }
+};
+
+template <>
+struct Overload<void>
+{
+    template <typename TClass, typename TReturn>
+    static EASY_CONSTEXPR_FCN auto of(TReturn (TClass::*method)()) -> decltype(method)
+    {
+        return method;
+    }
+
+    template <typename TReturn>
+    static EASY_CONSTEXPR_FCN auto of(TReturn (*func)()) -> decltype(func)
+    {
+        return func;
+    }
+};
+
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 

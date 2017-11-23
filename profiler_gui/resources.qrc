@@ -41,7 +41,11 @@
         <file alias="dock-close-white">icons/close-white.svg</file>
         <file alias="dock-close-white-hover">icons/close-white-hover.svg</file>
         <file alias="dock-close-white-pressed">icons/close-white-pressed.svg</file>
-        <file alias="combo-arrow">icons/combo-arrow.svg</file>
-        <file alias="combo-arrow-disabled">icons/combo-arrow-disabled.svg</file>
+        <file alias="arrow-up">icons/arrow-up.svg</file>
+        <file alias="arrow-up-hover">icons/arrow-up-hover.svg</file>
+        <file alias="arrow-up-disabled">icons/arrow-up-disabled.svg</file>
+        <file alias="arrow-down">icons/arrow-down.svg</file>
+        <file alias="arrow-down-hover">icons/arrow-down-hover.svg</file>
+        <file alias="arrow-down-disabled">icons/arrow-down-disabled.svg</file>
     </qresource>
 </RCC>

@@ -155,6 +155,8 @@ public:
 
     void expandAll();
 
+    void setBold(bool _bold);
+
 }; // END of class EasyTreeWidgetItem.
 
 //////////////////////////////////////////////////////////////////////////

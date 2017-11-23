@@ -245,7 +245,7 @@ void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSiz
                 //p.inverseColor = 0xffffffff - p.previousColor;
                 p.is_light = ::profiler_gui::isLightColor(p.previousColor);
                 p.textColor = ::profiler_gui::textColorForFlag(p.is_light);
-                p.brush.setColor(p.previousColor);
+                p.brush.setColor(QColor::fromRgba(p.previousColor));
                 _painter->setBrush(p.brush);
             }
 
@@ -328,7 +328,7 @@ void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSiz
                 //p.inverseColor = 0xffffffff - p.previousColor;
                 p.is_light = ::profiler_gui::isLightColor(p.previousColor);
                 p.textColor = ::profiler_gui::textColorForFlag(p.is_light);
-                p.brush.setColor(p.previousColor);
+                p.brush.setColor(QColor::fromRgba(p.previousColor));
                 _painter->setBrush(p.brush);
             }
 
@@ -657,7 +657,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         //p.inverseColor = 0xffffffff - p.previousColor;
                         p.is_light = ::profiler_gui::isLightColor(p.previousColor);
                         p.textColor = ::profiler_gui::textColorForFlag(p.is_light);
-                        p.brush.setColor(p.previousColor);
+                        p.brush.setColor(QColor::fromRgba(p.previousColor));
                         _painter->setBrush(p.brush);
                     }
 
@@ -739,7 +739,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         //p.inverseColor = 0xffffffff - p.previousColor;
                         p.is_light = ::profiler_gui::isLightColor(p.previousColor);
                         p.textColor = ::profiler_gui::textColorForFlag(p.is_light);
-                        p.brush.setColor(p.previousColor);
+                        p.brush.setColor(QColor::fromRgba(p.previousColor));
                         _painter->setBrush(p.brush);
                     }
 
@@ -896,7 +896,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
                         if (!p.selectedItemsWasPainted)
                         {
-                            p.brush.setColor(itemDesc.color());// SELECTED_ITEM_COLOR);
+                            p.brush.setColor(QColor::fromRgba(itemDesc.color()));// SELECTED_ITEM_COLOR);
                             _painter->setBrush(p.brush);
                         }
                         else

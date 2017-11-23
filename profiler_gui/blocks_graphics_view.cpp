@@ -90,9 +90,10 @@ const qreal BASE_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT_INV, 25); // ~0
 
 EASY_CONSTEXPR uint16_t TIMELINE_ROW_SIZE = 20;
 
-EASY_CONSTEXPR QRgb BACKGROUND_1 = ::profiler::colors::Grey300;
+EASY_CONSTEXPR QRgb BACKGROUND_1 = 0xffe4e4ec;
 EASY_CONSTEXPR QRgb BACKGROUND_2 = ::profiler::colors::White;
 EASY_CONSTEXPR QRgb TIMELINE_BACKGROUND = 0x20000000 | (::profiler::colors::Grey800 & 0x00ffffff);// 0x20303030;
+EASY_CONSTEXPR QRgb TIMELINE_BORDER = 0xffa8a0a0;
 
 EASY_CONSTEXPR int IDLE_TIMER_INTERVAL = 200; // 5Hz
 EASY_CONSTEXPR uint64_t IDLE_TIME = 400;
@@ -148,6 +149,7 @@ void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
     const auto left = offset * currentScale;
     const auto h = visibleSceneRect.height();
     const auto visibleBottom = h - 1;
+    const auto borderColor = QColor::fromRgb(TIMELINE_BORDER);
 
     QRectF rect;
 
@@ -162,7 +164,7 @@ void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
         int i = -1;
 
         // Draw background
-        _painter->setPen(Qt::NoPen);
+        _painter->setPen(::profiler_gui::SYSTEM_BORDER_COLOR);
         for (auto item : items)
         {
             ++i;
@@ -202,11 +204,11 @@ void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
     const auto nsteps = (1 + odd) * 2 + static_cast<int>(visibleSceneRect.width() / step);
     first -= odd;
 
-    QPen pen(Qt::darkGray);
+    QPen pen(borderColor);
     pen.setWidth(2);
     _painter->setPen(pen);
     _painter->drawLine(QPointF(0, h), QPointF(visibleSceneRect.width(), h));
-    _painter->setPen(Qt::darkGray);
+    _painter->setPen(borderColor);
 
     QLineF marks[20];
     qreal first_x = first * sceneStep;
@@ -238,9 +240,9 @@ void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
         if (next <= 0)
         {
             next = n;
-            _painter->setPen(Qt::black);
+            _painter->setPen(::profiler_gui::TEXT_COLOR);
             _painter->drawText(QPointF(current + 1, h + 17), QString::number(static_cast<quint64>(0.5 + (current + left) * factor / currentScale)));
-            _painter->setPen(Qt::darkGray);
+            _painter->setPen(borderColor);
         }
 
         // TEST
@@ -2061,7 +2063,7 @@ void EasyThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
     const auto h = visibleSceneRect.height() + TIMELINE_ROW_SIZE - 2;
     const auto w = parentView->width();//parentView->sceneRect().width();
 
-    static const uint16_t OVERLAP = ::profiler_gui::THREADS_ROW_SPACING >> 1;
+    EASY_STATIC_CONSTEXPR uint16_t OVERLAP = ::profiler_gui::THREADS_ROW_SPACING >> 1;
     static const QBrush brushes[2] = {QColor::fromRgb(BACKGROUND_1), QColor::fromRgb(BACKGROUND_2)};
     int i = -1;
 
@@ -2101,11 +2103,11 @@ void EasyThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
 
         rect.setRect(0, top, w, hgt);
 
-        _painter->setPen(Qt::NoPen);
+        _painter->setPen(::profiler_gui::SYSTEM_BORDER_COLOR);
         _painter->drawRect(rect);
 
         rect.translate(-5, 0);
-        _painter->setPen(QColor::fromRgb(::profiler::colors::Dark));
+        _painter->setPen(::profiler_gui::TEXT_COLOR);
         _painter->drawText(rect, Qt::AlignRight | Qt::AlignVCenter, item->threadName());
     }
 
@@ -2116,12 +2118,12 @@ void EasyThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
         rect.translate(5, rect.height());
         rect.setHeight(h - rect_bottom);
         _painter->setBrush(brushes[i & 1]);
-        _painter->setPen(Qt::NoPen);
+        _painter->setPen(::profiler_gui::SYSTEM_BORDER_COLOR);
         _painter->drawRect(rect);
     }
 
     // Draw separator between thread names area and information area
-    _painter->setPen(Qt::darkGray);
+    _painter->setPen(::profiler_gui::SYSTEM_BORDER_COLOR);
     _painter->drawLine(QLineF(0, h, w, h));
     _painter->drawLine(QLineF(0, h + 2, w, h + 2));
 

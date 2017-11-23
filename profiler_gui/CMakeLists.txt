@@ -16,6 +16,7 @@ if (Qt5Widgets_FOUND)
         blocks_graphics_view.cpp
         blocks_tree_widget.h
         blocks_tree_widget.cpp
+        common_types.h
         descriptors_tree_widget.h
         descriptors_tree_widget.cpp
         easy_chronometer_item.h

@@ -15,15 +15,19 @@
 
 /* ****************************************************************************************************************** */
 /* Constants */
-$TextColor: #686060;
-$DisabledTextColor: #b8b0b0;
+$TextColor: #504040;
+$DisabledTextColor: #a08888;
 $BorderColor: #cccccc;
 $MainColor: #f44336;
-$HoveredMenuRowColor: rgb_a(#98CE98, 0.4);
+$HoveredMenuRowColor: rgb_a(#88BD88, 0.4);
 $BackgroundColor: white;
-$DisabledBackgroundColor: #dddddd;
-$ButtonHoverColor: #d77d7d;
-$ButtonPressedColor: #922c2c;
+$DisabledBackgroundColor: #f0f0f0;
+$ButtonHoverColor: #922c2c;//#d77d7d;
+$ButtonPressedColor: #370400;//#922c2c;
+$FocusBorderColor: #ffbcbc;
+$DefaultHeight: 24px;
+$ComboBoxArrowSize: 8px;
+$SpinBoxArrowSize: 8px;
 
 /* ****************************************************************************************************************** */
 /* StyleSheet */
@@ -39,49 +43,89 @@ $ButtonPressedColor: #922c2c;
 }
 
 EasyMainWindow, QToolBar, QDialog {
-    background-color: #fffbfb;
+    background-color: #f8f2f2;
 }
 
-
+QToolTip {
+    border: 1px solid $BorderColor;
+}
 
 /* ****************************************************************************************************************** */
-QLineEdit, QComboBox {
-    height: 24px;
+QLineEdit, QComboBox, QSpinBox {
+    height: $DefaultHeight;
     border: 1px solid $BorderColor;
     background-color: $BackgroundColor;
     selection-background-color: $HoveredMenuRowColor;
     selection-color: $TextColor;
 }
 
-QLineEdit:disabled, QComboBox:disabled {
+QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled {
     background-color: $DisabledBackgroundColor;
     color: $DisabledTextColor;
     selection-background-color: $HoveredMenuRowColor;
     selection-color: $DisabledTextColor;
 }
 
-QLineEdit:focus { border: 1px solid #ffbcbc; }
+QLineEdit:focus { border: 1px solid $FocusBorderColor; }
 
+/* ****************************************************************************************************************** */
 QComboBox::drop-down {
     subcontrol-origin: padding;
     subcontrol-position: top right;
-    width: 20px;
-    border-left: none;
+    width: $DefaultHeight;
+    border: none;
     margin-left: 0;
 }
 
-QComboBox::down-arrow { image: url(":/images/combo-arrow"); height: 8px; width: 8px; }
-QComboBox::down-arrow:disabled { image: url(":/images/combo-arrow-disabled"); height: 8px; width: 8px; }
+QComboBox::down-arrow { image: url(":/images/arrow-down"); height: $ComboBoxArrowSize; width: $ComboBoxArrowSize; }
+QComboBox::down-arrow:hover { image: url(":/images/arrow-down-hover"); }
+QComboBox::down-arrow:disabled { image: url(":/images/arrow-down-disabled"); }
 
+/* ****************************************************************************************************************** */
+QSpinBox::up-button {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    margin-left: 5px;
+    width: $DefaultHeight;
+    border-left: 1px solid $BorderColor;
+    border-bottom: 1px solid $BorderColor;
+}
+
+QSpinBox::down-button {
+    subcontrol-origin: padding;
+    subcontrol-position: bottom right;
+    margin-left: 5px;
+    width: $DefaultHeight;
+    border-left: 1px solid $BorderColor;
+}
+
+QSpinBox::up-button:pressed, QSpinBox::down-button:pressed {
+    background-color: #f4f4f4;
+}
+
+QSpinBox::up-arrow { image: url(":/images/arrow-up"); height: $SpinBoxArrowSize; width: $SpinBoxArrowSize; }
+QSpinBox::up-arrow:hover { image: url(":/images/arrow-up-hover"); }
+QSpinBox::up-arrow:disabled { image: url(":/images/arrow-up-disabled"); }
+
+QSpinBox::down-arrow { image: url(":/images/arrow-down"); height: $SpinBoxArrowSize; width: $SpinBoxArrowSize; }
+QSpinBox::down-arrow:hover { image: url(":/images/arrow-down-hover"); }
+QSpinBox::down-arrow:disabled { image: url(":/images/arrow-down-disabled"); }
+
+/* ****************************************************************************************************************** */
 QPushButton {
-    height: 24px;
+    height: $DefaultHeight;
     border: 1px solid $BorderColor;
     background-color: $BackgroundColor;
     padding: 0 5px 0 5px;
 }
 
+QPushButton:disabled {
+    background-color: $DisabledBackgroundColor;
+    color: $DisabledTextColor;
+}
+
 QPushButton:hover {
-    border: 1px solid #ffbcbc;
+    border: 1px solid $FocusBorderColor;
     color: $ButtonHoverColor;
 }
 
@@ -90,11 +134,16 @@ QPushButton:pressed {
     color: $ButtonPressedColor;
 }
 
-QComboBox QListView {
+/* ****************************************************************************************************************** */
+QListView {
     background-color: $BackgroundColor;
     border: 1px solid $BorderColor;
     selection-background-color: $HoveredMenuRowColor;
     selection-color: $TextColor;
+}
+
+QListView::item, QListView::item, QTableView::item, QTreeView::item {
+    height: $DefaultHeight;
 }
 
 /* ****************************************************************************************************************** */
@@ -106,7 +155,7 @@ QMenu {
 }
 
 QMenu::item {
-    height: 22px;
+    height: $DefaultHeight;
     padding: 0 16px 0 25px;
     border: 1px solid transparent; /* reserve space for selection border */
 }
@@ -117,8 +166,8 @@ QMenu::item:selected {
 }
 
 QMenu::icon {
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
     background: none;
     border: 1px inset transparent;
     padding: 1px;
@@ -251,9 +300,9 @@ QWidget#DiagramPopup, QWidget#ThreadsPopup {
 
 /* ****************************************************************************************************************** */
 QProgressBar {
-    height: 24px;
+    height: $DefaultHeight;
     background-color: $BackgroundColor;
-    border: 1px solid #64BC64;
+    border: 1px solid $BorderColor;//#64BC64;
     color: #0B530B;
     text-align: center;
 }
@@ -262,4 +311,47 @@ QProgressBar::chunk {
     background-color: #98DE98;
     width: 2px;
     margin: 0;
+}
+
+/* ****************************************************************************************************************** */
+QScrollBar {
+    background-color: transparent;
+    border: none;
+    padding: 0;
+}
+
+QScrollBar:hover {
+    background-color: rgb_a(#000000, 0.1);
+}
+
+QScrollBar:horizontal {
+    margin: 0;
+    height: 8px;
+}
+
+QScrollBar:vertical {
+    margin: 0;
+    width: 8px;
+}
+
+QScrollBar::handle {
+    background-color: rgb_a(#000000, 0.4);
+    border: none;
+    margin: 0;
+    padding: 0;
+}
+
+QScrollBar::handle:pressed {
+    background-color: rgb_a(#000000, 0.6);
+}
+
+QScrollBar::handle:vertical { min-height: 20px; margin-left: 4px; }
+QScrollBar::handle:vertical:hover, QScrollBar::handle:vertical:pressed { margin-left: 0; }
+
+QScrollBar::handle:horizontal { min-width: 20px; max-width: 100px; margin-top: 4px; }
+QScrollBar::handle:horizontal:hover, QScrollBar::handle:horizontal:pressed { margin-top: 0; }
+
+QScrollBar::add-line, QScrollBar::sub-line {
+    background: none;
+    border: none;
 }

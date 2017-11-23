@@ -74,24 +74,26 @@ namespace profiler_gui {
 
     const QColor CHRONOMETER_COLOR = QColor::fromRgba(0x40000000 | (::profiler::colors::RichBlue & 0x00ffffff));// 0x402020c0);
     const QColor CHRONOMETER_COLOR2 = QColor::fromRgba(0x40000000 | (::profiler::colors::Dark & 0x00ffffff));// 0x40408040);
-    const QRgb SELECTED_THREAD_BACKGROUND = 0x00e0e060;
-    const QRgb SELECTED_THREAD_FOREGROUND = 0x00ffffff - SELECTED_THREAD_BACKGROUND;
+    const QColor TEXT_COLOR = QColor::fromRgb(0xff504040);
+    const QColor SYSTEM_BORDER_COLOR = QColor::fromRgb(0xffcccccc);
+    EASY_CONSTEXPR QRgb SELECTED_THREAD_BACKGROUND = 0xffe0e060;
+    EASY_CONSTEXPR QRgb SELECTED_THREAD_FOREGROUND = 0xffffffff - (SELECTED_THREAD_BACKGROUND & 0x00ffffff);
 
-    const qreal SCALING_COEFFICIENT = 1.25;
-    const qreal SCALING_COEFFICIENT_INV = 1.0 / SCALING_COEFFICIENT;
+    EASY_CONSTEXPR qreal SCALING_COEFFICIENT = 1.25;
+    EASY_CONSTEXPR qreal SCALING_COEFFICIENT_INV = 1.0 / SCALING_COEFFICIENT;
 
-    const uint32_t V130 = 0x01030000;
+    EASY_CONSTEXPR uint32_t V130 = 0x01030000;
 
-    const QSize ICONS_SIZE(28, 28);
-    const uint16_t GRAPHICS_ROW_SIZE = 18;
-    const uint16_t GRAPHICS_ROW_SPACING = 0;
-    const uint16_t GRAPHICS_ROW_SIZE_FULL = GRAPHICS_ROW_SIZE + GRAPHICS_ROW_SPACING;
-    const uint16_t THREADS_ROW_SPACING = 8;
+    EASY_CONSTEXPR QSize ICONS_SIZE(28, 28);
+    EASY_CONSTEXPR uint16_t GRAPHICS_ROW_SIZE = 18;
+    EASY_CONSTEXPR uint16_t GRAPHICS_ROW_SPACING = 0;
+    EASY_CONSTEXPR uint16_t GRAPHICS_ROW_SIZE_FULL = GRAPHICS_ROW_SIZE + GRAPHICS_ROW_SPACING;
+    EASY_CONSTEXPR uint16_t THREADS_ROW_SPACING = 8;
 
 #ifdef _WIN32
-    const qreal FONT_METRICS_FACTOR = 1.05;
+    EASY_CONSTEXPR qreal FONT_METRICS_FACTOR = 1.05;
 #else
-    const qreal FONT_METRICS_FACTOR = 1.;
+    EASY_CONSTEXPR qreal FONT_METRICS_FACTOR = 1.;
 #endif
 
     //////////////////////////////////////////////////////////////////////////
