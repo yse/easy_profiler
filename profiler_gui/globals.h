@@ -170,6 +170,13 @@ namespace profiler_gui {
         ::profiler::thread_blocks_tree_t profiler_blocks; ///< Profiler blocks tree loaded from file
         ::profiler::descriptors_list_t       descriptors; ///< Profiler block descriptors list
         EasyBlocks                            gui_blocks; ///< Profiler graphics blocks builded by GUI
+
+        QString                                    theme; ///< Current UI theme name
+        QFont                                    bg_font; ///< Font for blocks_graphics_view
+        QFont                           chronometer_font; ///< Font for easy_chronometer_item
+        QFont                                 items_font; ///< Font for easy_graphics_item
+        QFont                         selected_item_font; ///< Font for easy_graphics_item
+
         ::profiler::timestamp_t               begin_time; ///< 
         ::profiler::thread_id_t          selected_thread; ///< Current selected thread id
         ::profiler::block_index_t         selected_block; ///< Current selected profiler block index
@@ -205,10 +212,7 @@ namespace profiler_gui {
         bool            display_only_frames_on_histogram; ///< Display only top-level blocks on histogram when drawing histogram by block id
         bool           bind_scene_and_tree_expand_status; /** \brief If true then items on graphics scene and in the tree (blocks hierarchy) are binded on each other
                                                                 so expanding/collapsing items on scene also expands/collapse items in the tree. */
-        QFont                                    bg_font; ///< Font for blocks_graphics_view
-        QFont                           chronometer_font; ///< Font for easy_chronometer_item
-        QFont                                 items_font; ///< Font for easy_graphics_item
-        QFont                         selected_item_font; ///< Font for easy_graphics_item
+
     private:
 
         EasyGlobals();
@@ -232,6 +236,14 @@ inline ::profiler::SerializedBlockDescriptor& easyDescriptor(::profiler::block_i
 
 inline ::profiler::BlocksTree& blocksTree(::profiler::block_index_t i) {
     return easyBlock(i).tree;
+}
+
+inline QString imagePath(const QString& _resource) {
+    return QString(":/images/%1/%2").arg(EASY_GLOBALS.theme).arg(_resource);
+}
+
+inline QString imagePath(const char* _resource) {
+    return QString(":/images/%1/%2").arg(EASY_GLOBALS.theme).arg(_resource);
 }
 #endif
 

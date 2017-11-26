@@ -212,6 +212,7 @@ protected:
     typedef QMainWindow  Parent;
 
     QStringList                            m_lastFiles;
+    QString                                    m_theme;
     QString                              m_lastAddress;
     QDockWidget*                          m_treeWidget = nullptr;
     QDockWidget*                        m_graphicsView = nullptr;
@@ -266,6 +267,7 @@ public:
 
 protected slots:
 
+    void onThemeChange(bool);
     void onOpenFileClicked(bool);
     void onSaveFileClicked(bool);
     void onDeleteClicked(bool);

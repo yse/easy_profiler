@@ -261,11 +261,11 @@ void EasyDescTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     QMenu menu;
     menu.setToolTipsVisible(true);
     auto action = menu.addAction("Expand all");
-    action->setIcon(QIcon(":/images/expand"));
+    action->setIcon(QIcon(imagePath("expand")));
     connect(action, &QAction::triggered, this, &This::expandAll);
 
     action = menu.addAction("Collapse all");
-    action->setIcon(QIcon(":/images/collapse"));
+    action->setIcon(QIcon(imagePath("collapse")));
     connect(action, &QAction::triggered, this, &This::collapseAll);
 
     menu.addSeparator();
@@ -744,7 +744,7 @@ EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
 
     auto tb = new QToolBar(this);
     tb->setIconSize(::profiler_gui::ICONS_SIZE);
-    auto refreshButton = tb->addAction(QIcon(":/images/reload"), tr("Refresh blocks list"));
+    auto refreshButton = tb->addAction(QIcon(imagePath("reload")), tr("Refresh blocks list"));
     refreshButton->setEnabled(EASY_GLOBALS.connected);
     refreshButton->setToolTip(tr("Refresh blocks list.\nConnection needed."));
     connect(refreshButton, &QAction::triggered, &EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::blocksRefreshRequired);
@@ -754,7 +754,7 @@ EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
     QMenu* menu = new QMenu(this);
     m_searchButton = menu->menuAction();
     m_searchButton->setText("Find next");
-    m_searchButton->setIcon(QIcon(":/images/find-next"));
+    m_searchButton->setIcon(QIcon(imagePath("find-next")));
     m_searchButton->setData(true);
     connect(m_searchButton, &QAction::triggered, this, &This::findNext);
 
@@ -891,7 +891,7 @@ void EasyDescWidget::findNextFromMenu(bool _checked)
     {
         m_searchButton->setData(true);
         m_searchButton->setText(tr("Find next"));
-        m_searchButton->setIcon(QIcon(":/images/find-next"));
+        m_searchButton->setIcon(QIcon(imagePath("find-next")));
         disconnect(m_searchButton, &QAction::triggered, this, &This::findPrev);
         connect(m_searchButton, &QAction::triggered, this, &This::findNext);
     }
@@ -908,7 +908,7 @@ void EasyDescWidget::findPrevFromMenu(bool _checked)
     {
         m_searchButton->setData(false);
         m_searchButton->setText(tr("Find prev"));
-        m_searchButton->setIcon(QIcon(":/images/find-prev"));
+        m_searchButton->setIcon(QIcon(imagePath("find-prev")));
         disconnect(m_searchButton, &QAction::triggered, this, &This::findNext);
         connect(m_searchButton, &QAction::triggered, this, &This::findPrev);
     }

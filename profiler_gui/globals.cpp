@@ -70,7 +70,12 @@ namespace profiler_gui {
     }
 
     EasyGlobals::EasyGlobals()
-        : begin_time(0)
+        : theme("default")
+        , bg_font(::profiler_gui::EFont("DejaVu Sans", 10, QFont::Bold))
+        , chronometer_font(::profiler_gui::EFont("DejaVu Sans", 16, QFont::Bold))
+        , items_font(::profiler_gui::EFont("DejaVu Sans", 10, QFont::Medium))
+        , selected_item_font(::profiler_gui::EFont("DejaVu Sans", 10, QFont::Medium))
+        , begin_time(0)
         , selected_thread(0U)
         , selected_block(::profiler_gui::numeric_max<decltype(selected_block)>())
         , selected_block_id(::profiler_gui::numeric_max<decltype(selected_block_id)>())
@@ -104,10 +109,6 @@ namespace profiler_gui {
         , auto_adjust_histogram_height(true)
         , display_only_frames_on_histogram(false)
         , bind_scene_and_tree_expand_status(true)
-        , bg_font(::profiler_gui::EFont("DejaVu Sans", 10, QFont::Bold))
-        , chronometer_font(::profiler_gui::EFont("DejaVu Sans", 16, QFont::Bold))
-        , items_font(::profiler_gui::EFont("DejaVu Sans", 10, QFont::Medium))
-        , selected_item_font(::profiler_gui::EFont("DejaVu Sans", 10, QFont::Medium))
     {
 
     }

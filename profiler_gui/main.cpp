@@ -50,8 +50,6 @@
 
 #include <chrono>
 #include <QApplication>
-#include <QFile>
-#include <QTextStream>
 #include "main_window.h"
 #include "globals.h"
 
@@ -62,15 +60,6 @@
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
-
-    QFile file(":/themes/default");
-    if (file.open(QFile::ReadOnly | QFile::Text))
-    {
-        QTextStream in(&file);
-        QString style = in.readAll();
-        if (!style.isEmpty())
-            app.setStyleSheet(style);
-    }
 
     //Instanciate easy globals after QApplication to allow creation of global fonts, and on the main thread to avoid data races
     EASY_GLOBALS;

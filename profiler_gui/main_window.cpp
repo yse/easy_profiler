@@ -87,6 +87,7 @@
 #include <QVBoxLayout>
 #include <QFile>
 #include <QFileInfo>
+#include <QTextStream>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDragLeaveEvent>
@@ -121,6 +122,17 @@ const auto NETWORK_CACHE_FILE = "easy_profiler_stream.cache";
 
 //////////////////////////////////////////////////////////////////////////
 
+inline const QStringList& UI_themes()
+{
+    static const QStringList themes {
+        "default"
+    };
+
+    return themes;
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 inline void clear_stream(std::stringstream& _stream)
 {
 #if defined(__GNUC__) && __GNUC__ < 5
@@ -130,6 +142,18 @@ inline void clear_stream(std::stringstream& _stream)
 #else
     std::stringstream().swap(_stream);
 #endif
+}
+
+inline void loadTheme(const QString& _theme)
+{
+    QFile file(QStringLiteral(":/themes/") + _theme);
+    if (file.open(QFile::ReadOnly | QFile::Text))
+    {
+        QTextStream in(&file);
+        QString style = in.readAll();
+        if (!style.isEmpty())
+            qApp->setStyleSheet(style);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -171,7 +195,7 @@ EasyDockWidget::~EasyDockWidget()
 {
 }
 
-EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastPort(::profiler::DEFAULT_PORT)
+EasyMainWindow::EasyMainWindow() : Parent(), m_theme("default"), m_lastAddress("localhost"), m_lastPort(::profiler::DEFAULT_PORT)
 {
     { QIcon icon(":/images/logo"); if (!icon.isNull()) QApplication::setWindowIcon(icon); }
 
@@ -180,8 +204,10 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     setDockNestingEnabled(true);
     setAcceptDrops(true);
     resize(800, 600);
-    
     setStatusBar(nullptr);
+
+    loadSettings();
+    loadTheme(m_theme);
 
     m_graphicsView = new EasyDockWidget("Diagram", this);
     m_graphicsView->setObjectName("ProfilerGUI_Diagram");
@@ -219,9 +245,6 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
 #endif
 
 
-    loadSettings();
-
-
     auto toolbar = addToolBar("FileToolbar");
     toolbar->setIconSize(::profiler_gui::ICONS_SIZE);
     toolbar->setObjectName("ProfilerGUI_FileToolbar");
@@ -230,7 +253,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     m_loadActionMenu = new QMenu(this);
     auto action = m_loadActionMenu->menuAction();
     action->setText("Open file");
-    action->setIcon(QIcon(":/images/open"));
+    action->setIcon(QIcon(imagePath("open")));
     connect(action, &QAction::triggered, this, &This::onOpenFileClicked);
     toolbar->addAction(action);
 
@@ -241,8 +264,8 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
         m_loadActionMenu->addAction(action);
     }
 
-    m_saveAction = toolbar->addAction(QIcon(":/images/save"), tr("Save"), this, SLOT(onSaveFileClicked(bool)));
-    m_deleteAction = toolbar->addAction(QIcon(":/images/delete"), tr("Clear all"), this, SLOT(onDeleteClicked(bool)));
+    m_saveAction = toolbar->addAction(QIcon(imagePath("save")), tr("Save"), this, SLOT(onSaveFileClicked(bool)));
+    m_deleteAction = toolbar->addAction(QIcon(imagePath("delete")), tr("Clear all"), this, SLOT(onDeleteClicked(bool)));
 
     m_saveAction->setEnabled(false);
     m_deleteAction->setEnabled(false);
@@ -254,12 +277,12 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     toolbar->setObjectName("ProfilerGUI_ProfileToolbar");
     toolbar->setContentsMargins(1, 0, 1, 0);
 
-    toolbar->addAction(QIcon(":/images/list"), tr("Blocks"), this, SLOT(onEditBlocksClicked(bool)));
-    m_captureAction = toolbar->addAction(QIcon(":/images/start"), tr("Capture"), this, SLOT(onCaptureClicked(bool)));
+    toolbar->addAction(QIcon(imagePath("list")), tr("Blocks"), this, SLOT(onEditBlocksClicked(bool)));
+    m_captureAction = toolbar->addAction(QIcon(imagePath("start")), tr("Capture"), this, SLOT(onCaptureClicked(bool)));
     m_captureAction->setEnabled(false);
 
     toolbar->addSeparator();
-    m_connectAction = toolbar->addAction(QIcon(":/images/connect"), tr("Connect"), this, SLOT(onConnectClicked(bool)));
+    m_connectAction = toolbar->addAction(QIcon(imagePath("connect")), tr("Connect"), this, SLOT(onConnectClicked(bool)));
 
     auto lbl = new QLabel("Address:", toolbar);
     lbl->setContentsMargins(5, 0, 2, 0);
@@ -291,15 +314,15 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     toolbar->setObjectName("ProfilerGUI_SetupToolbar");
     toolbar->setContentsMargins(1, 0, 1, 0);
 
-    toolbar->addAction(QIcon(":/images/expand"), "Expand all", this, SLOT(onExpandAllClicked(bool)));
-    toolbar->addAction(QIcon(":/images/collapse"), "Collapse all", this, SLOT(onCollapseAllClicked(bool)));
+    toolbar->addAction(QIcon(imagePath("expand")), "Expand all", this, SLOT(onExpandAllClicked(bool)));
+    toolbar->addAction(QIcon(imagePath("collapse")), "Collapse all", this, SLOT(onCollapseAllClicked(bool)));
 
     toolbar->addSeparator();
     auto menu = new QMenu("Settings", this);
     menu->setToolTipsVisible(true);
 
     QToolButton* toolButton = new QToolButton(toolbar);
-    toolButton->setIcon(QIcon(":/images/settings"));
+    toolButton->setIcon(QIcon(imagePath("settings")));
     toolButton->setMenu(menu);
     toolButton->setPopupMode(QToolButton::InstantPopup);
     toolbar->addWidget(toolButton);
@@ -313,12 +336,12 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
         auto f = action->font();
         f.setBold(true);
         action->setFont(f);
-        action->setIcon(QIcon(":/images/stats"));
+        action->setIcon(QIcon(imagePath("stats")));
     }
     else
     {
         action->setText("Statistics disabled");
-        action->setIcon(QIcon(":/images/stats-off"));
+        action->setIcon(QIcon(imagePath("stats-off")));
     }
 
 
@@ -653,6 +676,23 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
         submenu->addActions(actions);
     }
 
+
+
+    menu->addSeparator();
+    submenu = menu->addMenu("Theme");
+    actionGroup = new QActionGroup(this);
+    actionGroup->setExclusive(true);
+
+    for (const auto& theme : UI_themes())
+    {
+        action = new QAction(theme, actionGroup);
+        action->setCheckable(true);
+        action->setChecked(action->text() == EASY_GLOBALS.theme);
+        connect(action, &QAction::triggered, this, &EasyMainWindow::onThemeChange);
+        submenu->addAction(action);
+    }
+
+
     auto tb_height = toolbar->height() + 4;
     toolbar = addToolBar("FrameToolbar");
     toolbar->setIconSize(::profiler_gui::ICONS_SIZE);
@@ -752,6 +792,18 @@ void EasyMainWindow::dropEvent(QDropEvent* drop_event)
 
         loadFile(urls.front().toLocalFile());
     }
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void EasyMainWindow::onThemeChange(bool)
+{
+    auto action = qobject_cast<QAction*>(sender());
+    if (action == nullptr)
+        return;
+
+    m_theme = action->text();
+    QMessageBox::information(this, "Theme", "You should restart the application to apply the theme.");
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1080,12 +1132,12 @@ void EasyMainWindow::onEnableDisableStatistics(bool _checked)
         if (_checked)
         {
             action->setText("Statistics enabled");
-            action->setIcon(QIcon(":/images/stats"));
+            action->setIcon(QIcon(imagePath("stats")));
         }
         else
         {
             action->setText("Statistics disabled");
-            action->setIcon(QIcon(":/images/stats-off"));
+            action->setIcon(QIcon(imagePath("stats-off")));
         }
     }
 }
@@ -1369,6 +1421,16 @@ void EasyMainWindow::loadSettings()
     auto default_codec = QTextCodec::codecForMib(default_codec_mib);
     QTextCodec::setCodecForLocale(default_codec);
 
+    auto theme = settings.value("theme");
+    if (theme.isValid())
+    {
+        EASY_GLOBALS.theme = m_theme = theme.toString();
+    }
+    else
+    {
+        m_theme = EASY_GLOBALS.theme;
+    }
+
     settings.endGroup();
 }
 
@@ -1425,6 +1487,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("max_fps_history", EASY_GLOBALS.max_fps_history);
     settings.setValue("fps_widget_line_width", EASY_GLOBALS.fps_widget_line_width);
     settings.setValue("encoding", QTextCodec::codecForLocale()->name());
+    settings.setValue("theme", m_theme);
 
     settings.endGroup();
 }
@@ -1439,7 +1502,7 @@ void EasyMainWindow::setDisconnected(bool _showMessage)
 
     EASY_GLOBALS.connected = false;
     m_captureAction->setEnabled(false);
-    m_connectAction->setIcon(QIcon(":/images/connect"));
+    m_connectAction->setIcon(QIcon(imagePath("connect")));
     m_connectAction->setText(tr("Connect"));
 
     m_eventTracingEnableAction->setEnabled(false);
@@ -1979,7 +2042,7 @@ void EasyMainWindow::onConnectClicked(bool)
     qInfo() << "Connected successfully";
     EASY_GLOBALS.connected = true;
     m_captureAction->setEnabled(true);
-    m_connectAction->setIcon(QIcon(":/images/connected"));
+    m_connectAction->setIcon(QIcon(imagePath("connected")));
     m_connectAction->setText(tr("Disconnect"));
 
     if (m_fpsViewer->isVisible())
@@ -2058,7 +2121,7 @@ void EasyMainWindow::onCaptureClicked(bool)
     button->setAutoRaise(true);
     button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     button->setIconSize(::profiler_gui::ICONS_SIZE);
-    button->setIcon(QIcon(":/images/stop"));
+    button->setIcon(QIcon(imagePath("stop")));
     button->setText("Stop");
     m_listenerDialog->addButton(button, QMessageBox::AcceptRole);
 

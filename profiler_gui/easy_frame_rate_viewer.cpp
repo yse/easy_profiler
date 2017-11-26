@@ -324,7 +324,7 @@ void EasyFrameRateViewer::contextMenuEvent(QContextMenuEvent* _event)
     QMenu menu;
     QAction* action = nullptr;
 
-    action = menu.addAction(QIcon(":/images/delete"), "Clear");
+    action = menu.addAction(QIcon(imagePath("delete")), "Clear");
     connect(action, &QAction::triggered, [this](bool){ clear(); });
 
     action = menu.addAction("Close");

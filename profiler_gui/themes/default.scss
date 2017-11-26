@@ -77,9 +77,9 @@ QComboBox::drop-down {
     margin-left: 0;
 }
 
-QComboBox::down-arrow { image: url(":/images/arrow-down"); height: $ComboBoxArrowSize; width: $ComboBoxArrowSize; }
-QComboBox::down-arrow:hover { image: url(":/images/arrow-down-hover"); }
-QComboBox::down-arrow:disabled { image: url(":/images/arrow-down-disabled"); }
+QComboBox::down-arrow { image: url(":/images/default/arrow-down"); height: $ComboBoxArrowSize; width: $ComboBoxArrowSize; }
+QComboBox::down-arrow:hover { image: url(":/images/default/arrow-down-hover"); }
+QComboBox::down-arrow:disabled { image: url(":/images/default/arrow-down-disabled"); }
 
 /* ****************************************************************************************************************** */
 QSpinBox::up-button {
@@ -103,17 +103,18 @@ QSpinBox::up-button:pressed, QSpinBox::down-button:pressed {
     background-color: #f4f4f4;
 }
 
-QSpinBox::up-arrow { image: url(":/images/arrow-up"); height: $SpinBoxArrowSize; width: $SpinBoxArrowSize; }
-QSpinBox::up-arrow:hover { image: url(":/images/arrow-up-hover"); }
-QSpinBox::up-arrow:disabled { image: url(":/images/arrow-up-disabled"); }
+QSpinBox::up-arrow { image: url(":/images/default/arrow-up"); height: $SpinBoxArrowSize; width: $SpinBoxArrowSize; }
+QSpinBox::up-arrow:hover { image: url(":/images/default/arrow-up-hover"); }
+QSpinBox::up-arrow:disabled { image: url(":/images/default/arrow-up-disabled"); }
 
-QSpinBox::down-arrow { image: url(":/images/arrow-down"); height: $SpinBoxArrowSize; width: $SpinBoxArrowSize; }
-QSpinBox::down-arrow:hover { image: url(":/images/arrow-down-hover"); }
-QSpinBox::down-arrow:disabled { image: url(":/images/arrow-down-disabled"); }
+QSpinBox::down-arrow { image: url(":/images/default/arrow-down"); height: $SpinBoxArrowSize; width: $SpinBoxArrowSize; }
+QSpinBox::down-arrow:hover { image: url(":/images/default/arrow-down-hover"); }
+QSpinBox::down-arrow:disabled { image: url(":/images/default/arrow-down-disabled"); }
 
 /* ****************************************************************************************************************** */
 QPushButton {
     height: $DefaultHeight;
+    min-width: 50px;
     border: 1px solid $BorderColor;
     background-color: $BackgroundColor;
     padding: 0 5px 0 5px;
@@ -195,12 +196,12 @@ QMenu::indicator {
     padding: 1px;
 }
 
-QMenu::indicator:non-exclusive:checked { image: url(":/images/check"); }
-QMenu::indicator:non-exclusive:checked:disabled { image: url(":/images/check-disabled"); }
+QMenu::indicator:non-exclusive:checked { image: url(":/images/default/check"); }
+QMenu::indicator:non-exclusive:checked:disabled { image: url(":/images/default/check-disabled"); }
 
 QMenu::indicator:exclusive { border-radius: 8px; }
-QMenu::indicator:exclusive:checked { image: url(":/images/radio-check"); }
-QMenu::indicator:exclusive:checked:disabled { image: url(":/images/radio-check-disabled"); }
+QMenu::indicator:exclusive:checked { image: url(":/images/default/radio-check"); }
+QMenu::indicator:exclusive:checked:disabled { image: url(":/images/default/radio-check-disabled"); }
 
 
 
@@ -278,17 +279,17 @@ EasyDockWidget
             padding: 0;
         }
 
-        QPushButton#EasyDockWidgetFloatButton { image: url(":/images/dock-maximize-white"); }
-        QPushButton#EasyDockWidgetFloatButton:hover { image: url(":/images/dock-maximize-white-hover"); }
-        QPushButton#EasyDockWidgetFloatButton:pressed { image: url(":/images/dock-maximize-white-pressed"); }
+        QPushButton#EasyDockWidgetFloatButton { image: url(":/images/default/dock-maximize-white"); }
+        QPushButton#EasyDockWidgetFloatButton:hover { image: url(":/images/default/dock-maximize-white-hover"); }
+        QPushButton#EasyDockWidgetFloatButton:pressed { image: url(":/images/default/dock-maximize-white-pressed"); }
 
-        QPushButton#EasyDockWidgetFloatButton[floating=true] { image: url(":/images/dock-minimize-white"); }
-        QPushButton#EasyDockWidgetFloatButton[floating=true]:hover { image: url(":/images/dock-minimize-white-hover"); }
-        QPushButton#EasyDockWidgetFloatButton[floating=true]:pressed { image: url(":/images/dock-minimize-white-pressed"); }
+        QPushButton#EasyDockWidgetFloatButton[floating=true] { image: url(":/images/default/dock-minimize-white"); }
+        QPushButton#EasyDockWidgetFloatButton[floating=true]:hover { image: url(":/images/default/dock-minimize-white-hover"); }
+        QPushButton#EasyDockWidgetFloatButton[floating=true]:pressed { image: url(":/images/default/dock-minimize-white-pressed"); }
 
-        QPushButton#EasyDockWidgetCloseButton { image: url(":/images/dock-close-white"); }
-        QPushButton#EasyDockWidgetCloseButton:hover { image: url(":/images/dock-close-white-hover"); }
-        QPushButton#EasyDockWidgetCloseButton:pressed { image: url(":/images/dock-close-white-pressed"); }
+        QPushButton#EasyDockWidgetCloseButton { image: url(":/images/default/dock-close-white"); }
+        QPushButton#EasyDockWidgetCloseButton:hover { image: url(":/images/default/dock-close-white-hover"); }
+        QPushButton#EasyDockWidgetCloseButton:pressed { image: url(":/images/default/dock-close-white-pressed"); }
     }
 }
 
