@@ -227,7 +227,6 @@ void EasyTreeWidgetLoader::setTreeInternal1(::profiler::timestamp_t& _beginTime,
 
         item->setTimeSmart(COL_DURATION, _units, duration);
         item->setBackgroundColor(::profiler_gui::SELECTED_THREAD_BACKGROUND);
-        item->setTextColor(::profiler_gui::SELECTED_THREAD_FOREGROUND);
 
         //_items.push_back(item);
 
@@ -316,7 +315,6 @@ void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _begi
 
             thread_item->setTimeSmart(COL_DURATION, _units, duration);
             thread_item->setBackgroundColor(::profiler_gui::SELECTED_THREAD_BACKGROUND);
-            thread_item->setTextColor(::profiler_gui::SELECTED_THREAD_FOREGROUND);
 
             // Sum of all children durations:
             thread_item->setTimeSmart(COL_SELF_DURATION, _units, block.root->profiled_time);
@@ -442,10 +440,7 @@ void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _begi
         }
 
         const auto color = easyDescriptor(gui_block.tree.node->id()).color();
-        //const auto bgColor = ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
-        const auto fgColor = ::profiler_gui::textColorForRgb(color);//0x00ffffff - bgColor;
         item->setBackgroundColor(color);
-        item->setTextColor(fgColor);
 
 #ifdef EASY_TREE_WIDGET__USE_VECTOR
         auto item_index = static_cast<unsigned int>(m_items.size());
@@ -693,10 +688,7 @@ size_t EasyTreeWidgetLoader::setTreeInternal(const ::profiler::BlocksTreeRoot& _
         }
 
         const auto color = easyDescriptor(child.node->id()).color();
-        //const auto bgColor = ::profiler_gui::fromProfilerRgb(::profiler::colors::get_red(color), ::profiler::colors::get_green(color), ::profiler::colors::get_blue(color));
-        const auto fgColor = ::profiler_gui::textColorForRgb(color);// 0x00ffffff - bgColor;
         item->setBackgroundColor(color);
-        item->setTextColor(fgColor);
 
 #ifdef EASY_TREE_WIDGET__USE_VECTOR
         auto item_index = static_cast<uint32_t>(m_items.size());
@@ -931,9 +923,7 @@ size_t EasyTreeWidgetLoader::setTreeInternalPlain(const ::profiler::BlocksTreeRo
         }
 
         const auto color = easyDescriptor(child.node->id()).color();
-        const auto fgColor = ::profiler_gui::textColorForRgb(color);// 0x00ffffff - bgColor;
         item->setBackgroundColor(color);
-        item->setTextColor(fgColor);
 
 #ifdef EASY_TREE_WIDGET__USE_VECTOR
         auto item_index = static_cast<uint32_t>(m_items.size());

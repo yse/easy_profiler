@@ -325,6 +325,9 @@ private:
 
     void setDisconnected(bool _showMessage = true);
 
+    void destroyProgressDialog();
+    void createProgressDialog(const QString& text);
+
 }; // END of class EasyMainWindow.
 
 //////////////////////////////////////////////////////////////////////////

@@ -24,20 +24,24 @@ EasyMainWindow, QToolBar, QDialog {
   background-color: #f8f2f2; }
 
 QToolTip {
+  background-color: #ffeccc;
   border: 1px solid #cccccc; }
+
+QGraphicsView {
+  border-color: #cccccc; }
 
 /* ****************************************************************************************************************** */
 QLineEdit, QComboBox, QSpinBox {
   height: 24px;
   border: 1px solid #cccccc;
   background-color: white;
-  selection-background-color: rgba(136, 189, 136, 0.4);
+  selection-background-color: rgba(152, 222, 152, 0.5);
   selection-color: #504040; }
 
 QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled {
   background-color: #f0f0f0;
   color: #a08888;
-  selection-background-color: rgba(136, 189, 136, 0.4);
+  selection-background-color: rgba(152, 222, 152, 0.5);
   selection-color: #a08888; }
 
 QLineEdit:focus {
@@ -126,12 +130,19 @@ QPushButton:pressed {
 /* ****************************************************************************************************************** */
 QListView {
   background-color: white;
-  border: 1px solid #cccccc;
-  selection-background-color: rgba(136, 189, 136, 0.4);
+  border: 1px solid #cccccc; }
+
+QListView, QTableView, QTreeView {
+  alternate-background-color: #e4e4ec;
+  selection-background-color: rgba(152, 222, 152, 0.8);
   selection-color: #504040; }
 
-QListView::item, QListView::item, QTableView::item, QTreeView::item {
-  height: 24px; }
+QListView::item, QTableView::item, QTreeView::item {
+  height: 26px;
+  border-bottom: 1px solid #cccccc; }
+
+QListView::item:selected, QTableView::item:selected, QTreeView::item:selected {
+  background-color: rgba(152, 222, 152, 0.8); }
 
 /* ****************************************************************************************************************** */
 QMenu {
@@ -147,8 +158,8 @@ QMenu::item {
   /* reserve space for selection border */ }
 
 QMenu::item:selected {
-  border: 1px solid rgba(136, 189, 136, 0.4);
-  background-color: rgba(136, 189, 136, 0.4); }
+  border: 1px solid rgba(152, 222, 152, 0.5);
+  background-color: rgba(152, 222, 152, 0.5); }
 
 QMenu::icon {
   width: 14px;
@@ -243,6 +254,7 @@ EasyDockWidget QWidget#EasyDockWidgetTitle {
     background: none;
     border: none;
     max-height: 12px;
+    min-width: 12px;
     max-width: 12px;
     margin-right: 4px;
     padding: 0; }
@@ -310,15 +322,14 @@ QScrollBar::handle:pressed {
   background-color: rgba(0, 0, 0, 0.6); }
 
 QScrollBar::handle:vertical {
-  min-height: 20px;
+  min-height: 30px;
   margin-left: 4px; }
 
 QScrollBar::handle:vertical:hover, QScrollBar::handle:vertical:pressed {
   margin-left: 0; }
 
 QScrollBar::handle:horizontal {
-  min-width: 20px;
-  max-width: 100px;
+  min-width: 30px;
   margin-top: 4px; }
 
 QScrollBar::handle:horizontal:hover, QScrollBar::handle:horizontal:pressed {

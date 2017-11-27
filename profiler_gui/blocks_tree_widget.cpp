@@ -233,14 +233,17 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
 
     loadSettings();
 
+    m_columnsHiddenStatus[0] = 0;
+    setColumnHidden(0, false);
+
     if (m_mode == EasyTreeMode_Full)
     {
-        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+        for (int i = 1; i < COL_COLUMNS_NUMBER; ++i)
             m_columnsHiddenStatus[i] = isColumnHidden(i) ? 1 : 0;
     }
     else
     {
-        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+        for (int i = 1; i < COL_COLUMNS_NUMBER; ++i)
         {
             if (SIMPLIFIED_REGIME_COLUMNS[i])
             {
@@ -254,24 +257,18 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
         }
     }
 
-    m_progress = new QProgressDialog("Building blocks hierarchy...", "", 0, 100, this, Qt::FramelessWindowHint);
-    m_progress->setAttribute(Qt::WA_TranslucentBackground);
-    m_progress->setCancelButton(nullptr);
-    m_progress->setValue(100);
-    //m_progress->hide();
-
     m_hintLabel = new QLabel("Use Right Mouse Button on the Diagram to build a hierarchy...\nPress and hold, move, release", this);
     m_hintLabel->setAlignment(Qt::AlignCenter);
     m_hintLabel->setStyleSheet("QLabel { color: gray; font: 12pt; }");
 
     QTimer::singleShot(1500, this, &This::alignProgressBar);
+
+    setItemDelegateForColumn(0, new EasyItemDelegate(this));
 }
 
 EasyTreeWidget::~EasyTreeWidget()
 {
     saveSettings();
-    delete m_progress;
-    delete m_hintLabel;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -295,11 +292,7 @@ void EasyTreeWidget::onFillTimerTimeout()
             }
         }
 
-        if (m_progress)
-        {
-            m_progress->setValue(100);
-            //m_progress->hide();
-        }
+        destroyProgressDialog();
 
         m_bLocked = false;
         m_inputBlocks.clear();
@@ -319,7 +312,7 @@ void EasyTreeWidget::onFillTimerTimeout()
         onSelectedThreadChange(EASY_GLOBALS.selected_thread);
         onSelectedBlockChange(EASY_GLOBALS.selected_block);
     }
-    else
+    else if (m_progress != nullptr)
     {
         m_progress->setValue(m_hierarchyBuilder.progress());
     }
@@ -333,8 +326,7 @@ void EasyTreeWidget::setTree(const unsigned int _blocksNumber, const ::profiler:
     {
         m_bLocked = true;
         m_hintLabel->hide();
-        m_progress->setValue(0);
-        m_progress->show();
+        createProgressDialog();
         m_hierarchyBuilder.fillTree(m_beginTime, _blocksNumber, _blocksTree, m_bColorRows, m_mode);
         m_fillTimer.start(HIERARCHY_BUILDER_TIMER_INTERVAL);
     }
@@ -367,8 +359,7 @@ void EasyTreeWidget::setTreeBlocks(const ::profiler_gui::TreeBlocks& _blocks, ::
     {
         m_bLocked = true;
         m_hintLabel->hide();
-        m_progress->setValue(0);
-        m_progress->show();
+        createProgressDialog();
         m_hierarchyBuilder.fillTreeBlocks(m_inputBlocks, _session_begin_time, _left, _right, _strict, m_bColorRows, m_mode);
         m_fillTimer.start(HIERARCHY_BUILDER_TIMER_INTERVAL);
     }
@@ -403,13 +394,7 @@ void EasyTreeWidget::clearSilent(bool _global)
     const QSignalBlocker b(this);
 
     m_hierarchyBuilder.interrupt();
-
-    if (m_progress)
-    {
-        m_progress->setValue(100);
-        //m_progress->hide();
-    }
-
+    destroyProgressDialog();
     m_hintLabel->show();
 
     m_bLocked = false;
@@ -451,7 +436,7 @@ void EasyTreeWidget::clearSilent(bool _global)
     m_roots.clear();
 
     ::std::vector<QTreeWidgetItem*> topLevelItems;
-    topLevelItems.reserve(topLevelItemCount());
+    topLevelItems.reserve(static_cast<size_t>(topLevelItemCount()));
     for (int i = topLevelItemCount() - 1; i >= 0; --i)
         topLevelItems.push_back(takeTopLevelItem(i));
 
@@ -723,13 +708,13 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     auto hidemenu = menu.addMenu("Select columns");
     auto hdr = headerItem();
 
-    for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+    for (int i = 1; i < COL_COLUMNS_NUMBER; ++i)
     {
         auto columnAction = new QAction(hdr->text(i), nullptr);
         columnAction->setData(i);
         columnAction->setCheckable(true);
-        columnAction->setChecked(m_columnsHiddenStatus[i] == 0);// !isColumnHidden(i));
-        if (m_mode == EasyTreeMode_Full || SIMPLIFIED_REGIME_COLUMNS[i])
+        columnAction->setChecked(m_columnsHiddenStatus[i] == 0);
+        if ((m_mode == EasyTreeMode_Full || SIMPLIFIED_REGIME_COLUMNS[i]))
             connect(columnAction, &QAction::triggered, this, &This::onHideShowColumn);
         else
             columnAction->setEnabled(false);
@@ -759,8 +744,34 @@ void EasyTreeWidget::alignProgressBar()
 {
     auto center = rect().center();
     auto pos = mapToGlobal(center);
-    m_progress->move(pos.x() - (m_progress->width() >> 1), pos.y() - (m_progress->height() >> 1));
+
+    if (m_progress != nullptr)
+        m_progress->move(pos.x() - (m_progress->width() >> 1), pos.y() - (m_progress->height() >> 1));
+
     m_hintLabel->move(center.x() - (m_hintLabel->width() >> 1), std::max(center.y() - (m_hintLabel->height() >> 1), header()->height()));
+}
+
+void EasyTreeWidget::destroyProgressDialog()
+{
+    if (m_progress != nullptr)
+    {
+        m_progress->setValue(100);
+        m_progress->deleteLater();
+        m_progress = nullptr;
+    }
+}
+
+void EasyTreeWidget::createProgressDialog()
+{
+    destroyProgressDialog();
+
+    m_progress = new QProgressDialog("Building blocks hierarchy...", "", 0, 100, this, Qt::FramelessWindowHint);
+    m_progress->setAttribute(Qt::WA_TranslucentBackground);
+    m_progress->setCancelButton(nullptr);
+    m_progress->setValue(0);
+    m_progress->show();
+
+    alignProgressBar();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -976,8 +987,11 @@ void EasyTreeWidget::onSelectedThreadChange(::profiler::thread_id_t _id)
 {
     for (auto& it : m_roots)
     {
-        it.second->colorize(it.first == _id);
+        auto item = it.second;
+        item->setMain(it.first == _id);
+        item->colorize(it.first == _id);
     }
+
 }
 
 void EasyTreeWidget::onSelectedBlockChange(uint32_t _block_index)
@@ -1078,12 +1092,12 @@ void EasyTreeWidget::onModeChange(bool)
 
     if (m_mode == EasyTreeMode_Full)
     {
-        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+        for (int i = 1; i < COL_COLUMNS_NUMBER; ++i)
             setColumnHidden(i, m_columnsHiddenStatus[i] != 0);
     }
     else
     {
-        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+        for (int i = 1; i < COL_COLUMNS_NUMBER; ++i)
             setColumnHidden(i, m_columnsHiddenStatus[i] != 0 || !SIMPLIFIED_REGIME_COLUMNS[i]);
     }
 

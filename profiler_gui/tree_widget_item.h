@@ -59,7 +59,9 @@
 
 #include <stdlib.h>
 #include <QTreeWidget>
+#include <QStyledItemDelegate>
 #include <easy/reader.h>
+#include <bitset>
 
 #include "common_types.h"
 
@@ -116,19 +118,20 @@ class EasyTreeWidgetItem : public QTreeWidgetItem
     typedef QTreeWidgetItem    Parent;
     typedef EasyTreeWidgetItem   This;
 
+    QFont                                    m_font;
     const ::profiler::block_index_t         m_block;
     QRgb                            m_customBGColor;
-    QRgb                          m_customTextColor;
+    std::bitset<17>                   m_bHasToolTip;
+    bool                               m_bColorized;
+    bool                                    m_bMain;
 
 public:
-
-    using Parent::setBackgroundColor;
-    using Parent::setTextColor;
 
     explicit EasyTreeWidgetItem(const ::profiler::block_index_t _treeBlock = ::profiler_gui::numeric_max<decltype(m_block)>(), Parent* _parent = nullptr);
     virtual ~EasyTreeWidgetItem();
 
     bool operator < (const Parent& _other) const override;
+    QVariant data(int _column, int _role) const override;
 
 public:
 
@@ -147,7 +150,7 @@ public:
 
     void setBackgroundColor(QRgb _color);
 
-    void setTextColor(QRgb _color);
+    void setMain(bool _main);
 
     void colorize(bool _colorize);
 
@@ -157,7 +160,27 @@ public:
 
     void setBold(bool _bold);
 
+private:
+
+    bool hasToolTip(int _column) const;
+    void setHasToolTip(int _column);
+
 }; // END of class EasyTreeWidgetItem.
+
+//////////////////////////////////////////////////////////////////////////
+
+class EasyItemDelegate : public QStyledItemDelegate
+{
+    Q_OBJECT
+    QTreeWidget* m_treeWidget;
+
+public:
+
+    explicit EasyItemDelegate(QTreeWidget* parent = nullptr);
+    ~EasyItemDelegate() override;
+    void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override;
+
+}; // END of class EasyItemDelegate.
 
 //////////////////////////////////////////////////////////////////////////
 

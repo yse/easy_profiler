@@ -19,7 +19,7 @@ $TextColor: #504040;
 $DisabledTextColor: #a08888;
 $BorderColor: #cccccc;
 $MainColor: #f44336;
-$HoveredMenuRowColor: rgb_a(#88BD88, 0.4);
+$HoveredMenuRowColor: rgb_a(#98DE98, 0.5);
 $BackgroundColor: white;
 $DisabledBackgroundColor: #f0f0f0;
 $ButtonHoverColor: #922c2c;//#d77d7d;
@@ -47,7 +47,12 @@ EasyMainWindow, QToolBar, QDialog {
 }
 
 QToolTip {
+    background-color: #ffeccc;
     border: 1px solid $BorderColor;
+}
+
+QGraphicsView {
+    border-color: $BorderColor;
 }
 
 /* ****************************************************************************************************************** */
@@ -139,12 +144,21 @@ QPushButton:pressed {
 QListView {
     background-color: $BackgroundColor;
     border: 1px solid $BorderColor;
-    selection-background-color: $HoveredMenuRowColor;
+}
+
+QListView, QTableView, QTreeView {
+    alternate-background-color: #e4e4ec;
+    selection-background-color: rgb_a(#98DE98, 0.8);
     selection-color: $TextColor;
 }
 
-QListView::item, QListView::item, QTableView::item, QTreeView::item {
-    height: $DefaultHeight;
+QListView::item, QTableView::item, QTreeView::item {
+    height: $DefaultHeight + 2px;
+    border-bottom: 1px solid $BorderColor;
+}
+
+QListView::item:selected, QTableView::item:selected, QTreeView::item:selected {
+    background-color: rgb_a(#98DE98, 0.8);
 }
 
 /* ****************************************************************************************************************** */
@@ -274,6 +288,7 @@ EasyDockWidget
             background: none;
             border: none;
             max-height: 12px;
+            min-width: 12px;
             max-width: 12px;
             margin-right: 4px;
             padding: 0;
@@ -346,10 +361,10 @@ QScrollBar::handle:pressed {
     background-color: rgb_a(#000000, 0.6);
 }
 
-QScrollBar::handle:vertical { min-height: 20px; margin-left: 4px; }
+QScrollBar::handle:vertical { min-height: 30px; margin-left: 4px; }
 QScrollBar::handle:vertical:hover, QScrollBar::handle:vertical:pressed { margin-left: 0; }
 
-QScrollBar::handle:horizontal { min-width: 20px; max-width: 100px; margin-top: 4px; }
+QScrollBar::handle:horizontal { min-width: 30px; margin-top: 4px; }
 QScrollBar::handle:horizontal:hover, QScrollBar::handle:horizontal:pressed { margin-top: 0; }
 
 QScrollBar::add-line, QScrollBar::sub-line {

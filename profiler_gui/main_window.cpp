@@ -726,14 +726,6 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_theme("default"), m_lastAddress("
     connect(&m_fpsRequestTimer, &QTimer::timeout, this, &This::onFrameTimeRequestTimeout);
     
 
-    m_progress = new QProgressDialog("Loading file...", "Cancel", 0, 100, this);
-    m_progress->setFixedWidth(300);
-    m_progress->setWindowTitle(EASY_DEFAULT_WINDOW_TITLE);
-    m_progress->setModal(true);
-    m_progress->setValue(100);
-    //m_progress->hide();
-    connect(m_progress, &QProgressDialog::canceled, this, &This::onFileReaderCancel);
-
     loadGeometry();
 
     if(QCoreApplication::arguments().size() > 1)
@@ -748,7 +740,6 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_theme("default"), m_lastAddress("
 
 EasyMainWindow::~EasyMainWindow()
 {
-    delete m_progress;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -802,8 +793,12 @@ void EasyMainWindow::onThemeChange(bool)
     if (action == nullptr)
         return;
 
-    m_theme = action->text();
-    QMessageBox::information(this, "Theme", "You should restart the application to apply the theme.");
+    auto newTheme = action->text();
+    if (m_theme != newTheme)
+    {
+        m_theme = std::move(newTheme);
+        QMessageBox::information(this, "Theme", "You should restart the application to apply the theme.");
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -876,20 +871,16 @@ void EasyMainWindow::loadFile(const QString& filename)
 {
     const auto i = filename.lastIndexOf(QChar('/'));
     const auto j = filename.lastIndexOf(QChar('\\'));
-    m_progress->setLabelText(QString("Loading %1...").arg(filename.mid(::std::max(i, j) + 1)));
 
-    m_progress->setValue(0);
-    m_progress->show();
+    createProgressDialog(QString("Loading %1...").arg(filename.mid(::std::max(i, j) + 1)));
+
     m_readerTimer.start(LOADER_TIMER_INTERVAL);
     m_reader.load(filename);
 }
 
 void EasyMainWindow::readStream(::std::stringstream& data)
 {
-    m_progress->setLabelText(tr("Reading from stream..."));
-
-    m_progress->setValue(0);
-    m_progress->show();
+    createProgressDialog(tr("Reading from stream..."));
     m_readerTimer.start(LOADER_TIMER_INTERVAL);
     m_reader.load(data);
 }
@@ -1492,6 +1483,30 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.endGroup();
 }
 
+void EasyMainWindow::destroyProgressDialog()
+{
+    if (m_progress != nullptr)
+    {
+        m_progress->setValue(100);
+        m_progress->deleteLater();
+        m_progress = nullptr;
+    }
+}
+
+void EasyMainWindow::createProgressDialog(const QString& text)
+{
+    destroyProgressDialog();
+
+    m_progress = new QProgressDialog(text, QStringLiteral("Cancel"), 0, 100, this);
+    connect(m_progress, &QProgressDialog::canceled, this, &This::onFileReaderCancel);
+
+    m_progress->setFixedWidth(300);
+    m_progress->setWindowTitle(EASY_DEFAULT_WINDOW_TITLE);
+    m_progress->setModal(true);
+    m_progress->setValue(0);
+    m_progress->show();
+}
+
 void EasyMainWindow::setDisconnected(bool _showMessage)
 {
     if (m_fpsRequestTimer.isActive())
@@ -1812,15 +1827,14 @@ void EasyMainWindow::onFileReaderTimeout()
         m_reader.interrupt();
 
         m_readerTimer.stop();
-        m_progress->setValue(100);
-        //m_progress->hide();
+        destroyProgressDialog();
 
         if (EASY_GLOBALS.all_items_expanded_by_default)
         {
             onExpandAllClicked(true);
         }
     }
-    else
+    else if (m_progress != nullptr)
     {
         m_progress->setValue(m_reader.progress());
     }
@@ -1830,8 +1844,7 @@ void EasyMainWindow::onFileReaderCancel()
 {
     m_readerTimer.stop();
     m_reader.interrupt();
-    m_progress->setValue(100);
-    //m_progress->hide();
+    destroyProgressDialog();
 }
 
 //////////////////////////////////////////////////////////////////////////

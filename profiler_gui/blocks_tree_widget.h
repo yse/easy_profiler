@@ -157,6 +157,11 @@ protected:
     void saveSettings();
     void alignProgressBar();
 
+private:
+
+    void destroyProgressDialog();
+    void createProgressDialog();
+
 }; // END of class EasyTreeWidget.
 
 //////////////////////////////////////////////////////////////////////////

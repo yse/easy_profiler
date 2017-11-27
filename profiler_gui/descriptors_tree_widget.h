@@ -57,6 +57,7 @@
 #define EASY_DESCRIPTORS_WIDGET_H
 
 #include <QTreeWidget>
+#include <QStyledItemDelegate>
 #include <QString>
 
 #include <vector>
@@ -68,10 +69,22 @@
 
 class EasyDescWidgetItem : public QTreeWidgetItem
 {
-    typedef QTreeWidgetItem    Parent;
-    typedef EasyDescWidgetItem   This;
+    using Parent = QTreeWidgetItem;
+    using This = EasyDescWidgetItem;
+
+public:
+
+    enum class Type : uint8_t
+    {
+        File,
+        Event,
+        Block
+    };
+
+private:
 
     ::profiler::block_id_t m_desc;
+    Type m_type;
 
 public:
 
@@ -79,6 +92,7 @@ public:
     virtual ~EasyDescWidgetItem();
 
     bool operator < (const Parent& _other) const override;
+    QVariant data(int _column, int _role) const override;
 
 public:
 
@@ -89,7 +103,26 @@ public:
         return m_desc;
     }
 
+    inline void setType(Type _type)
+    {
+        m_type = _type;
+    }
+
 }; // END of class EasyDescWidgetItem.
+
+//////////////////////////////////////////////////////////////////////////
+
+class EasyDescItemDelegate : public QStyledItemDelegate
+{
+    Q_OBJECT
+
+public:
+
+    explicit EasyDescItemDelegate(QObject* parent = nullptr);
+    ~EasyDescItemDelegate() override;
+    void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override;
+
+}; // END of class EasyDescItemDelegate.
 
 //////////////////////////////////////////////////////////////////////////
 

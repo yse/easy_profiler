@@ -88,7 +88,7 @@ const qreal MIN_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT_INV, 70); // Up 
 const qreal MAX_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT, 45); // ~23000 --- Up to 10 ns scale
 const qreal BASE_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT_INV, 25); // ~0.003
 
-EASY_CONSTEXPR uint16_t TIMELINE_ROW_SIZE = 20;
+EASY_CONSTEXPR uint16_t TIMELINE_ROW_SIZE = 24;
 
 EASY_CONSTEXPR QRgb BACKGROUND_1 = 0xffe4e4ec;
 EASY_CONSTEXPR QRgb BACKGROUND_2 = ::profiler::colors::White;
@@ -150,6 +150,7 @@ void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
     const auto h = visibleSceneRect.height();
     const auto visibleBottom = h - 1;
     const auto borderColor = QColor::fromRgb(TIMELINE_BORDER);
+    const auto textShiftY = h + TIMELINE_ROW_SIZE - 5;
 
     QRectF rect;
 
@@ -241,7 +242,8 @@ void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
         {
             next = n;
             _painter->setPen(::profiler_gui::TEXT_COLOR);
-            _painter->drawText(QPointF(current + 1, h + 17), QString::number(static_cast<quint64>(0.5 + (current + left) * factor / currentScale)));
+            _painter->drawText(QPointF(current + 1, textShiftY),
+                               QString::number(static_cast<quint64>(0.5 + (current + left) * factor / currentScale)));
             _painter->setPen(borderColor);
         }
 
@@ -1515,7 +1517,7 @@ void EasyGraphicsView::onIdleTimeout()
     {
         ::profiler::block_index_t i = ~0U;
         auto block = item->intersect(pos, i);
-        if (block)
+        if (block != nullptr)
         {
             const auto& itemBlock = block->tree;
             const auto& itemDesc = easyDescriptor(itemBlock.node->id());
@@ -1736,7 +1738,7 @@ void EasyGraphicsView::onIdleTimeout()
         }
 
         auto cse = item->intersectEvent(pos);
-        if (cse)
+        if (cse != nullptr)
         {
             const auto& itemBlock = cse->tree;
 

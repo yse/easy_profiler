@@ -222,7 +222,7 @@ void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSiz
 
         const auto& itemDesc = easyDescriptor(itemBlock.tree.node->id());
 
-        int h = 0, flags = 0;
+        int h = 0;
         bool do_paint_children = false;
         if ((EASY_GLOBALS.hide_narrow_children && w < EASY_GLOBALS.blocks_narrow_size) || !itemBlock.expanded)
         {
@@ -303,11 +303,6 @@ void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSiz
             //skip_children(next_level, item.children_begin);
             if (wprev < EASY_GLOBALS.blocks_narrow_size)
                 continue;
-
-            if (totalHeight > ::profiler_gui::GRAPHICS_ROW_SIZE)
-                flags = Qt::AlignCenter;
-            else if (!(item.width() < 1))
-                flags = Qt::AlignHCenter;
 
             if (dw > 1)
             {
@@ -395,9 +390,6 @@ void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSiz
                 continue;
             }
 
-            if (!(item.width() < 1))
-                flags = Qt::AlignHCenter;
-
             if (dw > 1)
             {
                 w -= dw;
@@ -420,7 +412,7 @@ void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSiz
 
         // drawing text
         auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : itemDesc.name();
-        _painter->drawText(p.rect, flags, ::profiler_gui::toUnicode(name));
+        _painter->drawText(p.rect, Qt::AlignCenter, ::profiler_gui::toUnicode(name));
 
         // restore previous pen color
         if (p.previousPenStyle == Qt::NoPen)
@@ -630,7 +622,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 #endif
 
                 const auto& itemDesc = easyDescriptor(itemBlock.tree.node->id());
-                int h = 0, flags = 0;
+                int h = 0;
 
 #ifdef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
                 bool do_paint_children = false;
@@ -715,11 +707,6 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     //skip_children(next_level, item.children_begin);
                     if (wprev < EASY_GLOBALS.blocks_narrow_size)
                         continue;
-
-                    if (totalHeight > ::profiler_gui::GRAPHICS_ROW_SIZE)
-                        flags = Qt::AlignCenter;
-                    else if (!(item.width() < 1))
-                        flags = Qt::AlignHCenter;
 
                     if (dw > 1) {
                         w -= dw;
@@ -813,8 +800,6 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 #ifndef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
                     dont_skip_children(next_level, item.children_begin, BLOCK_ITEM_DO_PAINT);
 #endif
-                    if (!(item.width() < 1))
-                        flags = Qt::AlignHCenter;
 
                     if (dw > 1) {
                         w -= dw;
@@ -839,7 +824,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
                 // drawing text
                 auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : itemDesc.name();
-                _painter->drawText(p.rect, flags, ::profiler_gui::toUnicode(name));
+                _painter->drawText(p.rect, Qt::AlignCenter, ::profiler_gui::toUnicode(name));
 
                 // restore previous pen color
                 if (p.previousPenStyle == Qt::NoPen)
@@ -979,7 +964,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         //firstSync = m_pRoot->sync.begin();
 
         p.previousColor = 0;
-        qreal prevRight = -1e100, top = y() - 4, h = 3;
+        qreal prevRight = -1e100, top = y() - 6, h = 3;
         if (top + h < p.visibleBottom)
         {
             _painter->setPen(BORDERS_COLOR);
@@ -1056,7 +1041,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         }
 
         p.previousColor = 0;
-        qreal prevRight = -1e100, top = y() + boundingRect().height() - 1, h = 3;
+        qreal prevRight = -1e100, top = y() + boundingRect().height() + 1, h = 3;
         if (top + h < p.visibleBottom)
         {
             _painter->setPen(BORDERS_COLOR);
@@ -1190,7 +1175,7 @@ const ::profiler_gui::EasyBlock* EasyGraphicsItem::intersect(const QPointF& _pos
         return nullptr;
     }
 
-    static const auto OVERLAP = ::profiler_gui::THREADS_ROW_SPACING >> 1;
+    EASY_STATIC_CONSTEXPR auto OVERLAP = (::profiler_gui::THREADS_ROW_SPACING >> 1) + 2;
     const auto bottom = top + m_levels.size() * ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + OVERLAP;
     if (bottom < _pos.y())
     {

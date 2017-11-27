@@ -67,7 +67,9 @@
 #include <QToolBar>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QVariant>
 #include <QTimer>
+#include <QPainter>
 #include <thread>
 #include "descriptors_tree_widget.h"
 #include "globals.h"
@@ -183,7 +185,10 @@ const char* statusText(::profiler::EasyBlockStatus _status)
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyDescWidgetItem::EasyDescWidgetItem(::profiler::block_id_t _desc, Parent* _parent) : Parent(_parent), m_desc(_desc)
+EasyDescWidgetItem::EasyDescWidgetItem(::profiler::block_id_t _desc, Parent* _parent)
+    : Parent(_parent)
+    , m_desc(_desc)
+    , m_type(EasyDescWidgetItem::Type::File)
 {
 
 }
@@ -209,6 +214,33 @@ bool EasyDescWidgetItem::operator < (const Parent& _other) const
     return Parent::operator < (_other);
 }
 
+QVariant EasyDescWidgetItem::data(int _column, int _role) const
+{
+    if (_column == DESC_COL_TYPE)
+    {
+        if (_role == Qt::ToolTipRole)
+        {
+            switch (m_type)
+            {
+                case Type::File:  return QStringLiteral("File");
+                case Type::Event: return QStringLiteral("Event");
+                case Type::Block: return QStringLiteral("Block");
+            }
+        }
+        else if (_role == Qt::DisplayRole)
+        {
+            switch (m_type)
+            {
+                case Type::File:  return QStringLiteral("F");
+                case Type::Event: return QStringLiteral("E");
+                case Type::Block: return QStringLiteral("B");
+            }
+        }
+    }
+
+    return QTreeWidgetItem::data(_column, _role);
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 EasyDescTreeWidget::EasyDescTreeWidget(QWidget* _parent)
@@ -224,6 +256,7 @@ EasyDescTreeWidget::EasyDescTreeWidget(QWidget* _parent)
     setAnimated(true);
     setSortingEnabled(false);
     setColumnCount(DESC_COL_COLUMNS_NUMBER);
+    setSelectionBehavior(QAbstractItemView::SelectRows);
 
     auto header_item = new QTreeWidgetItem();
     header_item->setText(DESC_COL_FILE_LINE, "File/Line");
@@ -239,6 +272,8 @@ EasyDescTreeWidget::EasyDescTreeWidget(QWidget* _parent)
     connect(this, &Parent::currentItemChanged, this, &This::onCurrentItemChange);
 
     loadSettings();
+
+    setItemDelegateForColumn(0, new EasyDescItemDelegate(this));
 }
 
 EasyDescTreeWidget::~EasyDescTreeWidget()
@@ -393,10 +428,10 @@ void EasyDescTreeWidget::build()
             auto& p = fileItems[desc->file()];
             if (p.item == nullptr)
             {
-                p.item = new QTreeWidgetItem();
-                p.item->setText(DESC_COL_FILE_LINE, QString(desc->file()).remove(QRegExp("^(\\.{2}\\\\+|\\/+)+")));
-                p.item->setText(DESC_COL_TYPE, "F");
-                p.item->setToolTip(DESC_COL_TYPE, "File");
+                auto item = new EasyDescWidgetItem(0);
+                item->setText(DESC_COL_FILE_LINE, QString(desc->file()).remove(QRegExp("^(\\.{2}\\\\+|\\/+)+")));
+                item->setType(EasyDescWidgetItem::Type::File);
+                p.item = item;
             }
 
             auto it = p.children.find(desc->line());
@@ -408,15 +443,9 @@ void EasyDescTreeWidget::build()
                 item->setText(DESC_COL_NAME, desc->name());
 
                 if (desc->type() == ::profiler::BlockType::Block)
-                {
-                    item->setText(DESC_COL_TYPE, "B");
-                    item->setToolTip(DESC_COL_TYPE, "Block");
-                }
+                    item->setType(EasyDescWidgetItem::Type::Block);
                 else
-                {
-                    item->setText(DESC_COL_TYPE, "E");
-                    item->setToolTip(DESC_COL_TYPE, "Event");
-                }
+                    item->setType(EasyDescWidgetItem::Type::Event);
 
                 item->setFont(DESC_COL_STATUS, f);
                 item->setText(DESC_COL_STATUS, statusText(desc->status()));
@@ -751,7 +780,7 @@ EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
 
 
 
-    QMenu* menu = new QMenu(this);
+    auto menu = new QMenu(this);
     m_searchButton = menu->menuAction();
     m_searchButton->setText("Find next");
     m_searchButton->setIcon(QIcon(imagePath("find-next")));
@@ -914,6 +943,35 @@ void EasyDescWidget::findPrevFromMenu(bool _checked)
     }
 
     findPrev(true);
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+EasyDescItemDelegate::EasyDescItemDelegate(QObject* parent) : QStyledItemDelegate(parent)
+{
+
+}
+
+EasyDescItemDelegate::~EasyDescItemDelegate()
+{
+
+}
+
+void EasyDescItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const
+{
+    // Draw item as usual
+    QStyledItemDelegate::paint(painter, option, index);
+
+    // Draw line under tree indicator
+    const auto bottomLeft = option.rect.bottomLeft();
+    if (bottomLeft.x() > 0)
+    {
+        painter->save();
+        painter->setBrush(Qt::NoBrush);
+        painter->setPen(::profiler_gui::SYSTEM_BORDER_COLOR);
+        painter->drawLine(QPoint(0, bottomLeft.y()), bottomLeft);
+        painter->restore();
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////
