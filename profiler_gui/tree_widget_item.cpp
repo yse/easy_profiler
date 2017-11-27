@@ -188,7 +188,11 @@ QVariant EasyTreeWidgetItem::data(int _column, int _role) const
     {
         if (_role == Qt::SizeHintRole)
         {
+#ifdef _WIN32
+            const float k = m_font.bold() ? 1.2f : 1.f;
+#else
             const float k = m_font.bold() ? 1.15f : 1.f;
+#endif
             return QSize(static_cast<int>(QFontMetrics(m_font).width(text(COL_NAME)) * k) + 20, 26);
         }
 
@@ -357,6 +361,19 @@ void EasyItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
     auto brushData = m_treeWidget->model()->data(index, BlockColorRole);
     if (brushData.isNull())
     {
+#ifdef _WIN32
+        const auto currentTreeIndex = m_treeWidget->currentIndex();
+        if (index.parent() == currentTreeIndex.parent() && index.row() == currentTreeIndex.row())
+        {
+            // Draw selection background for selected row
+            painter->save();
+            painter->setBrush(QColor::fromRgba(0xCC98DE98));
+            painter->setPen(Qt::NoPen);
+            painter->drawRect(QRect(0, option.rect.top(), option.rect.left() + 16, option.rect.height()));
+            painter->restore();
+        }
+#endif
+
         // Draw item as usual
         QStyledItemDelegate::paint(painter, option, index);
 
@@ -374,6 +391,25 @@ void EasyItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
         return;
     }
 
+    const auto currentTreeIndex = m_treeWidget->currentIndex();
+    if (index.parent() == currentTreeIndex.parent() && index.row() == currentTreeIndex.row())
+    {
+        // Draw selection background for selected row
+
+        painter->save();
+
+        painter->setBrush(QColor::fromRgba(0xCC98DE98));
+        painter->setPen(Qt::NoPen);
+
+#ifdef _WIN32
+        painter->drawRect(QRect(0, option.rect.top(), option.rect.left() + 16, option.rect.height()));
+#else
+        painter->drawRect(QRect(option.rect.left(), option.rect.top(), 16, option.rect.height()));
+#endif
+
+        painter->restore();
+    }
+
     // Adjust rect size for drawing color marker
     QStyleOptionViewItem opt = option;
     opt.rect.adjust(16, 0, 0, 0);
@@ -382,15 +418,6 @@ void EasyItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
     QStyledItemDelegate::paint(painter, opt, index);
 
     painter->save();
-
-    const auto currentTreeIndex = m_treeWidget->currentIndex();
-    if (index.parent() == currentTreeIndex.parent() && index.row() == currentTreeIndex.row())
-    {
-        // Draw selection background for selected row
-        painter->setBrush(QColor::fromRgba(0xCC98DE98));
-        painter->setPen(Qt::NoPen);
-        painter->drawRect(QRect(option.rect.left(), option.rect.top(), 16, option.rect.height()));
-    }
 
     // Draw color marker with block color
     const auto brush = m_treeWidget->model()->data(index, Qt::UserRole + 1).value<QBrush>();

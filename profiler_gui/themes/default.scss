@@ -52,7 +52,7 @@ QToolTip {
 }
 
 QGraphicsView {
-    border-color: $BorderColor;
+    border: 1px solid $BorderColor;
 }
 
 /* ****************************************************************************************************************** */

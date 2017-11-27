@@ -2022,11 +2022,10 @@ EasyGraphicsViewWidget::EasyGraphicsViewWidget(QWidget* _parent)
 void EasyGraphicsViewWidget::initWidget()
 {
     auto lay = new QGridLayout(this);
-    lay->setContentsMargins(1, 0, 1, 0);
+    lay->setContentsMargins(0, 0, 0, 0);
+    lay->setSpacing(1);
     lay->addWidget(m_threadNamesWidget, 0, 0, 2, 1);
-    lay->setSpacing(1);
     lay->addWidget(m_view, 0, 1);
-    lay->setSpacing(1);
     lay->addWidget(m_scrollbar, 1, 1);
     setLayout(lay);
 
