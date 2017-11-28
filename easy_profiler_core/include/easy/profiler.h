@@ -176,7 +176,7 @@ Name of the block automatically created with function name.
 
 \ingroup profiler
 */
-# define EASY_FUNCTION(...) EASY_BLOCK(__func__, ## __VA_ARGS__)
+# define EASY_FUNCTION(...) EASY_BLOCK(EASY_FUNC_NAME, ## __VA_ARGS__)
 
 /** Macro for completion of last opened block explicitly.
 

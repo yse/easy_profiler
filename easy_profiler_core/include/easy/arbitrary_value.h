@@ -73,8 +73,8 @@ void bar(const A& b) {
 }
 
 void baz(const A& c) {
-  EASY_VALUE("baz count", c.someCount, EASY_VIN(__func__)); // Different ID from "foo count" and "bar count"
-  EASY_VALUE("qux count", 100500, EASY_VIN(__func__)); // Same ID as for "baz count"
+  EASY_VALUE("baz count", c.someCount, EASY_VIN(EASY_FUNC_NAME)); // Different ID from "foo count" and "bar count"
+  EASY_VALUE("qux count", 100500, EASY_VIN(EASY_FUNC_NAME)); // Same ID as for "baz count"
 }
 \endcode
 

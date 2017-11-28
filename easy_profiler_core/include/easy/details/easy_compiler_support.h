@@ -68,7 +68,11 @@
 //////////////////////////////////////////////////////////////////////////
 // Visual Studio
 
-# define __func__ __FUNCTION__
+# if defined(EASY_OPTION_PRETTY_PRINT_FUNCTIONS) && EASY_OPTION_PRETTY_PRINT_FUNCTIONS != 0
+#  define EASY_FUNC_NAME __FUNCSIG__
+# else
+#  define EASY_FUNC_NAME __FUNCTION__
+# endif
 
 # if _MSC_VER <= 1800
 // There is no support for C++11 thread_local keyword prior to Visual Studio 2015. Use __declspec(thread) instead.
@@ -172,6 +176,14 @@ static_assert(false, "EasyProfiler is not configured for using your compiler typ
 
 //////////////////////////////////////////////////////////////////////////
 // Default values
+
+#ifndef EASY_FUNC_NAME
+# if defined(EASY_OPTION_PRETTY_PRINT_FUNCTIONS) && EASY_OPTION_PRETTY_PRINT_FUNCTIONS != 0
+#  define EASY_FUNC_NAME __PRETTY_FUNCTION__
+# else
+#  define EASY_FUNC_NAME __func__
+# endif
+#endif
 
 #ifndef EASY_THREAD_LOCAL
 # define EASY_THREAD_LOCAL thread_local
