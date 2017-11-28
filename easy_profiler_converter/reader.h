@@ -41,8 +41,6 @@ class FileReader EASY_FINAL
 {
 public:
     typedef ::std::vector<::std::shared_ptr<BlocksTreeNode> >      TreeNodes;
-    //typedef ::std::unordered_map<::profiler::thread_id_t, ::profiler::BlocksTreeRoot, ::profiler::passthrough_hash<::profiler::thread_id_t> > thread_blocks_tree_t;
-
 
     typedef ::std::vector<::std::shared_ptr<ContextSwitchEvent> >  ContextSwitches;
     typedef ::std::vector<::std::shared_ptr<BlockInfo> >           Events;
@@ -55,11 +53,7 @@ public:
 
     void                        readFile(const ::std::string& filename);
     const TreeNodes&            getBlocks();
-    ///todo this func. interface depends on data struct
-///    const TreeNodes&            getBlocksByThreadName();
     const Events&               getEvents();
-    ///todo this func. interface depends on data struct
-///    const Events&               getEventsByThreadName(::std::string thread_name);
     const ContextSwitches&      getContextSwitches();
     ///get blocks tree
     const thread_blocks_tree_t&            getBlocksTreeData();
