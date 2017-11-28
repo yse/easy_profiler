@@ -381,19 +381,13 @@ const thread_blocks_tree_t &FileReader::getBlocksTreeData()
 
                 const auto block_index = blocks_counter++;
 
-                if (desc->blockType == ::profiler::BLOCK_TYPE_EVENT)
-                {
-                    root.children.emplace_back(element);
-                }
+                ///leave it here commented.
+//                if (desc->blockType == ::profiler::BLOCK_TYPE_EVENT)
+//                {
+//                    root.children.emplace_back(element);
+//                }
             }            
         }
-//        if(element)
-//        {
-//            m_BlocksTree.push_back(std::move(element));
-
-//            ::std::move(m_BlocksTree.begin(), m_BlocksTree.end(), ::std::back_inserter(root.children));
-//            m_BlocksTree.clear();
-//        }
     }
     return blocks_counter;
 }
