@@ -238,6 +238,10 @@ inline ::profiler::BlocksTree& blocksTree(::profiler::block_index_t i) {
     return easyBlock(i).tree;
 }
 
+inline qreal sceneX(profiler::timestamp_t _time) {
+    return PROF_MICROSECONDS(qreal(_time - EASY_GLOBALS.begin_time));
+}
+
 inline QString imagePath(const QString& _resource) {
     return QString(":/images/%1/%2").arg(EASY_GLOBALS.theme).arg(_resource);
 }

@@ -141,7 +141,7 @@ namespace profiler {
         BlocksTree(const This&) = delete;
         This& operator = (const This&) = delete;
 
-        BlocksTree()
+        BlocksTree() EASY_NOEXCEPT
             : node(nullptr)
             , per_parent_stats(nullptr)
             , per_frame_stats(nullptr)
@@ -151,32 +151,33 @@ namespace profiler {
 
         }
 
-        BlocksTree(This&& that) : BlocksTree()
+        BlocksTree(This&& that) EASY_NOEXCEPT
+            : BlocksTree()
         {
             make_move(::std::forward<This&&>(that));
         }
 
-        This& operator = (This&& that)
+        This& operator = (This&& that) EASY_NOEXCEPT
         {
             make_move(::std::forward<This&&>(that));
             return *this;
         }
 
-        ~BlocksTree()
+        ~BlocksTree() EASY_NOEXCEPT
         {
             release_stats(per_thread_stats);
             release_stats(per_parent_stats);
             release_stats(per_frame_stats);
         }
 
-        bool operator < (const This& other) const
+        bool operator < (const This& other) const EASY_NOEXCEPT
         {
             if (node == nullptr || other.node == nullptr)
                 return false;
             return node->begin() < other.node->begin();
         }
 
-        void shrink_to_fit()
+        void shrink_to_fit() EASY_NOEXCEPT
         {
             //for (auto& child : children)
             //    child.shrink_to_fit();
@@ -193,7 +194,7 @@ namespace profiler {
 
     private:
 
-        void make_move(This&& that)
+        void make_move(This&& that) EASY_NOEXCEPT
         {
             if (per_thread_stats != that.per_thread_stats)
                 release_stats(per_thread_stats);
@@ -241,11 +242,12 @@ namespace profiler {
         BlocksTreeRoot(const This&) = delete;
         This& operator = (const This&) = delete;
 
-        BlocksTreeRoot() : profiled_time(0), wait_time(0), thread_id(0), frames_number(0), blocks_number(0), depth(0)
+        BlocksTreeRoot() EASY_NOEXCEPT
+            : profiled_time(0), wait_time(0), thread_id(0), frames_number(0), blocks_number(0), depth(0)
         {
         }
 
-        BlocksTreeRoot(This&& that)
+        BlocksTreeRoot(This&& that) EASY_NOEXCEPT
             : children(::std::move(that.children))
             , sync(::std::move(that.sync))
             , events(::std::move(that.events))
@@ -259,7 +261,7 @@ namespace profiler {
         {
         }
 
-        This& operator = (This&& that)
+        This& operator = (This&& that) EASY_NOEXCEPT
         {
             children = ::std::move(that.children);
             sync = ::std::move(that.sync);
@@ -274,26 +276,25 @@ namespace profiler {
             return *this;
         }
 
-        inline bool got_name() const
+        inline bool got_name() const EASY_NOEXCEPT
         {
             return !thread_name.empty();
         }
 
-        inline const char* name() const
+        inline const char* name() const EASY_NOEXCEPT
         {
             return thread_name.c_str();
         }
 
-        bool operator < (const This& other) const
+        bool operator < (const This& other) const EASY_NOEXCEPT
         {
             return thread_id < other.thread_id;
         }
 
     }; // END of class BlocksTreeRoot.
 
-    typedef ::profiler::BlocksTree::blocks_t blocks_t;
-
-    typedef ::std::unordered_map<::profiler::thread_id_t, ::profiler::BlocksTreeRoot, ::profiler::passthrough_hash<::profiler::thread_id_t> > thread_blocks_tree_t;
+    using blocks_t = ::profiler::BlocksTree::blocks_t;
+    using thread_blocks_tree_t = ::std::unordered_map<::profiler::thread_id_t, ::profiler::BlocksTreeRoot, ::profiler::passthrough_hash<::profiler::thread_id_t> >;
 
     //////////////////////////////////////////////////////////////////////////
 
@@ -388,7 +389,7 @@ namespace profiler {
 
     //////////////////////////////////////////////////////////////////////////
 
-    typedef ::std::vector<SerializedBlockDescriptor*> descriptors_list_t;
+    using descriptors_list_t = ::std::vector<SerializedBlockDescriptor*>;
 
 } // END of namespace profiler.
 

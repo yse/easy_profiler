@@ -193,6 +193,9 @@ namespace profiler {
 
     public:
 
+        using BaseBlockData::id;
+        using Event::begin;
+
         ~ArbitraryValue() = delete;
 
         const char* data() const {

@@ -12,6 +12,8 @@ if (Qt5Widgets_FOUND)
     endif ()
     add_executable(profiler_gui ${APPLICATION_PLATFORM}
         main.cpp
+        arbitrary_value_inspector.h
+        arbitrary_value_inspector.cpp
         blocks_graphics_view.h
         blocks_graphics_view.cpp
         blocks_tree_widget.h
