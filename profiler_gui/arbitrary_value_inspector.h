@@ -56,6 +56,8 @@
 #define EASY_PROFILER_GUI_ARBITRARY_VALUE_INSPECTOR_H
 
 #include <QWidget>
+#include <QTreeWidget>
+#include <QTreeWidgetItem>
 #include <QGraphicsItem>
 #include <QTimer>
 #include <QPointF>
@@ -145,6 +147,49 @@ private:
     void onTimeout();
 
 }; // end of class EasyArbitraryValueItem.
+
+//////////////////////////////////////////////////////////////////////////
+
+class EasyArbitraryValuesTreeItem : public QTreeWidgetItem
+{
+    using Parent = QTreeWidgetItem;
+    using This = EasyArbitraryValuesTreeItem;
+
+public:
+
+    explicit EasyArbitraryValuesTreeItem(Parent* _parent = nullptr);
+    ~EasyArbitraryValuesTreeItem() override;
+
+
+
+}; // end of class EasyArbitraryValuesTreeItem.
+
+class EasyArbitraryValuesWidget : public QWidget
+{
+    Q_OBJECT
+
+    using Parent = QWidget;
+    using This = EasyArbitraryValuesWidget;
+
+    QTreeWidget* m_treeWidget;
+
+public:
+
+    explicit EasyArbitraryValuesWidget(QWidget* _parent = nullptr);
+    ~EasyArbitraryValuesWidget() override;
+
+private slots:
+
+    void onSelectedThreadChanged(profiler::thread_id_t _id);
+    void onSelectedBlockChanged(uint32_t _block_index);
+    void onSelectedBlockIdChanged(profiler::block_id_t _id);
+
+private:
+
+    void buildTree(profiler::thread_id_t _threadId, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId);
+    QTreeWidgetItem* buildTreeForThread(const profiler::BlocksTreeRoot& _threadTree, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId);
+
+}; // end of class EasyArbitraryValuesWidget.
 
 //////////////////////////////////////////////////////////////////////////
 

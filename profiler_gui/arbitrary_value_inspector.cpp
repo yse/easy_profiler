@@ -55,6 +55,8 @@
 #include <QPainter>
 #include <QGraphicsScene>
 #include <QColor>
+#include <QHeaderView>
+#include <QVBoxLayout>
 #include <list>
 #include "arbitrary_value_inspector.h"
 #include "globals.h"
@@ -342,4 +344,117 @@ void EasyArbitraryValueItem::onTimeout()
 }
 
 //////////////////////////////////////////////////////////////////////////
+
+EasyArbitraryValuesTreeItem::EasyArbitraryValuesTreeItem(Parent* _parent)
+    : Parent(_parent, QTreeWidgetItem::UserType)
+{
+
+}
+
+EasyArbitraryValuesTreeItem::~EasyArbitraryValuesTreeItem()
+{
+
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+EasyArbitraryValuesWidget::EasyArbitraryValuesWidget(QWidget* _parent)
+    : Parent(_parent)
+    , m_treeWidget(new QTreeWidget(this))
+{
+    m_treeWidget->setAutoFillBackground(false);
+    m_treeWidget->setAlternatingRowColors(true);
+    m_treeWidget->setItemsExpandable(true);
+    m_treeWidget->setAnimated(true);
+    //m_treeWidget->setSortingEnabled(false);
+    m_treeWidget->setColumnCount(3);
+    m_treeWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
+
+    //auto f = m_treeWidget->header()->font();
+    //f.setBold(true);
+    //m_treeWidget->header()->setFont(f);
+
+    //auto headerItem = new QTreeWidgetItem();
+    //headerItem->setText(0, "Name");
+    //m_treeWidget->setHeaderItem(headerItem);
+
+    auto mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(1, 1, 1, 1);
+    mainLayout->addWidget(m_treeWidget);
+
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChanged);
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChanged);
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedBlockIdChanged, this, &This::onSelectedBlockIdChanged);
+}
+
+EasyArbitraryValuesWidget::~EasyArbitraryValuesWidget()
+{
+
+}
+
+void EasyArbitraryValuesWidget::onSelectedThreadChanged(::profiler::thread_id_t _id)
+{
+
+}
+
+void EasyArbitraryValuesWidget::onSelectedBlockChanged(uint32_t _block_index)
+{
+
+}
+
+void EasyArbitraryValuesWidget::onSelectedBlockIdChanged(::profiler::block_id_t _id)
+{
+
+}
+
+void EasyArbitraryValuesWidget::buildTree(profiler::thread_id_t _threadId, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId)
+{
+    m_treeWidget->clear();
+
+    if (_threadId != 0)
+    {
+        auto it = EASY_GLOBALS.profiler_blocks.find(_threadId);
+        if (it != EASY_GLOBALS.profiler_blocks.end())
+        {
+            auto threadItem = buildTreeForThread(it->second, _blockIndex, _blockId);
+            m_treeWidget->addTopLevelItem(threadItem);
+        }
+    }
+    else
+    {
+        for (const auto& it : EASY_GLOBALS.profiler_blocks)
+        {
+            auto threadItem = buildTreeForThread(it.second, _blockIndex, _blockId);
+            m_treeWidget->addTopLevelItem(threadItem);
+        }
+    }
+}
+
+QTreeWidgetItem* EasyArbitraryValuesWidget::buildTreeForThread(const profiler::BlocksTreeRoot& _threadTree, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId)
+{
+    auto root = new QTreeWidgetItem(QTreeWidgetItem::UserType);
+    root->setText(0, profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, _threadTree, EASY_GLOBALS.hex_thread_id));
+
+    std::vector<profiler::block_index_t> stack;
+    for (auto childIndex : _threadTree.children)
+    {
+        stack.push_back(childIndex);
+        while (!stack.empty())
+        {
+            const auto i = stack.back();
+            stack.pop_back();
+
+            const auto& block = easyBlock(i).tree;
+            for (auto child : block.children)
+                stack.push_back(child);
+
+            if (block.node->id() == _blockId)
+            {
+                // TODO
+            }
+        }
+    }
+
+    return root;
+}
 
