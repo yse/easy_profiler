@@ -74,6 +74,7 @@ enum BlockItemState : int8_t
 
 EASY_CONSTEXPR int MIN_SYNC_SPACING = 1;
 EASY_CONSTEXPR int MIN_SYNC_SIZE = 3;
+EASY_CONSTEXPR int EVENT_HEIGHT = 4;
 EASY_CONSTEXPR QRgb BORDERS_COLOR = ::profiler::colors::Grey600 & 0x00ffffff;// 0x00686868;
 
 inline QRgb selectedItemBorderColor(::profiler::color_t _color) {
@@ -964,8 +965,9 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         //firstSync = m_pRoot->sync.begin();
 
         p.previousColor = 0;
-        qreal prevRight = -1e100, top = y() - 6, h = 3;
-        if (top + h < p.visibleBottom)
+        qreal prevRight = -1e100;
+        const qreal top = y() + 1 - EVENT_HEIGHT;
+        if (top + EVENT_HEIGHT < p.visibleBottom)
         {
             _painter->setPen(BORDERS_COLOR);
 
@@ -1013,7 +1015,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     _painter->setBrush(QColor::fromRgb(color));
                 }
 
-                p.rect.setRect(left, top, width, h);
+                p.rect.setRect(left, top, width, EVENT_HEIGHT);
                 _painter->drawRect(p.rect);
                 prevRight = left + width + MIN_SYNC_SPACING;
             }
@@ -1041,8 +1043,9 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         }
 
         p.previousColor = 0;
-        qreal prevRight = -1e100, top = y() + boundingRect().height() + 1, h = 3;
-        if (top + h < p.visibleBottom)
+        qreal prevRight = -1e100;
+        const qreal top = y() + boundingRect().height() - 1;
+        if (top + EVENT_HEIGHT < p.visibleBottom)
         {
             _painter->setPen(BORDERS_COLOR);
 
@@ -1061,7 +1064,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 left *= p.currentScale;
                 left -= p.dx;
                 width *= p.currentScale;
-                if (width < 2) width = 2;
+                if (width < 2)
+                    width = 2;
 
                 if (left + width <= prevRight) // This item is not visible
                     continue;
@@ -1082,7 +1086,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     _painter->setBrush(QColor::fromRgb(color));
                 }
 
-                p.rect.setRect(left, top, width, h);
+                p.rect.setRect(left, top, width, EVENT_HEIGHT);
                 _painter->drawRect(p.rect);
                 prevRight = left + width + 2;
             }
@@ -1340,14 +1344,13 @@ const ::profiler_gui::EasyBlock* EasyGraphicsItem::intersectEvent(const QPointF&
         return nullptr;
     }
 
-    const auto top = y() - 6;
-
+    const auto top = y() - EVENT_HEIGHT;
     if (top > _pos.y())
     {
         return nullptr;
     }
 
-    const auto bottom = top + 5;
+    const auto bottom = top + EVENT_HEIGHT + 2;
     if (bottom < _pos.y())
     {
         return nullptr;

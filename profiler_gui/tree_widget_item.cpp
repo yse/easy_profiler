@@ -110,7 +110,7 @@ EASY_CONSTEXPR int ColumnBit[COL_COLUMNS_NUMBER] = {
 //////////////////////////////////////////////////////////////////////////
 
 EasyTreeWidgetItem::EasyTreeWidgetItem(const ::profiler::block_index_t _treeBlock, Parent* _parent)
-    : Parent(_parent)
+    : Parent(_parent, QTreeWidgetItem::UserType)
     , m_block(_treeBlock)
     , m_customBGColor(0)
     , m_bColorized(false)

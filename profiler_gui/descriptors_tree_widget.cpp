@@ -186,7 +186,7 @@ const char* statusText(::profiler::EasyBlockStatus _status)
 //////////////////////////////////////////////////////////////////////////
 
 EasyDescWidgetItem::EasyDescWidgetItem(::profiler::block_id_t _desc, Parent* _parent)
-    : Parent(_parent)
+    : Parent(_parent, QTreeWidgetItem::UserType)
     , m_desc(_desc)
     , m_type(EasyDescWidgetItem::Type::File)
 {

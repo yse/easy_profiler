@@ -115,8 +115,8 @@ enum EasyColumnsIndexes
 
 class EasyTreeWidgetItem : public QTreeWidgetItem
 {
-    typedef QTreeWidgetItem    Parent;
-    typedef EasyTreeWidgetItem   This;
+    using Parent = QTreeWidgetItem;
+    using This = EasyTreeWidgetItem;
 
     QFont                                    m_font;
     const ::profiler::block_index_t         m_block;
