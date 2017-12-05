@@ -162,6 +162,8 @@ public:
 
     int findNext(const QString& _str, Qt::MatchFlags _flags);
     int findPrev(const QString& _str, Qt::MatchFlags _flags);
+    void setSearchColumn(int column);
+    int searchColumn() const;
 
 public slots:
 
@@ -170,7 +172,6 @@ public slots:
 
 private slots:
 
-    void onSearchColumnChange(bool);
     void onBlockStatusChangeClicked(bool);
     void onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidgetItem* _prev);
     void onItemExpand(QTreeWidgetItem* _item);
@@ -229,6 +230,7 @@ private slots:
     void findPrev(bool);
     void findNextFromMenu(bool);
     void findPrevFromMenu(bool);
+    void onSearchColumnChange(bool);
 
 private:
 

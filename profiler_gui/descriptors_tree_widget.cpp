@@ -289,6 +289,18 @@ EasyDescTreeWidget::~EasyDescTreeWidget()
 
 //////////////////////////////////////////////////////////////////////////
 
+void EasyDescTreeWidget::setSearchColumn(int column)
+{
+    m_searchColumn = column;
+}
+
+int EasyDescTreeWidget::searchColumn() const
+{
+    return m_searchColumn;
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 void EasyDescTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 {
     _event->accept();
@@ -302,22 +314,6 @@ void EasyDescTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     action = menu.addAction("Collapse all");
     action->setIcon(QIcon(imagePath("collapse")));
     connect(action, &QAction::triggered, this, &This::collapseAll);
-
-    menu.addSeparator();
-    auto submenu = menu.addMenu("Search by");
-    auto header_item = headerItem();
-    for (int i = 0; i < DESC_COL_STATUS; ++i)
-    {
-        if (i == DESC_COL_TYPE)
-            continue;
-
-        action = submenu->addAction(header_item->text(i));
-        action->setData(i);
-        action->setCheckable(true);
-        if (i == m_searchColumn)
-            action->setChecked(true);
-        connect(action, &QAction::triggered, this, &This::onSearchColumnChange);
-    }
 
     auto item = currentItem();
     if (item != nullptr && item->parent() != nullptr && currentColumn() >= DESC_COL_TYPE)
@@ -350,13 +346,6 @@ void EasyDescTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     }
 
     menu.exec(QCursor::pos());
-}
-
-void EasyDescTreeWidget::onSearchColumnChange(bool)
-{
-    auto action = qobject_cast<QAction*>(sender());
-    if (action != nullptr)
-        m_searchColumn = action->data().toInt();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -801,12 +790,30 @@ EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
     connect(a, &QAction::triggered, this, &This::findPrevFromMenu);
     menu->addAction(a);
 
-    menu->addSeparator();
     a = menu->addAction("Case sensitive");
     a->setCheckable(true);
     a->setChecked(m_bCaseSensitiveSearch);
     connect(a, &QAction::triggered, [this](bool _checked){ m_bCaseSensitiveSearch = _checked; });
     menu->addAction(a);
+
+    menu->addSeparator();
+    auto headerItem = m_tree->headerItem();
+    actionGroup = new QActionGroup(this);
+    actionGroup->setExclusive(true);
+    for (int i = 0; i < DESC_COL_STATUS; ++i)
+    {
+        if (i == DESC_COL_TYPE)
+            continue;
+
+        a = new QAction(QStringLiteral("Search by ") + headerItem->text(i), actionGroup);
+        a->setData(i);
+        a->setCheckable(true);
+        if (i == m_tree->searchColumn())
+            a->setChecked(true);
+        connect(a, &QAction::triggered, this, &This::onSearchColumnChange);
+
+        menu->addAction(a);
+    }
 
     tb->addSeparator();
     tb->addAction(m_searchButton);
@@ -889,6 +896,13 @@ void EasyDescWidget::onSeachBoxReturnPressed()
         findNext(true);
     else
         findPrev(true);
+}
+
+void EasyDescWidget::onSearchColumnChange(bool)
+{
+    auto action = qobject_cast<QAction*>(sender());
+    if (action != nullptr)
+        m_tree->setSearchColumn(action->data().toInt());
 }
 
 void EasyDescWidget::findNext(bool)

@@ -1180,7 +1180,6 @@ EasyHierarchyWidget::EasyHierarchyWidget(QWidget* _parent) : Parent(_parent)
     connect(a, &QAction::triggered, this, &This::findPrevFromMenu);
     menu->addAction(a);
 
-    menu->addSeparator();
     a = menu->addAction("Case sensitive");
     a->setCheckable(true);
     a->setChecked(m_bCaseSensitiveSearch);
