@@ -78,6 +78,7 @@
 #include <QVBoxLayout>
 #include <QByteArray>
 #include <QDebug>
+#include <QApplication>
 #include "blocks_tree_widget.h"
 #include "globals.h"
 
@@ -142,7 +143,6 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
     , m_progress(nullptr)
     , m_hintLabel(nullptr)
     , m_mode(EasyTreeMode_Plain)
-    , m_bColorRows(true)
     , m_bLocked(false)
     , m_bSilentExpandCollapse(false)
 {
@@ -227,8 +227,8 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
 
     setHeaderItem(header_item);
 
-    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
-    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange, Qt::QueuedConnection);
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange, Qt::QueuedConnection);
     connect(&m_fillTimer, &QTimer::timeout, this, &This::onFillTimerTimeout);
 
     loadSettings();
@@ -327,7 +327,7 @@ void EasyTreeWidget::setTree(const unsigned int _blocksNumber, const ::profiler:
         m_bLocked = true;
         m_hintLabel->hide();
         createProgressDialog();
-        m_hierarchyBuilder.fillTree(m_beginTime, _blocksNumber, _blocksTree, m_bColorRows, m_mode);
+        m_hierarchyBuilder.fillTree(m_beginTime, _blocksNumber, _blocksTree, m_mode);
         m_fillTimer.start(HIERARCHY_BUILDER_TIMER_INTERVAL);
     }
 
@@ -341,7 +341,7 @@ void EasyTreeWidget::setTree(const unsigned int _blocksNumber, const ::profiler:
     //        addTopLevelItem(item.second);
     //        m_roots[item.first] = item.second;
     //        if (item.first == EASY_GLOBALS.selected_thread)
-    //            item.second->colorize(true);
+    //            item.second->setMain(true);
     //    }
     //}
 }
@@ -360,7 +360,7 @@ void EasyTreeWidget::setTreeBlocks(const ::profiler_gui::TreeBlocks& _blocks, ::
         m_bLocked = true;
         m_hintLabel->hide();
         createProgressDialog();
-        m_hierarchyBuilder.fillTreeBlocks(m_inputBlocks, _session_begin_time, _left, _right, _strict, m_bColorRows, m_mode);
+        m_hierarchyBuilder.fillTreeBlocks(m_inputBlocks, _session_begin_time, _left, _right, _strict, m_mode);
         m_fillTimer.start(HIERARCHY_BUILDER_TIMER_INTERVAL);
     }
 
@@ -374,7 +374,7 @@ void EasyTreeWidget::setTreeBlocks(const ::profiler_gui::TreeBlocks& _blocks, ::
     //        addTopLevelItem(item.second);
     //        m_roots[item.first] = item.second;
     //        if (item.first == EASY_GLOBALS.selected_thread)
-    //            item.second->colorize(true);
+    //            item.second->setMain(true);
     //    }
     //}
 
@@ -621,23 +621,6 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 
     menu.addSeparator();
 
-    action = menu.addAction("Color rows");
-    action->setToolTip("Colorize rows with same colors as on diagram");
-    action->setCheckable(true);
-    action->setChecked(m_bColorRows);
-    connect(action, &QAction::triggered, this, &This::onColorizeRowsTriggered);
-    if (m_bColorRows)
-    {
-        auto f = action->font();
-        f.setBold(true);
-        action->setFont(f);
-        action->setIcon(QIcon(imagePath("color")));
-    }
-    else
-    {
-        action->setIcon(QIcon(imagePath("no-color")));
-    }
-
     if (item != nullptr && item->parent() != nullptr)
     {
         if (col >= 0)
@@ -675,6 +658,9 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 
                     break;
                 }
+
+                default:
+                    break;
             }
         }
 
@@ -702,8 +688,6 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
         if (!EASY_GLOBALS.connected)
             submenu->setTitle(QString("%1 (connection needed)").arg(submenu->title()));
     }
-
-    menu.addSeparator();
 
     auto hidemenu = menu.addMenu("Select columns");
     auto hdr = headerItem();
@@ -949,49 +933,21 @@ void EasyTreeWidget::onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidgetItem
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyTreeWidget::onColorizeRowsTriggered(bool _colorize)
-{
-    const QSignalBlocker b(this);
-
-    m_bColorRows = _colorize;
-
-    auto current = currentItem();
-    collapseAll(); // Without collapseAll() changing items process is VERY VERY SLOW.
-    // TODO: Find the reason of such behavior. QSignalBlocker(this) does not help. QSignalBlocker(item) does not work, because items are not inherited from QObject.
-
-#ifdef EASY_TREE_WIDGET__USE_VECTOR
-    for (auto item : m_items)
-    {
-        if (item->parent() != nullptr)
-            item->colorize(m_bColorRows);
-    }
-#else
-    for (auto& item : m_items)
-    {
-        if (item.second->parent() != nullptr)
-            item.second->colorize(m_bColorRows);
-    }
-#endif
-
-    // Scroll back to previously selected item
-    if (current)
-    {
-        scrollToItem(current, QAbstractItemView::PositionAtCenter);
-        setCurrentItem(current);
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////
-
 void EasyTreeWidget::onSelectedThreadChange(::profiler::thread_id_t _id)
 {
     for (auto& it : m_roots)
     {
         auto item = it.second;
         item->setMain(it.first == _id);
-        item->colorize(it.first == _id);
     }
 
+    // Calling update() or repaint() (or both!) does not work even if setUpdatesEnabled(true) have been set in constructor.
+    // Have to set focus to this widget to force update/repaint. :(
+    // TODO: Find valid solution instead of this workaround.
+    auto f = qApp->focusWidget();
+    setFocus();
+    if (f != nullptr)
+        f->setFocus();
 }
 
 void EasyTreeWidget::onSelectedBlockChange(uint32_t _block_index)
@@ -1111,11 +1067,7 @@ void EasyTreeWidget::loadSettings()
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
     settings.beginGroup("tree_widget");
 
-    auto val = settings.value("color_rows");
-    if (!val.isNull())
-        m_bColorRows = val.toBool();
-
-    val = settings.value("regime");
+    auto val = settings.value("regime");
     if (!val.isNull())
         m_mode = static_cast<EasyTreeMode>(val.toUInt());
 
@@ -1137,7 +1089,6 @@ void EasyTreeWidget::saveSettings()
 {
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
     settings.beginGroup("tree_widget");
-    settings.setValue("color_rows", m_bColorRows);
     settings.setValue("regime", static_cast<uint8_t>(m_mode));
     settings.setValue("columns", QByteArray(m_columnsHiddenStatus, COL_COLUMNS_NUMBER));
     settings.setValue("headerState", header()->saveState());

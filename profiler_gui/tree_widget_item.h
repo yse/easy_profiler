@@ -122,7 +122,6 @@ class EasyTreeWidgetItem : public QTreeWidgetItem
     const ::profiler::block_index_t         m_block;
     QRgb                            m_customBGColor;
     std::bitset<17>                   m_bHasToolTip;
-    bool                               m_bColorized;
     bool                                    m_bMain;
 
 public:
@@ -151,8 +150,6 @@ public:
     void setBackgroundColor(QRgb _color);
 
     void setMain(bool _main);
-
-    void colorize(bool _colorize);
 
     void collapseAll();
 

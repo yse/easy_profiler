@@ -12,8 +12,6 @@
         <file alias="reload">images/default/reload.svg</file>
         <file alias="expand">images/default/expand.svg</file>
         <file alias="collapse">images/default/collapse.svg</file>
-        <file alias="color">images/default/colors.svg</file>
-        <file alias="no-color">images/default/colors-black.svg</file>
         <file alias="save">images/default/save.svg</file>
         <file alias="stats">images/default/statistics.svg</file>
         <file alias="stats-off">images/default/statistics2.svg</file>

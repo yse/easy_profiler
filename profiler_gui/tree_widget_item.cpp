@@ -113,7 +113,6 @@ EasyTreeWidgetItem::EasyTreeWidgetItem(const ::profiler::block_index_t _treeBloc
     : Parent(_parent, QTreeWidgetItem::UserType)
     , m_block(_treeBlock)
     , m_customBGColor(0)
-    , m_bColorized(false)
     , m_bMain(false)
 {
 
@@ -198,7 +197,7 @@ QVariant EasyTreeWidgetItem::data(int _column, int _role) const
 
         if (_role == BlockColorRole)
         {
-            if (m_bColorized)
+            if (parent() != nullptr || m_bMain)
                 return QBrush(QColor::fromRgba(m_customBGColor));
             return QVariant();
         }
@@ -308,11 +307,6 @@ void EasyTreeWidgetItem::setBackgroundColor(QRgb _color)
 void EasyTreeWidgetItem::setMain(bool _main)
 {
     m_bMain = _main;
-}
-
-void EasyTreeWidgetItem::colorize(bool _colorize)
-{
-    m_bColorized = _colorize;
 }
 
 void EasyTreeWidgetItem::collapseAll()

@@ -170,27 +170,27 @@ void EasyTreeWidgetLoader::interrupt(bool _wait)
     m_iditems.clear();
 }
 
-void EasyTreeWidgetLoader::fillTree(::profiler::timestamp_t& _beginTime, const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, bool _colorizeRows, EasyTreeMode _mode)
+void EasyTreeWidgetLoader::fillTree(::profiler::timestamp_t& _beginTime, const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, EasyTreeMode _mode)
 {
     interrupt();
     m_mode = _mode;
     m_thread = ::std::thread(&EasyTreeWidgetLoader::setTreeInternal1, this,
-        ::std::ref(_beginTime), _blocksNumber, ::std::ref(_blocksTree), _colorizeRows,
-        EASY_GLOBALS.add_zero_blocks_to_hierarchy, EASY_GLOBALS.use_decorated_thread_name, EASY_GLOBALS.hex_thread_id, EASY_GLOBALS.time_units);
+        ::std::ref(_beginTime), _blocksNumber, ::std::ref(_blocksTree), EASY_GLOBALS.add_zero_blocks_to_hierarchy,
+        EASY_GLOBALS.use_decorated_thread_name, EASY_GLOBALS.hex_thread_id, EASY_GLOBALS.time_units);
 }
 
-void EasyTreeWidgetLoader::fillTreeBlocks(const::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _beginTime, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, bool _colorizeRows, EasyTreeMode _mode)
+void EasyTreeWidgetLoader::fillTreeBlocks(const::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _beginTime, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, EasyTreeMode _mode)
 {
     interrupt();
     m_mode = _mode;
     m_thread = ::std::thread(&EasyTreeWidgetLoader::setTreeInternal2, this,
-        _beginTime, ::std::ref(_blocks), _left, _right, _strict, _colorizeRows,
-        EASY_GLOBALS.add_zero_blocks_to_hierarchy, EASY_GLOBALS.use_decorated_thread_name, EASY_GLOBALS.hex_thread_id, EASY_GLOBALS.time_units);
+        _beginTime, ::std::ref(_blocks), _left, _right, _strict, EASY_GLOBALS.add_zero_blocks_to_hierarchy,
+        EASY_GLOBALS.use_decorated_thread_name, EASY_GLOBALS.hex_thread_id, EASY_GLOBALS.time_units);
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyTreeWidgetLoader::setTreeInternal1(::profiler::timestamp_t& _beginTime, const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, bool _colorizeRows, bool _addZeroBlocks, bool _decoratedThreadNames, bool _hexThreadId, ::profiler_gui::TimeUnits _units)
+void EasyTreeWidgetLoader::setTreeInternal1(::profiler::timestamp_t& _beginTime, const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, bool _addZeroBlocks, bool _decoratedThreadNames, bool _hexThreadId, ::profiler_gui::TimeUnits _units)
 {
     m_items.reserve(_blocksNumber + _blocksTree.size()); // _blocksNumber does not include Thread root blocks
 
@@ -233,7 +233,9 @@ void EasyTreeWidgetLoader::setTreeInternal1(::profiler::timestamp_t& _beginTime,
         item->setTimeSmart(COL_SELF_DURATION, _units, root.profiled_time);
 
         ::profiler::timestamp_t children_duration = 0;
-        const auto children_items_number = setTreeInternal(root, 0, _beginTime, root.children, item, nullptr, _beginTime, finishtime + 1000000000ULL, false, children_duration, _colorizeRows, _addZeroBlocks, _units);
+        const auto children_items_number = setTreeInternal(root, 0, _beginTime, root.children, item, nullptr,
+                                                           _beginTime, finishtime + 1000000000ULL, false,
+                                                           children_duration, _addZeroBlocks, _units);
 
         if (children_items_number > 0)
         {
@@ -265,9 +267,18 @@ void EasyTreeWidgetLoader::setTreeInternal1(::profiler::timestamp_t& _beginTime,
 //     return children_number;
 // }
 
-typedef ::std::unordered_map<::profiler::thread_id_t, ::profiler::block_index_t, ::profiler::passthrough_hash<::profiler::thread_id_t> > BeginEndIndicesMap;
+using BeginEndIndicesMap = ::std::unordered_map<::profiler::thread_id_t, ::profiler::block_index_t,
+    ::profiler::passthrough_hash<::profiler::thread_id_t> >;
 
-void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _beginTime, const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, bool _colorizeRows, bool _addZeroBlocks, bool _decoratedThreadNames, bool _hexThreadId, ::profiler_gui::TimeUnits _units)
+void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _beginTime,
+                                            const ::profiler_gui::TreeBlocks& _blocks,
+                                            ::profiler::timestamp_t _left,
+                                            ::profiler::timestamp_t _right,
+                                            bool _strict,
+                                            bool _addZeroBlocks,
+                                            bool _decoratedThreadNames,
+                                            bool _hexThreadId,
+                                            ::profiler_gui::TimeUnits _units)
 {
     //size_t blocksNumber = 0;
     //for (const auto& block : _blocks)
@@ -452,7 +463,11 @@ void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _begi
         if (!gui_block.tree.children.empty())
         {
             m_iditems.clear();
-            children_items_number = (this->*setTree)(*block.root, firstCswitch, _beginTime, gui_block.tree.children, item, item, _left, _right, _strict, children_duration, _colorizeRows, _addZeroBlocks, _units);
+
+            children_items_number = (this->*setTree)(*block.root, firstCswitch, _beginTime, gui_block.tree.children,
+                                                     item, item, _left, _right, _strict, children_duration,
+                                                     _addZeroBlocks, _units);
+
             if (interrupted())
                 break;
         }
@@ -474,9 +489,6 @@ void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _begi
 #ifdef EASY_TREE_WIDGET__USE_VECTOR
             gui_block.tree_item = item_index;
 #endif
-
-            if (_colorizeRows)
-                item->colorize(_colorizeRows);
 
             if (gui_block.expanded)
                 item->setExpanded(true);
@@ -526,7 +538,18 @@ void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _begi
 
 //////////////////////////////////////////////////////////////////////////
 
-size_t EasyTreeWidgetLoader::setTreeInternal(const ::profiler::BlocksTreeRoot& _threadRoot, ::profiler::block_index_t _firstCswitch, const ::profiler::timestamp_t& _beginTime, const ::profiler::BlocksTree::children_t& _children, EasyTreeWidgetItem* _parent, EasyTreeWidgetItem* _frame, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration, bool _colorizeRows, bool _addZeroBlocks, ::profiler_gui::TimeUnits _units)
+size_t EasyTreeWidgetLoader::setTreeInternal(const ::profiler::BlocksTreeRoot& _threadRoot,
+                                             ::profiler::block_index_t _firstCswitch,
+                                             const ::profiler::timestamp_t& _beginTime,
+                                             const ::profiler::BlocksTree::children_t& _children,
+                                             EasyTreeWidgetItem* _parent,
+                                             EasyTreeWidgetItem* _frame,
+                                             ::profiler::timestamp_t _left,
+                                             ::profiler::timestamp_t _right,
+                                             bool _strict,
+                                             ::profiler::timestamp_t& _duration,
+                                             bool _addZeroBlocks,
+                                             ::profiler_gui::TimeUnits _units)
 {
     auto const setTree = m_mode == EasyTreeMode_Full ? &EasyTreeWidgetLoader::setTreeInternal : &EasyTreeWidgetLoader::setTreeInternalPlain;
 
@@ -700,7 +723,11 @@ size_t EasyTreeWidgetLoader::setTreeInternal(const ::profiler::BlocksTreeRoot& _
         if (!child.children.empty())
         {
             m_iditems.clear();
-            children_items_number = (this->*setTree)(_threadRoot, _firstCswitch, _beginTime, child.children, item, _frame ? _frame : item, _left, _right, _strict, children_duration, _colorizeRows, _addZeroBlocks, _units);
+
+            children_items_number = (this->*setTree)(_threadRoot, _firstCswitch, _beginTime, child.children, item,
+                                                     _frame ? _frame : item, _left, _right, _strict, children_duration,
+                                                     _addZeroBlocks, _units);
+
             if (interrupted())
                 break;
         }
@@ -722,9 +749,6 @@ size_t EasyTreeWidgetLoader::setTreeInternal(const ::profiler::BlocksTreeRoot& _
 #ifdef EASY_TREE_WIDGET__USE_VECTOR
             gui_block.tree_item = item_index;
 #endif
-
-            if (_colorizeRows)
-                item->colorize(_colorizeRows);
 
             if (gui_block.expanded)
                 item->setExpanded(true);
@@ -765,9 +789,21 @@ size_t EasyTreeWidgetLoader::setTreeInternal(const ::profiler::BlocksTreeRoot& _
     return total_duration;
 }
 
-size_t EasyTreeWidgetLoader::setTreeInternalPlain(const ::profiler::BlocksTreeRoot& _threadRoot, ::profiler::block_index_t _firstCswitch, const ::profiler::timestamp_t& _beginTime, const ::profiler::BlocksTree::children_t& _children, EasyTreeWidgetItem*, EasyTreeWidgetItem* _frame, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration, bool _colorizeRows, bool _addZeroBlocks, ::profiler_gui::TimeUnits _units)
+size_t EasyTreeWidgetLoader::setTreeInternalPlain(const ::profiler::BlocksTreeRoot& _threadRoot,
+                                                  ::profiler::block_index_t _firstCswitch,
+                                                  const ::profiler::timestamp_t& _beginTime,
+                                                  const ::profiler::BlocksTree::children_t& _children,
+                                                  EasyTreeWidgetItem*,
+                                                  EasyTreeWidgetItem* _frame,
+                                                  ::profiler::timestamp_t _left,
+                                                  ::profiler::timestamp_t _right,
+                                                  bool _strict,
+                                                  ::profiler::timestamp_t& _duration,
+                                                  bool _addZeroBlocks,
+                                                  ::profiler_gui::TimeUnits _units)
 {
     size_t total_items = 0;
+
     for (auto child_index : _children)
     {
         if (interrupted())
@@ -789,7 +825,9 @@ size_t EasyTreeWidgetLoader::setTreeInternalPlain(const ::profiler::BlocksTreeRo
             ::profiler::timestamp_t children_duration = 0;
             if (!child.children.empty())
             {
-                setTreeInternalPlain(_threadRoot, _firstCswitch, _beginTime, child.children, _frame, _frame, _left, _right, _strict, children_duration, _colorizeRows, _addZeroBlocks, _units);
+                setTreeInternalPlain(_threadRoot, _firstCswitch, _beginTime, child.children, _frame, _frame, _left,
+                                     _right, _strict, children_duration, _addZeroBlocks, _units);
+
                 if (interrupted())
                     break;
             }
@@ -935,7 +973,10 @@ size_t EasyTreeWidgetLoader::setTreeInternalPlain(const ::profiler::BlocksTreeRo
         ::profiler::timestamp_t children_duration = 0;
         if (!child.children.empty())
         {
-            children_items_number = setTreeInternalPlain(_threadRoot, _firstCswitch, _beginTime, child.children, _frame, _frame, _left, _right, _strict, children_duration, _colorizeRows, _addZeroBlocks, _units);
+            children_items_number = setTreeInternalPlain(_threadRoot, _firstCswitch, _beginTime, child.children, _frame,
+                                                         _frame, _left, _right, _strict, children_duration,
+                                                         _addZeroBlocks, _units);
+
             if (interrupted())
                 break;
         }
@@ -966,9 +1007,6 @@ size_t EasyTreeWidgetLoader::setTreeInternalPlain(const ::profiler::BlocksTreeRo
 #ifdef EASY_TREE_WIDGET__USE_VECTOR
             gui_block.tree_item = item_index;
 #endif
-
-            if (_colorizeRows)
-                item->colorize(_colorizeRows);
 
             if (gui_block.expanded)
                 item->setExpanded(true);
