@@ -269,14 +269,14 @@ void EasyDescTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     connect(action, &QAction::triggered, this, &This::collapseAll);
 
     menu.addSeparator();
-    auto submenu = menu.addMenu("Search by");
+    auto searchby_submenu = menu.addMenu("Search by");
     auto header_item = headerItem();
     for (int i = 0; i < DESC_COL_STATUS; ++i)
     {
         if (i == DESC_COL_TYPE)
             continue;
 
-        action = submenu->addAction(header_item->text(i));
+        action = searchby_submenu->addAction(header_item->text(i));
         action->setData(i);
         action->setCheckable(true);
         if (i == m_searchColumn)
@@ -537,7 +537,7 @@ void EasyDescTreeWidget::onBlockStatusChangeClicked(bool _checked)
     }
 }
 
-void EasyDescTreeWidget::onBlockStatusChange(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status)
+void EasyDescTreeWidget::onBlockStatusChange(::profiler::block_id_t _id, ::profiler::EasyBlockStatus /* _status */)
 {
     if (m_bLocked)
         return;

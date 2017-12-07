@@ -328,8 +328,6 @@ inline QString timeStringReal(TimeUnits _units, qreal _interval, int _precision 
         default:
             return autoTimeStringReal(_interval, _precision);
     }
-
-    return QString();
 }
 
 inline QString timeStringRealNs(TimeUnits _units, ::profiler::timestamp_t _interval, int _precision = 1)
@@ -351,8 +349,6 @@ inline QString timeStringRealNs(TimeUnits _units, ::profiler::timestamp_t _inter
         default:
             return autoTimeStringRealNs(_interval, _precision);
     }
-
-    return QString();
 }
 
 inline QString timeStringInt(TimeUnits _units, qreal _interval)
@@ -372,8 +368,6 @@ inline QString timeStringInt(TimeUnits _units, qreal _interval)
         default:
             return autoTimeStringInt(_interval);
     }
-
-    return QString();
 }
 
 inline QString timeStringIntNs(TimeUnits _units, ::profiler::timestamp_t _interval)
@@ -393,8 +387,6 @@ inline QString timeStringIntNs(TimeUnits _units, ::profiler::timestamp_t _interv
         default:
             return autoTimeStringIntNs(_interval);
     }
-
-    return QString();
 }
 
 //////////////////////////////////////////////////////////////////////////

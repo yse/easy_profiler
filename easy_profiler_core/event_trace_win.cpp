@@ -244,7 +244,12 @@ namespace profiler {
                         {
                             pinfo->name.reserve(pinfo->name.size() + 2 + len);
                             pinfo->name.append(" ", 1);
+#if UNICODE
+                            std::wstring wbuf(buf);
+                            pinfo->name.append(std::string(wbuf.begin(), wbuf.end()), len);
+#else
                             pinfo->name.append(buf, len);
+#endif
                             pinfo->valid = 1;
                         }
 
@@ -289,6 +294,17 @@ namespace profiler {
         MANAGER.endContextSwitch(_contextSwitchEvent->NewThreadId, pid, time);
     }
 
+	//////////////////////////////////////////////////////////////////////////
+
+	EasyEventTracer::Properties::Properties()
+	{
+#if UNICODE
+		std::wcstombs(sessionName, KERNEL_LOGGER_NAME, sizeof(sessionName));
+#else
+		strncpy(sessionName, KERNEL_LOGGER_NAME, sizeof(prp.sessionName));
+#endif
+	}
+
     //////////////////////////////////////////////////////////////////////////
 
 #ifndef EASY_MAGIC_STATIC_CPP11
@@ -328,7 +344,7 @@ namespace profiler {
         m_lowPriority.store(_value, ::std::memory_order_release);
     }
 
-    bool setPrivilege(HANDLE hToken, LPCSTR _privelegeName)
+    bool setPrivilege(HANDLE hToken, PTCHAR _privelegeName)
     {
         bool success = false;
 
@@ -409,7 +425,7 @@ namespace profiler {
                         */
 
                         // static is safe because we are guarded by spin-lock m_spin
-                        static Properties p = ([]{ Properties prp; strncpy(prp.sessionName, KERNEL_LOGGER_NAME, sizeof(prp.sessionName)); return prp; })();
+                        static Properties p;
                         p.base = m_properties.base; // Use copy of m_properties to make sure m_properties will not be changed
 
                         // Stop another session

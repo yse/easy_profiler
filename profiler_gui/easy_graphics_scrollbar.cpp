@@ -154,7 +154,7 @@ EasyGraphicsSliderItem::~EasyGraphicsSliderItem()
 
 }
 
-void EasyGraphicsSliderItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget)
+void EasyGraphicsSliderItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* /* _option */, QWidget* /* _widget */)
 {
     if (static_cast<const EasyGraphicsScrollbar*>(scene()->parent())->bindMode())
     {
@@ -280,7 +280,7 @@ QRectF EasyHistogramItem::boundingRect() const
     return m_boundingRect;
 }
 
-void EasyHistogramItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget)
+void EasyHistogramItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem* /* _option */, QWidget* /* _widget */)
 {
     if (!m_bPermitImageUpdate || (m_regime == Hist_Pointer && m_pSource == nullptr) || (m_regime == Hist_Id && (m_threadId == 0 || ::profiler_gui::is_max(m_blockId))))
         return;
@@ -1401,7 +1401,7 @@ void EasyHistogramItem::updateImage(QRectF _boundingRect, HistRegime _regime, qr
                                     qreal _minimum, qreal _maximum, qreal _range,
                                     qreal _value, qreal _width, qreal _top_duration, qreal _bottom_duration,
                                     bool _bindMode, float _frame_time, ::profiler::timestamp_t _begin_time,
-                                    qreal _origin, bool _autoAdjustHist)
+                                    qreal /* _origin */, bool _autoAdjustHist)
 {
     const auto bottom = _boundingRect.height();//_boundingRect.bottom();
     const auto screenWidth = _boundingRect.width() * _current_scale;

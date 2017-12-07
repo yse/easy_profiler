@@ -106,13 +106,12 @@ int EasySocket::bind(uint16_t port)
     if (!checkSocket(m_socket))
         return -1;
 
-    struct sockaddr_in serv_addr;
-    memset(&serv_addr, 0, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = INADDR_ANY;
-    serv_addr.sin_port = htons(port);
-    auto res = ::bind(m_socket, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
-
+    struct sockaddr_in server_address;
+    memset(&server_address, 0, sizeof(server_address));
+    server_address.sin_family = AF_INET;
+    server_address.sin_addr.s_addr = INADDR_ANY;
+    server_address.sin_port = htons(port);
+    auto res = ::bind(m_socket, (struct sockaddr *)&server_address, sizeof(server_address));
     return res;
 }
 
