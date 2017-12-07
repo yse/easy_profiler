@@ -412,7 +412,7 @@ void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSiz
             _painter->setFont(EASY_GLOBALS.selected_item_font);
 
         // drawing text
-        auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : itemDesc.name();
+        auto name = easyBlockName(itemBlock.tree, itemDesc);
         _painter->drawText(p.rect, Qt::AlignCenter, ::profiler_gui::toUnicode(name));
 
         // restore previous pen color
@@ -824,7 +824,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     _painter->setFont(EASY_GLOBALS.selected_item_font);
 
                 // drawing text
-                auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : itemDesc.name();
+                auto name = easyBlockName(itemBlock.tree, itemDesc);
                 _painter->drawText(p.rect, Qt::AlignCenter, ::profiler_gui::toUnicode(name));
 
                 // restore previous pen color
@@ -931,7 +931,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                             _painter->setFont(EASY_GLOBALS.selected_item_font);
 
                             // drawing text
-                            auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : itemDesc.name();
+                            auto name = easyBlockName(itemBlock.tree, itemDesc);
                             _painter->drawText(p.rect, Qt::AlignCenter, ::profiler_gui::toUnicode(name));
                             // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                         }
@@ -950,7 +950,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         const auto sceneView = view();
         auto firstSync = ::std::lower_bound(m_pRoot->sync.begin(), m_pRoot->sync.end(), p.sceneLeft, [&sceneView](::profiler::block_index_t _index, qreal _value)
         {
-            return sceneView->time2position(blocksTree(_index).node->begin()) < _value;
+            return sceneView->time2position(easyBlocksTree(_index).node->begin()) < _value;
         });
 
         if (firstSync != m_pRoot->sync.end())
@@ -973,7 +973,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
             for (auto it = firstSync, end = m_pRoot->sync.end(); it != end; ++it)
             {
-                const auto& item = blocksTree(*it);
+                const auto& item = easyBlocksTree(*it);
                 auto left = sceneView->time2position(item.node->begin());
 
                 if (left > p.sceneRight)
@@ -1029,7 +1029,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         const auto sceneView = view();
         auto first = ::std::lower_bound(m_pRoot->events.begin(), m_pRoot->events.end(), p.offset, [&sceneView](::profiler::block_index_t _index, qreal _value)
         {
-            return sceneView->time2position(blocksTree(_index).node->begin()) < _value;
+            return sceneView->time2position(easyBlocksTree(_index).node->begin()) < _value;
         });
 
         if (first != m_pRoot->events.end())
@@ -1051,7 +1051,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
             for (auto it = first, end = m_pRoot->events.end(); it != end; ++it)
             {
-                const auto& item = blocksTree(*it);
+                const auto& item = easyBlocksTree(*it);
                 auto left = sceneView->time2position(item.node->begin());
 
                 if (left > p.sceneRight)
@@ -1198,7 +1198,7 @@ const ::profiler_gui::EasyBlock* EasyGraphicsItem::intersect(const QPointF& _pos
             const auto& sceneView = view();
             auto first = ::std::lower_bound(m_pRoot->events.begin(), m_pRoot->events.end(), _pos.x(), [&sceneView](::profiler::block_index_t _index, qreal _value)
             {
-                return sceneView->time2position(blocksTree(_index).node->begin()) < _value;
+                return sceneView->time2position(easyBlocksTree(_index).node->begin()) < _value;
             });
 
             if (first != m_pRoot->events.end())
@@ -1359,7 +1359,7 @@ const ::profiler_gui::EasyBlock* EasyGraphicsItem::intersectEvent(const QPointF&
     const auto sceneView = view();
     auto firstSync = ::std::lower_bound(m_pRoot->sync.begin(), m_pRoot->sync.end(), _pos.x(), [&sceneView](::profiler::block_index_t _index, qreal _value)
     {
-        return sceneView->time2position(blocksTree(_index).node->begin()) < _value;
+        return sceneView->time2position(easyBlocksTree(_index).node->begin()) < _value;
     });
 
     if (firstSync == m_pRoot->sync.end())

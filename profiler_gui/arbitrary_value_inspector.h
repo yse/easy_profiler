@@ -98,8 +98,8 @@ private:
     void setReady(bool _ready);
     void collectById(profiler::thread_id_t _threadId, profiler::vin_t _valueId);
     void collectByName(profiler::thread_id_t _threadId, const std::string _valueName);
-    bool collectByIdForThread(profiler::thread_id_t _threadId, profiler::vin_t _valueId);
-    bool collectByNameForThread(profiler::thread_id_t _threadId, const std::string& _valueName);
+    bool collectByIdForThread(const profiler::BlocksTreeRoot& _threadRoot, profiler::vin_t _valueId);
+    bool collectByNameForThread(const profiler::BlocksTreeRoot& _threadRoot, const std::string& _valueName);
 
 }; // end of class ArbitraryValuesCollection.
 
@@ -171,12 +171,19 @@ class EasyArbitraryValuesWidget : public QWidget
     using Parent = QWidget;
     using This = EasyArbitraryValuesWidget;
 
+    QTimer            m_timer;
     QTreeWidget* m_treeWidget;
 
 public:
 
     explicit EasyArbitraryValuesWidget(QWidget* _parent = nullptr);
     ~EasyArbitraryValuesWidget() override;
+
+    void clear();
+
+public slots:
+
+    void rebuild();
 
 private slots:
 
@@ -187,7 +194,7 @@ private slots:
 private:
 
     void buildTree(profiler::thread_id_t _threadId, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId);
-    QTreeWidgetItem* buildTreeForThread(const profiler::BlocksTreeRoot& _threadTree, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId);
+    QTreeWidgetItem* buildTreeForThread(const profiler::BlocksTreeRoot& _threadRoot, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId);
 
 }; // end of class EasyArbitraryValuesWidget.
 

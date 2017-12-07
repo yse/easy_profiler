@@ -112,20 +112,6 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyDescItemDelegate : public QStyledItemDelegate
-{
-    Q_OBJECT
-
-public:
-
-    explicit EasyDescItemDelegate(QObject* parent = nullptr);
-    ~EasyDescItemDelegate() override;
-    void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override;
-
-}; // END of class EasyDescItemDelegate.
-
-//////////////////////////////////////////////////////////////////////////
-
 class EasyDescTreeWidget : public QTreeWidget
 {
     Q_OBJECT
@@ -202,6 +188,7 @@ class EasyDescWidget : public QWidget
 private:
 
     EasyDescTreeWidget*    m_tree;
+    class EasyArbitraryValuesWidget* m_values;
     class QLineEdit*  m_searchBox;
     class QLabel*   m_foundNumber;
     class QAction* m_searchButton;

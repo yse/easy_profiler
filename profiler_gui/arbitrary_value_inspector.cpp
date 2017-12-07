@@ -58,7 +58,9 @@
 #include <QHeaderView>
 #include <QVBoxLayout>
 #include <list>
+#include <unordered_set>
 #include "arbitrary_value_inspector.h"
+#include "treeview_first_column_delegate.h"
 #include "globals.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -130,29 +132,25 @@ void ArbitraryValuesCollection::collectById(profiler::thread_id_t _threadId, pro
     {
         for (const auto& it : EASY_GLOBALS.profiler_blocks)
         {
-            if (!collectByIdForThread(it.first, _valueId))
+            if (!collectByIdForThread(it.second, _valueId))
                 return;
         }
     }
     else
     {
-        if (!collectByIdForThread(_threadId, _valueId))
+        const auto t = EASY_GLOBALS.profiler_blocks.find(_threadId);
+        if (t != EASY_GLOBALS.profiler_blocks.end() && !collectByIdForThread(t->second, _valueId))
             return;
     }
 
     setReady(true);
 }
 
-bool ArbitraryValuesCollection::collectByIdForThread(profiler::thread_id_t _threadId, profiler::vin_t _valueId)
+bool ArbitraryValuesCollection::collectByIdForThread(const profiler::BlocksTreeRoot& _threadRoot, profiler::vin_t _valueId)
 {
-    const auto t = EASY_GLOBALS.profiler_blocks.find(_threadId);
-    if (t == EASY_GLOBALS.profiler_blocks.end())
-        return true;
+    auto& valuesList = m_values[_threadRoot.thread_id];
 
-    const auto& profThread = t->second;
-    auto& valuesList = m_values[_threadId];
-
-    for (auto i : profThread.events)
+    for (auto i : _threadRoot.events)
     {
         if (m_bInterrupt.load(std::memory_order_acquire))
             return false;
@@ -178,29 +176,25 @@ void ArbitraryValuesCollection::collectByName(profiler::thread_id_t _threadId, c
     {
         for (const auto& it : EASY_GLOBALS.profiler_blocks)
         {
-            if (!collectByNameForThread(it.first, _valueName))
+            if (!collectByNameForThread(it.second, _valueName))
                 return;
         }
     }
     else
     {
-        if (!collectByNameForThread(_threadId, _valueName))
+        const auto t = EASY_GLOBALS.profiler_blocks.find(_threadId);
+        if (t != EASY_GLOBALS.profiler_blocks.end() && !collectByNameForThread(t->second, _valueName))
             return;
     }
 
     setReady(true);
 }
 
-bool ArbitraryValuesCollection::collectByNameForThread(profiler::thread_id_t _threadId, const std::string& _valueName)
+bool ArbitraryValuesCollection::collectByNameForThread(const profiler::BlocksTreeRoot& _threadRoot, const std::string& _valueName)
 {
-    const auto t = EASY_GLOBALS.profiler_blocks.find(_threadId);
-    if (t == EASY_GLOBALS.profiler_blocks.end())
-        return true;
+    auto& valuesList = m_values[_threadRoot.thread_id];
 
-    const auto& profThread = t->second;
-    auto& valuesList = m_values[_threadId];
-
-    for (auto i : profThread.events)
+    for (auto i : _threadRoot.events)
     {
         if (m_bInterrupt.load(std::memory_order_acquire))
             return false;
@@ -358,6 +352,20 @@ EasyArbitraryValuesTreeItem::~EasyArbitraryValuesTreeItem()
 
 //////////////////////////////////////////////////////////////////////////
 
+enum class ArbitraryColumns : uint8_t
+{
+    Name = 0,
+    Type,
+    Value,
+    Vin,
+
+    Count
+};
+
+inline EASY_CONSTEXPR_FCN int int_cast(ArbitraryColumns col) {
+    return static_cast<int>(col);
+}
+
 EasyArbitraryValuesWidget::EasyArbitraryValuesWidget(QWidget* _parent)
     : Parent(_parent)
     , m_treeWidget(new QTreeWidget(this))
@@ -367,21 +375,26 @@ EasyArbitraryValuesWidget::EasyArbitraryValuesWidget(QWidget* _parent)
     m_treeWidget->setItemsExpandable(true);
     m_treeWidget->setAnimated(true);
     //m_treeWidget->setSortingEnabled(false);
-    m_treeWidget->setColumnCount(3);
+    m_treeWidget->setColumnCount(int_cast(ArbitraryColumns::Count));
     m_treeWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_treeWidget->setItemDelegateForColumn(0, new EasyTreeViewFirstColumnItemDelegate(this));
 
-    //auto f = m_treeWidget->header()->font();
-    //f.setBold(true);
-    //m_treeWidget->header()->setFont(f);
+//    auto f = m_treeWidget->header()->font();
+//    f.setBold(true);
+//    m_treeWidget->header()->setFont(f);
 
-    //auto headerItem = new QTreeWidgetItem();
-    //headerItem->setText(0, "Name");
-    //m_treeWidget->setHeaderItem(headerItem);
+    auto headerItem = new QTreeWidgetItem();
+    headerItem->setText(int_cast(ArbitraryColumns::Name), "Name");
+    headerItem->setText(int_cast(ArbitraryColumns::Type), "Type");
+    headerItem->setText(int_cast(ArbitraryColumns::Value), "Value");
+    headerItem->setText(int_cast(ArbitraryColumns::Vin), "ID");
+    m_treeWidget->setHeaderItem(headerItem);
 
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(1, 1, 1, 1);
     mainLayout->addWidget(m_treeWidget);
 
+    connect(&m_timer, &QTimer::timeout, this, &This::rebuild);
     connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChanged);
     connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChanged);
     connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedBlockIdChanged, this, &This::onSelectedBlockIdChanged);
@@ -392,19 +405,40 @@ EasyArbitraryValuesWidget::~EasyArbitraryValuesWidget()
 
 }
 
-void EasyArbitraryValuesWidget::onSelectedThreadChanged(::profiler::thread_id_t _id)
+void EasyArbitraryValuesWidget::clear()
 {
-
+    if (m_timer.isActive())
+        m_timer.stop();
+    m_treeWidget->clear();
 }
 
-void EasyArbitraryValuesWidget::onSelectedBlockChanged(uint32_t _block_index)
+void EasyArbitraryValuesWidget::onSelectedThreadChanged(::profiler::thread_id_t)
 {
-
+    if (!m_timer.isActive())
+        m_timer.start(100);
 }
 
-void EasyArbitraryValuesWidget::onSelectedBlockIdChanged(::profiler::block_id_t _id)
+void EasyArbitraryValuesWidget::onSelectedBlockChanged(uint32_t)
 {
+    if (!m_timer.isActive())
+        m_timer.start(100);
+}
 
+void EasyArbitraryValuesWidget::onSelectedBlockIdChanged(::profiler::block_id_t)
+{
+    if (!m_timer.isActive())
+        m_timer.start(100);
+}
+
+void EasyArbitraryValuesWidget::rebuild()
+{
+    clear();
+
+    buildTree(EASY_GLOBALS.selected_thread, EASY_GLOBALS.selected_block, EASY_GLOBALS.selected_block_id);
+
+    m_treeWidget->expandAll();
+    for (int i = 0, columns = m_treeWidget->columnCount(); i < columns; ++i)
+        m_treeWidget->resizeColumnToContents(i);
 }
 
 void EasyArbitraryValuesWidget::buildTree(profiler::thread_id_t _threadId, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId)
@@ -430,13 +464,61 @@ void EasyArbitraryValuesWidget::buildTree(profiler::thread_id_t _threadId, profi
     }
 }
 
-QTreeWidgetItem* EasyArbitraryValuesWidget::buildTreeForThread(const profiler::BlocksTreeRoot& _threadTree, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId)
+QTreeWidgetItem* EasyArbitraryValuesWidget::buildTreeForThread(const profiler::BlocksTreeRoot& _threadRoot, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId)
 {
-    auto root = new QTreeWidgetItem(QTreeWidgetItem::UserType);
-    root->setText(0, profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, _threadTree, EASY_GLOBALS.hex_thread_id));
+    //std::unordered_set<profiler::vin_t, profiler::passthrough_hash<profiler::vin_t> > vins;
+    //std::unordered_set<std::string> names;
+
+    auto rootItem = new QTreeWidgetItem(QTreeWidgetItem::UserType);
+    rootItem->setText(0, profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, _threadRoot, EASY_GLOBALS.hex_thread_id));
+
+    if (_blockIndex != ::profiler_gui::numeric_max<decltype(_blockIndex)>())
+    {
+        const auto& block = easyBlocksTree(_blockIndex);
+
+        auto blockItem = new QTreeWidgetItem(rootItem, QTreeWidgetItem::UserType);
+        blockItem->setText(int_cast(ArbitraryColumns::Name), easyBlockName(block));
+
+        for (auto childIndex : block.children)
+        {
+            const auto& child = easyBlocksTree(childIndex);
+            const auto& desc = easyDescriptor(child.node->id());
+            if (desc.type() == profiler::BlockType::Value)
+            {
+                auto vin = child.value->value_id();
+
+//                if (vin == 0)
+//                {
+//                    auto result = names.insert(desc.name()).second;
+//                    if (!result)
+//                        continue; // already in set
+//                }
+//                else
+//                {
+//                    auto result = vins.insert(vin).second;
+//                    if (!result)
+//                        continue; // already in set
+//                }
+
+                auto valueItem = new QTreeWidgetItem(blockItem, QTreeWidgetItem::UserType);
+                valueItem->setText(int_cast(ArbitraryColumns::Name), desc.name());
+                valueItem->setText(int_cast(ArbitraryColumns::Type), profiler_gui::valueTypeString(*child.value));
+                valueItem->setText(int_cast(ArbitraryColumns::Vin), QString("0x%1").arg(vin, 0, 16));
+                valueItem->setText(int_cast(ArbitraryColumns::Value), profiler_gui::valueString(*child.value));
+            }
+        }
+
+        return rootItem;
+    }
+
+    if (_blockId == profiler_gui::numeric_max<decltype(_blockId)>())
+        return rootItem;
+
+    auto blockItem = new QTreeWidgetItem(rootItem, QTreeWidgetItem::UserType);
+    blockItem->setText(int_cast(ArbitraryColumns::Name), easyDescriptor(_blockId).name());
 
     std::vector<profiler::block_index_t> stack;
-    for (auto childIndex : _threadTree.children)
+    for (auto childIndex : _threadRoot.children)
     {
         stack.push_back(childIndex);
         while (!stack.empty())
@@ -444,17 +526,46 @@ QTreeWidgetItem* EasyArbitraryValuesWidget::buildTreeForThread(const profiler::B
             const auto i = stack.back();
             stack.pop_back();
 
-            const auto& block = easyBlock(i).tree;
-            for (auto child : block.children)
-                stack.push_back(child);
-
-            if (block.node->id() == _blockId)
+            const auto& block = easyBlocksTree(i);
+            if (block.node->id() == _blockId || easyDescriptor(block.node->id()).id() == _blockId)
             {
-                // TODO
+                for (auto c : block.children)
+                {
+                    const auto& child = easyBlocksTree(c);
+                    const auto& desc = easyDescriptor(child.node->id());
+                    if (desc.type() == profiler::BlockType::Value)
+                    {
+                        auto vin = child.value->value_id();
+
+//                        if (vin == 0)
+//                        {
+//                            auto result = names.insert(desc.name()).second;
+//                            if (!result)
+//                                continue; // already in set
+//                        }
+//                        else
+//                        {
+//                            auto result = vins.insert(vin).second;
+//                            if (!result)
+//                                continue; // already in set
+//                        }
+
+                        auto valueItem = new QTreeWidgetItem(blockItem, QTreeWidgetItem::UserType);
+                        valueItem->setText(int_cast(ArbitraryColumns::Name), desc.name());
+                        valueItem->setText(int_cast(ArbitraryColumns::Type), profiler_gui::valueTypeString(*child.value));
+                        valueItem->setText(int_cast(ArbitraryColumns::Vin), QString("0x%1").arg(vin, 0, 16));
+                        valueItem->setText(int_cast(ArbitraryColumns::Value), profiler_gui::valueString(*child.value));
+                    }
+                }
+            }
+            else
+            {
+                for (auto c : block.children)
+                    stack.push_back(c);
             }
         }
     }
 
-    return root;
+    return rootItem;
 }
 

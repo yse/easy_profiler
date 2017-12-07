@@ -18,6 +18,8 @@ if (Qt5Widgets_FOUND)
         blocks_graphics_view.cpp
         blocks_tree_widget.h
         blocks_tree_widget.cpp
+        common_functions.h
+        common_functions.cpp
         common_types.h
         descriptors_tree_widget.h
         descriptors_tree_widget.cpp
@@ -40,6 +42,8 @@ if (Qt5Widgets_FOUND)
         tree_widget_item.cpp
         tree_widget_loader.h
         tree_widget_loader.cpp
+        treeview_first_column_delegate.h
+        treeview_first_column_delegate.cpp
         resources.qrc
         resources.rc
     )

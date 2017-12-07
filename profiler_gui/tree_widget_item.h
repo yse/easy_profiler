@@ -63,7 +63,7 @@
 #include <easy/reader.h>
 #include <bitset>
 
-#include "common_types.h"
+#include "common_functions.h"
 
 //////////////////////////////////////////////////////////////////////////
 

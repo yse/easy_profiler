@@ -61,7 +61,7 @@
 #include <QTextCodec>
 #include <QSize>
 #include <QFont>
-#include "common_types.h"
+#include "common_functions.h"
 #include "globals_qobjects.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -234,8 +234,22 @@ inline ::profiler::SerializedBlockDescriptor& easyDescriptor(::profiler::block_i
     return *EASY_GLOBALS.descriptors[i];
 }
 
-inline ::profiler::BlocksTree& blocksTree(::profiler::block_index_t i) {
+EASY_FORCE_INLINE const ::profiler::BlocksTree& easyBlocksTree(::profiler::block_index_t i) {
     return easyBlock(i).tree;
+}
+
+EASY_FORCE_INLINE const char* easyBlockName(const ::profiler::BlocksTree& _block) {
+    const char* name = _block.node->name();
+    return *name != 0 ? name : easyDescriptor(_block.node->id()).name();
+}
+
+EASY_FORCE_INLINE const char* easyBlockName(const ::profiler::BlocksTree& _block, const ::profiler::SerializedBlockDescriptor& _desc) {
+    const char* name = _block.node->name();
+    return *name != 0 ? name : _desc.name();
+}
+
+EASY_FORCE_INLINE const char* easyBlockName(::profiler::block_index_t i) {
+    return easyBlockName(easyBlock(i).tree);
 }
 
 inline qreal sceneX(profiler::timestamp_t _time) {

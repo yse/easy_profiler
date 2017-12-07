@@ -197,7 +197,7 @@ void EasyTreeWidgetLoader::setTreeInternal1(::profiler::timestamp_t& _beginTime,
     ::profiler::timestamp_t finishtime = 0;
     for (const auto& threadTree : _blocksTree)
     {
-        const auto node_block = blocksTree(threadTree.second.children.front()).node;
+        const auto node_block = easyBlocksTree(threadTree.second.children.front()).node;
         const auto startTime = node_block->begin();
         const auto endTime = node_block->end();
 
@@ -223,7 +223,7 @@ void EasyTreeWidgetLoader::setTreeInternal1(::profiler::timestamp_t& _beginTime,
 
         ::profiler::timestamp_t duration = 0;
         if (!root.children.empty())
-            duration = blocksTree(root.children.back()).node->end() - blocksTree(root.children.front()).node->begin();
+            duration = easyBlocksTree(root.children.back()).node->end() - easyBlocksTree(root.children.front()).node->begin();
 
         item->setTimeSmart(COL_DURATION, _units, duration);
         item->setBackgroundColor(::profiler_gui::SELECTED_THREAD_BACKGROUND);
@@ -263,7 +263,7 @@ void EasyTreeWidgetLoader::setTreeInternal1(::profiler::timestamp_t& _beginTime,
 // {
 //     auto children_number = _tree.children.size();
 //     for (auto i : _tree.children)
-//         children_number += calculateTotalChildrenNumber(blocksTree(i));
+//         children_number += calculateTotalChildrenNumber(easyBlocksTree(i));
 //     return children_number;
 // }
 
@@ -322,7 +322,7 @@ void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _begi
             thread_item->setText(COL_NAME, ::profiler_gui::decoratedThreadName(_decoratedThreadNames, *block.root, u_thread, _hexThreadId));
 
             if (!block.root->children.empty())
-                duration = blocksTree(block.root->children.back()).node->end() - blocksTree(block.root->children.front()).node->begin();
+                duration = easyBlocksTree(block.root->children.back()).node->end() - easyBlocksTree(block.root->children.front()).node->begin();
 
             thread_item->setTimeSmart(COL_DURATION, _units, duration);
             thread_item->setBackgroundColor(::profiler_gui::SELECTED_THREAD_BACKGROUND);

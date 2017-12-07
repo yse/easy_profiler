@@ -233,7 +233,7 @@ QVariant EasyTreeWidgetItem::data(int _column, int _role) const
 
 const ::profiler::BlocksTree& EasyTreeWidgetItem::block() const
 {
-    return blocksTree(m_block);
+    return easyBlocksTree(m_block);
 }
 
 ::profiler::timestamp_t EasyTreeWidgetItem::duration() const

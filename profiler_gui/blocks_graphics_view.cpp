@@ -435,14 +435,14 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         auto timefinish = finish;
         
         if (!t.children.empty())
-            timestart = blocksTree(t.children.front()).node->begin();
+            timestart = easyBlocksTree(t.children.front()).node->begin();
         if (!t.sync.empty())
-            timestart = ::std::min(timestart, blocksTree(t.sync.front()).node->begin());
+            timestart = ::std::min(timestart, easyBlocksTree(t.sync.front()).node->begin());
 
         if (!t.children.empty())
-            timefinish = blocksTree(t.children.back()).node->end();
+            timefinish = easyBlocksTree(t.children.back()).node->end();
         if (!t.sync.empty())
-            timefinish = ::std::max(timefinish, blocksTree(t.sync.back()).node->end());
+            timefinish = ::std::max(timefinish, easyBlocksTree(t.sync.back()).node->end());
 
         if (m_beginTime > timestart)
             m_beginTime = timestart;
@@ -455,7 +455,7 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
             longestTree = threadTree.first;
         }
 
-        if (mainTree == 0 && !strcmp(t.name(), "Main"))
+        if (mainTree == 0 && strcmp(t.name(), "Main") == 0)
             mainTree = threadTree.first;
     }
 
@@ -489,9 +489,9 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         qreal h = 0, x = 0;
         
         if (!t.children.empty())
-            x = time2position(blocksTree(t.children.front()).node->begin());
+            x = time2position(easyBlocksTree(t.children.front()).node->begin());
         else if (!t.sync.empty())
-            x = time2position(blocksTree(t.sync.front()).node->begin());
+            x = time2position(easyBlocksTree(t.sync.front()).node->begin());
 
         auto item = new EasyGraphicsItem(static_cast<uint8_t>(m_items.size()), t);
         if (t.depth)
@@ -508,7 +508,7 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         else
         {
             if (!t.sync.empty())
-                children_duration = time2position(blocksTree(t.sync.back()).node->end()) - x;
+                children_duration = time2position(easyBlocksTree(t.sync.back()).node->end()) - x;
             h = ::profiler_gui::GRAPHICS_ROW_SIZE;
         }
 
@@ -1598,7 +1598,7 @@ void EasyGraphicsView::onIdleTimeout()
                 if (itemBlock.per_frame_stats && !::profiler_gui::is_max(itemBlock.per_frame_stats->parent_block))
                 {
                     int col = 2;
-                    auto frame_duration = blocksTree(itemBlock.per_frame_stats->parent_block).node->duration();
+                    auto frame_duration = easyBlocksTree(itemBlock.per_frame_stats->parent_block).node->duration();
 
                     lay->addWidget(new QLabel("Frame", widget), row + 1, col, Qt::AlignHCenter);
 
@@ -1703,7 +1703,7 @@ void EasyGraphicsView::onIdleTimeout()
                     ++row;
 
                     lay->addWidget(new QLabel("VIN:", widget), row, 0, Qt::AlignRight);
-                    lay->addWidget(new QLabel(QString::number(itemBlock.value->value_id(), 16), widget), row, 1, Qt::AlignLeft);
+                    lay->addWidget(new QLabel(QString("0x%1").arg(itemBlock.value->value_id(), 0, 16), widget), row, 1, Qt::AlignLeft);
                     ++row;
 
                     break;
@@ -1790,7 +1790,7 @@ void EasyGraphicsView::onIdleTimeout()
                     if (itemBlock.per_frame_stats->parent_block != i && !::profiler_gui::is_max(itemBlock.per_frame_stats->parent_block))
                     {
                         ++col;
-                        auto frame_duration = blocksTree(itemBlock.per_frame_stats->parent_block).node->duration();
+                        auto frame_duration = easyBlocksTree(itemBlock.per_frame_stats->parent_block).node->duration();
 
                         lay->addWidget(new QLabel("Frame", widget), row + 1, col, Qt::AlignHCenter);
 
@@ -1809,7 +1809,7 @@ void EasyGraphicsView::onIdleTimeout()
                     if (!::profiler_gui::is_max(itemBlock.per_parent_stats->parent_block))// != item->threadId())
                     {
                         ++col;
-                        auto parent_duration = blocksTree(itemBlock.per_parent_stats->parent_block).node->duration();
+                        auto parent_duration = easyBlocksTree(itemBlock.per_parent_stats->parent_block).node->duration();
 
                         lay->addWidget(new QLabel("Parent", widget), row + 1, col, Qt::AlignHCenter);
 

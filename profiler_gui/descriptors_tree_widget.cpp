@@ -69,9 +69,10 @@
 #include <QHBoxLayout>
 #include <QVariant>
 #include <QTimer>
-#include <QPainter>
 #include <thread>
 #include "descriptors_tree_widget.h"
+#include "arbitrary_value_inspector.h"
+#include "treeview_first_column_delegate.h"
 #include "globals.h"
 
 #ifdef _WIN32
@@ -273,7 +274,7 @@ EasyDescTreeWidget::EasyDescTreeWidget(QWidget* _parent)
 
     loadSettings();
 
-    setItemDelegateForColumn(0, new EasyDescItemDelegate(this));
+    setItemDelegateForColumn(0, new EasyTreeViewFirstColumnItemDelegate(this));
 }
 
 EasyDescTreeWidget::~EasyDescTreeWidget()
@@ -584,7 +585,7 @@ void EasyDescTreeWidget::onSelectedBlockChange(uint32_t _block_index)
     if (::profiler_gui::is_max(_block_index))
         return;
 
-    auto item = m_items[blocksTree(_block_index).node->id()];
+    auto item = m_items[easyBlocksTree(_block_index).node->id()];
     if (item == nullptr)
         return;
 
@@ -750,6 +751,7 @@ int EasyDescTreeWidget::findPrev(const QString& _str, Qt::MatchFlags _flags)
 
 EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
     , m_tree(new EasyDescTreeWidget(this))
+    , m_values(new EasyArbitraryValuesWidget(this))
     , m_searchBox(new QLineEdit(this))
     , m_foundNumber(new QLabel("Found 0 matches", this))
     , m_searchButton(nullptr)
@@ -829,6 +831,7 @@ EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
     lay->setContentsMargins(1, 1, 1, 1);
     lay->addLayout(searchbox);
     lay->addWidget(m_tree);
+    lay->addWidget(m_values);
 
     connect(m_searchBox, &QLineEdit::returnPressed, this, &This::onSeachBoxReturnPressed);
     connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::connectionChanged, refreshButton, &QAction::setEnabled);
@@ -882,12 +885,14 @@ void EasyDescWidget::build()
     m_tree->clearSilent(false);
     m_foundNumber->setText(QString("Found 0 matches"));
     m_tree->build();
+    m_values->rebuild();
 }
 
 void EasyDescWidget::clear()
 {
     m_tree->clearSilent(true);
     m_foundNumber->setText(QString("Found 0 matches"));
+    m_values->clear();
 }
 
 void EasyDescWidget::onSeachBoxReturnPressed()
@@ -957,35 +962,6 @@ void EasyDescWidget::findPrevFromMenu(bool _checked)
     }
 
     findPrev(true);
-}
-
-//////////////////////////////////////////////////////////////////////////
-
-EasyDescItemDelegate::EasyDescItemDelegate(QObject* parent) : QStyledItemDelegate(parent)
-{
-
-}
-
-EasyDescItemDelegate::~EasyDescItemDelegate()
-{
-
-}
-
-void EasyDescItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const
-{
-    // Draw item as usual
-    QStyledItemDelegate::paint(painter, option, index);
-
-    // Draw line under tree indicator
-    const auto bottomLeft = option.rect.bottomLeft();
-    if (bottomLeft.x() > 0)
-    {
-        painter->save();
-        painter->setBrush(Qt::NoBrush);
-        painter->setPen(::profiler_gui::SYSTEM_BORDER_COLOR);
-        painter->drawLine(QPoint(0, bottomLeft.y()), bottomLeft);
-        painter->restore();
-    }
 }
 
 //////////////////////////////////////////////////////////////////////////
