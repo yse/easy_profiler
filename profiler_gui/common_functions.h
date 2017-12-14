@@ -58,6 +58,7 @@
 #include <QRgb>
 #include <QString>
 #include <QFont>
+#include <type_traits>
 #include "common_types.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -90,55 +91,68 @@ EASY_FORCE_INLINE qreal microseconds2units(qreal _value) {
     //return _value * 1e-3;
 }
 
+#ifdef EASY_CONSTEXPR_AVAILABLE
+template <class TEnum>
+EASY_FORCE_INLINE EASY_CONSTEXPR_FCN typename ::std::underlying_type<TEnum>::type int_cast(TEnum _enumValue) {
+    return static_cast<typename ::std::underlying_type<TEnum>::type>(_enumValue);
+}
+#else
+# define int_cast(_enumValue) static_cast<typename ::std::underlying_type<decltype(_enumValue)>::type>(_enumValue)
+#endif
+
 //////////////////////////////////////////////////////////////////////////
 
 namespace profiler_gui {
 
 //////////////////////////////////////////////////////////////////////////
 
-template <class T> inline T numeric_max() {
+template <class T> inline
+EASY_CONSTEXPR_FCN T numeric_max() {
     return ::std::numeric_limits<T>::max();
 }
 
-template <class T> inline T numeric_max(T) {
+template <class T> inline
+EASY_CONSTEXPR_FCN T numeric_max(T) {
     return ::std::numeric_limits<T>::max();
 }
 
-template <class T> inline void set_max(T& _value) {
-    _value = ::std::numeric_limits<T>::max();
-}
-
-template <class T> inline bool is_max(const T& _value) {
+template <class T> inline
+EASY_CONSTEXPR_FCN bool is_max(const T& _value) {
     return _value == ::std::numeric_limits<T>::max();
+}
+
+template <class T> inline
+void set_max(T& _value) {
+    _value = ::std::numeric_limits<T>::max();
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-inline QRgb toRgb(uint32_t _red, uint32_t _green, uint32_t _blue) {
+inline EASY_CONSTEXPR_FCN QRgb toRgb(uint32_t _red, uint32_t _green, uint32_t _blue) {
     return (_red << 16) + (_green << 8) + _blue;
 }
 
-inline QRgb fromProfilerRgb(uint32_t _red, uint32_t _green, uint32_t _blue) {
-    if (_red == 0 && _green == 0 && _blue == 0)
-        return ::profiler::colors::Default;
-    return toRgb(_red, _green, _blue) | 0x00141414;
+inline EASY_CONSTEXPR_FCN QRgb fromProfilerRgb(uint32_t _red, uint32_t _green, uint32_t _blue) {
+    return _red == 0 && _green == 0 && _blue == 0 ? ::profiler::colors::Default : toRgb(_red, _green, _blue) | 0x00141414;
 }
 
-inline bool isLightColor(::profiler::color_t _color) {
-    const auto sum = 255. - (((_color & 0x00ff0000) >> 16) * 0.299 + ((_color & 0x0000ff00) >> 8) * 0.587 + (_color & 0x000000ff) * 0.114);
-    return sum < 76.5 || ((_color & 0xff000000) >> 24) < 0x80;
+EASY_FORCE_INLINE EASY_CONSTEXPR_FCN qreal colorSum(::profiler::color_t _color) {
+    return 255. - (((_color & 0x00ff0000) >> 16) * 0.299 + ((_color & 0x0000ff00) >> 8) * 0.587 + (_color & 0x000000ff) * 0.114);
 }
 
-inline bool isLightColor(::profiler::color_t _color, qreal _maxSum) {
-    const auto sum = 255. - (((_color & 0x00ff0000) >> 16) * 0.299 + ((_color & 0x0000ff00) >> 8) * 0.587 + (_color & 0x000000ff) * 0.114);
-    return sum < _maxSum || ((_color & 0xff000000) >> 24) < 0x80;
+inline EASY_CONSTEXPR_FCN bool isLightColor(::profiler::color_t _color) {
+    return colorSum(_color) < 76.5 || ((_color & 0xff000000) >> 24) < 0x80;
 }
 
-inline ::profiler::color_t textColorForFlag(bool _is_light) {
+inline EASY_CONSTEXPR_FCN bool isLightColor(::profiler::color_t _color, qreal _maxSum) {
+    return colorSum(_color) < _maxSum || ((_color & 0xff000000) >> 24) < 0x80;
+}
+
+inline EASY_CONSTEXPR_FCN ::profiler::color_t textColorForFlag(bool _is_light) {
     return _is_light ? ::profiler::colors::Dark : ::profiler::colors::CreamWhite;
 }
 
-inline ::profiler::color_t textColorForRgb(::profiler::color_t _color) {
+inline EASY_CONSTEXPR_FCN ::profiler::color_t textColorForRgb(::profiler::color_t _color) {
     return isLightColor(_color) ? ::profiler::colors::Dark : ::profiler::colors::CreamWhite;
 }
 
@@ -159,7 +173,7 @@ QString timeStringIntNs(TimeUnits _units, ::profiler::timestamp_t _interval);
 //////////////////////////////////////////////////////////////////////////
 
 inline double percentReal(::profiler::timestamp_t _partial, ::profiler::timestamp_t _total) {
-    return _total ? 100. * static_cast<double>(_partial) / static_cast<double>(_total) : 0.;
+    return _total != 0 ? 100. * static_cast<double>(_partial) / static_cast<double>(_total) : 0.;
 }
 
 inline int percent(::profiler::timestamp_t _partial, ::profiler::timestamp_t _total) {

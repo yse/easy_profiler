@@ -8,6 +8,7 @@
 #include <math.h>
 
 #include <easy/profiler.h>
+#include <easy/arbitrary_value.h>
 #include <easy/reader.h>
 
 std::condition_variable cv;
@@ -19,7 +20,7 @@ int MODELLING_STEPS = 1500;
 int RENDER_STEPS = 1500;
 int RESOURCE_LOADING_COUNT = 50;
 
-//#define SAMPLE_NETWORK_TEST
+#define SAMPLE_NETWORK_TEST
 
 void localSleep(int magic=200000)
 {
@@ -36,11 +37,17 @@ void loadingResources(){
 
 void prepareMath(){
     EASY_FUNCTION(profiler::colors::Green);
+    uint64_t sum = 0;
     int* intarray = new int[OBJECTS];
     for (int i = 0; i < OBJECTS; ++i)
+    {
         intarray[i] = i * i;
+        sum += i * i;
+    }
     delete[] intarray;
     //std::this_thread::sleep_for(std::chrono::milliseconds(3));
+
+    EASY_VALUE("sum", sum, profiler::colors::Blue);
 }
 
 void calcIntersect(){
@@ -75,7 +82,9 @@ void calcPhys(){
 double calcSubbrain(int i)
 {
     EASY_FUNCTION(profiler::colors::Navy);
-    return i * i * i - i / 10 + (OBJECTS - i) * 7 ;
+    auto val = i * i * i - i / 10 + (OBJECTS - i) * 7 ;
+    EASY_VALUE("subbrainResult", val, profiler::colors::DarkRed);
+    return val;
 }
 
 void calcBrain(){
@@ -154,15 +163,23 @@ void modellingThread(){
     //cv.wait(lk, []{return g_i == 1; });
     EASY_THREAD("Modelling");
 #ifdef SAMPLE_NETWORK_TEST
+    uint64_t step = 0;
     while (true) {
 #else
     for (int i = 0; i < MODELLING_STEPS; i++){
 #endif
         EASY_END_BLOCK;
-        EASY_NONSCOPED_BLOCK("Frame");
+        EASY_NONSCOPED_BLOCK("Frame", true, 15., profiler::ON, -5.f, profiler::colors::Red);
         modellingStep();
 
         localSleep(1200000);
+
+        ++step;
+        EASY_VALUE("step", step, profiler::colors::Gold);
+        if (step > 10000000)
+            step = 0;
+
+        EASY_TEXT("Test String", "Some short text. Hey!", profiler::colors::Red);
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
     EASY_END_BLOCK;
@@ -213,6 +230,13 @@ int main(int argc, char* argv[])
 
     EASY_MAIN_THREAD;
     profiler::startListen();
+
+    constexpr int grrr[] {2, -3, 4};
+    auto pppp = &grrr;
+    EASY_ARRAY("threads count", grrr, 3, false, true, "blabla", profiler::colors::Blue/*, EASY_VIN("threads count")*/, profiler::OFF);
+
+    int* intPtr = new int(2);
+    EASY_VALUE("count", *intPtr);
 
     std::vector<std::thread> threads;
     //for (int i=0; i < 3; i++)

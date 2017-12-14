@@ -226,6 +226,7 @@ QVariant EasyDescWidgetItem::data(int _column, int _role) const
                 case Type::File:  return QStringLiteral("File");
                 case Type::Event: return QStringLiteral("Event");
                 case Type::Block: return QStringLiteral("Block");
+                case Type::Value: return QStringLiteral("Arbitrary Value");
             }
         }
         else if (_role == Qt::DisplayRole)
@@ -235,6 +236,7 @@ QVariant EasyDescWidgetItem::data(int _column, int _role) const
                 case Type::File:  return QStringLiteral("F");
                 case Type::Event: return QStringLiteral("E");
                 case Type::Block: return QStringLiteral("B");
+                case Type::Value: return QStringLiteral("V");
             }
         }
     }
@@ -432,10 +434,20 @@ void EasyDescTreeWidget::build()
                 item->setData(DESC_COL_FILE_LINE, Qt::UserRole, desc->line());
                 item->setText(DESC_COL_NAME, desc->name());
 
-                if (desc->type() == ::profiler::BlockType::Block)
-                    item->setType(EasyDescWidgetItem::Type::Block);
-                else
-                    item->setType(EasyDescWidgetItem::Type::Event);
+                switch (desc->type())
+                {
+                    case ::profiler::BlockType::Block:
+                        item->setType(EasyDescWidgetItem::Type::Block);
+                        break;
+
+                    case ::profiler::BlockType::Event:
+                        item->setType(EasyDescWidgetItem::Type::Event);
+                        break;
+
+                    case ::profiler::BlockType::Value:
+                        item->setType(EasyDescWidgetItem::Type::Value);
+                        break;
+                }
 
                 item->setFont(DESC_COL_STATUS, f);
                 item->setText(DESC_COL_STATUS, statusText(desc->status()));
@@ -583,7 +595,10 @@ void EasyDescTreeWidget::resizeColumnsToContents()
 void EasyDescTreeWidget::onSelectedBlockChange(uint32_t _block_index)
 {
     if (::profiler_gui::is_max(_block_index))
+    {
+        setCurrentItem(nullptr);
         return;
+    }
 
     auto item = m_items[easyBlocksTree(_block_index).node->id()];
     if (item == nullptr)

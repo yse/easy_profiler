@@ -546,7 +546,7 @@ extern "C" {
             descriptors.push_back(descriptor);
 
             i += sz;
-            auto oldprogress = progress.exchange(static_cast<int>(15 * i / descriptors_memory_size), ::std::memory_order_release);
+            oldprogress = progress.exchange(static_cast<int>(15 * i / descriptors_memory_size), ::std::memory_order_release);
             if (oldprogress < 0)
             {
                 _log << "Reading was interrupted";
@@ -642,7 +642,7 @@ extern "C" {
                     }
                 }
 
-                auto oldprogress = progress.exchange(20 + static_cast<int>(70 * i / memory_size), ::std::memory_order_release);
+                oldprogress = progress.exchange(20 + static_cast<int>(70 * i / memory_size), ::std::memory_order_release);
                 if (oldprogress < 0)
                 {
                     _log << "Reading was interrupted";
@@ -808,7 +808,7 @@ extern "C" {
                     }
                 }
 
-                auto oldprogress = progress.exchange(20 + static_cast<int>(70 * i / memory_size), ::std::memory_order_release);
+                oldprogress = progress.exchange(20 + static_cast<int>(70 * i / memory_size), ::std::memory_order_release);
                 if (oldprogress < 0)
                 {
                     _log << "Reading was interrupted";
@@ -817,7 +817,8 @@ extern "C" {
             }
         }
 
-        if (progress.load(::std::memory_order_acquire) < 0)
+        oldprogress = progress.exchange(90, ::std::memory_order_release);
+        if (oldprogress < 0)
         {
             _log << "Reading was interrupted";
             return 0; // Loading interrupted
@@ -926,6 +927,7 @@ extern "C" {
         }
         // No need to delete BlockStatistics instances - they will be deleted inside BlocksTree destructors
 
+        progress.store(100, ::std::memory_order_release);
         return blocks_counter;
     }
 

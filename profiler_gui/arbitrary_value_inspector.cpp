@@ -58,6 +58,7 @@
 #include <QHeaderView>
 #include <QVBoxLayout>
 #include <list>
+#include <unordered_map>
 #include <unordered_set>
 #include "arbitrary_value_inspector.h"
 #include "treeview_first_column_delegate.h"
@@ -354,17 +355,18 @@ EasyArbitraryValuesTreeItem::~EasyArbitraryValuesTreeItem()
 
 enum class ArbitraryColumns : uint8_t
 {
-    Name = 0,
-    Type,
+    Type = 0,
+    Name,
     Value,
     Vin,
 
     Count
 };
 
-inline EASY_CONSTEXPR_FCN int int_cast(ArbitraryColumns col) {
-    return static_cast<int>(col);
-}
+struct UsedValueTypes {
+    QTreeWidgetItem* items[int_cast(profiler::DataType::TypesCount)];
+    UsedValueTypes(int = 0) { memset(items, 0, sizeof(items)); }
+};
 
 EasyArbitraryValuesWidget::EasyArbitraryValuesWidget(QWidget* _parent)
     : Parent(_parent)
@@ -384,8 +386,8 @@ EasyArbitraryValuesWidget::EasyArbitraryValuesWidget(QWidget* _parent)
 //    m_treeWidget->header()->setFont(f);
 
     auto headerItem = new QTreeWidgetItem();
-    headerItem->setText(int_cast(ArbitraryColumns::Name), "Name");
     headerItem->setText(int_cast(ArbitraryColumns::Type), "Type");
+    headerItem->setText(int_cast(ArbitraryColumns::Name), "Name");
     headerItem->setText(int_cast(ArbitraryColumns::Value), "Value");
     headerItem->setText(int_cast(ArbitraryColumns::Vin), "ID");
     m_treeWidget->setHeaderItem(headerItem);
@@ -444,6 +446,7 @@ void EasyArbitraryValuesWidget::rebuild()
 void EasyArbitraryValuesWidget::buildTree(profiler::thread_id_t _threadId, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId)
 {
     m_treeWidget->clear();
+    m_treeWidget->setColumnHidden(int_cast(ArbitraryColumns::Value), profiler_gui::is_max(_blockIndex));
 
     if (_threadId != 0)
     {
@@ -466,56 +469,44 @@ void EasyArbitraryValuesWidget::buildTree(profiler::thread_id_t _threadId, profi
 
 QTreeWidgetItem* EasyArbitraryValuesWidget::buildTreeForThread(const profiler::BlocksTreeRoot& _threadRoot, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId)
 {
-    //std::unordered_set<profiler::vin_t, profiler::passthrough_hash<profiler::vin_t> > vins;
-    //std::unordered_set<std::string> names;
-
     auto rootItem = new QTreeWidgetItem(QTreeWidgetItem::UserType);
-    rootItem->setText(0, profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, _threadRoot, EASY_GLOBALS.hex_thread_id));
+    rootItem->setText(int_cast(ArbitraryColumns::Type), QStringLiteral("Thread"));
+    rootItem->setText(int_cast(ArbitraryColumns::Name),
+        profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, _threadRoot, EASY_GLOBALS.hex_thread_id));
 
-    if (_blockIndex != ::profiler_gui::numeric_max<decltype(_blockIndex)>())
+    const bool hasConcreteBlock = !profiler_gui::is_max(_blockIndex);
+    if (hasConcreteBlock)
     {
         const auto& block = easyBlocksTree(_blockIndex);
-
-        auto blockItem = new QTreeWidgetItem(rootItem, QTreeWidgetItem::UserType);
-        blockItem->setText(int_cast(ArbitraryColumns::Name), easyBlockName(block));
-
-        for (auto childIndex : block.children)
+        const auto& desc = easyDescriptor(block.node->id());
+        if (desc.type() == profiler::BlockType::Value)
         {
-            const auto& child = easyBlocksTree(childIndex);
-            const auto& desc = easyDescriptor(child.node->id());
-            if (desc.type() == profiler::BlockType::Value)
-            {
-                auto vin = child.value->value_id();
-
-//                if (vin == 0)
-//                {
-//                    auto result = names.insert(desc.name()).second;
-//                    if (!result)
-//                        continue; // already in set
-//                }
-//                else
-//                {
-//                    auto result = vins.insert(vin).second;
-//                    if (!result)
-//                        continue; // already in set
-//                }
-
-                auto valueItem = new QTreeWidgetItem(blockItem, QTreeWidgetItem::UserType);
-                valueItem->setText(int_cast(ArbitraryColumns::Name), desc.name());
-                valueItem->setText(int_cast(ArbitraryColumns::Type), profiler_gui::valueTypeString(*child.value));
-                valueItem->setText(int_cast(ArbitraryColumns::Vin), QString("0x%1").arg(vin, 0, 16));
-                valueItem->setText(int_cast(ArbitraryColumns::Value), profiler_gui::valueString(*child.value));
-            }
+            auto valueItem = new QTreeWidgetItem(rootItem, QTreeWidgetItem::UserType + 1);
+            valueItem->setText(int_cast(ArbitraryColumns::Type), profiler_gui::valueTypeString(*block.value));
+            valueItem->setText(int_cast(ArbitraryColumns::Name), desc.name());
+            valueItem->setText(int_cast(ArbitraryColumns::Vin), QString("0x%1").arg(block.value->value_id(), 0, 16));
+            valueItem->setText(int_cast(ArbitraryColumns::Value), profiler_gui::valueString(*block.value));
+            return rootItem;
         }
 
-        return rootItem;
+        _blockId = block.node->id();
     }
 
-    if (_blockId == profiler_gui::numeric_max<decltype(_blockId)>())
-        return rootItem;
+    const bool noId = profiler_gui::is_max(_blockId);
+    QTreeWidgetItem* blockItem = nullptr;
+    if (!noId)
+    {
+        blockItem = new QTreeWidgetItem(rootItem, QTreeWidgetItem::UserType);
+        blockItem->setText(int_cast(ArbitraryColumns::Type), QStringLiteral("Block"));
+        if (hasConcreteBlock)
+            blockItem->setText(int_cast(ArbitraryColumns::Name), easyBlockName(_blockIndex));
+        else
+            blockItem->setText(int_cast(ArbitraryColumns::Name), easyDescriptor(_blockId).name());
+    }
 
-    auto blockItem = new QTreeWidgetItem(rootItem, QTreeWidgetItem::UserType);
-    blockItem->setText(int_cast(ArbitraryColumns::Name), easyDescriptor(_blockId).name());
+    std::unordered_map<profiler::block_id_t, QTreeWidgetItem*, profiler::passthrough_hash<profiler::block_id_t> > blocks;
+    std::unordered_map<profiler::vin_t, UsedValueTypes, profiler::passthrough_hash<profiler::vin_t> > vins;
+    std::unordered_map<std::string, UsedValueTypes> names;
 
     std::vector<profiler::block_index_t> stack;
     for (auto childIndex : _threadRoot.children)
@@ -527,36 +518,76 @@ QTreeWidgetItem* EasyArbitraryValuesWidget::buildTreeForThread(const profiler::B
             stack.pop_back();
 
             const auto& block = easyBlocksTree(i);
-            if (block.node->id() == _blockId || easyDescriptor(block.node->id()).id() == _blockId)
+            if (noId || block.node->id() == _blockId || easyDescriptor(block.node->id()).id() == _blockId)
             {
                 for (auto c : block.children)
                 {
+                    if (noId)
+                        stack.push_back(c);
+
                     const auto& child = easyBlocksTree(c);
                     const auto& desc = easyDescriptor(child.node->id());
-                    if (desc.type() == profiler::BlockType::Value)
+                    if (desc.type() != profiler::BlockType::Value)
+                        continue;
+
+                    if (blockItem == nullptr)
                     {
-                        auto vin = child.value->value_id();
-
-//                        if (vin == 0)
-//                        {
-//                            auto result = names.insert(desc.name()).second;
-//                            if (!result)
-//                                continue; // already in set
-//                        }
-//                        else
-//                        {
-//                            auto result = vins.insert(vin).second;
-//                            if (!result)
-//                                continue; // already in set
-//                        }
-
-                        auto valueItem = new QTreeWidgetItem(blockItem, QTreeWidgetItem::UserType);
-                        valueItem->setText(int_cast(ArbitraryColumns::Name), desc.name());
-                        valueItem->setText(int_cast(ArbitraryColumns::Type), profiler_gui::valueTypeString(*child.value));
-                        valueItem->setText(int_cast(ArbitraryColumns::Vin), QString("0x%1").arg(vin, 0, 16));
-                        valueItem->setText(int_cast(ArbitraryColumns::Value), profiler_gui::valueString(*child.value));
+                        const auto id = block.node->id();
+                        auto it = blocks.find(id);
+                        if (it != blocks.end())
+                        {
+                            blockItem = it->second;
+                        }
+                        else
+                        {
+                            blockItem = new QTreeWidgetItem(rootItem, QTreeWidgetItem::UserType);
+                            blockItem->setText(int_cast(ArbitraryColumns::Type), QStringLiteral("Block"));
+                            blockItem->setText(int_cast(ArbitraryColumns::Name), easyBlockName(block));
+                            blocks.emplace(id, blockItem);
+                        }
                     }
+
+                    const auto typeIndex = int_cast(child.value->type());
+                    auto vin = child.value->value_id();
+
+                    QTreeWidgetItem** usedItems = nullptr;
+                    QTreeWidgetItem* valueItem = nullptr;
+                    if (vin == 0)
+                    {
+                        auto result = names.emplace(desc.name(), 0);
+                        usedItems = result.first->second.items;
+                        if (!result.second && (valueItem = *(usedItems + typeIndex)))
+                        {
+                            if (i == _blockIndex)
+                                valueItem->setText(int_cast(ArbitraryColumns::Value), profiler_gui::valueString(*child.value));
+                            continue; // already in set
+                        }
+                    }
+                    else
+                    {
+                        auto result = vins.emplace(vin, 0);
+                        usedItems = result.first->second.items;
+                        if (!result.second && (valueItem = *(usedItems + typeIndex)))
+                        {
+                            if (i == _blockIndex)
+                                valueItem->setText(int_cast(ArbitraryColumns::Value), profiler_gui::valueString(*child.value));
+                            continue; // already in set
+                        }
+                    }
+
+                    valueItem = new QTreeWidgetItem(blockItem, QTreeWidgetItem::UserType + 1);
+                    valueItem->setText(int_cast(ArbitraryColumns::Type), profiler_gui::valueTypeString(*child.value));
+                    valueItem->setText(int_cast(ArbitraryColumns::Name), desc.name());
+                    valueItem->setText(int_cast(ArbitraryColumns::Vin), QString("0x%1").arg(vin, 0, 16));
+
+                    if (i == _blockIndex)
+                        valueItem->setText(int_cast(ArbitraryColumns::Value), profiler_gui::valueString(*child.value));
+
+                    *(usedItems + typeIndex) = valueItem;
                 }
+
+                if (noId)
+                    blockItem = nullptr;
             }
             else
             {

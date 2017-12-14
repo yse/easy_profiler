@@ -788,18 +788,11 @@ const BaseBlockDescriptor* ProfileManager::addBlockDescriptor(EasyBlockStatus _d
 void ProfileManager::storeValue(const BaseBlockDescriptor* _desc, DataType _type, const void* _data, size_t _size, bool _isArray, ValueId _vin)
 {
     const auto state = m_profilerStatus.load(std::memory_order_acquire);
-    if (state == EASY_PROF_DISABLED || (_desc->m_status & profiler::ON) == 0)
+    if (state != EASY_PROF_ENABLED || (_desc->m_status & profiler::ON) == 0)
         return;
 
-    if (state == EASY_PROF_DUMP)
-    {
-        if (THIS_THREAD == nullptr || THIS_THREAD->blocks.openedList.empty())
-            return;
-    }
-    else if (THIS_THREAD == nullptr)
-    {
+    if (THIS_THREAD == nullptr)
         registerThread();
-    }
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
     if (!THIS_THREAD->allowChildren && (_desc->m_status & FORCE_ON_FLAG) == 0)
@@ -819,7 +812,7 @@ bool ProfileManager::storeBlock(const profiler::BaseBlockDescriptor* _desc, cons
 
     if (state == EASY_PROF_DUMP)
     {
-        if (THIS_THREAD == nullptr || THIS_THREAD->blocks.openedList.empty())
+        if (THIS_THREAD == nullptr || THIS_THREAD->halt)
             return false;
     }
     else if (THIS_THREAD == nullptr)
@@ -846,7 +839,7 @@ bool ProfileManager::storeBlock(const profiler::BaseBlockDescriptor* _desc, cons
 
     if (state == EASY_PROF_DUMP)
     {
-        if (THIS_THREAD == nullptr || THIS_THREAD->blocks.openedList.empty())
+        if (THIS_THREAD == nullptr || THIS_THREAD->halt)
             return false;
     }
     else if (THIS_THREAD == nullptr)

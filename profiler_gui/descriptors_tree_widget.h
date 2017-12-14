@@ -78,7 +78,8 @@ public:
     {
         File,
         Event,
-        Block
+        Block,
+        Value
     };
 
 private:
