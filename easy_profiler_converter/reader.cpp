@@ -81,13 +81,7 @@ using namespace std;
 
 void FileReader::readFile(const string &filename)
 {
-//   fillTreesFromFile(filename.c_str(), serialized_blocks, serialized_descriptors, m_descriptors, m_blocks,
-//                      m_threaded_trees, descriptorsNumberInFile, version, true, errorMessage);
-//    fillTreesFromFile(filename.c_str(), serialized_blocks, serialized_descriptors, m_descriptors, m_blocks,
-//                      m_threaded_trees, descriptorsNumberInFile, version, true, errorMessage);
-
     parseLogInfo(filename, errorMessage);
-
 }
 
 const thread_blocks_tree_t &FileReader::getBlocksTreeData()

@@ -7,14 +7,56 @@
 ///this
 #include "reader.h"
 
-class IConverter
-{
-public:
-    virtual void convert() = 0;
-    virtual ~IConverter();
+///nlohmann json
+#include "include/json.hpp"
+
+//class IConverter
+//{
+//public:
+//    virtual void convert() = 0;
+//    virtual ~IConverter() = 0;
+//};
+
+
+using namespace std;
+
+
+
+struct json_node_t {
+    int id;
+    std::vector<json_node_t> child;
+   // json_node_t(int node_id, std::initializer_list<json_node_t> node_children = std::initializer_list<json_node_t>());
+    json_node_t& add(const json_node_t& node);
+    json_node_t& add(const std::initializer_list<json_node_t>& nodes);
+
+    json_node_t(int node_id,std::initializer_list<json_node_t> node_children= std::initializer_list<json_node_t>()) : id(node_id), child(node_children) {
+    }
+
+
+};
+class json_node_t;
+
+struct json_thread_t {
+    int thread_id;
+    json_node_t node;
+    //std::vector<json_node_t> child;
+   // json_node_t(int node_id, std::initializer_list<json_node_t> node_children = std::initializer_list<json_node_t>());
+    void add(const json_node_t& node);
+    void add(const std::initializer_list<json_node_t>& nodes);
+
+    json_thread_t(int _id,std::initializer_list<json_node_t> node_children= std::initializer_list<json_node_t>()) : thread_id(_id), node(0) {
+    }
+};
+class json_thread_t;
+struct json_root_t {
+    std::vector<json_thread_t> children;
+    void add(const json_thread_t& thread);
+
+    json_root_t(std::initializer_list<json_thread_t> node_children= std::initializer_list<json_thread_t>()) : children(node_children) {
+    }
 };
 
-class JSONConverter EASY_FINAL : public IConverter
+class JSONConverter EASY_FINAL
 {
 public:
     JSONConverter(std::string file_in,
@@ -23,11 +65,20 @@ public:
                   m_file_out(file_out)
     {}
 
-    ~JSONConverter();
-    void convert() override;    
+    ~JSONConverter()
+    {
+    }
+
+
+
+    void convert();
+private:
+    void readThreadBlocks(const profiler::reader::BlocksTreeNode &node, nlohmann::json &json);
+
 private:
     std::string m_file_in;
     std::string m_file_out;
+    nlohmann::json json;
 };
 
 #endif

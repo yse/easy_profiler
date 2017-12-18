@@ -1,8 +1,10 @@
 ///std
 #include <iostream>
 #include <memory>
+
 ///this
-#include "reader.h"
+//#include "reader.h"
+#include "converter.h"
 
 using namespace profiler::reader;
 using namespace std;
@@ -19,10 +21,12 @@ int main(int argc, char* argv[])
         std::cout << "prof file path: ";
         std::getline(std::cin, filename);
     }
-    FileReader fr;
-    fr.readFile(filename);
+//    FileReader fr;
+//    fr.readFile(filename);
 
-    const profiler::reader::thread_blocks_tree_t &blocks_tree = fr.getBlocksTreeData();
+//    const profiler::reader::thread_blocks_tree_t &blocks_tree = fr.getBlocksTreeData();
+    JSONConverter js(filename,"");
+    js.convert();
 
     return 0;
 }
