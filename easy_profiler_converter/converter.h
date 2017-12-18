@@ -34,27 +34,6 @@ struct json_node_t {
 
 
 };
-class json_node_t;
-
-struct json_thread_t {
-    int thread_id;
-    json_node_t node;
-    //std::vector<json_node_t> child;
-   // json_node_t(int node_id, std::initializer_list<json_node_t> node_children = std::initializer_list<json_node_t>());
-    void add(const json_node_t& node);
-    void add(const std::initializer_list<json_node_t>& nodes);
-
-    json_thread_t(int _id,std::initializer_list<json_node_t> node_children= std::initializer_list<json_node_t>()) : thread_id(_id), node(0) {
-    }
-};
-class json_thread_t;
-struct json_root_t {
-    std::vector<json_thread_t> children;
-    void add(const json_thread_t& thread);
-
-    json_root_t(std::initializer_list<json_thread_t> node_children= std::initializer_list<json_thread_t>()) : children(node_children) {
-    }
-};
 
 class JSONConverter EASY_FINAL
 {
