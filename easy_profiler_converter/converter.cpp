@@ -16,9 +16,13 @@ void JSONConverter::readThreadBlocks(const profiler::reader::BlocksTreeNode &nod
 
     if(node.current_block != nullptr){
         json = {{"id",static_cast<int>(node.current_block->blockId)}};
+        json["start(ms)"] = (node.current_block->beginTime);
+        json["stop(ms)"] = (node.current_block->endTime);
+        if(node.current_block->descriptor->compileTimeName != "")
+            json["compileTimeName"] = node.current_block->descriptor->compileTimeName;
     }
     else{
-        json = {{"id",0}};
+        //json = {{"id",0}};
     }
 
     auto jsonObjects = nlohmann::json::array();
