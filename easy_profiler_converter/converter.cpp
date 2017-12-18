@@ -16,8 +16,8 @@ void JSONConverter::readThreadBlocks(const profiler::reader::BlocksTreeNode &nod
 
     if(node.current_block != nullptr){
         json = {{"id",static_cast<int>(node.current_block->blockId)}};
-        json["start(ms)"] = (node.current_block->beginTime);
-        json["stop(ms)"] = (node.current_block->endTime);
+        json["start(ns)"] = (node.current_block->beginTime);
+        json["stop(ns)"] = (node.current_block->endTime);
         if(node.current_block->descriptor->compileTimeName != "")
             json["compileTimeName"] = node.current_block->descriptor->compileTimeName;
     }
@@ -33,7 +33,7 @@ void JSONConverter::readThreadBlocks(const profiler::reader::BlocksTreeNode &nod
         readThreadBlocks(*value.get(),jsonObjects.back());
     }
 
-    json["children_list"] = jsonObjects;
+    json["children"] = jsonObjects;
     return;  
 }
 
