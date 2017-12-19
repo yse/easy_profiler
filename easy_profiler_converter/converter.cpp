@@ -1,9 +1,5 @@
-///nlohmann json
-#include <iostream>
-
 ///this
 #include "converter.h"
-
 /// reader
 #include "reader.h"
 
@@ -70,7 +66,6 @@ void JSONConverter::convert()
     nlohmann::json j;
     j["version"] = fr.getVersion();
     j["timeUnit"] = "ns";
-    //json.insert(json.begin(),node);
     auto jsonObjects = nlohmann::json::array();
     for(const auto &value : blocks_tree)
     {

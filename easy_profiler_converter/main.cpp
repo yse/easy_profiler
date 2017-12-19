@@ -21,10 +21,12 @@ int main(int argc, char* argv[])
         std::cout << "prof file path: ";
         std::getline(std::cin, filename);
     }
+///get RAW data
 //    FileReader fr;
 //    fr.readFile(filename);
 
 //    const profiler::reader::thread_blocks_tree_t &blocks_tree = fr.getBlocksTreeData();
+///end get RAW data
     JSONConverter js(filename,"");
     js.convert();
 

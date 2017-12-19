@@ -44,7 +44,6 @@ class FileReader EASY_FINAL
 {
 public:
     typedef ::std::vector<::std::shared_ptr<BlocksTreeNode> >      TreeNodes;
-
     typedef ::std::vector<::std::shared_ptr<ContextSwitchEvent> >  ContextSwitches;
     typedef ::std::vector<::std::shared_ptr<BlockInfo> >           Events;
 
@@ -55,9 +54,6 @@ public:
     { }
 
     void                        readFile(const ::std::string& filename);
-    const TreeNodes&            getBlocks();
-    const Events&               getEvents();
-    const ContextSwitches&      getContextSwitches();
     ///get blocks tree
     const thread_blocks_tree_t&            getBlocksTreeData();
     /*! get thread name by Id
@@ -79,25 +75,12 @@ private:
     \param Id block id in a common set of blocks
     */
     void               prepareBlocksInfo(::std::shared_ptr<BlocksTreeNode> &element, uint32_t Id);
-    void               prepareEventsInfo(const::std::vector<uint32_t> &events);
-    void               prepareCSInfo(const::std::vector<uint32_t> &cs);
-    void               getBlockInfo(::std::shared_ptr<BlockInfo> &current_block, uint32_t Id);
     ::profiler::block_index_t parseLogInfo(const std::string &filename,
                                            ::std::stringstream& _log);
 
 
-    ///all data from file(from fillTreesFromFile function)
-//    ::profiler::thread_blocks_tree_t                       m_threaded_trees;
-//    ::profiler::SerializedData                             serialized_blocks, serialized_descriptors;
-//    ::profiler::descriptors_list_t                         m_descriptors;
-//    ::profiler::blocks_t                                   m_blocks;
-//    ::std::stringstream                                    errorMessage;
-//    uint32_t                                               descriptorsNumberInFile;
-//    uint32_t                                               version;
-    ///
     ::profiler::SerializedData                             serialized_blocks, serialized_descriptors;
     ::std::stringstream                                    errorMessage;
-    TreeNodes                                              m_BlocksTree;
     thread_blocks_tree_t                                   m_BlocksTree2;
     thread_names_t                                         m_threadNames;
     ContextSwitches                                        m_ContextSwitches;
