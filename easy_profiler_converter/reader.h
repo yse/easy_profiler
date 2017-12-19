@@ -6,6 +6,7 @@
 #include <vector>
 #include <memory>
 #include <sstream>
+#include <string>
 #include <unordered_map>
 
 ///this
@@ -36,6 +37,8 @@ public:
 };
 
 typedef ::std::unordered_map<::profiler::thread_id_t, BlocksTreeNode, ::profiler::passthrough_hash<::profiler::thread_id_t> > thread_blocks_tree_t;
+typedef ::std::unordered_map<::profiler::thread_id_t, ::std::string> thread_names_t;
+
 
 class FileReader EASY_FINAL
 {
@@ -57,6 +60,15 @@ public:
     const ContextSwitches&      getContextSwitches();
     ///get blocks tree
     const thread_blocks_tree_t&            getBlocksTreeData();
+    /*! get thread name by Id
+    \param threadId thread Id
+    \return Name of thread
+    */
+    std::string getThreadName(uint64_t threadId);
+    /*! get file version
+    \return data file version
+    */
+    uint32_t getVersion();
 
 private:
     /*! Operate with data after fillTreesFromFile(...) function call*/
@@ -87,6 +99,7 @@ private:
     ::std::stringstream                                    errorMessage;
     TreeNodes                                              m_BlocksTree;
     thread_blocks_tree_t                                   m_BlocksTree2;
+    thread_names_t                                         m_threadNames;
     ContextSwitches                                        m_ContextSwitches;
     Events                                                 m_events;
     std::vector<std::shared_ptr<BlockDescriptor>>          m_BlockDescriptors;

@@ -7,22 +7,27 @@
 /// reader
 #include "reader.h"
 
-#include <utility>      // std::pair
-#include <string>
-
 void JSONConverter::readThreadBlocks(const profiler::reader::BlocksTreeNode &node,nlohmann::json& json)
 {
     auto j_local = nlohmann::json::object();
 
     if(node.current_block != nullptr){
         json = {{"id",static_cast<int>(node.current_block->blockId)}};
-        json["start(ns)"] = (node.current_block->beginTime);
-        json["stop(ns)"] = (node.current_block->endTime);
-        if(node.current_block->descriptor->compileTimeName != "")
-            json["compileTimeName"] = node.current_block->descriptor->compileTimeName;
-    }
-    else{
-        //json = {{"id",0}};
+        json["start"] = (node.current_block->beginTime);
+        json["stop"] = (node.current_block->endTime);
+        ///read data from block desciptor
+        if(node.current_block->descriptor)
+        {
+                json["compileTimeName"] = node.current_block->descriptor->compileTimeName;
+
+                std::stringstream stream;
+                stream << "0x"
+                       << std::hex << node.current_block->descriptor->argbColor;
+                std::string result( stream.str() );
+
+                json["color"] = result;
+                json["blockType"] = node.current_block->descriptor->blockType;
+        }
     }
 
     auto jsonObjects = nlohmann::json::array();
@@ -63,20 +68,15 @@ void JSONConverter::convert()
     const profiler::reader::thread_blocks_tree_t &blocks_tree = fr.getBlocksTreeData();
     json_node_t node_root(0);
     nlohmann::json j;
-    j["root"] = "root";
+    j["version"] = fr.getVersion();
+    j["timeUnit"] = "ns";
     //json.insert(json.begin(),node);
     auto jsonObjects = nlohmann::json::array();
     for(const auto &value : blocks_tree)
     {
-       // j["threads"].add() push_back({"threadId", value.first});
-        //jsonObjects.insert(jsonObjects.begin(),nlohmann::json::object());// push_back(nlohmann::json::object());
         jsonObjects.push_back(nlohmann::json::object());
-        jsonObjects.back() = {{"threadId", value.first}};
-        //nlohmann::json jj_test = nlohmann::json::array({"threadId", value.first});
-        //j["threads"].push_back(jj_test);
-        //j["threads"]["threadId"] =  value.first;
-        //j["threads"]["threadId"].push_back({value.first});
-       // readThreadBlocks(value.second,j["threads"][j["threads"].size()-1]);
+        jsonObjects.back()["threadId"] = value.first;
+        jsonObjects.back()["name"] = fr.getThreadName(value.first);        
          readThreadBlocks(value.second,jsonObjects.back());
 
     }

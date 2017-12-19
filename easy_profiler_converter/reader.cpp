@@ -89,6 +89,16 @@ const thread_blocks_tree_t &FileReader::getBlocksTreeData()
     return m_BlocksTree2;
 }
 
+string FileReader::getThreadName(uint64_t threadId)
+{
+    return m_threadNames[threadId];
+}
+
+uint32_t FileReader::getVersion()
+{
+    return m_version;
+}
+
 ::profiler::block_index_t FileReader::parseLogInfo(const ::std::string& filename,
                                                            ::std::stringstream& _log)
 {
@@ -236,6 +246,7 @@ const thread_blocks_tree_t &FileReader::getBlocksTreeData()
         {
             name.resize(name_size);
             inFile.read(name.data(), name_size);
+            m_threadNames[thread_id] = name.data();
             //root.thread_name = name.data();
         }
 
@@ -244,7 +255,7 @@ const thread_blocks_tree_t &FileReader::getBlocksTreeData()
         auto threshold = read_number + blocks_number_in_thread;
         while (!inFile.eof() && read_number < threshold)
         {
-            EASY_BLOCK("Read context switch", ::profiler::colors::Green);
+          //  EASY_BLOCK("Read context switch", ::profiler::colors::Green);
 
             ++read_number;
 
