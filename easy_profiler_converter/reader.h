@@ -13,6 +13,10 @@
 #include <easy/easy_protocol.h>
 #include <easy/reader.h>
 
+#ifndef uint
+#define uint unsigned int
+#endif
+
 namespace profiler{
 
 namespace reader {
