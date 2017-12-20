@@ -1,5 +1,5 @@
-#ifndef EASY_PROFILER_CONVERTER_H
-#define EASY_PROFILER_CONVERTER_H
+#ifndef EASY_PROFILER_READER_H
+#define EASY_PROFILER_READER_H
 
 ///std
 #include <fstream>
@@ -25,27 +25,25 @@ public:
     ::std::vector<::std::shared_ptr<BlocksTreeNode>> children;
 
     BlocksTreeNode(BlocksTreeNode&& other)
-       : current_block(::std::move(other.current_block)),
-         parent(other.parent),
-         children(::std::move(other.children))
+        : current_block(::std::move(other.current_block)),
+          parent(other.parent),
+          children(::std::move(other.children))
     {
     }
     BlocksTreeNode():current_block(nullptr),
-                     parent(nullptr)
+        parent(nullptr)
     {
     }
 };
 
 typedef ::std::unordered_map<::profiler::thread_id_t, BlocksTreeNode, ::profiler::passthrough_hash<::profiler::thread_id_t> > thread_blocks_tree_t;
 typedef ::std::unordered_map<::profiler::thread_id_t, ::std::string> thread_names_t;
-
+typedef ::std::vector<::std::shared_ptr<ContextSwitchEvent> >  context_switches_t;
 
 class FileReader EASY_FINAL
 {
 public:
-    typedef ::std::vector<::std::shared_ptr<BlocksTreeNode> >      TreeNodes;
-    typedef ::std::vector<::std::shared_ptr<ContextSwitchEvent> >  ContextSwitches;
-    typedef ::std::vector<::std::shared_ptr<BlockInfo> >           Events;
+
 
     FileReader()
     { }
@@ -53,42 +51,44 @@ public:
     ~FileReader()
     { }
 
-    void                        readFile(const ::std::string& filename);
+    /*-----------------------------------------------------------------*/
+    ///initial read file with RAW data
+    ::profiler::block_index_t readFile(const ::std::string& filename);
+    /*-----------------------------------------------------------------*/
     ///get blocks tree
-    const thread_blocks_tree_t&            getBlocksTreeData();
+    const thread_blocks_tree_t& getBlocksTreeData();
+    /*-----------------------------------------------------------------*/
     /*! get thread name by Id
     \param threadId thread Id
     \return Name of thread
     */
-    std::string getThreadName(uint64_t threadId);
+    const std::string &getThreadName(uint64_t threadId);
+    /*-----------------------------------------------------------------*/
     /*! get file version
     \return data file version
     */
     uint32_t getVersion();
+    /*-----------------------------------------------------------------*/
+    ///get sontext switches
+    const context_switches_t& getContextSwitches();
+    /*-----------------------------------------------------------------*/
 
 private:
-    /*! Operate with data after fillTreesFromFile(...) function call*/
-    void               prepareData();
-
-    /*! Organize all InfoBlocks to tree with input BlocksTreeElement as a root
-    \param &element root element where we shall insert other elements
-    \param Id block id in a common set of blocks
-    */
-    void               prepareBlocksInfo(::std::shared_ptr<BlocksTreeNode> &element, uint32_t Id);
-    ::profiler::block_index_t parseLogInfo(const std::string &filename,
-                                           ::std::stringstream& _log);
-
-
+    ///serialized raw data
     ::profiler::SerializedData                             serialized_blocks, serialized_descriptors;
+    ///error log stream
     ::std::stringstream                                    errorMessage;
-    thread_blocks_tree_t                                   m_BlocksTree2;
+    ///thread's blocks
+    thread_blocks_tree_t                                   m_BlocksTree;
+    ///[thread_id, thread_name]
     thread_names_t                                         m_threadNames;
-    ContextSwitches                                        m_ContextSwitches;
-    Events                                                 m_events;
+    ///context switches info
+    context_switches_t                                     m_ContextSwitches;
     std::vector<std::shared_ptr<BlockDescriptor>>          m_BlockDescriptors;
+    ///data file version
     uint32_t                                               m_version;
 };
 
 } //namespace reader
 } //namespace profiler
-#endif
+#endif //EASY_PROFILER_READER_H

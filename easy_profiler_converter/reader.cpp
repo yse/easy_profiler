@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+
 ///this
 #include "reader.h"
 
@@ -14,7 +15,6 @@
 typedef uint64_t processid_t;
 
 extern const uint32_t PROFILER_SIGNATURE;
-extern const uint32_t EASY_CURRENT_VERSION;
 
 # define EASY_VERSION_INT(v_major, v_minor, v_patch) ((static_cast<uint32_t>(v_major) << 24) | (static_cast<uint32_t>(v_minor) << 16) | static_cast<uint32_t>(v_patch))
 const uint32_t MIN_COMPATIBLE_VERSION = EASY_VERSION_INT(0, 1, 0); ///< minimal compatible version (.prof file format was not changed seriously since this version)
@@ -77,35 +77,13 @@ typedef ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::BlockStat
 /// end from easy_profiler_core/reader.cpp/////
 
 using namespace profiler::reader;
-using namespace std;
 
-void FileReader::readFile(const string &filename)
-{
-    parseLogInfo(filename, errorMessage);
-}
-
-const thread_blocks_tree_t &FileReader::getBlocksTreeData()
-{
-    return m_BlocksTree2;
-}
-
-string FileReader::getThreadName(uint64_t threadId)
-{
-    return m_threadNames[threadId];
-}
-
-uint32_t FileReader::getVersion()
-{
-    return m_version;
-}
-
-::profiler::block_index_t FileReader::parseLogInfo(const ::std::string& filename,
-                                                           ::std::stringstream& _log)
+::profiler::block_index_t FileReader::readFile(const ::std::string &filename)
 {
     ::std::ifstream file(filename, ::std::fstream::binary);
     if (!file.is_open())
     {
-        _log << "Can not open file " << filename;
+        errorMessage << "Can not open file " << filename;
         return 0;
     }
 
@@ -118,7 +96,7 @@ uint32_t FileReader::getVersion()
     inFile.read((char*)&signature, sizeof(uint32_t));
     if (signature != PROFILER_SIGNATURE)
     {
-        _log << "Wrong signature " << signature << "\nThis is not EasyProfiler file/stream.";
+        errorMessage << "Wrong signature " << signature << "\nThis is not EasyProfiler file/stream.";
         return 0;
     }
 
@@ -126,7 +104,7 @@ uint32_t FileReader::getVersion()
     inFile.read((char*)&m_version, sizeof(uint32_t));
     if (!isCompatibleVersion(m_version))
     {
-        _log << "Incompatible version: v" << (m_version >> 24) << "." << ((m_version & 0x00ff0000) >> 16) << "." << (m_version & 0x0000ffff);
+        errorMessage << "Incompatible version: v" << (m_version >> 24) << "." << ((m_version & 0x00ff0000) >> 16) << "." << (m_version & 0x0000ffff);
         return 0;
     }
 
@@ -164,7 +142,7 @@ uint32_t FileReader::getVersion()
     inFile.read((char*)&total_blocks_number, sizeof(uint32_t));
     if (total_blocks_number == 0)
     {
-        _log << "Profiled blocks number == 0";
+        errorMessage << "Profiled blocks number == 0";
         return 0;
     }
 
@@ -172,7 +150,7 @@ uint32_t FileReader::getVersion()
     inFile.read((char*)&memory_size, sizeof(decltype(memory_size)));
     if (memory_size == 0)
     {
-        _log << "Wrong memory size == 0 for " << total_blocks_number << " blocks";
+        errorMessage << "Wrong memory size == 0 for " << total_blocks_number << " blocks";
         return 0;
     }
 
@@ -180,7 +158,7 @@ uint32_t FileReader::getVersion()
     inFile.read((char*)&total_descriptors_number, sizeof(uint32_t));
     if (total_descriptors_number == 0)
     {
-        _log << "Blocks description number == 0";
+        errorMessage << "Blocks description number == 0";
         return 0;
     }
 
@@ -188,7 +166,7 @@ uint32_t FileReader::getVersion()
     inFile.read((char*)&descriptors_memory_size, sizeof(decltype(descriptors_memory_size)));
     if (descriptors_memory_size == 0)
     {
-        _log << "Wrong memory size == 0 for " << total_descriptors_number << " blocks descriptions";
+        errorMessage << "Wrong memory size == 0 for " << total_descriptors_number << " blocks descriptions";
         return 0;
     }
 
@@ -231,14 +209,12 @@ uint32_t FileReader::getVersion()
     ::std::vector<char> name;
 
     const size_t thread_id_t_size = m_version < EASY_V_130 ? sizeof(uint32_t) : sizeof(::profiler::thread_id_t);
-
+    ///read blocks info for every thread
     while (!inFile.eof() && read_number < total_blocks_number)
     {
         ::profiler::thread_id_t thread_id = 0;
         inFile.read((char*)&thread_id, thread_id_t_size);
-
-        //auto& root = threaded_trees[thread_id];
-        auto& root = m_BlocksTree2[thread_id];
+        auto& root = m_BlocksTree[thread_id];
 
         uint16_t name_size = 0;
         inFile.read((char*)&name_size, sizeof(uint16_t));
@@ -247,7 +223,6 @@ uint32_t FileReader::getVersion()
             name.resize(name_size);
             inFile.read(name.data(), name_size);
             m_threadNames[thread_id] = name.data();
-            //root.thread_name = name.data();
         }
 
         uint32_t blocks_number_in_thread = 0;
@@ -255,15 +230,13 @@ uint32_t FileReader::getVersion()
         auto threshold = read_number + blocks_number_in_thread;
         while (!inFile.eof() && read_number < threshold)
         {
-          //  EASY_BLOCK("Read context switch", ::profiler::colors::Green);
-
             ++read_number;
 
             uint16_t sz = 0;
             inFile.read((char*)&sz, sizeof(sz));
             if (sz == 0)
             {
-                _log << "Bad CSwitch block size == 0";
+                errorMessage << "Bad CSwitch block size == 0";
                 return 0;
             }
 
@@ -321,7 +294,7 @@ uint32_t FileReader::getVersion()
             inFile.read((char*)&sz, sizeof(sz));
             if (sz == 0)
             {
-                _log << "Bad block size == 0";
+                errorMessage << "Bad block size == 0";
                 return 0;
             }
 
@@ -331,7 +304,7 @@ uint32_t FileReader::getVersion()
             auto baseData = reinterpret_cast<::profiler::SerializedBlock*>(data);
             if (baseData->id() >= total_descriptors_number)
             {
-                _log << "Bad block id == " << baseData->id();
+                errorMessage << "Bad block id == " << baseData->id();
                 return 0;
             }
             element->current_block->blockId = baseData->id();
@@ -339,7 +312,7 @@ uint32_t FileReader::getVersion()
             auto desc = m_BlockDescriptors[baseData->id()];
             if (desc == nullptr)
             {
-                _log << "Bad block id == " << baseData->id() << ". Description is null.";
+                errorMessage << "Bad block id == " << baseData->id() << ". Description is null.";
                 return 0;
             }
             element->current_block->descriptor = m_BlockDescriptors[baseData->id()];
@@ -361,11 +334,11 @@ uint32_t FileReader::getVersion()
                 element->current_block->beginTime = baseData->begin();
                 element->current_block->endTime = baseData->end();
 
-                ///sibling
+                ///is sibling?
                 if(element->current_block->beginTime >= prev_node->current_block->endTime)
                 {
                     prev_node = element;
-                    ///siblings
+                    ///all siblings
                     root.children.push_back(element);
                 }
                 else
@@ -383,16 +356,35 @@ uint32_t FileReader::getVersion()
                         }
                     }
                 }
-
                 const auto block_index = blocks_counter++;
-
-                ///leave it here commented.
+                ///TODO: make optimization BLOCK_TYPE_EVENT. leave it here commented.
 //                if (desc->blockType == ::profiler::BLOCK_TYPE_EVENT)
 //                {
 //                    root.children.emplace_back(element);
 //                }
-            }            
+            }
         }
     }
     return blocks_counter;
 }
+
+const thread_blocks_tree_t &FileReader::getBlocksTreeData()
+{
+    return m_BlocksTree;
+}
+
+const ::std::string &FileReader::getThreadName(uint64_t threadId)
+{
+    return m_threadNames[threadId];
+}
+
+uint32_t FileReader::getVersion()
+{
+    return m_version;
+}
+
+const context_switches_t &FileReader::getContextSwitches()
+{
+    return m_ContextSwitches;
+}
+
