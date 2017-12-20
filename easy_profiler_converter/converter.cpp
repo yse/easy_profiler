@@ -37,7 +37,6 @@ void JSONConverter::readThreadBlocks(const profiler::reader::BlocksTreeNode &nod
     }
 
     json["children"] = jsonObjects;
-    return;
 }
 
 void JSONConverter::convert()
