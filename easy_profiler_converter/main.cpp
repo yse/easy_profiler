@@ -1,19 +1,12 @@
 ///std
 #include <iostream>
 #include <memory>
+
 ///this
-#include "reader.h"
+//#include "reader.h"
+#include "converter.h"
 
 using namespace profiler::reader;
-using namespace std;
-
-void test(std::string filename, vector<::std::shared_ptr<BlocksTreeNode> >& blocks)
-{
-    FileReader fr;
-    fr.readFile(filename);
-    std::vector<BlockInfo> v_blocks;
-    blocks = fr.getBlocks();
-}
 
 int main(int argc, char* argv[])
 {
@@ -27,7 +20,14 @@ int main(int argc, char* argv[])
         std::cout << "prof file path: ";
         std::getline(std::cin, filename);
     }
-    vector<::std::shared_ptr<BlocksTreeNode> > blocks;
-    test(filename,blocks);
+    ///get RAW data
+    //    FileReader fr;
+    //    fr.readFile(filename);
+
+    //    const profiler::reader::thread_blocks_tree_t &blocks_tree = fr.getBlocksTreeData();
+    ///end get RAW data
+    JSONConverter js(filename,"some_test.json");
+    js.convert();
+
     return 0;
 }
