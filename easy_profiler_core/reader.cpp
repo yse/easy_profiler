@@ -524,7 +524,6 @@ extern "C" {
         serialized_descriptors.set(descriptors_memory_size);
         //validate_pointers(progress, olddata, serialized_descriptors, descriptors, descriptors.size());
 
-        std::cout << "!!!" << total_descriptors_number << "!!!";
         uint64_t i = 0;
         while (!inFile.eof() && descriptors.size() < total_descriptors_number)
         {

@@ -68,5 +68,4 @@ void JSONConverter::convert()
     {
         ::std::cout << nlohmann::json(json).dump(2);
     }
-    return;
 }

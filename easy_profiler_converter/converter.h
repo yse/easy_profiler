@@ -13,8 +13,8 @@
 class JSONConverter EASY_FINAL
 {
 public:
-    JSONConverter(::std::string file_in,
-                  ::std::string file_out):
+    JSONConverter(const ::std::string &file_in,
+                  const ::std::string &file_out):
         m_file_in(file_in),
         m_file_out(file_out)
     {}
