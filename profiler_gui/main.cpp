@@ -59,13 +59,13 @@
 
 int main(int argc, char **argv)
 {
+    auto now = ::std::chrono::duration_cast<std::chrono::seconds>(::std::chrono::system_clock::now().time_since_epoch()).count() >> 1;
+    srand((unsigned int)now);
+
     QApplication app(argc, argv);
 
     //Instanciate easy globals after QApplication to allow creation of global fonts, and on the main thread to avoid data races
-    EASY_GLOBALS;
-
-    auto now = ::std::chrono::duration_cast<std::chrono::seconds>(::std::chrono::system_clock::now().time_since_epoch()).count() >> 1;
-    srand((unsigned int)now);
+    profiler_gui::EasyGlobals::instance();
 
     EasyMainWindow window;
     window.show();

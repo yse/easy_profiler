@@ -59,6 +59,7 @@
 #include <QResizeEvent>
 #include <QContextMenuEvent>
 #include <QMenu>
+#include <easy/utility.h>
 #include "easy_graphics_scrollbar.h"
 #include "globals.h"
 
@@ -106,24 +107,16 @@ EASY_CONSTEXPR int BOUNDARY_TIMER_INTERVAL = 100;
 
 //////////////////////////////////////////////////////////////////////////
 
-inline qreal clamp(qreal _minValue, qreal _value, qreal _maxValue)
-{
-    return (_value < _minValue ? _minValue : (_value > _maxValue ? _maxValue : _value));
-}
-
-inline qreal sqr(qreal _value)
-{
-    return _value * _value;
-}
+using estd::sqr;
 
 inline qreal calculate_color1(qreal h, qreal, qreal k)
 {
-    return ::std::min(h * k, 0.9999999);
+    return std::min(h * k, 0.9999999);
 }
 
 inline qreal calculate_color2(qreal, qreal duration, qreal k)
 {
-    return ::std::min(sqr(sqr(duration)) * k, 0.9999999);
+    return std::min(sqr(sqr(duration)) * k, 0.9999999);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1854,6 +1847,7 @@ int EasyGraphicsScrollbar::defaultFontHeight() const
 
 void EasyGraphicsScrollbar::setValue(qreal _value)
 {
+    using estd::clamp;
     m_value = clamp(m_minimumValue, _value, ::std::max(m_minimumValue, m_maximumValue - m_slider->width()));
     m_slider->setX(m_value + m_slider->halfwidth());
     emit valueChanged(m_value);
@@ -1869,14 +1863,15 @@ void EasyGraphicsScrollbar::setRange(qreal _minValue, qreal _maxValue)
 
     m_minimumValue = _minValue;
     m_maximumValue = _maxValue;
-    scene()->setSceneRect(_minValue, DEFAULT_TOP, _maxValue - _minValue, DEFAULT_HEIGHT + m_defaultFontHeight + 4);
+    const auto range = this->range();
+    scene()->setSceneRect(_minValue, DEFAULT_TOP, range, DEFAULT_HEIGHT + m_defaultFontHeight + 4);
 
     m_histogramItem->cancelImageUpdate();
-    m_histogramItem->setBoundingRect(_minValue, DEFAULT_TOP + INDICATOR_SIZE, _maxValue, DEFAULT_HEIGHT - INDICATOR_SIZE_x2);
+    m_histogramItem->setBoundingRect(_minValue, DEFAULT_TOP + INDICATOR_SIZE, range, DEFAULT_HEIGHT - INDICATOR_SIZE_x2);
 
     emit rangeChanged();
 
-    setValue(_minValue + oldValue * range());
+    setValue(_minValue + oldValue * range);
 
     onWindowWidthChange(width());
 

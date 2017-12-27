@@ -47,6 +47,7 @@ The Apache License, Version 2.0 (the "License");
 
 #include <easy/serialized_block.h>
 #include <easy/details/arbitrary_value_public_types.h>
+#include <easy/utility.h>
 #include <unordered_map>
 #include <vector>
 #include <string>
@@ -58,29 +59,6 @@ namespace profiler {
 
     using calls_number_t = uint32_t;
     using block_index_t  = uint32_t;
-
-    template <class T, bool greater_than_size_t>
-    struct hash : public ::std::hash<T> {
-#if defined(_MSC_VER) && _MSC_VER >= 1910
-        inline size_t operator () (const T& value) const {
-            return ::std::hash<T>::operator()(value);
-        }
-#else
-        using ::std::hash<T>::operator();
-#endif
-    };
-
-    template <class T>
-    struct hash<T, false> {
-        inline size_t operator () (T _value) const {
-            return static_cast<size_t>(_value);
-        }
-    };
-
-    template <class T>
-    struct passthrough_hash : public hash<T, (sizeof(T) > sizeof(size_t))> {
-        using hash<T, (sizeof(T) > sizeof(size_t))>::operator();
-    };
 
 #pragma pack(push, 1)
     struct BlockStatistics EASY_FINAL
@@ -294,7 +272,7 @@ namespace profiler {
     }; // END of class BlocksTreeRoot.
 
     using blocks_t = ::profiler::BlocksTree::blocks_t;
-    using thread_blocks_tree_t = ::std::unordered_map<::profiler::thread_id_t, ::profiler::BlocksTreeRoot, ::profiler::passthrough_hash<::profiler::thread_id_t> >;
+    using thread_blocks_tree_t = ::std::unordered_map<::profiler::thread_id_t, ::profiler::BlocksTreeRoot, ::estd::hash<::profiler::thread_id_t> >;
 
     //////////////////////////////////////////////////////////////////////////
 

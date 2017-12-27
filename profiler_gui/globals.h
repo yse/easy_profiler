@@ -177,6 +177,8 @@ namespace profiler_gui {
         QFont                                 items_font; ///< Font for easy_graphics_item
         QFont                         selected_item_font; ///< Font for easy_graphics_item
 
+        double                                scene_left; ///< Graphics scene left boundary
+        double                               scene_right; ///< Graphics scene right boundary
         ::profiler::timestamp_t               begin_time; ///< 
         ::profiler::thread_id_t          selected_thread; ///< Current selected thread id
         ::profiler::block_index_t         selected_block; ///< Current selected profiler block index

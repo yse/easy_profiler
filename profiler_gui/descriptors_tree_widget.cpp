@@ -395,7 +395,7 @@ void EasyDescTreeWidget::clearSilent(bool _global)
 
 struct FileItems
 {
-    typedef ::std::unordered_map<int, EasyDescWidgetItem*, ::profiler::passthrough_hash<int> > Items;
+    using Items = ::std::unordered_map<int, EasyDescWidgetItem*, ::estd::hash<int> >;
     Items children;
     QTreeWidgetItem* item = nullptr;
 };

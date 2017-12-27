@@ -187,20 +187,20 @@ namespace profiler {
 
 #ifdef EASY_PROFILER_HASHED_CSTR_DEFINED
 
-typedef ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, ::profiler::passthrough_hash<::profiler::block_id_t> > StatsMap;
+using StatsMap = ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, ::estd::hash<::profiler::block_id_t> >;
 
 /** \note It is absolutely safe to use hashed_cstr (which simply stores pointer) because std::unordered_map,
 which uses it as a key, exists only inside fillTreesFromFile function. */
-typedef ::std::unordered_map<::profiler::hashed_cstr, ::profiler::block_id_t> IdMap;
+using IdMap = ::std::unordered_map<::profiler::hashed_cstr, ::profiler::block_id_t>;
 
-typedef ::std::unordered_map<::profiler::hashed_cstr, ::profiler::BlockStatistics*> CsStatsMap;
+using CsStatsMap = ::std::unordered_map<::profiler::hashed_cstr, ::profiler::BlockStatistics*>;
 
 #else
 
 // TODO: Create optimized version of profiler::hashed_cstr for Linux too.
-typedef ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, ::profiler::passthrough_hash<::profiler::block_id_t> > StatsMap;
-typedef ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::block_id_t> IdMap;
-typedef ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::BlockStatistics*> CsStatsMap;
+using StatsMap = ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, ::estd::hash<::profiler::block_id_t> >;
+using IdMap = ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::block_id_t>;
+using CsStatsMap = ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::BlockStatistics*>;
 
 #endif
 
@@ -554,7 +554,7 @@ extern "C" {
             }
         }
 
-        typedef ::std::unordered_map<::profiler::thread_id_t, StatsMap, ::profiler::passthrough_hash<::profiler::thread_id_t> > PerThreadStats;
+        using PerThreadStats = ::std::unordered_map<::profiler::thread_id_t, StatsMap, ::estd::hash<::profiler::thread_id_t> >;
         PerThreadStats parent_statistics, frame_statistics;
         IdMap identification_table;
 

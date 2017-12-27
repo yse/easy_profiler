@@ -121,10 +121,10 @@ class EasyGraphicsView : public QGraphicsView
 
 private:
 
-    typedef QGraphicsView Parent;
-    typedef EasyGraphicsView This;
-    typedef ::std::vector<EasyGraphicsItem*> Items;
-    //typedef ::std::unordered_set<int, ::profiler::passthrough_hash<int> > Keys;
+    using Parent = QGraphicsView;
+    using This = EasyGraphicsView;
+    using Items = ::std::vector<EasyGraphicsItem*>;
+    //using Keys = ::std::unordered_set<int, ::estd::hash<int> >;
 
     Items                               m_items; ///< Array of all EasyGraphicsItem items
     //Keys                                 m_keys; ///< Pressed keyboard keys

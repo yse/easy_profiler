@@ -59,27 +59,46 @@
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 #include <QGraphicsItem>
+#include <QGraphicsView>
 #include <QTimer>
 #include <QPointF>
+#include <QList>
+#include <easy/serialized_block.h>
+#include <easy/reader.h>
+#include <easy/utility.h>
 #include <unordered_map>
 #include <vector>
 #include <string>
 #include <thread>
 #include <atomic>
-#include <easy/serialized_block.h>
-#include <easy/reader.h>
+#include <memory>
 
 //////////////////////////////////////////////////////////////////////////
 
+using Points = std::vector<QPointF>;
 using ArbitraryValues = std::vector<const profiler::ArbitraryValue*>;
-using ArbitraryValuesMap = std::unordered_map<profiler::thread_id_t, ArbitraryValues, profiler::passthrough_hash<profiler::thread_id_t> >;
+using ArbitraryValuesMap = std::unordered_map<profiler::thread_id_t, ArbitraryValues, estd::hash<profiler::thread_id_t> >;
 
 class ArbitraryValuesCollection EASY_FINAL
 {
+public:
+
+    enum JobStatus : uint8_t { Idle = 0, Ready, InProgress };
+    enum JobType : uint8_t { None = 0, ValuesJob = 1 << 0, PointsJob = 1 << 1 };
+
+private:
+
+    using This = ArbitraryValuesCollection;
+
     ArbitraryValuesMap          m_values;
+    Points                      m_points;
     std::thread        m_collectorThread;
-    std::atomic_bool            m_bReady;
+    profiler::timestamp_t    m_beginTime;
+    qreal                     m_minValue;
+    qreal                     m_maxValue;
+    std::atomic<uint8_t>        m_status;
     std::atomic_bool        m_bInterrupt;
+    uint8_t                    m_jobType;
 
 public:
 
@@ -87,82 +106,152 @@ public:
     ~ArbitraryValuesCollection();
 
     const ArbitraryValuesMap& valuesMap() const;
-    bool ready() const;
+    const Points& points() const;
+    JobStatus status() const;
     size_t size() const;
 
+    qreal minValue() const;
+    qreal maxValue() const;
+
     void collectValues(profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName);
+    void collectValues(profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName, profiler::timestamp_t _beginTime);
+    bool calculatePoints(profiler::timestamp_t _beginTime);
     void interrupt();
 
 private:
 
-    void setReady(bool _ready);
+    void setStatus(JobStatus _status);
     void collectById(profiler::thread_id_t _threadId, profiler::vin_t _valueId);
     void collectByName(profiler::thread_id_t _threadId, const std::string _valueName);
-    bool collectByIdForThread(const profiler::BlocksTreeRoot& _threadRoot, profiler::vin_t _valueId);
-    bool collectByNameForThread(const profiler::BlocksTreeRoot& _threadRoot, const std::string& _valueName);
+    bool collectByIdForThread(const profiler::BlocksTreeRoot& _threadRoot, profiler::vin_t _valueId, bool _calculatePoints);
+    bool collectByNameForThread(const profiler::BlocksTreeRoot& _threadRoot, const std::string& _valueName, bool _calculatePoints);
+
+    QPointF point(const profiler::ArbitraryValue& _value) const;
 
 }; // end of class ArbitraryValuesCollection.
 
-//////////////////////////////////////////////////////////////////////////
-
-class EasyArbitraryValueInspector : public QWidget
+enum class ChartType : uint8_t
 {
-    Q_OBJECT
+    Line = 0,
+    Points
+};
 
-    using Parent = QWidget;
-    using This = EasyArbitraryValueInspector;
+struct EasyCollectionPaintData EASY_FINAL
+{
+    const ArbitraryValuesCollection* ptr;
+    QRgb                           color;
+    ChartType                  chartType;
+    bool                        selected;
+};
 
-public:
-
-    explicit EasyArbitraryValueInspector(QWidget* _parent = nullptr);
-    ~EasyArbitraryValueInspector() override;
-
-}; // end of class EasyArbitraryValueInspector.
+using Collections = std::vector<EasyCollectionPaintData>;
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyArbitraryValueItem : public QGraphicsItem
+class EasyArbitraryValuesChartItem : public QGraphicsItem
 {
     using Parent = QGraphicsItem;
-    using This = EasyArbitraryValueItem;
-    using Points = std::vector<QPointF>;
+    using This = EasyArbitraryValuesChartItem;
 
-    ArbitraryValuesCollection m_collection;
-    Points                        m_points;
-    QTimer                         m_timer;
-    qreal                          m_scale;
-    QRgb                           m_color;
+    Collections m_collections;
+    QRectF     m_boundingRect;
 
 public:
 
-    explicit EasyArbitraryValueItem(const profiler::ArbitraryValue& _value, profiler::thread_id_t _threadId);
-    ~EasyArbitraryValueItem() override;
+    explicit EasyArbitraryValuesChartItem();
+    ~EasyArbitraryValuesChartItem() override;
 
     void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
 
-    void onScaleChanged(qreal _scale);
+    QRectF boundingRect() const override;
+    void setBoundingRect(const QRectF& _rect);
+    void setBoundingRect(qreal _left, qreal _top, qreal _width, qreal _height);
+
+    void update(Collections _collections);
+    void update(const ArbitraryValuesCollection* _selected);
+
+}; // end of class EasyArbitraryValuesChartItem.
+
+class EasyGraphicsChart : public QGraphicsView
+{
+    Q_OBJECT
 
 private:
 
-    void onTimeout();
+    using Parent = QGraphicsView;
+    using This = EasyGraphicsChart;
 
-}; // end of class EasyArbitraryValueItem.
-
-//////////////////////////////////////////////////////////////////////////
-
-class EasyArbitraryValuesTreeItem : public QTreeWidgetItem
-{
-    using Parent = QTreeWidgetItem;
-    using This = EasyArbitraryValuesTreeItem;
+    EasyArbitraryValuesChartItem* m_chartItem;
+    qreal               m_left;
+    qreal              m_right;
+    qreal             m_offset;
+    qreal             m_xscale;
+    qreal m_visibleRegionWidth;
+    bool           m_bBindMode;
 
 public:
 
-    explicit EasyArbitraryValuesTreeItem(Parent* _parent = nullptr);
-    ~EasyArbitraryValuesTreeItem() override;
+    explicit EasyGraphicsChart(QWidget* _parent = nullptr);
+    ~EasyGraphicsChart() override;
 
+    void resizeEvent(QResizeEvent* _event) override;
 
+    void clear();
 
-}; // end of class EasyArbitraryValuesTreeItem.
+    bool bindMode() const;
+    qreal xscale() const;
+
+    qreal left() const;
+    qreal right() const;
+    qreal range() const;
+    qreal offset() const;
+    qreal region() const;
+
+    void setOffset(qreal _offset);
+    void setRange(qreal _left, qreal _right);
+    void setRegion(qreal _visibleRegionWidth);
+
+    void update(Collections _collections);
+    void update(const ArbitraryValuesCollection* _selected);
+
+private slots:
+
+    void onSceneSizeChanged();
+    void onWindowSizeChanged(qreal _width, qreal _height);
+
+}; // end of class EasyGraphicsChart.
+
+//////////////////////////////////////////////////////////////////////////
+
+class EasyArbitraryTreeWidgetItem : public QTreeWidgetItem
+{
+    using Parent = QTreeWidgetItem;
+    using This = EasyArbitraryTreeWidgetItem;
+    using CollectionPtr = std::unique_ptr<ArbitraryValuesCollection>;
+
+    CollectionPtr   m_collection;
+    profiler::vin_t        m_vin;
+    profiler::color_t    m_color;
+    int              m_widthHint;
+
+public:
+
+    explicit EasyArbitraryTreeWidgetItem(QTreeWidgetItem* _parent, profiler::color_t _color, profiler::vin_t _vin = 0);
+    ~EasyArbitraryTreeWidgetItem() override;
+
+    QVariant data(int _column, int _role) const override;
+
+    void setWidthHint(int _width);
+
+    const ArbitraryValuesCollection* collection() const;
+    void collectValues(profiler::thread_id_t _threadId);
+    void interrupt();
+
+    profiler::color_t color() const;
+
+}; // end of class EasyArbitraryTreeWidgetItem.
+
+//////////////////////////////////////////////////////////////////////////
 
 class EasyArbitraryValuesWidget : public QWidget
 {
@@ -171,8 +260,11 @@ class EasyArbitraryValuesWidget : public QWidget
     using Parent = QWidget;
     using This = EasyArbitraryValuesWidget;
 
-    QTimer            m_timer;
-    QTreeWidget* m_treeWidget;
+    QTimer                  m_timer;
+    QTimer       m_collectionsTimer;
+    QList<EasyArbitraryTreeWidgetItem*> m_checkedItems;
+    QTreeWidget*       m_treeWidget;
+    EasyGraphicsChart*      m_chart;
 
 public:
 
@@ -190,6 +282,10 @@ private slots:
     void onSelectedThreadChanged(profiler::thread_id_t _id);
     void onSelectedBlockChanged(uint32_t _block_index);
     void onSelectedBlockIdChanged(profiler::block_id_t _id);
+    void onItemDoubleClicked(QTreeWidgetItem* _item, int _column);
+    void onItemChanged(QTreeWidgetItem* _item, int _column);
+    void onCurrentItemChanged(QTreeWidgetItem*, QTreeWidgetItem*);
+    void onCollectionsTimeout();
 
 private:
 

@@ -144,6 +144,24 @@ QListView::item, QTableView::item, QTreeView::item {
 QListView::item:selected, QTableView::item:selected, QTreeView::item:selected {
   background-color: rgba(152, 222, 152, 0.8); }
 
+QTreeView::indicator {
+  width: 14px;
+  height: 14px;
+  background-color: transparent;
+  border: 1px solid transparent;
+  padding: 1px;
+  margin: 0; }
+
+QTreeView::indicator:hover, QTreeView::indicator:checked {
+  background-color: white;
+  border: 1px solid #cccccc; }
+
+QTreeView::indicator:checked {
+  image: url(":/images/default/check"); }
+
+QTreeView::indicator:checked:disabled {
+  image: url(":/images/default/check-disabled"); }
+
 /* ****************************************************************************************************************** */
 QMenu {
   background-color: white;

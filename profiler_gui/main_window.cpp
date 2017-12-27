@@ -304,8 +304,8 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_theme("default"), m_lastAddress("
     m_portEdit->setFixedWidth(m_portEdit->fontMetrics().width(QString("000000")) + 10);
     toolbar->addWidget(m_portEdit);
 
-    connect(m_addressEdit, &QLineEdit::returnPressed, [this](){ onConnectClicked(true); });
-    connect(m_portEdit, &QLineEdit::returnPressed, [this](){ onConnectClicked(true); });
+    connect(m_addressEdit, &QLineEdit::returnPressed, [this] { onConnectClicked(true); });
+    connect(m_portEdit, &QLineEdit::returnPressed, [this] { onConnectClicked(true); });
 
 
 

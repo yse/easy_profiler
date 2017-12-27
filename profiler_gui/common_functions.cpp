@@ -288,6 +288,58 @@ namespace profiler_gui {
         }
     }
 
+    double value2real(const ::profiler::ArbitraryValue& _serializedValue, int _index)
+    {
+        if (_serializedValue.isArray())
+        {
+            switch (_serializedValue.type())
+            {
+                case ::profiler::DataType::Bool:
+                {
+                    const auto value = _serializedValue.toArray<bool>()->at(_index);
+                    return value ? 1 : 0;
+                }
+
+                case ::profiler::DataType::Char:   return static_cast<double>(_serializedValue.toArray<char>()->at(_index));
+                case ::profiler::DataType::Int8:   return static_cast<double>(_serializedValue.toArray<int8_t>()->at(_index));
+                case ::profiler::DataType::Uint8:  return static_cast<double>(_serializedValue.toArray<uint8_t>()->at(_index));
+                case ::profiler::DataType::Int16:  return static_cast<double>(_serializedValue.toArray<int16_t>()->at(_index));
+                case ::profiler::DataType::Uint16: return static_cast<double>(_serializedValue.toArray<uint16_t>()->at(_index));
+                case ::profiler::DataType::Int32:  return static_cast<double>(_serializedValue.toArray<int32_t>()->at(_index));
+                case ::profiler::DataType::Uint32: return static_cast<double>(_serializedValue.toArray<uint32_t>()->at(_index));
+                case ::profiler::DataType::Int64:  return static_cast<double>(_serializedValue.toArray<int64_t>()->at(_index));
+                case ::profiler::DataType::Uint64: return static_cast<double>(_serializedValue.toArray<uint64_t>()->at(_index));
+                case ::profiler::DataType::Float:  return static_cast<double>(_serializedValue.toArray<float>()->at(_index));
+                case ::profiler::DataType::Double: return _serializedValue.toArray<double>()->at(_index);
+                case ::profiler::DataType::String: return static_cast<double>(_serializedValue.data()[_index]);
+                default: return 0;
+            }
+        }
+
+        switch (_serializedValue.type())
+        {
+            case ::profiler::DataType::Bool:
+            {
+                const auto value = _serializedValue.toValue<bool>()->value();
+                return value ? 1 : 0;
+            }
+
+            case ::profiler::DataType::Char:   return static_cast<double>(_serializedValue.toValue<char>()->value());
+            case ::profiler::DataType::Int8:   return static_cast<double>(_serializedValue.toValue<int8_t>()->value());
+            case ::profiler::DataType::Uint8:  return static_cast<double>(_serializedValue.toValue<uint8_t>()->value());
+            case ::profiler::DataType::Int16:  return static_cast<double>(_serializedValue.toValue<int16_t>()->value());
+            case ::profiler::DataType::Uint16: return static_cast<double>(_serializedValue.toValue<uint16_t>()->value());
+            case ::profiler::DataType::Int32:  return static_cast<double>(_serializedValue.toValue<int32_t>()->value());
+            case ::profiler::DataType::Uint32: return static_cast<double>(_serializedValue.toValue<uint32_t>()->value());
+            case ::profiler::DataType::Int64:  return static_cast<double>(_serializedValue.toValue<int64_t>()->value());
+            case ::profiler::DataType::Uint64: return static_cast<double>(_serializedValue.toValue<uint64_t>()->value());
+            case ::profiler::DataType::Float:  return static_cast<double>(_serializedValue.toValue<float>()->value());
+            case ::profiler::DataType::Double: return _serializedValue.toValue<double>()->value();
+            case ::profiler::DataType::String: return static_cast<double>(_serializedValue.data()[_index]);
+            default: return 0;
+        }
+    }
+
     //////////////////////////////////////////////////////////////////////////
 
 } // end of namespace profiler_gui.

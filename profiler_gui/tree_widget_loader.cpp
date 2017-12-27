@@ -268,7 +268,7 @@ void EasyTreeWidgetLoader::setTreeInternal1(::profiler::timestamp_t& _beginTime,
 // }
 
 using BeginEndIndicesMap = ::std::unordered_map<::profiler::thread_id_t, ::profiler::block_index_t,
-    ::profiler::passthrough_hash<::profiler::thread_id_t> >;
+    ::estd::hash<::profiler::thread_id_t> >;
 
 void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _beginTime,
                                             const ::profiler_gui::TreeBlocks& _blocks,

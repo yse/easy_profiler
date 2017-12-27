@@ -71,13 +71,13 @@ namespace profiler
 
     template <DataType dataType> struct StdType;
 
-    template <class T> struct StdToDataType {
+    template <class T> struct StdToDataType EASY_FINAL {
         EASY_STATIC_CONSTEXPR auto data_type = DataType::TypesCount;
     };
 
 # define EASY_DATATYPE_CONVERSION(DataTypeName, StdTypeName)\
-    template <> struct StdType<DataTypeName> { using value_type = StdTypeName; };\
-    template <> struct StdToDataType<StdTypeName> { EASY_STATIC_CONSTEXPR auto data_type = DataTypeName; }
+    template <> struct StdType<DataTypeName> EASY_FINAL { using value_type = StdTypeName; };\
+    template <> struct StdToDataType<StdTypeName> EASY_FINAL { EASY_STATIC_CONSTEXPR auto data_type = DataTypeName; }
 
     EASY_DATATYPE_CONVERSION(DataType::Bool  , bool    );
     EASY_DATATYPE_CONVERSION(DataType::Char  , char    );
@@ -94,8 +94,8 @@ namespace profiler
 
 # undef EASY_DATATYPE_CONVERSION
 
-    template <> struct StdType<DataType::String> { using value_type = char; };
-    template <> struct StdToDataType<const char*> { EASY_STATIC_CONSTEXPR auto data_type = DataType::String; };
+    template <> struct StdType<DataType::String> EASY_FINAL { using value_type = char; };
+    template <> struct StdToDataType<const char*> EASY_FINAL { EASY_STATIC_CONSTEXPR auto data_type = DataType::String; };
 
 } // end of namespace profiler.
 

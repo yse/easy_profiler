@@ -86,6 +86,7 @@ namespace profiler_gui {
         void hexThreadIdChanged();
         void refreshRequired();
         void blocksTreeModeChanged();
+        void sceneSizeChanged();
 
     }; // END of class EasyGlobalSignals.
 

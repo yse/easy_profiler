@@ -201,6 +201,8 @@ Use this for C-strings of known length (compile-time or run-time).
 namespace profiler
 {
 
+    EASY_CONSTEXPR uint16_t MaxArbitraryValuesArraySize = 65535;
+
     extern "C" PROFILER_API void storeValue(const BaseBlockDescriptor* _desc, DataType _type, const void* _data,
                                             size_t _size, bool _isArray, ValueId _vin);
 
@@ -219,7 +221,7 @@ namespace profiler
     }
 
     template <class T>
-    inline void setValue(const BaseBlockDescriptor* _desc, const T* _valueArray, ValueId _vin, size_t _arraySize)
+    inline void setValue(const BaseBlockDescriptor* _desc, const T* _valueArray, ValueId _vin, uint16_t _arraySize)
     {
         static_assert(StdToDataType<T>::data_type != DataType::TypesCount,
                       "You should use standard builtin scalar types as profiler::Value type!");
@@ -233,10 +235,12 @@ namespace profiler
         static_assert(StdToDataType<T>::data_type != DataType::TypesCount,
                       "You should use standard builtin scalar types as profiler::Value type!");
 
+        static_assert(N <= MaxArbitraryValuesArraySize, "Maximum arbitrary values array size is 65535.");
+
         storeValue(_desc, StdToDataType<T>::data_type, _value, sizeof(_value), true, _vin);
     }
 
-    inline void setText(const BaseBlockDescriptor* _desc, const char* _text, ValueId _vin, size_t _textLength)
+    inline void setText(const BaseBlockDescriptor* _desc, const char* _text, ValueId _vin, uint16_t _textLength)
     {
         storeValue(_desc, DataType::String, _text, _textLength, true, _vin);
     }
@@ -254,6 +258,7 @@ namespace profiler
     template <size_t N>
     inline void setText(const BaseBlockDescriptor* _desc, const char (&_text)[N], ValueId _vin)
     {
+        static_assert(N <= MaxArbitraryValuesArraySize, "Maximum arbitrary values array size is 65535.");
         storeValue(_desc, DataType::String, &_text[0], N, true, _vin);
     }
 
@@ -278,12 +283,12 @@ namespace profiler
     inline void setValue(const BaseBlockDescriptor*, T, ValueId) {}
 
     template <class T>
-    inline void setValue(const BaseBlockDescriptor*, const T*, ValueId, size_t) {}
+    inline void setValue(const BaseBlockDescriptor*, const T*, ValueId, uint16_t) {}
 
     template <class T, size_t N>
     inline void setValue(const BaseBlockDescriptor*, const T (&)[N], ValueId) {}
 
-    inline void setText(const BaseBlockDescriptor*, const char*, ValueId, size_t) {}
+    inline void setText(const BaseBlockDescriptor*, const char*, ValueId, uint16_t) {}
 
     inline void setText(const BaseBlockDescriptor*, const char*, ValueId) {}
 

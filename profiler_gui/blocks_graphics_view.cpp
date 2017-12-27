@@ -109,20 +109,7 @@ EASY_CONSTEXPR qreal FLICKER_FACTOR = 16.0 / FLICKER_INTERVAL;
 #undef min
 #endif
 
-//////////////////////////////////////////////////////////////////////////
-
-inline int sign(int _value) { return _value < 0 ? -1 : 1; }
-inline int absmin(int _a, int _b) { return abs(_a) < abs(_b) ? _a : _b; }
-inline qreal clamp(qreal _minValue, qreal _value, qreal _maxValue) { return _value < _minValue ? _minValue : (_value > _maxValue ? _maxValue : _value); }
-
-//////////////////////////////////////////////////////////////////////////
-
-template <int N, class T>
-inline T logn(T _value)
-{
-    static const double div = 1.0 / log2((double)N);
-    return log2(_value) * div;
-}
+using estd::clamp;
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -529,6 +516,10 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     m_sceneWidth = time2position(finish);
     setSceneRect(0, 0, m_sceneWidth, y + TIMELINE_ROW_SIZE);
 
+    EASY_GLOBALS.scene_left  = 0;
+    EASY_GLOBALS.scene_right = m_sceneWidth;
+    emit EASY_GLOBALS.events.sceneSizeChanged();
+
     // Center view on the beginning of the scene
     updateVisibleSceneRect();
     setScrollbar(m_pScrollbar);
@@ -724,7 +715,7 @@ int EasyGraphicsView::updateVisibleSceneRect()
 
     auto vbar = verticalScrollBar();
     int vbar_width = 0;
-    if (vbar && vbar->isVisible())
+    if (vbar != nullptr && vbar->isVisible())
         vbar_width = vbar->width() + 2;
 
     m_visibleSceneRect.setWidth(m_visibleSceneRect.width() - vbar_width);
@@ -1447,6 +1438,9 @@ void EasyGraphicsView::onFlickerTimeout()
     else
     {
         // Flick when mouse button is not pressed
+
+        using estd::sign;
+        using estd::absmin;
 
         auto vbar = verticalScrollBar();
 

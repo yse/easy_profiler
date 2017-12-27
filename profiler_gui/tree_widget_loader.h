@@ -61,9 +61,7 @@
 #include <vector>
 #include <thread>
 #include <atomic>
-
 #include <easy/reader.h>
-
 #include "common_types.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -71,14 +69,14 @@
 class EasyTreeWidgetItem;
 
 #ifndef EASY_TREE_WIDGET__USE_VECTOR
-typedef ::std::unordered_map<::profiler::block_index_t, EasyTreeWidgetItem*, ::profiler::passthrough_hash<::profiler::block_index_t> > Items;
+using Items = ::std::unordered_map<::profiler::block_index_t, EasyTreeWidgetItem*, ::estd::hash<::profiler::block_index_t> >;
 #else
-typedef ::std::vector<EasyTreeWidgetItem*> Items;
+using Items = ::std::vector<EasyTreeWidgetItem*>;
 #endif
 
-typedef ::std::vector<::std::pair<::profiler::thread_id_t, EasyTreeWidgetItem*> > ThreadedItems;
-typedef ::std::unordered_map<::profiler::thread_id_t, EasyTreeWidgetItem*, ::profiler::passthrough_hash<::profiler::thread_id_t> > RootsMap;
-typedef ::std::unordered_map<::profiler::block_id_t, EasyTreeWidgetItem*, ::profiler::passthrough_hash<::profiler::block_index_t> > IdItems;
+using ThreadedItems = ::std::vector<::std::pair<::profiler::thread_id_t, EasyTreeWidgetItem*> >;
+using RootsMap = ::std::unordered_map<::profiler::thread_id_t, EasyTreeWidgetItem*, ::estd::hash<::profiler::thread_id_t> >;
+using IdItems = ::std::unordered_map<::profiler::block_id_t, EasyTreeWidgetItem*, ::estd::hash<::profiler::block_index_t> >;
 
 //////////////////////////////////////////////////////////////////////////
 
