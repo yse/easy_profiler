@@ -162,8 +162,8 @@ void modellingThread(){
     //std::unique_lock<std::mutex> lk(cv_m);
     //cv.wait(lk, []{return g_i == 1; });
     EASY_THREAD("Modelling");
-#ifdef SAMPLE_NETWORK_TEST
     uint64_t step = 0;
+#ifdef SAMPLE_NETWORK_TEST
     while (true) {
 #else
     for (int i = 0; i < MODELLING_STEPS; i++){
