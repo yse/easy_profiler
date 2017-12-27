@@ -13,32 +13,6 @@ namespace estd {
 //////////////////////////////////////////////////////////////////////////
 
     namespace detail {
-        template <class T, bool isMovable, bool isBig> struct swapper EASY_FINAL {
-            inline void swap(T& a, T& b) const {
-                T c = a;
-                a = b;
-                b = c;
-            } };
-
-        template <class T> struct swapper<T, true, true> EASY_FINAL {
-            inline void swap(T& a, T& b) const {
-                T c = ::std::move(a);
-                a = ::std::move(b);
-                b = ::std::move(c);
-            } };
-    }
-
-    template <class T>
-    inline void swap(T& a, T& b)
-    {
-        using Swp = ::estd::detail::swapper<T, ::std::is_move_constructible<T>::value && ::std::is_move_assignable<T>::value, (sizeof(T) > 8)>;
-        const Swp S;
-        S.swap(a, b);
-    }
-
-//////////////////////////////////////////////////////////////////////////
-
-    namespace detail {
         template <class T, bool BiggerThanPtr> struct hasher {
             using type = const T&;
             EASY_FORCE_INLINE size_t operator () (type value) const { return ::std::hash<T> {}(value); } };
