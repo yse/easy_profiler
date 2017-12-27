@@ -231,9 +231,11 @@ int main(int argc, char* argv[])
     EASY_MAIN_THREAD;
     profiler::startListen();
 
+#ifdef EASY_CONSTEXPR_AVAILABLE
     constexpr int grrr[] {2, -3, 4};
     auto pppp = &grrr;
     EASY_ARRAY("threads count", grrr, 3, false, true, "blabla", profiler::colors::Blue/*, EASY_VIN("threads count")*/, profiler::OFF);
+#endif
 
     int* intPtr = new int(2);
     EASY_VALUE("count", *intPtr);
