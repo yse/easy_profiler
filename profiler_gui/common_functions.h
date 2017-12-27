@@ -97,7 +97,7 @@ EASY_FORCE_INLINE EASY_CONSTEXPR_FCN typename ::std::underlying_type<TEnum>::typ
     return static_cast<typename ::std::underlying_type<TEnum>::type>(_enumValue);
 }
 #else
-# define int_cast(_enumValue) static_cast<typename ::std::underlying_type<decltype(_enumValue)>::type>(_enumValue)
+# define int_cast(_enumValue) static_cast<::std::underlying_type<decltype(_enumValue)>::type>(_enumValue)
 #endif
 
 //////////////////////////////////////////////////////////////////////////
