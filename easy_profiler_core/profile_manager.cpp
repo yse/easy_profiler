@@ -1310,7 +1310,7 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
 
     // wait for all threads finish opened frames
     EASY_LOG_ONLY(bool logged = false);
-    for (auto it = m_threads.begin(), end = m_threads.end(); it != end;)
+    for (auto thread_it = m_threads.begin(), end = m_threads.end(); thread_it != end;)
     {
         if (_async && m_stopDumping.load(std::memory_order_acquire))
         {
@@ -1319,9 +1319,9 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
             return 0;
         }
 
-        if (!it->second.profiledFrameOpened.load(std::memory_order_acquire))
+        if (!thread_it->second.profiledFrameOpened.load(std::memory_order_acquire))
         {
-            ++it;
+            ++thread_it;
             EASY_LOG_ONLY(logged = false);
         }
         else
@@ -1330,10 +1330,10 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
                 if (!logged)
                 {
                     logged = true;
-                    if (it->second.named)
-                        EASY_WARNING("Waiting for thread \"" << it->second.name << "\" finish opened frame (which is top EASY_BLOCK for this thread)...\n");
+                    if (thread_it->second.named)
+                        EASY_WARNING("Waiting for thread \"" << thread_it->second.name << "\" finish opened frame (which is top EASY_BLOCK for this thread)...\n");
                     else
-                        EASY_WARNING("Waiting for thread " << it->first << " finish opened frame (which is top EASY_BLOCK for this thread)...\n");
+                        EASY_WARNING("Waiting for thread " << thread_it->first << " finish opened frame (which is top EASY_BLOCK for this thread)...\n");
                 }
             );
 
@@ -1409,7 +1409,7 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
     // Calculate used memory total size and total blocks number
     uint64_t usedMemorySize = 0;
     uint32_t blocks_number = 0;
-    for (auto it = m_threads.begin(), end = m_threads.end(); it != end;)
+    for (auto thread_it = m_threads.begin(), end = m_threads.end(); thread_it != end;)
     {
         if (_async && m_stopDumping.load(std::memory_order_acquire))
         {
@@ -1420,15 +1420,15 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
             return 0;
         }
 
-        auto& t = it->second;
-        uint32_t num = static_cast<uint32_t>(t.blocks.closedList.size()) + static_cast<uint32_t>(t.sync.closedList.size());
-        const char expired = ProfileManager::checkThreadExpired(t);
+        auto& thread = thread_it->second;
+        uint32_t num = static_cast<uint32_t>(thread.blocks.closedList.size()) + static_cast<uint32_t>(thread.sync.closedList.size());
+        const char expired = ProfileManager::checkThreadExpired(thread);
 
 #ifdef _WIN32
         if (num == 0 && expired != 0)
 #elif defined(EASY_CXX11_TLS_AVAILABLE)
         // Removing !guarded thread when thread_local feature is supported is safe.
-        if (num == 0 && (expired != 0 || !t.guarded))
+        if (num == 0 && (expired != 0 || !thread.guarded))
 #elif EASY_OPTION_REMOVE_EMPTY_UNGUARDED_THREADS != 0
 # pragma message "Warning: Removing !guarded thread without thread_local support may cause an application crash, but fixes potential memory leak when using pthreads."
         // Removing !guarded thread may cause an application crash if a thread would start to write blocks after ThreadStorage remove.
@@ -1440,22 +1440,22 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
 #endif
         {
             // Remove thread if it contains no profiled information and has been finished (or is not guarded --deprecated).
-            profiler::thread_id_t id = it->first;
+            profiler::thread_id_t id = thread_it->first;
             if (!mainThreadExpired && m_mainThreadId.compare_exchange_weak(id, 0, std::memory_order_release, std::memory_order_acquire))
                 mainThreadExpired = true;
-            m_threads.erase(it++);
+            m_threads.erase(thread_it++);
             continue;
         }
 
         if (expired == 1)
         {
-            EASY_FORCE_EVENT3(t, endtime, "ThreadExpired", EASY_COLOR_THREAD_END);
+            EASY_FORCE_EVENT3(thread, endtime, "ThreadExpired", EASY_COLOR_THREAD_END);
             ++num;
         }
 
-        usedMemorySize += t.blocks.usedMemorySize + t.sync.usedMemorySize;
+        usedMemorySize += thread.blocks.usedMemorySize + thread.sync.usedMemorySize;
         blocks_number += num;
-        ++it;
+        ++thread_it;
     }
 
     // Write profiler signature and version
@@ -1500,7 +1500,7 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
     }
 
     // Write blocks and context switch events for each thread
-    for (auto it = m_threads.begin(), end = m_threads.end(); it != end;)
+    for (auto thread_it = m_threads.begin(), end = m_threads.end(); thread_it != end;)
     {
         if (_async && m_stopDumping.load(std::memory_order_acquire))
         {
@@ -1511,37 +1511,37 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
             return 0;
         }
 
-        auto& t = it->second;
+        auto& thread = thread_it->second;
 
-        _outputStream.write(it->first);
+        _outputStream.write(thread_it->first);
 
-        const auto name_size = static_cast<uint16_t>(t.name.size() + 1);
+        const auto name_size = static_cast<uint16_t>(thread.name.size() + 1);
         _outputStream.write(name_size);
-        _outputStream.write(name_size > 1 ? t.name.c_str() : "", name_size);
+        _outputStream.write(name_size > 1 ? thread.name.c_str() : "", name_size);
 
-        _outputStream.write(t.sync.closedList.size());
-        if (!t.sync.closedList.empty())
-            t.sync.closedList.serialize(_outputStream);
+        _outputStream.write(thread.sync.closedList.size());
+        if (!thread.sync.closedList.empty())
+            thread.sync.closedList.serialize(_outputStream);
 
-        _outputStream.write(t.blocks.closedList.size());
-        if (!t.blocks.closedList.empty())
-            t.blocks.closedList.serialize(_outputStream);
+        _outputStream.write(thread.blocks.closedList.size());
+        if (!thread.blocks.closedList.empty())
+            thread.blocks.closedList.serialize(_outputStream);
 
-        t.clearClosed();
+        thread.clearClosed();
         //t.blocks.openedList.clear();
-        t.sync.openedList.clear();
+        thread.sync.openedList.clear();
 
-        if (t.expired.load(std::memory_order_acquire) != 0)
+        if (thread.expired.load(std::memory_order_acquire) != 0)
         {
             // Remove expired thread after writing all profiled information
-            profiler::thread_id_t id = it->first;
+            profiler::thread_id_t id = thread_it->first;
             if (!mainThreadExpired && m_mainThreadId.compare_exchange_weak(id, 0, std::memory_order_release, std::memory_order_acquire))
                 mainThreadExpired = true;
-            m_threads.erase(it++);
+            m_threads.erase(thread_it++);
         }
         else
         {
-            ++it;
+            ++thread_it;
         }
     }
 
