@@ -104,7 +104,7 @@ class ProfileManager
     profiler::spin_lock                  m_storedSpin;
     profiler::spin_lock                    m_dumpSpin;
     std::atomic<profiler::thread_id_t> m_mainThreadId;
-    std::atomic<char>                m_profilerStatus;
+    std::atomic_bool                 m_profilerStatus;
     std::atomic_bool          m_isEventTracingEnabled;
     std::atomic_bool             m_isAlreadyListening;
     std::atomic_bool                  m_frameMaxReset;

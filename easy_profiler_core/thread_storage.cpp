@@ -53,7 +53,7 @@ ThreadStorage::ThreadStorage()
     , named(false)
     , guarded(false)
     , frameOpened(false)
-    , halt(false)
+    //, halt(false)
 {
     expired = ATOMIC_VAR_INIT(0);
     profiledFrameOpened = ATOMIC_VAR_INIT(false);
@@ -69,7 +69,7 @@ void ThreadStorage::storeValue(profiler::timestamp_t _timestamp, profiler::block
     char* cdata = reinterpret_cast<char*>(data);
     memcpy(cdata + sizeof(profiler::ArbitraryValue), _data, _size);
 
-    blocks.usedMemorySize += serializedDataSize;
+    blocks.frameMemorySize += serializedDataSize;
 }
 
 void ThreadStorage::storeBlock(const profiler::Block& block)
@@ -98,7 +98,7 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
 #endif
 
     ::new (data) profiler::SerializedBlock(block, nameLength);
-    blocks.usedMemorySize += serializedDataSize;
+    blocks.frameMemorySize += serializedDataSize;
 
 #if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
     if (expanded)
@@ -109,7 +109,7 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
         serializedDataSize = static_cast<uint16_t>(sizeof(profiler::BaseBlockData) + 1);
         data = blocks.closedList.allocate(serializedDataSize);
         ::new (data) profiler::SerializedBlock(b, 0);
-        blocks.usedMemorySize += serializedDataSize;
+        blocks.frameMemorySize += serializedDataSize;
     }
 #endif
 }
@@ -154,4 +154,17 @@ profiler::timestamp_t ThreadStorage::endFrame()
 {
     frameOpened = false;
     return getCurrentTime() - frameStartTime;
+}
+
+void ThreadStorage::markProfilingFrameStarted()
+{
+    profiledFrameOpened.store(true, std::memory_order_release);
+}
+
+void ThreadStorage::markProfilingFrameEnded()
+{
+    profiledFrameOpened.store(false, std::memory_order_release);
+    blocks.closedList.put_mark();
+    blocks.usedMemorySize += blocks.frameMemorySize;
+    blocks.frameMemorySize = 0;
 }
