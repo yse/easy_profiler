@@ -133,19 +133,21 @@ set(H_FILES
     stack_buffer.h
 )
 
+set(EASY_INCLUDE_DIR "include/easy")
+
 set(INCLUDE_FILES
-    include/easy/arbitrary_value.h
-    include/easy/easy_net.h
-    include/easy/easy_socket.h
-    include/easy/profiler.h
-    include/easy/reader.h
-    include/easy/serialized_block.h
-    include/easy/details/arbitrary_value_aux.h
-    include/easy/details/arbitrary_value_public_types.h
-    include/easy/details/easy_compiler_support.h
-    include/easy/details/profiler_aux.h
-    include/easy/details/profiler_colors.h
-    include/easy/details/profiler_public_types.h
+    ${EASY_INCLUDE_DIR}/arbitrary_value.h
+    ${EASY_INCLUDE_DIR}/easy_net.h
+    ${EASY_INCLUDE_DIR}/easy_socket.h
+    ${EASY_INCLUDE_DIR}/profiler.h
+    ${EASY_INCLUDE_DIR}/reader.h
+    ${EASY_INCLUDE_DIR}/serialized_block.h
+    ${EASY_INCLUDE_DIR}/details/arbitrary_value_aux.h
+    ${EASY_INCLUDE_DIR}/details/arbitrary_value_public_types.h
+    ${EASY_INCLUDE_DIR}/details/easy_compiler_support.h
+    ${EASY_INCLUDE_DIR}/details/profiler_aux.h
+    ${EASY_INCLUDE_DIR}/details/profiler_colors.h
+    ${EASY_INCLUDE_DIR}/details/profiler_public_types.h
 )
 
 source_group(include FILES ${INCLUDE_FILES})
@@ -277,10 +279,10 @@ install(
 )
 
 install(
-    FILES
-    ${INCLUDE_FILES}
+    DIRECTORY
+    ${EASY_INCLUDE_DIR}
     DESTINATION
-    include/easy
+    include/
 )
 
 install(
