@@ -150,18 +150,9 @@ namespace profiler {
 
         class ProcessInfo {
         public:
-            void set_id(processid_t process_id);
+            bool initialized() const;
+            void init(processid_t process_id);
             void set_name(PTCHAR process_name);
-
-            bool is_initialized() const
-            {
-                return initialized;
-            }
-
-            void set_initialized()
-            {
-                initialized = true;
-            }
 
             const char* info_cstr() const
             {
@@ -169,13 +160,17 @@ namespace profiler {
             }
 
         private:
-            bool initialized = false;
             std::string name;
         };
 
-        void ProcessInfo::set_id(processid_t process_id)
+        bool ProcessInfo::initialized() const
         {
-            if (!name.empty())
+            return !name.empty();
+        }
+
+        void ProcessInfo::init(processid_t process_id)
+        {
+            if (initialized())
                 return;
 
             std::stringstream ss;
@@ -263,9 +258,9 @@ namespace profiler {
                 pid = GetProcessIdOfThread(hThread);
                 auto pinfo = &PROCESS_INFO_TABLE[pid];
 
-                if (!pinfo->is_initialized())
+                if (!pinfo->initialized())
                 {
-                    pinfo->set_id(pid);
+                    pinfo->init(pid);
 
                     /*
                     According to documentation, using GetModuleBaseName() requires
@@ -284,10 +279,7 @@ namespace profiler {
                         auto len = GetModuleBaseName(hProc, 0, buf, MAX_PATH);
 
                         if (len != 0)
-                        {
                             pinfo->set_name(buf);
-                            pinfo->set_initialized();
-                        }
 
                         CloseHandle(hProc);
                     }
@@ -298,8 +290,6 @@ namespace profiler {
 
                         if (pid == 4)
                             pinfo->set_name(TEXT("System"));
-
-                        pinfo->set_initialized();
                     }
                 }
 
