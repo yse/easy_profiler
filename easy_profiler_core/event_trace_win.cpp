@@ -59,10 +59,6 @@
 #ifdef _WIN32
 #include <memory.h>
 #include <chrono>
-#if UNICODE
-#   include <codecvt>
-#   include <sstream>
-#endif
 #include <unordered_map>
 #include <easy/profiler.h>
 #include "profile_manager.h"
@@ -144,53 +140,13 @@ namespace profiler {
     const decltype(EVENT_DESCRIPTOR::Opcode) SWITCH_CONTEXT_OPCODE = 36;
     const int RAW_TIMESTAMP_TIME_TYPE = 1;
 
-    namespace {
+    //////////////////////////////////////////////////////////////////////////
 
-        //////////////////////////////////////////////////////////////////////////
-
-        class ProcessInfo {
-        public:
-            bool initialized() const;
-            void init(processid_t process_id);
-            void set_name(PTCHAR process_name);
-
-            const char* info_cstr() const
-            {
-                return name.c_str();
-            }
-
-        private:
-            std::string name;
-        };
-
-        bool ProcessInfo::initialized() const
-        {
-            return !name.empty();
-        }
-
-        void ProcessInfo::init(processid_t process_id)
-        {
-            if (initialized())
-                return;
-
-            std::stringstream ss;
-            ss << process_id;
-            name = ss.str();
-        }
-
-        void ProcessInfo::set_name(PTCHAR process_name)
-        {
-            name += " ";
-#if UNICODE
-            using ConvertType = std::codecvt_utf8<wchar_t>;
-            std::wstring_convert<ConvertType, wchar_t> converter;
-            name += converter.to_bytes(process_name);
-#else
-            name.append(process_name);
-#endif
-        }
-
-    }  // END of namespace unnamed.
+    struct ProcessInfo {
+        std::string      name;
+        processid_t    id = 0;
+        int8_t      valid = 0;
+    };
 
     //////////////////////////////////////////////////////////////////////////
 
@@ -258,9 +214,15 @@ namespace profiler {
                 pid = GetProcessIdOfThread(hThread);
                 auto pinfo = &PROCESS_INFO_TABLE[pid];
 
-                if (!pinfo->initialized())
+                if (pinfo->valid == 0)
                 {
-                    pinfo->init(pid);
+                    if (pinfo->name.empty())
+                    {
+                        static char numbuf[128] = {};
+                        sprintf(numbuf, "%u", pid);
+                        pinfo->name = numbuf;
+                        pinfo->id = pid;
+                    }
 
                     /*
                     According to documentation, using GetModuleBaseName() requires
@@ -279,7 +241,17 @@ namespace profiler {
                         auto len = GetModuleBaseName(hProc, 0, buf, MAX_PATH);
 
                         if (len != 0)
-                            pinfo->set_name(buf);
+                        {
+                            pinfo->name.reserve(pinfo->name.size() + 2 + len);
+                            pinfo->name.append(" ", 1);
+#if UNICODE
+                            std::wstring wbuf(buf);
+                            pinfo->name.append(std::string(wbuf.begin(), wbuf.end()), len);
+#else
+                            pinfo->name.append(buf, len);
+#endif
+                            pinfo->valid = 1;
+                        }
 
                         CloseHandle(hProc);
                     }
@@ -287,13 +259,16 @@ namespace profiler {
                     {
                         //auto err = GetLastError();
                         //printf("OpenProcess(%u) fail: GetLastError() == %u\n", pid, err);
+                        pinfo->valid = -1;
 
-                        if (pid == 4)
-                            pinfo->set_name(TEXT("System"));
+                        if (pid == 4) {
+                            pinfo->name.reserve(pinfo->name.size() + 8);
+                            pinfo->name.append(" System", 7);
+                        }
                     }
                 }
 
-                process_name = pinfo->info_cstr();
+                process_name = pinfo->name.c_str();
                 THREAD_PROCESS_INFO_TABLE[_contextSwitchEvent->NewThreadId] = pinfo;
 
                 CloseHandle(hThread);
@@ -308,7 +283,7 @@ namespace profiler {
         {
             auto pinfo = it->second;
             if (pinfo != nullptr)
-                process_name = pinfo->info_cstr();
+                process_name = pinfo->name.c_str();
             else if (it->first == 0)
                 process_name = "System Idle";
             else if (it->first == 4)
@@ -319,16 +294,16 @@ namespace profiler {
         MANAGER.endContextSwitch(_contextSwitchEvent->NewThreadId, pid, time);
     }
 
-    //////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////
 
-    EasyEventTracer::Properties::Properties()
-    {
+	EasyEventTracer::Properties::Properties()
+	{
 #if UNICODE
-        std::wcstombs(sessionName, KERNEL_LOGGER_NAME, sizeof(sessionName));
+		std::wcstombs(sessionName, KERNEL_LOGGER_NAME, sizeof(sessionName));
 #else
-        strncpy(sessionName, KERNEL_LOGGER_NAME, sizeof(sessionName));
+		strncpy(sessionName, KERNEL_LOGGER_NAME, sizeof(prp.sessionName));
 #endif
-    }
+	}
 
     //////////////////////////////////////////////////////////////////////////
 
