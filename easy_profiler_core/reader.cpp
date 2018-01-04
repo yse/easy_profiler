@@ -217,7 +217,7 @@ typedef ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::BlockStat
 automatically receive statistics update.
 
 */
-::profiler::BlockStatistics* update_statistics(StatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, const ::profiler::blocks_t& _blocks, bool _calculate_children = true)
+static ::profiler::BlockStatistics* update_statistics(StatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, const ::profiler::blocks_t& _blocks, bool _calculate_children = true)
 {
     auto duration = _current.node->duration();
     //StatsMap::key_type key(_current.node->name());
@@ -272,7 +272,7 @@ automatically receive statistics update.
     return stats;
 }
 
-::profiler::BlockStatistics* update_statistics(CsStatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, const ::profiler::blocks_t& _blocks, bool _calculate_children = true)
+static ::profiler::BlockStatistics* update_statistics(CsStatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, const ::profiler::blocks_t& _blocks, bool _calculate_children = true)
 {
     auto duration = _current.node->duration();
     CsStatsMap::key_type key(_current.node->name());
@@ -327,7 +327,7 @@ automatically receive statistics update.
 
 //////////////////////////////////////////////////////////////////////////
 
-void update_statistics_recursive(StatsMap& _stats_map, ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, ::profiler::blocks_t& _blocks)
+static void update_statistics_recursive(StatsMap& _stats_map, ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, ::profiler::blocks_t& _blocks)
 {
     _current.per_frame_stats = update_statistics(_stats_map, _current, _current_index, _parent_index, _blocks, false);
     for (auto i : _current.children)
