@@ -775,6 +775,7 @@ const BaseBlockDescriptor* ProfileManager::addBlockDescriptor(EasyBlockStatus _d
     }
 #else
     auto desc = new BlockDescriptor(static_cast<block_id_t>(m_descriptors.size()), _defaultStatus, _name, _filename, _line, _block_type, _color);
+    (void)_copyName; // unused
 #endif
 
     m_descriptors.emplace_back(desc);

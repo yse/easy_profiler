@@ -81,6 +81,8 @@ namespace profiler {
 
 #pragma pack(push, 1)
         struct Properties {
+            Properties();
+
             EVENT_TRACE_PROPERTIES base;
             char sessionName[sizeof(KERNEL_LOGGER_NAME)];
         };

@@ -218,7 +218,7 @@ using CsStatsMap = ::std::unordered_map<::profiler::hashed_stdstring, ::profiler
 automatically receive statistics update.
 
 */
-::profiler::BlockStatistics* update_statistics(StatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, const ::profiler::blocks_t& _blocks, bool _calculate_children = true)
+static ::profiler::BlockStatistics* update_statistics(StatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, const ::profiler::blocks_t& _blocks, bool _calculate_children = true)
 {
     auto duration = _current.node->duration();
     //StatsMap::key_type key(_current.node->name());
@@ -273,7 +273,7 @@ automatically receive statistics update.
     return stats;
 }
 
-::profiler::BlockStatistics* update_statistics(CsStatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, const ::profiler::blocks_t& _blocks, bool _calculate_children = true)
+static ::profiler::BlockStatistics* update_statistics(CsStatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, const ::profiler::blocks_t& _blocks, bool _calculate_children = true)
 {
     auto duration = _current.node->duration();
     CsStatsMap::key_type key(_current.node->name());
@@ -328,7 +328,7 @@ automatically receive statistics update.
 
 //////////////////////////////////////////////////////////////////////////
 
-void update_statistics_recursive(StatsMap& _stats_map, ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, ::profiler::blocks_t& _blocks)
+static void update_statistics_recursive(StatsMap& _stats_map, ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, ::profiler::blocks_t& _blocks)
 {
     _current.per_frame_stats = update_statistics(_stats_map, _current, _current_index, _parent_index, _blocks, false);
     for (auto i : _current.children)
@@ -375,6 +375,20 @@ void validate_pointers(::std::atomic<int>& _progress, const char* _oldbase, ::pr
 
 //////////////////////////////////////////////////////////////////////////
 
+static bool update_progress(::std::atomic<int>& progress, int new_value, ::std::stringstream& _log)
+{
+    auto oldprogress = progress.exchange(new_value, ::std::memory_order_release);
+    if (oldprogress < 0)
+    {
+        _log << "Reading was interrupted";
+        return false;
+    }
+
+    return true;
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 extern "C" {
 
     PROFILER_API ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progress, const char* filename,
@@ -388,10 +402,8 @@ extern "C" {
                                                              bool gather_statistics,
                                                              ::std::stringstream& _log)
     {
-        auto oldprogress = progress.exchange(0, ::std::memory_order_release);
-        if (oldprogress < 0)
+        if (!update_progress(progress, 0, _log))
         {
-            _log << "Reading was interrupted";
             return 0;
         }
 
@@ -434,10 +446,8 @@ extern "C" {
     {
         EASY_FUNCTION(::profiler::colors::Cyan);
 
-        auto oldprogress = progress.exchange(0, ::std::memory_order_release);
-        if (oldprogress < 0)
+        if (!update_progress(progress, 0, _log))
         {
-            _log << "Reading was interrupted";
             return 0;
         }
 
@@ -546,11 +556,9 @@ extern "C" {
             descriptors.push_back(descriptor);
 
             i += sz;
-            oldprogress = progress.exchange(static_cast<int>(15 * i / descriptors_memory_size), ::std::memory_order_release);
-            if (oldprogress < 0)
+            if (!update_progress(progress, static_cast<int>(15 * i / descriptors_memory_size), _log))
             {
-                _log << "Reading was interrupted";
-                return 0; // Loading interrupted
+                return 0;
             }
         }
 
@@ -642,10 +650,8 @@ extern "C" {
                     }
                 }
 
-                oldprogress = progress.exchange(20 + static_cast<int>(70 * i / memory_size), ::std::memory_order_release);
-                if (oldprogress < 0)
+                if (!update_progress(progress, 20 + static_cast<int>(70 * i / memory_size), _log))
                 {
-                    _log << "Reading was interrupted";
                     return 0; // Loading interrupted
                 }
             }
@@ -760,19 +766,19 @@ extern "C" {
                                 //per_parent_statistics.reserve(tree.children.size() * 2); // this gives no speed-up on Windows
                                 // TODO: check this behavior on Linux
 
-                                for (auto i : tree.children)
+                                for (auto child_block_index : tree.children)
                                 {
-                                    auto& child = blocks[i];
-                                    child.per_parent_stats = update_statistics(per_parent_statistics, child, i, block_index, blocks);
+                                    auto& child = blocks[child_block_index];
+                                    child.per_parent_stats = update_statistics(per_parent_statistics, child, child_block_index, block_index, blocks);
                                     if (tree.depth < child.depth)
                                         tree.depth = child.depth;
                                 }
                             }
                             else
                             {
-                                for (auto i : tree.children)
+                                for (auto child_block_index : tree.children)
                                 {
-                                    const auto& child = blocks[i];
+                                    const auto& child = blocks[child_block_index];
                                     if (tree.depth < child.depth)
                                         tree.depth = child.depth;
                                 }
@@ -808,19 +814,15 @@ extern "C" {
                     }
                 }
 
-                oldprogress = progress.exchange(20 + static_cast<int>(70 * i / memory_size), ::std::memory_order_release);
-                if (oldprogress < 0)
+                if (!update_progress(progress, 20 + static_cast<int>(70 * i / memory_size), _log))
                 {
-                    _log << "Reading was interrupted";
                     return 0; // Loading interrupted
                 }
             }
         }
 
-        oldprogress = progress.exchange(90, ::std::memory_order_release);
-        if (oldprogress < 0)
+        if (!update_progress(progress, 90, _log))
         {
-            _log << "Reading was interrupted";
             return 0; // Loading interrupted
         }
 
@@ -907,9 +909,9 @@ extern "C" {
                 //});
 
                 //root.tree.shrink_to_fit();
-                for (auto i : root.children)
+                for (auto child_block_index : root.children)
                 {
-                    auto& frame = blocks[i];
+                    auto& frame = blocks[child_block_index];
 
                     if (descriptors[frame.node->id()]->type() == ::profiler::BlockType::Block)
                         ++root.frames_number;
@@ -1001,10 +1003,8 @@ extern "C" {
             descriptors.push_back(descriptor);
 
             i += sz;
-            auto oldprogress = progress.exchange(static_cast<int>(100 * i / descriptors_memory_size), ::std::memory_order_release);
-            if (oldprogress < 0)
+            if (!update_progress(progress, static_cast<int>(100 * i / descriptors_memory_size), _log))
             {
-                _log << "Reading was interrupted";
                 return false; // Loading interrupted
             }
         }
