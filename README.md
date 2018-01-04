@@ -135,7 +135,7 @@ void bar() {
 ```
 ## Collect blocks
 
-There are two ways to cature blocks
+There are two ways to capture blocks
 
 ### Collect via network
 
