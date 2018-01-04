@@ -135,6 +135,32 @@ char KERNEL_LOGGER[] = KERNEL_LOGGER_NAME;
 ::std::atomic_uint64_t TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
 #endif
 
+namespace {
+    /**
+     * Retrieve the process name of the given process.
+     *
+     * This method is NOT thread-safe: the returned string has to be copied somewhere before this
+     * method can be used by another thread or call.
+     *
+     * getProcessName() owns the returned string.
+     *
+     * \return a pair of the process name string and the string length.
+     */
+    std::pair<const char*, std::size_t> getProcessName(HANDLE hProcess)
+    {
+        static TCHAR buf[MAX_PATH] = {};
+        std::size_t len = static_cast<std::size_t>(GetModuleBaseName(hProcess, 0, buf, MAX_PATH));
+
+#if UNICODE
+        static char charbuf[MAX_PATH] = {};
+        std::size_t charbufLength = std::wcstombs(charbuf, buf, len);
+        return std::make_pair(charbuf, charbufLength);
+#else
+        return std::make_pair(buf, len);
+#endif
+    }
+}
+
 namespace profiler {
 
     const decltype(EVENT_DESCRIPTOR::Opcode) SWITCH_CONTEXT_OPCODE = 36;
@@ -237,14 +263,13 @@ namespace profiler {
                     auto hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, pid);
                     if (hProc != nullptr)
                     {
-                        static TCHAR buf[MAX_PATH] = {}; // Using static is safe because processTraceEvent() is called from one thread
-                        auto len = GetModuleBaseName(hProc, 0, buf, MAX_PATH);
+                        const auto& processName = getProcessName(hProc); // Using thread-unsafe method is safe because processTraceEvent() is called from one thread
 
-                        if (len != 0)
+                        if (processName.second != 0)
                         {
-                            pinfo->name.reserve(pinfo->name.size() + 2 + len);
+                            pinfo->name.reserve(pinfo->name.size() + 2 + processName.second);
                             pinfo->name.append(" ", 1);
-                            pinfo->name.append(buf, len);
+                            pinfo->name.append(processName.first, processName.second);
                             pinfo->valid = 1;
                         }
 
@@ -289,6 +314,17 @@ namespace profiler {
         MANAGER.endContextSwitch(_contextSwitchEvent->NewThreadId, pid, time);
     }
 
+	//////////////////////////////////////////////////////////////////////////
+
+	EasyEventTracer::Properties::Properties()
+	{
+#if UNICODE
+		std::wcstombs(sessionName, KERNEL_LOGGER_NAME, sizeof(sessionName));
+#else
+		std::strncpy(sessionName, KERNEL_LOGGER_NAME, sizeof(sessionName));
+#endif
+	}
+
     //////////////////////////////////////////////////////////////////////////
 
 #ifndef EASY_MAGIC_STATIC_CPP11
@@ -328,7 +364,7 @@ namespace profiler {
         m_lowPriority.store(_value, ::std::memory_order_release);
     }
 
-    bool setPrivilege(HANDLE hToken, LPCSTR _privelegeName)
+    bool setPrivilege(HANDLE hToken, PTCHAR _privelegeName)
     {
         bool success = false;
 
@@ -409,7 +445,7 @@ namespace profiler {
                         */
 
                         // static is safe because we are guarded by spin-lock m_spin
-                        static Properties p = ([]{ Properties prp; strncpy(prp.sessionName, KERNEL_LOGGER_NAME, sizeof(prp.sessionName)); return prp; })();
+                        static Properties p;
                         p.base = m_properties.base; // Use copy of m_properties to make sure m_properties will not be changed
 
                         // Stop another session

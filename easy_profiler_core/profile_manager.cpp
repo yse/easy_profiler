@@ -763,6 +763,7 @@ const BaseBlockDescriptor* ProfileManager::addBlockDescriptor(EasyBlockStatus _d
     }
 #else
     auto desc = new BlockDescriptor(static_cast<block_id_t>(m_descriptors.size()), _defaultStatus, _name, _filename, _line, _block_type, _color);
+    (void)_copyName; // unused
 #endif
 
     m_descriptors.emplace_back(desc);
@@ -1178,7 +1179,7 @@ void ProfileManager::setEnabled(bool isEnable)
     guard_lock_t lock(m_dumpSpin);
 
     auto time = getCurrentTime();
-    const auto status = isEnable ? EASY_PROF_ENABLED : EASY_PROF_DISABLED;
+    const auto status = static_cast<char>(isEnable ? EASY_PROF_ENABLED : EASY_PROF_DISABLED);
     const auto prev = m_profilerStatus.exchange(status, std::memory_order_release);
     if (prev == status)
         return;

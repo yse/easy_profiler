@@ -113,8 +113,6 @@ bool EasyTreeWidgetItem::operator < (const Parent& _other) const
             return data(col, Qt::UserRole).toULongLong() < _other.data(col, Qt::UserRole).toULongLong();
         }
     }
-
-    return false;
 }
 
 ::profiler::block_index_t EasyTreeWidgetItem::block_index() const

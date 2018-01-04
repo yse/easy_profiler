@@ -51,7 +51,7 @@
 #include "profile_manager.h"
 #include "current_time.h"
 
-using namespace profiler;
+namespace profiler {
 
 #ifndef EASY_PROFILER_API_DISABLED
 Event::Event(timestamp_t _begin_time) : m_begin(_begin_time), m_end(0)
@@ -230,7 +230,9 @@ CSwitchEvent::CSwitchEvent(timestamp_t _begin_time, thread_id_t _tid)
 
 }
 
-CSwitchBlock::CSwitchBlock(timestamp_t _begin_time, thread_id_t _tid, const char* _runtimeName)
+} // END of namespace profiler.
+
+CSwitchBlock::CSwitchBlock(profiler::timestamp_t _begin_time, profiler::thread_id_t _tid, const char* _runtimeName)
     : CSwitchEvent(_begin_time, _tid)
     , m_name(_runtimeName)
 {

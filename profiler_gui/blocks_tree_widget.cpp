@@ -795,7 +795,7 @@ void EasyTreeWidget::onCollapseAllClicked(bool)
 
 void EasyTreeWidget::onExpandAllClicked(bool)
 {
-    const QSignalBlocker b(this);
+    const QSignalBlocker blocker(this);
 
     m_bSilentExpandCollapse = true;
     expandAll();

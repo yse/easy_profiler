@@ -783,14 +783,14 @@ void EasyMainWindow::loadFile(const QString& filename)
     m_reader.load(filename);
 }
 
-void EasyMainWindow::readStream(::std::stringstream& data)
+void EasyMainWindow::readStream(::std::stringstream& _data)
 {
     m_progress->setLabelText(tr("Reading from stream..."));
 
     m_progress->setValue(0);
     m_progress->show();
     m_readerTimer.start(LOADER_TIMER_INTERVAL);
-    m_reader.load(data);
+    m_reader.load(_data);
 }
 
 //////////////////////////////////////////////////////////////////////////
