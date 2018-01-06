@@ -170,6 +170,8 @@ To capture a thread context-switch event you need:
 ```
 APPLICATION_NAME - name of profiling application
 
+There is some known features on a linux based systems (for more information see [wiki](https://github.com/yse/easy_profiler/wiki/Known-bugs-and-issues))
+
 # Build
 
 ## Prerequisites
