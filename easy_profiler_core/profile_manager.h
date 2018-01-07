@@ -149,8 +149,12 @@ public:
     profiler::timestamp_t maxFrameDuration();
     profiler::timestamp_t avgFrameDuration();
     profiler::timestamp_t curFrameDuration() const;
+
     void setEnabled(bool isEnable);
-    bool isEnabled() const;
+    EASY_FORCE_INLINE bool isEnabled() const {
+        return m_profilerStatus.load(std::memory_order_acquire);
+    }
+
     void setEventTracingEnabled(bool _isEnable);
     bool isEventTracingEnabled() const;
     uint32_t dumpBlocksToFile(const char* filename);
@@ -187,7 +191,6 @@ private:
 
     void storeBlockForce(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t& _timestamp);
     void storeBlockForce2(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t _timestamp);
-    void storeBlockForce2(ThreadStorage& _registeredThread, const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t _timestamp);
 
     ThreadStorage& _threadStorage(profiler::thread_id_t _thread_id);
     ThreadStorage* _findThreadStorage(profiler::thread_id_t _thread_id);

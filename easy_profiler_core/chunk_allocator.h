@@ -312,6 +312,9 @@ class chunk_allocator
     {
         chunk* last;
 
+        chunk_list(const chunk_list&) = delete;
+        chunk_list(chunk_list&&) = delete;
+
         chunk_list() : last(nullptr)
         {
             static_assert(sizeof(char) == 1, "easy_profiler logic error: sizeof(char) != 1 for this platform! Please, contact easy_profiler authors to resolve your problem.");
@@ -358,9 +361,6 @@ class chunk_allocator
 
     private:
 
-        chunk_list(const chunk_list&) = delete;
-        chunk_list(chunk_list&&) = delete;
-
         void free_last()
         {
             auto p = last;
@@ -384,13 +384,16 @@ class chunk_allocator
     EASY_STATIC_CONSTEXPR uint16_t N_MINUS_ONE = N - 1;
 
     chunk_list          m_chunks; ///< List of chunks.
-    const chunk*   m_markedChunk; ///< Chunk marked by last closed frame
+    chunk*         m_markedChunk; ///< Chunk marked by last closed frame
     uint32_t              m_size; ///< Number of elements stored(# of times allocate() has been called.)
     uint32_t        m_markedSize; ///< Number of elements to the moment when put_mark() has been called.
     uint16_t       m_chunkOffset; ///< Number of bytes used in the current chunk.
     uint16_t m_markedChunkOffset; ///< Last byte in marked chunk for serializing.
 
 public:
+
+    chunk_allocator(const chunk_allocator&) = delete;
+    chunk_allocator(chunk_allocator&&) = delete;
 
     chunk_allocator() : m_markedChunk(nullptr), m_size(0), m_markedSize(0), m_chunkOffset(0), m_markedChunkOffset(0)
     {
@@ -527,10 +530,66 @@ public:
         m_markedChunkOffset = m_chunkOffset;
     }
 
-private:
+    void* marked_allocate(uint16_t n)
+    {
+        chunk* marked = m_markedChunk;
+        if (marked == nullptr || (marked == m_chunks.last && m_markedSize == m_size))
+        {
+            auto data = allocate(n);
+            put_mark();
+            return data;
+        }
 
-    chunk_allocator(const chunk_allocator&) = delete;
-    chunk_allocator(chunk_allocator&&) = delete;
+        ++m_markedSize;
+
+        uint16_t chunkOffset = m_markedChunkOffset;
+        if ((chunkOffset + n + sizeof(uint16_t)) <= N)
+        {
+            // Temp to avoid extra load due to this* aliasing.
+            char* data = marked->data + chunkOffset;
+            chunkOffset += n + sizeof(uint16_t);
+            m_markedChunkOffset = chunkOffset;
+
+            unaligned_store16(data, n);
+            data += sizeof(uint16_t);
+
+            // If there is enough space for at least another payload size,
+            // set it to zero.
+            if (chunkOffset < N_MINUS_ONE)
+                unaligned_zero16(data + n);
+
+            if (marked == m_chunks.last && chunkOffset > m_chunkOffset)
+                m_chunkOffset = chunkOffset;
+
+            return data;
+        }
+
+        chunkOffset = n + sizeof(uint16_t);
+        m_markedChunkOffset = chunkOffset;
+
+        chunk* last = m_chunks.last;
+        if (marked == last)
+        {
+            m_chunks.emplace_back();
+            last = m_chunks.last;
+            m_chunkOffset = chunkOffset;
+            m_size = m_markedSize;
+        }
+        else
+        {
+            do last = last->prev; while (last->prev != m_markedChunk);
+        }
+
+        m_markedChunk = last;
+        char* data = last->data;
+        unaligned_store16(data, n);
+        data += sizeof(uint16_t);
+
+        // We assume here that it takes more than one element to fill a chunk.
+        unaligned_zero16(data + n);
+
+        return data;
+    }
 
 }; // END of class chunk_allocator.
 
