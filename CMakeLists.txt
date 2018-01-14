@@ -26,7 +26,9 @@ endmacro()
 SET(CMAKE_INSTALL_RPATH "$ORIGIN")
 
 add_subdirectory(easy_profiler_core)
-add_subdirectory(profiler_gui)
+if (NOT EASY_PROFILER_NO_GUI)
+    add_subdirectory(profiler_gui)
+endif()
 add_subdirectory(easy_profiler_converter)
 
 if (NOT EASY_PROFILER_NO_SAMPLES)
