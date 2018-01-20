@@ -72,15 +72,20 @@ private:
 
 public:
 
-    EasyQTimer();
-    EasyQTimer(::std::function<void()>&& _handler, bool _isSignleShot = false);
-    virtual ~EasyQTimer();
+    explicit EasyQTimer();
+    explicit EasyQTimer(::std::function<void()>&& handler, bool signleShot = false);
+    ~EasyQTimer() override;
 
     void setHandler(::std::function<void()>&& _handler);
 
-    inline void start(int msec) { m_timer.start(msec); }
-    inline void stop() { if (m_timer.isActive()) m_timer.stop(); }
-    inline bool isActive() const { return m_timer.isActive(); }
+    void setSignleShot(bool singleShot);
+    bool isSingleShot() const;
+
+    void setInterval(int msec);
+    void start(int msec);
+    void start();
+    void stop();
+    bool isActive() const;
 
 }; // END of class EasyQTimer.
 

@@ -881,7 +881,7 @@ void EasyGraphicsView::mousePressEvent(QMouseEvent* _event)
             const auto mouseX = m_offset + mapToScene(m_mousePressPos).x() / m_scale;
             m_chronometerItem->setLeftRight(mouseX, mouseX);
             m_chronometerItem->hide();
-            m_pScrollbar->hideChrono();
+            m_pScrollbar->hideSelectionIndicator();
         }
     }
 
@@ -932,7 +932,7 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
         if (m_chronometerItem->isVisible() && m_chronometerItem->width() < 1e-6)
         {
             m_chronometerItem->hide();
-            m_pScrollbar->hideChrono();
+            m_pScrollbar->hideSelectionIndicator();
         }
 
         if (!m_selectedBlocks.empty())
@@ -1144,11 +1144,11 @@ void EasyGraphicsView::mouseMoveEvent(QMouseEvent* _event)
     if (m_mouseButtons & Qt::RightButton)
     {
         bool showItem = moveChrono(m_chronometerItem, x);
-        m_pScrollbar->setChronoPos(m_chronometerItem->left(), m_chronometerItem->right());
+        m_pScrollbar->setSelectionPos(m_chronometerItem->left(), m_chronometerItem->right());
 
         if (showItem)
         {
-            m_pScrollbar->showChrono();
+            m_pScrollbar->showSelectionIndicator();
         }
 
         needUpdate = true;
@@ -2006,7 +2006,7 @@ void EasyGraphicsView::onRefreshRequired()
 
 EasyGraphicsViewWidget::EasyGraphicsViewWidget(QWidget* _parent)
     : QWidget(_parent)
-    , m_scrollbar(new EasyGraphicsScrollbar(this))
+    , m_scrollbar(new EasyGraphicsScrollbar(true, 85 + (QFontMetrics(font()).height() << 1), this))
     , m_view(new EasyGraphicsView(this))
     , m_threadNamesWidget(new EasyThreadNamesWidget(m_view, m_scrollbar->height(), this))
 {

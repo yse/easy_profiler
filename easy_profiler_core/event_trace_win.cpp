@@ -126,13 +126,13 @@
 //extern ProfileManager& MANAGER;
 #define MANAGER ProfileManager::instance()
 
-extern const ::profiler::color_t EASY_COLOR_INTERNAL_EVENT;
+extern const profiler::color_t EASY_COLOR_INTERNAL_EVENT;
 
 #ifdef __MINGW32__
-::std::atomic<uint64_t> TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
+std::atomic<uint64_t> TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
 char KERNEL_LOGGER[] = KERNEL_LOGGER_NAME;
 #else
-::std::atomic_uint64_t TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
+std::atomic_uint64_t TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
 #endif
 
 /**
@@ -171,7 +171,7 @@ namespace profiler {
     //////////////////////////////////////////////////////////////////////////
 
     struct ProcessInfo {
-        std::string      name;
+        ::std::string    name;
         processid_t    id = 0;
         int8_t      valid = 0;
     };
@@ -205,12 +205,12 @@ namespace profiler {
         }
     };
 
-    typedef ::std::unordered_map<decltype(CSwitch::NewThreadId), ProcessInfo*, do_not_calc_hash> thread_process_info_map;
-    typedef ::std::unordered_map<processid_t, ProcessInfo, do_not_calc_hash> process_info_map;
+    using thread_process_info_map = ::std::unordered_map<decltype(CSwitch::NewThreadId), ProcessInfo*, do_not_calc_hash>;
+    using process_info_map = ::std::unordered_map<processid_t, ProcessInfo, do_not_calc_hash>;
 
     // Using static is safe because processTraceEvent() is called from one thread
     process_info_map PROCESS_INFO_TABLE;
-    thread_process_info_map THREAD_PROCESS_INFO_TABLE = ([](){ thread_process_info_map initial; initial[0U] = nullptr; return ::std::move(initial); })();
+    thread_process_info_map THREAD_PROCESS_INFO_TABLE = ([] { thread_process_info_map initial; initial[0U] = nullptr; return ::std::move(initial); })();
 
     //////////////////////////////////////////////////////////////////////////
 

@@ -36,6 +36,10 @@ if (Qt5Widgets_FOUND)
         globals.h
         globals.cpp
         globals_qobjects.cpp
+        graphics_image_item.h
+        graphics_image_item.cpp
+        graphics_slider_area.h
+        graphics_slider_area.cpp
         main_window.h
         main_window.cpp
         tree_widget_item.h

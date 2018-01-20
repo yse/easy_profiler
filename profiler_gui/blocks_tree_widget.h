@@ -77,8 +77,8 @@ class EasyTreeWidget : public QTreeWidget
 {
     Q_OBJECT
 
-    typedef QTreeWidget    Parent;
-    typedef EasyTreeWidget   This;
+    using Parent = QTreeWidget;
+    using This = EasyTreeWidget;
 
 protected:
 
@@ -100,9 +100,10 @@ protected:
 public:
 
     explicit EasyTreeWidget(QWidget* _parent = nullptr);
-    virtual ~EasyTreeWidget();
+    ~EasyTreeWidget() override;
 
     void contextMenuEvent(QContextMenuEvent* _event) override;
+    void dragEnterEvent(QDragEnterEvent*) override {}
 
     void clearSilent(bool _global = false);
     int findNext(const QString& _str, Qt::MatchFlags _flags);
@@ -167,8 +168,8 @@ class EasyHierarchyWidget : public QWidget
 {
     Q_OBJECT
 
-    typedef QWidget           Parent;
-    typedef EasyHierarchyWidget This;
+    using Parent = QWidget;
+    using This = EasyHierarchyWidget;
 
 private:
 
@@ -183,9 +184,11 @@ public:
     // Public virtual methods
 
     explicit EasyHierarchyWidget(QWidget* _parent = nullptr);
-    virtual ~EasyHierarchyWidget();
+    ~EasyHierarchyWidget() override;
+
     void keyPressEvent(QKeyEvent* _event) override;
     void contextMenuEvent(QContextMenuEvent* _event) override;
+    void dragEnterEvent(QDragEnterEvent*) override {}
 
 public:
 

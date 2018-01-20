@@ -484,8 +484,8 @@ extern "C" {
 
         int64_t file_cpu_frequency = 0LL;
         inFile.read((char*)&file_cpu_frequency, sizeof(int64_t));
-        uint64_t cpu_frequency = file_cpu_frequency;
-        const double conversion_factor = static_cast<double>(TIME_FACTOR) / static_cast<double>(cpu_frequency);
+        const uint64_t cpu_frequency = file_cpu_frequency;
+        const double conversion_factor = (cpu_frequency != 0 ? static_cast<double>(TIME_FACTOR) / static_cast<double>(cpu_frequency) : 1.);
 
         ::profiler::timestamp_t begin_time = 0ULL;
         ::profiler::timestamp_t end_time = 0ULL;
@@ -749,7 +749,7 @@ extern "C" {
                             /**/
                             EASY_BLOCK("Find children", ::profiler::colors::Blue);
                             auto rlower1 = ++root.children.rbegin();
-                            for (; rlower1 != root.children.rend() && !(mt0 > blocks[*rlower1].node->begin()); ++rlower1);
+                            for (; rlower1 != root.children.rend() && mt0 <= blocks[*rlower1].node->begin(); ++rlower1);
                             auto lower = rlower1.base();
                             ::std::move(lower, root.children.end(), ::std::back_inserter(tree.children));
 

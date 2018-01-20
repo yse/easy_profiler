@@ -60,15 +60,15 @@
 EasyQTimer::EasyQTimer()
     : QObject()
 {
-    connect(&m_timer, &QTimer::timeout, [this](){ m_handler(); });
+    connect(&m_timer, &QTimer::timeout, [this] { m_handler(); });
 }
 
-EasyQTimer::EasyQTimer(::std::function<void()>&& _handler, bool _isSignleShot)
+EasyQTimer::EasyQTimer(::std::function<void()>&& handler, bool signleShot)
     : QObject()
-    , m_handler(::std::forward<::std::function<void()>&&>(_handler))
+    , m_handler(::std::forward<::std::function<void()>&&>(handler))
 {
-    m_timer.setSingleShot(_isSignleShot);
-    connect(&m_timer, &QTimer::timeout, [this](){ m_handler(); });
+    m_timer.setSingleShot(signleShot);
+    connect(&m_timer, &QTimer::timeout, [this] { m_handler(); });
 }
 
 EasyQTimer::~EasyQTimer()
@@ -76,9 +76,47 @@ EasyQTimer::~EasyQTimer()
 
 }
 
-void EasyQTimer::setHandler(::std::function<void()>&& _handler)
+void EasyQTimer::setHandler(::std::function<void()>&& handler)
 {
-    m_handler = _handler;
+    m_handler = handler;
+}
+
+void EasyQTimer::setSignleShot(bool singleShot)
+{
+    m_timer.setSingleShot(singleShot);
+}
+
+bool EasyQTimer::isSingleShot() const
+{
+    return m_timer.isSingleShot();
+}
+
+void EasyQTimer::setInterval(int msec)
+{
+    m_timer.setInterval(msec);
+}
+
+void EasyQTimer::start(int msec)
+{
+    stop();
+    m_timer.start(msec);
+}
+
+void EasyQTimer::start()
+{
+    stop();
+    m_timer.start();
+}
+
+void EasyQTimer::stop()
+{
+    if (m_timer.isActive())
+        m_timer.stop();
+}
+
+bool EasyQTimer::isActive() const
+{
+    return m_timer.isActive();
 }
 
 //////////////////////////////////////////////////////////////////////////

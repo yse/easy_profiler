@@ -23,7 +23,13 @@ namespace estd {
     }
 
     template <class T> struct hash EASY_FINAL : public ::estd::detail::hasher<T, (sizeof(T) > sizeof(void*))> {
-        using ::estd::detail::hasher<T, (sizeof(T) > sizeof(void*))>::operator();
+        using Parent = ::estd::detail::hasher<T, (sizeof(T) > sizeof(void*))>;
+#if defined(_MSC_VER) && _MSC_VER >= 1910
+        // TODO: Try to compile "using Parent::operator();" in MSVC 2017
+        size_t operator () (typename Parent::type value) const { return Parent::operator () (value); }
+#else
+        using Parent::operator();
+#endif
     };
 
     template <class T> struct hash<T*> EASY_FINAL {

@@ -67,9 +67,9 @@
 
 class EasyFPSGraphicsItem : public QGraphicsItem
 {
-    typedef QGraphicsItem                                  Parent;
-    typedef EasyFPSGraphicsItem                              This;
-    typedef std::deque<std::pair<uint32_t, uint32_t> > FrameTimes;
+    using Parent = QGraphicsItem;
+    using This = EasyFPSGraphicsItem;
+    using FrameTimes = std::deque<std::pair<uint32_t, uint32_t> >;
 
     std::vector<QPointF> m_points1, m_points2;
     FrameTimes                       m_frames;
@@ -78,10 +78,10 @@ class EasyFPSGraphicsItem : public QGraphicsItem
 public:
 
     explicit EasyFPSGraphicsItem();
-    virtual ~EasyFPSGraphicsItem();
+    ~EasyFPSGraphicsItem() override;
 
     QRectF boundingRect() const override;
-    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
+    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget) override;
 
     void setBoundingRect(const QRectF& _boundingRect);
     void setBoundingRect(qreal x, qreal y, qreal w, qreal h);
@@ -99,20 +99,21 @@ class EasyFrameRateViewer : public QGraphicsView
 
 private:
 
-    typedef QGraphicsView       Parent;
-    typedef EasyFrameRateViewer   This;
+    using Parent = QGraphicsView;
+    using This = EasyFrameRateViewer;
 
     EasyFPSGraphicsItem* m_fpsItem;
 
 public:
 
     explicit EasyFrameRateViewer(QWidget* _parent = nullptr);
-    virtual ~EasyFrameRateViewer();
+    ~EasyFrameRateViewer() override;
 
     void resizeEvent(QResizeEvent* _event) override;
     void hideEvent(QHideEvent* _event) override;
     void showEvent(QShowEvent* _event) override;
     void contextMenuEvent(QContextMenuEvent* _event) override;
+    void dragEnterEvent(QDragEnterEvent*) override {}
 
 public slots:
 

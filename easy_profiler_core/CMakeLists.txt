@@ -141,6 +141,7 @@ set(INCLUDE_FILES
     ${EASY_INCLUDE_DIR}/easy_socket.h
     ${EASY_INCLUDE_DIR}/profiler.h
     ${EASY_INCLUDE_DIR}/reader.h
+    ${EASY_INCLUDE_DIR}/utility.h
     ${EASY_INCLUDE_DIR}/serialized_block.h
     ${EASY_INCLUDE_DIR}/details/arbitrary_value_aux.h
     ${EASY_INCLUDE_DIR}/details/arbitrary_value_public_types.h
