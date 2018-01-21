@@ -165,6 +165,20 @@ enum TimeUnits : int8_t
 
 //////////////////////////////////////////////////////////////////////////
 
+class BoolFlagGuard EASY_FINAL
+{
+    bool&    m_ref;
+    bool m_restore;
+
+public:
+
+    explicit BoolFlagGuard(bool& flag) : m_ref(flag), m_restore(!flag) {}
+    explicit BoolFlagGuard(bool& flag, bool value) : m_ref(flag), m_restore(!value) { m_ref = value; }
+    ~BoolFlagGuard() { restore(); }
+
+    void restore() { m_ref = m_restore; }
+};
+
 } // END of namespace profiler_gui.
 
 template <typename ... Args>

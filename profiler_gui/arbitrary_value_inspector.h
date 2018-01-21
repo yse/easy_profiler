@@ -58,8 +58,6 @@
 #include <QWidget>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
-#include <QGraphicsItem>
-#include <QGraphicsView>
 #include <QTimer>
 #include <QPointF>
 #include <QList>
@@ -72,6 +70,7 @@
 #include <thread>
 #include <atomic>
 #include <memory>
+#include "graphics_slider_area.h"
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -136,7 +135,7 @@ enum class ChartType : uint8_t
     Points
 };
 
-struct EasyCollectionPaintData EASY_FINAL
+struct CollectionPaintData EASY_FINAL
 {
     const ArbitraryValuesCollection* ptr;
     QRgb                           color;
@@ -144,44 +143,58 @@ struct EasyCollectionPaintData EASY_FINAL
     bool                        selected;
 };
 
-using Collections = std::vector<EasyCollectionPaintData>;
+using Collections = std::vector<CollectionPaintData>;
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyArbitraryValuesChartItem : public QGraphicsItem
+class ArbitraryValuesChartItem : public GraphicsImageItem
 {
-    using Parent = QGraphicsItem;
-    using This = EasyArbitraryValuesChartItem;
+    using Parent = GraphicsImageItem;
+    using This = ArbitraryValuesChartItem;
 
     Collections m_collections;
-    QRectF     m_boundingRect;
+    qreal    m_workerMaxValue;
+    qreal    m_workerMinValue;
 
 public:
 
-    explicit EasyArbitraryValuesChartItem();
-    ~EasyArbitraryValuesChartItem() override;
+    explicit ArbitraryValuesChartItem();
+    ~ArbitraryValuesChartItem() override;
 
-    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
+    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget) override;
 
-    QRectF boundingRect() const override;
-    void setBoundingRect(const QRectF& _rect);
-    void setBoundingRect(qreal _left, qreal _top, qreal _width, qreal _height);
+    bool updateImage() override;
 
+protected:
+
+    void onImageUpdated() override;
+
+public:
+
+    void clear();
     void update(Collections _collections);
     void update(const ArbitraryValuesCollection* _selected);
 
-}; // end of class EasyArbitraryValuesChartItem.
+private:
 
-class EasyGraphicsChart : public QGraphicsView
+    void paintMouseIndicator(QPainter* _painter, qreal _top, qreal _bottom, qreal _width, qreal _height, int _font_h,
+                             qreal _visibleRegionLeft, qreal _visibleRegionWidth);
+
+    void updateImageAsync(QRectF _boundingRect, qreal _current_scale, qreal _minimum, qreal _maximum, qreal _range,
+        qreal _value, qreal _width, bool _bindMode, profiler::timestamp_t _begin_time, bool _autoAdjust);
+
+}; // end of class ArbitraryValuesChartItem.
+
+class GraphicsChart : public GraphicsSliderArea
 {
     Q_OBJECT
 
 private:
 
-    using Parent = QGraphicsView;
-    using This = EasyGraphicsChart;
+    using Parent = GraphicsSliderArea;
+    using This = GraphicsChart;
 
-    EasyArbitraryValuesChartItem* m_chartItem;
+    ArbitraryValuesChartItem* m_chartItem;
     qreal               m_left;
     qreal              m_right;
     qreal             m_offset;
@@ -191,42 +204,24 @@ private:
 
 public:
 
-    explicit EasyGraphicsChart(QWidget* _parent = nullptr);
-    ~EasyGraphicsChart() override;
+    explicit GraphicsChart(QWidget* _parent = nullptr);
+    ~GraphicsChart() override;
 
-    void resizeEvent(QResizeEvent* _event) override;
+    void clear() override;
 
-    void clear();
-
-    bool bindMode() const;
-    qreal xscale() const;
-
-    qreal left() const;
-    qreal right() const;
-    qreal range() const;
-    qreal offset() const;
-    qreal region() const;
-
-    void setOffset(qreal _offset);
-    void setRange(qreal _left, qreal _right);
-    void setRegion(qreal _visibleRegionWidth);
+public:
 
     void update(Collections _collections);
     void update(const ArbitraryValuesCollection* _selected);
 
-private slots:
-
-    void onSceneSizeChanged();
-    void onWindowSizeChanged(qreal _width, qreal _height);
-
-}; // end of class EasyGraphicsChart.
+}; // end of class GraphicsChart.
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyArbitraryTreeWidgetItem : public QTreeWidgetItem
+class ArbitraryTreeWidgetItem : public QTreeWidgetItem
 {
     using Parent = QTreeWidgetItem;
-    using This = EasyArbitraryTreeWidgetItem;
+    using This = ArbitraryTreeWidgetItem;
     using CollectionPtr = std::unique_ptr<ArbitraryValuesCollection>;
 
     CollectionPtr   m_collection;
@@ -236,8 +231,8 @@ class EasyArbitraryTreeWidgetItem : public QTreeWidgetItem
 
 public:
 
-    explicit EasyArbitraryTreeWidgetItem(QTreeWidgetItem* _parent, profiler::color_t _color, profiler::vin_t _vin = 0);
-    ~EasyArbitraryTreeWidgetItem() override;
+    explicit ArbitraryTreeWidgetItem(QTreeWidgetItem* _parent, profiler::color_t _color, profiler::vin_t _vin = 0);
+    ~ArbitraryTreeWidgetItem() override;
 
     QVariant data(int _column, int _role) const override;
 
@@ -249,27 +244,28 @@ public:
 
     profiler::color_t color() const;
 
-}; // end of class EasyArbitraryTreeWidgetItem.
+}; // end of class ArbitraryTreeWidgetItem.
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyArbitraryValuesWidget : public QWidget
+class ArbitraryValuesWidget : public QWidget
 {
     Q_OBJECT
 
     using Parent = QWidget;
-    using This = EasyArbitraryValuesWidget;
+    using This = ArbitraryValuesWidget;
 
-    QTimer                  m_timer;
-    QTimer       m_collectionsTimer;
-    QList<EasyArbitraryTreeWidgetItem*> m_checkedItems;
-    QTreeWidget*       m_treeWidget;
-    EasyGraphicsChart*      m_chart;
+    QTimer                                 m_timer;
+    QTimer                      m_collectionsTimer;
+    QList<ArbitraryTreeWidgetItem*> m_checkedItems;
+    class QSplitter*                    m_splitter;
+    QTreeWidget*                      m_treeWidget;
+    GraphicsChart*                         m_chart;
 
 public:
 
-    explicit EasyArbitraryValuesWidget(QWidget* _parent = nullptr);
-    ~EasyArbitraryValuesWidget() override;
+    explicit ArbitraryValuesWidget(QWidget* _parent = nullptr);
+    ~ArbitraryValuesWidget() override;
 
     void clear();
 
@@ -292,7 +288,10 @@ private:
     void buildTree(profiler::thread_id_t _threadId, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId);
     QTreeWidgetItem* buildTreeForThread(const profiler::BlocksTreeRoot& _threadRoot, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId);
 
-}; // end of class EasyArbitraryValuesWidget.
+    void loadSettings();
+    void saveSettings();
+
+}; // end of class ArbitraryValuesWidget.
 
 //////////////////////////////////////////////////////////////////////////
 

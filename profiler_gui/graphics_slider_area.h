@@ -101,12 +101,13 @@ protected:
     Qt::MouseButtons             m_mouseButtons;
     GraphicsSliderItem*                m_slider;
     GraphicsSliderItem*    m_selectionIndicator;
-    GraphicsHistogramItem*      m_histogramItem;
     GraphicsImageItem*              m_imageItem;
     int                            m_fontHeight;
     bool                           m_bScrolling;
     bool                            m_bBindMode;
     bool                              m_bLocked;
+    bool                         m_bUpdatingPos;
+    bool                          m_bEmitChange;
 
 public:
 
@@ -121,6 +122,7 @@ public:
     void wheelEvent(QWheelEvent* _event) override;
     void resizeEvent(QResizeEvent* _event) override;
     void dragEnterEvent(QDragEnterEvent*) override {}
+    void contextMenuEvent(QContextMenuEvent*) override {}
 
     virtual void clear();
 
@@ -148,19 +150,10 @@ public:
     void showSelectionIndicator();
     void hideSelectionIndicator();
 
-    inline void lock() {
-        m_bLocked = true;
-    }
+public slots:
 
-    inline void unlock() {
-        m_bLocked = false;
-    }
-
-signals:
-
-    void rangeChanged();
-    void valueChanged(qreal _value);
-    void wheeled(qreal _mouseX, int _wheelDelta);
+    void lock() { m_bLocked = true; }
+    void unlock() { m_bLocked = false; }
 
 protected slots:
 

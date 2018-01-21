@@ -95,6 +95,9 @@ public:
 EASY_CONSTEXPR uint16_t SIZEOF_BLOCK = sizeof(profiler::BaseBlockData) + 1 + sizeof(uint16_t); // SerializedBlock stores BaseBlockData + at least 1 character for name ('\0') + 2 bytes for size of serialized data
 EASY_CONSTEXPR uint16_t SIZEOF_CSWITCH = sizeof(profiler::CSwitchEvent) + 1 + sizeof(uint16_t); // SerializedCSwitch also stores additional 4 bytes to be able to save 64-bit thread_id
 
+static_assert((int)SIZEOF_BLOCK * 128 < 65536, "Chunk size for profiler::Block must be less than 65536");
+static_assert((int)SIZEOF_CSWITCH * 128 < 65536, "Chunk size for CSwitchBlock must be less than 65536");
+
 struct ThreadStorage EASY_FINAL
 {
     StackBuffer<NonscopedBlock>                                                 nonscopedBlocks;

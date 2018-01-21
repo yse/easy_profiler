@@ -162,6 +162,15 @@ namespace profiler_gui {
 
     //////////////////////////////////////////////////////////////////////////
 
+    struct SceneData Q_DECL_FINAL
+    {
+        qreal left = 0;
+        qreal right = 100;
+        qreal window = 100;
+        qreal offset = 0;
+        bool empty = true;
+    };
+
     struct EasyGlobals Q_DECL_FINAL
     {
         static EasyGlobals& instance();
@@ -177,9 +186,8 @@ namespace profiler_gui {
         QFont                                 items_font; ///< Font for easy_graphics_item
         QFont                         selected_item_font; ///< Font for easy_graphics_item
 
-        double                                scene_left; ///< Graphics scene left boundary
-        double                               scene_right; ///< Graphics scene right boundary
-        ::profiler::timestamp_t               begin_time; ///< 
+        SceneData                                  scene; ///<
+        ::profiler::timestamp_t               begin_time; ///<
         ::profiler::thread_id_t          selected_thread; ///< Current selected thread id
         ::profiler::block_index_t         selected_block; ///< Current selected profiler block index
         ::profiler::block_id_t         selected_block_id; ///< Current selected profiler block id
@@ -211,6 +219,7 @@ namespace profiler_gui {
         bool               highlight_blocks_with_same_id; ///< Highlight all blocks with same id on diagram
         bool              selecting_block_changes_thread; ///< If true then current selected thread will change every time you select block
         bool                auto_adjust_histogram_height; ///< Automatically adjust histogram height to the visible region
+        bool                    auto_adjust_chart_height; ///< Automatically adjust arbitrary value chart height to the visible region
         bool            display_only_frames_on_histogram; ///< Display only top-level blocks on histogram when drawing histogram by block id
         bool           bind_scene_and_tree_expand_status; /** \brief If true then items on graphics scene and in the tree (blocks hierarchy) are binded on each other
                                                                 so expanding/collapsing items on scene also expands/collapse items in the tree. */

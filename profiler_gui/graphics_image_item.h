@@ -55,7 +55,6 @@ public:
 
     virtual bool updateImage();
     virtual void onModeChanged();
-    virtual void onValueChanged();
 
 protected:
 
@@ -63,6 +62,7 @@ protected:
 
 public:
 
+    void onValueChanged();
     void setMousePos(const QPointF& pos);
     void setMousePos(qreal x, qreal y);
     void setBoundingRect(const QRectF& _rect);

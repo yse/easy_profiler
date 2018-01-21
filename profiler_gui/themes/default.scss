@@ -55,6 +55,14 @@ QGraphicsView {
     border: 1px solid $BorderColor;
 }
 
+QSplitter::handle:hover {
+    background-color: rgb_a($MainColor, 0.5);
+}
+
+QSplitter::handle:pressed {
+    background-color: $MainColor;
+}
+
 /* ****************************************************************************************************************** */
 QLineEdit, QComboBox, QSpinBox {
     height: $DefaultHeight;

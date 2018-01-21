@@ -67,7 +67,7 @@ namespace profiler_gui {
     public:
 
         EasyGlobalSignals();
-        virtual ~EasyGlobalSignals();
+        ~EasyGlobalSignals() Q_DECL_OVERRIDE;
 
     signals:
 
@@ -80,13 +80,23 @@ namespace profiler_gui {
         void blocksRefreshRequired(bool);
         void expectedFrameTimeChanged();
         void autoAdjustHistogramChanged();
+        void autoAdjustChartChanged();
         void displayOnlyFramesOnHistogramChanged();
         void hierarchyFlagChanged(bool);
         void threadNameDecorationChanged();
         void hexThreadIdChanged();
         void refreshRequired();
         void blocksTreeModeChanged();
-        void sceneSizeChanged();
+
+        void sceneCleared();
+        void sceneSizeChanged(qreal left, qreal right);
+        void sceneVisibleRegionSizeChanged(qreal width);
+        void sceneVisibleRegionPosChanged(qreal pos);
+        void lockCharts();
+        void unlockCharts();
+
+        void chartWheeled(qreal pos, int delta);
+        void chartSliderChanged(qreal pos);
 
     }; // END of class EasyGlobalSignals.
 

@@ -75,8 +75,6 @@ namespace profiler_gui {
         , chronometer_font(::profiler_gui::EFont("DejaVu Sans", 16, QFont::Bold))
         , items_font(::profiler_gui::EFont("DejaVu Sans", 10, QFont::Medium))
         , selected_item_font(::profiler_gui::EFont("DejaVu Sans", 10, QFont::Medium))
-        , scene_left(0)
-        , scene_right(100)
         , begin_time(0)
         , selected_thread(0U)
         , selected_block(::profiler_gui::numeric_max<decltype(selected_block)>())
@@ -109,6 +107,7 @@ namespace profiler_gui {
         , highlight_blocks_with_same_id(true)
         , selecting_block_changes_thread(true)
         , auto_adjust_histogram_height(true)
+        , auto_adjust_chart_height(true)
         , display_only_frames_on_histogram(false)
         , bind_scene_and_tree_expand_status(true)
     {

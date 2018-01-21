@@ -215,6 +215,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_theme("default"), m_lastAddress("
     m_graphicsView->setAllowedAreas(Qt::AllDockWidgetAreas);
 
     auto graphicsView = new EasyGraphicsViewWidget(this);
+    graphicsView->setObjectName("ProfilerGUI_Diagram_GraphicsView");
     m_graphicsView->setWidget(graphicsView);
 
     m_treeWidget = new EasyDockWidget("Hierarchy", this);
@@ -447,6 +448,16 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_theme("default"), m_lastAddress("
     {
         EASY_GLOBALS.auto_adjust_histogram_height = _checked;
         emit EASY_GLOBALS.events.autoAdjustHistogramChanged();
+    });
+
+    action = submenu->addAction("Automatically adjust chart height");
+    action->setToolTip("Same as similar option for histogram\nbut used for arbitrary values charts.");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.auto_adjust_chart_height);
+    connect(action, &QAction::triggered, [](bool _checked)
+    {
+        EASY_GLOBALS.auto_adjust_chart_height = _checked;
+        emit EASY_GLOBALS.events.autoAdjustChartChanged();
     });
 
     action = submenu->addAction("Use decorated thread names");
@@ -1236,7 +1247,6 @@ void EasyMainWindow::onEditBlocksClicked(bool)
     m_descTreeDialog = new QDialog();
     m_descTreeDialog->setAttribute(Qt::WA_DeleteOnClose, true);
     m_descTreeDialog->setWindowTitle(EASY_DEFAULT_WINDOW_TITLE);
-    m_descTreeDialog->resize(800, 600);
     connect(m_descTreeDialog, &QDialog::finished, this, &This::onDescTreeDialogClose);
 
     auto l = new QVBoxLayout(m_descTreeDialog);
@@ -1379,6 +1389,10 @@ void EasyMainWindow::loadSettings()
     if (!flag.isNull())
         EASY_GLOBALS.auto_adjust_histogram_height = flag.toBool();
 
+    flag = settings.value("auto_adjust_chart_height");
+    if (!flag.isNull())
+        EASY_GLOBALS.auto_adjust_chart_height = flag.toBool();
+
     flag = settings.value("display_only_frames_on_histogram");
     if (!flag.isNull())
         EASY_GLOBALS.display_only_frames_on_histogram = flag.toBool();
@@ -1434,6 +1448,16 @@ void EasyMainWindow::loadGeometry()
     if (!geometry.isEmpty())
         restoreGeometry(geometry);
 
+    geometry = settings.value("fpsGeometry").toByteArray();
+    if (!geometry.isEmpty())
+        m_fpsViewer->restoreGeometry(geometry);
+
+    geometry = settings.value("diagramGeometry").toByteArray();
+    if (!geometry.isEmpty())
+        m_graphicsView->restoreGeometry(geometry);
+
+    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->restore(settings);
+
     auto state = settings.value("windowState").toByteArray();
     if (!state.isEmpty())
         restoreState(state);
@@ -1447,7 +1471,12 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.beginGroup("main");
 
     settings.setValue("geometry", this->saveGeometry());
+    settings.setValue("fpsGeometry", m_fpsViewer->saveGeometry());
+    settings.setValue("diagramGeometry", m_graphicsView->saveGeometry());
+    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->save(settings);
+
     settings.setValue("windowState", this->saveState());
+
     settings.setValue("last_files", m_lastFiles);
     settings.setValue("ip_address", m_lastAddress);
     settings.setValue("port", (quint32)m_lastPort);
@@ -1470,6 +1499,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("selecting_block_changes_thread", EASY_GLOBALS.selecting_block_changes_thread);
     settings.setValue("enable_event_indicators", EASY_GLOBALS.enable_event_markers);
     settings.setValue("auto_adjust_histogram_height", EASY_GLOBALS.auto_adjust_histogram_height);
+    settings.setValue("auto_adjust_chart_height", EASY_GLOBALS.auto_adjust_chart_height);
     settings.setValue("display_only_frames_on_histogram", EASY_GLOBALS.display_only_frames_on_histogram);
     settings.setValue("use_decorated_thread_name", EASY_GLOBALS.use_decorated_thread_name);
     settings.setValue("hex_thread_id", EASY_GLOBALS.hex_thread_id);

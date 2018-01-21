@@ -172,11 +172,13 @@ GraphicsSliderArea::GraphicsSliderArea(QWidget* _parent)
     , m_mouseButtons(Qt::NoButton)
     , m_slider(nullptr)
     , m_selectionIndicator(nullptr)
-    , m_histogramItem(nullptr)
+    , m_imageItem(nullptr)
     , m_fontHeight(0)
     , m_bScrolling(false)
     , m_bBindMode(false)
     , m_bLocked(false)
+    , m_bUpdatingPos(false)
+    , m_bEmitChange(true)
 {
     setCacheMode(QGraphicsView::CacheNone);
     setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
@@ -191,19 +193,13 @@ GraphicsSliderArea::GraphicsSliderArea(QWidget* _parent)
 
     setScene(new QGraphicsScene(this));
 
-    m_fontHeight = QFontMetrics(font()).height();
+    m_fontHeight = QFontMetrics(font()).height() + 1;
 
     EASY_CONSTEXPR int SceneHeight = 500;
     scene()->setSceneRect(0, -(SceneHeight >> 1), 500, SceneHeight);
 
-    m_histogramItem = new GraphicsHistogramItem();
-    scene()->addItem(m_histogramItem);
-
-    m_histogramItem->setPos(0, 0);
-    m_histogramItem->setBoundingRect(0, scene()->sceneRect().top() + margin(), scene()->width(), SceneHeight - margins() - 1);
-    m_histogramItem->hide();
-
     m_selectionIndicator = new GraphicsSliderItem(6, false);
+    m_selectionIndicator->setZValue(1);
     scene()->addItem(m_selectionIndicator);
 
     m_selectionIndicator->setPos(0, 0);
@@ -211,16 +207,38 @@ GraphicsSliderArea::GraphicsSliderArea(QWidget* _parent)
     m_selectionIndicator->hide();
 
     m_slider = new GraphicsSliderItem(6, true);
+    m_slider->setZValue(2);
     scene()->addItem(m_slider);
 
     m_slider->setPos(0, 0);
     m_slider->setColor(0x40c0c0c0);
     m_slider->hide();
 
-    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::threadNameDecorationChanged, this, &This::onThreadViewChanged);
-    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::hexThreadIdChanged, this, &This::onThreadViewChanged);
-
     centerOn(0, 0);
+
+    auto globalEvents = &EASY_GLOBALS.events;
+    connect(globalEvents, &profiler_gui::EasyGlobalSignals::sceneCleared, this, &This::clear);
+    connect(globalEvents, &profiler_gui::EasyGlobalSignals::sceneVisibleRegionSizeChanged, this, &This::setSliderWidth);
+    connect(globalEvents, &profiler_gui::EasyGlobalSignals::sceneVisibleRegionPosChanged, this, &This::setValue);
+
+    connect(globalEvents, &profiler_gui::EasyGlobalSignals::chartSliderChanged, [this] (qreal pos)
+    {
+        if (!m_bUpdatingPos)
+        {
+            m_bEmitChange = false;
+            setValue(pos);
+            m_bEmitChange = true;
+        }
+    });
+
+    connect(globalEvents, &profiler_gui::EasyGlobalSignals::sceneSizeChanged, [this] (qreal left, qreal right)
+    {
+        setRange(left, right);
+        m_slider->show();
+    });
+
+    connect(globalEvents, &profiler_gui::EasyGlobalSignals::lockCharts, this, &This::lock);
+    connect(globalEvents, &profiler_gui::EasyGlobalSignals::unlockCharts, this, &This::unlock);
 }
 
 GraphicsSliderArea::~GraphicsSliderArea()
@@ -232,10 +250,11 @@ GraphicsSliderArea::~GraphicsSliderArea()
 
 void GraphicsSliderArea::clear()
 {
-    m_selectionIndicator->hide();
     setRange(0, 100);
     setSliderWidth(2);
     setValue(0);
+    m_selectionIndicator->hide();
+    m_slider->hide();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -299,10 +318,18 @@ int GraphicsSliderArea::margins() const
 
 void GraphicsSliderArea::setValue(qreal _value)
 {
-    using estd::clamp;
-    m_value = clamp(m_minimumValue, _value, std::max(m_minimumValue, m_maximumValue - m_slider->width()));
+    if (m_bUpdatingPos)
+        return;
+
+    const profiler_gui::BoolFlagGuard guard(m_bUpdatingPos, true);
+
+    m_value = estd::clamp(m_minimumValue, _value, std::max(m_minimumValue, m_maximumValue - m_slider->width()));
     m_slider->setX(m_value + m_slider->halfwidth());
-    emit valueChanged(m_value);
+
+    if (m_bEmitChange)
+    {
+        emit EASY_GLOBALS.events.chartSliderChanged(m_value);
+    }
 
     if (m_imageItem->isVisible())
         m_imageItem->onValueChanged();
@@ -323,8 +350,6 @@ void GraphicsSliderArea::setRange(qreal _minValue, qreal _maxValue)
     const auto histogramRect = m_imageItem->boundingRect();
     m_imageItem->cancelImageUpdate();
     m_imageItem->setBoundingRect(_minValue, histogramRect.top(), range, histogramRect.height());
-
-    emit rangeChanged();
 
     setValue(_minValue + oldValue * range);
 
@@ -432,7 +457,7 @@ void GraphicsSliderArea::mouseMoveEvent(QMouseEvent* _event)
         }
     }
 
-    m_imageItem->setMousePos(mapToScene(pos));
+    m_imageItem->setMousePos(pos.x(), mapToScene(pos).y());
     if (m_imageItem->isVisible())
         scene()->update();
 }
@@ -475,28 +500,52 @@ void GraphicsSliderArea::wheelEvent(QWheelEvent* _event)
     {
         const auto w = m_slider->halfwidth() * (_event->delta() < 0 ? profiler_gui::SCALING_COEFFICIENT : profiler_gui::SCALING_COEFFICIENT_INV);
         setValue(mapToScene(_event->pos()).x() - m_minimumValue - w);
-        emit wheeled(w * m_windowScale, _event->delta());
+        emit EASY_GLOBALS.events.chartWheeled(w * m_windowScale, _event->delta());
     }
     else
     {
         const auto x = (mapToScene(_event->pos()).x() - m_minimumValue) * m_windowScale;
-        emit wheeled(x, _event->delta());
+        emit EASY_GLOBALS.events.chartWheeled(x, _event->delta());
     }
 }
 
 void GraphicsSliderArea::resizeEvent(QResizeEvent* _event)
 {
     const int h = _event->size().height();
+
+    if (h == 0)
+    {
+        if (m_imageItem->isVisible())
+            m_imageItem->cancelImageUpdate();
+
+        onWindowWidthChange(_event->size().width());
+
+        return;
+    }
+
     if (_event->oldSize().height() != h)
     {
+        auto rect = scene()->sceneRect();
+
         const int sceneHeight = h - 2;
-        scene()->setSceneRect(0, -(sceneHeight >> 1), 500, sceneHeight);
+        const int top = -(sceneHeight >> 1);
+        scene()->setSceneRect(rect.left(), top, rect.width(), sceneHeight);
 
         const auto br = m_imageItem->boundingRect();
-        m_imageItem->setBoundingRect(br.left(), scene()->sceneRect().top() + margin(), br.width(), sceneHeight - margins() - 1);
+        m_imageItem->setBoundingRect(br.left(), top + margin(), br.width(), sceneHeight - margins() - 1);
+
+        rect = m_slider->rect();
+        m_slider->setRect(rect.left(), top, rect.width(), sceneHeight);
+
+        if (m_selectionIndicator->isVisible())
+        {
+            rect = m_selectionIndicator->rect();
+            m_selectionIndicator->setRect(rect.left(), top, rect.width(), sceneHeight);
+        }
     }
 
     onWindowWidthChange(_event->size().width());
+
     if (m_imageItem->isVisible())
         m_imageItem->updateImage();
 }

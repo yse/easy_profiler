@@ -90,7 +90,7 @@ private:
 public:
 
     explicit EasyDescWidgetItem(::profiler::block_id_t _desc, Parent* _parent = nullptr);
-    virtual ~EasyDescWidgetItem();
+    ~EasyDescWidgetItem() override;
 
     bool operator < (const Parent& _other) const override;
     QVariant data(int _column, int _role) const override;
@@ -99,12 +99,12 @@ public:
 
     // Public inline methods
 
-    inline ::profiler::block_id_t desc() const
+    ::profiler::block_id_t desc() const
     {
         return m_desc;
     }
 
-    inline void setType(Type _type)
+    void setType(Type _type)
     {
         m_type = _type;
     }
@@ -117,12 +117,12 @@ class EasyDescTreeWidget : public QTreeWidget
 {
     Q_OBJECT
 
-    typedef QTreeWidget    Parent;
-    typedef EasyDescTreeWidget   This;
+    using Parent = QTreeWidget;
+    using This = EasyDescTreeWidget;
 
-    typedef ::std::vector<EasyDescWidgetItem*> Items;
-    typedef ::std::vector<QTreeWidgetItem*> TreeItems;
-    typedef ::std::unordered_set<::std::string> ExpandedFiles;
+    using Items = ::std::vector<EasyDescWidgetItem*>;
+    using TreeItems = ::std::vector<QTreeWidgetItem*>;
+    using ExpandedFiles = ::std::unordered_set<::std::string>;
 
 protected:
 
@@ -140,7 +140,7 @@ public:
     // Public virtual methods
 
     explicit EasyDescTreeWidget(QWidget* _parent = nullptr);
-    virtual ~EasyDescTreeWidget();
+    ~EasyDescTreeWidget() override;
     void contextMenuEvent(QContextMenuEvent* _event) override;
 
 public:
@@ -183,13 +183,14 @@ class EasyDescWidget : public QWidget
 {
     Q_OBJECT
 
-    typedef QWidget      Parent;
-    typedef EasyDescWidget This;
+    using Parent = QWidget;
+    using This = EasyDescWidget;
 
 private:
 
+    class QSplitter*   m_splitter;
     EasyDescTreeWidget*    m_tree;
-    class EasyArbitraryValuesWidget* m_values;
+    class ArbitraryValuesWidget* m_values;
     class QLineEdit*  m_searchBox;
     class QLabel*   m_foundNumber;
     class QAction* m_searchButton;
@@ -200,7 +201,7 @@ public:
     // Public virtual methods
 
     explicit EasyDescWidget(QWidget* _parent = nullptr);
-    virtual ~EasyDescWidget();
+    ~EasyDescWidget() override;
     void keyPressEvent(QKeyEvent* _event) override;
     void contextMenuEvent(QContextMenuEvent* _event) override;
 

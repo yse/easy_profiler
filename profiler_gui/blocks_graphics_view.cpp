@@ -72,9 +72,12 @@
 #include <QKeyEvent>
 #include <QScrollBar>
 #include <QGridLayout>
+#include <QHBoxLayout>
+#include <QSplitter>
 #include <QDebug>
 #include <QSignalBlocker>
 #include <QGraphicsDropShadowEffect>
+#include <QSettings>
 #include "blocks_graphics_view.h"
 #include "easy_graphics_item.h"
 #include "easy_chronometer_item.h"
@@ -286,6 +289,7 @@ EasyGraphicsView::EasyGraphicsView(QWidget* _parent)
     , m_sceneWidth(0)
     , m_scale(1)
     , m_offset(0)
+    , m_visibleRegionWidth(0)
     , m_timelineStep(0)
     , m_idleTime(0)
     , m_mouseButtons(Qt::NoButton)
@@ -389,21 +393,64 @@ void EasyGraphicsView::clear()
     m_bEmpty = true;
 
     m_sceneWidth = 10;
+    m_visibleRegionWidth = 10;
     setSceneRect(0, 0, 10, 10);
+
+    auto& sceneData = EASY_GLOBALS.scene;
+    sceneData.left = 0;
+    sceneData.right = m_sceneWidth;
+    sceneData.window = m_visibleRegionWidth;
+    sceneData.offset = m_offset;
+    sceneData.empty = true;
 
     // notify ProfTreeWidget that selection was reset
     emit intervalChanged(m_selectedBlocks, m_beginTime, 0, 0, false);
+
+    EASY_GLOBALS.selected_thread = 0;
+    emit EASY_GLOBALS.events.selectedThreadChanged(0);
+}
+
+void EasyGraphicsView::notifySceneSizeChange()
+{
+    EASY_GLOBALS.scene.left = 0;
+    EASY_GLOBALS.scene.right = m_sceneWidth;
+    emit EASY_GLOBALS.events.sceneSizeChanged(0, m_sceneWidth);
+}
+
+void EasyGraphicsView::notifyVisibleRegionSizeChange()
+{
+    auto vbar = verticalScrollBar();
+    const int vbar_width = (vbar != nullptr && vbar->isVisible() ? vbar->width() + 2 : 0);
+    notifyVisibleRegionSizeChange((m_visibleSceneRect.width() + vbar_width) / m_scale);
+}
+
+void EasyGraphicsView::notifyVisibleRegionSizeChange(qreal _size)
+{
+    m_visibleRegionWidth = _size;
+    EASY_GLOBALS.scene.window = _size;
+    emit EASY_GLOBALS.events.sceneVisibleRegionSizeChanged(_size);
+}
+
+void EasyGraphicsView::notifyVisibleRegionPosChange()
+{
+    EASY_GLOBALS.scene.offset = m_offset;
+    emit EASY_GLOBALS.events.sceneVisibleRegionPosChanged(m_offset);
+}
+
+void EasyGraphicsView::notifyVisibleRegionPosChange(qreal _pos)
+{
+    m_offset = estd::clamp(0., _pos, m_sceneWidth - m_visibleRegionWidth);
+    notifyVisibleRegionPosChange();
 }
 
 void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTree)
 {
     // clear scene
     clear();
+    emit EASY_GLOBALS.events.sceneCleared();
 
     if (_blocksTree.empty())
-    {
         return;
-    }
 
     auto bgItem = new EasyBackgroundItem();
     scene()->addItem(bgItem);
@@ -515,14 +562,14 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     // Calculating scene rect
     m_sceneWidth = time2position(finish);
     setSceneRect(0, 0, m_sceneWidth, y + TIMELINE_ROW_SIZE);
-
-    EASY_GLOBALS.scene_left  = 0;
-    EASY_GLOBALS.scene_right = m_sceneWidth;
-    emit EASY_GLOBALS.events.sceneSizeChanged();
+    EASY_GLOBALS.scene.empty = false;
 
     // Center view on the beginning of the scene
     updateVisibleSceneRect();
-    setScrollbar(m_pScrollbar);
+    //setScrollbar(m_pScrollbar);
+
+    notifySceneSizeChange();
+    notifyVisibleRegionSizeChange();
 
     // Create new chronometer item (previous item was destroyed by scene on scene()->clear()).
     // It will be shown on mouse right button click.
@@ -543,9 +590,7 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     emit treeChanged();
 
     if (mainThreadItem != nullptr)
-    {
         longestItem = mainThreadItem;
-    }
 
     if (longestItem != nullptr)
     {
@@ -555,7 +600,7 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         scrollTo(longestItem);
         m_pScrollbar->setHistogramSource(longestItem->threadId(), longestItem->items(0));
         if (!longestItem->items(0).empty())
-            m_pScrollbar->setValue(longestItem->items(0).front().left() - m_pScrollbar->sliderWidth() * 0.25);
+            notifyVisibleRegionPosChange(longestItem->items(0).front().left() - m_visibleRegionWidth * 0.25);
     }
 
     m_idleTimer.start(IDLE_TIMER_INTERVAL);
@@ -683,11 +728,8 @@ void EasyGraphicsView::setScrollbar(EasyGraphicsScrollbar* _scrollbar)
     auto const prevScrollbar = m_pScrollbar;
     const bool makeConnect = prevScrollbar == nullptr || prevScrollbar != _scrollbar;
 
-    if (prevScrollbar != nullptr && prevScrollbar != _scrollbar)
-    {
-        disconnect(prevScrollbar, &EasyGraphicsScrollbar::valueChanged, this, &This::onGraphicsScrollbarValueChange);
-        disconnect(prevScrollbar, &EasyGraphicsScrollbar::wheeled, this, &This::onGraphicsScrollbarWheel);
-    }
+    disconnect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::chartSliderChanged, this, &This::onGraphicsScrollbarValueChange);
+    disconnect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::chartWheeled, this, &This::onGraphicsScrollbarWheel);
 
     m_pScrollbar = _scrollbar;
     m_pScrollbar->clear();
@@ -697,11 +739,8 @@ void EasyGraphicsView::setScrollbar(EasyGraphicsScrollbar* _scrollbar)
     const int vbar_width = (vbar != nullptr && vbar->isVisible() ? vbar->width() + 2 : 0);
     m_pScrollbar->setSliderWidth(m_visibleSceneRect.width() + vbar_width);
 
-    if (makeConnect)
-    {
-        connect(m_pScrollbar, &EasyGraphicsScrollbar::valueChanged, this, &This::onGraphicsScrollbarValueChange);
-        connect(m_pScrollbar, &EasyGraphicsScrollbar::wheeled, this, &This::onGraphicsScrollbarWheel);
-    }
+    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::chartSliderChanged, this, &This::onGraphicsScrollbarValueChange);
+    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::chartWheeled, this, &This::onGraphicsScrollbarWheel);
 
     EASY_GLOBALS.selected_thread = 0;
     emit EASY_GLOBALS.events.selectedThreadChanged(0);
@@ -768,7 +807,7 @@ void EasyGraphicsView::scaleTo(qreal _scale)
 
     // Update slider width for scrollbar
     const auto windowWidth = (m_visibleSceneRect.width() + vbar_width) / m_scale;
-    m_pScrollbar->setSliderWidth(windowWidth);
+    notifyVisibleRegionSizeChange(windowWidth);
 
     updateTimelineStep(windowWidth);
     repaintScene();
@@ -803,7 +842,7 @@ void EasyGraphicsView::scrollTo(const EasyGraphicsItem* _item)
 {
     m_bUpdatingRect = true;
     auto vbar = verticalScrollBar();
-    vbar->setValue(_item->y() + (_item->boundingRect().height() - vbar->pageStep()) * 0.5);
+    vbar->setValue(static_cast<int>(_item->y() + (_item->boundingRect().height() - vbar->pageStep()) * 0.5));
     m_bUpdatingRect = false;
 }
 
@@ -822,21 +861,18 @@ void EasyGraphicsView::onWheel(qreal _mouseX, int _wheelDelta)
     //updateVisibleSceneRect(); // Update scene rect
 
     // Update slider width for scrollbar
-    auto vbar = verticalScrollBar();
-    const int vbar_width = (vbar != nullptr && vbar->isVisible() ? vbar->width() + 2 : 0);
-    const auto windowWidth = (m_visibleSceneRect.width() + vbar_width) / m_scale;
-    m_pScrollbar->setSliderWidth(windowWidth);
+    notifyVisibleRegionSizeChange();
 
     // Calculate new offset to simulate QGraphicsView::AnchorUnderMouse scaling behavior
-    m_offset = clamp(0., mousePosition - _mouseX / m_scale, m_sceneWidth - windowWidth);
+    m_offset = clamp(0., mousePosition - _mouseX / m_scale, m_sceneWidth - m_visibleRegionWidth);
 
     // Update slider position
-    m_bUpdatingRect = true; // To be sure that updateVisibleSceneRect will not be called by scrollbar change
-    m_pScrollbar->setValue(m_offset);
-    m_bUpdatingRect = false;
+    profiler_gui::BoolFlagGuard guard(m_bUpdatingRect, true); // To be sure that updateVisibleSceneRect will not be called by scrollbar change
+    notifyVisibleRegionPosChange();
+    guard.restore();
 
     updateVisibleSceneRect(); // Update scene rect
-    updateTimelineStep(windowWidth);
+    updateTimelineStep(m_visibleRegionWidth);
     repaintScene(); // repaint scene
 }
 
@@ -975,7 +1011,7 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
             // Jump to selected zone
             clicked = true;
             m_flickerSpeedX = m_flickerSpeedY = 0;
-            m_pScrollbar->setValue(m_chronometerItem->left() + m_chronometerItem->width() * 0.5 - m_pScrollbar->sliderHalfWidth());
+            notifyVisibleRegionPosChange(m_chronometerItem->left() + (m_chronometerItem->width() - m_visibleRegionWidth) * 0.5);
         }
 
         if (!clicked && m_mouseMovePath.manhattanLength() < 5)
@@ -993,7 +1029,7 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
                 {
                     ::profiler::block_index_t i = ~0U;
                     auto block = item->intersect(mouseClickPos, i);
-                    if (block)
+                    if (block != nullptr)
                     {
                         changedSelectedItem = true;
                         selectedBlock = block;
@@ -1026,23 +1062,26 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
 
     if (changedSelectedItem)
     {
-        m_bUpdatingRect = true;
+        profiler_gui::BoolFlagGuard guard(m_bUpdatingRect, true);
+
         if (selectedBlock != nullptr && previouslySelectedBlock == EASY_GLOBALS.selected_block && !selectedBlock->tree.children.empty())
         {
             EASY_GLOBALS.gui_blocks[previouslySelectedBlock].expanded = !EASY_GLOBALS.gui_blocks[previouslySelectedBlock].expanded;
             emit EASY_GLOBALS.events.itemsExpandStateChanged();
         }
+
         emit EASY_GLOBALS.events.selectedBlockChanged(EASY_GLOBALS.selected_block);
 
         if (EASY_GLOBALS.selecting_block_changes_thread && selectedBlock != nullptr && EASY_GLOBALS.selected_thread != selectedBlockThread)
         {
             EASY_GLOBALS.selected_thread = selectedBlockThread;
 
-            m_pScrollbar->lock();
+            emit EASY_GLOBALS.events.lockCharts();
             emit EASY_GLOBALS.events.selectedThreadChanged(EASY_GLOBALS.selected_thread);
-            m_pScrollbar->unlock();
+            emit EASY_GLOBALS.events.unlockCharts();
         }
-        m_bUpdatingRect = false;
+
+        guard.restore();
 
         if (selectedBlock != nullptr && selectedBlockThread == EASY_GLOBALS.selected_thread)
             m_pScrollbar->setHistogramSource(EASY_GLOBALS.selected_thread, EASY_GLOBALS.selected_block_id);
@@ -1164,10 +1203,10 @@ void EasyGraphicsView::mouseMoveEvent(QMouseEvent* _event)
         {
             auto vbar = verticalScrollBar();
 
-            m_bUpdatingRect = true; // Block scrollbars from updating scene rect to make it possible to do it only once
+            profiler_gui::BoolFlagGuard guard(m_bUpdatingRect, true); // Block scrollbars from updating scene rect to make it possible to do it only once
             vbar->setValue(vbar->value() - delta.y());
-            m_pScrollbar->setValue(m_pScrollbar->value() - delta.x() / m_scale);
-            m_bUpdatingRect = false;
+            notifyVisibleRegionPosChange(m_offset - delta.x() / m_scale);
+            guard.restore();
             // Seems like an ugly stub, but QSignalBlocker is also a bad decision
             // because if scrollbar does not emit valueChanged signal then viewport does not move
 
@@ -1243,14 +1282,14 @@ void EasyGraphicsView::keyPressEvent(QKeyEvent* _event)
         case Qt::Key_Right:
         case Qt::Key_6:
         {
-            m_pScrollbar->setValue(m_pScrollbar->value() + KeyStep / m_scale);
+            notifyVisibleRegionPosChange(m_offset + KeyStep / m_scale);
             break;
         }
 
         case Qt::Key_Left:
         case Qt::Key_4:
         {
-            m_pScrollbar->setValue(m_pScrollbar->value() - KeyStep / m_scale);
+            notifyVisibleRegionPosChange(m_offset - KeyStep / m_scale);
             break;
         }
 
@@ -1308,16 +1347,16 @@ void EasyGraphicsView::resizeEvent(QResizeEvent* _event)
 
     // Update slider width for scrollbar
     const auto windowWidth = (m_visibleSceneRect.width() + vbar_width) / m_scale;
-    m_pScrollbar->setSliderWidth(windowWidth);
+    notifyVisibleRegionSizeChange(windowWidth);
 
     // Calculate new offset to save old screen center
     const auto deltaWidth = m_visibleSceneRect.width() - previousRect.width();
     m_offset = clamp(0., m_offset - deltaWidth * 0.5 / m_scale, m_sceneWidth - windowWidth);
 
     // Update slider position
-    m_bUpdatingRect = true; // To be sure that updateVisibleSceneRect will not be called by scrollbar change
-    m_pScrollbar->setValue(m_offset);
-    m_bUpdatingRect = false;
+    profiler_gui::BoolFlagGuard guard(m_bUpdatingRect, true); // To be sure that updateVisibleSceneRect will not be called by scrollbar change
+    notifyVisibleRegionPosChange();
+    guard.restore();
 
     repaintScene(); // repaint scene
 }
@@ -1379,6 +1418,9 @@ void EasyGraphicsView::initMode()
         if (!m_selectedBlocks.empty())
             emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_chronometerItem->left()), position2time(m_chronometerItem->right()), m_chronometerItem->reverse());
     });
+
+    connect(globalSignals, &profiler_gui::EasyGlobalSignals::chartSliderChanged, this, &This::onGraphicsScrollbarValueChange);
+    connect(globalSignals, &profiler_gui::EasyGlobalSignals::chartWheeled, this, &This::onGraphicsScrollbarWheel);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1444,10 +1486,10 @@ void EasyGraphicsView::onFlickerTimeout()
 
         auto vbar = verticalScrollBar();
 
-        m_bUpdatingRect = true; // Block scrollbars from updating scene rect to make it possible to do it only once
-        m_pScrollbar->setValue(m_pScrollbar->value() - m_flickerSpeedX / m_scale);
+        profiler_gui::BoolFlagGuard guard(m_bUpdatingRect, true); // Block scrollbars from updating scene rect to make it possible to do it only once
+        notifyVisibleRegionPosChange(m_offset - m_flickerSpeedX / m_scale);
         vbar->setValue(vbar->value() - m_flickerSpeedY);
-        m_bUpdatingRect = false;
+        guard.restore();
         // Seems like an ugly stub, but QSignalBlocker is also a bad decision
         // because if scrollbar does not emit valueChanged signal then viewport does not move
 
@@ -1954,22 +1996,20 @@ void EasyGraphicsView::onSelectedBlockChange(unsigned int _block_index)
 
             m_flickerSpeedX = m_flickerSpeedY = 0;
 
-            m_bUpdatingRect = true;
+            const profiler_gui::BoolFlagGuard guard(m_bUpdatingRect, true);
             verticalScrollBar()->setValue(static_cast<int>(thread_item->levelY(guiblock.graphics_item_level) - m_visibleSceneRect.height() * 0.5));
-            m_pScrollbar->setValue(item.left() + item.width() * 0.5 - m_pScrollbar->sliderHalfWidth());
+            notifyVisibleRegionPosChange(item.left() + (item.width() - m_visibleRegionWidth) * 0.5);
 
             if (EASY_GLOBALS.selecting_block_changes_thread && EASY_GLOBALS.selected_thread != thread_item->threadId())
             {
                 EASY_GLOBALS.selected_thread = thread_item->threadId();
 
-                m_pScrollbar->lock();
+                emit EASY_GLOBALS.events.lockCharts();
                 emit EASY_GLOBALS.events.selectedThreadChanged(EASY_GLOBALS.selected_thread);
-                m_pScrollbar->unlock();
+                emit EASY_GLOBALS.events.unlockCharts();
             }
 
             m_pScrollbar->setHistogramSource(EASY_GLOBALS.selected_thread, guiblock.tree.node->id());
-
-            m_bUpdatingRect = false;
         }
         else if (EASY_GLOBALS.selected_thread != 0)
         {
@@ -2006,7 +2046,8 @@ void EasyGraphicsView::onRefreshRequired()
 
 EasyGraphicsViewWidget::EasyGraphicsViewWidget(QWidget* _parent)
     : QWidget(_parent)
-    , m_scrollbar(new EasyGraphicsScrollbar(true, 85 + (QFontMetrics(font()).height() << 1), this))
+    , m_splitter(new QSplitter(Qt::Vertical, this))
+    , m_scrollbar(new EasyGraphicsScrollbar(85 + (QFontMetrics(font()).height() << 1), this))
     , m_view(new EasyGraphicsView(this))
     , m_threadNamesWidget(new EasyThreadNamesWidget(m_view, m_scrollbar->height(), this))
 {
@@ -2015,13 +2056,18 @@ EasyGraphicsViewWidget::EasyGraphicsViewWidget(QWidget* _parent)
 
 void EasyGraphicsViewWidget::initWidget()
 {
-    auto lay = new QGridLayout(this);
+    m_splitter->setHandleWidth(1);
+    m_splitter->setContentsMargins(0, 0, 0, 0);
+    m_splitter->addWidget(m_view);
+    m_splitter->addWidget(m_scrollbar);
+    m_splitter->setStretchFactor(0, 500);
+    m_splitter->setStretchFactor(1, 1);
+
+    auto lay = new QHBoxLayout(this);
     lay->setContentsMargins(0, 0, 0, 0);
     lay->setSpacing(1);
-    lay->addWidget(m_threadNamesWidget, 0, 0, 2, 1);
-    lay->addWidget(m_view, 0, 1);
-    lay->addWidget(m_scrollbar, 1, 1);
-    setLayout(lay);
+    lay->addWidget(m_threadNamesWidget);
+    lay->addWidget(m_splitter);
 
     m_view->setScrollbar(m_scrollbar);
 }
@@ -2041,6 +2087,23 @@ void EasyGraphicsViewWidget::clear()
     m_scrollbar->clear();
     m_threadNamesWidget->clear();
     m_view->clear();
+}
+
+void EasyGraphicsViewWidget::save(QSettings& settings)
+{
+    settings.setValue("diagram/vsplitter/geometry", m_splitter->saveGeometry());
+    settings.setValue("diagram/vsplitter/state", m_splitter->saveState());
+}
+
+void EasyGraphicsViewWidget::restore(QSettings& settings)
+{
+    auto geometry = settings.value("diagram/vsplitter/geometry").toByteArray();
+    if (!geometry.isEmpty())
+        m_splitter->restoreGeometry(geometry);
+
+    auto state = settings.value("diagram/vsplitter/state").toByteArray();
+    if (!state.isEmpty())
+        m_splitter->restoreState(state);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -2116,6 +2179,9 @@ void EasyThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
         _painter->setPen(::profiler_gui::SYSTEM_BORDER_COLOR);
         _painter->drawRect(rect);
     }
+
+    if (h + 2 >= parentView->height())
+        return;
 
     // Draw separator between thread names area and information area
     _painter->setPen(::profiler_gui::SYSTEM_BORDER_COLOR);

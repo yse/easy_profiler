@@ -303,9 +303,11 @@ EASY_FORCE_INLINE T unaligned_load64(const void* ptr, T* val)
 
 //////////////////////////////////////////////////////////////////////////
 
-template <uint16_t N>
+template <const uint16_t N>
 class chunk_allocator
 {
+    static_assert(N != 0, "chunk_allocator<N> N must be a positive value");
+
     struct chunk { EASY_ALIGNED(char, data[N], EASY_ALIGNMENT_SIZE); chunk* prev = nullptr; };
 
     struct chunk_list
@@ -380,8 +382,8 @@ class chunk_allocator
     };
 
     // Used in serialize(): workaround for no constexpr support in MSVC 2013.
-    EASY_STATIC_CONSTEXPR int_fast32_t MAX_CHUNK_OFFSET = N - sizeof(uint16_t);
-    EASY_STATIC_CONSTEXPR uint16_t N_MINUS_ONE = N - 1;
+    EASY_STATIC_CONSTEXPR int_fast32_t MaxChunkOffset = N - sizeof(uint16_t);
+    EASY_STATIC_CONSTEXPR uint16_t OneBeforeN = static_cast<uint16_t>(N - 1);
 
     chunk_list          m_chunks; ///< List of chunks.
     chunk*         m_markedChunk; ///< Chunk marked by last closed frame
@@ -421,7 +423,7 @@ public:
 
             // If there is enough space for at least another payload size,
             // set it to zero.
-            if (chunkOffset < N_MINUS_ONE)
+            if (chunkOffset < OneBeforeN)
                 unaligned_zero16(data + n);
 
             return data;
@@ -503,7 +505,7 @@ public:
             isMarked = (current == m_markedChunk);
             const char* data = current->data;
 
-            const int_fast32_t maxOffset = isMarked ? m_markedChunkOffset : MAX_CHUNK_OFFSET;
+            const int_fast32_t maxOffset = isMarked ? m_markedChunkOffset : MaxChunkOffset;
             int_fast32_t chunkOffset = 0; // signed int so overflow is not checked.
             auto payloadSize = unaligned_load16<uint16_t>(data);
 
@@ -555,7 +557,7 @@ public:
 
             // If there is enough space for at least another payload size,
             // set it to zero.
-            if (chunkOffset < N_MINUS_ONE)
+            if (chunkOffset < OneBeforeN)
                 unaligned_zero16(data + n);
 
             if (marked == m_chunks.last && chunkOffset > m_chunkOffset)

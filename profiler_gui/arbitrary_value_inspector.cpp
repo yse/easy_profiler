@@ -57,8 +57,10 @@
 #include <QColor>
 #include <QHeaderView>
 #include <QVBoxLayout>
+#include <QSplitter>
 #include <QResizeEvent>
 #include <QVariant>
+#include <QSettings>
 #include <list>
 #include "arbitrary_value_inspector.h"
 #include "treeview_first_column_delegate.h"
@@ -387,269 +389,504 @@ QPointF ArbitraryValuesCollection::point(const profiler::ArbitraryValue& _value)
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyArbitraryValuesChartItem::EasyArbitraryValuesChartItem()
-    : Parent(nullptr)
+ArbitraryValuesChartItem::ArbitraryValuesChartItem()
+    : Parent()
+    , m_workerMaxValue(0)
+    , m_workerMinValue(0)
 {
 }
 
-EasyArbitraryValuesChartItem::~EasyArbitraryValuesChartItem()
+ArbitraryValuesChartItem::~ArbitraryValuesChartItem()
 {
 
 }
 
-void EasyArbitraryValuesChartItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
+void ArbitraryValuesChartItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
 {
-    if (m_collections.empty())
-        return;
-
-    const auto& chart = *reinterpret_cast<const EasyGraphicsChart*>(scene()->parent());
-    const auto scale = chart.xscale();
-
-    qreal minValue = 1e300, maxValue = -1e300;
-    for (const auto& c : m_collections)
-    {
-        const auto& collection = *c.ptr;
-        if (minValue > collection.minValue())
-            minValue = collection.minValue();
-        if (maxValue < collection.maxValue())
-            maxValue = collection.maxValue();
-    }
-
-    const qreal height = std::max(maxValue - minValue, 1.);
-
-    auto r = scene()->sceneRect();
-
+    const auto widget = static_cast<const GraphicsSliderArea*>(scene()->parent());
+    const auto currentScale = widget->getWindowScale();
+    const bool bindMode = widget->bindMode();
+    const auto bottom = m_boundingRect.bottom();
+    const auto width = m_boundingRect.width() * currentScale;
 
     _painter->save();
+    _painter->setTransform(QTransform::fromScale(1.0 / currentScale, 1), true);
 
-    for (const auto& c : m_collections)
+    if (!bindMode)
+        paintImage(_painter);
+    else
+        paintImage(_painter, currentScale, widget->minimum(), widget->maximum(), widget->value(), widget->sliderWidth());
+
+    const auto font_h = widget->fontHeight();
+    QRectF rect(0, m_boundingRect.top() - widget->margin(), width - 3, m_boundingRect.height() + widget->margins());
+    _painter->setPen(profiler_gui::TEXT_COLOR);
+    _painter->drawText(rect, Qt::AlignLeft | Qt::AlignTop, bindMode ? " Mode: Zoom" : " Mode: Overview");
+
+    if (!EASY_GLOBALS.scene.empty)
     {
-        const auto& points = c.ptr->points();
-        if (points.empty())
-            continue;
-
-        if (c.selected)
-        {
-            auto pen = _painter->pen();
-            pen.setColor(QColor::fromRgba(c.color));
-            pen.setWidth(3);
-            _painter->setPen(pen);
-        }
-        else
-        {
-            _painter->setPen(QColor::fromRgba(c.color));
-        }
-
-        if (points.size() == 1)
-            _painter->drawPoint(points.front());
-        else
-        {
-            auto gety = [&r, &minValue, &maxValue, &height] (qreal y)
-            {
-                y = maxValue - y;
-                y /= height;
-                y *= r.height() - 10;
-                y += r.top() + 5;
-                return y;
-            };
-
-            if (c.chartType == ChartType::Points)
-            {
-                for (const auto& p : points)
-                    _painter->drawPoint(QPointF {p.x() * scale, gety(p.y())});
-            }
-            else
-            {
-                QPointF p1 = points.front();
-                for (int i = 1; i < points.size(); ++i)
-                {
-                    const auto& p2 = points[i];
-                    _painter->drawLine(QPointF {p1.x() * scale, gety(p1.y())}, QPointF {p2.x() * scale, gety(p2.y())});
-                    p1 = p2;
-                }
-            }
-            //_painter->drawPolyline(points.data(), static_cast<int>(points.size()));
-        }
+        const auto range = bindMode ? widget->sliderWidth() : widget->range();
+        paintMouseIndicator(_painter, m_boundingRect.top(), bottom, width, m_boundingRect.height(), font_h,
+                            widget->value(), range);
     }
+
+    _painter->setPen(Qt::darkGray);
+    _painter->drawLine(QLineF(0, bottom, width, bottom));
+    _painter->drawLine(QLineF(0, m_boundingRect.top(), width, m_boundingRect.top()));
 
     _painter->restore();
 }
 
-QRectF EasyArbitraryValuesChartItem::boundingRect() const
+void ArbitraryValuesChartItem::paintMouseIndicator(QPainter* _painter, qreal _top, qreal _bottom, qreal _width, qreal _height,
+                                                   int _font_h, qreal _visibleRegionLeft, qreal _visibleRegionWidth)
 {
-    return m_boundingRect;
+    if (_font_h == 0)
+        return;
+
+    const auto x = m_mousePos.x();
+    const auto y = m_mousePos.y();
+
+    // Horizontal
+    const bool visibleY = (_top < y && y < _bottom);
+    if (visibleY)
+    {
+        const int half_font_h = _font_h >> 1;
+        const auto value = m_minValue + ((_bottom - 2 - y) / (_height - 4)) * (m_maxValue - m_minValue);
+        const auto mouseStr = QString::number(value, 'f', 3);
+        const int textWidth = _painter->fontMetrics().width(mouseStr) + 3;
+        const QRectF rect(0, y - _font_h - 2, _width, 4 + (_font_h << 1));
+
+        _painter->setPen(Qt::blue);
+
+        qreal left = 0, right = _width;
+        const Qt::AlignmentFlag alignment = x < textWidth ? Qt::AlignRight : Qt::AlignLeft;
+
+        if (y > _bottom - half_font_h)
+        {
+            _painter->drawText(rect, alignment | Qt::AlignTop, mouseStr);
+        }
+        else if (y < _top + half_font_h)
+        {
+            _painter->drawText(rect, alignment | Qt::AlignBottom, mouseStr);
+        }
+        else
+        {
+            _painter->drawText(rect, alignment | Qt::AlignVCenter, mouseStr);
+            if (x < textWidth)
+                right = _width - textWidth;
+            else
+                left = textWidth;
+        }
+
+        _painter->drawLine(QLineF(left, y, right, y));
+    }
+
+    // Vertical
+    if (0 < x && x < m_boundingRect.width())
+    {
+        const auto value = _visibleRegionLeft + _visibleRegionWidth * x / _width;
+        const auto mouseStr = profiler_gui::timeStringReal(EASY_GLOBALS.time_units, value, 3);
+        const int textWidth = _painter->fontMetrics().width(mouseStr) + 6;
+        const int textWidthHalf = textWidth >> 1;
+
+        qreal left = x - textWidthHalf;
+        if (x < textWidthHalf)
+            left = 0;
+        else if (x > (_width - textWidthHalf))
+            left = _width - textWidth;
+
+        if (!visibleY)
+            _painter->setPen(Qt::blue);
+
+        const QRectF rect(left, _bottom + 2, textWidth, _font_h);
+        _painter->drawText(rect, Qt::AlignCenter, mouseStr);
+        _painter->drawLine(QLineF(x, _top, x, _bottom));
+    }
 }
 
-void EasyArbitraryValuesChartItem::setBoundingRect(const QRectF& _rect)
+bool ArbitraryValuesChartItem::updateImage()
 {
-    m_boundingRect = _rect;
+    if (!Parent::updateImage())
+        return false;
+
+    const auto widget = static_cast<const GraphicsSliderArea*>(scene()->parent());
+
+    m_imageScaleUpdate = widget->range() / widget->sliderWidth();
+    m_imageOriginUpdate = widget->bindMode() ? (widget->value() - widget->sliderWidth() * 3) : widget->minimum();
+
+    m_workerThread = std::thread(&This::updateImageAsync, this, m_boundingRect, widget->getWindowScale(),
+                                 widget->minimum(), widget->maximum(), widget->range(), widget->value(), widget->sliderWidth(),
+                                 widget->bindMode(), EASY_GLOBALS.begin_time, EASY_GLOBALS.auto_adjust_chart_height);
+
+    return true;
 }
 
-void EasyArbitraryValuesChartItem::setBoundingRect(qreal _left, qreal _top, qreal _width, qreal _height)
+void ArbitraryValuesChartItem::onImageUpdated()
 {
-    m_boundingRect.setRect(_left, _top, _width, _height);
+    m_maxValue = m_workerMaxValue;
+    m_minValue = m_workerMinValue;
 }
 
-void EasyArbitraryValuesChartItem::update(Collections _collections)
+void ArbitraryValuesChartItem::updateImageAsync(QRectF _boundingRect, qreal _current_scale, qreal _minimum, qreal _maximum, qreal _range,
+                                                qreal _value, qreal _width, bool _bindMode, profiler::timestamp_t _begin_time, bool _autoAdjust)
 {
+    const auto screenWidth = _boundingRect.width() * _current_scale;
+    //const auto maxColumnHeight = _boundingRect.height();
+    const auto viewScale = _range / _width;
+
+    if (_bindMode)
+    {
+        m_workerImageScale = viewScale;
+        m_workerImageOrigin = _value - _width * 3;
+        m_workerImage = new QImage(screenWidth * 7 + 0.5, _boundingRect.height(), QImage::Format_ARGB32);
+    }
+    else
+    {
+        m_workerImageScale = 1;
+        m_workerImageOrigin = _minimum;
+        m_workerImage = new QImage(screenWidth + 0.5, _boundingRect.height(), QImage::Format_ARGB32);
+    }
+
+    m_workerImage->fill(0);
+    QPainter p(m_workerImage);
+    p.setBrush(Qt::NoBrush);
+    p.setRenderHint(QPainter::Antialiasing, true);
+
+    // Draw grid
+    {
+        auto pen = p.pen();
+        pen.setColor(Qt::darkGray);
+        pen.setStyle(Qt::DotLine);
+        p.setPen(pen);
+
+        const int left = 0;
+        const int top = 0;
+        const int w = m_workerImage->width();
+        const int h = m_workerImage->height();
+
+        const int hlines = h / 20;
+        for (int i = 0; i < hlines; ++i)
+        {
+            const auto y = top + 20 + i * 20;
+            p.drawLine(left, y, left + w, y);
+        }
+
+        const int vlines = w / 20;
+        for (int i = 0; i < vlines; ++i)
+        {
+            const auto x = left + 20 + i * 20;
+            p.drawLine(x, top, x, top + h);
+        }
+
+        p.setPen(Qt::SolidLine);
+    }
+
+    if (m_collections.empty() || isReady())
+    {
+        setReady(true);
+        return;
+    }
+
+    using LeftBounds = std::vector<Points::const_iterator>;
+    qreal realScale = _current_scale, offset = 0;
+
+    LeftBounds leftBounds;
+    leftBounds.reserve(m_collections.size());
+
+    if (_bindMode)
+    {
+        _minimum = m_workerImageOrigin;
+        _maximum = m_workerImageOrigin + _width * 7;
+        realScale *= viewScale;
+        offset = _minimum * realScale;
+    }
+
+    const auto right = std::min(_value + _width, _maximum);
+    qreal minValue = 1e300, maxValue = -1e300;
+    for (const auto& c : m_collections)
+    {
+        if (isReady())
+            return;
+
+        const auto& collection = *c.ptr;
+        const auto& points = collection.points();
+
+        if (points.empty())
+        {
+            leftBounds.emplace_back(points.end());
+            continue;
+        }
+
+        if (_bindMode)
+        {
+            auto first = std::lower_bound(points.begin(), points.end(), _minimum, [](const QPointF& point, qreal x)
+            {
+                return point.x() < x;
+            });
+
+            if (first != points.end())
+            {
+                if (first != points.begin())
+                    --first;
+            }
+            else
+            {
+                first = points.begin() + points.size() - 1;
+            }
+
+            leftBounds.emplace_back(first);
+
+            if (_autoAdjust)
+            {
+                for (auto it = first; it != points.end() && it->x() < right; ++it)
+                {
+                    if (it->x() < _value)
+                        continue;
+
+                    const auto value = it->y();
+
+                    if (minValue > value)
+                        minValue = value;
+
+                    if (maxValue < value)
+                        maxValue = value;
+                }
+
+                continue;
+            }
+        }
+        else
+        {
+            leftBounds.emplace_back(points.begin());
+        }
+
+        if (minValue > collection.minValue())
+            minValue = collection.minValue();
+
+        if (maxValue < collection.maxValue())
+            maxValue = collection.maxValue();
+    }
+
+    if (minValue > maxValue)
+    {
+        // No points
+        m_workerMinValue = 0;
+        m_workerMaxValue = 0;
+        setReady(true);
+        return;
+    }
+
+    m_workerMinValue = minValue;
+    m_workerMaxValue = maxValue;
+
+    if (isReady())
+        return;
+
+    const bool singleValue = fabs(maxValue - minValue) < 2 * std::numeric_limits<qreal>::epsilon();
+    const auto middle = _boundingRect.height() * 0.5;
+
+    const qreal height = std::max(maxValue - minValue, 0.01);
+    const auto gety = [&_boundingRect, maxValue, height, singleValue, middle] (qreal y)
+    {
+        if (singleValue)
+        {
+            y = middle;
+        }
+        else
+        {
+            y = maxValue - y;
+            y /= height;
+            y *= _boundingRect.height() - 4;
+            y += 2;
+        }
+
+        return y;
+    };
+
+    size_t i = 0;
+    for (const auto& c : m_collections)
+    {
+        if (isReady())
+            return;
+
+        const auto& points = c.ptr->points();
+        if (points.empty())
+        {
+            ++i;
+            continue;
+        }
+
+        if (c.selected)
+        {
+            auto pen = p.pen();
+            pen.setColor(QColor::fromRgba(c.color));
+            pen.setWidth(2);
+            p.setPen(pen);
+        }
+        else
+        {
+            p.setPen(QColor::fromRgba(c.color));
+        }
+
+        const auto first = leftBounds[i];
+
+        if (c.chartType == ChartType::Points)
+        {
+            for (auto it = first; it != points.end() && it->x() < _maximum; ++it)
+            {
+                if (it->x() < _minimum)
+                    continue;
+
+                if (isReady())
+                    return;
+
+                const qreal x = it->x() * realScale - offset;
+                const qreal y = gety(it->y());
+                p.drawPoint(QPointF {x, y});
+            }
+        }
+        else if (first != points.end() && first->x() < _maximum)
+        {
+            QPointF p1 = *first;
+            qreal x = p1.x() * realScale - offset;
+            qreal y = gety(p1.y());
+            p1.setX(x);
+            p1.setY(y);
+
+            auto it = first;
+            for (++it; it != points.end(); ++it)
+            {
+                if (isReady())
+                    return;
+
+                QPointF p2 = *it;
+                x = p2.x() * realScale - offset;
+                y = gety(p2.y());
+                p2.setX(x);
+                p2.setY(y);
+
+                if (it->x() >= _minimum)
+                    p.drawLine(p1, p2);
+
+                if (it->x() >= _maximum)
+                    break;
+
+                p1 = p2;
+            }
+        }
+
+        if (c.selected)
+        {
+            auto color = profiler_gui::darken(c.color, 0.65f);
+            if (profiler_gui::alpha(color) < 0xc0)
+                p.setPen(QColor::fromRgba(profiler::colors::modify_alpha32(0xc0000000, color)));
+            else
+                p.setPen(QColor::fromRgba(color));
+            p.setBrush(QColor::fromRgba(0xc0ffffff));
+
+            qreal prevX = -offset * 2, prevY = -500;
+            for (auto it = first; it != points.end() && it->x() < _maximum; ++it)
+            {
+                if (it->x() < _minimum)
+                    continue;
+
+                if (isReady())
+                    return;
+
+                const qreal x = it->x() * realScale - offset;
+                const qreal y = gety(it->y());
+
+                const auto dx = x - prevX, dy = y - prevY;
+                const auto delta = estd::sqr(dx) + estd::sqr(dy);
+
+                if (delta > 25)
+                {
+                    p.drawEllipse(QPointF {x, y}, 3, 3);
+                    prevX = x;
+                    prevY = y;
+                }
+            }
+        }
+
+        ++i;
+    }
+
+    setReady(true);
+}
+
+void ArbitraryValuesChartItem::clear()
+{
+    cancelAnyJob();
+    m_boundaryTimer.stop();
+    m_collections.clear();
+    m_minValue = m_maxValue = 0;
+}
+
+void ArbitraryValuesChartItem::update(Collections _collections)
+{
+    cancelImageUpdate();
     m_collections = std::move(_collections);
+    updateImage();
 }
 
-void EasyArbitraryValuesChartItem::update(const ArbitraryValuesCollection* _selected)
+void ArbitraryValuesChartItem::update(const ArbitraryValuesCollection* _selected)
 {
+    cancelImageUpdate();
+
     for (auto& collection : m_collections)
         collection.selected = collection.ptr == _selected;
+
+    updateImage();
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyGraphicsChart::EasyGraphicsChart(QWidget* _parent)
+GraphicsChart::GraphicsChart(QWidget* _parent)
     : Parent(_parent)
-    , m_chartItem(new EasyArbitraryValuesChartItem())
-    , m_left(0)
-    , m_right(100)
-    , m_offset(0)
-    , m_xscale(1)
-    , m_visibleRegionWidth(100)
-    , m_bBindMode(false)
+    , m_chartItem(new ArbitraryValuesChartItem())
 {
-    setCacheMode(QGraphicsView::CacheNone);
-    setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
-    //setViewportUpdateMode(QGraphicsView::BoundingRectViewportUpdate);
-    setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
-    setOptimizationFlag(QGraphicsView::DontSavePainterState, true);
-
-    setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-
-    setContentsMargins(0, 0, 0, 0);
-
-    setScene(new QGraphicsScene(this));
-    scene()->setSceneRect(0, -250, 500, 500);
+    m_imageItem = m_chartItem;
     scene()->addItem(m_chartItem);
 
-    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::sceneSizeChanged,
-            this, &This::onSceneSizeChanged, Qt::QueuedConnection);
+    const auto rect = scene()->sceneRect();
+    m_chartItem->setPos(0, 0);
+    m_chartItem->setBoundingRect(0, rect.top() + margin(), scene()->width(), rect.height() - margins() - 1);
 
-    onSceneSizeChanged();
+    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::autoAdjustChartChanged, [this]
+    {
+        if (m_chartItem->isVisible())
+            m_chartItem->onModeChanged();
+    });
+
+    if (!EASY_GLOBALS.scene.empty)
+    {
+        setRange(EASY_GLOBALS.scene.left, EASY_GLOBALS.scene.right);
+        setSliderWidth(EASY_GLOBALS.scene.window);
+        setValue(EASY_GLOBALS.scene.offset);
+        m_slider->show();
+    }
+
+    m_chartItem->updateImage();
 }
 
-EasyGraphicsChart::~EasyGraphicsChart()
+GraphicsChart::~GraphicsChart()
 {
 
 }
 
-void EasyGraphicsChart::onSceneSizeChanged()
+void GraphicsChart::clear()
 {
-    setRange(EASY_GLOBALS.scene_left, EASY_GLOBALS.scene_right);
+    m_chartItem->clear();
+    Parent::clear();
 }
 
-void EasyGraphicsChart::resizeEvent(QResizeEvent* _event)
-{
-    auto size = _event->size();
-    onWindowSizeChanged(size.width(), size.height());
-    scene()->update();
-}
-
-void EasyGraphicsChart::clear()
-{
-    m_chartItem->update(Collections {});
-}
-
-bool EasyGraphicsChart::bindMode() const
-{
-    return m_bBindMode;
-}
-
-qreal EasyGraphicsChart::xscale() const
-{
-    return m_xscale;
-}
-
-qreal EasyGraphicsChart::left() const
-{
-    return m_left;
-}
-
-qreal EasyGraphicsChart::right() const
-{
-    return m_right;
-}
-
-qreal EasyGraphicsChart::range() const
-{
-    return m_right - m_left;
-}
-
-qreal EasyGraphicsChart::offset() const
-{
-    return m_bBindMode ? m_offset : 0;
-}
-
-qreal EasyGraphicsChart::region() const
-{
-    return m_bBindMode ? m_visibleRegionWidth : range();
-}
-
-void EasyGraphicsChart::setOffset(qreal _offset)
-{
-    m_offset = std::min(std::max(m_left, m_offset), m_right - m_visibleRegionWidth);
-}
-
-void EasyGraphicsChart::setRange(qreal _left, qreal _right)
-{
-    const auto oldRange = range();
-    const auto oldOffsetPart = oldRange < 1e-3 ? 0.0 : m_offset / oldRange;
-
-    m_left = _left;
-    m_right = _right;
-
-    if (m_left > m_right)
-        std::swap(m_left, m_right);
-
-    const auto sceneRange = range();
-    //scene()->setSceneRect(m_left, -(height() >> 1), sceneRange, height());
-    //m_chartItem->setBoundingRect(scene()->sceneRect());
-
-    m_offset = m_left + oldOffsetPart * sceneRange;
-    m_visibleRegionWidth = std::min(m_visibleRegionWidth, sceneRange);
-
-    //const auto oldXScale = m_xscale;
-    m_xscale = sceneRange < 1e-3 ? 1.0 : width() / sceneRange;
-    //scale(m_xscale / oldXScale, 1);
-
-    scene()->update();
-}
-
-void EasyGraphicsChart::setRegion(qreal _visibleRegionWidth)
-{
-    m_visibleRegionWidth = std::min(_visibleRegionWidth, range());
-    setOffset(m_offset);
-}
-
-void EasyGraphicsChart::onWindowSizeChanged(qreal _width, qreal _height)
-{
-    //const auto oldXScale = m_xscale;
-    const auto sceneRange = range();
-
-    m_xscale = sceneRange < 1e-3 ? 1.0 : _width / sceneRange;
-
-    scene()->setSceneRect(0, -_height * 0.5, _width, _height);
-    //scene()->setSceneRect(m_left, -_height * 0.5, sceneRange, _height);
-    m_chartItem->setBoundingRect(scene()->sceneRect());
-    //scale(m_xscale / oldXScale, 1);
-}
-
-void EasyGraphicsChart::update(Collections _collections)
+void GraphicsChart::update(Collections _collections)
 {
     m_chartItem->update(std::move(_collections));
-    scene()->update();
 }
 
-void EasyGraphicsChart::update(const ArbitraryValuesCollection* _selected)
+void GraphicsChart::update(const ArbitraryValuesCollection* _selected)
 {
     m_chartItem->update(_selected);
-    scene()->update();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -669,13 +906,13 @@ EASY_CONSTEXPR auto StdItemType = QTreeWidgetItem::UserType;
 EASY_CONSTEXPR auto ValueItemType = QTreeWidgetItem::UserType + 1;
 
 struct UsedValueTypes {
-    EasyArbitraryTreeWidgetItem* items[int_cast(profiler::DataType::TypesCount)];
+    ArbitraryTreeWidgetItem* items[int_cast(profiler::DataType::TypesCount)];
     UsedValueTypes(int = 0) { memset(items, 0, sizeof(items)); }
 };
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyArbitraryTreeWidgetItem::EasyArbitraryTreeWidgetItem(QTreeWidgetItem* _parent, profiler::color_t _color, profiler::vin_t _vin)
+ArbitraryTreeWidgetItem::ArbitraryTreeWidgetItem(QTreeWidgetItem* _parent, profiler::color_t _color, profiler::vin_t _vin)
     : Parent(_parent, ValueItemType)
     , m_vin(_vin)
     , m_color(_color)
@@ -685,29 +922,29 @@ EasyArbitraryTreeWidgetItem::EasyArbitraryTreeWidgetItem(QTreeWidgetItem* _paren
     setCheckState(CheckColumn, Qt::Unchecked);
 }
 
-EasyArbitraryTreeWidgetItem::~EasyArbitraryTreeWidgetItem()
+ArbitraryTreeWidgetItem::~ArbitraryTreeWidgetItem()
 {
 
 }
 
-QVariant EasyArbitraryTreeWidgetItem::data(int _column, int _role) const
+QVariant ArbitraryTreeWidgetItem::data(int _column, int _role) const
 {
     if (_column == CheckColumn && _role == Qt::SizeHintRole)
         return QSize(m_widthHint, 26);
     return Parent::data(_column, _role);
 }
 
-void EasyArbitraryTreeWidgetItem::setWidthHint(int _width)
+void ArbitraryTreeWidgetItem::setWidthHint(int _width)
 {
     m_widthHint = _width;
 }
 
-const ArbitraryValuesCollection* EasyArbitraryTreeWidgetItem::collection() const
+const ArbitraryValuesCollection* ArbitraryTreeWidgetItem::collection() const
 {
     return m_collection.get();
 }
 
-void EasyArbitraryTreeWidgetItem::collectValues(profiler::thread_id_t _threadId)
+void ArbitraryTreeWidgetItem::collectValues(profiler::thread_id_t _threadId)
 {
     if (!m_collection)
         m_collection = CollectionPtr(new ArbitraryValuesCollection);
@@ -717,7 +954,7 @@ void EasyArbitraryTreeWidgetItem::collectValues(profiler::thread_id_t _threadId)
     m_collection->collectValues(_threadId, m_vin, text(int_cast(ArbitraryColumns::Name)).toStdString().c_str(), EASY_GLOBALS.begin_time);
 }
 
-void EasyArbitraryTreeWidgetItem::interrupt()
+void ArbitraryTreeWidgetItem::interrupt()
 {
     if (!m_collection)
         return;
@@ -726,24 +963,29 @@ void EasyArbitraryTreeWidgetItem::interrupt()
     m_collection.release();
 }
 
-profiler::color_t EasyArbitraryTreeWidgetItem::color() const
+profiler::color_t ArbitraryTreeWidgetItem::color() const
 {
     return m_color;
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyArbitraryValuesWidget::EasyArbitraryValuesWidget(QWidget* _parent)
+ArbitraryValuesWidget::ArbitraryValuesWidget(QWidget* _parent)
     : Parent(_parent)
+    , m_splitter(new QSplitter(Qt::Horizontal, this))
     , m_treeWidget(new QTreeWidget(this))
-    , m_chart(new EasyGraphicsChart(this))
+    , m_chart(new GraphicsChart(this))
 {
-    auto layout = new QHBoxLayout(this);
+    m_splitter->setHandleWidth(1);
+    m_splitter->setContentsMargins(0, 0, 0, 0);
+    m_splitter->addWidget(m_treeWidget);
+    m_splitter->addWidget(m_chart);
+    m_splitter->setStretchFactor(0, 1);
+    m_splitter->setStretchFactor(1, 1);
+
+    auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->addWidget(m_treeWidget);
-    layout->addWidget(m_chart);
-    layout->setStretch(0, 1);
-    layout->setStretch(1, 1);
+    layout->addWidget(m_splitter);
 
     m_treeWidget->setAutoFillBackground(false);
     m_treeWidget->setAlternatingRowColors(true);
@@ -761,10 +1003,6 @@ EasyArbitraryValuesWidget::EasyArbitraryValuesWidget(QWidget* _parent)
     headerItem->setText(int_cast(ArbitraryColumns::Vin), "ID");
     m_treeWidget->setHeaderItem(headerItem);
 
-//    auto mainLayout = new QVBoxLayout(this);
-//    mainLayout->setContentsMargins(1, 1, 1, 1);
-//    mainLayout->addWidget(m_treeWidget);
-
     connect(&m_timer, &QTimer::timeout, this, &This::rebuild);
     connect(&m_collectionsTimer, &QTimer::timeout, this, &This::onCollectionsTimeout);
 
@@ -775,14 +1013,16 @@ EasyArbitraryValuesWidget::EasyArbitraryValuesWidget(QWidget* _parent)
     connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChanged);
     connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChanged);
     connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedBlockIdChanged, this, &This::onSelectedBlockIdChanged);
+
+    loadSettings();
 }
 
-EasyArbitraryValuesWidget::~EasyArbitraryValuesWidget()
+ArbitraryValuesWidget::~ArbitraryValuesWidget()
 {
-
+    saveSettings();
 }
 
-void EasyArbitraryValuesWidget::clear()
+void ArbitraryValuesWidget::clear()
 {
     if (m_collectionsTimer.isActive())
         m_collectionsTimer.stop();
@@ -792,25 +1032,25 @@ void EasyArbitraryValuesWidget::clear()
     m_treeWidget->clear();
 }
 
-void EasyArbitraryValuesWidget::onSelectedThreadChanged(::profiler::thread_id_t)
+void ArbitraryValuesWidget::onSelectedThreadChanged(::profiler::thread_id_t)
 {
     if (!m_timer.isActive())
         m_timer.start(100);
 }
 
-void EasyArbitraryValuesWidget::onSelectedBlockChanged(uint32_t)
+void ArbitraryValuesWidget::onSelectedBlockChanged(uint32_t)
 {
     if (!m_timer.isActive())
         m_timer.start(100);
 }
 
-void EasyArbitraryValuesWidget::onSelectedBlockIdChanged(::profiler::block_id_t)
+void ArbitraryValuesWidget::onSelectedBlockIdChanged(::profiler::block_id_t)
 {
     if (!m_timer.isActive())
         m_timer.start(100);
 }
 
-void EasyArbitraryValuesWidget::onItemDoubleClicked(QTreeWidgetItem* _item, int)
+void ArbitraryValuesWidget::onItemDoubleClicked(QTreeWidgetItem* _item, int)
 {
     if (_item == nullptr || _item->type() != ValueItemType)
         return;
@@ -818,12 +1058,12 @@ void EasyArbitraryValuesWidget::onItemDoubleClicked(QTreeWidgetItem* _item, int)
     _item->setCheckState(CheckColumn, _item->checkState(CheckColumn) == Qt::Checked ? Qt::Unchecked : Qt::Checked);
 }
 
-void EasyArbitraryValuesWidget::onItemChanged(QTreeWidgetItem* _item, int _column)
+void ArbitraryValuesWidget::onItemChanged(QTreeWidgetItem* _item, int _column)
 {
     if (_item == nullptr || _item->type() != ValueItemType || _column != CheckColumn)
         return;
 
-    auto item = static_cast<EasyArbitraryTreeWidgetItem*>(_item);
+    auto item = static_cast<ArbitraryTreeWidgetItem*>(_item);
 
     if (item->checkState(CheckColumn) == Qt::Checked)
     {
@@ -840,7 +1080,7 @@ void EasyArbitraryValuesWidget::onItemChanged(QTreeWidgetItem* _item, int _colum
     }
 }
 
-void EasyArbitraryValuesWidget::onCurrentItemChanged(QTreeWidgetItem* _current, QTreeWidgetItem*)
+void ArbitraryValuesWidget::onCurrentItemChanged(QTreeWidgetItem* _current, QTreeWidgetItem*)
 {
     if (_current == nullptr || _current->type() != ValueItemType)
     {
@@ -848,11 +1088,11 @@ void EasyArbitraryValuesWidget::onCurrentItemChanged(QTreeWidgetItem* _current, 
         return;
     }
 
-    auto item = static_cast<const EasyArbitraryTreeWidgetItem*>(_current);
+    auto item = static_cast<const ArbitraryTreeWidgetItem*>(_current);
     m_chart->update(item->collection());
 }
 
-void EasyArbitraryValuesWidget::rebuild()
+void ArbitraryValuesWidget::rebuild()
 {
     clear();
 
@@ -863,7 +1103,7 @@ void EasyArbitraryValuesWidget::rebuild()
         m_treeWidget->resizeColumnToContents(i);
 }
 
-void EasyArbitraryValuesWidget::onCollectionsTimeout()
+void ArbitraryValuesWidget::onCollectionsTimeout()
 {
     if (m_checkedItems.isEmpty())
     {
@@ -879,7 +1119,7 @@ void EasyArbitraryValuesWidget::onCollectionsTimeout()
     {
         if (item->collection()->status() != ArbitraryValuesCollection::InProgress)
         {
-            collections.push_back(EasyCollectionPaintData {item->collection(), item->color(),
+            collections.push_back(CollectionPaintData {item->collection(), item->color(),
                 ChartType::Line, item == m_treeWidget->currentItem()});
         }
     }
@@ -892,7 +1132,7 @@ void EasyArbitraryValuesWidget::onCollectionsTimeout()
     }
 }
 
-void EasyArbitraryValuesWidget::buildTree(profiler::thread_id_t _threadId, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId)
+void ArbitraryValuesWidget::buildTree(profiler::thread_id_t _threadId, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId)
 {
     m_treeWidget->clear();
     m_treeWidget->setColumnHidden(int_cast(ArbitraryColumns::Value), profiler_gui::is_max(_blockIndex));
@@ -916,7 +1156,7 @@ void EasyArbitraryValuesWidget::buildTree(profiler::thread_id_t _threadId, profi
     }
 }
 
-QTreeWidgetItem* EasyArbitraryValuesWidget::buildTreeForThread(const profiler::BlocksTreeRoot& _threadRoot, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId)
+QTreeWidgetItem* ArbitraryValuesWidget::buildTreeForThread(const profiler::BlocksTreeRoot& _threadRoot, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId)
 {
     auto fm = m_treeWidget->fontMetrics();
 
@@ -932,7 +1172,7 @@ QTreeWidgetItem* EasyArbitraryValuesWidget::buildTreeForThread(const profiler::B
         const auto& desc = easyDescriptor(block.node->id());
         if (desc.type() == profiler::BlockType::Value)
         {
-            auto valueItem = new EasyArbitraryTreeWidgetItem(rootItem, desc.color(), block.value->value_id());
+            auto valueItem = new ArbitraryTreeWidgetItem(rootItem, desc.color(), block.value->value_id());
             valueItem->setText(int_cast(ArbitraryColumns::Type), profiler_gui::valueTypeString(*block.value));
             valueItem->setText(int_cast(ArbitraryColumns::Name), desc.name());
             valueItem->setText(int_cast(ArbitraryColumns::Vin), QString("0x%1").arg(block.value->value_id(), 0, 16));
@@ -1005,8 +1245,8 @@ QTreeWidgetItem* EasyArbitraryValuesWidget::buildTreeForThread(const profiler::B
                     const auto typeIndex = int_cast(child.value->type());
                     auto vin = child.value->value_id();
 
-                    EasyArbitraryTreeWidgetItem** usedItems = nullptr;
-                    EasyArbitraryTreeWidgetItem* valueItem = nullptr;
+                    ArbitraryTreeWidgetItem** usedItems = nullptr;
+                    ArbitraryTreeWidgetItem* valueItem = nullptr;
                     if (vin == 0)
                     {
                         auto result = names.emplace(desc.name(), 0);
@@ -1030,7 +1270,7 @@ QTreeWidgetItem* EasyArbitraryValuesWidget::buildTreeForThread(const profiler::B
                         }
                     }
 
-                    valueItem = new EasyArbitraryTreeWidgetItem(blockItem, desc.color(), vin);
+                    valueItem = new ArbitraryTreeWidgetItem(blockItem, desc.color(), vin);
                     valueItem->setText(int_cast(ArbitraryColumns::Type), profiler_gui::valueTypeString(*child.value));
                     valueItem->setText(int_cast(ArbitraryColumns::Name), desc.name());
                     valueItem->setText(int_cast(ArbitraryColumns::Vin), QString("0x%1").arg(vin, 0, 16));
@@ -1058,3 +1298,27 @@ QTreeWidgetItem* EasyArbitraryValuesWidget::buildTreeForThread(const profiler::B
     return rootItem;
 }
 
+void ArbitraryValuesWidget::loadSettings()
+{
+    QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
+    settings.beginGroup("ArbitraryValuesWidget");
+
+    auto geometry = settings.value("hsplitter/geometry").toByteArray();
+    if (!geometry.isEmpty())
+        m_splitter->restoreGeometry(geometry);
+
+    auto state = settings.value("hsplitter/state").toByteArray();
+    if (!state.isEmpty())
+        m_splitter->restoreState(state);
+
+    settings.endGroup();
+}
+
+void ArbitraryValuesWidget::saveSettings()
+{
+    QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
+    settings.beginGroup("ArbitraryValuesWidget");
+    settings.setValue("hsplitter/geometry", m_splitter->saveGeometry());
+    settings.setValue("hsplitter/state", m_splitter->saveState());
+    settings.endGroup();
+}

@@ -112,7 +112,6 @@ public:
     bool decreaseBottomValue() override;
 
     void onModeChanged() override;
-    void onValueChanged() override;
 
 public:
 
@@ -156,7 +155,7 @@ private:
 
 public:
 
-    explicit EasyGraphicsScrollbar(bool _fixedHeight, int _height, QWidget* _parent = nullptr);
+    explicit EasyGraphicsScrollbar(int _initialHeight, QWidget* _parent = nullptr);
     ~EasyGraphicsScrollbar() override;
 
     void clear() override;

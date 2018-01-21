@@ -772,44 +772,12 @@ void GraphicsHistogramItem::pickFrameTime(qreal _y) const
 
 //////////////////////////////////////////////////////////////////////////
 
-void GraphicsHistogramItem::onValueChanged()
-{
-    const auto widget = static_cast<const EasyGraphicsScrollbar*>(scene()->parent());
-
-    if (!widget->bindMode())
-        return;
-
-    m_boundaryTimer.stop();
-
-    const auto sliderWidth_inv = 1.0 / widget->sliderWidth();
-    const auto k = widget->range() * sliderWidth_inv;
-
-    const auto deltaScale = m_imageScaleUpdate < k ? (k / m_imageScaleUpdate) : (m_imageScaleUpdate / k);
-    if (deltaScale > 4)
-    {
-        updateImage();
-        return;
-    }
-
-    const auto deltaOffset = (widget->value() - m_imageOriginUpdate) * sliderWidth_inv;
-    if (deltaOffset < 1.5 || deltaOffset > 4.5)
-    {
-        updateImage();
-        return;
-    }
-
-    m_boundaryTimer.start();
-}
-
-//////////////////////////////////////////////////////////////////////////
-
 void GraphicsHistogramItem::onModeChanged()
 {
     if (!isImageUpdatePermitted())
         return;
 
     const auto widget = static_cast<const EasyGraphicsScrollbar*>(scene()->parent());
-
     if (!widget->bindMode() && EASY_GLOBALS.auto_adjust_histogram_height)
     {
         m_topValue = m_maxValue;
@@ -827,7 +795,7 @@ bool GraphicsHistogramItem::updateImage()
     if (!Parent::updateImage())
         return false;
 
-    const auto widget = static_cast<const EasyGraphicsScrollbar*>(scene()->parent());
+    const auto widget = static_cast<const GraphicsSliderArea*>(scene()->parent());
 
     m_imageScaleUpdate = widget->range() / widget->sliderWidth();
     m_imageOriginUpdate = widget->bindMode() ? (widget->value() - widget->sliderWidth() * 3) : widget->minimum();
@@ -1151,61 +1119,20 @@ void GraphicsHistogramItem::updateImageAsync(QRectF _boundingRect, HistRegime _r
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyGraphicsScrollbar::EasyGraphicsScrollbar(bool _fixedHeight, int _height, QWidget* _parent)
+EasyGraphicsScrollbar::EasyGraphicsScrollbar(int _initialHeight, QWidget* _parent)
     : Parent(_parent)
-    , m_minimumValue(0)
-    , m_maximumValue(500)
-    , m_value(10)
-    , m_windowScale(1)
-    , m_mouseButtons(Qt::NoButton)
-    , m_slider(nullptr)
-    , m_selectionIndicator(nullptr)
     , m_histogramItem(nullptr)
-    , m_fontHeight(0)
-    , m_bScrolling(false)
-    , m_bBindMode(false)
-    , m_bLocked(false)
 {
-    setCacheMode(QGraphicsView::CacheNone);
-    setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
-    //setViewportUpdateMode(QGraphicsView::BoundingRectViewportUpdate);
-    setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
-    setOptimizationFlag(QGraphicsView::DontSavePainterState, true);
-
-    setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-
-    setContentsMargins(0, 0, 0, 0);
-
-    setScene(new QGraphicsScene(this));
-
-    m_fontHeight = QFontMetrics(font()).height();
-
-    const int sceneHeight = _height - 2;
+    const int sceneHeight = _initialHeight - 2;
     scene()->setSceneRect(0, -(sceneHeight >> 1), 500, sceneHeight);
-    if (_fixedHeight)
-        setFixedHeight(_height);
 
     m_histogramItem = new GraphicsHistogramItem();
+    m_imageItem = m_histogramItem;
     scene()->addItem(m_histogramItem);
 
     m_histogramItem->setPos(0, 0);
     m_histogramItem->setBoundingRect(0, scene()->sceneRect().top() + margin(), scene()->width(), sceneHeight - margins() - 1);
     m_histogramItem->hide();
-
-    m_selectionIndicator = new GraphicsSliderItem(6, false);
-    scene()->addItem(m_selectionIndicator);
-
-    m_selectionIndicator->setPos(0, 0);
-    m_selectionIndicator->setColor(0x40000000 | profiler_gui::CHRONOMETER_COLOR.rgba());
-    m_selectionIndicator->hide();
-
-    m_slider = new GraphicsSliderItem(6, true);
-    scene()->addItem(m_slider);
-
-    m_slider->setPos(0, 0);
-    m_slider->setColor(0x40c0c0c0);
-    m_slider->hide();
 
     connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::expectedFrameTimeChanged, [this]()
     {
@@ -1231,7 +1158,13 @@ EasyGraphicsScrollbar::EasyGraphicsScrollbar(bool _fixedHeight, int _height, QWi
     connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::threadNameDecorationChanged, this, &This::onThreadViewChanged);
     connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::hexThreadIdChanged, this, &This::onThreadViewChanged);
 
-    centerOn(0, 0);
+    if (!EASY_GLOBALS.scene.empty)
+    {
+        setRange(EASY_GLOBALS.scene.left, EASY_GLOBALS.scene.right);
+        setSliderWidth(EASY_GLOBALS.scene.window);
+        setValue(EASY_GLOBALS.scene.offset);
+        m_slider->show();
+    }
 }
 
 EasyGraphicsScrollbar::~EasyGraphicsScrollbar()

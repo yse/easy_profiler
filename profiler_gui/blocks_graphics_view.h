@@ -136,6 +136,7 @@ private:
     qreal                          m_sceneWidth; ///< 
     qreal                               m_scale; ///< Current scale
     qreal                              m_offset; ///< Have to use manual offset for all scene content instead of using scrollbars because QScrollBar::value is 32-bit integer :(
+    qreal                  m_visibleRegionWidth; ///< Visible scene rectangle in scene coordinates + width of vertical scrollbar (if visible)
     qreal                        m_timelineStep; ///< 
     uint64_t                         m_idleTime; ///< 
     QPoint                      m_mousePressPos; ///< Last mouse global position (used by mousePressEvent and mouseMoveEvent)
@@ -156,7 +157,7 @@ private:
 public:
 
     explicit EasyGraphicsView(QWidget* _parent = nullptr);
-    virtual ~EasyGraphicsView();
+    ~EasyGraphicsView() override;
 
     // Public virtual methods
 
@@ -198,6 +199,12 @@ private:
 
     // Private non-virtual methods
 
+    void notifySceneSizeChange();
+    void notifyVisibleRegionSizeChange();
+    void notifyVisibleRegionSizeChange(qreal _size);
+    void notifyVisibleRegionPosChange();
+    void notifyVisibleRegionPosChange(qreal _pos);
+
     void removePopup(bool _removeFromScene = false);
 
     EasyChronometerItem* createChronometer(bool _main = true);
@@ -230,33 +237,33 @@ public:
 
     // Public inline methods
 
-    inline qreal scale() const
+    qreal scale() const
     {
         return m_scale;
     }
 
-    inline qreal offset() const
+    qreal offset() const
     {
         return m_offset;
     }
 
-    inline const QRectF& visibleSceneRect() const
+    const QRectF& visibleSceneRect() const
     {
         return m_visibleSceneRect;
     }
 
-    inline qreal timelineStep() const
+    qreal timelineStep() const
     {
         return m_timelineStep;
     }
 
-    inline qreal time2position(const profiler::timestamp_t& _time) const
+    qreal time2position(const profiler::timestamp_t& _time) const
     {
         return PROF_MICROSECONDS(qreal(_time - m_beginTime));
         //return PROF_MILLISECONDS(qreal(_time - m_beginTime));
     }
 
-    inline ::profiler::timestamp_t position2time(qreal _pos) const
+    ::profiler::timestamp_t position2time(qreal _pos) const
     {
         return PROF_FROM_MICROSECONDS(_pos);
         //return PROF_FROM_MILLISECONDS(_pos);
@@ -272,8 +279,8 @@ class EasyThreadNamesWidget : public QGraphicsView
 
 private:
 
-    typedef QGraphicsView Parent;
-    typedef EasyThreadNamesWidget This;
+    using Parent = QGraphicsView;
+    using This = EasyThreadNamesWidget;
 
     QTimer                  m_idleTimer; ///< 
     uint64_t                 m_idleTime; ///< 
@@ -285,7 +292,7 @@ private:
 public:
 
     explicit EasyThreadNamesWidget(EasyGraphicsView* _view, int _additionalHeight, QWidget* _parent = nullptr);
-    virtual ~EasyThreadNamesWidget();
+    ~EasyThreadNamesWidget() override;
 
     void mousePressEvent(QMouseEvent* _event) override;
     void mouseDoubleClickEvent(QMouseEvent* _event) override;
@@ -325,6 +332,7 @@ class EasyGraphicsViewWidget : public QWidget
 
 private:
 
+    class QSplitter*                m_splitter;
     EasyGraphicsScrollbar*         m_scrollbar;
     EasyGraphicsView*                   m_view;
     EasyThreadNamesWidget* m_threadNamesWidget;
@@ -332,10 +340,13 @@ private:
 public:
 
     explicit EasyGraphicsViewWidget(QWidget* _parent = nullptr);
-    virtual ~EasyGraphicsViewWidget();
+    ~EasyGraphicsViewWidget() override;
 
     EasyGraphicsView* view();
     void clear();
+
+    void save(class QSettings& settings);
+    void restore(class QSettings& settings);
 
 private:
 

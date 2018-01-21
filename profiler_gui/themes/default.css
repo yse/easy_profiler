@@ -30,6 +30,12 @@ QToolTip {
 QGraphicsView {
   border: 1px solid #cccccc; }
 
+QSplitter::handle:hover {
+  background-color: rgba(244, 67, 54, 0.5); }
+
+QSplitter::handle:pressed {
+  background-color: #f44336; }
+
 /* ****************************************************************************************************************** */
 QLineEdit, QComboBox, QSpinBox {
   height: 24px;

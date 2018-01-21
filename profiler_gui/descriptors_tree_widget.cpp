@@ -67,6 +67,7 @@
 #include <QToolBar>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QSplitter>
 #include <QVariant>
 #include <QTimer>
 #include <thread>
@@ -765,14 +766,20 @@ int EasyDescTreeWidget::findPrev(const QString& _str, Qt::MatchFlags _flags)
 //////////////////////////////////////////////////////////////////////////
 
 EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
+    , m_splitter(new QSplitter(Qt::Vertical, this))
     , m_tree(new EasyDescTreeWidget(this))
-    , m_values(new EasyArbitraryValuesWidget(this))
+    , m_values(new ArbitraryValuesWidget(this))
     , m_searchBox(new QLineEdit(this))
     , m_foundNumber(new QLabel("Found 0 matches", this))
     , m_searchButton(nullptr)
     , m_bCaseSensitiveSearch(false)
 {
-    loadSettings();
+    m_splitter->setHandleWidth(1);
+    m_splitter->setContentsMargins(0, 0, 0, 0);
+    m_splitter->addWidget(m_tree);
+    m_splitter->addWidget(m_values);
+    m_splitter->setStretchFactor(0, 1);
+    m_splitter->setStretchFactor(1, 1);
 
     m_searchBox->setFixedWidth(300);
     m_searchBox->setContentsMargins(5, 0, 0, 0);
@@ -812,6 +819,7 @@ EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
     a->setChecked(m_bCaseSensitiveSearch);
     connect(a, &QAction::triggered, [this](bool _checked){ m_bCaseSensitiveSearch = _checked; });
     menu->addAction(a);
+    QAction* caseSensitiveSwitch = a;
 
     menu->addSeparator();
     auto headerItem = m_tree->headerItem();
@@ -845,11 +853,13 @@ EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
     auto lay = new QVBoxLayout(this);
     lay->setContentsMargins(1, 1, 1, 1);
     lay->addLayout(searchbox);
-    lay->addWidget(m_tree);
-    lay->addWidget(m_values);
+    lay->addWidget(m_splitter);
 
     connect(m_searchBox, &QLineEdit::returnPressed, this, &This::onSeachBoxReturnPressed);
     connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::connectionChanged, refreshButton, &QAction::setEnabled);
+
+    loadSettings();
+    caseSensitiveSwitch->setChecked(m_bCaseSensitiveSearch);
 }
 
 EasyDescWidget::~EasyDescWidget()
@@ -866,6 +876,14 @@ void EasyDescWidget::loadSettings()
     if (!val.isNull())
         m_bCaseSensitiveSearch = val.toBool();
 
+    auto geometry = settings.value("vsplitter/geometry").toByteArray();
+    if (!geometry.isEmpty())
+        m_splitter->restoreGeometry(geometry);
+
+    auto state = settings.value("vsplitter/state").toByteArray();
+    if (!state.isEmpty())
+        m_splitter->restoreState(state);
+
     settings.endGroup();
 }
 
@@ -874,6 +892,8 @@ void EasyDescWidget::saveSettings()
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
     settings.beginGroup("EasyDescWidget");
     settings.setValue("case_sensitive", m_bCaseSensitiveSearch);
+    settings.setValue("vsplitter/geometry", m_splitter->saveGeometry());
+    settings.setValue("vsplitter/state", m_splitter->saveState());
     settings.endGroup();
 }
 

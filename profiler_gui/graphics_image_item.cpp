@@ -71,14 +71,10 @@ bool GraphicsImageItem::updateImage()
     return true;
 }
 
-
 void GraphicsImageItem::onValueChanged()
 {
     const auto widget = qobject_cast<const GraphicsSliderArea*>(scene()->parent());
-    if (widget == nullptr)
-        return;
-
-    if (!widget->bindMode())
+    if (widget == nullptr || !widget->bindMode())
         return;
 
     m_boundaryTimer.stop();
