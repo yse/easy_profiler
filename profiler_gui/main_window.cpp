@@ -1238,31 +1238,32 @@ void EasyMainWindow::onFpsMonitorLineWidthChange(int _value)
 
 void EasyMainWindow::onEditBlocksClicked(bool)
 {
-    if (m_descTreeDialog != nullptr)
+    if (m_descTreeDialog.ptr != nullptr)
     {
-        m_descTreeDialog->raise();
+        m_descTreeDialog.ptr->raise();
         return;
     }
 
-    m_descTreeDialog = new QDialog();
-    m_descTreeDialog->setAttribute(Qt::WA_DeleteOnClose, true);
-    m_descTreeDialog->setWindowTitle(EASY_DEFAULT_WINDOW_TITLE);
-    connect(m_descTreeDialog, &QDialog::finished, this, &This::onDescTreeDialogClose);
+    m_descTreeDialog.create();
+    connect(m_descTreeDialog.ptr, &QDialog::finished, this, &This::onDescTreeDialogClose);
 
-    auto l = new QVBoxLayout(m_descTreeDialog);
-    m_dialogDescTree = new EasyDescWidget(m_descTreeDialog);
-    l->addWidget(m_dialogDescTree);
-    m_descTreeDialog->setLayout(l);
+    m_dialogDescTree = new EasyDescWidget(m_descTreeDialog.ptr);
+
+    auto lay = new QVBoxLayout(m_descTreeDialog.ptr);
+    lay->addWidget(m_dialogDescTree);
 
     m_dialogDescTree->build();
-    m_descTreeDialog->show();
+
+    m_descTreeDialog.restoreGeometry();
+    m_descTreeDialog.ptr->show();
 }
 
 void EasyMainWindow::onDescTreeDialogClose(int)
 {
-    disconnect(m_descTreeDialog, &QDialog::finished, this, &This::onDescTreeDialogClose);
+    disconnect(m_descTreeDialog.ptr, &QDialog::finished, this, &This::onDescTreeDialogClose);
+    m_descTreeDialog.saveGeometry();
     m_dialogDescTree = nullptr;
-    m_descTreeDialog = nullptr;
+    m_descTreeDialog.ptr = nullptr;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1278,14 +1279,14 @@ void EasyMainWindow::closeEvent(QCloseEvent* close_event)
         }
     }
 
-    saveSettingsAndGeometry();
-
-    if (m_descTreeDialog != nullptr)
+    if (m_descTreeDialog.ptr != nullptr)
     {
-        m_descTreeDialog->reject();
-        m_descTreeDialog = nullptr;
+        m_descTreeDialog.ptr->reject();
+        m_descTreeDialog.ptr = nullptr;
         m_dialogDescTree = nullptr;
     }
+
+    saveSettingsAndGeometry();
 
     Parent::closeEvent(close_event);
 }
@@ -1452,6 +1453,10 @@ void EasyMainWindow::loadGeometry()
     if (!geometry.isEmpty())
         m_fpsViewer->restoreGeometry(geometry);
 
+    geometry = settings.value("descTreeDialogGeometry").toByteArray();
+    if (!geometry.isEmpty())
+        m_descTreeDialog.geometry.swap(geometry);
+
     geometry = settings.value("diagramGeometry").toByteArray();
     if (!geometry.isEmpty())
         m_graphicsView->restoreGeometry(geometry);
@@ -1472,6 +1477,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
 
     settings.setValue("geometry", this->saveGeometry());
     settings.setValue("fpsGeometry", m_fpsViewer->saveGeometry());
+    settings.setValue("descTreeDialogGeometry", m_descTreeDialog.geometry);
     settings.setValue("diagramGeometry", m_graphicsView->saveGeometry());
     static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->save(settings);
 
@@ -1745,7 +1751,7 @@ void EasyMainWindow::onFileReaderTimeout()
 {
     if (m_reader.done())
     {
-        auto nblocks = m_reader.size();
+        const auto nblocks = m_reader.size();
         if (nblocks != 0)
         {
             static_cast<EasyHierarchyWidget*>(m_treeWidget->widget())->clear(true);
@@ -1817,7 +1823,7 @@ void EasyMainWindow::onFileReaderTimeout()
             EASY_GLOBALS.gui_blocks.clear();
             EASY_GLOBALS.gui_blocks.resize(nblocks);
             memset(EASY_GLOBALS.gui_blocks.data(), 0, sizeof(::profiler_gui::EasyBlock) * nblocks);
-            for (decltype(nblocks) i = 0; i < nblocks; ++i) {
+            for (std::remove_const<decltype(nblocks)>::type i = 0; i < nblocks; ++i) {
                 auto& guiblock = EASY_GLOBALS.gui_blocks[i];
                 guiblock.tree = ::std::move(blocks[i]);
 #ifdef EASY_TREE_WIDGET__USE_VECTOR
@@ -1859,9 +1865,11 @@ void EasyMainWindow::onFileReaderTimeout()
         m_readerTimer.stop();
         destroyProgressDialog();
 
-        if (EASY_GLOBALS.all_items_expanded_by_default)
+        if (nblocks != 0)
         {
-            onExpandAllClicked(true);
+            if (EASY_GLOBALS.all_items_expanded_by_default)
+                onExpandAllClicked(true);
+            emit EASY_GLOBALS.events.fileOpened();
         }
     }
     else if (m_progress != nullptr)
@@ -1960,12 +1968,9 @@ void EasyFileReader::load(::std::stringstream& _stream)
 
 void EasyFileReader::interrupt()
 {
-    m_progress.store(-100, ::std::memory_order_release);
-    if (m_thread.joinable())
-        m_thread.join();
+    join();
 
     m_bDone.store(false, ::std::memory_order_release);
-    m_progress.store(0, ::std::memory_order_release);
     m_size.store(0, ::std::memory_order_release);
     m_serializedBlocks.clear();
     m_serializedDescriptors.clear();
@@ -1994,6 +1999,14 @@ void EasyFileReader::get(::profiler::SerializedData& _serializedBlocks, ::profil
         _descriptorsNumberInFile = m_descriptorsNumberInFile;
         _version = m_version;
     }
+}
+
+void EasyFileReader::join()
+{
+    m_progress.store(-100, ::std::memory_order_release);
+    if (m_thread.joinable())
+        m_thread.join();
+    m_progress.store(0, ::std::memory_order_release);
 }
 
 QString EasyFileReader::getError()
@@ -2283,13 +2296,13 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
                     m_serializedDescriptors.swap(serializedDescriptors);
                     m_descriptorsNumberInFile = static_cast<uint32_t>(EASY_GLOBALS.descriptors.size());
 
-                    if (m_descTreeDialog != nullptr)
+                    if (m_descTreeDialog.ptr != nullptr)
                     {
 #if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
                         static_cast<EasyDescWidget*>(m_descTreeWidget->widget())->build();
 #endif
                         m_dialogDescTree->build();
-                        m_descTreeDialog->raise();
+                        m_descTreeDialog.ptr->raise();
                     }
                     else
                     {
@@ -2319,6 +2332,24 @@ void EasyMainWindow::onBlockStatusChange(::profiler::block_id_t _id, ::profiler:
 {
     if (EASY_GLOBALS.connected)
         m_listener.send(profiler::net::BlockStatusMessage(_id, static_cast<uint8_t>(_status)));
+}
+
+void DialogWithGeometry::create()
+{
+    ptr = new QDialog();
+    ptr->setAttribute(Qt::WA_DeleteOnClose, true);
+    ptr->setWindowTitle(EASY_DEFAULT_WINDOW_TITLE);
+}
+
+void DialogWithGeometry::saveGeometry()
+{
+    geometry = ptr->saveGeometry();
+}
+
+void DialogWithGeometry::restoreGeometry()
+{
+    if (!geometry.isEmpty())
+        ptr->restoreGeometry(geometry);
 }
 
 //////////////////////////////////////////////////////////////////////////

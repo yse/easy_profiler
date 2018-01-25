@@ -214,7 +214,8 @@ private:
     void updateTimelineStep(qreal _windowWidth);
     void scaleTo(qreal _scale);
     void scrollTo(const EasyGraphicsItem* _item);
-    void onWheel(qreal _mouseX, int _wheelDelta);
+    qreal mapToDiagram(qreal x) const;
+    void onWheel(qreal _scenePos, int _wheelDelta);
     qreal setTree(EasyGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, uint32_t& _maxDepthChild, qreal _y, short _level);
 
 private slots:
@@ -222,7 +223,7 @@ private slots:
     // Private Slots
 
     void repaintScene();
-    void onGraphicsScrollbarWheel(qreal _mouseX, int _wheelDelta);
+    void onGraphicsScrollbarWheel(qreal _scenePos, int _wheelDelta);
     void onScrollbarValueChange(int);
     void onGraphicsScrollbarValueChange(qreal);
     void onFlickerTimeout();

@@ -816,13 +816,12 @@ void EasyGraphicsView::scaleTo(qreal _scale)
 void EasyGraphicsView::wheelEvent(QWheelEvent* _event)
 {
     m_idleTime = 0;
-
     if (!m_bEmpty)
-        onWheel(mapToScene(_event->pos()).x(), _event->delta());
+        onWheel(mapToDiagram(mapToScene(_event->pos()).x()), _event->delta());
     _event->accept();
 }
 
-void EasyGraphicsView::onGraphicsScrollbarWheel(qreal _mouseX, int _wheelDelta)
+void EasyGraphicsView::onGraphicsScrollbarWheel(qreal _scenePos, int _wheelDelta)
 {
     m_idleTime = 0;
 
@@ -835,7 +834,7 @@ void EasyGraphicsView::onGraphicsScrollbarWheel(qreal _mouseX, int _wheelDelta)
         }
     }
 
-    onWheel(_mouseX, _wheelDelta);
+    onWheel(_scenePos, _wheelDelta);
 }
 
 void EasyGraphicsView::scrollTo(const EasyGraphicsItem* _item)
@@ -846,16 +845,23 @@ void EasyGraphicsView::scrollTo(const EasyGraphicsItem* _item)
     m_bUpdatingRect = false;
 }
 
-void EasyGraphicsView::onWheel(qreal _mouseX, int _wheelDelta)
+qreal EasyGraphicsView::mapToDiagram(qreal x) const
+{
+    return m_offset + x / m_scale;
+}
+
+void EasyGraphicsView::onWheel(qreal _scenePos, int _wheelDelta)
 {
     const decltype(m_scale) scaleCoeff = _wheelDelta > 0 ? ::profiler_gui::SCALING_COEFFICIENT : ::profiler_gui::SCALING_COEFFICIENT_INV;
 
     // Remember current mouse position
-    _mouseX = clamp(0., _mouseX, m_sceneWidth);
-    const auto mousePosition = m_offset + _mouseX / m_scale;
+    _scenePos = clamp(0., _scenePos, m_sceneWidth);
+    const auto initialPosition = _scenePos;
 
     // have to limit scale because of Qt's QPainter feature: it doesn't draw text
     // with very big coordinates (but it draw rectangles with the same coordinates good).
+    _scenePos -= m_offset;
+    _scenePos *= m_scale;
     m_scale = clamp(MIN_SCALE, m_scale * scaleCoeff, MAX_SCALE);
 
     //updateVisibleSceneRect(); // Update scene rect
@@ -864,7 +870,7 @@ void EasyGraphicsView::onWheel(qreal _mouseX, int _wheelDelta)
     notifyVisibleRegionSizeChange();
 
     // Calculate new offset to simulate QGraphicsView::AnchorUnderMouse scaling behavior
-    m_offset = clamp(0., mousePosition - _mouseX / m_scale, m_sceneWidth - m_visibleRegionWidth);
+    m_offset = clamp(0., initialPosition - _scenePos / m_scale, m_sceneWidth - m_visibleRegionWidth);
 
     // Update slider position
     profiler_gui::BoolFlagGuard guard(m_bUpdatingRect, true); // To be sure that updateVisibleSceneRect will not be called by scrollbar change
@@ -1312,13 +1318,13 @@ void EasyGraphicsView::keyPressEvent(QKeyEvent* _event)
         case Qt::Key_Plus:
         case Qt::Key_Equal:
         {
-            onWheel(mapToScene(mapFromGlobal(QCursor::pos())).x(), KeyStep);
+            onWheel(mapToDiagram(mapToScene(mapFromGlobal(QCursor::pos())).x()), KeyStep);
             break;
         }
 
         case Qt::Key_Minus:
         {
-            onWheel(mapToScene(mapFromGlobal(QCursor::pos())).x(), -KeyStep);
+            onWheel(mapToDiagram(mapToScene(mapFromGlobal(QCursor::pos())).x()), -KeyStep);
             break;
         }
     }

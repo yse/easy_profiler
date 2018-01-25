@@ -61,6 +61,8 @@
 #include <QResizeEvent>
 #include <QVariant>
 #include <QSettings>
+#include <QToolBar>
+#include <QAction>
 #include <list>
 #include "arbitrary_value_inspector.h"
 #include "treeview_first_column_delegate.h"
@@ -859,6 +861,7 @@ GraphicsChart::GraphicsChart(QWidget* _parent)
 
     if (!EASY_GLOBALS.scene.empty)
     {
+        const profiler_gui::BoolFlagGuard guard(m_bEmitChange, false);
         setRange(EASY_GLOBALS.scene.left, EASY_GLOBALS.scene.right);
         setSliderWidth(EASY_GLOBALS.scene.window);
         setValue(EASY_GLOBALS.scene.offset);
@@ -930,13 +933,20 @@ ArbitraryTreeWidgetItem::~ArbitraryTreeWidgetItem()
 QVariant ArbitraryTreeWidgetItem::data(int _column, int _role) const
 {
     if (_column == CheckColumn && _role == Qt::SizeHintRole)
-        return QSize(m_widthHint, 26);
+        return QSize(static_cast<int>(m_widthHint * m_font.bold() ? 1.2f : 1.f), 26);
+    if (_role == Qt::FontRole)
+        return m_font;
     return Parent::data(_column, _role);
 }
 
 void ArbitraryTreeWidgetItem::setWidthHint(int _width)
 {
     m_widthHint = _width;
+}
+
+void ArbitraryTreeWidgetItem::setBold(bool _isBold)
+{
+    m_font.setBold(_isBold);
 }
 
 const ArbitraryValuesCollection* ArbitraryTreeWidgetItem::collection() const
@@ -975,6 +985,7 @@ ArbitraryValuesWidget::ArbitraryValuesWidget(QWidget* _parent)
     , m_splitter(new QSplitter(Qt::Horizontal, this))
     , m_treeWidget(new QTreeWidget(this))
     , m_chart(new GraphicsChart(this))
+    , m_boldItem(nullptr)
 {
     m_splitter->setHandleWidth(1);
     m_splitter->setContentsMargins(0, 0, 0, 0);
@@ -983,8 +994,15 @@ ArbitraryValuesWidget::ArbitraryValuesWidget(QWidget* _parent)
     m_splitter->setStretchFactor(0, 1);
     m_splitter->setStretchFactor(1, 1);
 
+    auto tb = new QToolBar(this);
+    tb->setIconSize(::profiler_gui::ICONS_SIZE);
+    auto refreshButton = tb->addAction(QIcon(imagePath("reload")), tr("Refresh values list"));
+    refreshButton->setToolTip(tr("Refresh arbitrary values list."));
+    connect(refreshButton, &QAction::triggered, this, &This::rebuild);
+
     auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(tb);
     layout->addWidget(m_splitter);
 
     m_treeWidget->setAutoFillBackground(false);
@@ -1003,18 +1021,20 @@ ArbitraryValuesWidget::ArbitraryValuesWidget(QWidget* _parent)
     headerItem->setText(int_cast(ArbitraryColumns::Vin), "ID");
     m_treeWidget->setHeaderItem(headerItem);
 
-    connect(&m_timer, &QTimer::timeout, this, &This::rebuild);
     connect(&m_collectionsTimer, &QTimer::timeout, this, &This::onCollectionsTimeout);
 
     connect(m_treeWidget, &QTreeWidget::itemDoubleClicked, this, &This::onItemDoubleClicked);
     connect(m_treeWidget, &QTreeWidget::itemChanged, this, &This::onItemChanged);
     connect(m_treeWidget, &QTreeWidget::currentItemChanged, this, &This::onCurrentItemChanged);
 
-    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChanged);
-    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChanged);
-    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedBlockIdChanged, this, &This::onSelectedBlockIdChanged);
+    auto globalEvents = &EASY_GLOBALS.events;
+    connect(globalEvents, &profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChanged);
+    connect(globalEvents, &profiler_gui::EasyGlobalSignals::selectedBlockIdChanged, this, &This::onSelectedBlockIdChanged);
+    connect(globalEvents, &profiler_gui::EasyGlobalSignals::fileOpened, this, &This::rebuild);
 
     loadSettings();
+
+    rebuild();
 }
 
 ArbitraryValuesWidget::~ArbitraryValuesWidget()
@@ -1026,28 +1046,42 @@ void ArbitraryValuesWidget::clear()
 {
     if (m_collectionsTimer.isActive())
         m_collectionsTimer.stop();
-    if (m_timer.isActive())
-        m_timer.stop();
     m_checkedItems.clear();
     m_treeWidget->clear();
-}
-
-void ArbitraryValuesWidget::onSelectedThreadChanged(::profiler::thread_id_t)
-{
-    if (!m_timer.isActive())
-        m_timer.start(100);
+    m_boldItem = nullptr;
 }
 
 void ArbitraryValuesWidget::onSelectedBlockChanged(uint32_t)
 {
-    if (!m_timer.isActive())
-        m_timer.start(100);
+    if (profiler_gui::is_max(EASY_GLOBALS.selected_block))
+    {
+        onSelectedBlockIdChanged(EASY_GLOBALS.selected_block_id);
+        return;
+    }
+
+    if (!profiler_gui::is_max(EASY_GLOBALS.selected_block))
+        return;
+
+    // TODO: find item corresponding to selected_block and make it bold
 }
 
 void ArbitraryValuesWidget::onSelectedBlockIdChanged(::profiler::block_id_t)
 {
-    if (!m_timer.isActive())
-        m_timer.start(100);
+    if (!profiler_gui::is_max(EASY_GLOBALS.selected_block))
+        return;
+
+    if (profiler_gui::is_max(EASY_GLOBALS.selected_block_id))
+    {
+        if (m_boldItem != nullptr)
+        {
+            m_boldItem->setBold(false);
+            m_boldItem = nullptr;
+        }
+
+        return;
+    }
+
+    // TODO: find item corresponding to selected_block_id and make it bold
 }
 
 void ArbitraryValuesWidget::onItemDoubleClicked(QTreeWidgetItem* _item, int)

@@ -119,6 +119,8 @@ public:
              ::profiler::descriptors_list_t& _descriptors, ::profiler::blocks_t& _blocks, ::profiler::thread_blocks_tree_t& _tree,
              uint32_t& _descriptorsNumberInFile, uint32_t& _version, QString& _filename);
 
+    void join();
+
     QString getError();
 
 }; // END of class EasyFileReader.
@@ -202,14 +204,26 @@ public:
     ~EasyDockWidget() override;
 };
 
+struct DialogWithGeometry EASY_FINAL
+{
+    QByteArray geometry;
+    class QDialog* ptr = nullptr;
+
+    void create();
+    void saveGeometry();
+    void restoreGeometry();
+};
+
 class EasyMainWindow : public QMainWindow
 {
     Q_OBJECT
 
 protected:
 
-    typedef EasyMainWindow This;
-    typedef QMainWindow  Parent;
+    using This = EasyMainWindow;
+    using Parent = QMainWindow;
+
+    DialogWithGeometry m_descTreeDialog;
 
     QStringList                            m_lastFiles;
     QString                                    m_theme;
@@ -223,7 +237,6 @@ protected:
 #endif
 
     class QProgressDialog*                  m_progress = nullptr;
-    class QDialog*                    m_descTreeDialog = nullptr;
     class EasyDescWidget*             m_dialogDescTree = nullptr;
     class QMessageBox*                m_listenerDialog = nullptr;
     QTimer                               m_readerTimer;

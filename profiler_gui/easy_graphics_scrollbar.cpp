@@ -1160,6 +1160,7 @@ EasyGraphicsScrollbar::EasyGraphicsScrollbar(int _initialHeight, QWidget* _paren
 
     if (!EASY_GLOBALS.scene.empty)
     {
+        const profiler_gui::BoolFlagGuard guard(m_bEmitChange, false);
         setRange(EASY_GLOBALS.scene.left, EASY_GLOBALS.scene.right);
         setSliderWidth(EASY_GLOBALS.scene.window);
         setValue(EASY_GLOBALS.scene.offset);

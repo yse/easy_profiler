@@ -71,6 +71,8 @@ namespace profiler_gui {
 
     signals:
 
+        void fileOpened();
+
         void selectedThreadChanged(::profiler::thread_id_t _id);
         void selectedBlockChanged(uint32_t _block_index);
         void selectedBlockIdChanged(::profiler::block_id_t _id);

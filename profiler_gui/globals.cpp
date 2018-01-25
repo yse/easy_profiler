@@ -107,7 +107,7 @@ namespace profiler_gui {
         , highlight_blocks_with_same_id(true)
         , selecting_block_changes_thread(true)
         , auto_adjust_histogram_height(true)
-        , auto_adjust_chart_height(true)
+        , auto_adjust_chart_height(false)
         , display_only_frames_on_histogram(false)
         , bind_scene_and_tree_expand_status(true)
     {

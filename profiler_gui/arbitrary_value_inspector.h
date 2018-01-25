@@ -224,6 +224,7 @@ class ArbitraryTreeWidgetItem : public QTreeWidgetItem
     using This = ArbitraryTreeWidgetItem;
     using CollectionPtr = std::unique_ptr<ArbitraryValuesCollection>;
 
+    QFont                 m_font;
     CollectionPtr   m_collection;
     profiler::vin_t        m_vin;
     profiler::color_t    m_color;
@@ -237,6 +238,7 @@ public:
     QVariant data(int _column, int _role) const override;
 
     void setWidthHint(int _width);
+    void setBold(bool _isBold);
 
     const ArbitraryValuesCollection* collection() const;
     void collectValues(profiler::thread_id_t _threadId);
@@ -255,27 +257,27 @@ class ArbitraryValuesWidget : public QWidget
     using Parent = QWidget;
     using This = ArbitraryValuesWidget;
 
-    QTimer                                 m_timer;
     QTimer                      m_collectionsTimer;
     QList<ArbitraryTreeWidgetItem*> m_checkedItems;
     class QSplitter*                    m_splitter;
     QTreeWidget*                      m_treeWidget;
     GraphicsChart*                         m_chart;
+    ArbitraryTreeWidgetItem*            m_boldItem;
 
 public:
 
     explicit ArbitraryValuesWidget(QWidget* _parent = nullptr);
     ~ArbitraryValuesWidget() override;
 
-    void clear();
+    void contextMenuEvent(QContextMenuEvent*) override {}
 
 public slots:
 
+    void clear();
     void rebuild();
 
 private slots:
 
-    void onSelectedThreadChanged(profiler::thread_id_t _id);
     void onSelectedBlockChanged(uint32_t _block_index);
     void onSelectedBlockIdChanged(profiler::block_id_t _id);
     void onItemDoubleClicked(QTreeWidgetItem* _item, int _column);

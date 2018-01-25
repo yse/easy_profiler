@@ -225,14 +225,14 @@ GraphicsSliderArea::GraphicsSliderArea(QWidget* _parent)
     {
         if (!m_bUpdatingPos)
         {
-            m_bEmitChange = false;
+            const profiler_gui::BoolFlagGuard guard(m_bEmitChange, false);
             setValue(pos);
-            m_bEmitChange = true;
         }
     });
 
     connect(globalEvents, &profiler_gui::EasyGlobalSignals::sceneSizeChanged, [this] (qreal left, qreal right)
     {
+        const profiler_gui::BoolFlagGuard guard(m_bEmitChange, false);
         setRange(left, right);
         m_slider->show();
     });
@@ -250,6 +250,7 @@ GraphicsSliderArea::~GraphicsSliderArea()
 
 void GraphicsSliderArea::clear()
 {
+    const profiler_gui::BoolFlagGuard guard(m_bEmitChange, false);
     setRange(0, 100);
     setSliderWidth(2);
     setValue(0);
@@ -504,8 +505,10 @@ void GraphicsSliderArea::wheelEvent(QWheelEvent* _event)
     }
     else
     {
-        const auto x = (mapToScene(_event->pos()).x() - m_minimumValue) * m_windowScale;
-        emit EASY_GLOBALS.events.chartWheeled(x, _event->delta());
+        auto x = static_cast<qreal>(_event->pos().x()) / m_windowScale;
+        if (m_bBindMode)
+            x *= sliderWidth() / range();
+        emit EASY_GLOBALS.events.chartWheeled(m_value + x, _event->delta());
     }
 }
 
