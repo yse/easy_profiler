@@ -87,6 +87,10 @@ public:
     void stop();
     bool isActive() const;
 
+private slots:
+
+    void onTimeout();
+
 }; // END of class EasyQTimer.
 
 //////////////////////////////////////////////////////////////////////////

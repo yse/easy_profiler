@@ -116,6 +116,7 @@ public:
     void collectValues(profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName, profiler::timestamp_t _beginTime);
     bool calculatePoints(profiler::timestamp_t _beginTime);
     void interrupt();
+    void join();
 
 private:
 
@@ -211,8 +212,13 @@ public:
 
 public:
 
+    void cancelImageUpdate();
     void update(Collections _collections);
     void update(const ArbitraryValuesCollection* _selected);
+
+private slots:
+
+    void onAutoAdjustChartChanged();
 
 }; // end of class GraphicsChart.
 
@@ -241,6 +247,7 @@ public:
     void setBold(bool _isBold);
 
     const ArbitraryValuesCollection* collection() const;
+    ArbitraryValuesCollection* collection();
     void collectValues(profiler::thread_id_t _threadId);
     void interrupt();
 

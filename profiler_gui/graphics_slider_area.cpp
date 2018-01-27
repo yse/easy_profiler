@@ -179,6 +179,7 @@ GraphicsSliderArea::GraphicsSliderArea(QWidget* _parent)
     , m_bLocked(false)
     , m_bUpdatingPos(false)
     , m_bEmitChange(true)
+    , m_bValidated(false)
 {
     setCacheMode(QGraphicsView::CacheNone);
     setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
@@ -220,23 +221,8 @@ GraphicsSliderArea::GraphicsSliderArea(QWidget* _parent)
     connect(globalEvents, &profiler_gui::EasyGlobalSignals::sceneCleared, this, &This::clear);
     connect(globalEvents, &profiler_gui::EasyGlobalSignals::sceneVisibleRegionSizeChanged, this, &This::setSliderWidth);
     connect(globalEvents, &profiler_gui::EasyGlobalSignals::sceneVisibleRegionPosChanged, this, &This::setValue);
-
-    connect(globalEvents, &profiler_gui::EasyGlobalSignals::chartSliderChanged, [this] (qreal pos)
-    {
-        if (!m_bUpdatingPos)
-        {
-            const profiler_gui::BoolFlagGuard guard(m_bEmitChange, false);
-            setValue(pos);
-        }
-    });
-
-    connect(globalEvents, &profiler_gui::EasyGlobalSignals::sceneSizeChanged, [this] (qreal left, qreal right)
-    {
-        const profiler_gui::BoolFlagGuard guard(m_bEmitChange, false);
-        setRange(left, right);
-        m_slider->show();
-    });
-
+    connect(globalEvents, &profiler_gui::EasyGlobalSignals::chartSliderChanged, this, &This::onExternalChartSliderChanged);
+    connect(globalEvents, &profiler_gui::EasyGlobalSignals::sceneSizeChanged, this, &This::onSceneSizeChanged);
     connect(globalEvents, &profiler_gui::EasyGlobalSignals::lockCharts, this, &This::lock);
     connect(globalEvents, &profiler_gui::EasyGlobalSignals::unlockCharts, this, &This::unlock);
 }
@@ -244,6 +230,45 @@ GraphicsSliderArea::GraphicsSliderArea(QWidget* _parent)
 GraphicsSliderArea::~GraphicsSliderArea()
 {
 
+}
+
+void GraphicsSliderArea::showEvent(QShowEvent* _event)
+{
+    Parent::showEvent(_event);
+    if (!m_bValidated)
+    {
+        m_bValidated = true;
+        validateScene();
+    }
+}
+
+void GraphicsSliderArea::validateScene()
+{
+    if (!EASY_GLOBALS.scene.empty)
+    {
+        const profiler_gui::BoolFlagGuard guard(m_bEmitChange, false);
+        setRange(EASY_GLOBALS.scene.left, EASY_GLOBALS.scene.right);
+        setSliderWidth(EASY_GLOBALS.scene.window);
+        setValue(EASY_GLOBALS.scene.offset);
+        m_slider->show();
+        scene()->update();
+    }
+}
+
+void GraphicsSliderArea::onExternalChartSliderChanged(qreal _pos)
+{
+    if (!m_bUpdatingPos)
+    {
+        const profiler_gui::BoolFlagGuard guard(m_bEmitChange, false);
+        setValue(_pos);
+    }
+}
+
+void GraphicsSliderArea::onSceneSizeChanged(qreal _left, qreal _right)
+{
+    const profiler_gui::BoolFlagGuard guard(m_bEmitChange, false);
+    setRange(_left, _right);
+    m_slider->show();
 }
 
 //////////////////////////////////////////////////////////////////////////

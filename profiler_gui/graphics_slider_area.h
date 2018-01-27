@@ -108,6 +108,7 @@ protected:
     bool                              m_bLocked;
     bool                         m_bUpdatingPos;
     bool                          m_bEmitChange;
+    bool                           m_bValidated;
 
 public:
 
@@ -116,6 +117,7 @@ public:
 
     // Public virtual methods
 
+    void showEvent(QShowEvent* _event) override;
     void mousePressEvent(QMouseEvent* _event) override;
     void mouseReleaseEvent(QMouseEvent* _event) override;
     void mouseMoveEvent(QMouseEvent* _event) override;
@@ -150,6 +152,10 @@ public:
     void showSelectionIndicator();
     void hideSelectionIndicator();
 
+protected:
+
+    void validateScene();
+
 public slots:
 
     void lock() { m_bLocked = true; }
@@ -157,6 +163,8 @@ public slots:
 
 protected slots:
 
+    void onExternalChartSliderChanged(qreal _pos);
+    void onSceneSizeChanged(qreal _left, qreal _right);
     void onWindowWidthChange(qreal _width);
 
 }; // END of class GraphicsSliderArea.

@@ -1134,38 +1134,17 @@ EasyGraphicsScrollbar::EasyGraphicsScrollbar(int _initialHeight, QWidget* _paren
     m_histogramItem->setBoundingRect(0, scene()->sceneRect().top() + margin(), scene()->width(), sceneHeight - margins() - 1);
     m_histogramItem->hide();
 
-    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::expectedFrameTimeChanged, [this]()
-    {
-        if (m_histogramItem->isVisible())
-        {
-            m_histogramItem->updateImage();
-            scene()->update();
-        }
-    });
+    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::expectedFrameTimeChanged,
+            this, &This::onExpectedFrameTimeChanged);
 
-    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::autoAdjustHistogramChanged, [this]()
-    {
-        if (m_histogramItem->isVisible())
-            m_histogramItem->onModeChanged();
-    });
+    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::autoAdjustHistogramChanged,
+            this, &This::onAutoAdjustHistogramChanged);
 
-    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::displayOnlyFramesOnHistogramChanged, [this]()
-    {
-        if (m_histogramItem->isVisible())
-            m_histogramItem->rebuildSource(GraphicsHistogramItem::Hist_Id);
-    });
+    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::displayOnlyFramesOnHistogramChanged,
+            this, &This::onDisplayOnlyFramesOnHistogramChanged);
 
     connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::threadNameDecorationChanged, this, &This::onThreadViewChanged);
     connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::hexThreadIdChanged, this, &This::onThreadViewChanged);
-
-    if (!EASY_GLOBALS.scene.empty)
-    {
-        const profiler_gui::BoolFlagGuard guard(m_bEmitChange, false);
-        setRange(EASY_GLOBALS.scene.left, EASY_GLOBALS.scene.right);
-        setSliderWidth(EASY_GLOBALS.scene.window);
-        setValue(EASY_GLOBALS.scene.offset);
-        m_slider->show();
-    }
 }
 
 EasyGraphicsScrollbar::~EasyGraphicsScrollbar()
@@ -1182,6 +1161,27 @@ void EasyGraphicsScrollbar::onThreadViewChanged()
         m_histogramItem->validateName();
         scene()->update();
     }
+}
+
+void EasyGraphicsScrollbar::onExpectedFrameTimeChanged()
+{
+    if (m_histogramItem->isVisible())
+    {
+        m_histogramItem->updateImage();
+        scene()->update();
+    }
+}
+
+void EasyGraphicsScrollbar::onAutoAdjustHistogramChanged()
+{
+    if (m_histogramItem->isVisible())
+        m_histogramItem->onModeChanged();
+}
+
+void EasyGraphicsScrollbar::onDisplayOnlyFramesOnHistogramChanged()
+{
+    if (m_histogramItem->isVisible())
+        m_histogramItem->rebuildSource(GraphicsHistogramItem::Hist_Id);
 }
 
 //////////////////////////////////////////////////////////////////////////

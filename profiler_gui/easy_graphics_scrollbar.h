@@ -176,6 +176,9 @@ public:
 private slots:
 
     void onThreadViewChanged();
+    void onExpectedFrameTimeChanged();
+    void onAutoAdjustHistogramChanged();
+    void onDisplayOnlyFramesOnHistogramChanged();
 
 }; // END of class EasyGraphicsScrollbar.
 

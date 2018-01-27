@@ -64,6 +64,7 @@
 #include <QToolBar>
 #include <QAction>
 #include <list>
+#include <cmath>
 #include "arbitrary_value_inspector.h"
 #include "treeview_first_column_delegate.h"
 #include "globals.h"
@@ -150,7 +151,7 @@ ArbitraryValuesCollection::ArbitraryValuesCollection()
 
 ArbitraryValuesCollection::~ArbitraryValuesCollection()
 {
-    interrupt();
+    join();
 }
 
 const ArbitraryValuesMap& ArbitraryValuesCollection::valuesMap() const
@@ -243,16 +244,26 @@ bool ArbitraryValuesCollection::calculatePoints(profiler::timestamp_t _beginTime
 
 void ArbitraryValuesCollection::interrupt()
 {
-    if (!m_collectorThread.joinable())
-        return;
+    if (m_collectorThread.joinable())
+    {
+        m_bInterrupt.store(true, std::memory_order_release);
+        m_collectorThread.join();
+        m_bInterrupt.store(false, std::memory_order_release);
 
-    m_bInterrupt.store(true, std::memory_order_release);
-    m_collectorThread.join();
-    m_bInterrupt.store(false, std::memory_order_release);
+        setStatus(Idle);
+        m_jobType = None;
+        m_values.clear();
+    }
+}
 
-    setStatus(Idle);
-    m_jobType = None;
-    m_values.clear();
+void ArbitraryValuesCollection::join()
+{
+    if (m_collectorThread.joinable())
+    {
+        m_bInterrupt.store(true, std::memory_order_release);
+        m_collectorThread.join();
+        m_bInterrupt.store(false, std::memory_order_release);
+    }
 }
 
 void ArbitraryValuesCollection::setStatus(JobStatus _status)
@@ -733,6 +744,7 @@ void ArbitraryValuesChartItem::updateImageAsync(QRectF _boundingRect, qreal _cur
 
         if (c.chartType == ChartType::Points)
         {
+            qreal prevX = 1e300, prevY = 1e300;
             for (auto it = first; it != points.end() && it->x() < _maximum; ++it)
             {
                 if (it->x() < _minimum)
@@ -743,7 +755,14 @@ void ArbitraryValuesChartItem::updateImageAsync(QRectF _boundingRect, qreal _cur
 
                 const qreal x = it->x() * realScale - offset;
                 const qreal y = gety(it->y());
-                p.drawPoint(QPointF {x, y});
+                const auto dx = fabs(x - prevX), dy = fabs(y - prevY);
+
+                if (dx > 1 || dy > 1)
+                {
+                    p.drawPoint(QPointF{x, y});
+                    prevX = x;
+                    prevY = y;
+                }
             }
         }
         else if (first != points.end() && first->x() < _maximum)
@@ -767,7 +786,13 @@ void ArbitraryValuesChartItem::updateImageAsync(QRectF _boundingRect, qreal _cur
                 p2.setY(y);
 
                 if (it->x() >= _minimum)
-                    p.drawLine(p1, p2);
+                {
+                    const auto dx = fabs(x - p1.x()), dy = fabs(y - p1.y());
+                    if (dx > 1 || dy > 1)
+                        p.drawLine(p1, p2);
+                    else
+                        continue;
+                }
 
                 if (it->x() >= _maximum)
                     break;
@@ -783,7 +808,7 @@ void ArbitraryValuesChartItem::updateImageAsync(QRectF _boundingRect, qreal _cur
                 p.setPen(QColor::fromRgba(profiler::colors::modify_alpha32(0xc0000000, color)));
             else
                 p.setPen(QColor::fromRgba(color));
-            p.setBrush(QColor::fromRgba(0xc0ffffff));
+            p.setBrush(QColor::fromRgba(0xc8ffffff));
 
             qreal prevX = -offset * 2, prevY = -500;
             for (auto it = first; it != points.end() && it->x() < _maximum; ++it)
@@ -853,20 +878,7 @@ GraphicsChart::GraphicsChart(QWidget* _parent)
     m_chartItem->setPos(0, 0);
     m_chartItem->setBoundingRect(0, rect.top() + margin(), scene()->width(), rect.height() - margins() - 1);
 
-    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::autoAdjustChartChanged, [this]
-    {
-        if (m_chartItem->isVisible())
-            m_chartItem->onModeChanged();
-    });
-
-    if (!EASY_GLOBALS.scene.empty)
-    {
-        const profiler_gui::BoolFlagGuard guard(m_bEmitChange, false);
-        setRange(EASY_GLOBALS.scene.left, EASY_GLOBALS.scene.right);
-        setSliderWidth(EASY_GLOBALS.scene.window);
-        setValue(EASY_GLOBALS.scene.offset);
-        m_slider->show();
-    }
+    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::autoAdjustChartChanged, this, &This::onAutoAdjustChartChanged);
 
     m_chartItem->updateImage();
 }
@@ -876,10 +888,21 @@ GraphicsChart::~GraphicsChart()
 
 }
 
+void GraphicsChart::onAutoAdjustChartChanged()
+{
+    if (m_chartItem->isVisible())
+        m_chartItem->onModeChanged();
+}
+
 void GraphicsChart::clear()
 {
-    m_chartItem->clear();
+    cancelImageUpdate();
     Parent::clear();
+}
+
+void GraphicsChart::cancelImageUpdate()
+{
+    m_chartItem->clear();
 }
 
 void GraphicsChart::update(Collections _collections)
@@ -927,7 +950,7 @@ ArbitraryTreeWidgetItem::ArbitraryTreeWidgetItem(QTreeWidgetItem* _parent, profi
 
 ArbitraryTreeWidgetItem::~ArbitraryTreeWidgetItem()
 {
-
+    interrupt();
 }
 
 QVariant ArbitraryTreeWidgetItem::data(int _column, int _role) const
@@ -950,6 +973,11 @@ void ArbitraryTreeWidgetItem::setBold(bool _isBold)
 }
 
 const ArbitraryValuesCollection* ArbitraryTreeWidgetItem::collection() const
+{
+    return m_collection.get();
+}
+
+ArbitraryValuesCollection* ArbitraryTreeWidgetItem::collection()
 {
     return m_collection.get();
 }
@@ -1046,6 +1074,7 @@ void ArbitraryValuesWidget::clear()
 {
     if (m_collectionsTimer.isActive())
         m_collectionsTimer.stop();
+    m_chart->cancelImageUpdate();
     m_checkedItems.clear();
     m_treeWidget->clear();
     m_boldItem = nullptr;
@@ -1153,6 +1182,7 @@ void ArbitraryValuesWidget::onCollectionsTimeout()
     {
         if (item->collection()->status() != ArbitraryValuesCollection::InProgress)
         {
+            item->collection()->join();
             collections.push_back(CollectionPaintData {item->collection(), item->color(),
                 ChartType::Line, item == m_treeWidget->currentItem()});
         }
