@@ -142,21 +142,21 @@ private:
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyGraphicsScrollbar : public GraphicsSliderArea
+class BlocksGraphicsScrollbar : public GraphicsSliderArea
 {
     Q_OBJECT
 
 private:
 
     using Parent = GraphicsSliderArea;
-    using This = EasyGraphicsScrollbar;
+    using This = BlocksGraphicsScrollbar;
 
     GraphicsHistogramItem* m_histogramItem = nullptr;
 
 public:
 
-    explicit EasyGraphicsScrollbar(int _initialHeight, QWidget* _parent = nullptr);
-    ~EasyGraphicsScrollbar() override;
+    explicit BlocksGraphicsScrollbar(int _initialHeight, QWidget* _parent = nullptr);
+    ~BlocksGraphicsScrollbar() override;
 
     void clear() override;
     void mousePressEvent(QMouseEvent* _event) override;
@@ -180,7 +180,7 @@ private slots:
     void onAutoAdjustHistogramChanged();
     void onDisplayOnlyFramesOnHistogramChanged();
 
-}; // END of class EasyGraphicsScrollbar.
+}; // END of class BlocksGraphicsScrollbar.
 
 //////////////////////////////////////////////////////////////////////////
 

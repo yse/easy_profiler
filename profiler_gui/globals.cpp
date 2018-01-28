@@ -61,15 +61,15 @@
 
 namespace profiler_gui {
 
-    EasyGlobals& EasyGlobals::instance()
+    Globals& Globals::instance()
     {
         // It's okay even without C++11 "magic statics" feature because first call happens
         // on application initialization - there is only one thread and no data races occur.
-        static EasyGlobals globals;
+        static Globals globals;
         return globals;
     }
 
-    EasyGlobals::EasyGlobals()
+    Globals::Globals()
         : theme("default")
         , bg_font(::profiler_gui::EFont("DejaVu Sans", 10, QFont::Bold))
         , chronometer_font(::profiler_gui::EFont("DejaVu Sans", 16, QFont::Bold))

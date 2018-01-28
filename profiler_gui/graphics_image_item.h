@@ -4,9 +4,9 @@
 #define EASY_PROFILER_GRAPHICS_IMAGE_ITEM_H
 
 #include <QGraphicsItem>
-#include <thread>
 #include <atomic>
 #include "easy_qtimer.h"
+#include "thread_pool_task.h"
 
 class GraphicsImageItem : public QGraphicsItem
 {
@@ -17,8 +17,8 @@ protected:
 
     QRectF      m_boundingRect;
     QImage             m_image;
-    EasyQTimer m_boundaryTimer;
-    std::thread m_workerThread;
+    Timer m_boundaryTimer;
+    ThreadPoolTask    m_worker;
     QPointF         m_mousePos;
     QImage*      m_workerImage;
     qreal        m_imageOrigin;
@@ -31,11 +31,11 @@ protected:
     qreal        m_bottomValue;
     qreal           m_maxValue;
     qreal           m_minValue;
+    std::atomic_bool  m_bReady;
 
 private:
 
-    EasyQTimer         m_timer;
-    std::atomic_bool  m_bReady;
+    Timer         m_timer;
     bool  m_bPermitImageUpdate; ///< Is false when m_workerThread is parsing input dataset (when setSource(_block_id) is called)
 
 public:

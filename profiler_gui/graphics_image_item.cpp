@@ -258,9 +258,6 @@ void GraphicsImageItem::onTimeout()
         {
             // Image updated
 
-            if (m_workerThread.joinable())
-                m_workerThread.join();
-
             m_workerImage->swap(m_image);
             delete m_workerImage;
             m_workerImage = nullptr;
@@ -286,18 +283,15 @@ bool GraphicsImageItem::isImageUpdatePermitted() const
 
 void GraphicsImageItem::cancelAnyJob()
 {
-    setReady(true);
-    if (m_workerThread.joinable())
-        m_workerThread.join();
-    //setReady(false);
+    stopTimer();
+
+    m_worker.dequeue();
 
     delete m_workerImage;
     m_workerImage = nullptr;
 
     m_imageOriginUpdate = m_imageOrigin;
     m_imageScaleUpdate = m_imageScale;
-
-    stopTimer();
 }
 
 void GraphicsImageItem::resetTopBottomValues()

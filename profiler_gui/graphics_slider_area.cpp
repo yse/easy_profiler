@@ -218,13 +218,13 @@ GraphicsSliderArea::GraphicsSliderArea(QWidget* _parent)
     centerOn(0, 0);
 
     auto globalEvents = &EASY_GLOBALS.events;
-    connect(globalEvents, &profiler_gui::EasyGlobalSignals::sceneCleared, this, &This::clear);
-    connect(globalEvents, &profiler_gui::EasyGlobalSignals::sceneVisibleRegionSizeChanged, this, &This::setSliderWidth);
-    connect(globalEvents, &profiler_gui::EasyGlobalSignals::sceneVisibleRegionPosChanged, this, &This::setValue);
-    connect(globalEvents, &profiler_gui::EasyGlobalSignals::chartSliderChanged, this, &This::onExternalChartSliderChanged);
-    connect(globalEvents, &profiler_gui::EasyGlobalSignals::sceneSizeChanged, this, &This::onSceneSizeChanged);
-    connect(globalEvents, &profiler_gui::EasyGlobalSignals::lockCharts, this, &This::lock);
-    connect(globalEvents, &profiler_gui::EasyGlobalSignals::unlockCharts, this, &This::unlock);
+    connect(globalEvents, &profiler_gui::GlobalSignals::sceneCleared, this, &This::clear);
+    connect(globalEvents, &profiler_gui::GlobalSignals::sceneVisibleRegionSizeChanged, this, &This::setSliderWidth);
+    connect(globalEvents, &profiler_gui::GlobalSignals::sceneVisibleRegionPosChanged, this, &This::setValue);
+    connect(globalEvents, &profiler_gui::GlobalSignals::chartSliderChanged, this, &This::onExternalChartSliderChanged);
+    connect(globalEvents, &profiler_gui::GlobalSignals::sceneSizeChanged, this, &This::onSceneSizeChanged);
+    connect(globalEvents, &profiler_gui::GlobalSignals::lockCharts, this, &This::lock);
+    connect(globalEvents, &profiler_gui::GlobalSignals::unlockCharts, this, &This::unlock);
 }
 
 GraphicsSliderArea::~GraphicsSliderArea()

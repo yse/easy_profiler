@@ -71,6 +71,9 @@
 
 //////////////////////////////////////////////////////////////////////////
 
+EASY_CONSTEXPR int ChartBound = 2; ///< Top and bottom bounds for chart
+EASY_CONSTEXPR int ChartBounds = ChartBound << 1;
+
 void getChartPoints(const ArbitraryValuesCollection& _collection, Points& _points, qreal& _minValue, qreal& _maxValue)
 {
     _minValue =  1e300;
@@ -151,7 +154,7 @@ ArbitraryValuesCollection::ArbitraryValuesCollection()
 
 ArbitraryValuesCollection::~ArbitraryValuesCollection()
 {
-    join();
+
 }
 
 const ArbitraryValuesMap& ArbitraryValuesCollection::valuesMap() const
@@ -196,9 +199,13 @@ void ArbitraryValuesCollection::collectValues(profiler::thread_id_t _threadId, p
     m_jobType = ValuesJob;
 
     if (_valueId == 0)
-        m_collectorThread = std::thread(&This::collectByName, this, _threadId, _valueName);
+    {
+        m_worker.enqueue([this, _threadId, _valueName] { collectByName(_threadId, _valueName); }, m_bInterrupt);
+    }
     else
-        m_collectorThread = std::thread(&This::collectById, this, _threadId, _valueId);
+    {
+        m_worker.enqueue([this, _threadId, _valueId] { collectById(_threadId, _valueId); }, m_bInterrupt);
+    }
 }
 
 void ArbitraryValuesCollection::collectValues(profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName, profiler::timestamp_t _beginTime)
@@ -213,9 +220,13 @@ void ArbitraryValuesCollection::collectValues(profiler::thread_id_t _threadId, p
     m_jobType = ValuesJob | PointsJob;
 
     if (_valueId == 0)
-        m_collectorThread = std::thread(&This::collectByName, this, _threadId, _valueName);
+    {
+        m_worker.enqueue([this, _threadId, _valueName] { collectByName(_threadId, _valueName); }, m_bInterrupt);
+    }
     else
-        m_collectorThread = std::thread(&This::collectById, this, _threadId, _valueId);
+    {
+        m_worker.enqueue([this, _threadId, _valueId] { collectById(_threadId, _valueId); }, m_bInterrupt);
+    }
 }
 
 bool ArbitraryValuesCollection::calculatePoints(profiler::timestamp_t _beginTime)
@@ -223,8 +234,7 @@ bool ArbitraryValuesCollection::calculatePoints(profiler::timestamp_t _beginTime
     if (status() != Ready || m_values.empty())
         return false;
 
-    if (m_collectorThread.joinable())
-        m_collectorThread.join();
+    m_worker.dequeue();
 
     setStatus(InProgress);
     m_points.clear();
@@ -233,37 +243,21 @@ bool ArbitraryValuesCollection::calculatePoints(profiler::timestamp_t _beginTime
     m_maxValue = -1e300;
     m_jobType = PointsJob;
 
-    m_collectorThread = std::thread([this]
+    m_worker.enqueue([this]
     {
         getChartPoints(*this, m_points, m_minValue, m_maxValue);
         setStatus(Ready);
-    });
+    }, m_bInterrupt);
 
     return true;
 }
 
 void ArbitraryValuesCollection::interrupt()
 {
-    if (m_collectorThread.joinable())
-    {
-        m_bInterrupt.store(true, std::memory_order_release);
-        m_collectorThread.join();
-        m_bInterrupt.store(false, std::memory_order_release);
-
-        setStatus(Idle);
-        m_jobType = None;
-        m_values.clear();
-    }
-}
-
-void ArbitraryValuesCollection::join()
-{
-    if (m_collectorThread.joinable())
-    {
-        m_bInterrupt.store(true, std::memory_order_release);
-        m_collectorThread.join();
-        m_bInterrupt.store(false, std::memory_order_release);
-    }
+    m_worker.dequeue();
+    setStatus(Idle);
+    m_jobType = None;
+    m_values.clear();
 }
 
 void ArbitraryValuesCollection::setStatus(JobStatus _status)
@@ -438,8 +432,8 @@ void ArbitraryValuesChartItem::paint(QPainter* _painter, const QStyleOptionGraph
     if (!EASY_GLOBALS.scene.empty)
     {
         const auto range = bindMode ? widget->sliderWidth() : widget->range();
-        paintMouseIndicator(_painter, m_boundingRect.top(), bottom, width, m_boundingRect.height(), font_h,
-                            widget->value(), range);
+        paintMouseIndicator(_painter, m_boundingRect.top(), bottom, width,
+                            m_boundingRect.height(), font_h, widget->value(), range);
     }
 
     _painter->setPen(Qt::darkGray);
@@ -456,21 +450,25 @@ void ArbitraryValuesChartItem::paintMouseIndicator(QPainter* _painter, qreal _to
         return;
 
     const auto x = m_mousePos.x();
-    const auto y = m_mousePos.y();
+    auto y = m_mousePos.y();
 
     // Horizontal
     const bool visibleY = (_top < y && y < _bottom);
-    if (visibleY)
+    y = estd::clamp(_top, y, _bottom);
+    //if (visibleY)
     {
+        _height -= ChartBounds;
+
         const int half_font_h = _font_h >> 1;
-        const auto value = m_minValue + ((_bottom - 2 - y) / (_height - 4)) * (m_maxValue - m_minValue);
+        const auto yvalue = estd::clamp(_top + ChartBound, y, _bottom - ChartBound);
+        const auto value = m_minValue + ((_bottom - ChartBound - yvalue) / _height) * (m_maxValue - m_minValue);
         const auto mouseStr = QString::number(value, 'f', 3);
         const int textWidth = _painter->fontMetrics().width(mouseStr) + 3;
-        const QRectF rect(0, y - _font_h - 2, _width, 4 + (_font_h << 1));
+        const QRectF rect(0, y - _font_h - 2, _width - 3, 4 + (_font_h << 1));
 
         _painter->setPen(Qt::blue);
 
-        qreal left = 0, right = _width;
+        qreal left = 0, right = _width - 3;
         const Qt::AlignmentFlag alignment = x < textWidth ? Qt::AlignRight : Qt::AlignLeft;
 
         if (y > _bottom - half_font_h)
@@ -485,12 +483,13 @@ void ArbitraryValuesChartItem::paintMouseIndicator(QPainter* _painter, qreal _to
         {
             _painter->drawText(rect, alignment | Qt::AlignVCenter, mouseStr);
             if (x < textWidth)
-                right = _width - textWidth;
+                right = _width - textWidth - 3;
             else
                 left = textWidth;
         }
 
-        _painter->drawLine(QLineF(left, y, right, y));
+        if (visibleY)
+            _painter->drawLine(QLineF(left, y, right, y));
     }
 
     // Vertical
@@ -507,8 +506,8 @@ void ArbitraryValuesChartItem::paintMouseIndicator(QPainter* _painter, qreal _to
         else if (x > (_width - textWidthHalf))
             left = _width - textWidth;
 
-        if (!visibleY)
-            _painter->setPen(Qt::blue);
+        //if (!visibleY)
+        //    _painter->setPen(Qt::blue);
 
         const QRectF rect(left, _bottom + 2, textWidth, _font_h);
         _painter->drawText(rect, Qt::AlignCenter, mouseStr);
@@ -526,9 +525,21 @@ bool ArbitraryValuesChartItem::updateImage()
     m_imageScaleUpdate = widget->range() / widget->sliderWidth();
     m_imageOriginUpdate = widget->bindMode() ? (widget->value() - widget->sliderWidth() * 3) : widget->minimum();
 
-    m_workerThread = std::thread(&This::updateImageAsync, this, m_boundingRect, widget->getWindowScale(),
-                                 widget->minimum(), widget->maximum(), widget->range(), widget->value(), widget->sliderWidth(),
-                                 widget->bindMode(), EASY_GLOBALS.begin_time, EASY_GLOBALS.auto_adjust_chart_height);
+    // Ugly, but doen't use exceeded count of threads
+    const auto rect = m_boundingRect;
+    const auto scale = widget->getWindowScale();
+    const auto left = widget->minimum();
+    const auto right = widget->maximum();
+    const auto value = widget->value();
+    const auto window = widget->sliderWidth();
+    const auto bindMode = widget->bindMode();
+    const auto beginTime = EASY_GLOBALS.begin_time;
+    const auto autoHeight = EASY_GLOBALS.auto_adjust_chart_height;
+    m_worker.enqueue([this, rect, scale, left, right, value, window, bindMode, beginTime, autoHeight]
+    {
+        updateImageAsync(rect, scale, left, right, right - left, value, window, bindMode,
+                         beginTime, autoHeight);
+    }, m_bReady);
 
     return true;
 }
@@ -708,8 +719,8 @@ void ArbitraryValuesChartItem::updateImageAsync(QRectF _boundingRect, qreal _cur
         {
             y = maxValue - y;
             y /= height;
-            y *= _boundingRect.height() - 4;
-            y += 2;
+            y *= _boundingRect.height() - ChartBounds;
+            y += ChartBound;
         }
 
         return y;
@@ -878,7 +889,7 @@ GraphicsChart::GraphicsChart(QWidget* _parent)
     m_chartItem->setPos(0, 0);
     m_chartItem->setBoundingRect(0, rect.top() + margin(), scene()->width(), rect.height() - margins() - 1);
 
-    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::autoAdjustChartChanged, this, &This::onAutoAdjustChartChanged);
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::autoAdjustChartChanged, this, &This::onAutoAdjustChartChanged);
 
     m_chartItem->updateImage();
 }
@@ -1040,7 +1051,7 @@ ArbitraryValuesWidget::ArbitraryValuesWidget(QWidget* _parent)
     //m_treeWidget->setSortingEnabled(false);
     m_treeWidget->setColumnCount(int_cast(ArbitraryColumns::Count));
     m_treeWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_treeWidget->setItemDelegateForColumn(0, new EasyTreeViewFirstColumnItemDelegate(this));
+    m_treeWidget->setItemDelegateForColumn(0, new TreeViewFirstColumnItemDelegate(this));
 
     auto headerItem = new QTreeWidgetItem();
     headerItem->setText(int_cast(ArbitraryColumns::Type), "Type");
@@ -1056,9 +1067,9 @@ ArbitraryValuesWidget::ArbitraryValuesWidget(QWidget* _parent)
     connect(m_treeWidget, &QTreeWidget::currentItemChanged, this, &This::onCurrentItemChanged);
 
     auto globalEvents = &EASY_GLOBALS.events;
-    connect(globalEvents, &profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChanged);
-    connect(globalEvents, &profiler_gui::EasyGlobalSignals::selectedBlockIdChanged, this, &This::onSelectedBlockIdChanged);
-    connect(globalEvents, &profiler_gui::EasyGlobalSignals::fileOpened, this, &This::rebuild);
+    connect(globalEvents, &profiler_gui::GlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChanged);
+    connect(globalEvents, &profiler_gui::GlobalSignals::selectedBlockIdChanged, this, &This::onSelectedBlockIdChanged);
+    connect(globalEvents, &profiler_gui::GlobalSignals::fileOpened, this, &This::rebuild);
 
     loadSettings();
 
@@ -1182,7 +1193,6 @@ void ArbitraryValuesWidget::onCollectionsTimeout()
     {
         if (item->collection()->status() != ArbitraryValuesCollection::InProgress)
         {
-            item->collection()->join();
             collections.push_back(CollectionPaintData {item->collection(), item->color(),
                 ChartType::Line, item == m_treeWidget->currentItem()});
         }

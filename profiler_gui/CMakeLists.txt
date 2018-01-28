@@ -42,6 +42,10 @@ if (Qt5Widgets_FOUND)
         graphics_slider_area.cpp
         main_window.h
         main_window.cpp
+        thread_pool.h
+        thread_pool.cpp
+        thread_pool_task.h
+        thread_pool_task.cpp
         tree_widget_item.h
         tree_widget_item.cpp
         tree_widget_loader.h

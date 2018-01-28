@@ -5,7 +5,7 @@
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- : 
-* description       : The file contains declaration of EasyTreeWidgetItem
+* description       : The file contains declaration of TreeWidgetItem
 *                   : for displyaing EasyProfiler blocks tree.
 * ----------------- : 
 * change log        : * 2016/08/18 Victor Zarubkin: moved sources from blocks_tree_widget.h
@@ -113,10 +113,10 @@ enum EasyColumnsIndexes
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyTreeWidgetItem : public QTreeWidgetItem
+class TreeWidgetItem : public QTreeWidgetItem
 {
     using Parent = QTreeWidgetItem;
-    using This = EasyTreeWidgetItem;
+    using This = TreeWidgetItem;
 
     QFont                                    m_font;
     const ::profiler::block_index_t         m_block;
@@ -126,8 +126,8 @@ class EasyTreeWidgetItem : public QTreeWidgetItem
 
 public:
 
-    explicit EasyTreeWidgetItem(const ::profiler::block_index_t _treeBlock = ::profiler_gui::numeric_max<decltype(m_block)>(), Parent* _parent = nullptr);
-    virtual ~EasyTreeWidgetItem();
+    explicit TreeWidgetItem(const ::profiler::block_index_t _treeBlock = ::profiler_gui::numeric_max<decltype(m_block)>(), Parent* _parent = nullptr);
+    virtual ~TreeWidgetItem();
 
     bool operator < (const Parent& _other) const override;
     QVariant data(int _column, int _role) const override;
@@ -162,7 +162,7 @@ private:
     bool hasToolTip(int _column) const;
     void setHasToolTip(int _column);
 
-}; // END of class EasyTreeWidgetItem.
+}; // END of class TreeWidgetItem.
 
 //////////////////////////////////////////////////////////////////////////
 

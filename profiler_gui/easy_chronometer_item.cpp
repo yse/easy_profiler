@@ -5,7 +5,7 @@
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : The file contains implementation of EasyChronometerItem.
+* description       : The file contains implementation of GraphicsRulerItem.
 * ----------------- :
 * change log        : * 2016/09/15 Victor Zarubkin: moved sources from blocks_graphics_view.cpp
 *                   :
@@ -72,7 +72,7 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyChronometerItem::EasyChronometerItem(bool _main)
+GraphicsRulerItem::GraphicsRulerItem(bool _main)
     : Parent()
     , m_color(::profiler_gui::CHRONOMETER_COLOR)
     , m_left(0)
@@ -86,16 +86,16 @@ EasyChronometerItem::EasyChronometerItem(bool _main)
     m_indicator.reserve(3);
 }
 
-EasyChronometerItem::~EasyChronometerItem()
+GraphicsRulerItem::~GraphicsRulerItem()
 {
 }
 
-QRectF EasyChronometerItem::boundingRect() const
+QRectF GraphicsRulerItem::boundingRect() const
 {
     return m_boundingRect;
 }
 
-void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
+void GraphicsRulerItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
 {
     auto const sceneView = view();
     const auto currentScale = sceneView->scale();
@@ -290,7 +290,7 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     // END Paint!~~~~~~~~~~~~~~~~~~~~~~
 }
 
-void EasyChronometerItem::hide()
+void GraphicsRulerItem::hide()
 {
     m_bHoverIndicator = false;
     m_bHoverLeftBorder = false;
@@ -299,7 +299,7 @@ void EasyChronometerItem::hide()
     Parent::hide();
 }
 
-bool EasyChronometerItem::indicatorContains(const QPointF& _pos) const
+bool GraphicsRulerItem::indicatorContains(const QPointF& _pos) const
 {
     if (m_indicator.empty())
         return false;
@@ -308,56 +308,56 @@ bool EasyChronometerItem::indicatorContains(const QPointF& _pos) const
     return m_indicator.containsPoint(QPointF(itemX, _pos.y()), Qt::OddEvenFill);
 }
 
-void EasyChronometerItem::setHoverLeft(bool _hover)
+void GraphicsRulerItem::setHoverLeft(bool _hover)
 {
     m_bHoverLeftBorder = _hover;
 }
 
-void EasyChronometerItem::setHoverRight(bool _hover)
+void GraphicsRulerItem::setHoverRight(bool _hover)
 {
     m_bHoverRightBorder = _hover;
 }
 
-bool EasyChronometerItem::hoverLeft(qreal _x) const
+bool GraphicsRulerItem::hoverLeft(qreal _x) const
 {
     const auto dx = fabs(_x - m_left) * view()->scale();
     return dx < 4;
 }
 
-bool EasyChronometerItem::hoverRight(qreal _x) const
+bool GraphicsRulerItem::hoverRight(qreal _x) const
 {
     const auto dx = fabs(_x - m_right) * view()->scale();
     return dx < 4;
 }
 
-QPointF EasyChronometerItem::toItem(const QPointF& _pos) const
+QPointF GraphicsRulerItem::toItem(const QPointF& _pos) const
 {
     const auto sceneView = view();
     return QPointF((_pos.x() - sceneView->offset()) * sceneView->scale() - x(), _pos.y());
 }
 
-qreal EasyChronometerItem::toItem(qreal _x) const
+qreal GraphicsRulerItem::toItem(qreal _x) const
 {
     const auto sceneView = view();
     return (_x - sceneView->offset()) * sceneView->scale() - x();
 }
 
-void EasyChronometerItem::setColor(const QColor& _color)
+void GraphicsRulerItem::setColor(const QColor& _color)
 {
     m_color = _color;
 }
 
-void EasyChronometerItem::setBoundingRect(qreal x, qreal y, qreal w, qreal h)
+void GraphicsRulerItem::setBoundingRect(qreal x, qreal y, qreal w, qreal h)
 {
     m_boundingRect.setRect(x, y, w, h);
 }
 
-void EasyChronometerItem::setBoundingRect(const QRectF& _rect)
+void GraphicsRulerItem::setBoundingRect(const QRectF& _rect)
 {
     m_boundingRect = _rect;
 }
 
-void EasyChronometerItem::setLeftRight(qreal _left, qreal _right)
+void GraphicsRulerItem::setLeftRight(qreal _left, qreal _right)
 {
     if (_left < _right)
     {
@@ -371,24 +371,24 @@ void EasyChronometerItem::setLeftRight(qreal _left, qreal _right)
     }
 }
 
-void EasyChronometerItem::setReverse(bool _reverse)
+void GraphicsRulerItem::setReverse(bool _reverse)
 {
     m_bReverse = _reverse;
 }
 
-void EasyChronometerItem::setHoverIndicator(bool _hover)
+void GraphicsRulerItem::setHoverIndicator(bool _hover)
 {
     m_bHoverIndicator = _hover;
 }
 
-const EasyGraphicsView* EasyChronometerItem::view() const
+const BlocksGraphicsView* GraphicsRulerItem::view() const
 {
-    return static_cast<const EasyGraphicsView*>(scene()->parent());
+    return static_cast<const BlocksGraphicsView*>(scene()->parent());
 }
 
-EasyGraphicsView* EasyChronometerItem::view()
+BlocksGraphicsView* GraphicsRulerItem::view()
 {
-    return static_cast<EasyGraphicsView*>(scene()->parent());
+    return static_cast<BlocksGraphicsView*>(scene()->parent());
 }
 
 //////////////////////////////////////////////////////////////////////////

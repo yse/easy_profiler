@@ -5,7 +5,7 @@
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : This file contains declaration of EasyFrameRateViewer widget.
+* description       : This file contains declaration of FpsViewerWidget widget.
 * ----------------- :
 * change log        : * 2017/04/02 Victor Zarubkin: Initial commit.
 *                   :
@@ -65,10 +65,10 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyFPSGraphicsItem : public QGraphicsItem
+class FpsGraphicsItem : public QGraphicsItem
 {
     using Parent = QGraphicsItem;
-    using This = EasyFPSGraphicsItem;
+    using This = FpsGraphicsItem;
     using FrameTimes = std::deque<std::pair<uint32_t, uint32_t> >;
 
     std::vector<QPointF> m_points1, m_points2;
@@ -77,8 +77,8 @@ class EasyFPSGraphicsItem : public QGraphicsItem
 
 public:
 
-    explicit EasyFPSGraphicsItem();
-    ~EasyFPSGraphicsItem() override;
+    explicit FpsGraphicsItem();
+    ~FpsGraphicsItem() override;
 
     QRectF boundingRect() const override;
     void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget) override;
@@ -89,25 +89,25 @@ public:
     void clear();
     void addPoint(uint32_t _maxFrameTime, uint32_t _avgFrameTime);
 
-}; // END of class EasyFPSGraphicsItem.
+}; // END of class FpsGraphicsItem.
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyFrameRateViewer : public QGraphicsView
+class FpsViewerWidget : public QGraphicsView
 {
     Q_OBJECT
 
 private:
 
     using Parent = QGraphicsView;
-    using This = EasyFrameRateViewer;
+    using This = FpsViewerWidget;
 
-    EasyFPSGraphicsItem* m_fpsItem;
+    FpsGraphicsItem* m_fpsItem;
 
 public:
 
-    explicit EasyFrameRateViewer(QWidget* _parent = nullptr);
-    ~EasyFrameRateViewer() override;
+    explicit FpsViewerWidget(QWidget* _parent = nullptr);
+    ~FpsViewerWidget() override;
 
     void resizeEvent(QResizeEvent* _event) override;
     void hideEvent(QHideEvent* _event) override;
@@ -120,7 +120,7 @@ public slots:
     void clear();
     void addPoint(uint32_t _maxFrameTime, uint32_t _avgFrameTime);
 
-}; // END of class EasyFrameRateViewer.
+}; // END of class FpsViewerWidget.
 
 //////////////////////////////////////////////////////////////////////////
 

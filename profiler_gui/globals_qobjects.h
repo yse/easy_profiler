@@ -5,7 +5,7 @@
 * authors           : Victor Zarubkin, Sergey Yagovtsev
 * email             : v.s.zarubkin@gmail.com, yse.sey@gmail.com
 * ----------------- :
-* description       : The file contains declaration of EasyGlobalSignals QObject class.
+* description       : The file contains declaration of GlobalSignals QObject class.
 * ----------------- :
 * change log        : * 2016/08/08 Sergey Yagovtsev: moved sources from globals.h
 *                   :
@@ -60,14 +60,14 @@
 
 namespace profiler_gui {
 
-    class EasyGlobalSignals Q_DECL_FINAL : public QObject
+    class GlobalSignals Q_DECL_FINAL : public QObject
     {
         Q_OBJECT
 
     public:
 
-        EasyGlobalSignals();
-        ~EasyGlobalSignals() Q_DECL_OVERRIDE;
+        GlobalSignals();
+        ~GlobalSignals() Q_DECL_OVERRIDE;
 
     signals:
 
@@ -100,7 +100,7 @@ namespace profiler_gui {
         void chartWheeled(qreal pos, int delta);
         void chartSliderChanged(qreal pos);
 
-    }; // END of class EasyGlobalSignals.
+    }; // END of class GlobalSignals.
 
 } // END of namespace profiler_gui.
 

@@ -9,7 +9,7 @@
 * ----------------- :
 * change log        : * 2016/06/26 Victor Zarubkin: Initial commit.
 *                   :
-*                   : * 2016/06/27 Victor Zarubkin: Passing blocks number to EasyTreeWidget::setTree().
+*                   : * 2016/06/27 Victor Zarubkin: Passing blocks number to BlocksTreeWidget::setTree().
 *                   :
 *                   : * 2016/06/29 Victor Zarubkin: Added menu with tests.
 *                   :
@@ -195,7 +195,7 @@ EasyDockWidget::~EasyDockWidget()
 {
 }
 
-EasyMainWindow::EasyMainWindow() : Parent(), m_theme("default"), m_lastAddress("localhost"), m_lastPort(::profiler::DEFAULT_PORT)
+MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhost"), m_lastPort(::profiler::DEFAULT_PORT)
 {
     { QIcon icon(":/images/logo"); if (!icon.isNull()) QApplication::setWindowIcon(icon); }
 
@@ -214,7 +214,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_theme("default"), m_lastAddress("
     m_graphicsView->setMinimumHeight(50);
     m_graphicsView->setAllowedAreas(Qt::AllDockWidgetAreas);
 
-    auto graphicsView = new EasyGraphicsViewWidget(this);
+    auto graphicsView = new DiagramWidget(this);
     graphicsView->setObjectName("ProfilerGUI_Diagram_GraphicsView");
     m_graphicsView->setWidget(graphicsView);
 
@@ -223,12 +223,12 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_theme("default"), m_lastAddress("
     m_treeWidget->setMinimumHeight(50);
     m_treeWidget->setAllowedAreas(Qt::AllDockWidgetAreas);
 
-    auto treeWidget = new EasyHierarchyWidget(this);
+    auto treeWidget = new HierarchyWidget(this);
     m_treeWidget->setWidget(treeWidget);
 
     m_fpsViewer = new EasyDockWidget("FPS Monitor", this);
     m_fpsViewer->setObjectName("ProfilerGUI_FPS");
-    m_fpsViewer->setWidget(new EasyFrameRateViewer(this));
+    m_fpsViewer->setWidget(new FpsViewerWidget(this));
     m_fpsViewer->setAllowedAreas(Qt::TopDockWidgetArea | Qt::BottomDockWidgetArea);
 
     addDockWidget(Qt::TopDockWidgetArea, m_graphicsView);
@@ -236,7 +236,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_theme("default"), m_lastAddress("
     addDockWidget(Qt::TopDockWidgetArea, m_fpsViewer);
 
 #if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
-    auto descTree = new EasyDescWidget();
+    auto descTree = new BlockDescriptorsWidget();
     m_descTreeWidget = new EasyDockWidget("Blocks");
     m_descTreeWidget->setObjectName("ProfilerGUI_Blocks");
     m_descTreeWidget->setMinimumHeight(50);
@@ -699,7 +699,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_theme("default"), m_lastAddress("
         action = new QAction(theme, actionGroup);
         action->setCheckable(true);
         action->setChecked(action->text() == EASY_GLOBALS.theme);
-        connect(action, &QAction::triggered, this, &EasyMainWindow::onThemeChange);
+        connect(action, &QAction::triggered, this, &MainWindow::onThemeChange);
         submenu->addAction(action);
     }
 
@@ -723,7 +723,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_theme("default"), m_lastAddress("
     m_frameTimeEdit->setValidator(val);
     m_frameTimeEdit->setText(QString::number(EASY_GLOBALS.frame_time * 1e-3));
     connect(m_frameTimeEdit, &QLineEdit::editingFinished, this, &This::onFrameTimeEditFinish);
-    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::expectedFrameTimeChanged, this, &This::onFrameTimeChanged);
+    connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::expectedFrameTimeChanged, this, &This::onFrameTimeChanged);
     toolbar->addWidget(m_frameTimeEdit);
 
     lbl = new QLabel("ms", toolbar);
@@ -731,7 +731,7 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_theme("default"), m_lastAddress("
     toolbar->addWidget(lbl);
 
 
-    connect(graphicsView->view(), &EasyGraphicsView::intervalChanged, treeWidget->tree(), &EasyTreeWidget::setTreeBlocks);
+    connect(graphicsView->view(), &BlocksGraphicsView::intervalChanged, treeWidget->tree(), &BlocksTreeWidget::setTreeBlocks);
     connect(&m_readerTimer, &QTimer::timeout, this, &This::onFileReaderTimeout);
     connect(&m_listenerTimer, &QTimer::timeout, this, &This::onListenerTimerTimeout);
     connect(&m_fpsRequestTimer, &QTimer::timeout, this, &This::onFrameTimeRequestTimeout);
@@ -745,34 +745,34 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_theme("default"), m_lastAddress("
         loadFile(opened_filename);
     }
 
-    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::blockStatusChanged, this, &This::onBlockStatusChange);
-    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::blocksRefreshRequired, this, &This::onGetBlockDescriptionsClicked);
+    connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::blockStatusChanged, this, &This::onBlockStatusChange);
+    connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::blocksRefreshRequired, this, &This::onGetBlockDescriptionsClicked);
 }
 
-EasyMainWindow::~EasyMainWindow()
+MainWindow::~MainWindow()
 {
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::dragEnterEvent(QDragEnterEvent* drag_event)
+void MainWindow::dragEnterEvent(QDragEnterEvent* drag_event)
 {
     if (drag_event->mimeData()->hasUrls())
         drag_event->acceptProposedAction();
 }
 
-void EasyMainWindow::dragMoveEvent(QDragMoveEvent* drag_event)
+void MainWindow::dragMoveEvent(QDragMoveEvent* drag_event)
 {
     if (drag_event->mimeData()->hasUrls())
         drag_event->acceptProposedAction();
 }
 
-void EasyMainWindow::dragLeaveEvent(QDragLeaveEvent* drag_event)
+void MainWindow::dragLeaveEvent(QDragLeaveEvent* drag_event)
 {
     drag_event->accept();
 }
 
-void EasyMainWindow::dropEvent(QDropEvent* drop_event)
+void MainWindow::dropEvent(QDropEvent* drop_event)
 {
     const auto& urls = drop_event->mimeData()->urls();
     if (!urls.empty())
@@ -798,7 +798,7 @@ void EasyMainWindow::dropEvent(QDropEvent* drop_event)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::onThemeChange(bool)
+void MainWindow::onThemeChange(bool)
 {
     auto action = qobject_cast<QAction*>(sender());
     if (action == nullptr)
@@ -814,7 +814,7 @@ void EasyMainWindow::onThemeChange(bool)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::onOpenFileClicked(bool)
+void MainWindow::onOpenFileClicked(bool)
 {
     auto action = qobject_cast<QAction*>(sender());
     if (action == nullptr)
@@ -850,7 +850,7 @@ void EasyMainWindow::onOpenFileClicked(bool)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::addFileToList(const QString& filename)
+void MainWindow::addFileToList(const QString& filename)
 {
     m_lastFiles.push_front(filename);
 
@@ -878,18 +878,18 @@ void EasyMainWindow::addFileToList(const QString& filename)
         setWindowTitle(QString(EASY_DEFAULT_WINDOW_TITLE " - [%1]").arg(m_lastFiles.front()));
 }
 
-void EasyMainWindow::loadFile(const QString& filename)
+void MainWindow::loadFile(const QString& filename)
 {
     const auto i = filename.lastIndexOf(QChar('/'));
     const auto j = filename.lastIndexOf(QChar('\\'));
 
-    createProgressDialog(QString("Loading %1...").arg(filename.mid(::std::max(i, j) + 1)));
+    createProgressDialog(QString("Loading %1...").arg(filename.mid(std::max(i, j) + 1)));
 
     m_readerTimer.start(LOADER_TIMER_INTERVAL);
     m_reader.load(filename);
 }
 
-void EasyMainWindow::readStream(::std::stringstream& _data)
+void MainWindow::readStream(std::stringstream& _data)
 {
     createProgressDialog(tr("Reading from stream..."));
     m_readerTimer.start(LOADER_TIMER_INTERVAL);
@@ -898,7 +898,7 @@ void EasyMainWindow::readStream(::std::stringstream& _data)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::onSaveFileClicked(bool)
+void MainWindow::onSaveFileClicked(bool)
 {
     if (m_serializedBlocks.empty())
         return;
@@ -907,7 +907,7 @@ void EasyMainWindow::onSaveFileClicked(bool)
 
     const auto i = lastFile.lastIndexOf(QChar('/'));
     const auto j = lastFile.lastIndexOf(QChar('\\'));
-    auto k = ::std::max(i, j);
+    auto k = std::max(i, j);
 
     QString dir;
     if (k > 0)
@@ -968,10 +968,10 @@ void EasyMainWindow::onSaveFileClicked(bool)
         int8_t retry1 = -1;
         while (++retry1 < 4)
         {
-            ::std::ifstream inFile(m_bNetworkFileRegime ? NETWORK_CACHE_FILE : lastFile.toStdString().c_str(), ::std::fstream::binary);
+            std::ifstream inFile(m_bNetworkFileRegime ? NETWORK_CACHE_FILE : lastFile.toStdString().c_str(), std::fstream::binary);
             if (!inFile.is_open())
             {
-                ::std::this_thread::sleep_for(::std::chrono::milliseconds(500));
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
                 continue;
             }
 
@@ -980,10 +980,10 @@ void EasyMainWindow::onSaveFileClicked(bool)
             int8_t retry2 = -1;
             while (++retry2 < 4)
             {
-                ::std::ofstream outFile(filename.toStdString(), ::std::fstream::binary);
+                std::ofstream outFile(filename.toStdString(), std::fstream::binary);
                 if (!outFile.is_open())
                 {
-                    ::std::this_thread::sleep_for(::std::chrono::milliseconds(500));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
                     continue;
                 }
 
@@ -1034,13 +1034,13 @@ void EasyMainWindow::onSaveFileClicked(bool)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::clear()
+void MainWindow::clear()
 {
-    static_cast<EasyHierarchyWidget*>(m_treeWidget->widget())->clear(true);
-    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->clear();
+    static_cast<HierarchyWidget*>(m_treeWidget->widget())->clear(true);
+    static_cast<DiagramWidget*>(m_graphicsView->widget())->clear();
 
 #if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
-    static_cast<EasyDescWidget*>(m_descTreeWidget->widget())->clear();
+    static_cast<BlockDescriptorsWidget*>(m_descTreeWidget->widget())->clear();
 #endif
     if (m_dialogDescTree != nullptr)
         m_dialogDescTree->clear();
@@ -1069,14 +1069,14 @@ void EasyMainWindow::clear()
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::refreshDiagram()
+void MainWindow::refreshDiagram()
 {
-    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->scene()->update();
+    static_cast<DiagramWidget*>(m_graphicsView->widget())->view()->scene()->update();
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::onDeleteClicked(bool)
+void MainWindow::onDeleteClicked(bool)
 {
     int button = QMessageBox::Yes;
     if (m_bNetworkFileRegime)
@@ -1088,14 +1088,14 @@ void EasyMainWindow::onDeleteClicked(bool)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::onExitClicked(bool)
+void MainWindow::onExitClicked(bool)
 {
     close();
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::onEncodingChanged(bool)
+void MainWindow::onEncodingChanged(bool)
 {
     auto action = qobject_cast<QAction*>(sender());
     if (action == nullptr)
@@ -1107,20 +1107,20 @@ void EasyMainWindow::onEncodingChanged(bool)
         QTextCodec::setCodecForLocale(codec);
 }
 
-void EasyMainWindow::onChronoTextPosChanged(bool)
+void MainWindow::onChronoTextPosChanged(bool)
 {
     auto _sender = qobject_cast<QAction*>(sender());
     EASY_GLOBALS.chrono_text_position = static_cast<::profiler_gui::ChronometerTextPosition>(_sender->data().toInt());
     refreshDiagram();
 }
 
-void EasyMainWindow::onUnitsChanged(bool)
+void MainWindow::onUnitsChanged(bool)
 {
     auto _sender = qobject_cast<QAction*>(sender());
     EASY_GLOBALS.time_units = static_cast<::profiler_gui::TimeUnits>(_sender->data().toInt());
 }
 
-void EasyMainWindow::onEnableDisableStatistics(bool _checked)
+void MainWindow::onEnableDisableStatistics(bool _checked)
 {
     EASY_GLOBALS.enable_statistics = _checked;
 
@@ -1144,22 +1144,22 @@ void EasyMainWindow::onEnableDisableStatistics(bool _checked)
     }
 }
 
-void EasyMainWindow::onCollapseItemsAfterCloseChanged(bool _checked)
+void MainWindow::onCollapseItemsAfterCloseChanged(bool _checked)
 {
     EASY_GLOBALS.collapse_items_on_tree_close = _checked;
 }
 
-void EasyMainWindow::onAllItemsExpandedByDefaultChange(bool _checked)
+void MainWindow::onAllItemsExpandedByDefaultChange(bool _checked)
 {
     EASY_GLOBALS.all_items_expanded_by_default = _checked;
 }
 
-void EasyMainWindow::onBindExpandStatusChange(bool _checked)
+void MainWindow::onBindExpandStatusChange(bool _checked)
 {
     EASY_GLOBALS.bind_scene_and_tree_expand_status = _checked;
 }
 
-void EasyMainWindow::onHierarchyFlagChange(bool _checked)
+void MainWindow::onHierarchyFlagChange(bool _checked)
 {
     EASY_GLOBALS.only_current_thread_hierarchy = _checked;
     emit EASY_GLOBALS.events.hierarchyFlagChanged(_checked);
@@ -1167,45 +1167,45 @@ void EasyMainWindow::onHierarchyFlagChange(bool _checked)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::onExpandAllClicked(bool)
+void MainWindow::onExpandAllClicked(bool)
 {
     for (auto& block : EASY_GLOBALS.gui_blocks)
         block.expanded = true;
 
     emit EASY_GLOBALS.events.itemsExpandStateChanged();
 
-    auto tree = static_cast<EasyHierarchyWidget*>(m_treeWidget->widget())->tree();
+    auto tree = static_cast<HierarchyWidget*>(m_treeWidget->widget())->tree();
     const QSignalBlocker b(tree);
     tree->expandAll();
 }
 
-void EasyMainWindow::onCollapseAllClicked(bool)
+void MainWindow::onCollapseAllClicked(bool)
 {
     for (auto& block : EASY_GLOBALS.gui_blocks)
         block.expanded = false;
 
     emit EASY_GLOBALS.events.itemsExpandStateChanged();
 
-    auto tree = static_cast<EasyHierarchyWidget*>(m_treeWidget->widget())->tree();
+    auto tree = static_cast<HierarchyWidget*>(m_treeWidget->widget())->tree();
     const QSignalBlocker b(tree);
     tree->collapseAll();
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::onSpacingChange(int _value)
+void MainWindow::onSpacingChange(int _value)
 {
     EASY_GLOBALS.blocks_spacing = _value;
     refreshDiagram();
 }
 
-void EasyMainWindow::onMinSizeChange(int _value)
+void MainWindow::onMinSizeChange(int _value)
 {
     EASY_GLOBALS.blocks_size_min = _value;
     refreshDiagram();
 }
 
-void EasyMainWindow::onNarrowSizeChange(int _value)
+void MainWindow::onNarrowSizeChange(int _value)
 {
     EASY_GLOBALS.blocks_narrow_size = _value;
     refreshDiagram();
@@ -1213,7 +1213,7 @@ void EasyMainWindow::onNarrowSizeChange(int _value)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::onFpsIntervalChange(int _value)
+void MainWindow::onFpsIntervalChange(int _value)
 {
     EASY_GLOBALS.fps_timer_interval = _value;
 
@@ -1224,19 +1224,19 @@ void EasyMainWindow::onFpsIntervalChange(int _value)
         m_fpsRequestTimer.start(_value);
 }
 
-void EasyMainWindow::onFpsHistoryChange(int _value)
+void MainWindow::onFpsHistoryChange(int _value)
 {
     EASY_GLOBALS.max_fps_history = _value;
 }
 
-void EasyMainWindow::onFpsMonitorLineWidthChange(int _value)
+void MainWindow::onFpsMonitorLineWidthChange(int _value)
 {
     EASY_GLOBALS.fps_widget_line_width = _value;
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::onEditBlocksClicked(bool)
+void MainWindow::onEditBlocksClicked(bool)
 {
     if (m_descTreeDialog.ptr != nullptr)
     {
@@ -1247,7 +1247,7 @@ void EasyMainWindow::onEditBlocksClicked(bool)
     m_descTreeDialog.create();
     connect(m_descTreeDialog.ptr, &QDialog::finished, this, &This::onDescTreeDialogClose);
 
-    m_dialogDescTree = new EasyDescWidget(m_descTreeDialog.ptr);
+    m_dialogDescTree = new BlockDescriptorsWidget(m_descTreeDialog.ptr);
 
     auto lay = new QVBoxLayout(m_descTreeDialog.ptr);
     lay->addWidget(m_dialogDescTree);
@@ -1258,7 +1258,7 @@ void EasyMainWindow::onEditBlocksClicked(bool)
     m_descTreeDialog.ptr->show();
 }
 
-void EasyMainWindow::onDescTreeDialogClose(int)
+void MainWindow::onDescTreeDialogClose(int)
 {
     disconnect(m_descTreeDialog.ptr, &QDialog::finished, this, &This::onDescTreeDialogClose);
     m_descTreeDialog.saveGeometry();
@@ -1268,7 +1268,7 @@ void EasyMainWindow::onDescTreeDialogClose(int)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::closeEvent(QCloseEvent* close_event)
+void MainWindow::closeEvent(QCloseEvent* close_event)
 {
     if (m_bNetworkFileRegime)
     {
@@ -1293,7 +1293,7 @@ void EasyMainWindow::closeEvent(QCloseEvent* close_event)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::loadSettings()
+void MainWindow::loadSettings()
 {
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
     settings.beginGroup("main");
@@ -1440,7 +1440,7 @@ void EasyMainWindow::loadSettings()
     settings.endGroup();
 }
 
-void EasyMainWindow::loadGeometry()
+void MainWindow::loadGeometry()
 {
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
     settings.beginGroup("main");
@@ -1461,7 +1461,7 @@ void EasyMainWindow::loadGeometry()
     if (!geometry.isEmpty())
         m_graphicsView->restoreGeometry(geometry);
 
-    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->restore(settings);
+    static_cast<DiagramWidget*>(m_graphicsView->widget())->restore(settings);
 
     auto state = settings.value("windowState").toByteArray();
     if (!state.isEmpty())
@@ -1470,7 +1470,7 @@ void EasyMainWindow::loadGeometry()
     settings.endGroup();
 }
 
-void EasyMainWindow::saveSettingsAndGeometry()
+void MainWindow::saveSettingsAndGeometry()
 {
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
     settings.beginGroup("main");
@@ -1479,7 +1479,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("fpsGeometry", m_fpsViewer->saveGeometry());
     settings.setValue("descTreeDialogGeometry", m_descTreeDialog.geometry);
     settings.setValue("diagramGeometry", m_graphicsView->saveGeometry());
-    static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->save(settings);
+    static_cast<DiagramWidget*>(m_graphicsView->widget())->save(settings);
 
     settings.setValue("windowState", this->saveState());
 
@@ -1519,7 +1519,7 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.endGroup();
 }
 
-void EasyMainWindow::destroyProgressDialog()
+void MainWindow::destroyProgressDialog()
 {
     if (m_progress != nullptr)
     {
@@ -1529,7 +1529,7 @@ void EasyMainWindow::destroyProgressDialog()
     }
 }
 
-void EasyMainWindow::createProgressDialog(const QString& text)
+void MainWindow::createProgressDialog(const QString& text)
 {
     destroyProgressDialog();
 
@@ -1543,7 +1543,7 @@ void EasyMainWindow::createProgressDialog(const QString& text)
     m_progress->show();
 }
 
-void EasyMainWindow::setDisconnected(bool _showMessage)
+void MainWindow::setDisconnected(bool _showMessage)
 {
     if (m_fpsRequestTimer.isActive())
         m_fpsRequestTimer.stop();
@@ -1568,9 +1568,10 @@ void EasyMainWindow::setDisconnected(bool _showMessage)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::onFrameTimeRequestTimeout()
+void MainWindow::onFrameTimeRequestTimeout()
 {
-    if (EASY_GLOBALS.fps_enabled && EASY_GLOBALS.connected && (m_listener.regime() == LISTENER_IDLE || m_listener.regime() == LISTENER_CAPTURE))
+    if (EASY_GLOBALS.fps_enabled && EASY_GLOBALS.connected &&
+        (m_listener.regime() == ListenerRegime::Idle || m_listener.regime() == ListenerRegime::Capture))
     {
         if (m_listener.requestFrameTime())
         {
@@ -1584,14 +1585,15 @@ void EasyMainWindow::onFrameTimeRequestTimeout()
     }
 }
 
-void EasyMainWindow::checkFrameTimeReady()
+void MainWindow::checkFrameTimeReady()
 {
-    if (EASY_GLOBALS.fps_enabled && EASY_GLOBALS.connected && (m_listener.regime() == LISTENER_IDLE || m_listener.regime() == LISTENER_CAPTURE))
+    if (EASY_GLOBALS.fps_enabled && EASY_GLOBALS.connected &&
+        (m_listener.regime() == ListenerRegime::Idle || m_listener.regime() == ListenerRegime::Capture))
     {
         uint32_t maxTime = 0, avgTime = 0;
         if (m_listener.frameTime(maxTime, avgTime))
         {
-            static_cast<EasyFrameRateViewer*>(m_fpsViewer->widget())->addPoint(maxTime, avgTime);
+            static_cast<FpsViewerWidget*>(m_fpsViewer->widget())->addPoint(maxTime, avgTime);
         }
         else if (m_fpsRequestTimer.isActive())
         {
@@ -1602,16 +1604,16 @@ void EasyMainWindow::checkFrameTimeReady()
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::onListenerTimerTimeout()
+void MainWindow::onListenerTimerTimeout()
 {
     if (!m_listener.connected())
     {
-        if (m_listener.regime() == LISTENER_CAPTURE_RECEIVE)
+        if (m_listener.regime() == ListenerRegime::Capture_Receive)
             m_listener.finalizeCapture();
         if (m_listenerDialog)
             m_listenerDialog->reject();
     }
-    else if (m_listener.regime() == LISTENER_CAPTURE_RECEIVE)
+    else if (m_listener.regime() == ListenerRegime::Capture_Receive)
     {
         if (m_listener.captured())
         {
@@ -1632,9 +1634,9 @@ void EasyMainWindow::onListenerTimerTimeout()
     }
 }
 
-void EasyMainWindow::onListenerDialogClose(int _result)
+void MainWindow::onListenerDialogClose(int _result)
 {
-    if (m_listener.regime() != LISTENER_CAPTURE_RECEIVE || !m_listener.connected())
+    if (m_listener.regime() != ListenerRegime::Capture_Receive || !m_listener.connected())
     {
         if (m_listenerTimer.isActive())
             m_listenerTimer.stop();
@@ -1645,15 +1647,16 @@ void EasyMainWindow::onListenerDialogClose(int _result)
 
     switch (m_listener.regime())
     {
-        case LISTENER_CAPTURE:
+        case ListenerRegime::Capture:
         {
-            m_listenerDialog = new QMessageBox(QMessageBox::Information, "Receiving data...", "This process may take some time.", QMessageBox::Cancel, this);
+            m_listenerDialog = new QMessageBox(QMessageBox::Information, "Receiving data...",
+                                               "This process may take some time.", QMessageBox::Cancel, this);
             m_listenerDialog->setAttribute(Qt::WA_DeleteOnClose, true);
             m_listenerDialog->show();
 
             m_listener.stopCapture();
 
-            if (m_listener.regime() != LISTENER_CAPTURE_RECEIVE)
+            if (m_listener.regime() != ListenerRegime::Capture_Receive)
             {
                 m_listenerDialog->reject();
                 m_listenerDialog = nullptr;
@@ -1667,13 +1670,14 @@ void EasyMainWindow::onListenerDialogClose(int _result)
             break;
         }
 
-        case LISTENER_CAPTURE_RECEIVE:
+        case ListenerRegime::Capture_Receive:
         {
             if (!m_listener.captured())
             {
                 if (_result == QDialog::Accepted)
                 {
-                    m_listenerDialog = new QMessageBox(QMessageBox::Information, "Receiving data...", "This process may take some time.", QMessageBox::Cancel, this);
+                    m_listenerDialog = new QMessageBox(QMessageBox::Information, "Receiving data...",
+                                                       "This process may take some time.", QMessageBox::Cancel, this);
                     connect(m_listenerDialog, &QDialog::finished, this, &This::onListenerDialogClose);
                     m_listenerDialog->setAttribute(Qt::WA_DeleteOnClose, true);
                     m_listenerDialog->show();
@@ -1728,7 +1732,7 @@ void EasyMainWindow::onListenerDialogClose(int _result)
             break;
         }
 
-        case LISTENER_DESCRIBE:
+        case ListenerRegime::Descriptors:
         {
             break;
         }
@@ -1747,14 +1751,14 @@ void EasyMainWindow::onListenerDialogClose(int _result)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::onFileReaderTimeout()
+void MainWindow::onFileReaderTimeout()
 {
     if (m_reader.done())
     {
         const auto nblocks = m_reader.size();
         if (nblocks != 0)
         {
-            static_cast<EasyHierarchyWidget*>(m_treeWidget->widget())->clear(true);
+            static_cast<HierarchyWidget*>(m_treeWidget->widget())->clear(true);
 
             ::profiler::SerializedData serialized_blocks;
             ::profiler::SerializedData serialized_descriptors;
@@ -1810,8 +1814,8 @@ void EasyMainWindow::onFileReaderTimeout()
                 setWindowTitle(EASY_DEFAULT_WINDOW_TITLE " - UNSAVED network cache");
             }
 
-            m_serializedBlocks = ::std::move(serialized_blocks);
-            m_serializedDescriptors = ::std::move(serialized_descriptors);
+            m_serializedBlocks = std::move(serialized_blocks);
+            m_serializedDescriptors = std::move(serialized_descriptors);
             m_descriptorsNumberInFile = descriptorsNumberInFile;
             EASY_GLOBALS.selected_thread = 0;
             EASY_GLOBALS.version = version;
@@ -1825,16 +1829,16 @@ void EasyMainWindow::onFileReaderTimeout()
             memset(EASY_GLOBALS.gui_blocks.data(), 0, sizeof(::profiler_gui::EasyBlock) * nblocks);
             for (std::remove_const<decltype(nblocks)>::type i = 0; i < nblocks; ++i) {
                 auto& guiblock = EASY_GLOBALS.gui_blocks[i];
-                guiblock.tree = ::std::move(blocks[i]);
+                guiblock.tree = std::move(blocks[i]);
 #ifdef EASY_TREE_WIDGET__USE_VECTOR
                 ::profiler_gui::set_max(guiblock.tree_item);
 #endif
             }
 
-            static_cast<EasyGraphicsViewWidget*>(m_graphicsView->widget())->view()->setTree(EASY_GLOBALS.profiler_blocks);
+            static_cast<DiagramWidget*>(m_graphicsView->widget())->view()->setTree(EASY_GLOBALS.profiler_blocks);
 
 #if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
-            static_cast<EasyDescWidget*>(m_descTreeWidget->widget())->build();
+            static_cast<BlockDescriptorsWidget*>(m_descTreeWidget->widget())->build();
 #endif
             if (m_dialogDescTree != nullptr)
                 m_dialogDescTree->build();
@@ -1878,7 +1882,7 @@ void EasyMainWindow::onFileReaderTimeout()
     }
 }
 
-void EasyMainWindow::onFileReaderCancel()
+void MainWindow::onFileReaderCancel()
 {
     m_readerTimer.stop();
     m_reader.interrupt();
@@ -1887,56 +1891,56 @@ void EasyMainWindow::onFileReaderCancel()
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyFileReader::EasyFileReader()
+FileReader::FileReader()
 {
 
 }
 
-EasyFileReader::~EasyFileReader()
+FileReader::~FileReader()
 {
     interrupt();
 }
 
-const bool EasyFileReader::isFile() const
+const bool FileReader::isFile() const
 {
     return m_isFile;
 }
 
-bool EasyFileReader::done() const
+bool FileReader::done() const
 {
-    return m_bDone.load(::std::memory_order_acquire);
+    return m_bDone.load(std::memory_order_acquire);
 }
 
-int EasyFileReader::progress() const
+int FileReader::progress() const
 {
-    return m_progress.load(::std::memory_order_acquire);
+    return m_progress.load(std::memory_order_acquire);
 }
 
-unsigned int EasyFileReader::size() const
+unsigned int FileReader::size() const
 {
-    return m_size.load(::std::memory_order_acquire);
+    return m_size.load(std::memory_order_acquire);
 }
 
-const QString& EasyFileReader::filename() const
+const QString& FileReader::filename() const
 {
     return m_filename;
 }
 
-void EasyFileReader::load(const QString& _filename)
+void FileReader::load(const QString& _filename)
 {
     interrupt();
 
     m_isFile = true;
     m_filename = _filename;
-    m_thread = ::std::thread([this](bool _enableStatistics) {
+    m_thread = std::thread([this](bool _enableStatistics) {
         m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_serializedBlocks, m_serializedDescriptors,
-            m_descriptors, m_blocks, m_blocksTree, m_descriptorsNumberInFile, m_version, _enableStatistics, m_errorMessage), ::std::memory_order_release);
-        m_progress.store(100, ::std::memory_order_release);
-        m_bDone.store(true, ::std::memory_order_release);
+            m_descriptors, m_blocks, m_blocksTree, m_descriptorsNumberInFile, m_version, _enableStatistics, m_errorMessage), std::memory_order_release);
+        m_progress.store(100, std::memory_order_release);
+        m_bDone.store(true, std::memory_order_release);
     }, EASY_GLOBALS.enable_statistics);
 }
 
-void EasyFileReader::load(::std::stringstream& _stream)
+void FileReader::load(std::stringstream& _stream)
 {
     interrupt();
 
@@ -1953,25 +1957,25 @@ void EasyFileReader::load(::std::stringstream& _stream)
     m_stream.swap(_stream);
 #endif
 
-    m_thread = ::std::thread([this](bool _enableStatistics) {
-        ::std::ofstream cache_file(NETWORK_CACHE_FILE, ::std::fstream::binary);
+    m_thread = std::thread([this](bool _enableStatistics) {
+        std::ofstream cache_file(NETWORK_CACHE_FILE, std::fstream::binary);
         if (cache_file.is_open()) {
             cache_file << m_stream.str();
             cache_file.close();
         }
         m_size.store(fillTreesFromStream(m_progress, m_stream, m_serializedBlocks, m_serializedDescriptors, m_descriptors,
-            m_blocks, m_blocksTree, m_descriptorsNumberInFile, m_version, _enableStatistics, m_errorMessage), ::std::memory_order_release);
-        m_progress.store(100, ::std::memory_order_release);
-        m_bDone.store(true, ::std::memory_order_release);
+            m_blocks, m_blocksTree, m_descriptorsNumberInFile, m_version, _enableStatistics, m_errorMessage), std::memory_order_release);
+        m_progress.store(100, std::memory_order_release);
+        m_bDone.store(true, std::memory_order_release);
     }, EASY_GLOBALS.enable_statistics);
 }
 
-void EasyFileReader::interrupt()
+void FileReader::interrupt()
 {
     join();
 
-    m_bDone.store(false, ::std::memory_order_release);
-    m_size.store(0, ::std::memory_order_release);
+    m_bDone.store(false, std::memory_order_release);
+    m_size.store(0, std::memory_order_release);
     m_serializedBlocks.clear();
     m_serializedDescriptors.clear();
     m_descriptors.clear();
@@ -1984,7 +1988,7 @@ void EasyFileReader::interrupt()
     clear_stream(m_errorMessage);
 }
 
-void EasyFileReader::get(::profiler::SerializedData& _serializedBlocks, ::profiler::SerializedData& _serializedDescriptors,
+void FileReader::get(::profiler::SerializedData& _serializedBlocks, ::profiler::SerializedData& _serializedDescriptors,
                          ::profiler::descriptors_list_t& _descriptors, ::profiler::blocks_t& _blocks,
                          ::profiler::thread_blocks_tree_t& _tree, uint32_t& _descriptorsNumberInFile, uint32_t& _version, QString& _filename)
 {
@@ -1992,7 +1996,7 @@ void EasyFileReader::get(::profiler::SerializedData& _serializedBlocks, ::profil
     {
         m_serializedBlocks.swap(_serializedBlocks);
         m_serializedDescriptors.swap(_serializedDescriptors);
-        ::profiler::descriptors_list_t(::std::move(m_descriptors)).swap(_descriptors);
+        ::profiler::descriptors_list_t(std::move(m_descriptors)).swap(_descriptors);
         m_blocks.swap(_blocks);
         m_blocksTree.swap(_tree);
         m_filename.swap(_filename);
@@ -2001,28 +2005,28 @@ void EasyFileReader::get(::profiler::SerializedData& _serializedBlocks, ::profil
     }
 }
 
-void EasyFileReader::join()
+void FileReader::join()
 {
-    m_progress.store(-100, ::std::memory_order_release);
+    m_progress.store(-100, std::memory_order_release);
     if (m_thread.joinable())
         m_thread.join();
-    m_progress.store(0, ::std::memory_order_release);
+    m_progress.store(0, std::memory_order_release);
 }
 
-QString EasyFileReader::getError()
+QString FileReader::getError()
 {
     return QString(m_errorMessage.str().c_str());
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::onEventTracingPriorityChange(bool _checked)
+void MainWindow::onEventTracingPriorityChange(bool _checked)
 {
     if (EASY_GLOBALS.connected)
         m_listener.send(profiler::net::BoolMessage(profiler::net::MessageType::Change_Event_Tracing_Priority, _checked));
 }
 
-void EasyMainWindow::onEventTracingEnableChange(bool _checked)
+void MainWindow::onEventTracingEnableChange(bool _checked)
 {
     if (EASY_GLOBALS.connected)
         m_listener.send(profiler::net::BoolMessage(profiler::net::MessageType::Change_Event_Tracing_Status, _checked));
@@ -2030,7 +2034,7 @@ void EasyMainWindow::onEventTracingEnableChange(bool _checked)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::onFrameTimeEditFinish()
+void MainWindow::onFrameTimeEditFinish()
 {
     auto text = m_frameTimeEdit->text();
     if (text.contains(QChar(',')))
@@ -2041,23 +2045,23 @@ void EasyMainWindow::onFrameTimeEditFinish()
 
     EASY_GLOBALS.frame_time = text.toFloat() * 1e3f;
 
-    disconnect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::expectedFrameTimeChanged,
+    disconnect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::expectedFrameTimeChanged,
                this, &This::onFrameTimeChanged);
 
     emit EASY_GLOBALS.events.expectedFrameTimeChanged();
 
-    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::expectedFrameTimeChanged,
+    connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::expectedFrameTimeChanged,
             this, &This::onFrameTimeChanged);
 }
 
-void EasyMainWindow::onFrameTimeChanged()
+void MainWindow::onFrameTimeChanged()
 {
     m_frameTimeEdit->setText(QString::number(EASY_GLOBALS.frame_time * 1e-3));
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::onConnectClicked(bool)
+void MainWindow::onConnectClicked(bool)
 {
     if (EASY_GLOBALS.connected)
     {
@@ -2085,14 +2089,14 @@ void EasyMainWindow::onConnectClicked(bool)
 
         if (!isSameAddress)
         {
-            m_lastAddress = ::std::move(address);
+            m_lastAddress = std::move(address);
             m_lastPort = port;
         }
 
         return;
     }
 
-    m_lastAddress = ::std::move(address);
+    m_lastAddress = std::move(address);
     m_lastPort = port;
 
     qInfo() << "Connected successfully";
@@ -2102,7 +2106,7 @@ void EasyMainWindow::onConnectClicked(bool)
     m_connectAction->setText(tr("Disconnect"));
 
     if (m_fpsViewer->isVisible())
-        static_cast<EasyFrameRateViewer*>(m_fpsViewer->widget())->clear();
+        static_cast<FpsViewerWidget*>(m_fpsViewer->widget())->clear();
 
     if (!m_fpsRequestTimer.isActive())
         m_fpsRequestTimer.start(EASY_GLOBALS.fps_timer_interval);
@@ -2132,7 +2136,7 @@ void EasyMainWindow::onConnectClicked(bool)
     }
 }
 
-void EasyMainWindow::onCaptureClicked(bool)
+void MainWindow::onCaptureClicked(bool)
 {
     if (!EASY_GLOBALS.connected)
     {
@@ -2140,12 +2144,19 @@ void EasyMainWindow::onCaptureClicked(bool)
         return;
     }
 
-    if (m_listener.regime() != LISTENER_IDLE)
+    if (m_listener.regime() != ListenerRegime::Idle)
     {
-        if (m_listener.regime() == LISTENER_CAPTURE || m_listener.regime() == LISTENER_CAPTURE_RECEIVE)
-            QMessageBox::warning(this, "Warning", "Already capturing frames.\nFinish old capturing session first.", QMessageBox::Close);
+        if (m_listener.regime() == ListenerRegime::Capture || m_listener.regime() == ListenerRegime::Capture_Receive)
+        {
+            QMessageBox::warning(this, "Warning",
+                "Already capturing frames.\nFinish old capturing session first.", QMessageBox::Close);
+        }
         else
-            QMessageBox::warning(this, "Warning", "Capturing blocks description.\nFinish old capturing session first.", QMessageBox::Close);
+        {
+            QMessageBox::warning(this, "Warning",
+                "Capturing blocks description.\nFinish old capturing session first.", QMessageBox::Close);
+        }
+
         return;
     }
 
@@ -2186,7 +2197,7 @@ void EasyMainWindow::onCaptureClicked(bool)
     m_listenerDialog->show();
 }
 
-void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
+void MainWindow::onGetBlockDescriptionsClicked(bool)
 {
     if (!EASY_GLOBALS.connected)
     {
@@ -2194,16 +2205,24 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
         return;
     }
 
-    if (m_listener.regime() != LISTENER_IDLE)
+    if (m_listener.regime() != ListenerRegime::Idle)
     {
-        if (m_listener.regime() == LISTENER_DESCRIBE)
-            QMessageBox::warning(this, "Warning", "Already capturing blocks description.\nFinish old capturing session first.", QMessageBox::Close);
+        if (m_listener.regime() == ListenerRegime::Descriptors)
+        {
+            QMessageBox::warning(this, "Warning",
+                "Already capturing blocks description.\nFinish old capturing session first.", QMessageBox::Close);
+        }
         else
-            QMessageBox::warning(this, "Warning", "Already capturing frames.\nFinish old capturing session first.", QMessageBox::Close);
+        {
+            QMessageBox::warning(this, "Warning",
+                "Already capturing frames.\nFinish old capturing session first.", QMessageBox::Close);
+        }
+
         return;
     }
 
-    m_listenerDialog = new QMessageBox(QMessageBox::Information, "Waiting for blocks...", "This may take some time.", QMessageBox::NoButton, this);
+    m_listenerDialog = new QMessageBox(QMessageBox::Information, "Waiting for blocks...",
+                                       "This may take some time.", QMessageBox::NoButton, this);
     m_listenerDialog->setAttribute(Qt::WA_DeleteOnClose, true);
     m_listenerDialog->show();
 
@@ -2218,7 +2237,7 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
 
         decltype(EASY_GLOBALS.descriptors) descriptors;
         decltype(m_serializedDescriptors) serializedDescriptors;
-        ::std::stringstream errorMessage;
+        std::stringstream errorMessage;
         if (readDescriptionsFromStream(m_listener.data(), serializedDescriptors, descriptors, errorMessage))
         {
             // Merge old and new descriptions
@@ -2299,7 +2318,7 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
                     if (m_descTreeDialog.ptr != nullptr)
                     {
 #if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
-                        static_cast<EasyDescWidget*>(m_descTreeWidget->widget())->build();
+                        static_cast<BlockDescriptorsWidget*>(m_descTreeWidget->widget())->build();
 #endif
                         m_dialogDescTree->build();
                         m_descTreeDialog.ptr->raise();
@@ -2328,7 +2347,7 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyMainWindow::onBlockStatusChange(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status)
+void MainWindow::onBlockStatusChange(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status)
 {
     if (EASY_GLOBALS.connected)
         m_listener.send(profiler::net::BlockStatusMessage(_id, static_cast<uint8_t>(_status)));
@@ -2354,7 +2373,7 @@ void DialogWithGeometry::restoreGeometry()
 
 //////////////////////////////////////////////////////////////////////////
 
-EasySocketListener::EasySocketListener() : m_receivedSize(0), m_port(0), m_regime(LISTENER_IDLE)
+EasySocketListener::EasySocketListener() : m_receivedSize(0), m_port(0), m_regime(ListenerRegime::Idle)
 {
     m_bInterrupt = ATOMIC_VAR_INIT(false);
     m_bConnected = ATOMIC_VAR_INIT(false);
@@ -2367,22 +2386,22 @@ EasySocketListener::EasySocketListener() : m_receivedSize(0), m_port(0), m_regim
 
 EasySocketListener::~EasySocketListener()
 {
-    m_bInterrupt.store(true, ::std::memory_order_release);
+    m_bInterrupt.store(true, std::memory_order_release);
     if (m_thread.joinable())
         m_thread.join();
 }
 
 bool EasySocketListener::connected() const
 {
-    return m_bConnected.load(::std::memory_order_acquire);
+    return m_bConnected.load(std::memory_order_acquire);
 }
 
 bool EasySocketListener::captured() const
 {
-    return m_bCaptureReady.load(::std::memory_order_acquire);
+    return m_bCaptureReady.load(std::memory_order_acquire);
 }
 
-EasyListenerRegime EasySocketListener::regime() const
+ListenerRegime EasySocketListener::regime() const
 {
     return m_regime;
 }
@@ -2392,12 +2411,12 @@ uint64_t EasySocketListener::size() const
     return m_receivedSize;
 }
 
-::std::stringstream& EasySocketListener::data()
+std::stringstream& EasySocketListener::data()
 {
     return m_receivedData;
 }
 
-const ::std::string& EasySocketListener::address() const
+const std::string& EasySocketListener::address() const
 {
     return m_address;
 }
@@ -2417,14 +2436,14 @@ void EasySocketListener::disconnect()
 {
     if (connected())
     {
-        m_bInterrupt.store(true, ::std::memory_order_release);
+        m_bInterrupt.store(true, std::memory_order_release);
         if (m_thread.joinable())
             m_thread.join();
 
-        m_bConnected.store(false, ::std::memory_order_release);
-        m_bInterrupt.store(false, ::std::memory_order_release);
-        m_bCaptureReady.store(false, ::std::memory_order_release);
-        m_bStopReceive.store(false, ::std::memory_order_release);
+        m_bConnected.store(false, std::memory_order_release);
+        m_bInterrupt.store(false, std::memory_order_release);
+        m_bCaptureReady.store(false, std::memory_order_release);
+        m_bStopReceive.store(false, std::memory_order_release);
     }
 
     m_address.clear();
@@ -2443,14 +2462,14 @@ bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profile
 {
     if (connected())
     {
-        m_bInterrupt.store(true, ::std::memory_order_release);
+        m_bInterrupt.store(true, std::memory_order_release);
         if (m_thread.joinable())
             m_thread.join();
 
-        m_bConnected.store(false, ::std::memory_order_release);
-        m_bInterrupt.store(false, ::std::memory_order_release);
-        m_bCaptureReady.store(false, ::std::memory_order_release);
-        m_bStopReceive.store(false, ::std::memory_order_release);
+        m_bConnected.store(false, std::memory_order_release);
+        m_bInterrupt.store(false, std::memory_order_release);
+        m_bCaptureReady.store(false, std::memory_order_release);
+        m_bStopReceive.store(false, std::memory_order_release);
     }
 
     m_address.clear();
@@ -2488,7 +2507,7 @@ bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profile
         {
             m_address = _ipaddress;
             m_port = _port;
-            m_bConnected.store(isConnected, ::std::memory_order_release);
+            m_bConnected.store(isConnected, std::memory_order_release);
             return isConnected;
         }
 
@@ -2515,7 +2534,7 @@ bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profile
         m_port = _port;
     }
 
-    m_bConnected.store(isConnected, ::std::memory_order_release);
+    m_bConnected.store(isConnected, std::memory_order_release);
     return isConnected;
 }
 
@@ -2528,9 +2547,9 @@ bool EasySocketListener::startCapture()
 {
     //if (m_thread.joinable())
     //{
-    //    m_bInterrupt.store(true, ::std::memory_order_release);
+    //    m_bInterrupt.store(true, std::memory_order_release);
     //    m_thread.join();
-    //    m_bInterrupt.store(false, ::std::memory_order_release);
+    //    m_bInterrupt.store(false, std::memory_order_release);
     //}
 
     clearData();
@@ -2539,74 +2558,74 @@ bool EasySocketListener::startCapture()
     m_easySocket.send(&request, sizeof(request));
 
     if (m_easySocket.isDisconnected()) {
-        m_bConnected.store(false, ::std::memory_order_release);
+        m_bConnected.store(false, std::memory_order_release);
         return false;
     }
 
-    m_regime = LISTENER_CAPTURE;
-    m_bCaptureReady.store(false, ::std::memory_order_release);
-    //m_thread = ::std::thread(&EasySocketListener::listenCapture, this);
+    m_regime = ListenerRegime::Capture;
+    m_bCaptureReady.store(false, std::memory_order_release);
+    //m_thread = std::thread(&EasySocketListener::listenCapture, this);
 
     return true;
 }
 
 void EasySocketListener::stopCapture()
 {
-    //if (!m_thread.joinable() || m_regime != LISTENER_CAPTURE)
+    //if (!m_thread.joinable() || m_regime != ListenerRegime::Capture)
     //    return;
 
-    if (m_regime != LISTENER_CAPTURE)
+    if (m_regime != ListenerRegime::Capture)
         return;
 
-    //m_bStopReceive.store(true, ::std::memory_order_release);
+    //m_bStopReceive.store(true, std::memory_order_release);
     profiler::net::Message request(profiler::net::MessageType::Request_Stop_Capture);
     m_easySocket.send(&request, sizeof(request));
 
     //m_thread.join();
 
     if (m_easySocket.isDisconnected()) {
-        m_bConnected.store(false, ::std::memory_order_release);
-        m_bStopReceive.store(false, ::std::memory_order_release);
-        m_regime = LISTENER_IDLE;
-        m_bCaptureReady.store(true, ::std::memory_order_release);
+        m_bConnected.store(false, std::memory_order_release);
+        m_bStopReceive.store(false, std::memory_order_release);
+        m_regime = ListenerRegime::Idle;
+        m_bCaptureReady.store(true, std::memory_order_release);
         return;
     }
 
-    m_regime = LISTENER_CAPTURE_RECEIVE;
+    m_regime = ListenerRegime::Capture_Receive;
     if (m_thread.joinable())
     {
-        m_bInterrupt.store(true, ::std::memory_order_release);
+        m_bInterrupt.store(true, std::memory_order_release);
         m_thread.join();
-        m_bInterrupt.store(false, ::std::memory_order_release);
+        m_bInterrupt.store(false, std::memory_order_release);
     }
 
-    m_thread = ::std::thread(&EasySocketListener::listenCapture, this);
+    m_thread = std::thread(&EasySocketListener::listenCapture, this);
 
-    //m_regime = LISTENER_IDLE;
-    //m_bStopReceive.store(false, ::std::memory_order_release);
+    //m_regime = ListenerRegime::Idle;
+    //m_bStopReceive.store(false, std::memory_order_release);
 }
 
 void EasySocketListener::finalizeCapture()
 {
     if (m_thread.joinable())
     {
-        m_bInterrupt.store(true, ::std::memory_order_release);
+        m_bInterrupt.store(true, std::memory_order_release);
         m_thread.join();
-        m_bInterrupt.store(false, ::std::memory_order_release);
+        m_bInterrupt.store(false, std::memory_order_release);
     }
 
-    m_regime = LISTENER_IDLE;
-    m_bCaptureReady.store(false, ::std::memory_order_release);
-    m_bStopReceive.store(false, ::std::memory_order_release);
+    m_regime = ListenerRegime::Idle;
+    m_bCaptureReady.store(false, std::memory_order_release);
+    m_bStopReceive.store(false, std::memory_order_release);
 }
 
 void EasySocketListener::requestBlocksDescription()
 {
     if (m_thread.joinable())
     {
-        m_bInterrupt.store(true, ::std::memory_order_release);
+        m_bInterrupt.store(true, std::memory_order_release);
         m_thread.join();
-        m_bInterrupt.store(false, ::std::memory_order_release);
+        m_bInterrupt.store(false, std::memory_order_release);
     }
 
     clearData();
@@ -2615,20 +2634,20 @@ void EasySocketListener::requestBlocksDescription()
     m_easySocket.send(&request, sizeof(request));
 
     if(m_easySocket.isDisconnected()  ){
-        m_bConnected.store(false, ::std::memory_order_release);
+        m_bConnected.store(false, std::memory_order_release);
     }
 
-    m_regime = LISTENER_DESCRIBE;
+    m_regime = ListenerRegime::Descriptors;
     listenDescription();
-    m_regime = LISTENER_IDLE;
+    m_regime = ListenerRegime::Idle;
 }
 
 bool EasySocketListener::frameTime(uint32_t& _maxTime, uint32_t& _avgTime)
 {
-    if (m_bFrameTimeReady.exchange(false, ::std::memory_order_acquire))
+    if (m_bFrameTimeReady.exchange(false, std::memory_order_acquire))
     {
-        _maxTime = m_frameMax.load(::std::memory_order_acquire);
-        _avgTime = m_frameAvg.load(::std::memory_order_acquire);
+        _maxTime = m_frameMax.load(std::memory_order_acquire);
+        _avgTime = m_frameAvg.load(std::memory_order_acquire);
         return true;
     }
 
@@ -2637,14 +2656,14 @@ bool EasySocketListener::frameTime(uint32_t& _maxTime, uint32_t& _avgTime)
 
 bool EasySocketListener::requestFrameTime()
 {
-    if (m_regime != LISTENER_IDLE && m_regime != LISTENER_CAPTURE)
+    if (m_regime != ListenerRegime::Idle && m_regime != ListenerRegime::Capture)
         return false;
 
     if (m_thread.joinable())
     {
-        m_bInterrupt.store(true, ::std::memory_order_release);
+        m_bInterrupt.store(true, std::memory_order_release);
         m_thread.join();
-        m_bInterrupt.store(false, ::std::memory_order_release);
+        m_bInterrupt.store(false, std::memory_order_release);
     }
 
     profiler::net::Message request(profiler::net::MessageType::Request_MainThread_FPS);
@@ -2652,12 +2671,12 @@ bool EasySocketListener::requestFrameTime()
 
     if (m_easySocket.isDisconnected())
     {
-        m_bConnected.store(false, ::std::memory_order_release);
+        m_bConnected.store(false, std::memory_order_release);
         return false;
     }
 
-    m_bFrameTimeReady.store(false, ::std::memory_order_release);
-    m_thread = ::std::thread(&EasySocketListener::listenFrameTime, this);
+    m_bFrameTimeReady.store(false, std::memory_order_release);
+    m_thread = std::thread(&EasySocketListener::listenFrameTime, this);
 
     return true;
 }
@@ -2670,16 +2689,16 @@ void EasySocketListener::listenCapture()
 
     char* buffer = new char[buffer_size];
     int seek = 0, bytes = 0;
-    auto timeBegin = ::std::chrono::system_clock::now();
+    auto timeBegin = std::chrono::system_clock::now();
 
     bool isListen = true, disconnected = false;
-    while (isListen && !m_bInterrupt.load(::std::memory_order_acquire))
+    while (isListen && !m_bInterrupt.load(std::memory_order_acquire))
     {
-        if (m_bStopReceive.load(::std::memory_order_acquire))
+        if (m_bStopReceive.load(std::memory_order_acquire))
         {
             profiler::net::Message request(profiler::net::MessageType::Request_Stop_Capture);
             m_easySocket.send(&request, sizeof(request));
-            m_bStopReceive.store(false, ::std::memory_order_release);
+            m_bStopReceive.store(false, std::memory_order_release);
         }
 
         if ((bytes - seek) == 0)
@@ -2690,7 +2709,7 @@ void EasySocketListener::listenCapture()
             {
                 if (m_easySocket.isDisconnected())
                 {
-                    m_bConnected.store(false, ::std::memory_order_release);
+                    m_bConnected.store(false, std::memory_order_release);
                     isListen = false;
                     disconnected = true;
                 }
@@ -2740,7 +2759,7 @@ void EasySocketListener::listenCapture()
                     qInfo() << "Receive MessageType::Reply_Blocks_End";
                     seek += sizeof(profiler::net::Message);
 
-                    const auto dt = ::std::chrono::duration_cast<std::chrono::milliseconds>(::std::chrono::system_clock::now() - timeBegin);
+                    const auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - timeBegin);
                     const auto bytesNumber = m_receivedData.str().size();
                     qInfo() << "recieved " << bytesNumber << " bytes, " << dt.count() << " ms, average speed = " << double(bytesNumber) * 1e3 / double(dt.count()) / 1024. << " kBytes/sec";
 
@@ -2764,7 +2783,7 @@ void EasySocketListener::listenCapture()
 
 
                     buf = buffer + seek;
-                    auto bytesNumber = ::std::min((int)dm->size, bytes - seek);
+                    auto bytesNumber = std::min((int)dm->size, bytes - seek);
                     m_receivedSize += bytesNumber;
                     m_receivedData.write(buf, bytesNumber);
                     neededSize -= bytesNumber;
@@ -2787,7 +2806,7 @@ void EasySocketListener::listenCapture()
                         {
                             if (m_easySocket.isDisconnected())
                             {
-                                m_bConnected.store(false, ::std::memory_order_release);
+                                m_bConnected.store(false, std::memory_order_release);
                                 isListen = false;
                                 disconnected = true;
                                 neededSize = 0;
@@ -2797,7 +2816,7 @@ void EasySocketListener::listenCapture()
                         }
 
                         buf = buffer;
-                        int toWrite = ::std::min(bytes, neededSize);
+                        int toWrite = std::min(bytes, neededSize);
                         m_receivedSize += toWrite;
                         m_receivedData.write(buf, toWrite);
                         neededSize -= toWrite;
@@ -2805,11 +2824,11 @@ void EasySocketListener::listenCapture()
                         seek = toWrite;
                     }
 
-                    if (m_bStopReceive.load(::std::memory_order_acquire))
+                    if (m_bStopReceive.load(std::memory_order_acquire))
                     {
                         profiler::net::Message request(profiler::net::MessageType::Request_Stop_Capture);
                         m_easySocket.send(&request, sizeof(request));
-                        m_bStopReceive.store(false, ::std::memory_order_release);
+                        m_bStopReceive.store(false, std::memory_order_release);
                     }
 
                     break;
@@ -2827,7 +2846,7 @@ void EasySocketListener::listenCapture()
 
     delete [] buffer;
 
-    m_bCaptureReady.store(true, ::std::memory_order_release);
+    m_bCaptureReady.store(true, std::memory_order_release);
 }
 
 void EasySocketListener::listenDescription()
@@ -2838,7 +2857,7 @@ void EasySocketListener::listenDescription()
     int seek = 0, bytes = 0;
 
     bool isListen = true, disconnected = false;
-    while (isListen && !m_bInterrupt.load(::std::memory_order_acquire))
+    while (isListen && !m_bInterrupt.load(std::memory_order_acquire))
     {
         if ((bytes - seek) == 0)
         {
@@ -2848,7 +2867,7 @@ void EasySocketListener::listenDescription()
             {
                 if (m_easySocket.isDisconnected())
                 {
-                    m_bConnected.store(false, ::std::memory_order_release);
+                    m_bConnected.store(false, std::memory_order_release);
                     isListen = false;
                     disconnected = true;
                 }
@@ -2907,7 +2926,7 @@ void EasySocketListener::listenDescription()
                     int neededSize = dm->size;
 
                     buf = buffer + seek;
-                    auto bytesNumber = ::std::min((int)dm->size, bytes - seek);
+                    auto bytesNumber = std::min((int)dm->size, bytes - seek);
                     m_receivedSize += bytesNumber;
                     m_receivedData.write(buf, bytesNumber);
                     neededSize -= bytesNumber;
@@ -2928,7 +2947,7 @@ void EasySocketListener::listenDescription()
                         {
                             if (m_easySocket.isDisconnected())
                             {
-                                m_bConnected.store(false, ::std::memory_order_release);
+                                m_bConnected.store(false, std::memory_order_release);
                                 isListen = false;
                                 disconnected = true;
                                 neededSize = 0;
@@ -2938,7 +2957,7 @@ void EasySocketListener::listenDescription()
                         }
 
                         buf = buffer;
-                        int toWrite = ::std::min(bytes, neededSize);
+                        int toWrite = std::min(bytes, neededSize);
                         m_receivedSize += toWrite;
                         m_receivedData.write(buf, toWrite);
                         neededSize -= toWrite;
@@ -2969,7 +2988,7 @@ void EasySocketListener::listenFrameTime()
     int seek = 0, bytes = 0;
 
     bool isListen = true;
-    while (isListen && !m_bInterrupt.load(::std::memory_order_acquire))
+    while (isListen && !m_bInterrupt.load(std::memory_order_acquire))
     {
         if ((bytes - seek) == 0)
         {
@@ -2979,7 +2998,7 @@ void EasySocketListener::listenFrameTime()
             {
                 if (m_easySocket.isDisconnected())
                 {
-                    m_bConnected.store(false, ::std::memory_order_release);
+                    m_bConnected.store(false, std::memory_order_release);
                     isListen = false;
                 }
 
@@ -3023,9 +3042,9 @@ void EasySocketListener::listenFrameTime()
                     if (seek <= buffer_size)
                     {
                         auto timestampMessage = (profiler::net::TimestampMessage*)message;
-                        m_frameMax.store(timestampMessage->maxValue, ::std::memory_order_release);
-                        m_frameAvg.store(timestampMessage->avgValue, ::std::memory_order_release);
-                        m_bFrameTimeReady.store(true, ::std::memory_order_release);
+                        m_frameMax.store(timestampMessage->maxValue, std::memory_order_release);
+                        m_frameAvg.store(timestampMessage->avgValue, std::memory_order_release);
+                        m_bFrameTimeReady.store(true, std::memory_order_release);
                     }
 
                     isListen = false;

@@ -20,7 +20,7 @@
 *:disabled {
   color: #a08888; }
 
-EasyMainWindow, QToolBar, QDialog {
+MainWindow, QToolBar, QDialog {
   background-color: #f8f2f2; }
 
 QToolTip {

@@ -5,7 +5,7 @@
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- : 
-* description       : The file contains declaration of EasyDescTreeWidget and it's auxiliary classes
+* description       : The file contains declaration of DescriptorsTreeWidget and it's auxiliary classes
 *                   : for displyaing EasyProfiler blocks descriptors tree.
 * ----------------- : 
 * change log        : * 2016/09/17 Victor Zarubkin: initial commit.
@@ -67,10 +67,10 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyDescWidgetItem : public QTreeWidgetItem
+class DescriptorsTreeItem : public QTreeWidgetItem
 {
     using Parent = QTreeWidgetItem;
-    using This = EasyDescWidgetItem;
+    using This = DescriptorsTreeItem;
 
 public:
 
@@ -89,8 +89,8 @@ private:
 
 public:
 
-    explicit EasyDescWidgetItem(::profiler::block_id_t _desc, Parent* _parent = nullptr);
-    ~EasyDescWidgetItem() override;
+    explicit DescriptorsTreeItem(::profiler::block_id_t _desc, Parent* _parent = nullptr);
+    ~DescriptorsTreeItem() override;
 
     bool operator < (const Parent& _other) const override;
     QVariant data(int _column, int _role) const override;
@@ -109,18 +109,18 @@ public:
         m_type = _type;
     }
 
-}; // END of class EasyDescWidgetItem.
+}; // END of class DescriptorsTreeItem.
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyDescTreeWidget : public QTreeWidget
+class DescriptorsTreeWidget : public QTreeWidget
 {
     Q_OBJECT
 
     using Parent = QTreeWidget;
-    using This = EasyDescTreeWidget;
+    using This = DescriptorsTreeWidget;
 
-    using Items = ::std::vector<EasyDescWidgetItem*>;
+    using Items = ::std::vector<DescriptorsTreeItem*>;
     using TreeItems = ::std::vector<QTreeWidgetItem*>;
     using ExpandedFiles = ::std::unordered_set<::std::string>;
 
@@ -139,8 +139,8 @@ public:
 
     // Public virtual methods
 
-    explicit EasyDescTreeWidget(QWidget* _parent = nullptr);
-    ~EasyDescTreeWidget() override;
+    explicit DescriptorsTreeWidget(QWidget* _parent = nullptr);
+    ~DescriptorsTreeWidget() override;
     void contextMenuEvent(QContextMenuEvent* _event) override;
 
 public:
@@ -175,21 +175,21 @@ private:
     void loadSettings();
     void saveSettings();
 
-}; // END of class EasyDescTreeWidget.
+}; // END of class DescriptorsTreeWidget.
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyDescWidget : public QWidget
+class BlockDescriptorsWidget : public QWidget
 {
     Q_OBJECT
 
     using Parent = QWidget;
-    using This = EasyDescWidget;
+    using This = BlockDescriptorsWidget;
 
 private:
 
     class QSplitter*   m_splitter;
-    EasyDescTreeWidget*    m_tree;
+    DescriptorsTreeWidget*    m_tree;
     class ArbitraryValuesWidget* m_values;
     class QLineEdit*  m_searchBox;
     class QLabel*   m_foundNumber;
@@ -200,8 +200,8 @@ public:
 
     // Public virtual methods
 
-    explicit EasyDescWidget(QWidget* _parent = nullptr);
-    ~EasyDescWidget() override;
+    explicit BlockDescriptorsWidget(QWidget* _parent = nullptr);
+    ~BlockDescriptorsWidget() override;
     void keyPressEvent(QKeyEvent* _event) override;
     void contextMenuEvent(QContextMenuEvent* _event) override;
 
@@ -228,7 +228,7 @@ private:
     void loadSettings();
     void saveSettings();
 
-}; // END of class EasyDescWidget.
+}; // END of class BlockDescriptorsWidget.
 
 //////////////////////////////////////////////////////////////////////////
 

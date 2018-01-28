@@ -5,7 +5,7 @@
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- : 
-* description       : The file contains declaration of EasyTreeWidget and it's auxiliary classes
+* description       : The file contains declaration of BlocksTreeWidget and it's auxiliary classes
 *                   : for displyaing EasyProfiler blocks tree.
 * ----------------- : 
 * change log        : * 2016/06/26 Victor Zarubkin: moved sources from tree_view.h
@@ -73,16 +73,16 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyTreeWidget : public QTreeWidget
+class BlocksTreeWidget : public QTreeWidget
 {
     Q_OBJECT
 
     using Parent = QTreeWidget;
-    using This = EasyTreeWidget;
+    using This = BlocksTreeWidget;
 
 protected:
 
-    EasyTreeWidgetLoader  m_hierarchyBuilder;
+    TreeWidgetLoader  m_hierarchyBuilder;
     Items                            m_items;
     RootsMap                         m_roots;
     ::profiler_gui::TreeBlocks m_inputBlocks;
@@ -92,15 +92,15 @@ protected:
     ::profiler::timestamp_t      m_beginTime;
     class QProgressDialog*        m_progress;
     class QLabel*                m_hintLabel;
-    EasyTreeMode                      m_mode;
+    TreeMode                      m_mode;
     bool                           m_bLocked;
     bool             m_bSilentExpandCollapse;
     char m_columnsHiddenStatus[COL_COLUMNS_NUMBER];
 
 public:
 
-    explicit EasyTreeWidget(QWidget* _parent = nullptr);
-    ~EasyTreeWidget() override;
+    explicit BlocksTreeWidget(QWidget* _parent = nullptr);
+    ~BlocksTreeWidget() override;
 
     void contextMenuEvent(QContextMenuEvent* _event) override;
     void dragEnterEvent(QDragEnterEvent*) override {}
@@ -160,20 +160,20 @@ private:
     void destroyProgressDialog();
     void createProgressDialog();
 
-}; // END of class EasyTreeWidget.
+}; // END of class BlocksTreeWidget.
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyHierarchyWidget : public QWidget
+class HierarchyWidget : public QWidget
 {
     Q_OBJECT
 
     using Parent = QWidget;
-    using This = EasyHierarchyWidget;
+    using This = HierarchyWidget;
 
 private:
 
-    EasyTreeWidget*                 m_tree;
+    BlocksTreeWidget*               m_tree;
     class QLineEdit*           m_searchBox;
     class QLabel*            m_foundNumber;
     class QAction*          m_searchButton;
@@ -183,8 +183,8 @@ public:
 
     // Public virtual methods
 
-    explicit EasyHierarchyWidget(QWidget* _parent = nullptr);
-    ~EasyHierarchyWidget() override;
+    explicit HierarchyWidget(QWidget* _parent = nullptr);
+    ~HierarchyWidget() override;
 
     void keyPressEvent(QKeyEvent* _event) override;
     void contextMenuEvent(QContextMenuEvent* _event) override;
@@ -194,7 +194,7 @@ public:
 
     // Public non-virtual methods
 
-    EasyTreeWidget* tree();
+    BlocksTreeWidget* tree();
     void clear(bool _global = false);
 
 private slots:
@@ -214,7 +214,7 @@ private:
     void loadSettings();
     void saveSettings();
 
-}; // END of class EasyHierarchyWidget.
+}; // END of class HierarchyWidget.
 
 
 //////////////////////////////////////////////////////////////////////////

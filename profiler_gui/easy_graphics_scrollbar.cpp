@@ -148,7 +148,7 @@ void GraphicsHistogramItem::paintMouseIndicator(QPainter* _painter, qreal _top, 
 
 void GraphicsHistogramItem::paintByPtr(QPainter* _painter)
 {
-    const auto widget = static_cast<const EasyGraphicsScrollbar*>(scene()->parent());
+    const auto widget = static_cast<const BlocksGraphicsScrollbar*>(scene()->parent());
     const bool bindMode = widget->bindMode();
     const auto currentScale = widget->getWindowScale();
     const auto bottom = m_boundingRect.bottom();
@@ -239,7 +239,7 @@ void GraphicsHistogramItem::paintByPtr(QPainter* _painter)
 
 void GraphicsHistogramItem::paintById(QPainter* _painter)
 {
-    const auto widget = static_cast<const EasyGraphicsScrollbar*>(scene()->parent());
+    const auto widget = static_cast<const BlocksGraphicsScrollbar*>(scene()->parent());
     const bool bindMode = widget->bindMode();
     const auto currentScale = widget->getWindowScale();
     const auto bottom = m_boundingRect.bottom();
@@ -410,13 +410,15 @@ void GraphicsHistogramItem::setSource(profiler::thread_id_t _thread_id, const pr
             m_timeUnits = EASY_GLOBALS.time_units;
 
             setReady(false);
-            m_workerThread = std::thread([this](const profiler_gui::EasyItems* _source)
+
+            auto source = m_pSource;
+            m_worker.enqueue([this, source]
             {
                 m_maxValue = 0;
                 m_minValue = 1e30;
 
                 bool empty = true;
-                for (const auto& item : *_source)
+                for (const auto& item : *source)
                 {
                     if (isReady())
                         return;
@@ -464,7 +466,7 @@ void GraphicsHistogramItem::setSource(profiler::thread_id_t _thread_id, const pr
 
                 setReady(true);
 
-            }, m_pSource);
+            }, m_bReady);
 
             startTimer();
             show();
@@ -536,9 +538,15 @@ void GraphicsHistogramItem::setSource(profiler::thread_id_t _thread_id, profiler
             m_threadWaitTime = root.wait_time;
 
             setReady(false);
-            m_workerThread = std::thread([this](decltype(root) profiler_thread, profiler::block_index_t selected_block, bool _showOnlyTopLevelBlocks)
+
+            const auto selected_thread = std::ref(root);
+            const auto selected_block = EASY_GLOBALS.selected_block;
+            const bool showOnlyTopLevelBlocks = EASY_GLOBALS.display_only_frames_on_histogram;
+            m_worker.enqueue([this, selected_thread, selected_block, showOnlyTopLevelBlocks]
             {
                 using Stack = std::vector<std::pair<profiler::block_index_t, profiler::block_index_t> >;
+
+                const auto& profiler_thread = selected_thread.get();
 
                 m_maxValue = 0;
                 m_minValue = 1e30;
@@ -565,7 +573,7 @@ void GraphicsHistogramItem::setSource(profiler::thread_id_t _thread_id, profiler
                         m_blockTotalDuraion += w;
                     }
 
-                    if (_showOnlyTopLevelBlocks)
+                    if (showOnlyTopLevelBlocks)
                         continue;
 
                     stack.emplace_back(frame, 0U);
@@ -652,7 +660,7 @@ void GraphicsHistogramItem::setSource(profiler::thread_id_t _thread_id, profiler
 
                 setReady(true);
 
-            }, std::ref(root), EASY_GLOBALS.selected_block, EASY_GLOBALS.display_only_frames_on_histogram);
+            }, m_bReady);
 
             startTimer();
         }
@@ -777,7 +785,7 @@ void GraphicsHistogramItem::onModeChanged()
     if (!isImageUpdatePermitted())
         return;
 
-    const auto widget = static_cast<const EasyGraphicsScrollbar*>(scene()->parent());
+    const auto widget = static_cast<const BlocksGraphicsScrollbar*>(scene()->parent());
     if (!widget->bindMode() && EASY_GLOBALS.auto_adjust_histogram_height)
     {
         m_topValue = m_maxValue;
@@ -800,10 +808,25 @@ bool GraphicsHistogramItem::updateImage()
     m_imageScaleUpdate = widget->range() / widget->sliderWidth();
     m_imageOriginUpdate = widget->bindMode() ? (widget->value() - widget->sliderWidth() * 3) : widget->minimum();
 
-    m_workerThread = std::thread(&This::updateImageAsync, this, m_boundingRect, m_regime, widget->getWindowScale(),
-        widget->minimum(), widget->maximum(), widget->range(), widget->value(), widget->sliderWidth(),
-        m_topValue, m_bottomValue, widget->bindMode(), EASY_GLOBALS.frame_time, EASY_GLOBALS.begin_time,
-        EASY_GLOBALS.auto_adjust_histogram_height);
+    // Ugly, but doesn't use exceeded count of threads
+    const auto rect = m_boundingRect;
+    const auto regime = m_regime;
+    const auto scale = widget->getWindowScale();
+    const auto left = widget->minimum();
+    const auto right = widget->maximum();
+    const auto value = widget->value();
+    const auto window = widget->sliderWidth();
+    const auto top = m_topValue;
+    const auto bottom = m_bottomValue;
+    const auto bindMode = widget->bindMode();
+    const auto frameTime = EASY_GLOBALS.frame_time;
+    const auto beginTime = EASY_GLOBALS.begin_time;
+    const auto autoHeight = EASY_GLOBALS.auto_adjust_histogram_height;
+    m_worker.enqueue([this, rect, regime, scale, left, right, value, window, top, bottom, bindMode, frameTime, beginTime, autoHeight]
+    {
+        updateImageAsync(rect, regime, scale, left, right, right - left, value, window, top, bottom, bindMode,
+                         frameTime, beginTime, autoHeight);
+    }, m_bReady);
 
     return true;
 }
@@ -1119,7 +1142,7 @@ void GraphicsHistogramItem::updateImageAsync(QRectF _boundingRect, HistRegime _r
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyGraphicsScrollbar::EasyGraphicsScrollbar(int _initialHeight, QWidget* _parent)
+BlocksGraphicsScrollbar::BlocksGraphicsScrollbar(int _initialHeight, QWidget* _parent)
     : Parent(_parent)
     , m_histogramItem(nullptr)
 {
@@ -1134,27 +1157,27 @@ EasyGraphicsScrollbar::EasyGraphicsScrollbar(int _initialHeight, QWidget* _paren
     m_histogramItem->setBoundingRect(0, scene()->sceneRect().top() + margin(), scene()->width(), sceneHeight - margins() - 1);
     m_histogramItem->hide();
 
-    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::expectedFrameTimeChanged,
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::expectedFrameTimeChanged,
             this, &This::onExpectedFrameTimeChanged);
 
-    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::autoAdjustHistogramChanged,
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::autoAdjustHistogramChanged,
             this, &This::onAutoAdjustHistogramChanged);
 
-    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::displayOnlyFramesOnHistogramChanged,
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::displayOnlyFramesOnHistogramChanged,
             this, &This::onDisplayOnlyFramesOnHistogramChanged);
 
-    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::threadNameDecorationChanged, this, &This::onThreadViewChanged);
-    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::hexThreadIdChanged, this, &This::onThreadViewChanged);
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::threadNameDecorationChanged, this, &This::onThreadViewChanged);
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::hexThreadIdChanged, this, &This::onThreadViewChanged);
 }
 
-EasyGraphicsScrollbar::~EasyGraphicsScrollbar()
+BlocksGraphicsScrollbar::~BlocksGraphicsScrollbar()
 {
 
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsScrollbar::onThreadViewChanged()
+void BlocksGraphicsScrollbar::onThreadViewChanged()
 {
     if (m_histogramItem->isVisible())
     {
@@ -1163,7 +1186,7 @@ void EasyGraphicsScrollbar::onThreadViewChanged()
     }
 }
 
-void EasyGraphicsScrollbar::onExpectedFrameTimeChanged()
+void BlocksGraphicsScrollbar::onExpectedFrameTimeChanged()
 {
     if (m_histogramItem->isVisible())
     {
@@ -1172,13 +1195,13 @@ void EasyGraphicsScrollbar::onExpectedFrameTimeChanged()
     }
 }
 
-void EasyGraphicsScrollbar::onAutoAdjustHistogramChanged()
+void BlocksGraphicsScrollbar::onAutoAdjustHistogramChanged()
 {
     if (m_histogramItem->isVisible())
         m_histogramItem->onModeChanged();
 }
 
-void EasyGraphicsScrollbar::onDisplayOnlyFramesOnHistogramChanged()
+void BlocksGraphicsScrollbar::onDisplayOnlyFramesOnHistogramChanged()
 {
     if (m_histogramItem->isVisible())
         m_histogramItem->rebuildSource(GraphicsHistogramItem::Hist_Id);
@@ -1186,18 +1209,18 @@ void EasyGraphicsScrollbar::onDisplayOnlyFramesOnHistogramChanged()
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsScrollbar::clear()
+void BlocksGraphicsScrollbar::clear()
 {
     setHistogramSource(0, nullptr);
     Parent::clear();
 }
 
-profiler::thread_id_t EasyGraphicsScrollbar::hystThread() const
+profiler::thread_id_t BlocksGraphicsScrollbar::hystThread() const
 {
     return m_histogramItem->threadId();
 }
 
-void EasyGraphicsScrollbar::setHistogramSource(profiler::thread_id_t _thread_id, const profiler_gui::EasyItems* _items)
+void BlocksGraphicsScrollbar::setHistogramSource(profiler::thread_id_t _thread_id, const profiler_gui::EasyItems* _items)
 {
     if (m_bLocked)
         return;
@@ -1206,7 +1229,7 @@ void EasyGraphicsScrollbar::setHistogramSource(profiler::thread_id_t _thread_id,
     scene()->update();
 }
 
-void EasyGraphicsScrollbar::setHistogramSource(profiler::thread_id_t _thread_id, profiler::block_id_t _block_id)
+void BlocksGraphicsScrollbar::setHistogramSource(profiler::thread_id_t _thread_id, profiler::block_id_t _block_id)
 {
     if (m_bLocked)
         return;
@@ -1215,7 +1238,7 @@ void EasyGraphicsScrollbar::setHistogramSource(profiler::thread_id_t _thread_id,
     scene()->update();
 }
 
-void EasyGraphicsScrollbar::mousePressEvent(QMouseEvent* _event)
+void BlocksGraphicsScrollbar::mousePressEvent(QMouseEvent* _event)
 {
     Parent::mousePressEvent(_event);
     if ((m_mouseButtons & Qt::RightButton) && _event->modifiers())

@@ -5,7 +5,7 @@
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- : 
-* description       : The file contains declaration of EasyTreeWidgetLoader which aim is
+* description       : The file contains declaration of TreeWidgetLoader which aim is
 *                   : to load EasyProfiler blocks hierarchy in separate thread.
 * ----------------- : 
 * change log        : * 2016/08/18 Victor Zarubkin: moved sources from blocks_tree_widget.h/.cpp
@@ -59,50 +59,50 @@
 
 #include <stdlib.h>
 #include <vector>
-#include <thread>
 #include <atomic>
 #include <easy/reader.h>
 #include "common_types.h"
+#include "thread_pool_task.h"
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyTreeWidgetItem;
+class TreeWidgetItem;
 
 #ifndef EASY_TREE_WIDGET__USE_VECTOR
-using Items = ::std::unordered_map<::profiler::block_index_t, EasyTreeWidgetItem*, ::estd::hash<::profiler::block_index_t> >;
+using Items = ::std::unordered_map<profiler::block_index_t, TreeWidgetItem*, ::estd::hash<profiler::block_index_t> >;
 #else
-using Items = ::std::vector<EasyTreeWidgetItem*>;
+using Items = ::std::vector<TreeWidgetItem*>;
 #endif
 
-using ThreadedItems = ::std::vector<::std::pair<::profiler::thread_id_t, EasyTreeWidgetItem*> >;
-using RootsMap = ::std::unordered_map<::profiler::thread_id_t, EasyTreeWidgetItem*, ::estd::hash<::profiler::thread_id_t> >;
-using IdItems = ::std::unordered_map<::profiler::block_id_t, EasyTreeWidgetItem*, ::estd::hash<::profiler::block_index_t> >;
+using ThreadedItems = ::std::vector<::std::pair<profiler::thread_id_t, TreeWidgetItem*> >;
+using RootsMap = ::std::unordered_map<profiler::thread_id_t, TreeWidgetItem*, ::estd::hash<profiler::thread_id_t> >;
+using IdItems = ::std::unordered_map<profiler::block_id_t, TreeWidgetItem*, ::estd::hash<profiler::block_index_t> >;
 
 //////////////////////////////////////////////////////////////////////////
 
-enum EasyTreeMode : uint8_t
+enum class TreeMode : uint8_t
 {
-    EasyTreeMode_Full,
-    EasyTreeMode_Plain
+    Full,
+    Plain
 };
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyTreeWidgetLoader Q_DECL_FINAL
+class TreeWidgetLoader Q_DECL_FINAL
 {
     ThreadedItems   m_topLevelItems; ///< 
     Items                   m_items; ///< 
     IdItems               m_iditems; ///< 
-    ::std::thread          m_thread; ///< 
-    ::std::atomic_bool      m_bDone; ///< 
-    ::std::atomic_bool m_bInterrupt; ///< 
-    ::std::atomic<int>   m_progress; ///< 
-    EasyTreeMode             m_mode; ///< 
+    ThreadPoolTask         m_worker; ///<
+    std::atomic_bool        m_bDone; ///<
+    std::atomic_bool   m_bInterrupt; ///<
+    std::atomic<int>     m_progress; ///<
+    TreeMode                 m_mode; ///<
 
 public:
 
-    EasyTreeWidgetLoader();
-    ~EasyTreeWidgetLoader();
+    TreeWidgetLoader();
+    ~TreeWidgetLoader();
 
     int progress() const;
     bool done() const;
@@ -111,8 +111,8 @@ public:
     void takeItems(Items& _output);
 
     void interrupt(bool _wait = false);
-    void fillTree(::profiler::timestamp_t& _beginTime, const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, EasyTreeMode _mode);
-    void fillTreeBlocks(const::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _beginTime, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, EasyTreeMode _mode);
+    void fillTree(profiler::timestamp_t& _beginTime, const unsigned int _blocksNumber, const profiler::thread_blocks_tree_t& _blocksTree, TreeMode _mode);
+    void fillTreeBlocks(const::profiler_gui::TreeBlocks& _blocks, profiler::timestamp_t _beginTime, profiler::timestamp_t _left, profiler::timestamp_t _right, bool _strict, TreeMode _mode);
 
 private:
 
@@ -120,14 +120,14 @@ private:
     void setDone();
     void setProgress(int _progress);
 
-    void setTreeInternal1(::profiler::timestamp_t& _beginTime, const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, bool _addZeroBlocks, bool _decoratedThreadNames, bool _hexThreadId, ::profiler_gui::TimeUnits _units);
-    void setTreeInternal2(const ::profiler::timestamp_t& _beginTime, const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, bool _addZeroBlocks, bool _decoratedThreadNames, bool _hexThreadId, ::profiler_gui::TimeUnits _units);
-    size_t setTreeInternal(const ::profiler::BlocksTreeRoot& _threadRoot, ::profiler::block_index_t _firstCswitch, const ::profiler::timestamp_t& _beginTime, const ::profiler::BlocksTree::children_t& _children, EasyTreeWidgetItem* _parent, EasyTreeWidgetItem* _frame, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration, bool _addZeroBlocks, ::profiler_gui::TimeUnits _units);
-    size_t setTreeInternalPlain(const ::profiler::BlocksTreeRoot& _threadRoot, ::profiler::block_index_t _firstCswitch, const ::profiler::timestamp_t& _beginTime, const ::profiler::BlocksTree::children_t& _children, EasyTreeWidgetItem* _parent, EasyTreeWidgetItem* _frame, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, ::profiler::timestamp_t& _duration, bool _addZeroBlocks, ::profiler_gui::TimeUnits _units);
+    void setTreeInternal1(profiler::timestamp_t& _beginTime, const unsigned int _blocksNumber, const profiler::thread_blocks_tree_t& _blocksTree, bool _addZeroBlocks, bool _decoratedThreadNames, bool _hexThreadId, ::profiler_gui::TimeUnits _units);
+    void setTreeInternal2(const profiler::timestamp_t& _beginTime, const ::profiler_gui::TreeBlocks& _blocks, profiler::timestamp_t _left, profiler::timestamp_t _right, bool _strict, bool _addZeroBlocks, bool _decoratedThreadNames, bool _hexThreadId, ::profiler_gui::TimeUnits _units);
+    size_t setTreeInternal(const profiler::BlocksTreeRoot& _threadRoot, profiler::block_index_t _firstCswitch, const profiler::timestamp_t& _beginTime, const profiler::BlocksTree::children_t& _children, TreeWidgetItem* _parent, TreeWidgetItem* _frame, profiler::timestamp_t _left, profiler::timestamp_t _right, bool _strict, profiler::timestamp_t& _duration, bool _addZeroBlocks, ::profiler_gui::TimeUnits _units);
+    size_t setTreeInternalPlain(const profiler::BlocksTreeRoot& _threadRoot, profiler::block_index_t _firstCswitch, const profiler::timestamp_t& _beginTime, const profiler::BlocksTree::children_t& _children, TreeWidgetItem* _parent, TreeWidgetItem* _frame, profiler::timestamp_t _left, profiler::timestamp_t _right, bool _strict, profiler::timestamp_t& _duration, bool _addZeroBlocks, ::profiler_gui::TimeUnits _units);
 
-    ::profiler::timestamp_t calculateChildrenDurationRecursive(const ::profiler::BlocksTree::children_t& _children, ::profiler::block_id_t _id);
+    profiler::timestamp_t calculateChildrenDurationRecursive(const profiler::BlocksTree::children_t& _children, profiler::block_id_t _id);
 
-}; // END of class EasyTreeWidgetLoader.
+}; // END of class TreeWidgetLoader.
 
 //////////////////////////////////////////////////////////////////////////
 

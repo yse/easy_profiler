@@ -52,6 +52,7 @@
 #include <QApplication>
 #include "main_window.h"
 #include "globals.h"
+#include "thread_pool.h"
 
 #if defined(_WIN32) && defined (_BUILD_RELEASE_)
 #pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
@@ -62,12 +63,15 @@ int main(int argc, char **argv)
     auto now = ::std::chrono::duration_cast<std::chrono::seconds>(::std::chrono::system_clock::now().time_since_epoch()).count() >> 1;
     srand((unsigned int)now);
 
+    // Instanciate thread pool to avoid data races for compilers without C++11 thread-safe statics
+    ThreadPool::instance();
+
     QApplication app(argc, argv);
 
-    //Instanciate easy globals after QApplication to allow creation of global fonts, and on the main thread to avoid data races
-    profiler_gui::EasyGlobals::instance();
+    // Instanciate easy globals after QApplication to allow creation of global fonts, and on the main thread to avoid data races
+    profiler_gui::Globals::instance();
 
-    EasyMainWindow window;
+    MainWindow window;
     window.show();
 
     return app.exec();

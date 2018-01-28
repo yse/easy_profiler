@@ -19,7 +19,7 @@
 *                   :
 *                   : * 2016/06/30 Victor Zarubkin: Replaced doubles with floats (in ProfBlockItem) for less memory consumption.
 *                   :
-*                   : * 2016/09/15 Victor Zarubkin: Moved sources of EasyGraphicsItem and EasyChronometerItem to separate files.
+*                   : * 2016/09/15 Victor Zarubkin: Moved sources of BlocksGraphicsItem and GraphicsRulerItem to separate files.
 *                   :
 *                   : * 
 * ----------------- :
@@ -116,23 +116,23 @@ using estd::clamp;
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyBoldLabel::EasyBoldLabel(const QString& _text, QWidget* _parent) : QLabel(_text, _parent)
+BoldLabel::BoldLabel(const QString& _text, QWidget* _parent) : QLabel(_text, _parent)
 {
     auto f = font();
     f.setBold(true);
     setFont(f);
 }
 
-EasyBoldLabel::~EasyBoldLabel()
+BoldLabel::~BoldLabel()
 {
 
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
+void BackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
 {
-    auto const sceneView = static_cast<EasyGraphicsView*>(scene()->parent());
+    auto const sceneView = static_cast<BlocksGraphicsView*>(scene()->parent());
     const auto visibleSceneRect = sceneView->visibleSceneRect();
     const auto currentScale = sceneView->scale();
     const auto offset = sceneView->offset();
@@ -251,9 +251,9 @@ void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyTimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
+void TimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
 {
-    const auto sceneView = static_cast<const EasyGraphicsView*>(scene()->parent());
+    const auto sceneView = static_cast<const BlocksGraphicsView*>(scene()->parent());
     const auto visibleSceneRect = sceneView->visibleSceneRect();
     const auto step = sceneView->timelineStep() * sceneView->scale();
     const QString text = ::profiler_gui::autoTimeStringInt(units2microseconds(sceneView->timelineStep())); // Displayed text
@@ -283,7 +283,7 @@ void EasyTimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGrap
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyGraphicsView::EasyGraphicsView(QWidget* _parent)
+BlocksGraphicsView::BlocksGraphicsView(QWidget* _parent)
     : Parent(_parent)
     , m_beginTime(::std::numeric_limits<decltype(m_beginTime)>::max())
     , m_sceneWidth(0)
@@ -294,8 +294,8 @@ EasyGraphicsView::EasyGraphicsView(QWidget* _parent)
     , m_idleTime(0)
     , m_mouseButtons(Qt::NoButton)
     , m_pScrollbar(nullptr)
-    , m_chronometerItem(nullptr)
-    , m_chronometerItemAux(nullptr)
+    , m_selectionItem(nullptr)
+    , m_rulerItem(nullptr)
     , m_popupWidget(nullptr)
     , m_flickerSpeedX(0)
     , m_flickerSpeedY(0)
@@ -310,13 +310,13 @@ EasyGraphicsView::EasyGraphicsView(QWidget* _parent)
     updateVisibleSceneRect();
 }
 
-EasyGraphicsView::~EasyGraphicsView()
+BlocksGraphicsView::~BlocksGraphicsView()
 {
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::removePopup(bool _removeFromScene)
+void BlocksGraphicsView::removePopup(bool _removeFromScene)
 {
     if (m_popupWidget != nullptr)
     {
@@ -334,26 +334,26 @@ void EasyGraphicsView::removePopup(bool _removeFromScene)
 
 //////////////////////////////////////////////////////////////////////////
 
-qreal EasyGraphicsView::sceneWidth() const
+qreal BlocksGraphicsView::sceneWidth() const
 {
     return m_sceneWidth;
 }
 
-qreal EasyGraphicsView::chronoTime() const
+qreal BlocksGraphicsView::chronoTime() const
 {
-    return m_chronometerItem->width();
+    return m_selectionItem->width();
 }
 
-qreal EasyGraphicsView::chronoTimeAux() const
+qreal BlocksGraphicsView::chronoTimeAux() const
 {
-    return m_chronometerItemAux->width();
+    return m_rulerItem->width();
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyChronometerItem* EasyGraphicsView::createChronometer(bool _main)
+GraphicsRulerItem* BlocksGraphicsView::createChronometer(bool _main)
 {
-    auto chronoItem = new EasyChronometerItem(_main);
+    auto chronoItem = new GraphicsRulerItem(_main);
     chronoItem->setColor(_main ? ::profiler_gui::CHRONOMETER_COLOR : ::profiler_gui::CHRONOMETER_COLOR2);
     chronoItem->setBoundingRect(sceneRect());
     chronoItem->hide();
@@ -364,7 +364,7 @@ EasyChronometerItem* EasyGraphicsView::createChronometer(bool _main)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::clear()
+void BlocksGraphicsView::clear()
 {
     const QSignalBlocker blocker(this), sceneBlocker(scene()); // block all scene signals (otherwise clear() would be extremely slow!)
 
@@ -410,40 +410,40 @@ void EasyGraphicsView::clear()
     emit EASY_GLOBALS.events.selectedThreadChanged(0);
 }
 
-void EasyGraphicsView::notifySceneSizeChange()
+void BlocksGraphicsView::notifySceneSizeChange()
 {
     EASY_GLOBALS.scene.left = 0;
     EASY_GLOBALS.scene.right = m_sceneWidth;
     emit EASY_GLOBALS.events.sceneSizeChanged(0, m_sceneWidth);
 }
 
-void EasyGraphicsView::notifyVisibleRegionSizeChange()
+void BlocksGraphicsView::notifyVisibleRegionSizeChange()
 {
     auto vbar = verticalScrollBar();
     const int vbar_width = (vbar != nullptr && vbar->isVisible() ? vbar->width() + 2 : 0);
     notifyVisibleRegionSizeChange((m_visibleSceneRect.width() + vbar_width) / m_scale);
 }
 
-void EasyGraphicsView::notifyVisibleRegionSizeChange(qreal _size)
+void BlocksGraphicsView::notifyVisibleRegionSizeChange(qreal _size)
 {
     m_visibleRegionWidth = _size;
     EASY_GLOBALS.scene.window = _size;
     emit EASY_GLOBALS.events.sceneVisibleRegionSizeChanged(_size);
 }
 
-void EasyGraphicsView::notifyVisibleRegionPosChange()
+void BlocksGraphicsView::notifyVisibleRegionPosChange()
 {
     EASY_GLOBALS.scene.offset = m_offset;
     emit EASY_GLOBALS.events.sceneVisibleRegionPosChanged(m_offset);
 }
 
-void EasyGraphicsView::notifyVisibleRegionPosChange(qreal _pos)
+void BlocksGraphicsView::notifyVisibleRegionPosChange(qreal _pos)
 {
     m_offset = estd::clamp(0., _pos, m_sceneWidth - m_visibleRegionWidth);
     notifyVisibleRegionPosChange();
 }
 
-void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTree)
+void BlocksGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTree)
 {
     // clear scene
     clear();
@@ -452,7 +452,7 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     if (_blocksTree.empty())
         return;
 
-    auto bgItem = new EasyBackgroundItem();
+    auto bgItem = new BackgroundItem();
     scene()->addItem(bgItem);
 
     // set new blocks tree
@@ -510,12 +510,12 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     // Filling scene with items
     m_items.reserve(_blocksTree.size());
     qreal y = TIMELINE_ROW_SIZE;
-    const EasyGraphicsItem *longestItem = nullptr, *mainThreadItem = nullptr;
+    const BlocksGraphicsItem *longestItem = nullptr, *mainThreadItem = nullptr;
     for (const ::profiler::BlocksTreeRoot& t : sorted_roots)
     {
         if (m_items.size() == 0xff)
         {
-            qWarning() << "Warning: Maximum threads number (255 threads) exceeded! See EasyGraphicsView::setTree() : " << __LINE__ << " in file " << __FILE__;
+            qWarning() << "Warning: Maximum threads number (255 threads) exceeded! See BlocksGraphicsView::setTree() : " << __LINE__ << " in file " << __FILE__;
             break;
         }
 
@@ -527,7 +527,7 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         else if (!t.sync.empty())
             x = time2position(easyBlocksTree(t.sync.front()).node->begin());
 
-        auto item = new EasyGraphicsItem(static_cast<uint8_t>(m_items.size()), t);
+        auto item = new BlocksGraphicsItem(static_cast<uint8_t>(m_items.size()), t);
         if (t.depth)
             item->setLevels(t.depth);
         item->setPos(0, y);
@@ -573,11 +573,11 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
 
     // Create new chronometer item (previous item was destroyed by scene on scene()->clear()).
     // It will be shown on mouse right button click.
-    m_chronometerItemAux = createChronometer(false);
-    m_chronometerItem = createChronometer(true);
+    m_rulerItem = createChronometer(false);
+    m_selectionItem = createChronometer(true);
 
     bgItem->setBoundingRect(0, 0, m_sceneWidth, y);
-    auto indicator = new EasyTimelineIndicatorItem();
+    auto indicator = new TimelineIndicatorItem();
     indicator->setBoundingRect(0, 0, m_sceneWidth, y);
     scene()->addItem(indicator);
 
@@ -606,12 +606,12 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     m_idleTimer.start(IDLE_TIMER_INTERVAL);
 }
 
-const EasyGraphicsView::Items &EasyGraphicsView::getItems() const
+const BlocksGraphicsView::Items &BlocksGraphicsView::getItems() const
 {
     return m_items;
 }
 
-qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, uint32_t& _maxDepthChild, qreal _y, short _level)
+qreal BlocksGraphicsView::setTree(BlocksGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, uint32_t& _maxDepthChild, qreal _y, short _level)
 {
     if (_children.empty())
     {
@@ -685,7 +685,7 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
         else if (!child.children.empty() && !warned)
         {
             warned = true;
-            qWarning() << "Warning: Maximum blocks depth (255) exceeded! See EasyGraphicsView::setTree() : " << __LINE__ << " in file " << __FILE__;
+            qWarning() << "Warning: Maximum blocks depth (255) exceeded! See BlocksGraphicsView::setTree() : " << __LINE__ << " in file " << __FILE__;
         }
 
         if (duration < children_duration)
@@ -723,13 +723,13 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::setScrollbar(EasyGraphicsScrollbar* _scrollbar)
+void BlocksGraphicsView::setScrollbar(BlocksGraphicsScrollbar* _scrollbar)
 {
     auto const prevScrollbar = m_pScrollbar;
     const bool makeConnect = prevScrollbar == nullptr || prevScrollbar != _scrollbar;
 
-    disconnect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::chartSliderChanged, this, &This::onGraphicsScrollbarValueChange);
-    disconnect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::chartWheeled, this, &This::onGraphicsScrollbarWheel);
+    disconnect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::chartSliderChanged, this, &This::onGraphicsScrollbarValueChange);
+    disconnect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::chartWheeled, this, &This::onGraphicsScrollbarWheel);
 
     m_pScrollbar = _scrollbar;
     m_pScrollbar->clear();
@@ -739,8 +739,8 @@ void EasyGraphicsView::setScrollbar(EasyGraphicsScrollbar* _scrollbar)
     const int vbar_width = (vbar != nullptr && vbar->isVisible() ? vbar->width() + 2 : 0);
     m_pScrollbar->setSliderWidth(m_visibleSceneRect.width() + vbar_width);
 
-    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::chartSliderChanged, this, &This::onGraphicsScrollbarValueChange);
-    connect(&EASY_GLOBALS.events, &profiler_gui::EasyGlobalSignals::chartWheeled, this, &This::onGraphicsScrollbarWheel);
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::chartSliderChanged, this, &This::onGraphicsScrollbarValueChange);
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::chartWheeled, this, &This::onGraphicsScrollbarWheel);
 
     EASY_GLOBALS.selected_thread = 0;
     emit EASY_GLOBALS.events.selectedThreadChanged(0);
@@ -748,7 +748,7 @@ void EasyGraphicsView::setScrollbar(EasyGraphicsScrollbar* _scrollbar)
 
 //////////////////////////////////////////////////////////////////////////
 
-int EasyGraphicsView::updateVisibleSceneRect()
+int BlocksGraphicsView::updateVisibleSceneRect()
 {
     m_visibleSceneRect = mapToScene(rect()).boundingRect();
 
@@ -763,7 +763,7 @@ int EasyGraphicsView::updateVisibleSceneRect()
     return vbar_width;
 }
 
-void EasyGraphicsView::updateTimelineStep(qreal _windowWidth)
+void BlocksGraphicsView::updateTimelineStep(qreal _windowWidth)
 {
     const auto time = units2microseconds(_windowWidth);
     if (time < 100)
@@ -785,7 +785,7 @@ void EasyGraphicsView::updateTimelineStep(qreal _windowWidth)
     m_timelineStep = microseconds2units(m_timelineStep);
 }
 
-void EasyGraphicsView::repaintScene()
+void BlocksGraphicsView::repaintScene()
 {
     scene()->update(m_visibleSceneRect);
     emit sceneUpdated();
@@ -793,7 +793,7 @@ void EasyGraphicsView::repaintScene()
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::scaleTo(qreal _scale)
+void BlocksGraphicsView::scaleTo(qreal _scale)
 {
     if (m_bEmpty)
     {
@@ -813,7 +813,7 @@ void EasyGraphicsView::scaleTo(qreal _scale)
     repaintScene();
 }
 
-void EasyGraphicsView::wheelEvent(QWheelEvent* _event)
+void BlocksGraphicsView::wheelEvent(QWheelEvent* _event)
 {
     m_idleTime = 0;
     if (!m_bEmpty)
@@ -821,7 +821,7 @@ void EasyGraphicsView::wheelEvent(QWheelEvent* _event)
     _event->accept();
 }
 
-void EasyGraphicsView::onGraphicsScrollbarWheel(qreal _scenePos, int _wheelDelta)
+void BlocksGraphicsView::onGraphicsScrollbarWheel(qreal _scenePos, int _wheelDelta)
 {
     m_idleTime = 0;
 
@@ -837,7 +837,7 @@ void EasyGraphicsView::onGraphicsScrollbarWheel(qreal _scenePos, int _wheelDelta
     onWheel(_scenePos, _wheelDelta);
 }
 
-void EasyGraphicsView::scrollTo(const EasyGraphicsItem* _item)
+void BlocksGraphicsView::scrollTo(const BlocksGraphicsItem* _item)
 {
     m_bUpdatingRect = true;
     auto vbar = verticalScrollBar();
@@ -845,12 +845,12 @@ void EasyGraphicsView::scrollTo(const EasyGraphicsItem* _item)
     m_bUpdatingRect = false;
 }
 
-qreal EasyGraphicsView::mapToDiagram(qreal x) const
+qreal BlocksGraphicsView::mapToDiagram(qreal x) const
 {
     return m_offset + x / m_scale;
 }
 
-void EasyGraphicsView::onWheel(qreal _scenePos, int _wheelDelta)
+void BlocksGraphicsView::onWheel(qreal _scenePos, int _wheelDelta)
 {
     const decltype(m_scale) scaleCoeff = _wheelDelta > 0 ? ::profiler_gui::SCALING_COEFFICIENT : ::profiler_gui::SCALING_COEFFICIENT_INV;
 
@@ -884,7 +884,7 @@ void EasyGraphicsView::onWheel(qreal _scenePos, int _wheelDelta)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::mousePressEvent(QMouseEvent* _event)
+void BlocksGraphicsView::mousePressEvent(QMouseEvent* _event)
 {
     m_idleTime = 0;
 
@@ -899,14 +899,14 @@ void EasyGraphicsView::mousePressEvent(QMouseEvent* _event)
 
     if (m_mouseButtons & Qt::LeftButton)
     {
-        if (m_chronometerItemAux->isVisible() && (m_chronometerItemAux->hoverLeft() || m_chronometerItemAux->hoverRight()))
+        if (m_rulerItem->isVisible() && (m_rulerItem->hoverLeft() || m_rulerItem->hoverRight()))
         {
-            m_chronometerItemAux->setReverse(m_chronometerItemAux->hoverLeft());
+            m_rulerItem->setReverse(m_rulerItem->hoverLeft());
             m_bDoubleClick = true;
         }
-        else if (m_chronometerItem->isVisible() && (m_chronometerItem->hoverLeft() || m_chronometerItem->hoverRight()))
+        else if (m_selectionItem->isVisible() && (m_selectionItem->hoverLeft() || m_selectionItem->hoverRight()))
         {
-            m_chronometerItem->setReverse(m_chronometerItem->hoverLeft());
+            m_selectionItem->setReverse(m_selectionItem->hoverLeft());
             m_mouseButtons = Qt::RightButton;
             return;
         }
@@ -914,15 +914,15 @@ void EasyGraphicsView::mousePressEvent(QMouseEvent* _event)
 
     if (m_mouseButtons & Qt::RightButton)
     {
-        if (m_chronometerItem->isVisible() && (m_chronometerItem->hoverLeft() || m_chronometerItem->hoverRight()))
+        if (m_selectionItem->isVisible() && (m_selectionItem->hoverLeft() || m_selectionItem->hoverRight()))
         {
-            m_chronometerItem->setReverse(m_chronometerItem->hoverLeft());
+            m_selectionItem->setReverse(m_selectionItem->hoverLeft());
         }
         else
         {
             const auto mouseX = m_offset + mapToScene(m_mousePressPos).x() / m_scale;
-            m_chronometerItem->setLeftRight(mouseX, mouseX);
-            m_chronometerItem->hide();
+            m_selectionItem->setLeftRight(mouseX, mouseX);
+            m_selectionItem->hide();
             m_pScrollbar->hideSelectionIndicator();
         }
     }
@@ -930,7 +930,7 @@ void EasyGraphicsView::mousePressEvent(QMouseEvent* _event)
     _event->accept();
 }
 
-void EasyGraphicsView::mouseDoubleClickEvent(QMouseEvent* _event)
+void BlocksGraphicsView::mouseDoubleClickEvent(QMouseEvent* _event)
 {
     m_idleTime = 0;
 
@@ -947,8 +947,8 @@ void EasyGraphicsView::mouseDoubleClickEvent(QMouseEvent* _event)
     if (m_mouseButtons & Qt::LeftButton)
     {
         const auto mouseX = m_offset + mapToScene(m_mousePressPos).x() / m_scale;
-        m_chronometerItemAux->setLeftRight(mouseX, mouseX);
-        m_chronometerItemAux->hide();
+        m_rulerItem->setLeftRight(mouseX, mouseX);
+        m_rulerItem->hide();
         emit sceneUpdated();
     }
 
@@ -957,7 +957,7 @@ void EasyGraphicsView::mouseDoubleClickEvent(QMouseEvent* _event)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
+void BlocksGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
 {
     m_idleTime = 0;
 
@@ -971,9 +971,9 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
     bool changedSelection = false, changedSelectedItem = false;
     if (m_mouseButtons & Qt::RightButton)
     {
-        if (m_chronometerItem->isVisible() && m_chronometerItem->width() < 1e-6)
+        if (m_selectionItem->isVisible() && m_selectionItem->width() < 1e-6)
         {
-            m_chronometerItem->hide();
+            m_selectionItem->hide();
             m_pScrollbar->hideSelectionIndicator();
         }
 
@@ -983,14 +983,14 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
             m_selectedBlocks.clear();
         }
 
-        if (m_chronometerItem->isVisible())
+        if (m_selectionItem->isVisible())
         {
-            //printf("INTERVAL: {%lf, %lf} ms\n", m_chronometerItem->left(), m_chronometerItem->right());
+            //printf("INTERVAL: {%lf, %lf} ms\n", m_selectionItem->left(), m_selectionItem->right());
 
             for (auto item : m_items)
             {
                 if (!EASY_GLOBALS.only_current_thread_hierarchy || item->threadId() == EASY_GLOBALS.selected_thread)
-                    item->getBlocks(m_chronometerItem->left(), m_chronometerItem->right(), m_selectedBlocks);
+                    item->getBlocks(m_selectionItem->left(), m_selectionItem->right(), m_selectedBlocks);
             }
 
             if (!m_selectedBlocks.empty())
@@ -1007,17 +1007,17 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
     {
         bool clicked = false;
 
-        if (m_chronometerItemAux->isVisible() && m_chronometerItemAux->width() < 1e-6)
+        if (m_rulerItem->isVisible() && m_rulerItem->width() < 1e-6)
         {
             chronoHidden = true;
-            m_chronometerItemAux->hide();
+            m_rulerItem->hide();
         }
-        else if (m_chronometerItem->isVisible() && m_chronometerItem->hoverIndicator())
+        else if (m_selectionItem->isVisible() && m_selectionItem->hoverIndicator())
         {
             // Jump to selected zone
             clicked = true;
             m_flickerSpeedX = m_flickerSpeedY = 0;
-            notifyVisibleRegionPosChange(m_chronometerItem->left() + (m_chronometerItem->width() - m_visibleRegionWidth) * 0.5);
+            notifyVisibleRegionPosChange(m_selectionItem->left() + (m_selectionItem->width() - m_visibleRegionWidth) * 0.5);
         }
 
         if (!clicked && m_mouseMovePath.manhattanLength() < 5)
@@ -1063,7 +1063,7 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
 
     if (changedSelection)
     {
-        emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_chronometerItem->left()), position2time(m_chronometerItem->right()), m_chronometerItem->reverse());
+        emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_selectionItem->left()), position2time(m_selectionItem->right()), m_selectionItem->reverse());
     }
 
     if (changedSelectedItem)
@@ -1113,7 +1113,7 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
 
 //////////////////////////////////////////////////////////////////////////
 
-bool EasyGraphicsView::moveChrono(EasyChronometerItem* _chronometerItem, qreal _mouseX)
+bool BlocksGraphicsView::moveChrono(GraphicsRulerItem* _chronometerItem, qreal _mouseX)
 {
     if (_chronometerItem->reverse())
     {
@@ -1161,11 +1161,11 @@ bool EasyGraphicsView::moveChrono(EasyChronometerItem* _chronometerItem, qreal _
     return false;
 }
 
-void EasyGraphicsView::mouseMoveEvent(QMouseEvent* _event)
+void BlocksGraphicsView::mouseMoveEvent(QMouseEvent* _event)
 {
     m_idleTime = 0;
 
-    if (m_bEmpty || (m_mouseButtons == 0 && !m_chronometerItem->isVisible() && !m_chronometerItemAux->isVisible()))
+    if (m_bEmpty || (m_mouseButtons == 0 && !m_selectionItem->isVisible() && !m_rulerItem->isVisible()))
     {
         _event->accept();
         return;
@@ -1188,8 +1188,8 @@ void EasyGraphicsView::mouseMoveEvent(QMouseEvent* _event)
 
     if (m_mouseButtons & Qt::RightButton)
     {
-        bool showItem = moveChrono(m_chronometerItem, x);
-        m_pScrollbar->setSelectionPos(m_chronometerItem->left(), m_chronometerItem->right());
+        bool showItem = moveChrono(m_selectionItem, x);
+        m_pScrollbar->setSelectionPos(m_selectionItem->left(), m_selectionItem->right());
 
         if (showItem)
         {
@@ -1203,7 +1203,7 @@ void EasyGraphicsView::mouseMoveEvent(QMouseEvent* _event)
     {
         if (m_bDoubleClick)
         {
-            moveChrono(m_chronometerItemAux, x);
+            moveChrono(m_rulerItem, x);
         }
         else
         {
@@ -1233,35 +1233,35 @@ void EasyGraphicsView::mouseMoveEvent(QMouseEvent* _event)
 
     if (m_mouseButtons == 0)
     {
-        if (m_chronometerItem->isVisible())
+        if (m_selectionItem->isVisible())
         {
-            auto prevValue = m_chronometerItem->hoverIndicator();
-            m_chronometerItem->setHoverIndicator(m_chronometerItem->indicatorContains(mouseScenePos));
-            needUpdate = needUpdate || (prevValue != m_chronometerItem->hoverIndicator());
+            auto prevValue = m_selectionItem->hoverIndicator();
+            m_selectionItem->setHoverIndicator(m_selectionItem->indicatorContains(mouseScenePos));
+            needUpdate = needUpdate || (prevValue != m_selectionItem->hoverIndicator());
 
-            prevValue = m_chronometerItem->hoverLeft();
-            m_chronometerItem->setHoverLeft(m_chronometerItem->hoverLeft(mouseScenePos.x()));
-            needUpdate = needUpdate || (prevValue != m_chronometerItem->hoverLeft());
+            prevValue = m_selectionItem->hoverLeft();
+            m_selectionItem->setHoverLeft(m_selectionItem->hoverLeft(mouseScenePos.x()));
+            needUpdate = needUpdate || (prevValue != m_selectionItem->hoverLeft());
 
-            if (!m_chronometerItem->hoverLeft())
+            if (!m_selectionItem->hoverLeft())
             {
-                prevValue = m_chronometerItem->hoverRight();
-                m_chronometerItem->setHoverRight(m_chronometerItem->hoverRight(mouseScenePos.x()));
-                needUpdate = needUpdate || (prevValue != m_chronometerItem->hoverRight());
+                prevValue = m_selectionItem->hoverRight();
+                m_selectionItem->setHoverRight(m_selectionItem->hoverRight(mouseScenePos.x()));
+                needUpdate = needUpdate || (prevValue != m_selectionItem->hoverRight());
             }
         }
 
-        if (m_chronometerItemAux->isVisible())
+        if (m_rulerItem->isVisible())
         {
-            auto prevValue = m_chronometerItemAux->hoverLeft();
-            m_chronometerItemAux->setHoverLeft(m_chronometerItemAux->hoverLeft(mouseScenePos.x()));
-            needUpdate = needUpdate || (prevValue != m_chronometerItemAux->hoverLeft());
+            auto prevValue = m_rulerItem->hoverLeft();
+            m_rulerItem->setHoverLeft(m_rulerItem->hoverLeft(mouseScenePos.x()));
+            needUpdate = needUpdate || (prevValue != m_rulerItem->hoverLeft());
 
-            if (!m_chronometerItemAux->hoverLeft())
+            if (!m_rulerItem->hoverLeft())
             {
-                prevValue = m_chronometerItemAux->hoverRight();
-                m_chronometerItemAux->setHoverRight(m_chronometerItemAux->hoverRight(mouseScenePos.x()));
-                needUpdate = needUpdate || (prevValue != m_chronometerItemAux->hoverRight());
+                prevValue = m_rulerItem->hoverRight();
+                m_rulerItem->setHoverRight(m_rulerItem->hoverRight(mouseScenePos.x()));
+                needUpdate = needUpdate || (prevValue != m_rulerItem->hoverRight());
             }
         }
     }
@@ -1276,7 +1276,7 @@ void EasyGraphicsView::mouseMoveEvent(QMouseEvent* _event)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::keyPressEvent(QKeyEvent* _event)
+void BlocksGraphicsView::keyPressEvent(QKeyEvent* _event)
 {
     static const int KeyStep = 100;
 
@@ -1333,7 +1333,7 @@ void EasyGraphicsView::keyPressEvent(QKeyEvent* _event)
     _event->accept();
 }
 
-void EasyGraphicsView::keyReleaseEvent(QKeyEvent* _event)
+void BlocksGraphicsView::keyReleaseEvent(QKeyEvent* _event)
 {
     //const int key = _event->key();
     m_idleTime = 0;
@@ -1344,7 +1344,7 @@ void EasyGraphicsView::keyReleaseEvent(QKeyEvent* _event)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::resizeEvent(QResizeEvent* _event)
+void BlocksGraphicsView::resizeEvent(QResizeEvent* _event)
 {
     Parent::resizeEvent(_event);
 
@@ -1369,7 +1369,7 @@ void EasyGraphicsView::resizeEvent(QResizeEvent* _event)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::initMode()
+void BlocksGraphicsView::initMode()
 {
     // TODO: find mode with least number of bugs :)
     // There are always some display bugs...
@@ -1385,13 +1385,13 @@ void EasyGraphicsView::initMode()
     connect(&m_idleTimer, &QTimer::timeout, this, &This::onIdleTimeout);
 
     auto globalSignals = &EASY_GLOBALS.events;
-    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::hierarchyFlagChanged, this, &This::onHierarchyFlagChange);
-    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
-    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
-    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::itemsExpandStateChanged, this, &This::onRefreshRequired);
-    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::refreshRequired, this, &This::onRefreshRequired);
+    connect(globalSignals, &::profiler_gui::GlobalSignals::hierarchyFlagChanged, this, &This::onHierarchyFlagChange);
+    connect(globalSignals, &::profiler_gui::GlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
+    connect(globalSignals, &::profiler_gui::GlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
+    connect(globalSignals, &::profiler_gui::GlobalSignals::itemsExpandStateChanged, this, &This::onRefreshRequired);
+    connect(globalSignals, &::profiler_gui::GlobalSignals::refreshRequired, this, &This::onRefreshRequired);
 
-    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::selectedBlockIdChanged, [this](::profiler::block_id_t)
+    connect(globalSignals, &::profiler_gui::GlobalSignals::selectedBlockIdChanged, [this](::profiler::block_id_t)
     {
         if (::profiler_gui::is_max(EASY_GLOBALS.selected_block_id))
         {
@@ -1416,22 +1416,22 @@ void EasyGraphicsView::initMode()
         onRefreshRequired();
     });
 
-    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::threadNameDecorationChanged, this, &This::onThreadViewChanged);
-    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::hexThreadIdChanged, this, &This::onThreadViewChanged);
+    connect(globalSignals, &::profiler_gui::GlobalSignals::threadNameDecorationChanged, this, &This::onThreadViewChanged);
+    connect(globalSignals, &::profiler_gui::GlobalSignals::hexThreadIdChanged, this, &This::onThreadViewChanged);
 
-    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::blocksTreeModeChanged, [this]()
+    connect(globalSignals, &::profiler_gui::GlobalSignals::blocksTreeModeChanged, [this]()
     {
         if (!m_selectedBlocks.empty())
-            emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_chronometerItem->left()), position2time(m_chronometerItem->right()), m_chronometerItem->reverse());
+            emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_selectionItem->left()), position2time(m_selectionItem->right()), m_selectionItem->reverse());
     });
 
-    connect(globalSignals, &profiler_gui::EasyGlobalSignals::chartSliderChanged, this, &This::onGraphicsScrollbarValueChange);
-    connect(globalSignals, &profiler_gui::EasyGlobalSignals::chartWheeled, this, &This::onGraphicsScrollbarWheel);
+    connect(globalSignals, &profiler_gui::GlobalSignals::chartSliderChanged, this, &This::onGraphicsScrollbarValueChange);
+    connect(globalSignals, &profiler_gui::GlobalSignals::chartWheeled, this, &This::onGraphicsScrollbarWheel);
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::onThreadViewChanged()
+void BlocksGraphicsView::onThreadViewChanged()
 {
     if (m_bEmpty)
         return;
@@ -1449,13 +1449,13 @@ void EasyGraphicsView::onThreadViewChanged()
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::onScrollbarValueChange(int)
+void BlocksGraphicsView::onScrollbarValueChange(int)
 {
     if (!m_bUpdatingRect && !m_bEmpty)
         updateVisibleSceneRect();
 }
 
-void EasyGraphicsView::onGraphicsScrollbarValueChange(qreal _value)
+void BlocksGraphicsView::onGraphicsScrollbarValueChange(qreal _value)
 {
     if (!m_bEmpty)
     {
@@ -1470,7 +1470,7 @@ void EasyGraphicsView::onGraphicsScrollbarValueChange(qreal _value)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::onFlickerTimeout()
+void BlocksGraphicsView::onFlickerTimeout()
 {
     ++m_flickerCounterX;
     ++m_flickerCounterY;
@@ -1531,7 +1531,7 @@ void EasyGraphicsView::onFlickerTimeout()
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::onIdleTimeout()
+void BlocksGraphicsView::onIdleTimeout()
 {
     m_idleTime += IDLE_TIMER_INTERVAL;
 
@@ -1574,7 +1574,7 @@ void EasyGraphicsView::onIdleTimeout()
                 return;
 
             int row = 0;
-            lay->addWidget(new EasyBoldLabel("Context switch event", widget), row, 0, 1, 3, Qt::AlignHCenter);
+            lay->addWidget(new BoldLabel("Context switch event", widget), row, 0, 1, 3, Qt::AlignHCenter);
             ++row;
 
             lay->addWidget(new QLabel("Thread:", widget), row, 0, Qt::AlignRight);
@@ -1622,7 +1622,7 @@ void EasyGraphicsView::onIdleTimeout()
                 lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, itemBlock.per_thread_stats->total_duration, 3), widget), row, 1, 1, 2, Qt::AlignLeft);
                 ++row;
 
-                lay->addWidget(new EasyBoldLabel("-------- Statistics --------", widget), row, 0, 1, 3, Qt::AlignHCenter);
+                lay->addWidget(new BoldLabel("-------- Statistics --------", widget), row, 0, 1, 3, Qt::AlignHCenter);
                 lay->addWidget(new QLabel("per ", widget), row + 1, 0, Qt::AlignRight);
                 lay->addWidget(new QLabel("This %:", widget), row + 2, 0, Qt::AlignRight);
                 lay->addWidget(new QLabel("Sum %:", widget), row + 3, 0, Qt::AlignRight);
@@ -1689,7 +1689,7 @@ void EasyGraphicsView::onIdleTimeout()
                     const auto name = *itemBlock.node->name() != 0 ? itemBlock.node->name() : itemDesc.name();
 
                     //lay->addWidget(new QLabel("Name:", widget), row, 0, Qt::AlignRight);
-                    lay->addWidget(new EasyBoldLabel(::profiler_gui::toUnicode(name), widget), row, 0, 1, 5,
+                    lay->addWidget(new BoldLabel(::profiler_gui::toUnicode(name), widget), row, 0, 1, 5,
                                    Qt::AlignHCenter);
                     ++row;
 
@@ -1721,7 +1721,7 @@ void EasyGraphicsView::onIdleTimeout()
                 {
                     const auto name = *itemBlock.node->name() != 0 ? itemBlock.node->name() : itemDesc.name();
 
-                    lay->addWidget(new EasyBoldLabel("User defined event", widget), row, 0, 1, 2, Qt::AlignHCenter);
+                    lay->addWidget(new BoldLabel("User defined event", widget), row, 0, 1, 2, Qt::AlignHCenter);
                     ++row;
 
                     lay->addWidget(new QLabel("Name:", widget), row, 0, Qt::AlignRight);
@@ -1733,7 +1733,7 @@ void EasyGraphicsView::onIdleTimeout()
 
                 case ::profiler::BlockType::Value:
                 {
-                    lay->addWidget(new EasyBoldLabel("Arbitrary Value", widget), row, 0, 1, 2, Qt::AlignHCenter);
+                    lay->addWidget(new BoldLabel("Arbitrary Value", widget), row, 0, 1, 2, Qt::AlignHCenter);
                     ++row;
 
                     lay->addWidget(new QLabel("Name:", widget), row, 0, Qt::AlignRight);
@@ -1809,7 +1809,7 @@ void EasyGraphicsView::onIdleTimeout()
                         ++row;
                     }
 
-                    lay->addWidget(new EasyBoldLabel("-------- Statistics --------", widget), row, 0, 1, 5, Qt::AlignHCenter);
+                    lay->addWidget(new BoldLabel("-------- Statistics --------", widget), row, 0, 1, 5, Qt::AlignHCenter);
                     lay->addWidget(new QLabel("per ", widget), row + 1, 0, Qt::AlignRight);
                     lay->addWidget(new QLabel("This %:", widget), row + 2, 0, Qt::AlignRight);
                     lay->addWidget(new QLabel("Sum %:", widget), row + 3, 0, Qt::AlignRight);
@@ -1906,7 +1906,7 @@ void EasyGraphicsView::onIdleTimeout()
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::onHierarchyFlagChange(bool)
+void BlocksGraphicsView::onHierarchyFlagChange(bool)
 {
     bool changedSelection = false;
 
@@ -1916,12 +1916,12 @@ void EasyGraphicsView::onHierarchyFlagChange(bool)
         m_selectedBlocks.clear();
     }
 
-    if (m_chronometerItem->isVisible())
+    if (m_selectionItem->isVisible())
     {
         for (auto item : m_items)
         {
             if (!EASY_GLOBALS.only_current_thread_hierarchy || item->threadId() == EASY_GLOBALS.selected_thread)
-                item->getBlocks(m_chronometerItem->left(), m_chronometerItem->right(), m_selectedBlocks);
+                item->getBlocks(m_selectionItem->left(), m_selectionItem->right(), m_selectedBlocks);
         }
 
         if (!m_selectedBlocks.empty())
@@ -1932,11 +1932,11 @@ void EasyGraphicsView::onHierarchyFlagChange(bool)
 
     if (changedSelection)
     {
-        emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_chronometerItem->left()), position2time(m_chronometerItem->right()), m_chronometerItem->reverse());
+        emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_selectionItem->left()), position2time(m_selectionItem->right()), m_selectionItem->reverse());
     }
 }
 
-void EasyGraphicsView::onSelectedThreadChange(::profiler::thread_id_t _id)
+void BlocksGraphicsView::onSelectedThreadChange(::profiler::thread_id_t _id)
 {
     if (m_pScrollbar == nullptr || m_pScrollbar->hystThread() == _id)
     {
@@ -1964,9 +1964,9 @@ void EasyGraphicsView::onSelectedThreadChange(::profiler::thread_id_t _id)
                     m_selectedBlocks.clear();
                 }
 
-                if (m_chronometerItem->isVisible())
+                if (m_selectionItem->isVisible())
                 {
-                    item->getBlocks(m_chronometerItem->left(), m_chronometerItem->right(), m_selectedBlocks);
+                    item->getBlocks(m_selectionItem->left(), m_selectionItem->right(), m_selectedBlocks);
                     if (!m_selectedBlocks.empty())
                         changedSelection = true;
                 }
@@ -1974,7 +1974,7 @@ void EasyGraphicsView::onSelectedThreadChange(::profiler::thread_id_t _id)
 
             if (changedSelection)
             {
-                emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_chronometerItem->left()), position2time(m_chronometerItem->right()), m_chronometerItem->reverse());
+                emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_selectionItem->left()), position2time(m_selectionItem->right()), m_selectionItem->reverse());
             }
 
             repaintScene();
@@ -1988,7 +1988,7 @@ void EasyGraphicsView::onSelectedThreadChange(::profiler::thread_id_t _id)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::onSelectedBlockChange(unsigned int _block_index)
+void BlocksGraphicsView::onSelectedBlockChange(unsigned int _block_index)
 {
     if (!m_bUpdatingRect)
     {
@@ -2040,7 +2040,7 @@ void EasyGraphicsView::onSelectedBlockChange(unsigned int _block_index)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::onRefreshRequired()
+void BlocksGraphicsView::onRefreshRequired()
 {
     if (!m_bUpdatingRect)
     {
@@ -2050,17 +2050,17 @@ void EasyGraphicsView::onRefreshRequired()
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyGraphicsViewWidget::EasyGraphicsViewWidget(QWidget* _parent)
+DiagramWidget::DiagramWidget(QWidget* _parent)
     : QWidget(_parent)
     , m_splitter(new QSplitter(Qt::Vertical, this))
-    , m_scrollbar(new EasyGraphicsScrollbar(85 + (QFontMetrics(font()).height() << 1), this))
-    , m_view(new EasyGraphicsView(this))
-    , m_threadNamesWidget(new EasyThreadNamesWidget(m_view, m_scrollbar->height(), this))
+    , m_scrollbar(new BlocksGraphicsScrollbar(85 + (QFontMetrics(font()).height() << 1), this))
+    , m_view(new BlocksGraphicsView(this))
+    , m_threadNamesWidget(new ThreadNamesWidget(m_view, m_scrollbar->height(), this))
 {
     initWidget();
 }
 
-void EasyGraphicsViewWidget::initWidget()
+void DiagramWidget::initWidget()
 {
     m_splitter->setHandleWidth(1);
     m_splitter->setContentsMargins(0, 0, 0, 0);
@@ -2078,30 +2078,30 @@ void EasyGraphicsViewWidget::initWidget()
     m_view->setScrollbar(m_scrollbar);
 }
 
-EasyGraphicsViewWidget::~EasyGraphicsViewWidget()
+DiagramWidget::~DiagramWidget()
 {
 
 }
 
-EasyGraphicsView* EasyGraphicsViewWidget::view()
+BlocksGraphicsView* DiagramWidget::view()
 {
     return m_view;
 }
 
-void EasyGraphicsViewWidget::clear()
+void DiagramWidget::clear()
 {
     m_scrollbar->clear();
     m_threadNamesWidget->clear();
     m_view->clear();
 }
 
-void EasyGraphicsViewWidget::save(QSettings& settings)
+void DiagramWidget::save(QSettings& settings)
 {
     settings.setValue("diagram/vsplitter/geometry", m_splitter->saveGeometry());
     settings.setValue("diagram/vsplitter/state", m_splitter->saveState());
 }
 
-void EasyGraphicsViewWidget::restore(QSettings& settings)
+void DiagramWidget::restore(QSettings& settings)
 {
     auto geometry = settings.value("diagram/vsplitter/geometry").toByteArray();
     if (!geometry.isEmpty())
@@ -2115,9 +2115,9 @@ void EasyGraphicsViewWidget::restore(QSettings& settings)
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-void EasyThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
+void ThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
 {
-    auto const parentView = static_cast<EasyThreadNamesWidget*>(scene()->parent());
+    auto const parentView = static_cast<ThreadNamesWidget*>(scene()->parent());
     const auto view = parentView->view();
     const auto& items = view->getItems();
     if (items.empty())
@@ -2223,7 +2223,7 @@ void EasyThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyThreadNamesWidget::EasyThreadNamesWidget(EasyGraphicsView* _view, int _additionalHeight, QWidget* _parent)
+ThreadNamesWidget::ThreadNamesWidget(BlocksGraphicsView* _view, int _additionalHeight, QWidget* _parent)
     : Parent(_parent)
     , m_idleTime(0)
     , m_view(_view)
@@ -2241,20 +2241,20 @@ EasyThreadNamesWidget::EasyThreadNamesWidget(EasyGraphicsView* _view, int _addit
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setFixedWidth(m_maxLength);
 
-    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, [this](::profiler::thread_id_t){ repaintScene(); });
-    connect(m_view, &EasyGraphicsView::treeChanged, this, &This::onTreeChange);
-    connect(m_view, &EasyGraphicsView::sceneUpdated, this, &This::repaintScene);
+    connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::selectedThreadChanged, [this](::profiler::thread_id_t){ repaintScene(); });
+    connect(m_view, &BlocksGraphicsView::treeChanged, this, &This::onTreeChange);
+    connect(m_view, &BlocksGraphicsView::sceneUpdated, this, &This::repaintScene);
     connect(m_view->verticalScrollBar(), &QScrollBar::valueChanged, verticalScrollBar(), &QScrollBar::setValue);
     connect(m_view->verticalScrollBar(), &QScrollBar::rangeChanged, this, &This::setVerticalScrollbarRange);
     connect(&m_idleTimer, &QTimer::timeout, this, &This::onIdleTimeout);
 }
 
-EasyThreadNamesWidget::~EasyThreadNamesWidget()
+ThreadNamesWidget::~ThreadNamesWidget()
 {
 
 }
 
-void EasyThreadNamesWidget::removePopup(bool _removeFromScene)
+void ThreadNamesWidget::removePopup(bool _removeFromScene)
 {
     if (m_popupWidget != nullptr)
     {
@@ -2270,7 +2270,7 @@ void EasyThreadNamesWidget::removePopup(bool _removeFromScene)
     }
 }
 
-void EasyThreadNamesWidget::clear()
+void ThreadNamesWidget::clear()
 {
     const QSignalBlocker b(this);
     removePopup();
@@ -2283,12 +2283,12 @@ void EasyThreadNamesWidget::clear()
     m_idleTime = 0;
 }
 
-void EasyThreadNamesWidget::setVerticalScrollbarRange(int _minValue, int _maxValue)
+void ThreadNamesWidget::setVerticalScrollbarRange(int _minValue, int _maxValue)
 {
     verticalScrollBar()->setRange(_minValue, _maxValue + m_additionalHeight);
 }
 
-void EasyThreadNamesWidget::onTreeChange()
+void ThreadNamesWidget::onTreeChange()
 {
     const QSignalBlocker b(this);
     removePopup();
@@ -2313,7 +2313,7 @@ void EasyThreadNamesWidget::onTreeChange()
     auto r = m_view->sceneRect();
     setSceneRect(0, r.top(), maxLength, r.height() + m_additionalHeight);
 
-    auto item = new EasyThreadNameItem();
+    auto item = new ThreadNameItem();
     item->setPos(0, 0);
     item->setBoundingRect(sceneRect());
     scene()->addItem(item);
@@ -2324,7 +2324,7 @@ void EasyThreadNamesWidget::onTreeChange()
     m_idleTimer.start(IDLE_TIMER_INTERVAL);
 }
 
-void EasyThreadNamesWidget::onIdleTimeout()
+void ThreadNamesWidget::onIdleTimeout()
 {
     static const uint16_t OVERLAP = ::profiler_gui::THREADS_ROW_SPACING >> 1;
 
@@ -2356,7 +2356,7 @@ void EasyThreadNamesWidget::onIdleTimeout()
         return;
     }
 
-    auto const parentView = static_cast<EasyThreadNamesWidget*>(scene()->parent());
+    auto const parentView = static_cast<ThreadNamesWidget*>(scene()->parent());
     const auto view = parentView->view();
 
     if (scenePos.y() > view->visibleSceneRect().bottom())
@@ -2376,7 +2376,7 @@ void EasyThreadNamesWidget::onIdleTimeout()
         return;
     }
 
-    EasyGraphicsItem* intersectingItem = nullptr;
+    BlocksGraphicsItem* intersectingItem = nullptr;
     for (auto item : items)
     {
         auto br = item->boundingRect();
@@ -2409,7 +2409,7 @@ void EasyThreadNamesWidget::onIdleTimeout()
         int row = 0;
 
         lay->setSpacing(2);
-        lay->addWidget(new EasyBoldLabel(intersectingItem->threadName(), widget), row, 0, 1, 2, Qt::AlignHCenter);
+        lay->addWidget(new BoldLabel(intersectingItem->threadName(), widget), row, 0, 1, 2, Qt::AlignHCenter);
         ++row;
 
         ::profiler::timestamp_t duration = 0;
@@ -2490,12 +2490,12 @@ void EasyThreadNamesWidget::onIdleTimeout()
     }
 }
 
-void EasyThreadNamesWidget::repaintScene()
+void ThreadNamesWidget::repaintScene()
 {
     scene()->update();
 }
 
-void EasyThreadNamesWidget::mousePressEvent(QMouseEvent* _event)
+void ThreadNamesWidget::mousePressEvent(QMouseEvent* _event)
 {
     m_idleTime = 0;
 
@@ -2504,7 +2504,7 @@ void EasyThreadNamesWidget::mousePressEvent(QMouseEvent* _event)
     _event->accept();
 }
 
-void EasyThreadNamesWidget::mouseDoubleClickEvent(QMouseEvent* _event)
+void ThreadNamesWidget::mouseDoubleClickEvent(QMouseEvent* _event)
 {
     static const auto OVERLAP = ::profiler_gui::THREADS_ROW_SPACING >> 1;
 
@@ -2534,7 +2534,7 @@ void EasyThreadNamesWidget::mouseDoubleClickEvent(QMouseEvent* _event)
     _event->accept();
 }
 
-void EasyThreadNamesWidget::mouseReleaseEvent(QMouseEvent* _event)
+void ThreadNamesWidget::mouseReleaseEvent(QMouseEvent* _event)
 {
     m_idleTime = 0;
 
@@ -2543,7 +2543,7 @@ void EasyThreadNamesWidget::mouseReleaseEvent(QMouseEvent* _event)
     _event->accept();
 }
 
-void EasyThreadNamesWidget::mouseMoveEvent(QMouseEvent* _event)
+void ThreadNamesWidget::mouseMoveEvent(QMouseEvent* _event)
 {
     m_idleTime = 0;
 
@@ -2552,19 +2552,19 @@ void EasyThreadNamesWidget::mouseMoveEvent(QMouseEvent* _event)
     _event->accept();
 }
 
-void EasyThreadNamesWidget::keyPressEvent(QKeyEvent* _event)
+void ThreadNamesWidget::keyPressEvent(QKeyEvent* _event)
 {
     m_idleTime = 0;
     m_view->keyPressEvent(_event);
 }
 
-void EasyThreadNamesWidget::keyReleaseEvent(QKeyEvent* _event)
+void ThreadNamesWidget::keyReleaseEvent(QKeyEvent* _event)
 {
     m_idleTime = 0;
     m_view->keyReleaseEvent(_event);
 }
 
-void EasyThreadNamesWidget::wheelEvent(QWheelEvent* _event)
+void ThreadNamesWidget::wheelEvent(QWheelEvent* _event)
 {
     m_idleTime = 0;
 

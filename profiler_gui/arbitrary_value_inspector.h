@@ -67,10 +67,10 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
-#include <thread>
 #include <atomic>
 #include <memory>
 #include "graphics_slider_area.h"
+#include "thread_pool_task.h"
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -89,15 +89,15 @@ private:
 
     using This = ArbitraryValuesCollection;
 
-    ArbitraryValuesMap          m_values;
-    Points                      m_points;
-    std::thread        m_collectorThread;
-    profiler::timestamp_t    m_beginTime;
-    qreal                     m_minValue;
-    qreal                     m_maxValue;
-    std::atomic<uint8_t>        m_status;
-    std::atomic_bool        m_bInterrupt;
-    uint8_t                    m_jobType;
+    ArbitraryValuesMap        m_values;
+    Points                    m_points;
+    ThreadPoolTask            m_worker;
+    profiler::timestamp_t  m_beginTime;
+    qreal                   m_minValue;
+    qreal                   m_maxValue;
+    std::atomic<uint8_t>      m_status;
+    std::atomic_bool      m_bInterrupt;
+    uint8_t                  m_jobType;
 
 public:
 
@@ -116,7 +116,6 @@ public:
     void collectValues(profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName, profiler::timestamp_t _beginTime);
     bool calculatePoints(profiler::timestamp_t _beginTime);
     void interrupt();
-    void join();
 
 private:
 

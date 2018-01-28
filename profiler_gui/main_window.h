@@ -83,28 +83,28 @@ namespace profiler { namespace net { struct EasyProfilerStatus; } }
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyFileReader Q_DECL_FINAL
+class FileReader Q_DECL_FINAL
 {
-    ::profiler::SerializedData      m_serializedBlocks; ///< 
-    ::profiler::SerializedData m_serializedDescriptors; ///< 
-    ::profiler::descriptors_list_t       m_descriptors; ///< 
-    ::profiler::blocks_t                      m_blocks; ///< 
-    ::profiler::thread_blocks_tree_t      m_blocksTree; ///< 
-    ::std::stringstream                       m_stream; ///< 
-    ::std::stringstream                 m_errorMessage; ///< 
-    QString                                 m_filename; ///< 
-    uint32_t             m_descriptorsNumberInFile = 0; ///< 
-    uint32_t                             m_version = 0; ///< 
-    ::std::thread                             m_thread; ///< 
-    ::std::atomic_bool                         m_bDone; ///< 
-    ::std::atomic<int>                      m_progress; ///< 
-    ::std::atomic<unsigned int>                 m_size; ///< 
-    bool                              m_isFile = false; ///< 
+    profiler::SerializedData      m_serializedBlocks; ///< 
+    profiler::SerializedData m_serializedDescriptors; ///< 
+    profiler::descriptors_list_t       m_descriptors; ///< 
+    profiler::blocks_t                      m_blocks; ///< 
+    profiler::thread_blocks_tree_t      m_blocksTree; ///< 
+    std::stringstream                       m_stream; ///< 
+    std::stringstream                 m_errorMessage; ///< 
+    QString                               m_filename; ///<
+    uint32_t           m_descriptorsNumberInFile = 0; ///<
+    uint32_t                           m_version = 0; ///<
+    std::thread                             m_thread; ///< 
+    std::atomic_bool                         m_bDone; ///< 
+    std::atomic<int>                      m_progress; ///< 
+    std::atomic<unsigned int>                 m_size; ///< 
+    bool                            m_isFile = false; ///<
 
 public:
 
-    EasyFileReader();
-    ~EasyFileReader();
+    FileReader();
+    ~FileReader();
 
     const bool isFile() const;
     bool done() const;
@@ -113,44 +113,44 @@ public:
     const QString& filename() const;
 
     void load(const QString& _filename);
-    void load(::std::stringstream& _stream);
+    void load(std::stringstream& _stream);
     void interrupt();
-    void get(::profiler::SerializedData& _serializedBlocks, ::profiler::SerializedData& _serializedDescriptors,
-             ::profiler::descriptors_list_t& _descriptors, ::profiler::blocks_t& _blocks, ::profiler::thread_blocks_tree_t& _tree,
+    void get(profiler::SerializedData& _serializedBlocks, profiler::SerializedData& _serializedDescriptors,
+             profiler::descriptors_list_t& _descriptors, profiler::blocks_t& _blocks, profiler::thread_blocks_tree_t& _tree,
              uint32_t& _descriptorsNumberInFile, uint32_t& _version, QString& _filename);
 
     void join();
 
     QString getError();
 
-}; // END of class EasyFileReader.
+}; // END of class FileReader.
 
 //////////////////////////////////////////////////////////////////////////
 
-enum EasyListenerRegime : uint8_t
+enum class ListenerRegime : uint8_t
 {
-    LISTENER_IDLE = 0,
-    LISTENER_CAPTURE,
-    LISTENER_CAPTURE_RECEIVE,
-    LISTENER_DESCRIBE
+    Idle = 0,
+    Capture,
+    Capture_Receive,
+    Descriptors
 };
 
 class EasySocketListener Q_DECL_FINAL
 {
-    EasySocket            m_easySocket; ///< 
-    ::std::string            m_address; ///< 
-    ::std::stringstream m_receivedData; ///< 
-    ::std::thread             m_thread; ///< 
-    uint64_t            m_receivedSize; ///< 
-    uint16_t                    m_port; ///< 
-    ::std::atomic<uint32_t> m_frameMax; ///< 
-    ::std::atomic<uint32_t> m_frameAvg; ///< 
-    ::std::atomic_bool    m_bInterrupt; ///< 
-    ::std::atomic_bool    m_bConnected; ///< 
-    ::std::atomic_bool  m_bStopReceive; ///< 
-    ::std::atomic_bool m_bCaptureReady; ///<
-    ::std::atomic_bool m_bFrameTimeReady; ///< 
-    EasyListenerRegime        m_regime; ///< 
+    EasySocket            m_easySocket; ///<
+    std::string              m_address; ///<
+    std::stringstream   m_receivedData; ///<
+    std::thread               m_thread; ///<
+    uint64_t            m_receivedSize; ///<
+    uint16_t                    m_port; ///<
+    std::atomic<uint32_t>   m_frameMax; ///<
+    std::atomic<uint32_t>   m_frameAvg; ///<
+    std::atomic_bool      m_bInterrupt; ///<
+    std::atomic_bool      m_bConnected; ///<
+    std::atomic_bool    m_bStopReceive; ///<
+    std::atomic_bool   m_bCaptureReady; ///<
+    std::atomic_bool m_bFrameTimeReady; ///<
+    ListenerRegime            m_regime; ///<
 
 public:
 
@@ -159,18 +159,18 @@ public:
 
     bool connected() const;
     bool captured() const;
-    EasyListenerRegime regime() const;
+    ListenerRegime regime() const;
     uint64_t size() const;
-    const ::std::string& address() const;
+    const std::string& address() const;
     uint16_t port() const;
 
-    ::std::stringstream& data();
+    std::stringstream& data();
     void clearData();
 
     void disconnect();
     void closeSocket();
-    bool connect(const char* _ipaddress, uint16_t _port, ::profiler::net::EasyProfilerStatus& _reply, bool _disconnectFirst = false);
-    bool reconnect(const char* _ipaddress, uint16_t _port, ::profiler::net::EasyProfilerStatus& _reply);
+    bool connect(const char* _ipaddress, uint16_t _port, profiler::net::EasyProfilerStatus& _reply, bool _disconnectFirst = false);
+    bool reconnect(const char* _ipaddress, uint16_t _port, profiler::net::EasyProfilerStatus& _reply);
 
     bool startCapture();
     void stopCapture();
@@ -181,8 +181,7 @@ public:
     bool requestFrameTime();
 
     template <class T>
-    inline void send(const T& _message)
-    {
+    void send(const T& _message) {
         m_easySocket.send(&_message, sizeof(T));
     }
 
@@ -214,13 +213,13 @@ struct DialogWithGeometry EASY_FINAL
     void restoreGeometry();
 };
 
-class EasyMainWindow : public QMainWindow
+class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
 protected:
 
-    using This = EasyMainWindow;
+    using This = MainWindow;
     using Parent = QMainWindow;
 
     DialogWithGeometry m_descTreeDialog;
@@ -237,14 +236,14 @@ protected:
 #endif
 
     class QProgressDialog*                  m_progress = nullptr;
-    class EasyDescWidget*             m_dialogDescTree = nullptr;
+    class BlockDescriptorsWidget*             m_dialogDescTree = nullptr;
     class QMessageBox*                m_listenerDialog = nullptr;
     QTimer                               m_readerTimer;
     QTimer                             m_listenerTimer;
     QTimer                           m_fpsRequestTimer;
-    ::profiler::SerializedData      m_serializedBlocks;
-    ::profiler::SerializedData m_serializedDescriptors;
-    EasyFileReader                            m_reader;
+    profiler::SerializedData      m_serializedBlocks;
+    profiler::SerializedData m_serializedDescriptors;
+    FileReader                            m_reader;
     EasySocketListener                      m_listener;
 
     class QLineEdit* m_addressEdit = nullptr;
@@ -267,8 +266,8 @@ protected:
 
 public:
 
-    explicit EasyMainWindow();
-    ~EasyMainWindow() override;
+    explicit MainWindow();
+    ~MainWindow() override;
 
     // Public virtual methods
 
@@ -316,7 +315,7 @@ protected slots:
     void onFrameTimeEditFinish();
     void onFrameTimeChanged();
 
-    void onBlockStatusChange(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status);
+    void onBlockStatusChange(profiler::block_id_t _id, profiler::EasyBlockStatus _status);
 
     void checkFrameTimeReady();
 
@@ -330,7 +329,7 @@ private:
 
     void addFileToList(const QString& filename);
     void loadFile(const QString& filename);
-    void readStream(::std::stringstream& data);
+    void readStream(std::stringstream& data);
 
     void loadSettings();
     void loadGeometry();
@@ -341,7 +340,7 @@ private:
     void destroyProgressDialog();
     void createProgressDialog(const QString& text);
 
-}; // END of class EasyMainWindow.
+}; // END of class MainWindow.
 
 //////////////////////////////////////////////////////////////////////////
 

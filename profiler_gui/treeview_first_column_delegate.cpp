@@ -5,17 +5,17 @@
 #include "treeview_first_column_delegate.h"
 #include "globals.h"
 
-EasyTreeViewFirstColumnItemDelegate::EasyTreeViewFirstColumnItemDelegate(QObject* parent) : QStyledItemDelegate(parent)
+TreeViewFirstColumnItemDelegate::TreeViewFirstColumnItemDelegate(QObject* parent) : QStyledItemDelegate(parent)
 {
 
 }
 
-EasyTreeViewFirstColumnItemDelegate::~EasyTreeViewFirstColumnItemDelegate()
+TreeViewFirstColumnItemDelegate::~TreeViewFirstColumnItemDelegate()
 {
 
 }
 
-void EasyTreeViewFirstColumnItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const
+void TreeViewFirstColumnItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
     // Draw item as usual
     QStyledItemDelegate::paint(painter, option, index);

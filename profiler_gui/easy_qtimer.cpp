@@ -5,7 +5,7 @@
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : This file contains implementation of EasyQTimer class used to
+* description       : This file contains implementation of Timer class used to
 *                   : connect QTimer to non-QObject classes.
 * ----------------- :
 * change log        : * 2016/12/05 Victor Zarubkin: Initial commit.
@@ -57,69 +57,69 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyQTimer::EasyQTimer()
+Timer::Timer()
     : QObject()
 {
-    connect(&m_timer, &QTimer::timeout, this, &EasyQTimer::onTimeout);
+    connect(&m_timer, &QTimer::timeout, this, &Timer::onTimeout);
 }
 
-EasyQTimer::EasyQTimer(::std::function<void()>&& handler, bool signleShot)
+Timer::Timer(std::function<void()>&& handler, bool signleShot)
     : QObject()
-    , m_handler(::std::forward<::std::function<void()>&&>(handler))
+    , m_handler(std::forward<std::function<void()>&&>(handler))
 {
     m_timer.setSingleShot(signleShot);
-    connect(&m_timer, &QTimer::timeout, this, &EasyQTimer::onTimeout);
+    connect(&m_timer, &QTimer::timeout, this, &Timer::onTimeout);
 }
 
-EasyQTimer::~EasyQTimer()
+Timer::~Timer()
 {
 
 }
 
-void EasyQTimer::onTimeout()
+void Timer::onTimeout()
 {
     m_handler();
 }
 
-void EasyQTimer::setHandler(::std::function<void()>&& handler)
+void Timer::setHandler(std::function<void()>&& handler)
 {
     m_handler = handler;
 }
 
-void EasyQTimer::setSignleShot(bool singleShot)
+void Timer::setSignleShot(bool singleShot)
 {
     m_timer.setSingleShot(singleShot);
 }
 
-bool EasyQTimer::isSingleShot() const
+bool Timer::isSingleShot() const
 {
     return m_timer.isSingleShot();
 }
 
-void EasyQTimer::setInterval(int msec)
+void Timer::setInterval(int msec)
 {
     m_timer.setInterval(msec);
 }
 
-void EasyQTimer::start(int msec)
+void Timer::start(int msec)
 {
     stop();
     m_timer.start(msec);
 }
 
-void EasyQTimer::start()
+void Timer::start()
 {
     stop();
     m_timer.start();
 }
 
-void EasyQTimer::stop()
+void Timer::stop()
 {
     if (m_timer.isActive())
         m_timer.stop();
 }
 
-bool EasyQTimer::isActive() const
+bool Timer::isActive() const
 {
     return m_timer.isActive();
 }

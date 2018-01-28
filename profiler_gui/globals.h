@@ -171,11 +171,11 @@ namespace profiler_gui {
         bool empty = true;
     };
 
-    struct EasyGlobals Q_DECL_FINAL
+    struct Globals Q_DECL_FINAL
     {
-        static EasyGlobals& instance();
+        static Globals& instance();
 
-        EasyGlobalSignals                         events; ///< Global signals
+        GlobalSignals                         events; ///< Global signals
         ::profiler::thread_blocks_tree_t profiler_blocks; ///< Profiler blocks tree loaded from file
         ::profiler::descriptors_list_t       descriptors; ///< Profiler block descriptors list
         EasyBlocks                            gui_blocks; ///< Profiler graphics blocks builded by GUI
@@ -226,16 +226,16 @@ namespace profiler_gui {
 
     private:
 
-        EasyGlobals();
+        Globals();
 
-    }; // END of struct EasyGlobals.
+    }; // END of struct Globals.
 
     //////////////////////////////////////////////////////////////////////////
 
 } // END of namespace profiler_gui.
 
 #ifndef IGNORE_GLOBALS_DECLARATION
-#define EASY_GLOBALS ::profiler_gui::EasyGlobals::instance()
+#define EASY_GLOBALS ::profiler_gui::Globals::instance()
 
 inline ::profiler_gui::EasyBlock& easyBlock(::profiler::block_index_t i) {
     return EASY_GLOBALS.gui_blocks[i];
