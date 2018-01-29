@@ -842,7 +842,7 @@ extern "C" {
                 auto& per_parent_statistics = parent_statistics[it.first];
                 per_parent_statistics.clear();
 
-                statistics_threads.emplace_back(::std::thread([&per_parent_statistics, &per_frame_statistics, &blocks, &descriptors](::profiler::BlocksTreeRoot& root)
+                statistics_threads.emplace_back(::std::thread([&] (::profiler::BlocksTreeRoot& _root)
                 {
                     //::std::sort(root.sync.begin(), root.sync.end(), [&blocks](::profiler::block_index_t left, ::profiler::block_index_t right)
                     //{
@@ -850,48 +850,48 @@ extern "C" {
                     //});
 
                     ::profiler::block_index_t cs_index = 0;
-                    for (auto i : root.children)
+                    for (auto child_index : _root.children)
                     {
-                        auto& frame = blocks[i];
+                        auto& frame = blocks[child_index];
 
                         if (descriptors[frame.node->id()]->type() == ::profiler::BlockType::Block)
-                            ++root.frames_number;
+                            ++_root.frames_number;
 
-                        frame.per_parent_stats = update_statistics(per_parent_statistics, frame, i, ~0U, blocks);//, root.thread_id, blocks);
+                        frame.per_parent_stats = update_statistics(per_parent_statistics, frame, child_index, ~0U, blocks);//, root.thread_id, blocks);
 
                         per_frame_statistics.clear();
-                        update_statistics_recursive(per_frame_statistics, frame, i, i, blocks);
+                        update_statistics_recursive(per_frame_statistics, frame, child_index, child_index, blocks);
 
-                        if (cs_index < root.sync.size())
+                        if (cs_index < _root.sync.size())
                         {
                             CsStatsMap frame_stats_cs;
                             do {
 
-                                auto j = root.sync[cs_index];
+                                auto j = _root.sync[cs_index];
                                 auto& cs = blocks[j];
                                 if (cs.node->end() < frame.node->begin())
                                     continue;
                                 if (cs.node->begin() > frame.node->end())
                                     break;
-                                cs.per_frame_stats = update_statistics(frame_stats_cs, cs, cs_index, i, blocks);
+                                cs.per_frame_stats = update_statistics(frame_stats_cs, cs, cs_index, child_index, blocks);
 
-                            } while (++cs_index < root.sync.size());
+                            } while (++cs_index < _root.sync.size());
                         }
 
-                        if (root.depth < frame.depth)
-                            root.depth = frame.depth;
+                        if (_root.depth < frame.depth)
+                            _root.depth = frame.depth;
 
-                        root.profiled_time += frame.node->duration();
+                        _root.profiled_time += frame.node->duration();
                     }
 
-                    ++root.depth;
+                    ++_root.depth;
                 }, ::std::ref(root)));
             }
 
             int j = 0, n = static_cast<int>(statistics_threads.size());
-            for (auto& t : statistics_threads)
+            for (auto& thread : statistics_threads)
             {
-                t.join();
+                thread.join();
                 progress.store(90 + (10 * ++j) / n, ::std::memory_order_release);
             }
         }

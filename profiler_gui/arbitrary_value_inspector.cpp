@@ -199,13 +199,9 @@ void ArbitraryValuesCollection::collectValues(profiler::thread_id_t _threadId, p
     m_jobType = ValuesJob;
 
     if (_valueId == 0)
-    {
-        m_worker.enqueue([this, _threadId, _valueName] { collectByName(_threadId, _valueName); }, m_bInterrupt);
-    }
+        m_worker.enqueue([=] { collectByName(_threadId, _valueName); }, m_bInterrupt);
     else
-    {
-        m_worker.enqueue([this, _threadId, _valueId] { collectById(_threadId, _valueId); }, m_bInterrupt);
-    }
+        m_worker.enqueue([=] { collectById(_threadId, _valueId); }, m_bInterrupt);
 }
 
 void ArbitraryValuesCollection::collectValues(profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName, profiler::timestamp_t _beginTime)
@@ -220,13 +216,9 @@ void ArbitraryValuesCollection::collectValues(profiler::thread_id_t _threadId, p
     m_jobType = ValuesJob | PointsJob;
 
     if (_valueId == 0)
-    {
-        m_worker.enqueue([this, _threadId, _valueName] { collectByName(_threadId, _valueName); }, m_bInterrupt);
-    }
+        m_worker.enqueue([=] { collectByName(_threadId, _valueName); }, m_bInterrupt);
     else
-    {
-        m_worker.enqueue([this, _threadId, _valueId] { collectById(_threadId, _valueId); }, m_bInterrupt);
-    }
+        m_worker.enqueue([=] { collectById(_threadId, _valueId); }, m_bInterrupt);
 }
 
 bool ArbitraryValuesCollection::calculatePoints(profiler::timestamp_t _beginTime)
@@ -535,8 +527,7 @@ bool ArbitraryValuesChartItem::updateImage()
     const auto bindMode = widget->bindMode();
     const auto beginTime = EASY_GLOBALS.begin_time;
     const auto autoHeight = EASY_GLOBALS.auto_adjust_chart_height;
-    m_worker.enqueue([this, rect, scale, left, right, value, window, bindMode, beginTime, autoHeight]
-    {
+    m_worker.enqueue([=] {
         updateImageAsync(rect, scale, left, right, right - left, value, window, bindMode,
                          beginTime, autoHeight);
     }, m_bReady);

@@ -822,8 +822,7 @@ bool GraphicsHistogramItem::updateImage()
     const auto frameTime = EASY_GLOBALS.frame_time;
     const auto beginTime = EASY_GLOBALS.begin_time;
     const auto autoHeight = EASY_GLOBALS.auto_adjust_histogram_height;
-    m_worker.enqueue([this, rect, regime, scale, left, right, value, window, top, bottom, bindMode, frameTime, beginTime, autoHeight]
-    {
+    m_worker.enqueue([=] {
         updateImageAsync(rect, regime, scale, left, right, right - left, value, window, top, bottom, bindMode,
                          frameTime, beginTime, autoHeight);
     }, m_bReady);

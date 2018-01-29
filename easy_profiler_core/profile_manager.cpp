@@ -169,7 +169,7 @@ EASY_CONSTEXPR uint8_t FORCE_ON_FLAG = profiler::FORCE_ON & ~profiler::ON;
 const int64_t CPU_FREQUENCY = EASY_CHRONO_CLOCK::period::den / EASY_CHRONO_CLOCK::period::num;
 # define TICKS_TO_US(ticks) ticks * 1000000LL / CPU_FREQUENCY
 #elif defined(_WIN32)
-const decltype(LARGE_INTEGER::QuadPart) CPU_FREQUENCY = ([](){ LARGE_INTEGER freq; QueryPerformanceFrequency(&freq); return freq.QuadPart; })();
+const decltype(LARGE_INTEGER::QuadPart) CPU_FREQUENCY = ([]{ LARGE_INTEGER freq; QueryPerformanceFrequency(&freq); return freq.QuadPart; })();
 # define TICKS_TO_US(ticks) ticks * 1000000LL / CPU_FREQUENCY
 #else
 # ifndef __APPLE__
@@ -1621,8 +1621,7 @@ void ProfileManager::listen(uint16_t _port)
     std::future<uint32_t> dumpingResult;
     bool dumping = false;
 
-    const auto stopDumping = [this, &dumping, &dumpingResult, &os]
-    {
+    const auto stopDumping = [&] {
         dumping = false;
         m_stopDumping.store(true, std::memory_order_release);
         join(dumpingResult);

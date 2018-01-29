@@ -176,13 +176,14 @@ void TreeWidgetLoader::fillTree(::profiler::timestamp_t& _beginTime, const unsig
     const auto decoratedNames = EASY_GLOBALS.use_decorated_thread_name;
     const auto hexThreadIds = EASY_GLOBALS.hex_thread_id;
     const auto timeUnits = EASY_GLOBALS.time_units;
-    m_worker.enqueue([this, &_beginTime, _blocksNumber, &_blocksTree, zeroBlocks, decoratedNames, hexThreadIds, timeUnits]
-    {
-        setTreeInternal1(_beginTime, _blocksNumber, _blocksTree, zeroBlocks, decoratedNames, hexThreadIds, timeUnits);
+    const auto beginTime = std::ref(_beginTime);
+    const auto blocksTree = std::ref(_blocksTree);
+    m_worker.enqueue([=] {
+        setTreeInternal1(beginTime, _blocksNumber, blocksTree, zeroBlocks, decoratedNames, hexThreadIds, timeUnits);
     }, m_bInterrupt);
 }
 
-void TreeWidgetLoader::fillTreeBlocks(const::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _beginTime, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, TreeMode _mode)
+void TreeWidgetLoader::fillTreeBlocks(const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _beginTime, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, TreeMode _mode)
 {
     interrupt();
     m_mode = _mode;
@@ -191,9 +192,9 @@ void TreeWidgetLoader::fillTreeBlocks(const::profiler_gui::TreeBlocks& _blocks, 
     const auto decoratedNames = EASY_GLOBALS.use_decorated_thread_name;
     const auto hexThreadIds = EASY_GLOBALS.hex_thread_id;
     const auto timeUnits = EASY_GLOBALS.time_units;
-    m_worker.enqueue([this, _beginTime, &_blocks, _left, _right, _strict, zeroBlocks, decoratedNames, hexThreadIds, timeUnits]
-    {
-        setTreeInternal2(_beginTime, _blocks, _left, _right, _strict, zeroBlocks, decoratedNames, hexThreadIds, timeUnits);
+    const auto blocks = std::ref(_blocks);
+    m_worker.enqueue([=] {
+        setTreeInternal2(_beginTime, blocks, _left, _right, _strict, zeroBlocks, decoratedNames, hexThreadIds, timeUnits);
     }, m_bInterrupt);
 }
 
