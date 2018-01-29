@@ -1,6 +1,6 @@
 /**
 Lightweight profiler library for c++
-Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 
 Licensed under either of
     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -469,7 +469,7 @@ namespace profiler {
 
         \ingroup profiler
         */
-        PROFILER_API timestamp_t currentTime();
+        PROFILER_API timestamp_t now();
 
         /** Convert ticks to nanoseconds.
 
@@ -771,14 +771,14 @@ namespace profiler {
 
     }
 #else
-    inline timestamp_t currentTime() { return 0; }
-    inline timestamp_t toNanoseconds(timestamp_t) { return 0; }
-    inline timestamp_t toMicroseconds(timestamp_t) { return 0; }
+    inline EASY_CONSTEXPR_FCN timestamp_t now() { return 0; }
+    inline EASY_CONSTEXPR_FCN timestamp_t toNanoseconds(timestamp_t) { return 0; }
+    inline EASY_CONSTEXPR_FCN timestamp_t toMicroseconds(timestamp_t) { return 0; }
     inline const BaseBlockDescriptor* registerDescription(EasyBlockStatus, const char*, const char*, const char*, int, block_type_t, color_t, bool = false)
     { return reinterpret_cast<const BaseBlockDescriptor*>(0xbad); }
     inline void endBlock() { }
     inline void setEnabled(bool) { }
-    inline bool isEnabled() { return false; }
+    inline EASY_CONSTEXPR_FCN bool isEnabled() { return false; }
     inline void storeEvent(const BaseBlockDescriptor*, const char* = "") { }
     inline void storeBlock(const BaseBlockDescriptor*, const char*, timestamp_t, timestamp_t) { }
     inline void beginBlock(Block&) { }
@@ -787,26 +787,26 @@ namespace profiler {
     inline const char* registerThreadScoped(const char*, ThreadGuard&) { return ""; }
     inline const char* registerThread(const char*) { return ""; }
     inline void setEventTracingEnabled(bool) { }
-    inline bool isEventTracingEnabled() { return false; }
+    inline EASY_CONSTEXPR_FCN bool isEventTracingEnabled() { return false; }
     inline void setLowPriorityEventTracing(bool) { }
-    inline bool isLowPriorityEventTracing() { return false; }
+    inline EASY_CONSTEXPR_FCN bool isLowPriorityEventTracing() { return false; }
     inline void setContextSwitchLogFilename(const char*) { }
-    inline const char* getContextSwitchLogFilename() { return ""; }
+    inline EASY_CONSTEXPR_FCN const char* getContextSwitchLogFilename() { return ""; }
     inline void startListen(uint16_t = ::profiler::DEFAULT_PORT) { }
     inline void stopListen() { }
-    inline bool isListening() { return false; }
-    inline uint8_t versionMajor() { return 0; }
-    inline uint8_t versionMinor() { return 0; }
-    inline uint16_t versionPatch() { return 0; }
-    inline uint32_t version() { return 0; }
-    inline const char* versionName() { return "v0.0.0_disabled"; }
-    inline bool isMainThread() { return false; }
-    inline timestamp_t this_thread_frameTime(Duration = ::profiler::MICROSECONDS) { return 0; }
-    inline timestamp_t this_thread_frameTimeLocalMax(Duration = ::profiler::MICROSECONDS) { return 0; }
-    inline timestamp_t this_thread_frameTimeLocalAvg(Duration = ::profiler::MICROSECONDS) { return 0; }
-    inline timestamp_t main_thread_frameTime(Duration = ::profiler::MICROSECONDS) { return 0; }
-    inline timestamp_t main_thread_frameTimeLocalMax(Duration = ::profiler::MICROSECONDS) { return 0; }
-    inline timestamp_t main_thread_frameTimeLocalAvg(Duration = ::profiler::MICROSECONDS) { return 0; }
+    inline EASY_CONSTEXPR_FCN bool isListening() { return false; }
+    inline EASY_CONSTEXPR_FCN uint8_t versionMajor() { return 0; }
+    inline EASY_CONSTEXPR_FCN uint8_t versionMinor() { return 0; }
+    inline EASY_CONSTEXPR_FCN uint16_t versionPatch() { return 0; }
+    inline EASY_CONSTEXPR_FCN uint32_t version() { return 0; }
+    inline EASY_CONSTEXPR_FCN const char* versionName() { return "v0.0.0_disabled"; }
+    inline EASY_CONSTEXPR_FCN bool isMainThread() { return false; }
+    inline EASY_CONSTEXPR_FCN timestamp_t this_thread_frameTime(Duration = ::profiler::MICROSECONDS) { return 0; }
+    inline EASY_CONSTEXPR_FCN timestamp_t this_thread_frameTimeLocalMax(Duration = ::profiler::MICROSECONDS) { return 0; }
+    inline EASY_CONSTEXPR_FCN timestamp_t this_thread_frameTimeLocalAvg(Duration = ::profiler::MICROSECONDS) { return 0; }
+    inline EASY_CONSTEXPR_FCN timestamp_t main_thread_frameTime(Duration = ::profiler::MICROSECONDS) { return 0; }
+    inline EASY_CONSTEXPR_FCN timestamp_t main_thread_frameTimeLocalMax(Duration = ::profiler::MICROSECONDS) { return 0; }
+    inline EASY_CONSTEXPR_FCN timestamp_t main_thread_frameTimeLocalAvg(Duration = ::profiler::MICROSECONDS) { return 0; }
 #endif
 
     /** API functions binded to current thread.
@@ -898,6 +898,12 @@ namespace profiler {
     \ingroup profiler
     */
     EASY_FORCE_INLINE void stopCapture() { EASY_PROFILER_DISABLE; }
+
+    /** Alias for now().
+
+    \ingroup profiler
+    */
+    EASY_FORCE_INLINE timestamp_t currentTime() { return now(); }
 
     //////////////////////////////////////////////////////////////////////
 

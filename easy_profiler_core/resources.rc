@@ -15,8 +15,8 @@ BEGIN
     BLOCK "080904b0"
         BEGIN
             VALUE "CompanyName", "EasySolutions"
-            VALUE "FileDescription", "Lightweight profiler library for c++"
-            VALUE "LegalCopyright", "Copyright (C) 2016-2017 Victor Zarubkin, Sergey Yagovtsev"
+            VALUE "FileDescription", "Lightweight profiler library for C++"
+            VALUE "LegalCopyright", "Copyright (C) 2016-2018 Victor Zarubkin, Sergey Yagovtsev"
             VALUE "LegalTrademarks1", "All Rights Reserved"
             VALUE "LegalTrademarks2", "All Rights Reserved"
             VALUE "ProductName", "easy_profiler lib"

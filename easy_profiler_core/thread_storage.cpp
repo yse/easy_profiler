@@ -1,6 +1,6 @@
 /**
 Lightweight profiler library for c++
-Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 
 Licensed under either of
     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -91,13 +91,13 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
 
 #if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
     const bool expanded = (desc->m_status & profiler::ON) && blocks.closedList.need_expand(serializedDataSize);
-    if (expanded) beginTime = getCurrentTime();
+    if (expanded) beginTime = profiler::clock::now();
 #endif
 
     void* data = blocks.closedList.allocate(serializedDataSize);
 
 #if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
-    if (expanded) endTime = getCurrentTime();
+    if (expanded) endTime = profiler::clock::now();
 #endif
 
     ::new (data) profiler::SerializedBlock(block, nameLength);
@@ -159,7 +159,7 @@ void ThreadStorage::beginFrame()
 {
     if (!frameOpened)
     {
-        frameStartTime = getCurrentTime();
+        frameStartTime = profiler::clock::now();
         frameOpened = true;
     }
 }
@@ -167,7 +167,7 @@ void ThreadStorage::beginFrame()
 profiler::timestamp_t ThreadStorage::endFrame()
 {
     frameOpened = false;
-    return getCurrentTime() - frameStartTime;
+    return profiler::clock::now() - frameStartTime;
 }
 
 void ThreadStorage::putMark()

@@ -8,7 +8,7 @@
 * description       : The file contains implementation of Profile manager and implement access c-function
 *                   :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -75,11 +75,11 @@
 # include <iostream>
 
 # ifndef EASY_ERRORLOG
-#  define EASY_ERRORLOG ::std::cerr
+#  define EASY_ERRORLOG std::cerr
 # endif
 
 # ifndef EASY_LOG
-#  define EASY_LOG ::std::cerr
+#  define EASY_LOG std::cerr
 # endif
 
 # ifndef EASY_ERROR
@@ -188,10 +188,10 @@ static int64_t calculate_cpu_frequency()
     struct timespec begints, endts;
     clock_gettime(CLOCK_MONOTONIC, &begints);
 #endif
-    begin = getCurrentTime();
+    begin = profiler::clock::now();
     volatile uint64_t i;
     for (i = 0; i < 100000000; i++); /* must be CPU intensive */
-    end = getCurrentTime();
+    end = profiler::clock::now();
 #ifdef __APPLE__
     clock_get_time(cclock, &endts);
     mach_port_deallocate(mach_task_self(), cclock);
@@ -245,27 +245,27 @@ thread_local static profiler::ThreadGuard THIS_THREAD_GUARD; // thread guard for
 
 #ifdef BUILD_WITH_EASY_PROFILER
 # define EASY_EVENT_RES(res, name, ...)\
-    EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), MANAGER.addBlockDescriptor(\
-        ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
-            __FILE__, __LINE__, ::profiler::BlockType::Event, ::profiler::extract_color(__VA_ARGS__)));\
+    EASY_LOCAL_STATIC_PTR(const profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), MANAGER.addBlockDescriptor(\
+        profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
+            __FILE__, __LINE__, profiler::BlockType::Event, profiler::extract_color(__VA_ARGS__)));\
     res = MANAGER.storeBlock(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name))
 
 # define EASY_FORCE_EVENT(timestamp, name, ...)\
-    EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), addBlockDescriptor(\
-        ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
-            __FILE__, __LINE__, ::profiler::BlockType::Event, ::profiler::extract_color(__VA_ARGS__)));\
+    EASY_LOCAL_STATIC_PTR(const profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), addBlockDescriptor(\
+        profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
+            __FILE__, __LINE__, profiler::BlockType::Event, profiler::extract_color(__VA_ARGS__)));\
     storeBlockForce(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name), timestamp)
 
 # define EASY_FORCE_EVENT2(timestamp, name, ...)\
-    EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), addBlockDescriptor(\
-        ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
-            __FILE__, __LINE__, ::profiler::BlockType::Event, ::profiler::extract_color(__VA_ARGS__)));\
+    EASY_LOCAL_STATIC_PTR(const profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), addBlockDescriptor(\
+        profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
+            __FILE__, __LINE__, profiler::BlockType::Event, profiler::extract_color(__VA_ARGS__)));\
     storeBlockForce2(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name), timestamp)
 
 # define EASY_FORCE_EVENT3(ts, timestamp, name, ...)\
-    EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), addBlockDescriptor(\
-        ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
-            __FILE__, __LINE__, ::profiler::BlockType::Event, ::profiler::extract_color(__VA_ARGS__)));\
+    EASY_LOCAL_STATIC_PTR(const profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), addBlockDescriptor(\
+        profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
+            __FILE__, __LINE__, profiler::BlockType::Event, profiler::extract_color(__VA_ARGS__)));\
     ts.storeBlockForce(profiler::Block(timestamp, timestamp, EASY_UNIQUE_DESC(__LINE__)->id(), EASY_RUNTIME_NAME(name)))
 #else
 # ifndef EASY_PROFILER_API_DISABLED
@@ -282,9 +282,9 @@ thread_local static profiler::ThreadGuard THIS_THREAD_GUARD; // thread guard for
 extern "C" {
 
 #if !defined(EASY_PROFILER_API_DISABLED)
-    PROFILER_API timestamp_t currentTime()
+    PROFILER_API timestamp_t now()
     {
-        return getCurrentTime();
+        return profiler::clock::now();
     }
 
     PROFILER_API timestamp_t toNanoseconds(timestamp_t _ticks)
@@ -480,7 +480,7 @@ extern "C" {
     }
 
 #else
-    PROFILER_API timestamp_t currentTime() { return 0; }
+    PROFILER_API timestamp_t now() { return 0; }
     PROFILER_API timestamp_t toNanoseconds(timestamp_t) { return 0; }
     PROFILER_API timestamp_t toMicroseconds(timestamp_t) { return 0; }
     PROFILER_API const BaseBlockDescriptor* registerDescription(EasyBlockStatus, const char*, const char*, const char*, int, block_type_t, color_t, bool) { return reinterpret_cast<const BaseBlockDescriptor*>(0xbad); }
@@ -637,7 +637,7 @@ ThreadGuard::~ThreadGuard()
     if (m_id != 0 && THIS_THREAD != nullptr && THIS_THREAD->id == m_id)
     {
         bool isMarked = false;
-        EASY_EVENT_RES(isMarked, "ThreadFinished", EASY_COLOR_THREAD_END, ::profiler::FORCE_ON);
+        EASY_EVENT_RES(isMarked, "ThreadFinished", EASY_COLOR_THREAD_END, profiler::FORCE_ON);
         //THIS_THREAD->markProfilingFrameEnded();
         THIS_THREAD->putMark();
         THIS_THREAD->expired.store(isMarked ? 2 : 1, std::memory_order_release);
@@ -798,7 +798,7 @@ void ProfileManager::storeValue(const BaseBlockDescriptor* _desc, DataType _type
         return;
 #endif
 
-    THIS_THREAD->storeValue(getCurrentTime(), _desc->id(), _type, _data, _size, _isArray, _vin);
+    THIS_THREAD->storeValue(profiler::clock::now(), _desc->id(), _type, _data, _size, _isArray, _vin);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -820,7 +820,7 @@ bool ProfileManager::storeBlock(const profiler::BaseBlockDescriptor* _desc, cons
         return false;
 #endif
 
-    const auto time = getCurrentTime();
+    const auto time = profiler::clock::now();
     THIS_THREAD->storeBlock(profiler::Block(time, time, _desc->id(), _runtimeName));
     THIS_THREAD->putMarkIfEmpty();
 
@@ -855,7 +855,7 @@ bool ProfileManager::storeBlock(const profiler::BaseBlockDescriptor* _desc, cons
 
 //////////////////////////////////////////////////////////////////////////
 
-void ProfileManager::storeBlockForce(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t& _timestamp)
+void ProfileManager::storeBlockForce(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, profiler::timestamp_t& _timestamp)
 {
     if ((_desc->m_status & profiler::ON) == 0)
         return;
@@ -868,12 +868,12 @@ void ProfileManager::storeBlockForce(const profiler::BaseBlockDescriptor* _desc,
         return;
 #endif
 
-    _timestamp = getCurrentTime();
+    _timestamp = profiler::clock::now();
     THIS_THREAD->storeBlock(profiler::Block(_timestamp, _timestamp, _desc->id(), _runtimeName));
     THIS_THREAD->putMark();
 }
 
-void ProfileManager::storeBlockForce2(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t _timestamp)
+void ProfileManager::storeBlockForce2(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, profiler::timestamp_t _timestamp)
 {
     if ((_desc->m_status & profiler::ON) == 0)
         return;
@@ -1152,7 +1152,7 @@ void ProfileManager::setEnabled(bool isEnable)
 {
     guard_lock_t lock(m_dumpSpin);
 
-    auto time = getCurrentTime();
+    auto time = profiler::clock::now();
     if (m_profilerStatus.exchange(isEnable, std::memory_order_acq_rel) == isEnable)
         return;
 
@@ -1242,7 +1242,7 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
     {
         m_profilerStatus.store(false, std::memory_order_release);
         disableEventTracer();
-        m_endTime = getCurrentTime();
+        m_endTime = profiler::clock::now();
     }
 
     if (_async && m_stopDumping.load(std::memory_order_acquire))
@@ -1265,8 +1265,8 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
     // This is the only place using both spins, so no dead-lock will occur
     // TODO: think about better solution because this one is not 100% safe...
 
-    const profiler::timestamp_t now = getCurrentTime();
-    const profiler::timestamp_t endtime = m_endTime == 0 ? now : std::min(now, m_endTime);
+    const auto time = profiler::clock::now();
+    const auto endtime = m_endTime == 0 ? time : std::min(time, m_endTime);
 
 #ifndef _WIN32
     if (eventTracingEnabled)
@@ -1485,7 +1485,7 @@ uint32_t ProfileManager::dumpBlocksToFile(const char* _filename)
     profiler::OStream outputStream;
 
     // Replace outputStream buffer to outputFile buffer to avoid redundant copying
-    typedef ::std::basic_iostream<std::stringstream::char_type, std::stringstream::traits_type> stringstream_parent;
+    using stringstream_parent = std::basic_iostream<std::stringstream::char_type, std::stringstream::traits_type>;
     stringstream_parent& s = outputStream.stream();
     auto oldbuf = s.rdbuf(outputFile.rdbuf());
 
@@ -1757,7 +1757,7 @@ void ProfileManager::listen(uint16_t _port)
                 {
                     EASY_LOGMSG("receive MessageType::Request_Start_Capture\n");
 
-                    ::profiler::timestamp_t t = 0;
+                    profiler::timestamp_t t = 0;
                     EASY_FORCE_EVENT(t, "StartCapture", EASY_COLOR_START, profiler::OFF);
 
                     m_dumpSpin.lock();
@@ -1783,7 +1783,7 @@ void ProfileManager::listen(uint16_t _port)
                         break;
 
                     m_dumpSpin.lock();
-                    auto time = getCurrentTime();
+                    auto time = profiler::clock::now();
                     if (m_profilerStatus.exchange(false, std::memory_order_acq_rel))
                     {
                         disableEventTracer();
@@ -1877,7 +1877,7 @@ void ProfileManager::listen(uint16_t _port)
                 {
                     auto data = reinterpret_cast<const profiler::net::BlockStatusMessage*>(message);
                     EASY_LOGMSG("receive MessageType::ChangeBLock_Status id=" << data->id << " status=" << data->status << std::endl);
-                    setBlockStatus(data->id, static_cast<::profiler::EasyBlockStatus>(data->status));
+                    setBlockStatus(data->id, static_cast<profiler::EasyBlockStatus>(data->status));
                     break;
                 }
 

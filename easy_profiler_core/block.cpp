@@ -8,7 +8,7 @@
 * description       : The file contains implementation of profiling blocks
 *                   :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -118,7 +118,7 @@ Block::Block(const BaseBlockDescriptor* _descriptor, const char* _runtimeName, b
 
 void Block::start()
 {
-    m_begin = getCurrentTime();
+    m_begin = profiler::clock::now();
 }
 
 void Block::start(timestamp_t _time) EASY_NOEXCEPT
@@ -128,7 +128,7 @@ void Block::start(timestamp_t _time) EASY_NOEXCEPT
 
 void Block::finish()
 {
-    m_end = getCurrentTime();
+    m_end = profiler::clock::now();
 }
 
 void Block::finish(timestamp_t _time) EASY_NOEXCEPT

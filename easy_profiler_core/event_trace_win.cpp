@@ -16,7 +16,7 @@
 *                   : * 2016/09/17 Victor Zarubkin: added log messages printing.
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -560,7 +560,7 @@ namespace profiler {
 
         EASY_LOGMSG("Event tracing is stopping...\n");
 
-        TRACING_END_TIME.store(getCurrentTime(), ::std::memory_order_release);
+        TRACING_END_TIME.store(profiler::clock::now(), ::std::memory_order_release);
 
         ControlTrace(m_openedHandle, KERNEL_LOGGER_NAME, props(), EVENT_TRACE_CONTROL_STOP);
         CloseTrace(m_openedHandle);

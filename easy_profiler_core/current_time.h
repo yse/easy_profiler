@@ -1,6 +1,6 @@
 /**
 Lightweight profiler library for c++
-Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 
 Licensed under either of
     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -72,7 +72,9 @@ The Apache License, Version 2.0 (the "License");
 # endif//__ARM_ARCH
 #endif
 
-static inline profiler::timestamp_t getCurrentTime()
+namespace profiler { namespace clock {
+
+static inline profiler::timestamp_t now()
 {
 #if EASY_CHRONO_HIGHRES_CLOCK || EASY_CHRONO_STEADY_CLOCK
     return (profiler::timestamp_t)EASY_CHRONO_CLOCK::now().time_since_epoch().count();
@@ -156,13 +158,13 @@ static inline profiler::timestamp_t getCurrentTime()
       gettimeofday(&tv, nullptr);
       return static_cast<int64_t>(tv.tv_sec) * 1000000 + tv.tv_usec;
     #else
-      #warning You need to define fast getCurrentTime() for your OS and CPU
+      #warning You need to define fast now() for your OS and CPU
       return std::chrono::high_resolution_clock::now().time_since_epoch().count();
     #define EASY_CHRONO_CLOCK std::chrono::high_resolution_clock
     #endif
 
 #else // not _WIN32, __GNUC__, __ICC
-    #warning You need to define fast getCurrentTime() for your OS and CPU
+    #warning You need to define fast now() for your OS and CPU
     return std::chrono::high_resolution_clock::now().time_since_epoch().count();
     #define EASY_CHRONO_CLOCK std::chrono::high_resolution_clock
 #endif
@@ -170,5 +172,6 @@ static inline profiler::timestamp_t getCurrentTime()
 #endif
 }
 
+} } // end of namespace profiler::clock.
 
 #endif // EASY_PROFILER_CURRENT_TIME_H

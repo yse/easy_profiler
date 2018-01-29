@@ -17,7 +17,7 @@ protected:
 
     QRectF      m_boundingRect;
     QImage             m_image;
-    Timer m_boundaryTimer;
+    Timer      m_boundaryTimer;
     ThreadPoolTask    m_worker;
     QPointF         m_mousePos;
     QImage*      m_workerImage;

@@ -18,7 +18,7 @@ BEGIN
             VALUE "CompanyName", "EasySolutions"
             VALUE "FileDescription", "EasyProfiler"
             VALUE "InternalName", "profiler_gui"
-            VALUE "LegalCopyright", "Copyright (C) 2016-2017 Victor Zarubkin, Sergey Yagovtsev"
+            VALUE "LegalCopyright", "Copyright (C) 2016-2018 Victor Zarubkin, Sergey Yagovtsev"
             VALUE "LegalTrademarks1", "All Rights Reserved"
             VALUE "LegalTrademarks2", "All Rights Reserved"
             VALUE "OriginalFilename", "profiler_gui.exe"
