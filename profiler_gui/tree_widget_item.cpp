@@ -338,18 +338,20 @@ void TreeWidgetItem::setBold(bool _bold)
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyItemDelegate::EasyItemDelegate(QTreeWidget* parent) : QStyledItemDelegate(parent), m_treeWidget(parent)
+TreeWidgetItemDelegate::TreeWidgetItemDelegate(QTreeWidget* parent) : QStyledItemDelegate(parent), m_treeWidget(parent)
 {
 
 }
 
-EasyItemDelegate::~EasyItemDelegate()
+TreeWidgetItemDelegate::~TreeWidgetItemDelegate()
 {
 
 }
 
-void EasyItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const
+void TreeWidgetItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
+    const auto colorBlockSize = option.rect.height() >> 1;
+
     auto brushData = m_treeWidget->model()->data(index, BlockColorRole);
     if (brushData.isNull())
     {
@@ -361,7 +363,7 @@ void EasyItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
             painter->save();
             painter->setBrush(QColor::fromRgba(0xCC98DE98));
             painter->setPen(Qt::NoPen);
-            painter->drawRect(QRect(0, option.rect.top(), option.rect.left() + 16, option.rect.height()));
+            painter->drawRect(QRect(0, option.rect.top(), option.rect.left() + colorBlockSize, option.rect.height()));
             painter->restore();
         }
 #endif
@@ -394,9 +396,9 @@ void EasyItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
         painter->setPen(Qt::NoPen);
 
 #ifdef _WIN32
-        painter->drawRect(QRect(0, option.rect.top(), option.rect.left() + 16, option.rect.height()));
+        painter->drawRect(QRect(0, option.rect.top(), option.rect.left() + colorBlockSize, option.rect.height()));
 #else
-        painter->drawRect(QRect(option.rect.left(), option.rect.top(), 16, option.rect.height()));
+        painter->drawRect(QRect(option.rect.left(), option.rect.top(), colorBlockSize, option.rect.height()));
 #endif
 
         painter->restore();
@@ -404,10 +406,12 @@ void EasyItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
 
     // Adjust rect size for drawing color marker
     QStyleOptionViewItem opt = option;
-    opt.rect.adjust(16, 0, 0, 0);
+    opt.rect.adjust(colorBlockSize, 0, 0, 0);
 
     // Draw item as usual
     QStyledItemDelegate::paint(painter, opt, index);
+
+    const auto colorBlockRest = option.rect.height() - colorBlockSize;
 
     painter->save();
 
@@ -415,7 +419,8 @@ void EasyItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
     const auto brush = m_treeWidget->model()->data(index, Qt::UserRole + 1).value<QBrush>();
     painter->setBrush(brush);
     painter->setPen(profiler_gui::SYSTEM_BORDER_COLOR);
-    painter->drawRect(QRect(option.rect.left(), option.rect.top() + 5, 16, option.rect.height() - 10));
+    painter->drawRect(QRect(option.rect.left(), option.rect.top() + (colorBlockRest >> 1),
+                            colorBlockSize, option.rect.height() - colorBlockRest));
 
     // Draw line under tree indicator
     const auto bottomLeft = opt.rect.bottomLeft();

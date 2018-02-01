@@ -91,8 +91,6 @@ const qreal MIN_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT_INV, 70); // Up 
 const qreal MAX_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT, 45); // ~23000 --- Up to 10 ns scale
 const qreal BASE_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT_INV, 25); // ~0.003
 
-EASY_CONSTEXPR uint16_t TIMELINE_ROW_SIZE = 24;
-
 EASY_CONSTEXPR QRgb BACKGROUND_1 = 0xffe4e4ec;
 EASY_CONSTEXPR QRgb BACKGROUND_2 = ::profiler::colors::White;
 EASY_CONSTEXPR QRgb TIMELINE_BACKGROUND = 0x20000000 | (::profiler::colors::Grey800 & 0x00ffffff);// 0x20303030;
@@ -140,7 +138,7 @@ void BackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
     const auto h = visibleSceneRect.height();
     const auto visibleBottom = h - 1;
     const auto borderColor = QColor::fromRgb(TIMELINE_BORDER);
-    const auto textShiftY = h + TIMELINE_ROW_SIZE - 5;
+    const auto textShiftY = h + EASY_GLOBALS.size.timeline_height - 5;
 
     QRectF rect;
 
@@ -150,7 +148,7 @@ void BackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
     const auto& items = sceneView->getItems();
     if (!items.empty())
     {
-        static const uint16_t OVERLAP = ::profiler_gui::THREADS_ROW_SPACING >> 1;
+        const auto overlap = EASY_GLOBALS.size.threads_row_spacing >> 1;
         static const QBrush brushes[2] = {QColor::fromRgb(BACKGROUND_1), QColor::fromRgb(BACKGROUND_2)};
         int i = -1;
 
@@ -172,7 +170,7 @@ void BackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
             else
                 _painter->setBrush(brushes[i & 1]);
 
-            rect.setRect(0, top - OVERLAP, visibleSceneRect.width(), br.height() + ::profiler_gui::THREADS_ROW_SPACING);
+            rect.setRect(0, top - overlap, visibleSceneRect.width(), br.height() + EASY_GLOBALS.size.threads_row_spacing);
             const auto dh = rect.bottom() - visibleBottom;
             if (dh > 0)
                 rect.setHeight(rect.height() - dh);
@@ -206,7 +204,7 @@ void BackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
     const auto textWidth = QFontMetricsF(_painter->font(), sceneView).width(QString::number(static_cast<quint64>(0.5 + first_x * factor))) * ::profiler_gui::FONT_METRICS_FACTOR + 10;
     const int n = 1 + static_cast<int>(textWidth / step);
     int next = first % n;
-    if (next)
+    if (next != 0)
         next = n - next;
 
     first_x *= currentScale;
@@ -275,7 +273,7 @@ void TimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGraphics
     _painter->drawLine(QLineF(visibleSceneRect.width() - 10, visibleSceneRect.height() - 6, visibleSceneRect.width() - 10, visibleSceneRect.height() - 14));
 
     _painter->setPen(Qt::black);
-    _painter->setFont(EASY_GLOBALS.bg_font);
+    _painter->setFont(EASY_GLOBALS.font.background);
     _painter->drawText(QRectF(visibleSceneRect.width() - 10 - step, visibleSceneRect.height() - 63, step, 50), Qt::AlignRight | Qt::AlignBottom | Qt::TextDontClip, text);
 
     _painter->restore();
@@ -507,9 +505,12 @@ void BlocksGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocks
         return _a.thread_name < _b.thread_name;
     });
 
+    const auto row_height = EASY_GLOBALS.size.graphics_row_height;
+    const auto threads_spacing = EASY_GLOBALS.size.threads_row_spacing;
+
     // Filling scene with items
     m_items.reserve(_blocksTree.size());
-    qreal y = TIMELINE_ROW_SIZE;
+    qreal y = EASY_GLOBALS.size.timeline_height;
     const BlocksGraphicsItem *longestItem = nullptr, *mainThreadItem = nullptr;
     for (const ::profiler::BlocksTreeRoot& t : sorted_roots)
     {
@@ -543,14 +544,14 @@ void BlocksGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocks
         {
             if (!t.sync.empty())
                 children_duration = time2position(easyBlocksTree(t.sync.back()).node->end()) - x;
-            h = ::profiler_gui::GRAPHICS_ROW_SIZE;
+            h = EASY_GLOBALS.size.graphics_row_height;
         }
 
         item->setBoundingRect(0, 0, children_duration + x, h);
         m_items.push_back(item);
         scene()->addItem(item);
 
-        y += h + ::profiler_gui::THREADS_ROW_SPACING;
+        y += h + EASY_GLOBALS.size.threads_row_spacing;
 
         if (longestTree == t.thread_id)
             longestItem = item;
@@ -561,7 +562,7 @@ void BlocksGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocks
 
     // Calculating scene rect
     m_sceneWidth = time2position(finish);
-    setSceneRect(0, 0, m_sceneWidth, y + TIMELINE_ROW_SIZE);
+    setSceneRect(0, 0, m_sceneWidth, y + EASY_GLOBALS.size.timeline_height);
     EASY_GLOBALS.scene.empty = false;
 
     // Center view on the beginning of the scene
@@ -680,7 +681,8 @@ qreal BlocksGraphicsView::setTree(BlocksGraphicsItem* _item, const ::profiler::B
 
         if (next_level < 256)
         {
-            children_duration = setTree(_item, child.children, h, maxDepthChild, _y + ::profiler_gui::GRAPHICS_ROW_SIZE_FULL, next_level);
+            children_duration = setTree(_item, child.children, h, maxDepthChild,
+                                        _y + EASY_GLOBALS.size.graphics_row_full, next_level);
         }
         else if (!child.children.empty() && !warned)
         {
@@ -716,7 +718,7 @@ qreal BlocksGraphicsView::setTree(BlocksGraphicsItem* _item, const ::profiler::B
         ++j;
     }
 
-    _height += ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + maxh;
+    _height += EASY_GLOBALS.size.graphics_row_full + maxh;
 
     return total_duration;
 }
@@ -758,7 +760,7 @@ int BlocksGraphicsView::updateVisibleSceneRect()
         vbar_width = vbar->width() + 2;
 
     m_visibleSceneRect.setWidth(m_visibleSceneRect.width() - vbar_width);
-    m_visibleSceneRect.setHeight(m_visibleSceneRect.height() - TIMELINE_ROW_SIZE);
+    m_visibleSceneRect.setHeight(m_visibleSceneRect.height() - EASY_GLOBALS.size.timeline_height);
 
     return vbar_width;
 }
@@ -2053,7 +2055,7 @@ void BlocksGraphicsView::onRefreshRequired()
 DiagramWidget::DiagramWidget(QWidget* _parent)
     : QWidget(_parent)
     , m_splitter(new QSplitter(Qt::Vertical, this))
-    , m_scrollbar(new BlocksGraphicsScrollbar(85 + (QFontMetrics(font()).height() << 1), this))
+    , m_scrollbar(new BlocksGraphicsScrollbar(px(85) + 2 + (EASY_GLOBALS.size.font_height << 1), this))
     , m_view(new BlocksGraphicsView(this))
     , m_threadNamesWidget(new ThreadNamesWidget(m_view, m_scrollbar->height(), this))
 {
@@ -2124,10 +2126,10 @@ void ThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
         return;
 
     const auto visibleSceneRect = view->visibleSceneRect();
-    const auto h = visibleSceneRect.height() + TIMELINE_ROW_SIZE - 2;
+    const auto h = visibleSceneRect.height() + EASY_GLOBALS.size.timeline_height - 2;
     const auto w = parentView->width();//parentView->sceneRect().width();
 
-    EASY_STATIC_CONSTEXPR uint16_t OVERLAP = ::profiler_gui::THREADS_ROW_SPACING >> 1;
+    const auto overlap = EASY_GLOBALS.size.threads_row_spacing >> 1;
     static const QBrush brushes[2] = {QColor::fromRgb(BACKGROUND_1), QColor::fromRgb(BACKGROUND_2)};
     int i = -1;
 
@@ -2137,14 +2139,14 @@ void ThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
 
     // Draw thread names
     auto default_font = _painter->font();
-    _painter->setFont(EASY_GLOBALS.bg_font);
+    _painter->setFont(EASY_GLOBALS.font.background);
     for (auto item : items)
     {
         ++i;
 
         auto br = item->boundingRect();
-        auto top = item->y() + br.top() - visibleSceneRect.top() - OVERLAP;
-        auto hgt = br.height() + ::profiler_gui::THREADS_ROW_SPACING;
+        auto top = item->y() + br.top() - visibleSceneRect.top() - overlap;
+        auto hgt = br.height() + EASY_GLOBALS.size.threads_row_spacing;
         auto bottom = top + hgt;
 
         if (top > h || bottom < 0)
@@ -2195,8 +2197,8 @@ void ThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
     _painter->drawLine(QLineF(0, h + 2, w, h + 2));
 
     // Draw information
-    _painter->setFont(EASY_GLOBALS.chronometer_font);
-    QFontMetricsF fm(EASY_GLOBALS.chronometer_font, parentView);
+    _painter->setFont(EASY_GLOBALS.font.ruler);
+    QFontMetricsF fm(EASY_GLOBALS.font.ruler, parentView);
     const qreal th = fm.height(); // Calculate displayed text height
     const qreal time1 = view->chronoTime();
     const qreal time2 = view->chronoTimeAux();
@@ -2297,7 +2299,7 @@ void ThreadNamesWidget::onTreeChange()
     m_idleTimer.stop();
     m_idleTime = 0;
 
-    QFontMetricsF fm(EASY_GLOBALS.bg_font, this);
+    QFontMetricsF fm(EASY_GLOBALS.font.background, this);
     qreal maxLength = 100;
     const auto& graphicsItems = m_view->getItems();
     for (auto graphicsItem : graphicsItems)
@@ -2326,8 +2328,6 @@ void ThreadNamesWidget::onTreeChange()
 
 void ThreadNamesWidget::onIdleTimeout()
 {
-    static const uint16_t OVERLAP = ::profiler_gui::THREADS_ROW_SPACING >> 1;
-
     m_idleTime += IDLE_TIMER_INTERVAL;
 
     if (m_idleTime < IDLE_TIME)
@@ -2376,12 +2376,14 @@ void ThreadNamesWidget::onIdleTimeout()
         return;
     }
 
+    const auto overlap = EASY_GLOBALS.size.threads_row_spacing >> 1;
+
     BlocksGraphicsItem* intersectingItem = nullptr;
     for (auto item : items)
     {
         auto br = item->boundingRect();
-        auto top = item->y() + br.top() - visibleSceneRect.top() - OVERLAP;
-        auto hgt = br.height() + ::profiler_gui::THREADS_ROW_SPACING;
+        auto top = item->y() + br.top() - visibleSceneRect.top() - overlap;
+        auto hgt = br.height() + EASY_GLOBALS.size.threads_row_spacing;
         auto bottom = top + hgt;
 
         if (bottom < y || y < top)
@@ -2422,7 +2424,7 @@ void ThreadNamesWidget::onIdleTimeout()
         ++row;
 
         lay->addWidget(new QLabel("Profiled:", widget), row, 0, Qt::AlignRight);
-        if (duration)
+        if (duration != 0)
         {
             lay->addWidget(new QLabel(QString("%1 (%2%)").arg(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, root.profiled_time, 3))
                 .arg(QString::number(100. * (double)root.profiled_time / (double)duration, 'f', 2)), widget), row, 1, Qt::AlignLeft);
@@ -2434,7 +2436,7 @@ void ThreadNamesWidget::onIdleTimeout()
         ++row;
 
         lay->addWidget(new QLabel("Wait:", widget), row, 0, Qt::AlignRight);
-        if (duration)
+        if (duration != 0)
         {
             lay->addWidget(new QLabel(QString("%1 (%2%)").arg(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, root.wait_time, 3))
                 .arg(QString::number(100. * (double)root.wait_time / (double)duration, 'f', 2)), widget), row, 1, Qt::AlignLeft);
@@ -2506,7 +2508,7 @@ void ThreadNamesWidget::mousePressEvent(QMouseEvent* _event)
 
 void ThreadNamesWidget::mouseDoubleClickEvent(QMouseEvent* _event)
 {
-    static const auto OVERLAP = ::profiler_gui::THREADS_ROW_SPACING >> 1;
+    const auto overlap = EASY_GLOBALS.size.threads_row_spacing >> 1;
 
     m_idleTime = 0;
 
@@ -2515,8 +2517,8 @@ void ThreadNamesWidget::mouseDoubleClickEvent(QMouseEvent* _event)
     for (auto item : items)
     {
         auto br = item->boundingRect();
-        auto top = item->y() + br.top() - OVERLAP;
-        auto bottom = top + br.height() + OVERLAP;
+        auto top = item->y() + br.top() - overlap;
+        auto bottom = top + br.height() + overlap;
 
         if (y < top || y > bottom)
             continue;

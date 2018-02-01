@@ -73,6 +73,7 @@
 #include <QSettings>
 #include <QTextCodec>
 #include <QFont>
+#include <QFontMetricsF>
 #include <QProgressDialog>
 #include <QSignalBlocker>
 #include <QDebug>
@@ -152,30 +153,26 @@ inline void loadTheme(const QString& _theme)
         QTextStream in(&file);
         QString style = in.readAll();
         if (!style.isEmpty())
+        {
             qApp->setStyleSheet(style);
+        }
     }
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyDockWidget::EasyDockWidget(const QString& title, QWidget* parent) : QDockWidget(title, parent)
+DockWidget::DockWidget(const QString& title, QWidget* parent)
+    : QDockWidget(title, parent)
+    , m_floatingButton(new QPushButton())
 {
-    auto floatingButton = new QPushButton();
-    floatingButton->setObjectName("EasyDockWidgetFloatButton");
-    floatingButton->setProperty("floating", isFloating());
-    connect(floatingButton, &QPushButton::clicked, [this, floatingButton] {
-        setFloating(!isFloating());
-        floatingButton->setProperty("floating", isFloating());
-        floatingButton->style()->unpolish(floatingButton);
-        floatingButton->style()->polish(floatingButton);
-        floatingButton->update();
-    });
+    m_floatingButton->setObjectName("EasyDockWidgetFloatButton");
+    m_floatingButton->setProperty("floating", isFloating());
+    connect(m_floatingButton, &QPushButton::clicked, this, &DockWidget::toggleState);
+    connect(this, &QDockWidget::topLevelChanged, this, &DockWidget::onTopLevelChanged);
 
     auto closeButton = new QPushButton();
     closeButton->setObjectName("EasyDockWidgetCloseButton");
-    connect(closeButton, &QPushButton::clicked, [this] {
-        close();
-    });
+    connect(closeButton, &QPushButton::clicked, this, &DockWidget::close);
 
     auto caption = new QWidget(this);
     caption->setObjectName("EasyDockWidgetTitle");
@@ -185,14 +182,66 @@ EasyDockWidget::EasyDockWidget(const QString& title, QWidget* parent) : QDockWid
     lay->setSpacing(2);
     lay->addWidget(new QLabel(title));
     lay->addStretch(100);
-    lay->addWidget(floatingButton);
+    lay->addWidget(m_floatingButton);
     lay->addWidget(closeButton);
 
     setTitleBarWidget(caption);
 }
 
-EasyDockWidget::~EasyDockWidget()
+DockWidget::~DockWidget()
 {
+}
+
+void DockWidget::toggleState()
+{
+    setFloating(!isFloating());
+}
+
+void DockWidget::onTopLevelChanged()
+{
+    m_floatingButton->setProperty("floating", isFloating());
+    m_floatingButton->style()->unpolish(m_floatingButton);
+    m_floatingButton->style()->polish(m_floatingButton);
+    m_floatingButton->update();
+}
+
+void MainWindow::configureSizes()
+{
+    QWidget w(this);
+    w.show(); // All sizes (font() size for example) become valid only after show()
+
+    auto& size = EASY_GLOBALS.size;
+    size.pixelRatio = qApp->devicePixelRatio();
+    size.font_height = static_cast<int>(QFontMetricsF(w.font()).height() + 0.5);
+    size.graphics_row_height = size.font_height + px(4);
+    size.graphics_row_spacing = 0;
+    size.graphics_row_full = size.graphics_row_height;
+    size.threads_row_spacing = size.graphics_row_full >> 1;
+    size.timeline_height = size.font_height + px(9);
+    size.icon_size = size.font_height + px(11);
+
+    const auto fontFamily = w.font().family();
+    const auto pixelSize = w.font().pixelSize();
+    const auto updateFont = [&fontFamily, pixelSize] (QFont& font)
+    {
+        font.setFamily(fontFamily);
+        font.setPixelSize(pixelSize);
+    };
+
+    auto& fonts = EASY_GLOBALS.font;
+    updateFont(fonts.background);
+    updateFont(fonts.item);
+    updateFont(fonts.selected_item);
+    fonts.ruler.setFamily(fontFamily);
+
+    printf("Viewport info:\n");
+    printf("- device pixel ratio = %f\n", size.pixelRatio);
+    printf("- font height = %dpx\n", size.font_height);
+    printf("- diagram row = %dpx\n", size.graphics_row_height);
+    printf("- diagram spacing = %dpx\n", size.threads_row_spacing);
+    printf("- icon size = %dx%d px\n", size.icon_size, size.icon_size);
+
+    w.hide();
 }
 
 MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhost"), m_lastPort(::profiler::DEFAULT_PORT)
@@ -203,30 +252,31 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     setWindowTitle(EASY_DEFAULT_WINDOW_TITLE);
     setDockNestingEnabled(true);
     setAcceptDrops(true);
-    resize(800, 600);
     setStatusBar(nullptr);
 
     loadSettings();
     loadTheme(m_theme);
+    configureSizes();
+    resize(px(800), px(600));
 
-    m_graphicsView = new EasyDockWidget("Diagram", this);
+    m_graphicsView = new DockWidget("Diagram", this);
     m_graphicsView->setObjectName("ProfilerGUI_Diagram");
-    m_graphicsView->setMinimumHeight(50);
+    m_graphicsView->setMinimumHeight(px(50));
     m_graphicsView->setAllowedAreas(Qt::AllDockWidgetAreas);
 
     auto graphicsView = new DiagramWidget(this);
     graphicsView->setObjectName("ProfilerGUI_Diagram_GraphicsView");
     m_graphicsView->setWidget(graphicsView);
 
-    m_treeWidget = new EasyDockWidget("Hierarchy", this);
+    m_treeWidget = new DockWidget("Hierarchy", this);
     m_treeWidget->setObjectName("ProfilerGUI_Hierarchy");
-    m_treeWidget->setMinimumHeight(50);
+    m_treeWidget->setMinimumHeight(px(50));
     m_treeWidget->setAllowedAreas(Qt::AllDockWidgetAreas);
 
     auto treeWidget = new HierarchyWidget(this);
     m_treeWidget->setWidget(treeWidget);
 
-    m_fpsViewer = new EasyDockWidget("FPS Monitor", this);
+    m_fpsViewer = new DockWidget("FPS Monitor", this);
     m_fpsViewer->setObjectName("ProfilerGUI_FPS");
     m_fpsViewer->setWidget(new FpsViewerWidget(this));
     m_fpsViewer->setAllowedAreas(Qt::TopDockWidgetArea | Qt::BottomDockWidgetArea);
@@ -237,9 +287,9 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
 
 #if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
     auto descTree = new BlockDescriptorsWidget();
-    m_descTreeWidget = new EasyDockWidget("Blocks");
+    m_descTreeWidget = new DockWidget("Blocks");
     m_descTreeWidget->setObjectName("ProfilerGUI_Blocks");
-    m_descTreeWidget->setMinimumHeight(50);
+    m_descTreeWidget->setMinimumHeight(px(50));
     m_descTreeWidget->setAllowedAreas(Qt::AllDockWidgetAreas);
     m_descTreeWidget->setWidget(descTree);
     addDockWidget(Qt::BottomDockWidgetArea, m_descTreeWidget);
@@ -247,7 +297,7 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
 
 
     auto toolbar = addToolBar("FileToolbar");
-    toolbar->setIconSize(::profiler_gui::ICONS_SIZE);
+    toolbar->setIconSize(applicationIconsSize());
     toolbar->setObjectName("ProfilerGUI_FileToolbar");
     toolbar->setContentsMargins(1, 0, 1, 0);
 
@@ -271,10 +321,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     m_saveAction->setEnabled(false);
     m_deleteAction->setEnabled(false);
 
-
-
     toolbar = addToolBar("ProfileToolbar");
-    toolbar->setIconSize(::profiler_gui::ICONS_SIZE);
+    toolbar->setIconSize(applicationIconsSize());
     toolbar->setObjectName("ProfilerGUI_ProfileToolbar");
     toolbar->setContentsMargins(1, 0, 1, 0);
 
@@ -311,7 +359,7 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
 
 
     toolbar = addToolBar("SetupToolbar");
-    toolbar->setIconSize(::profiler_gui::ICONS_SIZE);
+    toolbar->setIconSize(applicationIconsSize());
     toolbar->setObjectName("ProfilerGUI_SetupToolbar");
     toolbar->setContentsMargins(1, 0, 1, 0);
 
@@ -322,7 +370,7 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     auto menu = new QMenu("Settings", this);
     menu->setToolTipsVisible(true);
 
-    QToolButton* toolButton = new QToolButton(toolbar);
+    auto toolButton = new QToolButton(toolbar);
     toolButton->setIcon(QIcon(imagePath("settings")));
     toolButton->setMenu(menu);
     toolButton->setPopupMode(QToolButton::InstantPopup);
@@ -706,7 +754,7 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
 
     auto tb_height = toolbar->height() + 4;
     toolbar = addToolBar("FrameToolbar");
-    toolbar->setIconSize(::profiler_gui::ICONS_SIZE);
+    toolbar->setIconSize(applicationIconsSize());
     toolbar->setObjectName("ProfilerGUI_FrameToolbar");
     toolbar->setContentsMargins(1, 0, 1, 0);
     toolbar->setMinimumHeight(tb_height);
@@ -2187,7 +2235,7 @@ void MainWindow::onCaptureClicked(bool)
     auto button = new QToolButton(m_listenerDialog);
     button->setAutoRaise(true);
     button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-    button->setIconSize(::profiler_gui::ICONS_SIZE);
+    button->setIconSize(applicationIconsSize());
     button->setIcon(QIcon(imagePath("stop")));
     button->setText("Stop");
     m_listenerDialog->addButton(button, QMessageBox::AcceptRole);
@@ -2373,7 +2421,7 @@ void DialogWithGeometry::restoreGeometry()
 
 //////////////////////////////////////////////////////////////////////////
 
-EasySocketListener::EasySocketListener() : m_receivedSize(0), m_port(0), m_regime(ListenerRegime::Idle)
+SocketListener::SocketListener() : m_receivedSize(0), m_port(0), m_regime(ListenerRegime::Idle)
 {
     m_bInterrupt = ATOMIC_VAR_INIT(false);
     m_bConnected = ATOMIC_VAR_INIT(false);
@@ -2384,55 +2432,55 @@ EasySocketListener::EasySocketListener() : m_receivedSize(0), m_port(0), m_regim
     m_frameAvg = ATOMIC_VAR_INIT(0);
 }
 
-EasySocketListener::~EasySocketListener()
+SocketListener::~SocketListener()
 {
     m_bInterrupt.store(true, std::memory_order_release);
     if (m_thread.joinable())
         m_thread.join();
 }
 
-bool EasySocketListener::connected() const
+bool SocketListener::connected() const
 {
     return m_bConnected.load(std::memory_order_acquire);
 }
 
-bool EasySocketListener::captured() const
+bool SocketListener::captured() const
 {
     return m_bCaptureReady.load(std::memory_order_acquire);
 }
 
-ListenerRegime EasySocketListener::regime() const
+ListenerRegime SocketListener::regime() const
 {
     return m_regime;
 }
 
-uint64_t EasySocketListener::size() const
+uint64_t SocketListener::size() const
 {
     return m_receivedSize;
 }
 
-std::stringstream& EasySocketListener::data()
+std::stringstream& SocketListener::data()
 {
     return m_receivedData;
 }
 
-const std::string& EasySocketListener::address() const
+const std::string& SocketListener::address() const
 {
     return m_address;
 }
 
-uint16_t EasySocketListener::port() const
+uint16_t SocketListener::port() const
 {
     return m_port;
 }
 
-void EasySocketListener::clearData()
+void SocketListener::clearData()
 {
     clear_stream(m_receivedData);
     m_receivedSize = 0;
 }
 
-void EasySocketListener::disconnect()
+void SocketListener::disconnect()
 {
     if (connected())
     {
@@ -2452,13 +2500,13 @@ void EasySocketListener::disconnect()
     closeSocket();
 }
 
-void EasySocketListener::closeSocket()
+void SocketListener::closeSocket()
 {
     m_easySocket.flush();
     m_easySocket.init();
 }
 
-bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profiler::net::EasyProfilerStatus& _reply, bool _disconnectFirst)
+bool SocketListener::connect(const char* _ipaddress, uint16_t _port, profiler::net::EasyProfilerStatus& _reply, bool _disconnectFirst)
 {
     if (connected())
     {
@@ -2538,12 +2586,12 @@ bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profile
     return isConnected;
 }
 
-bool EasySocketListener::reconnect(const char* _ipaddress, uint16_t _port, ::profiler::net::EasyProfilerStatus& _reply)
+bool SocketListener::reconnect(const char* _ipaddress, uint16_t _port, ::profiler::net::EasyProfilerStatus& _reply)
 {
     return connect(_ipaddress, _port, _reply, true);
 }
 
-bool EasySocketListener::startCapture()
+bool SocketListener::startCapture()
 {
     //if (m_thread.joinable())
     //{
@@ -2564,12 +2612,12 @@ bool EasySocketListener::startCapture()
 
     m_regime = ListenerRegime::Capture;
     m_bCaptureReady.store(false, std::memory_order_release);
-    //m_thread = std::thread(&EasySocketListener::listenCapture, this);
+    //m_thread = std::thread(&SocketListener::listenCapture, this);
 
     return true;
 }
 
-void EasySocketListener::stopCapture()
+void SocketListener::stopCapture()
 {
     //if (!m_thread.joinable() || m_regime != ListenerRegime::Capture)
     //    return;
@@ -2599,13 +2647,13 @@ void EasySocketListener::stopCapture()
         m_bInterrupt.store(false, std::memory_order_release);
     }
 
-    m_thread = std::thread(&EasySocketListener::listenCapture, this);
+    m_thread = std::thread(&SocketListener::listenCapture, this);
 
     //m_regime = ListenerRegime::Idle;
     //m_bStopReceive.store(false, std::memory_order_release);
 }
 
-void EasySocketListener::finalizeCapture()
+void SocketListener::finalizeCapture()
 {
     if (m_thread.joinable())
     {
@@ -2619,7 +2667,7 @@ void EasySocketListener::finalizeCapture()
     m_bStopReceive.store(false, std::memory_order_release);
 }
 
-void EasySocketListener::requestBlocksDescription()
+void SocketListener::requestBlocksDescription()
 {
     if (m_thread.joinable())
     {
@@ -2642,7 +2690,7 @@ void EasySocketListener::requestBlocksDescription()
     m_regime = ListenerRegime::Idle;
 }
 
-bool EasySocketListener::frameTime(uint32_t& _maxTime, uint32_t& _avgTime)
+bool SocketListener::frameTime(uint32_t& _maxTime, uint32_t& _avgTime)
 {
     if (m_bFrameTimeReady.exchange(false, std::memory_order_acquire))
     {
@@ -2654,7 +2702,7 @@ bool EasySocketListener::frameTime(uint32_t& _maxTime, uint32_t& _avgTime)
     return false;
 }
 
-bool EasySocketListener::requestFrameTime()
+bool SocketListener::requestFrameTime()
 {
     if (m_regime != ListenerRegime::Idle && m_regime != ListenerRegime::Capture)
         return false;
@@ -2676,14 +2724,14 @@ bool EasySocketListener::requestFrameTime()
     }
 
     m_bFrameTimeReady.store(false, std::memory_order_release);
-    m_thread = std::thread(&EasySocketListener::listenFrameTime, this);
+    m_thread = std::thread(&SocketListener::listenFrameTime, this);
 
     return true;
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasySocketListener::listenCapture()
+void SocketListener::listenCapture()
 {
     EASY_STATIC_CONSTEXPR int buffer_size = 8 * 1024 * 1024;
 
@@ -2849,7 +2897,7 @@ void EasySocketListener::listenCapture()
     m_bCaptureReady.store(true, std::memory_order_release);
 }
 
-void EasySocketListener::listenDescription()
+void SocketListener::listenDescription()
 {
     EASY_STATIC_CONSTEXPR int buffer_size = 8 * 1024 * 1024;
 
@@ -2980,7 +3028,7 @@ void EasySocketListener::listenDescription()
     delete[] buffer;
 }
 
-void EasySocketListener::listenFrameTime()
+void SocketListener::listenFrameTime()
 {
     EASY_STATIC_CONSTEXPR size_t buffer_size = sizeof(::profiler::net::TimestampMessage) << 2;
 

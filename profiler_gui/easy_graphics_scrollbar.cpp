@@ -173,10 +173,10 @@ void GraphicsHistogramItem::paintByPtr(QPainter* _painter)
 
     qreal top_width = width, bottom_width = width;
     const auto font_h = widget->fontHeight();
-    rect.setRect(0, m_boundingRect.top() - widget->margin(), width - 3, m_boundingRect.height() + widget->margins());
+    rect.setRect(0, m_boundingRect.top() - widget->margin(), width - 3, font_h);
 
     _painter->setPen(profiler_gui::TEXT_COLOR);
-    _painter->drawText(rect, Qt::AlignLeft | Qt::AlignTop, bindMode ? " Mode: Zoom" : " Mode: Overview");
+    _painter->drawText(rect, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextDontClip, bindMode ? " Mode: Zoom" : " Mode: Overview");
 
     if (!m_topDurationStr.isEmpty())
     {
@@ -191,11 +191,11 @@ void GraphicsHistogramItem::paintByPtr(QPainter* _painter)
         //top_width -= fm.width(m_topDurationStr) + 7;
 
         _painter->setPen(m_topValue < m_maxValue ? QColor(Qt::darkRed) : profiler_gui::TEXT_COLOR);
-        _painter->drawText(rect, Qt::AlignRight | Qt::AlignTop, m_topDurationStr);
+        _painter->drawText(rect, Qt::AlignRight | Qt::AlignVCenter | Qt::TextDontClip, m_topDurationStr);
 
-        rect.setRect(0, bottom, width - 3, font_h);
+        rect.setRect(0, bottom + 2, width - 3, font_h);
         _painter->setPen(m_bottomValue > m_minValue ? QColor(Qt::darkRed) : profiler_gui::TEXT_COLOR);
-        _painter->drawText(rect, Qt::AlignRight | Qt::AlignTop, m_bottomDurationStr);
+        _painter->drawText(rect, Qt::AlignRight | Qt::AlignVCenter | Qt::TextDontClip, m_bottomDurationStr);
     }
 
     _painter->setPen(Qt::darkGray);
@@ -265,10 +265,10 @@ void GraphicsHistogramItem::paintById(QPainter* _painter)
 
     qreal top_width = width, bottom_width = width;
     const auto font_h = widget->fontHeight();
-    rect.setRect(0, m_boundingRect.top() - widget->margin(), width - 3, m_boundingRect.height() + widget->margins());
+    rect.setRect(0, m_boundingRect.top() - widget->margin(), width - 3, font_h);
 
     _painter->setPen(profiler_gui::TEXT_COLOR);
-    _painter->drawText(rect, Qt::AlignLeft | Qt::AlignTop, bindMode ? " Mode: Zoom" : " Mode: Overview");
+    _painter->drawText(rect, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextDontClip, bindMode ? " Mode: Zoom" : " Mode: Overview");
 
     if (!m_topDurationStr.isEmpty())
     {
@@ -283,11 +283,11 @@ void GraphicsHistogramItem::paintById(QPainter* _painter)
         //top_width -= fm.width(m_topDurationStr) + 7;
 
         _painter->setPen(m_topValue < m_maxValue ? QColor(Qt::darkRed) : profiler_gui::TEXT_COLOR);
-        _painter->drawText(rect, Qt::AlignRight | Qt::AlignTop, m_topDurationStr);
+        _painter->drawText(rect, Qt::AlignRight | Qt::AlignVCenter | Qt::TextDontClip, m_topDurationStr);
 
-        rect.setRect(0, bottom, width - 3, font_h);
+        rect.setRect(0, bottom + 20, width - 3, font_h);
         _painter->setPen(m_bottomValue > m_minValue ? QColor(Qt::darkRed) : profiler_gui::TEXT_COLOR);
-        _painter->drawText(rect, Qt::AlignRight | Qt::AlignTop, m_bottomDurationStr);
+        _painter->drawText(rect, Qt::AlignRight | Qt::AlignVCenter | Qt::TextDontClip, m_bottomDurationStr);
     }
 
     _painter->setPen(Qt::darkGray);

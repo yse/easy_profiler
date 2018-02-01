@@ -150,7 +150,7 @@ void GraphicsRulerItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem
     selectedInterval = units2microseconds(selectedInterval);
 
     const QString text = ::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, selectedInterval); // Displayed text
-    const auto textRect = QFontMetricsF(EASY_GLOBALS.chronometer_font, sceneView).boundingRect(text); // Calculate displayed text boundingRect
+    const auto textRect = QFontMetricsF(EASY_GLOBALS.font.ruler, sceneView).boundingRect(text); // Calculate displayed text boundingRect
     const auto rgb = m_color.rgb() & 0x00ffffff;
 
 
@@ -237,7 +237,7 @@ void GraphicsRulerItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem
     _painter->setCompositionMode(QPainter::CompositionMode_Difference); // This lets the text to be visible on every background
     _painter->setRenderHint(QPainter::TextAntialiasing);
     _painter->setPen(0x00ffffff - rgb);
-    _painter->setFont(EASY_GLOBALS.chronometer_font);
+    _painter->setFont(EASY_GLOBALS.font.ruler);
 
     int textFlags = 0;
     switch (EASY_GLOBALS.chrono_text_position)

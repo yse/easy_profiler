@@ -269,12 +269,12 @@ QHeaderView::section {
   background: #eeeeee; }
 
 /* ****************************************************************************************************************** */
-EasyDockWidget QWidget#EasyDockWidgetTitle {
+DockWidget QWidget#EasyDockWidgetTitle {
   background-color: #686464; }
-  EasyDockWidget QWidget#EasyDockWidgetTitle QLabel {
+  DockWidget QWidget#EasyDockWidgetTitle QLabel {
     color: white;
     margin-left: 4px; }
-  EasyDockWidget QWidget#EasyDockWidgetTitle QPushButton {
+  DockWidget QWidget#EasyDockWidgetTitle QPushButton {
     background: none;
     border: none;
     max-height: 12px;
@@ -282,23 +282,23 @@ EasyDockWidget QWidget#EasyDockWidgetTitle {
     max-width: 12px;
     margin-right: 4px;
     padding: 0; }
-  EasyDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton {
+  DockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton {
     image: url(":/images/default/dock-maximize-white"); }
-  EasyDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton:hover {
+  DockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton:hover {
     image: url(":/images/default/dock-maximize-white-hover"); }
-  EasyDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton:pressed {
+  DockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton:pressed {
     image: url(":/images/default/dock-maximize-white-pressed"); }
-  EasyDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton[floating=true] {
+  DockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton[floating=true] {
     image: url(":/images/default/dock-minimize-white"); }
-  EasyDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton[floating=true]:hover {
+  DockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton[floating=true]:hover {
     image: url(":/images/default/dock-minimize-white-hover"); }
-  EasyDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton[floating=true]:pressed {
+  DockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetFloatButton[floating=true]:pressed {
     image: url(":/images/default/dock-minimize-white-pressed"); }
-  EasyDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetCloseButton {
+  DockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetCloseButton {
     image: url(":/images/default/dock-close-white"); }
-  EasyDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetCloseButton:hover {
+  DockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetCloseButton:hover {
     image: url(":/images/default/dock-close-white-hover"); }
-  EasyDockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetCloseButton:pressed {
+  DockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetCloseButton:pressed {
     image: url(":/images/default/dock-close-white-pressed"); }
 
 /* ****************************************************************************************************************** */

@@ -52,9 +52,7 @@
 *                   : limitations under the License.
 ************************************************************************/
 
-#define IGNORE_GLOBALS_DECLARATION
 #include "globals.h"
-#undef IGNORE_GLOBALS_DECLARATION
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
@@ -69,12 +67,17 @@ namespace profiler_gui {
         return globals;
     }
 
+    Globals::Fonts::Fonts()
+        : background(::profiler_gui::EFont("DejaVu Sans", 13, QFont::Bold))
+        , ruler(::profiler_gui::EFont("DejaVu Sans", 16, QFont::Bold))
+        , item(::profiler_gui::EFont("DejaVu Sans", 13, QFont::Medium))
+        , selected_item(::profiler_gui::EFont("DejaVu Sans", 13, QFont::Medium))
+    {
+
+    }
+
     Globals::Globals()
         : theme("default")
-        , bg_font(::profiler_gui::EFont("DejaVu Sans", 10, QFont::Bold))
-        , chronometer_font(::profiler_gui::EFont("DejaVu Sans", 16, QFont::Bold))
-        , items_font(::profiler_gui::EFont("DejaVu Sans", 10, QFont::Medium))
-        , selected_item_font(::profiler_gui::EFont("DejaVu Sans", 10, QFont::Medium))
         , begin_time(0)
         , selected_thread(0U)
         , selected_block(::profiler_gui::numeric_max<decltype(selected_block)>())

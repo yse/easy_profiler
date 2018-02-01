@@ -264,7 +264,7 @@ BlocksTreeWidget::BlocksTreeWidget(QWidget* _parent)
 
     QTimer::singleShot(1500, this, &This::alignProgressBar);
 
-    setItemDelegateForColumn(0, new EasyItemDelegate(this));
+    setItemDelegateForColumn(0, new TreeWidgetItemDelegate(this));
 }
 
 BlocksTreeWidget::~BlocksTreeWidget()
@@ -1139,7 +1139,7 @@ HierarchyWidget::HierarchyWidget(QWidget* _parent) : Parent(_parent)
     menu->addAction(a);
 
     auto tb = new QToolBar(this);
-    tb->setIconSize(profiler_gui::ICONS_SIZE);
+    tb->setIconSize(applicationIconsSize());
     tb->setContentsMargins(0, 0, 0, 0);
     tb->addAction(m_searchButton);
     tb->addWidget(m_searchBox);

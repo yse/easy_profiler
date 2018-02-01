@@ -785,7 +785,7 @@ BlockDescriptorsWidget::BlockDescriptorsWidget(QWidget* _parent) : Parent(_paren
     m_searchBox->setContentsMargins(5, 0, 0, 0);
 
     auto tb = new QToolBar(this);
-    tb->setIconSize(::profiler_gui::ICONS_SIZE);
+    tb->setIconSize(applicationIconsSize());
     auto refreshButton = tb->addAction(QIcon(imagePath("reload")), tr("Refresh blocks list"));
     refreshButton->setEnabled(EASY_GLOBALS.connected);
     refreshButton->setToolTip(tr("Refresh blocks list.\nConnection needed."));

@@ -75,13 +75,27 @@ enum BlockItemState : int8_t
 EASY_CONSTEXPR int MIN_SYNC_SPACING = 1;
 EASY_CONSTEXPR int MIN_SYNC_SIZE = 3;
 EASY_CONSTEXPR int EVENT_HEIGHT = 4;
-EASY_CONSTEXPR QRgb BORDERS_COLOR = ::profiler::colors::Grey600 & 0x00ffffff;// 0x00686868;
+EASY_CONSTEXPR QRgb BORDERS_COLOR = profiler::colors::Grey600 & 0x00ffffff;// 0x00686868;
 
-inline QRgb selectedItemBorderColor(::profiler::color_t _color) {
-    return ::profiler_gui::isLightColor(_color, 192) ? ::profiler::colors::Black : ::profiler::colors::RichRed;
+inline QRgb selectedItemBorderColor(profiler::color_t _color) {
+    return ::profiler_gui::isLightColor(_color, 192) ? profiler::colors::Black : profiler::colors::RichRed;
 }
 
-const QPen HIGHLIGHTER_PEN = ([]() -> QPen { QPen p(::profiler::colors::Black); p.setStyle(Qt::DotLine); p.setWidth(2); return p; })();
+EASY_FORCE_INLINE void setSelectedFont(QPainter* /*painter*/)
+{
+    // Currently font.selected_item is similar to font.item
+    // so there is no need to change font at all
+    //painter->setFont(EASY_GLOBALS.font.selected_item);
+}
+
+EASY_FORCE_INLINE void restoreItemFont(QPainter* /*painter*/)
+{
+    // Currently font.selected_item is similar to font.item
+    // so there is no need to change font at all
+    //painter->setFont(EASY_GLOBALS.font.item);
+}
+
+const QPen HIGHLIGHTER_PEN = ([]() -> QPen { QPen p(profiler::colors::Black); p.setStyle(Qt::DotLine); p.setWidth(2); return p; })();
 
 #ifdef max
 #undef max
@@ -93,7 +107,7 @@ const QPen HIGHLIGHTER_PEN = ([]() -> QPen { QPen p(::profiler::colors::Black); 
 
 //////////////////////////////////////////////////////////////////////////
 
-BlocksGraphicsItem::BlocksGraphicsItem(uint8_t _index, const::profiler::BlocksTreeRoot& _root)
+BlocksGraphicsItem::BlocksGraphicsItem(uint8_t _index, const profiler::BlocksTreeRoot& _root)
     : QGraphicsItem(nullptr)
     , m_threadName(::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, _root, EASY_GLOBALS.hex_thread_id))
     , m_pRoot(&_root)
@@ -162,7 +176,10 @@ struct EasyPainterInformation EASY_FINAL
 };
 
 #ifdef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
-void BlocksGraphicsItem::paintChildren(const float _minWidth, const int _narrowSizeHalf, const uint8_t _levelsNumber, QPainter* _painter, struct EasyPainterInformation& p, ::profiler_gui::EasyBlockItem& _item, const ::profiler_gui::EasyBlock& _itemBlock, RightBounds& _rightBounds, uint8_t _level, int8_t _mode)
+void BlocksGraphicsItem::paintChildren(const float _minWidth, const int _narrowSizeHalf, const uint8_t _levelsNumber,
+                                       QPainter* _painter, struct EasyPainterInformation& p, profiler_gui::EasyBlockItem& _item,
+                                       const profiler_gui::EasyBlock& _itemBlock, RightBounds& _rightBounds, uint8_t _level,
+                                       int8_t _mode)
 {
     if (_level >= _levelsNumber || _itemBlock.tree.children.empty())
         return;
@@ -173,7 +190,7 @@ void BlocksGraphicsItem::paintChildren(const float _minWidth, const int _narrowS
 
     qreal& prevRight = _rightBounds[_level];
     auto& level = m_levels[_level];
-    const short next_level = _level + 1;
+    const auto next_level = (short)(_level + 1);
 
     uint32_t neighbours = (uint32_t)_itemBlock.tree.children.size();
     uint32_t last = neighbours - 1;
@@ -196,7 +213,7 @@ void BlocksGraphicsItem::paintChildren(const float _minWidth, const int _narrowS
             continue; // This item is not visible
 
         const auto& itemBlock = easyBlock(item.block);
-        const uint16_t totalHeight = itemBlock.tree.depth * ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + ::profiler_gui::GRAPHICS_ROW_SIZE;
+        const auto totalHeight = itemBlock.tree.depth * EASY_GLOBALS.size.graphics_row_full + EASY_GLOBALS.size.graphics_row_height;
         if ((top + totalHeight) < p.visibleSceneRect.top())
             continue; // This item is not visible
 
@@ -208,7 +225,8 @@ void BlocksGraphicsItem::paintChildren(const float _minWidth, const int _narrowS
         {
             // This item is not visible
             if (!(EASY_GLOBALS.hide_narrow_children && w < EASY_GLOBALS.blocks_narrow_size))
-                paintChildren(_minWidth, _narrowSizeHalf, _levelsNumber, _painter, p, item, itemBlock, _rightBounds, next_level, BLOCK_ITEM_DO_PAINT_FIRST);
+                paintChildren(_minWidth, _narrowSizeHalf, _levelsNumber, _painter, p, item, itemBlock, _rightBounds,
+                              (uint8_t)next_level, BLOCK_ITEM_DO_PAINT_FIRST);
             continue;
         }
 
@@ -354,7 +372,7 @@ void BlocksGraphicsItem::paintChildren(const float _minWidth, const int _narrowS
 
             // Draw rectangle
             //x = item.left() * currentScale - p.dx;
-            h = ::profiler_gui::GRAPHICS_ROW_SIZE;
+            h = EASY_GLOBALS.size.graphics_row_height;
             const auto dh = top + h - p.visibleBottom;
             if (dh > 0)
                 h -= dh;
@@ -409,7 +427,7 @@ void BlocksGraphicsItem::paintChildren(const float _minWidth, const int _narrowS
         _painter->setPen(p.textColor);
 
         if (item.block == EASY_GLOBALS.selected_block)
-            _painter->setFont(EASY_GLOBALS.selected_item_font);
+            setSelectedFont(_painter);
 
         // drawing text
         auto name = easyBlockName(itemBlock.tree, itemDesc);
@@ -427,7 +445,7 @@ void BlocksGraphicsItem::paintChildren(const float _minWidth, const int _narrowS
 
         // restore font
         if (item.block == EASY_GLOBALS.selected_block)
-            _painter->setFont(EASY_GLOBALS.items_font);
+            restoreItemFont(_painter);
         // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         if (do_paint_children)
@@ -449,7 +467,7 @@ void BlocksGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
     EasyPainterInformation p(view());
 
     _painter->save();
-    _painter->setFont(EASY_GLOBALS.items_font);
+    _painter->setFont(EASY_GLOBALS.font.item);
     
     // Reset indices of first visible item for each layer
     const auto levelsNumber = levels();
@@ -539,7 +557,7 @@ void BlocksGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
 #endif
         {
             auto& level = m_levels[l];
-            const short next_level = l + 1;
+            const auto next_level = (short)(l + 1);
 
             const auto top = levelY(l);
             if (top > p.visibleBottom)
@@ -585,7 +603,7 @@ void BlocksGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
 #endif
 
                 const auto& itemBlock = easyBlock(item.block);
-                const uint16_t totalHeight = itemBlock.tree.depth * ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + ::profiler_gui::GRAPHICS_ROW_SIZE;
+                const auto totalHeight = itemBlock.tree.depth * EASY_GLOBALS.size.graphics_row_full + EASY_GLOBALS.size.graphics_row_height;
                 if ((top + totalHeight) < p.visibleSceneRect.top())
                     continue; // This item is not visible
 
@@ -597,7 +615,8 @@ void BlocksGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
                     // This item is not visible
 #ifdef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
                     if (!EASY_GLOBALS.hide_narrow_children || w >= EASY_GLOBALS.blocks_narrow_size)
-                        paintChildren(MIN_WIDTH, narrow_size_half, levelsNumber, _painter, p, item, itemBlock, m_rightBounds, next_level, BLOCK_ITEM_DO_PAINT_FIRST);
+                        paintChildren(MIN_WIDTH, narrow_size_half, levelsNumber, _painter, p, item, itemBlock,
+                                      m_rightBounds, (uint8_t)next_level, BLOCK_ITEM_DO_PAINT_FIRST);
 #else
                     if (!(EASY_GLOBALS.hide_narrow_children && w < EASY_GLOBALS.blocks_narrow_size) && l > 0)
                         dont_skip_children(next_level, item.children_begin, BLOCK_ITEM_DO_PAINT_FIRST);
@@ -757,7 +776,7 @@ void BlocksGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
 
                     // Draw rectangle
                     //x = item.left() * currentScale - p.dx;
-                    h = ::profiler_gui::GRAPHICS_ROW_SIZE;
+                    h = EASY_GLOBALS.size.graphics_row_height;
                     const auto dh = top + h - p.visibleBottom;
                     if (dh > 0)
                         h -= dh;
@@ -821,7 +840,7 @@ void BlocksGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
                 _painter->setPen(p.textColor);
 
                 if (item.block == EASY_GLOBALS.selected_block)
-                    _painter->setFont(EASY_GLOBALS.selected_item_font);
+                    setSelectedFont(_painter);
 
                 // drawing text
                 auto name = easyBlockName(itemBlock.tree, itemDesc);
@@ -839,7 +858,7 @@ void BlocksGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
 
                 // restore font
                 if (item.block == EASY_GLOBALS.selected_block)
-                    _painter->setFont(EASY_GLOBALS.items_font);
+                    restoreItemFont(_painter);
                 // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #ifdef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
@@ -863,8 +882,8 @@ void BlocksGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
                     auto w = ::std::max(item_width * p.currentScale, 1.0);
                     decltype(top) h = (!itemBlock.expanded ||
                                        (w < EASY_GLOBALS.blocks_narrow_size && EASY_GLOBALS.hide_narrow_children))
-                                       ? (itemBlock.tree.depth * ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + ::profiler_gui::GRAPHICS_ROW_SIZE)
-                                       : ::profiler_gui::GRAPHICS_ROW_SIZE;
+                                       ? (itemBlock.tree.depth * EASY_GLOBALS.size.graphics_row_full + EASY_GLOBALS.size.graphics_row_height)
+                                       : EASY_GLOBALS.size.graphics_row_height;
 
                     auto dh = top + h - p.visibleBottom;
                     if (dh < h)
@@ -928,11 +947,11 @@ void BlocksGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
                             p.textColor = ::profiler_gui::textColorForRgb(itemDesc.color());// SELECTED_ITEM_COLOR);
                             _painter->setPen(p.textColor);
 
-                            _painter->setFont(EASY_GLOBALS.selected_item_font);
-
                             // drawing text
+                            setSelectedFont(_painter);
                             auto name = easyBlockName(itemBlock.tree, itemDesc);
                             _painter->drawText(p.rect, Qt::AlignCenter, ::profiler_gui::toUnicode(name));
+                            restoreItemFont(_painter);
                             // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                         }
                     }
@@ -1179,14 +1198,14 @@ const ::profiler_gui::EasyBlock* BlocksGraphicsItem::intersect(const QPointF& _p
         return nullptr;
     }
 
-    EASY_STATIC_CONSTEXPR auto OVERLAP = (::profiler_gui::THREADS_ROW_SPACING >> 1) + 2;
-    const auto bottom = top + m_levels.size() * ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + OVERLAP;
+    const auto overlap = (EASY_GLOBALS.size.threads_row_spacing >> 1) + 2;
+    const auto bottom = top + m_levels.size() * EASY_GLOBALS.size.graphics_row_full + overlap;
     if (bottom < _pos.y())
     {
         return nullptr;
     }
 
-    const unsigned int levelIndex = static_cast<unsigned int>(_pos.y() - top) / ::profiler_gui::GRAPHICS_ROW_SIZE_FULL;
+    const unsigned int levelIndex = static_cast<unsigned int>(_pos.y() - top) / EASY_GLOBALS.size.graphics_row_full;
     if (levelIndex >= m_levels.size())
     {
         // The Y position is out of blocks range
@@ -1414,7 +1433,7 @@ uint8_t BlocksGraphicsItem::levels() const
 
 float BlocksGraphicsItem::levelY(uint8_t _level) const
 {
-    return y() + static_cast<int>(_level) * static_cast<int>(::profiler_gui::GRAPHICS_ROW_SIZE_FULL);
+    return static_cast<float>(y() + static_cast<int>(_level) * EASY_GLOBALS.size.graphics_row_full);
 }
 
 void BlocksGraphicsItem::setLevels(uint8_t _levels)

@@ -194,7 +194,7 @@ GraphicsSliderArea::GraphicsSliderArea(QWidget* _parent)
 
     setScene(new QGraphicsScene(this));
 
-    m_fontHeight = QFontMetrics(font()).height() + 1;
+    m_fontHeight = EASY_GLOBALS.size.font_height;// + 1;
 
     EASY_CONSTEXPR int SceneHeight = 500;
     scene()->setSceneRect(0, -(SceneHeight >> 1), 500, SceneHeight);
@@ -332,7 +332,7 @@ int GraphicsSliderArea::fontHeight() const
 
 int GraphicsSliderArea::margin() const
 {
-    return m_fontHeight + 2;
+    return m_fontHeight + 1;
 }
 
 int GraphicsSliderArea::margins() const

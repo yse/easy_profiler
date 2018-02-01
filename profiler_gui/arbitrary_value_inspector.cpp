@@ -1025,7 +1025,7 @@ ArbitraryValuesWidget::ArbitraryValuesWidget(QWidget* _parent)
     m_splitter->setStretchFactor(1, 1);
 
     auto tb = new QToolBar(this);
-    tb->setIconSize(::profiler_gui::ICONS_SIZE);
+    tb->setIconSize(applicationIconsSize());
     auto refreshButton = tb->addAction(QIcon(imagePath("reload")), tr("Refresh values list"));
     refreshButton->setToolTip(tr("Refresh arbitrary values list."));
     connect(refreshButton, &QAction::triggered, this, &This::rebuild);

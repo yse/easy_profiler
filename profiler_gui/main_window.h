@@ -135,7 +135,7 @@ enum class ListenerRegime : uint8_t
     Descriptors
 };
 
-class EasySocketListener Q_DECL_FINAL
+class SocketListener Q_DECL_FINAL
 {
     EasySocket            m_easySocket; ///<
     std::string              m_address; ///<
@@ -154,8 +154,8 @@ class EasySocketListener Q_DECL_FINAL
 
 public:
 
-    EasySocketListener();
-    ~EasySocketListener();
+    SocketListener();
+    ~SocketListener();
 
     bool connected() const;
     bool captured() const;
@@ -191,17 +191,27 @@ private:
     void listenDescription();
     void listenFrameTime();
 
-}; // END of class EasySocketListener.
+}; // END of class SocketListener.
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyDockWidget : public QDockWidget
+class DockWidget : public QDockWidget
 {
     Q_OBJECT
+
+    class QPushButton* m_floatingButton;
+
 public:
-    explicit EasyDockWidget(const QString& title, QWidget* parent = nullptr);
-    ~EasyDockWidget() override;
-};
+
+    explicit DockWidget(const QString& title, QWidget* parent = nullptr);
+    ~DockWidget() override;
+
+private slots:
+
+    void toggleState();
+    void onTopLevelChanged();
+
+}; // end of class DockWidget.
 
 struct DialogWithGeometry EASY_FINAL
 {
@@ -211,7 +221,8 @@ struct DialogWithGeometry EASY_FINAL
     void create();
     void saveGeometry();
     void restoreGeometry();
-};
+
+}; // end of struct DialogWithGeometry.
 
 class MainWindow : public QMainWindow
 {
@@ -244,7 +255,7 @@ protected:
     profiler::SerializedData      m_serializedBlocks;
     profiler::SerializedData m_serializedDescriptors;
     FileReader                            m_reader;
-    EasySocketListener                      m_listener;
+    SocketListener                      m_listener;
 
     class QLineEdit* m_addressEdit = nullptr;
     class QLineEdit* m_portEdit = nullptr;
@@ -322,6 +333,8 @@ protected slots:
 private:
 
     // Private non-virtual methods
+
+    void configureSizes();
 
     void clear();
 
