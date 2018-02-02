@@ -190,7 +190,8 @@ qreal ArbitraryValuesCollection::maxValue() const
     return m_maxValue;
 }
 
-void ArbitraryValuesCollection::collectValues(profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName)
+void ArbitraryValuesCollection::collectValues(profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName
+    , profiler::block_id_t _parentBlockId, bool _directParent)
 {
     interrupt();
 
@@ -199,12 +200,13 @@ void ArbitraryValuesCollection::collectValues(profiler::thread_id_t _threadId, p
     m_jobType = ValuesJob;
 
     if (_valueId == 0)
-        m_worker.enqueue([=] { collectByName(_threadId, _valueName); }, m_bInterrupt);
+        m_worker.enqueue([=] { collectByName(_threadId, _valueName, _parentBlockId, _directParent); }, m_bInterrupt);
     else
-        m_worker.enqueue([=] { collectById(_threadId, _valueId); }, m_bInterrupt);
+        m_worker.enqueue([=] { collectById(_threadId, _valueId, _parentBlockId, _directParent); }, m_bInterrupt);
 }
 
-void ArbitraryValuesCollection::collectValues(profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName, profiler::timestamp_t _beginTime)
+void ArbitraryValuesCollection::collectValues(profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName
+    , profiler::timestamp_t _beginTime, profiler::block_id_t _parentBlockId, bool _directParent)
 {
     interrupt();
 
@@ -216,9 +218,9 @@ void ArbitraryValuesCollection::collectValues(profiler::thread_id_t _threadId, p
     m_jobType = ValuesJob | PointsJob;
 
     if (_valueId == 0)
-        m_worker.enqueue([=] { collectByName(_threadId, _valueName); }, m_bInterrupt);
+        m_worker.enqueue([=] { collectByName(_threadId, _valueName, _parentBlockId, _directParent); }, m_bInterrupt);
     else
-        m_worker.enqueue([=] { collectById(_threadId, _valueId); }, m_bInterrupt);
+        m_worker.enqueue([=] { collectById(_threadId, _valueId, _parentBlockId, _directParent); }, m_bInterrupt);
 }
 
 bool ArbitraryValuesCollection::calculatePoints(profiler::timestamp_t _beginTime)
@@ -257,7 +259,8 @@ void ArbitraryValuesCollection::setStatus(JobStatus _status)
     m_status.store(static_cast<uint8_t>(_status), std::memory_order_release);
 }
 
-void ArbitraryValuesCollection::collectById(profiler::thread_id_t _threadId, profiler::vin_t _valueId)
+void ArbitraryValuesCollection::collectById(profiler::thread_id_t _threadId, profiler::vin_t _valueId
+    , profiler::block_id_t _parentBlockId, bool _directParent)
 {
     if (_threadId == 0)
     {
@@ -266,7 +269,7 @@ void ArbitraryValuesCollection::collectById(profiler::thread_id_t _threadId, pro
 
         for (const auto& it : EASY_GLOBALS.profiler_blocks)
         {
-            if (!collectByIdForThread(it.second, _valueId, calculatePointsInner))
+            if (!collectByIdForThread(it.second, _valueId, calculatePointsInner, _parentBlockId, _directParent))
                 return;
         }
 
@@ -276,15 +279,18 @@ void ArbitraryValuesCollection::collectById(profiler::thread_id_t _threadId, pro
     else
     {
         const auto t = EASY_GLOBALS.profiler_blocks.find(_threadId);
-        if (t != EASY_GLOBALS.profiler_blocks.end() && !collectByIdForThread(t->second, _valueId, (m_jobType & PointsJob) != 0))
+        if (t != EASY_GLOBALS.profiler_blocks.end() &&
+            !collectByIdForThread(t->second, _valueId, (m_jobType & PointsJob) != 0, _parentBlockId, _directParent))
+        {
             return;
+        }
     }
 
     setStatus(Ready);
 }
 
-bool ArbitraryValuesCollection::collectByIdForThread(const profiler::BlocksTreeRoot& _threadRoot,
-                                                     profiler::vin_t _valueId, bool _calculatePoints)
+bool ArbitraryValuesCollection::collectByIdForThread(const profiler::BlocksTreeRoot& _threadRoot
+    , profiler::vin_t _valueId, bool _calculatePoints, profiler::block_id_t _parentBlockId, bool _directParent)
 {
     auto& valuesList = m_values[_threadRoot.thread_id];
 
@@ -320,7 +326,8 @@ bool ArbitraryValuesCollection::collectByIdForThread(const profiler::BlocksTreeR
     return true;
 }
 
-void ArbitraryValuesCollection::collectByName(profiler::thread_id_t _threadId, const std::string _valueName)
+void ArbitraryValuesCollection::collectByName(profiler::thread_id_t _threadId, const std::string _valueName
+    , profiler::block_id_t _parentBlockId, bool _directParent)
 {
     if (_threadId == 0)
     {
@@ -329,7 +336,7 @@ void ArbitraryValuesCollection::collectByName(profiler::thread_id_t _threadId, c
 
         for (const auto& it : EASY_GLOBALS.profiler_blocks)
         {
-            if (!collectByNameForThread(it.second, _valueName, calculatePointsInner))
+            if (!collectByNameForThread(it.second, _valueName, calculatePointsInner, _parentBlockId, _directParent))
                 return;
         }
 
@@ -339,15 +346,18 @@ void ArbitraryValuesCollection::collectByName(profiler::thread_id_t _threadId, c
     else
     {
         const auto t = EASY_GLOBALS.profiler_blocks.find(_threadId);
-        if (t != EASY_GLOBALS.profiler_blocks.end() && !collectByNameForThread(t->second, _valueName, (m_jobType & PointsJob) != 0))
+        if (t != EASY_GLOBALS.profiler_blocks.end() &&
+            !collectByNameForThread(t->second, _valueName, (m_jobType & PointsJob) != 0, _parentBlockId, _directParent))
+        {
             return;
+        }
     }
 
     setStatus(Ready);
 }
 
-bool ArbitraryValuesCollection::collectByNameForThread(const profiler::BlocksTreeRoot& _threadRoot,
-                                                       const std::string& _valueName, bool _calculatePoints)
+bool ArbitraryValuesCollection::collectByNameForThread(const profiler::BlocksTreeRoot& _threadRoot
+    , const std::string& _valueName, bool _calculatePoints, profiler::block_id_t _parentBlockId, bool _directParent)
 {
     auto& valuesList = m_values[_threadRoot.thread_id];
 
@@ -744,7 +754,7 @@ void ArbitraryValuesChartItem::updateImageAsync(QRectF _boundingRect, qreal _cur
 
         const auto first = leftBounds[i];
 
-        if (c.chartType == ChartType::Points)
+        if (c.chartType == ChartViewType::Points)
         {
             qreal prevX = 1e300, prevY = 1e300;
             for (auto it = first; it != points.end() && it->x() < _maximum; ++it)
@@ -991,7 +1001,18 @@ void ArbitraryTreeWidgetItem::collectValues(profiler::thread_id_t _threadId)
     else
         m_collection->interrupt();
 
-    m_collection->collectValues(_threadId, m_vin, text(int_cast(ArbitraryColumns::Name)).toStdString().c_str(), EASY_GLOBALS.begin_time);
+    auto parentItem = parent();
+    auto parentBlockId = profiler_gui::numeric_max<profiler::block_id_t>();
+    bool directParent = false;
+
+    if (parentItem->data(int_cast(ArbitraryColumns::Type), Qt::UserRole).toInt() == 1)
+    {
+        parentBlockId = parentItem->data(int_cast(ArbitraryColumns::Vin), Qt::UserRole).toUInt();
+        directParent = true;
+    }
+
+    m_collection->collectValues(_threadId, m_vin, text(int_cast(ArbitraryColumns::Name)).toStdString().c_str(),
+                                EASY_GLOBALS.begin_time, parentBlockId, directParent);
 }
 
 void ArbitraryTreeWidgetItem::interrupt()
@@ -1185,7 +1206,7 @@ void ArbitraryValuesWidget::onCollectionsTimeout()
         if (item->collection()->status() != ArbitraryValuesCollection::InProgress)
         {
             collections.push_back(CollectionPaintData {item->collection(), item->color(),
-                ChartType::Line, item == m_treeWidget->currentItem()});
+                ChartViewType::Line, item == m_treeWidget->currentItem()});
         }
     }
 
@@ -1229,6 +1250,7 @@ QTreeWidgetItem* ArbitraryValuesWidget::buildTreeForThread(const profiler::Block
     rootItem->setText(int_cast(ArbitraryColumns::Type), QStringLiteral("Thread"));
     rootItem->setText(int_cast(ArbitraryColumns::Name),
         profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, _threadRoot, EASY_GLOBALS.hex_thread_id));
+    rootItem->setData(int_cast(ArbitraryColumns::Type), Qt::UserRole, 0);
 
     const bool hasConcreteBlock = !profiler_gui::is_max(_blockIndex);
     if (hasConcreteBlock)
@@ -1258,10 +1280,14 @@ QTreeWidgetItem* ArbitraryValuesWidget::buildTreeForThread(const profiler::Block
     {
         blockItem = new QTreeWidgetItem(rootItem, StdItemType);
         blockItem->setText(int_cast(ArbitraryColumns::Type), QStringLiteral("Block"));
+
         if (hasConcreteBlock)
             blockItem->setText(int_cast(ArbitraryColumns::Name), easyBlockName(_blockIndex));
         else
             blockItem->setText(int_cast(ArbitraryColumns::Name), easyDescriptor(_blockId).name());
+
+        blockItem->setData(int_cast(ArbitraryColumns::Type), Qt::UserRole, 1);
+        blockItem->setData(int_cast(ArbitraryColumns::Vin), Qt::UserRole, _blockId);
     }
 
     std::unordered_map<profiler::block_id_t, QTreeWidgetItem*, estd::hash<profiler::block_id_t> > blocks;
@@ -1303,6 +1329,8 @@ QTreeWidgetItem* ArbitraryValuesWidget::buildTreeForThread(const profiler::Block
                             blockItem = new QTreeWidgetItem(rootItem, StdItemType);
                             blockItem->setText(int_cast(ArbitraryColumns::Type), QStringLiteral("Block"));
                             blockItem->setText(int_cast(ArbitraryColumns::Name), easyBlockName(block));
+                            blockItem->setData(int_cast(ArbitraryColumns::Type), Qt::UserRole, 1);
+                            blockItem->setData(int_cast(ArbitraryColumns::Vin), Qt::UserRole, id);
                             blocks.emplace(id, blockItem);
                         }
                     }

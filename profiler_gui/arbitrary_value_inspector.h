@@ -112,24 +112,30 @@ public:
     qreal minValue() const;
     qreal maxValue() const;
 
-    void collectValues(profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName);
-    void collectValues(profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName, profiler::timestamp_t _beginTime);
+    void collectValues(profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName, profiler::block_id_t _parentBlockId, bool _directParent);
+    void collectValues(profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName, profiler::timestamp_t _beginTime, profiler::block_id_t _parentBlockId, bool _directParent);
     bool calculatePoints(profiler::timestamp_t _beginTime);
     void interrupt();
 
 private:
 
     void setStatus(JobStatus _status);
-    void collectById(profiler::thread_id_t _threadId, profiler::vin_t _valueId);
-    void collectByName(profiler::thread_id_t _threadId, const std::string _valueName);
-    bool collectByIdForThread(const profiler::BlocksTreeRoot& _threadRoot, profiler::vin_t _valueId, bool _calculatePoints);
-    bool collectByNameForThread(const profiler::BlocksTreeRoot& _threadRoot, const std::string& _valueName, bool _calculatePoints);
+    void collectById(profiler::thread_id_t _threadId, profiler::vin_t _valueId, profiler::block_id_t _parentBlockId, bool _directParent);
+    void collectByName(profiler::thread_id_t _threadId, const std::string _valueName, profiler::block_id_t _parentBlockId, bool _directParent);
+    bool collectByIdForThread(const profiler::BlocksTreeRoot& _threadRoot, profiler::vin_t _valueId, bool _calculatePoints, profiler::block_id_t _parentBlockId, bool _directParent);
+    bool collectByNameForThread(const profiler::BlocksTreeRoot& _threadRoot, const std::string& _valueName, bool _calculatePoints, profiler::block_id_t _parentBlockId, bool _directParent);
 
     QPointF point(const profiler::ArbitraryValue& _value) const;
 
 }; // end of class ArbitraryValuesCollection.
 
 enum class ChartType : uint8_t
+{
+    Vt = 0, ///< V(t) chart; X axis = time,  Y axis = value
+    Dv      ///< D(v) chart; X axis = value, Y axis = duration
+};
+
+enum class ChartViewType : uint8_t
 {
     Line = 0,
     Points
@@ -139,7 +145,7 @@ struct CollectionPaintData EASY_FINAL
 {
     const ArbitraryValuesCollection* ptr;
     QRgb                           color;
-    ChartType                  chartType;
+    ChartViewType              chartType;
     bool                        selected;
 };
 
