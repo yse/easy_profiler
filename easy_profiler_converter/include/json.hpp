@@ -103,9 +103,11 @@ SOFTWARE.
 #if defined(_MSC_VER) && _MSC_VER <= 1800
     #define JSON_NOEXCEPT_OP(...)
     #define JSON_NOEXCEPT
+    #define JSON_JSON_CONSTEXPR
 #else
     #define JSON_NOEXCEPT_OP noexcept
     #define JSON_NOEXCEPT noexcept
+    #define JSON_CONSTEXPR constexpr
 #endif
 
 /*!
@@ -178,7 +180,7 @@ Returns an ordering that is similar to Python:
 */
 inline bool operator<(const value_t lhs, const value_t rhs) JSON_NOEXCEPT
 {
-    static constexpr std::array<uint8_t, 8> order = {{
+    static JSON_CONSTEXPR std::array<uint8_t, 8> order = {{
             0, // null
             3, // object
             4, // array
@@ -390,7 +392,7 @@ contains a `mapped_type`, whereas `std::vector` fails the test.
         static int detect(U &&);                                              \
         static void detect(...);                                              \
     public:                                                                   \
-        static constexpr bool value =                                         \
+        static JSON_CONSTEXPR bool value =                                         \
                 std::is_integral<decltype(detect(std::declval<T>()))>::value; \
     }
 
@@ -408,7 +410,7 @@ struct is_compatible_object_type_impl : std::false_type {};
 template<class RealType, class CompatibleObjectType>
 struct is_compatible_object_type_impl<true, RealType, CompatibleObjectType>
 {
-    static constexpr auto value =
+    static JSON_CONSTEXPR auto value =
         std::is_constructible<typename RealType::key_type,
         typename CompatibleObjectType::key_type>::value and
         std::is_constructible<typename RealType::mapped_type,
@@ -418,7 +420,7 @@ struct is_compatible_object_type_impl<true, RealType, CompatibleObjectType>
 template<class BasicJsonType, class CompatibleObjectType>
 struct is_compatible_object_type
 {
-    static auto constexpr value = is_compatible_object_type_impl <
+    static auto JSON_CONSTEXPR value = is_compatible_object_type_impl <
                                   conjunction<negation<std::is_same<void, CompatibleObjectType>>,
                                   has_mapped_type<CompatibleObjectType>,
                                   has_key_type<CompatibleObjectType>>::value,
@@ -428,7 +430,7 @@ struct is_compatible_object_type
 template<typename BasicJsonType, typename T>
 struct is_basic_json_nested_type
 {
-    static auto constexpr value = std::is_same<T, typename BasicJsonType::iterator>::value or
+    static auto JSON_CONSTEXPR value = std::is_same<T, typename BasicJsonType::iterator>::value or
                                   std::is_same<T, typename BasicJsonType::const_iterator>::value or
                                   std::is_same<T, typename BasicJsonType::reverse_iterator>::value or
                                   std::is_same<T, typename BasicJsonType::const_reverse_iterator>::value or
@@ -438,7 +440,7 @@ struct is_basic_json_nested_type
 template<class BasicJsonType, class CompatibleArrayType>
 struct is_compatible_array_type
 {
-    static auto constexpr value =
+    static auto JSON_CONSTEXPR value =
         conjunction<negation<std::is_same<void, CompatibleArrayType>>,
         negation<is_compatible_object_type<
         BasicJsonType, CompatibleArrayType>>,
@@ -459,7 +461,7 @@ struct is_compatible_integer_type_impl<true, RealIntegerType, CompatibleNumberIn
     using RealLimits = std::numeric_limits<RealIntegerType>;
     using CompatibleLimits = std::numeric_limits<CompatibleNumberIntegerType>;
 
-    static constexpr auto value =
+    static JSON_CONSTEXPR auto value =
         std::is_constructible<RealIntegerType,
         CompatibleNumberIntegerType>::value and
         CompatibleLimits::is_integer and
@@ -469,7 +471,7 @@ struct is_compatible_integer_type_impl<true, RealIntegerType, CompatibleNumberIn
 template<typename RealIntegerType, typename CompatibleNumberIntegerType>
 struct is_compatible_integer_type
 {
-    static constexpr auto value =
+    static JSON_CONSTEXPR auto value =
         is_compatible_integer_type_impl <
         std::is_integral<CompatibleNumberIntegerType>::value and
         not std::is_same<bool, CompatibleNumberIntegerType>::value,
@@ -489,7 +491,7 @@ struct has_from_json
     static void detect(...);
 
   public:
-    static constexpr bool value = std::is_integral<decltype(
+    static JSON_CONSTEXPR bool value = std::is_integral<decltype(
                                       detect(std::declval<typename BasicJsonType::template json_serializer<T, void>>()))>::value;
 };
 
@@ -507,7 +509,7 @@ struct has_non_default_from_json
     static void detect(...);
 
   public:
-    static constexpr bool value = std::is_integral<decltype(detect(
+    static JSON_CONSTEXPR bool value = std::is_integral<decltype(detect(
                                       std::declval<typename BasicJsonType::template json_serializer<T, void>>()))>::value;
 };
 
@@ -522,7 +524,7 @@ struct has_to_json
     static void detect(...);
 
   public:
-    static constexpr bool value = std::is_integral<decltype(detect(
+    static JSON_CONSTEXPR bool value = std::is_integral<decltype(detect(
                                       std::declval<typename BasicJsonType::template json_serializer<T, void>>()))>::value;
 };
 
@@ -892,19 +894,19 @@ struct from_json_fn
 template<typename T>
 struct static_const
 {
-    static constexpr T value{};
+    static JSON_CONSTEXPR T value{};
 };
 
 template<typename T>
-constexpr T static_const<T>::value;
+JSON_CONSTEXPR T static_const<T>::value;
 } // namespace detail
 
 
 /// namespace to hold default `to_json` / `from_json` functions
 namespace
 {
-constexpr const auto& to_json = detail::static_const<detail::to_json_fn>::value;
-constexpr const auto& from_json = detail::static_const<detail::from_json_fn>::value;
+JSON_CONSTEXPR const auto& to_json = detail::static_const<detail::to_json_fn>::value;
+JSON_CONSTEXPR const auto& from_json = detail::static_const<detail::from_json_fn>::value;
 }
 
 
@@ -2686,7 +2688,7 @@ class basic_json
 
     @since version 1.0.0
     */
-    constexpr value_t type() const JSON_NOEXCEPT
+    JSON_CONSTEXPR value_t type() const JSON_NOEXCEPT
     {
         return m_type;
     }
@@ -2716,7 +2718,7 @@ class basic_json
 
     @since version 1.0.0
     */
-    constexpr bool is_primitive() const JSON_NOEXCEPT
+    JSON_CONSTEXPR bool is_primitive() const JSON_NOEXCEPT
     {
         return is_null() or is_string() or is_boolean() or is_number();
     }
@@ -2743,7 +2745,7 @@ class basic_json
 
     @since version 1.0.0
     */
-    constexpr bool is_structured() const JSON_NOEXCEPT
+    JSON_CONSTEXPR bool is_structured() const JSON_NOEXCEPT
     {
         return is_array() or is_object();
     }
@@ -2765,7 +2767,7 @@ class basic_json
 
     @since version 1.0.0
     */
-    constexpr bool is_null() const JSON_NOEXCEPT
+    JSON_CONSTEXPR bool is_null() const JSON_NOEXCEPT
     {
         return m_type == value_t::null;
     }
@@ -2787,7 +2789,7 @@ class basic_json
 
     @since version 1.0.0
     */
-    constexpr bool is_boolean() const JSON_NOEXCEPT
+    JSON_CONSTEXPR bool is_boolean() const JSON_NOEXCEPT
     {
         return m_type == value_t::boolean;
     }
@@ -2817,7 +2819,7 @@ class basic_json
 
     @since version 1.0.0
     */
-    constexpr bool is_number() const JSON_NOEXCEPT
+    JSON_CONSTEXPR bool is_number() const JSON_NOEXCEPT
     {
         return is_number_integer() or is_number_float();
     }
@@ -2846,7 +2848,7 @@ class basic_json
 
     @since version 1.0.0
     */
-    constexpr bool is_number_integer() const JSON_NOEXCEPT
+    JSON_CONSTEXPR bool is_number_integer() const JSON_NOEXCEPT
     {
         return m_type == value_t::number_integer or m_type == value_t::number_unsigned;
     }
@@ -2874,7 +2876,7 @@ class basic_json
 
     @since version 2.0.0
     */
-    constexpr bool is_number_unsigned() const JSON_NOEXCEPT
+    JSON_CONSTEXPR bool is_number_unsigned() const JSON_NOEXCEPT
     {
         return m_type == value_t::number_unsigned;
     }
@@ -2902,7 +2904,7 @@ class basic_json
 
     @since version 1.0.0
     */
-    constexpr bool is_number_float() const JSON_NOEXCEPT
+    JSON_CONSTEXPR bool is_number_float() const JSON_NOEXCEPT
     {
         return m_type == value_t::number_float;
     }
@@ -2924,7 +2926,7 @@ class basic_json
 
     @since version 1.0.0
     */
-    constexpr bool is_object() const JSON_NOEXCEPT
+    JSON_CONSTEXPR bool is_object() const JSON_NOEXCEPT
     {
         return m_type == value_t::object;
     }
@@ -2946,7 +2948,7 @@ class basic_json
 
     @since version 1.0.0
     */
-    constexpr bool is_array() const JSON_NOEXCEPT
+    JSON_CONSTEXPR bool is_array() const JSON_NOEXCEPT
     {
         return m_type == value_t::array;
     }
@@ -2968,7 +2970,7 @@ class basic_json
 
     @since version 1.0.0
     */
-    constexpr bool is_string() const JSON_NOEXCEPT
+    JSON_CONSTEXPR bool is_string() const JSON_NOEXCEPT
     {
         return m_type == value_t::string;
     }
@@ -2995,7 +2997,7 @@ class basic_json
 
     @since version 1.0.0
     */
-    constexpr bool is_discarded() const JSON_NOEXCEPT
+    JSON_CONSTEXPR bool is_discarded() const JSON_NOEXCEPT
     {
         return m_type == value_t::discarded;
     }
@@ -3018,7 +3020,7 @@ class basic_json
 
     @since version 1.0.0
     */
-    constexpr operator value_t() const JSON_NOEXCEPT
+    JSON_CONSTEXPR operator value_t() const JSON_NOEXCEPT
     {
         return m_type;
     }
@@ -3048,7 +3050,7 @@ class basic_json
     }
 
     /// get a pointer to the value (object)
-    constexpr const object_t* get_impl_ptr(const object_t* /*unused*/) const JSON_NOEXCEPT
+    JSON_CONSTEXPR const object_t* get_impl_ptr(const object_t* /*unused*/) const JSON_NOEXCEPT
     {
         return is_object() ? m_value.object : nullptr;
     }
@@ -3060,7 +3062,7 @@ class basic_json
     }
 
     /// get a pointer to the value (array)
-    constexpr const array_t* get_impl_ptr(const array_t* /*unused*/) const JSON_NOEXCEPT
+    JSON_CONSTEXPR const array_t* get_impl_ptr(const array_t* /*unused*/) const JSON_NOEXCEPT
     {
         return is_array() ? m_value.array : nullptr;
     }
@@ -3072,7 +3074,7 @@ class basic_json
     }
 
     /// get a pointer to the value (string)
-    constexpr const string_t* get_impl_ptr(const string_t* /*unused*/) const JSON_NOEXCEPT
+    JSON_CONSTEXPR const string_t* get_impl_ptr(const string_t* /*unused*/) const JSON_NOEXCEPT
     {
         return is_string() ? m_value.string : nullptr;
     }
@@ -3084,7 +3086,7 @@ class basic_json
     }
 
     /// get a pointer to the value (boolean)
-    constexpr const boolean_t* get_impl_ptr(const boolean_t* /*unused*/) const JSON_NOEXCEPT
+    JSON_CONSTEXPR const boolean_t* get_impl_ptr(const boolean_t* /*unused*/) const JSON_NOEXCEPT
     {
         return is_boolean() ? &m_value.boolean : nullptr;
     }
@@ -3096,7 +3098,7 @@ class basic_json
     }
 
     /// get a pointer to the value (integer number)
-    constexpr const number_integer_t* get_impl_ptr(const number_integer_t* /*unused*/) const JSON_NOEXCEPT
+    JSON_CONSTEXPR const number_integer_t* get_impl_ptr(const number_integer_t* /*unused*/) const JSON_NOEXCEPT
     {
         return is_number_integer() ? &m_value.number_integer : nullptr;
     }
@@ -3108,7 +3110,7 @@ class basic_json
     }
 
     /// get a pointer to the value (unsigned number)
-    constexpr const number_unsigned_t* get_impl_ptr(const number_unsigned_t* /*unused*/) const JSON_NOEXCEPT
+    JSON_CONSTEXPR const number_unsigned_t* get_impl_ptr(const number_unsigned_t* /*unused*/) const JSON_NOEXCEPT
     {
         return is_number_unsigned() ? &m_value.number_unsigned : nullptr;
     }
@@ -3120,7 +3122,7 @@ class basic_json
     }
 
     /// get a pointer to the value (floating-point number)
-    constexpr const number_float_t* get_impl_ptr(const number_float_t* /*unused*/) const JSON_NOEXCEPT
+    JSON_CONSTEXPR const number_float_t* get_impl_ptr(const number_float_t* /*unused*/) const JSON_NOEXCEPT
     {
         return is_number_float() ? &m_value.number_float : nullptr;
     }
@@ -3332,7 +3334,7 @@ class basic_json
     */
     template<typename PointerType, typename std::enable_if<
                  std::is_pointer<PointerType>::value, int>::type = 0>
-    constexpr const PointerType get() const JSON_NOEXCEPT
+    JSON_CONSTEXPR const PointerType get() const JSON_NOEXCEPT
     {
         // delegate the call to get_ptr
         return get_ptr<PointerType>();
@@ -3394,7 +3396,7 @@ class basic_json
     template<typename PointerType, typename std::enable_if<
                  std::is_pointer<PointerType>::value and
                  std::is_const<typename std::remove_pointer<PointerType>::type>::value, int>::type = 0>
-    constexpr const PointerType get_ptr() const JSON_NOEXCEPT
+    JSON_CONSTEXPR const PointerType get_ptr() const JSON_NOEXCEPT
     {
         // get the type of the PointerType (remove pointer and const)
         using pointee_t = typename std::remove_const<typename
@@ -8329,7 +8331,7 @@ class basic_json
             }
 
             // get number of digits for a text -> float -> text round-trip
-            static constexpr auto d = std::numeric_limits<NumberType>::digits10;
+            static JSON_CONSTEXPR auto d = std::numeric_limits<NumberType>::digits10;
 
             // the actual conversion
             const auto written_bytes = snprintf(m_buf.data(), m_buf.size(), "%.*g", d, x);
@@ -8599,43 +8601,43 @@ class basic_json
         }
 
         /// return whether the iterator can be dereferenced
-        constexpr bool is_begin() const JSON_NOEXCEPT
+        JSON_CONSTEXPR bool is_begin() const JSON_NOEXCEPT
         {
             return (m_it == begin_value);
         }
 
         /// return whether the iterator is at end
-        constexpr bool is_end() const JSON_NOEXCEPT
+        JSON_CONSTEXPR bool is_end() const JSON_NOEXCEPT
         {
             return (m_it == end_value);
         }
 
-        friend constexpr bool operator==(primitive_iterator_t lhs, primitive_iterator_t rhs) JSON_NOEXCEPT
+        friend JSON_CONSTEXPR bool operator==(primitive_iterator_t lhs, primitive_iterator_t rhs) JSON_NOEXCEPT
         {
             return lhs.m_it == rhs.m_it;
         }
 
-        friend constexpr bool operator!=(primitive_iterator_t lhs, primitive_iterator_t rhs) JSON_NOEXCEPT
+        friend JSON_CONSTEXPR bool operator!=(primitive_iterator_t lhs, primitive_iterator_t rhs) JSON_NOEXCEPT
         {
             return !(lhs == rhs);
         }
 
-        friend constexpr bool operator<(primitive_iterator_t lhs, primitive_iterator_t rhs) JSON_NOEXCEPT
+        friend JSON_CONSTEXPR bool operator<(primitive_iterator_t lhs, primitive_iterator_t rhs) JSON_NOEXCEPT
         {
             return lhs.m_it < rhs.m_it;
         }
 
-        friend constexpr bool operator<=(primitive_iterator_t lhs, primitive_iterator_t rhs) JSON_NOEXCEPT
+        friend JSON_CONSTEXPR bool operator<=(primitive_iterator_t lhs, primitive_iterator_t rhs) JSON_NOEXCEPT
         {
             return lhs.m_it <= rhs.m_it;
         }
 
-        friend constexpr bool operator>(primitive_iterator_t lhs, primitive_iterator_t rhs) JSON_NOEXCEPT
+        friend JSON_CONSTEXPR bool operator>(primitive_iterator_t lhs, primitive_iterator_t rhs) JSON_NOEXCEPT
         {
             return lhs.m_it > rhs.m_it;
         }
 
-        friend constexpr bool operator>=(primitive_iterator_t lhs, primitive_iterator_t rhs) JSON_NOEXCEPT
+        friend JSON_CONSTEXPR bool operator>=(primitive_iterator_t lhs, primitive_iterator_t rhs) JSON_NOEXCEPT
         {
             return lhs.m_it >= rhs.m_it;
         }
@@ -8647,7 +8649,7 @@ class basic_json
             return result;
         }
 
-        friend constexpr difference_type operator-(primitive_iterator_t lhs, primitive_iterator_t rhs) JSON_NOEXCEPT
+        friend JSON_CONSTEXPR difference_type operator-(primitive_iterator_t lhs, primitive_iterator_t rhs) JSON_NOEXCEPT
         {
             return lhs.m_it - rhs.m_it;
         }
@@ -8696,8 +8698,8 @@ class basic_json
         }
 
       private:
-        static constexpr difference_type begin_value = 0;
-        static constexpr difference_type end_value = begin_value + 1;
+        static JSON_CONSTEXPR difference_type begin_value = 0;
+        static JSON_CONSTEXPR difference_type end_value = begin_value + 1;
 
         /// iterator as signed integer type
         difference_type m_it = std::numeric_limits<std::ptrdiff_t>::denorm_min();
