@@ -8360,7 +8360,7 @@ class basic_json
 
             // the actual conversion
             const auto written_bytes =
-#if defined(_MSC_VER) && _MSC_VER > 1800
+#if defined(_MSC_VER) && _MSC_VER <= 1800
                 _snprintf(m_buf.data(), m_buf.size(), "%.*g", d, x);
 #else
                 snprintf(m_buf.data(), m_buf.size(), "%.*g", d, x);
