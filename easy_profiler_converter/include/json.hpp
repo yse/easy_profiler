@@ -103,7 +103,7 @@ SOFTWARE.
 #if defined(_MSC_VER) && _MSC_VER <= 1800
     #define JSON_NOEXCEPT_OP(...)
     #define JSON_NOEXCEPT
-    #define JSON_JSON_CONSTEXPR
+    #define JSON_CONSTEXPR
 #else
     #define JSON_NOEXCEPT_OP noexcept
     #define JSON_NOEXCEPT noexcept
