@@ -896,7 +896,11 @@ struct from_json_fn
 template<typename T>
 struct static_const
 {
+#if !defined(_MSC_VER) || _MSC_VER > 1800
+    static JSON_CONSTEXPR T value {};
+#else
     static JSON_CONSTEXPR T value;
+#endif
 };
 
 template<typename T>
@@ -6487,7 +6491,8 @@ class basic_json
 
     @since version 2.0.3
     */
-    template<class ContiguousContainer, typename std::enable_if<
+#if !defined(_MSC_VER) || _MSC_VER > 1800
+    template <class ContiguousContainer, typename std::enable_if<
                  not std::is_pointer<ContiguousContainer>::value and
                  std::is_base_of<
                      std::random_access_iterator_tag,
@@ -6499,6 +6504,20 @@ class basic_json
         // delegate the call to the iterator-range parse overload
         return parse(std::begin(c), std::end(c), cb);
     }
+#else
+    template <class ContiguousContainer, typename std::enable_if<
+                 not std::is_pointer<ContiguousContainer>::value and
+                 std::is_base_of<
+                     std::random_access_iterator_tag,
+                     typename std::iterator_traits<decltype(std::declval<ContiguousContainer const>().begin())>::iterator_category>::value
+                 , int>::type = 0>
+    static basic_json parse(const ContiguousContainer& c,
+                            const parser_callback_t cb = nullptr)
+    {
+        // delegate the call to the iterator-range parse overload
+        return parse(c.begin(), c.end(), cb);
+    }
+#endif
 
     /*!
     @brief deserialize from stream
@@ -12965,6 +12984,7 @@ struct hash<nlohmann::json>
 };
 } // namespace std
 
+#if !defined(_MSC_VER) || _MSC_VER > 1800
 /*!
 @brief user-defined string literal for JSON values
 
@@ -13000,6 +13020,7 @@ inline nlohmann::json::json_pointer operator "" _json_pointer(const char* s, std
 {
     return nlohmann::json::json_pointer(std::string(s, n));
 }
+#endif
 
 // restore GCC/clang diagnostic settings
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
