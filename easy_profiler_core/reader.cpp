@@ -1,6 +1,6 @@
 /************************************************************************
 * file name         : reader.cpp
-* ----------------- : 
+* ----------------- :
 * creation time     : 2016/06/19
 * authors           : Sergey Yagovtsev, Victor Zarubkin
 * emails            : yse.sey@gmail.com, v.s.zarubkin@gmail.com
@@ -23,7 +23,7 @@
 *                   : * 2016/06/30 Victor Zarubkin: Added this header.
 *                   :       Added tree depth calculation.
 *                   :
-*                   : * 
+*                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
 *                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
@@ -70,6 +70,7 @@
 
 #include "hashed_cstr.h"
 
+#include <iostream>
 #include <fstream>
 #include <sstream>
 #include <iterator>
@@ -419,7 +420,7 @@ extern "C" {
         typedef ::std::basic_iostream<::std::stringstream::char_type, ::std::stringstream::traits_type> stringstream_parent;
         stringstream_parent& s = str;
         auto oldbuf = s.rdbuf(inFile.rdbuf());
-        
+
         // Read data from file
         auto result = fillTreesFromStream(progress, str, serialized_blocks, serialized_descriptors, descriptors, blocks,
                                           threaded_trees, total_descriptors_number, version, gather_statistics, _log);
