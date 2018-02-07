@@ -896,7 +896,7 @@ struct from_json_fn
 template<typename T>
 struct static_const
 {
-    static JSON_CONSTEXPR T value{};
+    static JSON_CONSTEXPR T value;
 };
 
 template<typename T>
