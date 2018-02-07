@@ -6509,7 +6509,7 @@ class basic_json
                  not std::is_pointer<ContiguousContainer>::value and
                  std::is_base_of<
                      std::random_access_iterator_tag,
-                     typename std::iterator_traits<decltype(std::declval<ContiguousContainer const>().begin())>::iterator_category>::value
+                     typename std::iterator_traits<typename ContiguousContainer::const_iterator>::iterator_category>::value
                  , int>::type = 0>
     static basic_json parse(const ContiguousContainer& c,
                             const parser_callback_t cb = nullptr)
