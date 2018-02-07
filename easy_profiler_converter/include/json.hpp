@@ -100,7 +100,7 @@ SOFTWARE.
     #define JSON_CATCH(exception) if(false)
 #endif
 
-#ifdef defined(_MSC_VER) && _MSC_VER <= 1800
+#if defined(_MSC_VER) && _MSC_VER <= 1800
     #define JSON_NOEXCEPT_OP(...)
     #define JSON_NOEXCEPT
 #else
