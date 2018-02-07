@@ -8359,7 +8359,12 @@ class basic_json
             static JSON_CONSTEXPR auto d = std::numeric_limits<NumberType>::digits10;
 
             // the actual conversion
-            const auto written_bytes = snprintf(m_buf.data(), m_buf.size(), "%.*g", d, x);
+            const auto written_bytes =
+#if defined(_MSC_VER) && _MSC_VER > 1800
+                _snprintf(m_buf.data(), m_buf.size(), "%.*g", d, x);
+#else
+                snprintf(m_buf.data(), m_buf.size(), "%.*g", d, x);
+#endif
 
             // negative value indicates an error
             assert(written_bytes > 0);
