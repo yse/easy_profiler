@@ -8286,7 +8286,7 @@ class basic_json
     {
       public:
         template<typename NumberType>
-        numtostr(NumberType value)
+        numtostr(NumberType value) : m_buf{{}}
         {
             x_write(value, std::is_integral<NumberType>());
         }
@@ -8298,7 +8298,7 @@ class basic_json
 
       private:
         /// a (hopefully) large enough character buffer
-        std::array < char, 64 > m_buf{{}};
+        std::array < char, 64 > m_buf;
 
         template<typename NumberType>
         void x_write(NumberType x, /*is_integral=*/std::true_type)
