@@ -22,7 +22,7 @@ int RESOURCE_LOADING_COUNT = 50;
 
 #define SAMPLE_NETWORK_TEST
 
-void localSleep(int magic=200000)
+void localSleep(uint64_t magic=200000)
 {
     //PROFILER_BEGIN_FUNCTION_BLOCK_GROUPED(profiler::colors::Blue);
     volatile int i = 0;
@@ -136,10 +136,20 @@ void calculatePhysics(){
     //std::this_thread::sleep_for(std::chrono::milliseconds(8));
 }
 
-void frame(){
+void quadratic_loop(uint64_t n)
+{
+    EASY_FUNCTION(profiler::colors::Blue);
+    EASY_VALUE("N", n);
+    volatile int i = 0;
+    for (; i < n; ++i)
+        localSleep(n);
+}
+
+void frame(uint64_t n){
     EASY_FUNCTION(profiler::colors::Magenta);
     prepareRender();
     calculatePhysics();
+    quadratic_loop(n);
 }
 
 void loadingResourcesThread(){
@@ -189,13 +199,17 @@ void renderThread(){
     //std::unique_lock<std::mutex> lk(cv_m);
     //cv.wait(lk, []{return g_i == 1; });
     EASY_THREAD("Render");
+    uint64_t n = 20;
 #ifdef SAMPLE_NETWORK_TEST
     while (true) {
 #else
     for (int i = 0; i < RENDER_STEPS; i++){
 #endif
-        frame();
+        frame(n);
         localSleep(1200000);
+        n += 20;
+        if (n >= 700)
+            n = 20;
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
 }

@@ -65,8 +65,10 @@
 #include <easy/reader.h>
 #include <easy/utility.h>
 #include <unordered_map>
+#include <map>
 #include <vector>
 #include <string>
+#include <functional>
 #include <atomic>
 #include <memory>
 #include "graphics_slider_area.h"
@@ -77,6 +79,32 @@
 using Points = std::vector<QPointF>;
 using ArbitraryValues = std::vector<const profiler::ArbitraryValue*>;
 using ArbitraryValuesMap = std::unordered_map<profiler::thread_id_t, ArbitraryValues, estd::hash<profiler::thread_id_t> >;
+using Durations = std::vector<profiler::timestamp_t>;
+using ComplexityValuesMap = std::map<double, Durations>;
+
+enum class ChartType : uint8_t
+{
+    Regular = 0, ///< Regular chart; X axis = time,  Y axis = value
+    Complexity   ///< Complexity chart; X axis = value, Y axis = duration
+};
+
+enum class ComplexityType : uint8_t
+{
+    Constant = 0, ///< O(1)
+    Logarithmic,  ///< O(logN)
+    Linear,       ///< O(N)
+    Quasilinear,  ///< O(N*logN)
+    Quadratic,    ///< O(N^2)
+    Cubic,        ///< O(N^3)
+    Exponential,  ///< O(2^N)
+    Factorial,    ///< O(N!)
+};
+
+enum class ChartPenStyle : uint8_t
+{
+    Line = 0,
+    Points
+};
 
 class ArbitraryValuesCollection EASY_FINAL
 {
@@ -89,32 +117,42 @@ private:
 
     using This = ArbitraryValuesCollection;
 
-    ArbitraryValuesMap        m_values;
-    Points                    m_points;
-    ThreadPoolTask            m_worker;
-    profiler::timestamp_t  m_beginTime;
-    qreal                   m_minValue;
-    qreal                   m_maxValue;
-    std::atomic<uint8_t>      m_status;
-    std::atomic_bool      m_bInterrupt;
-    uint8_t                  m_jobType;
+    ArbitraryValuesMap         m_values;
+    ComplexityValuesMap m_complexityMap;
+    Points                     m_points;
+    ThreadPoolTask             m_worker;
+    profiler::timestamp_t   m_beginTime;
+    profiler::timestamp_t m_minDuration;
+    profiler::timestamp_t m_maxDuration;
+    qreal                    m_minValue;
+    qreal                    m_maxValue;
+    std::atomic<uint8_t>       m_status;
+    std::atomic_bool       m_bInterrupt;
+    ChartType               m_chartType;
+    uint8_t                   m_jobType;
 
 public:
 
     explicit ArbitraryValuesCollection();
     ~ArbitraryValuesCollection();
 
+    ChartType chartType() const;
     const ArbitraryValuesMap& valuesMap() const;
+    const ComplexityValuesMap& complexityMap() const;
     const Points& points() const;
     JobStatus status() const;
     size_t size() const;
 
+    profiler::timestamp_t minDuration() const;
+    profiler::timestamp_t maxDuration() const;
+
     qreal minValue() const;
     qreal maxValue() const;
 
-    void collectValues(profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName, profiler::block_id_t _parentBlockId, bool _directParent);
-    void collectValues(profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName, profiler::timestamp_t _beginTime, profiler::block_id_t _parentBlockId, bool _directParent);
+    void collectValues(ChartType _chartType, profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName, profiler::block_id_t _parentBlockId, bool _directParent);
     bool calculatePoints(profiler::timestamp_t _beginTime);
+
+    void collectValuesAndPoints(ChartType _chartType, profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName, profiler::timestamp_t _beginTime, profiler::block_id_t _parentBlockId, bool _directParent);
     void interrupt();
 
 private:
@@ -125,27 +163,19 @@ private:
     bool collectByIdForThread(const profiler::BlocksTreeRoot& _threadRoot, profiler::vin_t _valueId, bool _calculatePoints, profiler::block_id_t _parentBlockId, bool _directParent);
     bool collectByNameForThread(const profiler::BlocksTreeRoot& _threadRoot, const std::string& _valueName, bool _calculatePoints, profiler::block_id_t _parentBlockId, bool _directParent);
 
+    bool depthFirstSearch(const profiler::BlocksTreeRoot& _threadRoot, bool _calculatePoints
+        , profiler::block_id_t _parentBlockId, bool _directParent, std::function<bool(profiler::vin_t, const char*)> _isSuitableValue);
+
+    double addPoint(const profiler::ArbitraryValue& _value);
     QPointF point(const profiler::ArbitraryValue& _value) const;
 
 }; // end of class ArbitraryValuesCollection.
-
-enum class ChartType : uint8_t
-{
-    Vt = 0, ///< V(t) chart; X axis = time,  Y axis = value
-    Dv      ///< D(v) chart; X axis = value, Y axis = duration
-};
-
-enum class ChartViewType : uint8_t
-{
-    Line = 0,
-    Points
-};
 
 struct CollectionPaintData EASY_FINAL
 {
     const ArbitraryValuesCollection* ptr;
     QRgb                           color;
-    ChartViewType              chartType;
+    ChartPenStyle          chartPenStyle;
     bool                        selected;
 };
 
@@ -158,9 +188,14 @@ class ArbitraryValuesChartItem : public GraphicsImageItem
     using Parent = GraphicsImageItem;
     using This = ArbitraryValuesChartItem;
 
-    Collections m_collections;
-    qreal    m_workerMaxValue;
-    qreal    m_workerMinValue;
+    Collections                 m_collections;
+    qreal                    m_workerMaxValue;
+    qreal                    m_workerMinValue;
+    profiler::timestamp_t m_workerMaxDuration;
+    profiler::timestamp_t m_workerMinDuration;
+    profiler::timestamp_t       m_maxDuration;
+    profiler::timestamp_t       m_minDuration;
+    ChartType                     m_chartType;
 
 public:
 
@@ -180,14 +215,21 @@ public:
     void clear();
     void update(Collections _collections);
     void update(const ArbitraryValuesCollection* _selected);
+    void setChartType(ChartType _chartType);
+    ChartType chartType() const;
 
 private:
 
     void paintMouseIndicator(QPainter* _painter, qreal _top, qreal _bottom, qreal _width, qreal _height, int _font_h,
                              qreal _visibleRegionLeft, qreal _visibleRegionWidth);
 
-    void updateImageAsync(QRectF _boundingRect, qreal _current_scale, qreal _minimum, qreal _maximum, qreal _range,
-        qreal _value, qreal _width, bool _bindMode, profiler::timestamp_t _begin_time, bool _autoAdjust);
+    void updateRegularImageAsync(QRectF _boundingRect, qreal _current_scale, qreal _minimum, qreal _maximum
+        , qreal _range, qreal _value, qreal _width, bool _bindMode, profiler::timestamp_t _begin_time, bool _autoAdjust);
+
+    void updateComplexityImageAsync(QRectF _boundingRect, qreal _current_scale, qreal _minimum, qreal _maximum
+        , qreal _range, qreal _value, qreal _width, bool _bindMode, profiler::timestamp_t _begin_time, bool _autoAdjust);
+
+    void drawGrid(QPainter& _painter, int _width, int _height) const;
 
 }; // end of class ArbitraryValuesChartItem.
 
@@ -220,6 +262,8 @@ public:
     void cancelImageUpdate();
     void update(Collections _collections);
     void update(const ArbitraryValuesCollection* _selected);
+    void setChartType(ChartType _chartType);
+    ChartType chartType() const;
 
 private slots:
 
@@ -253,7 +297,7 @@ public:
 
     const ArbitraryValuesCollection* collection() const;
     ArbitraryValuesCollection* collection();
-    void collectValues(profiler::thread_id_t _threadId);
+    void collectValues(profiler::thread_id_t _threadId, ChartType _chartType);
     void interrupt();
 
     profiler::color_t color() const;
@@ -296,8 +340,12 @@ private slots:
     void onItemChanged(QTreeWidgetItem* _item, int _column);
     void onCurrentItemChanged(QTreeWidgetItem*, QTreeWidgetItem*);
     void onCollectionsTimeout();
+    void onRegularChartTypeChecked(bool _checked);
+    void onComplexityChartTypeChecked(bool _checked);
 
 private:
+
+    void repaint();
 
     void buildTree(profiler::thread_id_t _threadId, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId);
     QTreeWidgetItem* buildTreeForThread(const profiler::BlocksTreeRoot& _threadRoot, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId);
