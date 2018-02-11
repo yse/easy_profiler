@@ -52,19 +52,20 @@
 *                   : limitations under the License.
 ************************************************************************/
 
-#include <QPainter>
-#include <QPainterPath>
-#include <QGraphicsScene>
-#include <QColor>
-#include <QHeaderView>
-#include <QVBoxLayout>
-#include <QSplitter>
-#include <QResizeEvent>
-#include <QVariant>
-#include <QSettings>
-#include <QToolBar>
 #include <QAction>
 #include <QActionGroup>
+#include <QColor>
+#include <QGraphicsScene>
+#include <QHeaderView>
+#include <QMouseEvent>
+#include <QPainter>
+#include <QPainterPath>
+#include <QResizeEvent>
+#include <QSettings>
+#include <QSplitter>
+#include <QToolBar>
+#include <QVariant>
+#include <QVBoxLayout>
 #include <list>
 #include <cmath>
 #include "arbitrary_value_inspector.h"
@@ -1189,8 +1190,11 @@ void ArbitraryValuesChartItem::updateComplexityImageAsync(QRectF _boundingRect, 
             p.setPen(QColor::fromRgba(c.color));
         }
 
+        const bool drawApproximateLine = c.selected || m_collections.size() == 1;
+
         averages.clear();
-        averages.reserve(complexityMap.size());
+        if (drawApproximateLine)
+            averages.reserve(complexityMap.size());
 
         auto it = complexityMap.begin();
 
@@ -1202,8 +1206,12 @@ void ArbitraryValuesChartItem::updateComplexityImageAsync(QRectF _boundingRect, 
             average += duration;
             p.drawPoint(QPointF {x, gety(duration)});
         }
-        average /= it->second.size();
-        averages.emplace_back(x, gety(average));
+
+        if (drawApproximateLine)
+        {
+            average /= it->second.size();
+            averages.emplace_back(x, gety(average));
+        }
 
         for (++it; it != complexityMap.end(); ++it)
         {
@@ -1217,11 +1225,15 @@ void ArbitraryValuesChartItem::updateComplexityImageAsync(QRectF _boundingRect, 
                 average += duration;
                 p.drawPoint(QPointF {x, gety(duration)});
             }
-            average /= it->second.size();
-            averages.emplace_back(x, gety(average));
+
+            if (drawApproximateLine)
+            {
+                average /= it->second.size();
+                averages.emplace_back(x, gety(average));
+            }
         }
 
-        //if (c.selected)
+        if (drawApproximateLine)
         {
             p.drawPolyline(averages.data(), static_cast<int>(averages.size()));
 
@@ -1363,6 +1375,7 @@ void GraphicsChart::update(const ArbitraryValuesCollection* _selected)
 void GraphicsChart::setChartType(ChartType _chartType)
 {
     m_chartItem->setChartType(_chartType);
+    m_slider->setVisible(_chartType != ChartType::Complexity && !m_bBindMode);
 }
 
 ChartType GraphicsChart::chartType() const
