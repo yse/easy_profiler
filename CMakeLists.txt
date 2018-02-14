@@ -3,6 +3,8 @@ project(easy_profiler CXX)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
+option(EASY_PROFILER_NO_GUI "Build easy_profiler without the GUI application (required Qt)" OFF)
+
 set(EASY_PROGRAM_VERSION_MAJOR 1)
 set(EASY_PROGRAM_VERSION_MINOR 3)
 set(EASY_PROGRAM_VERSION_PATCH 0)
