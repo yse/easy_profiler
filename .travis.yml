@@ -56,12 +56,6 @@ install:
         export HOMEBREW_QT5_VERSION=$(brew list --versions qt55 | rev | cut -d' ' -f1 | rev);
         ln -s /usr/local/Cellar/qt/$HOMEBREW_QT5_VERSION/mkspecs /usr/local/mkspecs;
         ln -s /usr/local/Cellar/qt/$HOMEBREW_QT5_VERSION/plugins /usr/local/plugins;
-        echo "ls -l /usr/local/mkspecs";
-        ls -l /usr/local/mkspecs;
-        echo "ls -l /usr/local/plugins";
-        ls -l /usr/local/plugins;
-        echo "/usr/local/Cellar/qt/";
-        ls -l /usr/local/Cellar/qt/;
     fi
 
       
