@@ -55,13 +55,16 @@
 #include <QAction>
 #include <QActionGroup>
 #include <QColor>
+#include <QComboBox>
 #include <QGraphicsScene>
 #include <QHeaderView>
+#include <QLabel>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <QResizeEvent>
 #include <QSettings>
+#include <QSpinBox>
 #include <QSplitter>
 #include <QToolBar>
 #include <QVariant>
@@ -77,37 +80,77 @@
 EASY_CONSTEXPR int ChartBound = 2; ///< Top and bottom bounds for chart
 EASY_CONSTEXPR int ChartBounds = ChartBound << 1;
 
-template <size_t window_size>
-std::vector<QPointF> gauss(const std::vector<QPointF>& _points)
+void gaussFilter(std::vector<QPointF>& _points, int _windowSize, const std::atomic_bool& _interrupt)
 {
-    if (_points.size() < 3)
-        return _points;
+    if (_points.size() < 3 || _windowSize < 3 || _interrupt.load(std::memory_order_acquire))
+        return;
 
     std::vector<QPointF> out;
     out.reserve(_points.size());
 
     for (size_t i = 0, size = _points.size(); i < size; ++i)
     {
+        if (_interrupt.load(std::memory_order_acquire))
+            return;
+
         const auto next = i + 1;
-        if (next < window_size)
+        qreal sum = 0;
+
+        if (static_cast<int>(next) < _windowSize)
         {
-            qreal sum = 0;
             for (size_t j = 0; j <= i; ++j)
                 sum += _points[j].y();
             sum /= i + 1;
-            out.emplace_back(_points[i].x(), sum);
         }
         else
         {
-            qreal sum = 0;
-            for (size_t j = next - window_size; j <= i; ++j)
+            for (size_t j = next - _windowSize; j <= i; ++j)
                 sum += _points[j].y();
-            sum /= window_size;
-            out.emplace_back(_points[i].x(), sum);
+            sum /= _windowSize;
         }
+
+        out.emplace_back(_points[i].x(), sum);
     }
 
-    return out;
+    _points = std::move(out);
+}
+
+void medianFilter(std::vector<QPointF>& _points, int _windowSize, const std::atomic_bool& _interrupt)
+{
+    if (_points.size() < 3 || _windowSize < 3 || _interrupt.load(std::memory_order_acquire))
+        return;
+
+    const auto windowSizeHalf = _windowSize >> 1;
+
+    std::vector<QPointF> out;
+    out.reserve(_points.size());
+
+    std::vector<qreal> window(static_cast<size_t>(_windowSize));
+
+    for (size_t i = 0, size = _points.size(); i < size; ++i)
+    {
+        if (_interrupt.load(std::memory_order_acquire))
+            return;
+
+        const auto next = i + 1;
+        if (next < windowSizeHalf)
+        {
+            int k = 0;
+            for (int j = static_cast<int>(next) - windowSizeHalf; k < _windowSize; ++j, ++k)
+                window[k] = _points[abs(j)].y();
+        }
+        else
+        {
+            int k = 0;
+            for (size_t j = next - windowSizeHalf; k < _windowSize; ++j, ++k)
+                window[k] = _points[j].y();
+        }
+
+        std::sort(window.begin(), window.end());
+        out.emplace_back(_points[i].x(), window[windowSizeHalf]);
+    }
+
+    _points = std::move(out);
 }
 
 void getChartPoints(const ArbitraryValuesCollection& _collection, Points& _points, qreal& _minValue, qreal& _maxValue)
@@ -599,7 +642,9 @@ ArbitraryValuesChartItem::ArbitraryValuesChartItem()
     , m_workerMinDuration(0)
     , m_maxDuration(0)
     , m_minDuration(0)
+    , m_filterWindowSize(8)
     , m_chartType(ChartType::Regular)
+    , m_filterType(FilterType::None)
 {
 }
 
@@ -760,6 +805,8 @@ void ArbitraryValuesChartItem::onImageUpdated()
 {
     m_maxValue = m_workerMaxValue;
     m_minValue = m_workerMinValue;
+    m_maxDuration = m_workerMaxDuration;
+    m_minDuration = m_workerMinDuration;
 }
 
 void ArbitraryValuesChartItem::drawGrid(QPainter& _painter, int _width, int _height) const
@@ -1235,7 +1282,29 @@ void ArbitraryValuesChartItem::updateComplexityImageAsync(QRectF _boundingRect, 
 
         if (drawApproximateLine)
         {
-            p.drawPolyline(averages.data(), static_cast<int>(averages.size()));
+            // drawPolyLine() with 2 pixel width is VERY slow! Do not use it!
+            //p.drawPolyline(averages.data(), static_cast<int>(averages.size()));
+
+            // Draw polyline
+            {
+                QPointF p1 = averages.front();
+
+                auto averages_it = averages.begin();
+                for (++averages_it; averages_it != averages.end(); ++averages_it)
+                {
+                    if (isReady())
+                        return;
+
+                    const QPointF& p2 = *averages_it;
+                    const auto dx = fabs(p2.x() - p1.x()), dy = fabs(p2.y() - p1.y());
+                    if (dx > 1 || dy > 1)
+                        p.drawLine(p1, p2);
+                    else
+                        continue;
+
+                    p1 = p2;
+                }
+            }
 
             auto color = profiler_gui::darken(c.color, 0.65f);
             if (profiler_gui::alpha(color) < 0xc0)
@@ -1265,13 +1334,31 @@ void ArbitraryValuesChartItem::updateComplexityImageAsync(QRectF _boundingRect, 
             pen.setWidth(2);
             p.setPen(pen);
 
-            //averages = std::move(gauss<8>(averages));
+            switch (m_filterType)
+            {
+                case FilterType::Median:
+                    medianFilter(averages, m_filterWindowSize, m_bReady);
+                    break;
+
+                case FilterType::Gauss:
+                    gaussFilter(averages, m_filterWindowSize, m_bReady);
+                    break;
+
+                default:
+                    break;
+            }
+
+            if (isReady())
+                return;
 
             QPainterPath pp;
             pp.moveTo(averages.front());
             const size_t step = std::max(averages.size() / (size_t)40, (size_t)1);
             for (size_t k = 3 * step; k < averages.size(); k += 4 * step)
             {
+                if (isReady())
+                    return;
+
                 pp.cubicTo(averages[k - 2 * step], averages[k - 1 * step], averages[k]);
             }
 
@@ -1309,17 +1396,59 @@ void ArbitraryValuesChartItem::update(const ArbitraryValuesCollection* _selected
 
 void ArbitraryValuesChartItem::setChartType(ChartType _chartType)
 {
-    if (m_chartType != _chartType)
+    if (m_chartType == _chartType)
+        return;
+
+    cancelImageUpdate();
+    m_chartType = _chartType;
+    updateImage();
+}
+
+void ArbitraryValuesChartItem::setFilterType(FilterType _filterType)
+{
+    if (m_filterType == _filterType)
+        return;
+
+    if (m_chartType == ChartType::Regular)
     {
-        cancelImageUpdate();
-        m_chartType = _chartType;
-        updateImage();
+        m_filterType = _filterType;
+        return;
     }
+
+    cancelImageUpdate();
+    m_filterType = _filterType;
+    updateImage();
+}
+
+void ArbitraryValuesChartItem::setFilterWindowSize(int _size)
+{
+    if (m_filterWindowSize == _size)
+        return;
+
+    if (m_chartType == ChartType::Regular || m_filterType == FilterType::None)
+    {
+        m_filterWindowSize = _size;
+        return;
+    }
+
+    cancelImageUpdate();
+    m_filterWindowSize = _size;
+    updateImage();
 }
 
 ChartType ArbitraryValuesChartItem::chartType() const
 {
     return m_chartType;
+}
+
+FilterType ArbitraryValuesChartItem::filterType() const
+{
+    return m_filterType;
+}
+
+int ArbitraryValuesChartItem::filterWindowSize() const
+{
+    return m_filterWindowSize;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1378,9 +1507,29 @@ void GraphicsChart::setChartType(ChartType _chartType)
     m_slider->setVisible(_chartType != ChartType::Complexity && !m_bBindMode);
 }
 
+void GraphicsChart::setFilterType(FilterType _filterType)
+{
+    m_chartItem->setFilterType(_filterType);
+}
+
+void GraphicsChart::setFilterWindowSize(int _size)
+{
+    m_chartItem->setFilterWindowSize(_size);
+}
+
 ChartType GraphicsChart::chartType() const
 {
     return m_chartItem->chartType();
+}
+
+FilterType GraphicsChart::filterType() const
+{
+    return m_chartItem->filterType();
+}
+
+int GraphicsChart::filterWindowSize() const
+{
+    return m_chartItem->filterWindowSize();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1493,6 +1642,10 @@ ArbitraryValuesWidget::ArbitraryValuesWidget(QWidget* _parent)
     , m_splitter(new QSplitter(Qt::Horizontal, this))
     , m_treeWidget(new QTreeWidget(this))
     , m_chart(new GraphicsChart(this))
+    , m_filterBoxLabel(new QLabel(tr(" Approx filter:"), this))
+    , m_filterComboBox(new QComboBox(this))
+    , m_filterWindowLabel(new QLabel(tr(" Window size:"), this))
+    , m_filterWindowPicker(new QSpinBox(this))
     , m_boldItem(nullptr)
 {
     m_splitter->setHandleWidth(1);
@@ -1501,6 +1654,15 @@ ArbitraryValuesWidget::ArbitraryValuesWidget(QWidget* _parent)
     m_splitter->addWidget(m_chart);
     m_splitter->setStretchFactor(0, 1);
     m_splitter->setStretchFactor(1, 1);
+
+    m_filterWindowPicker->setRange(3, 25);
+    m_filterWindowPicker->setSingleStep(1);
+    m_filterWindowPicker->setValue(8);
+
+    m_filterComboBox->addItem(tr("None"));
+    m_filterComboBox->addItem(tr("Gauss"));
+    m_filterComboBox->addItem(tr("Median"));
+    m_filterComboBox->setCurrentIndex(0);
 
     auto tb = new QToolBar(this);
     tb->setIconSize(applicationIconsSize());
@@ -1512,16 +1674,24 @@ ArbitraryValuesWidget::ArbitraryValuesWidget(QWidget* _parent)
     auto actionGroup = new QActionGroup(this);
     actionGroup->setExclusive(true);
 
-    action = new QAction(tr("Regular chart"), actionGroup);
-    action->setCheckable(true);
-    action->setChecked(true);
-    connect(action, &QAction::triggered, this, &This::onRegularChartTypeChecked);
-    tb->addAction(action);
+    auto actionRegulatChart = new QAction(QIcon(imagePath("yx-chart")), tr("Regular chart"), actionGroup);
+    actionRegulatChart->setCheckable(true);
+    actionRegulatChart->setChecked(true);
+    tb->addAction(actionRegulatChart);
 
-    action = new QAction(tr("Complexity chart"), actionGroup);
-    action->setCheckable(true);
-    connect(action, &QAction::triggered, this, &This::onComplexityChartTypeChecked);
-    tb->addAction(action);
+    auto actionComplexityChart = new QAction(QIcon(imagePath("big-o-chart")), tr("Complexity chart"), actionGroup);
+    actionComplexityChart->setCheckable(true);
+    tb->addAction(actionComplexityChart);
+
+    auto filtersWidget = new QWidget(this);
+    auto filtersLay = new QHBoxLayout(filtersWidget);
+    filtersLay->setContentsMargins(0, 0, 0, 0);
+    filtersLay->addWidget(m_filterBoxLabel);
+    filtersLay->addWidget(m_filterComboBox);
+    filtersLay->addWidget(m_filterWindowLabel);
+    filtersLay->addWidget(m_filterWindowPicker);
+
+    tb->addWidget(filtersWidget);
 
     auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -1556,6 +1726,24 @@ ArbitraryValuesWidget::ArbitraryValuesWidget(QWidget* _parent)
     connect(globalEvents, &profiler_gui::GlobalSignals::fileOpened, this, &This::rebuild);
 
     loadSettings();
+
+    m_filterComboBox->setCurrentIndex(int_cast(m_chart->filterType()));
+    m_filterWindowPicker->setValue(m_chart->filterWindowSize());
+
+    m_filterBoxLabel->setVisible(m_chart->chartType() == ChartType::Complexity);
+    m_filterComboBox->setVisible(m_chart->chartType() == ChartType::Complexity);
+    m_filterWindowLabel->setVisible(m_chart->chartType() == ChartType::Complexity && m_chart->filterType() != FilterType::None);
+    m_filterWindowPicker->setVisible(m_chart->chartType() == ChartType::Complexity && m_chart->filterType() != FilterType::None);
+
+    if (m_chart->chartType() == ChartType::Complexity)
+        actionComplexityChart->setChecked(true);
+    else
+        actionRegulatChart->setChecked(true);
+
+    connect(actionRegulatChart, &QAction::triggered, this, &This::onRegularChartTypeChecked);
+    connect(actionComplexityChart, &QAction::triggered, this, &This::onComplexityChartTypeChecked);
+    connect(m_filterComboBox, Overload<int>::of(&QComboBox::currentIndexChanged), this, &This::onFilterComboBoxChanged);
+    connect(m_filterWindowPicker, Overload<int>::of(&QSpinBox::valueChanged), this, &This::onFilterWindowSizeChanged);
 
     rebuild();
 }
@@ -1722,6 +1910,12 @@ void ArbitraryValuesWidget::onRegularChartTypeChecked(bool _checked)
         return;
 
     m_chart->setChartType(ChartType::Regular);
+
+    m_filterWindowPicker->hide();
+    m_filterWindowLabel->hide();
+    m_filterComboBox->hide();
+    m_filterBoxLabel->hide();
+
     repaint();
 }
 
@@ -1731,7 +1925,42 @@ void ArbitraryValuesWidget::onComplexityChartTypeChecked(bool _checked)
         return;
 
     m_chart->setChartType(ChartType::Complexity);
+
+    m_filterBoxLabel->show();
+    m_filterComboBox->show();
+    m_filterWindowLabel->setVisible(m_filterComboBox->currentIndex() != 0);
+    m_filterWindowPicker->setVisible(m_filterComboBox->currentIndex() != 0);
+
     repaint();
+}
+
+void ArbitraryValuesWidget::onFilterComboBoxChanged(int _index)
+{
+    switch (_index)
+    {
+        case 1:
+            m_filterWindowLabel->show();
+            m_filterWindowPicker->show();
+            m_chart->setFilterType(FilterType::Gauss);
+            break;
+
+        case 2:
+            m_filterWindowLabel->show();
+            m_filterWindowPicker->show();
+            m_chart->setFilterType(FilterType::Median);
+            break;
+
+        default:
+            m_filterWindowLabel->hide();
+            m_filterWindowPicker->hide();
+            m_chart->setFilterType(FilterType::None);
+            break;
+    }
+}
+
+void ArbitraryValuesWidget::onFilterWindowSizeChanged(int _size)
+{
+    m_chart->setFilterWindowSize(_size);
 }
 
 void ArbitraryValuesWidget::buildTree(profiler::thread_id_t _threadId, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId)
@@ -1920,6 +2149,18 @@ void ArbitraryValuesWidget::loadSettings()
     if (!state.isEmpty())
         m_splitter->restoreState(state);
 
+    auto value = settings.value("chart/filterWindow");
+    if (!value.isNull())
+        m_chart->setFilterWindowSize(value.toInt());
+
+    value = settings.value("chart/filter");
+    if (!value.isNull())
+        m_chart->setFilterType(static_cast<FilterType>(value.toInt()));
+
+    value = settings.value("chart/type");
+    if (!value.isNull())
+        m_chart->setChartType(static_cast<ChartType>(value.toInt()));
+
     settings.endGroup();
 }
 
@@ -1929,5 +2170,8 @@ void ArbitraryValuesWidget::saveSettings()
     settings.beginGroup("ArbitraryValuesWidget");
     settings.setValue("hsplitter/geometry", m_splitter->saveGeometry());
     settings.setValue("hsplitter/state", m_splitter->saveState());
+    settings.setValue("chart/type", static_cast<int>(m_chart->chartType()));
+    settings.setValue("chart/filter", static_cast<int>(m_chart->filterType()));
+    settings.setValue("chart/filterWindow", m_chart->filterWindowSize());
     settings.endGroup();
 }

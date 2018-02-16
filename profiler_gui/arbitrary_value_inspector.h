@@ -88,6 +88,13 @@ enum class ChartType : uint8_t
     Complexity   ///< Complexity chart; X axis = value, Y axis = duration
 };
 
+enum class FilterType : uint8_t
+{
+    None = 0,
+    Gauss,
+    Median,
+};
+
 enum class ComplexityType : uint8_t
 {
     Constant = 0, ///< O(1)
@@ -195,7 +202,9 @@ class ArbitraryValuesChartItem : public GraphicsImageItem
     profiler::timestamp_t m_workerMinDuration;
     profiler::timestamp_t       m_maxDuration;
     profiler::timestamp_t       m_minDuration;
+    int                    m_filterWindowSize;
     ChartType                     m_chartType;
+    FilterType                   m_filterType;
 
 public:
 
@@ -216,7 +225,12 @@ public:
     void update(Collections _collections);
     void update(const ArbitraryValuesCollection* _selected);
     void setChartType(ChartType _chartType);
+    void setFilterType(FilterType _filterType);
+    void setFilterWindowSize(int _size);
+
     ChartType chartType() const;
+    FilterType filterType() const;
+    int filterWindowSize() const;
 
 private:
 
@@ -263,7 +277,12 @@ public:
     void update(Collections _collections);
     void update(const ArbitraryValuesCollection* _selected);
     void setChartType(ChartType _chartType);
+    void setFilterType(FilterType _filterType);
+    void setFilterWindowSize(int _size);
+
     ChartType chartType() const;
+    FilterType filterType() const;
+    int filterWindowSize() const;
 
 private slots:
 
@@ -318,6 +337,10 @@ class ArbitraryValuesWidget : public QWidget
     class QSplitter*                    m_splitter;
     QTreeWidget*                      m_treeWidget;
     GraphicsChart*                         m_chart;
+    class QLabel*                 m_filterBoxLabel;
+    class QComboBox*              m_filterComboBox;
+    class QLabel*              m_filterWindowLabel;
+    class QSpinBox*           m_filterWindowPicker;
     ArbitraryTreeWidgetItem*            m_boldItem;
 
 public:
@@ -342,6 +365,8 @@ private slots:
     void onCollectionsTimeout();
     void onRegularChartTypeChecked(bool _checked);
     void onComplexityChartTypeChecked(bool _checked);
+    void onFilterComboBoxChanged(int _index);
+    void onFilterWindowSizeChanged(int _size);
 
 private:
 
