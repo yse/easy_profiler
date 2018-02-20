@@ -159,19 +159,19 @@ public:
     void collectValues(ChartType _chartType, profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName, profiler::block_id_t _parentBlockId, bool _directParent);
     bool calculatePoints(profiler::timestamp_t _beginTime);
 
-    void collectValuesAndPoints(ChartType _chartType, profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName, profiler::timestamp_t _beginTime, profiler::block_id_t _parentBlockId, bool _directParent);
+    void collectValuesAndPoints(ChartType _chartType, profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName, profiler::timestamp_t _beginTime, profiler::block_id_t _parentBlockId);
     void interrupt();
 
 private:
 
     void setStatus(JobStatus _status);
-    void collectById(profiler::thread_id_t _threadId, profiler::vin_t _valueId, profiler::block_id_t _parentBlockId, bool _directParent);
-    void collectByName(profiler::thread_id_t _threadId, const std::string _valueName, profiler::block_id_t _parentBlockId, bool _directParent);
-    bool collectByIdForThread(const profiler::BlocksTreeRoot& _threadRoot, profiler::vin_t _valueId, bool _calculatePoints, profiler::block_id_t _parentBlockId, bool _directParent);
-    bool collectByNameForThread(const profiler::BlocksTreeRoot& _threadRoot, const std::string& _valueName, bool _calculatePoints, profiler::block_id_t _parentBlockId, bool _directParent);
+    void collectById(profiler::thread_id_t _threadId, profiler::vin_t _valueId, profiler::block_id_t _parentBlockId);
+    void collectByName(profiler::thread_id_t _threadId, const std::string _valueName, profiler::block_id_t _parentBlockId);
+    bool collectByIdForThread(const profiler::BlocksTreeRoot& _threadRoot, profiler::vin_t _valueId, bool _calculatePoints, profiler::block_id_t _parentBlockId);
+    bool collectByNameForThread(const profiler::BlocksTreeRoot& _threadRoot, const std::string& _valueName, bool _calculatePoints, profiler::block_id_t _parentBlockId);
 
     bool depthFirstSearch(const profiler::BlocksTreeRoot& _threadRoot, bool _calculatePoints
-        , profiler::block_id_t _parentBlockId, bool _directParent, std::function<bool(profiler::vin_t, const char*)> _isSuitableValue);
+        , profiler::block_id_t _parentBlockId, std::function<bool(profiler::vin_t, const char*)> _isSuitableValue);
 
     double addPoint(const profiler::ArbitraryValue& _value);
     QPointF point(const profiler::ArbitraryValue& _value) const;
@@ -341,6 +341,7 @@ class ArbitraryValuesWidget : public QWidget
     class QComboBox*              m_filterComboBox;
     class QLabel*              m_filterWindowLabel;
     class QSpinBox*           m_filterWindowPicker;
+    class QAction*             m_exportToCsvAction;
     ArbitraryTreeWidgetItem*            m_boldItem;
 
 public:
@@ -367,6 +368,7 @@ private slots:
     void onComplexityChartTypeChecked(bool _checked);
     void onFilterComboBoxChanged(int _index);
     void onFilterWindowSizeChanged(int _size);
+    void onExportToCsvClicked(bool);
 
 private:
 

@@ -49,5 +49,6 @@
         <file alias="arrow-down-disabled">images/default/arrow-down-disabled.svg</file>
         <file alias="yx-chart">images/default/yx.svg</file>
         <file alias="big-o-chart">images/default/big-o.svg</file>
+        <file alias="csv">images/default/csv.svg</file>
     </qresource>
 </RCC>

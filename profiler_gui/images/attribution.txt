@@ -42,3 +42,5 @@ default/arrow-up-disabled.svg      - Icon made by Freepik from www.flaticon.com
 default/arrow-left.svg             - Icon made by Freepik from www.flaticon.com
 default/arrow-right.svg            - Icon made by Freepik from www.flaticon.com
 default/yx.svg                     - Icon made by Freepik from www.flaticon.com
+default/svg2.svg                   - Icon made by Freepik from www.flaticon.com
+default/svg3.svg                   - Icon made by Freepik from www.flaticon.com

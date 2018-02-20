@@ -197,6 +197,7 @@ namespace profiler_gui {
         EasyBlocks                            gui_blocks; ///< Profiler graphics blocks builded by GUI
 
         QString                                    theme; ///< Current UI theme name
+        QString                              lastFileDir;
         Fonts                                       font; ///< Fonts
 
         SceneData                                  scene; ///< Diagram scene sizes and visible area position

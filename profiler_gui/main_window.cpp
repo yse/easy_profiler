@@ -801,6 +801,14 @@ MainWindow::~MainWindow()
 {
 }
 
+void MainWindow::validateLastDir()
+{
+    if (m_lastFiles.empty())
+        EASY_GLOBALS.lastFileDir = QString();
+    else
+        EASY_GLOBALS.lastFileDir = QFileInfo(m_lastFiles.front()).absoluteDir().canonicalPath();
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 void MainWindow::dragEnterEvent(QDragEnterEvent* drag_event)
@@ -901,6 +909,7 @@ void MainWindow::onOpenFileClicked(bool)
 void MainWindow::addFileToList(const QString& filename)
 {
     m_lastFiles.push_front(filename);
+    validateLastDir();
 
     auto action = new QAction(filename, this);
     connect(action, &QAction::triggered, this, &This::onOpenFileClicked);
@@ -985,7 +994,7 @@ void MainWindow::onSaveFileClicked(bool)
             auto action = m_loadActionMenu->actions().front();
             m_loadActionMenu->removeAction(action);
             delete action;
-
+            validateLastDir();
             return;
         }
 
@@ -1060,6 +1069,7 @@ void MainWindow::onSaveFileClicked(bool)
                 auto action = m_loadActionMenu->actions().front();
                 m_loadActionMenu->removeAction(action);
                 delete action;
+                validateLastDir();
             }
 
             addFileToList(filename);
@@ -1348,7 +1358,10 @@ void MainWindow::loadSettings()
 
     auto last_files = settings.value("last_files");
     if (!last_files.isNull())
+    {
         m_lastFiles = last_files.toStringList();
+        validateLastDir();
+    }
 
     auto last_addr = settings.value("ip_address");
     if (!last_addr.isNull())
@@ -1846,6 +1859,7 @@ void MainWindow::onFileReaderTimeout()
                         auto action = fileActions.at(index);
                         m_loadActionMenu->removeAction(action);
                         m_loadActionMenu->insertAction(fileActions.front(), action);
+                        validateLastDir();
                     }
 
                     m_bOpenedCacheFile = filename.contains(NETWORK_CACHE_FILE);
@@ -1908,6 +1922,7 @@ void MainWindow::onFileReaderTimeout()
                     auto action = m_loadActionMenu->actions().at(index);
                     m_loadActionMenu->removeAction(action);
                     delete action;
+                    validateLastDir();
                 }
             }
         }

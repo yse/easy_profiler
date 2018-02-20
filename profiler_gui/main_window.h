@@ -330,6 +330,8 @@ protected slots:
 
     void checkFrameTimeReady();
 
+    void validateLastDir();
+
 private:
 
     // Private non-virtual methods
