@@ -1441,9 +1441,9 @@ void BlocksGraphicsView::onThreadViewChanged()
     for (auto item : m_items)
         item->validateName();
 
+    updateVisibleSceneRect();
     emit treeChanged();
 
-    updateVisibleSceneRect();
     onHierarchyFlagChange(EASY_GLOBALS.only_current_thread_hierarchy);
 
     repaintScene();
@@ -2246,8 +2246,8 @@ ThreadNamesWidget::ThreadNamesWidget(BlocksGraphicsView* _view, int _additionalH
     connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::selectedThreadChanged, [this](::profiler::thread_id_t){ repaintScene(); });
     connect(m_view, &BlocksGraphicsView::treeChanged, this, &This::onTreeChange);
     connect(m_view, &BlocksGraphicsView::sceneUpdated, this, &This::repaintScene);
-    connect(m_view->verticalScrollBar(), &QScrollBar::valueChanged, verticalScrollBar(), &QScrollBar::setValue);
-    connect(m_view->verticalScrollBar(), &QScrollBar::rangeChanged, this, &This::setVerticalScrollbarRange);
+    connect(m_view->verticalScrollBar(), &QScrollBar::valueChanged, verticalScrollBar(), &QScrollBar::setValue, Qt::QueuedConnection);
+    connect(m_view->verticalScrollBar(), &QScrollBar::rangeChanged, this, &This::setVerticalScrollbarRange, Qt::QueuedConnection);
     connect(&m_idleTimer, &QTimer::timeout, this, &This::onIdleTimeout);
 }
 
@@ -2311,6 +2311,7 @@ void ThreadNamesWidget::onTreeChange()
     setVerticalScrollbarRange(viewBar->minimum(), viewBar->maximum());
     vbar->setSingleStep(viewBar->singleStep());
     vbar->setPageStep(viewBar->pageStep());
+    vbar->setValue(viewBar->value());
 
     auto r = m_view->sceneRect();
     setSceneRect(0, r.top(), maxLength, r.height() + m_additionalHeight);
@@ -2339,8 +2340,11 @@ void ThreadNamesWidget::onIdleTimeout()
     if (m_popupWidget != nullptr)
         return;
 
+    const auto localPos = mapFromGlobal(QCursor::pos());
     auto visibleSceneRect = mapToScene(rect()).boundingRect();
-    auto scenePos = mapToScene(mapFromGlobal(QCursor::pos()));
+    visibleSceneRect.setTop(m_view->visibleSceneRect().top());
+
+    auto scenePos = QPointF(mapToScene(localPos).x(), m_view->mapToScene(localPos).y());
 
     if (scenePos.x() < visibleSceneRect.left() || scenePos.x() > visibleSceneRect.right())
     {
@@ -2356,19 +2360,9 @@ void ThreadNamesWidget::onIdleTimeout()
         return;
     }
 
-    auto const parentView = static_cast<ThreadNamesWidget*>(scene()->parent());
-    const auto view = parentView->view();
-
-    if (scenePos.y() > view->visibleSceneRect().bottom())
-    {
-        if (m_idleTime > 3000)
-            setFixedWidth(m_maxLength);
-        return;
-    }
-
     const qreal y = scenePos.y() - visibleSceneRect.top();
 
-    const auto& items = view->getItems();
+    const auto& items = m_view->getItems();
     if (items.empty())
     {
         if (m_idleTime > 3000)
@@ -2486,7 +2480,7 @@ void ThreadNamesWidget::onIdleTimeout()
             if (scenePos.x() + br.width() > visibleSceneRect.right())
                 scenePos.setX(::std::max(scenePos.x() - br.width(), visibleSceneRect.left()));
 
-            m_popupWidget->setPos(scenePos);
+            m_popupWidget->setPos(scenePos.x(), scenePos.y() - visibleSceneRect.top());
             m_popupWidget->setOpacity(0.95);
         }
     }
@@ -2512,7 +2506,7 @@ void ThreadNamesWidget::mouseDoubleClickEvent(QMouseEvent* _event)
 
     m_idleTime = 0;
 
-    auto y = mapToScene(_event->pos()).y();
+    auto y = m_view->mapToScene(mapFromGlobal(QCursor::pos())).y();
     const auto& items = m_view->getItems();
     for (auto item : items)
     {
@@ -2575,6 +2569,7 @@ void ThreadNamesWidget::wheelEvent(QWheelEvent* _event)
     {
         _event->accept();
         vbar->setValue(vbar->value() - _event->delta());
+        verticalScrollBar()->setValue(vbar->value());
     }
 }
 
