@@ -8,7 +8,6 @@
     <qresource prefix="/images/default">
         <file alias="exit">images/default/off.svg</file>
         <file alias="open">images/default/open-folder2.svg</file>
-        <file alias="reopen">images/default/reload-folder2.svg</file>
         <file alias="reload">images/default/reload.svg</file>
         <file alias="expand">images/default/expand.svg</file>
         <file alias="collapse">images/default/collapse.svg</file>

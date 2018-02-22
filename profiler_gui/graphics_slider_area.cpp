@@ -242,6 +242,11 @@ void GraphicsSliderArea::showEvent(QShowEvent* _event)
     }
 }
 
+bool GraphicsSliderArea::canShowSlider() const
+{
+    return !m_bBindMode;
+}
+
 void GraphicsSliderArea::validateScene()
 {
     if (!EASY_GLOBALS.scene.empty)
@@ -250,8 +255,11 @@ void GraphicsSliderArea::validateScene()
         setRange(EASY_GLOBALS.scene.left, EASY_GLOBALS.scene.right);
         setSliderWidth(EASY_GLOBALS.scene.window);
         setValue(EASY_GLOBALS.scene.offset);
-        m_slider->show();
-        scene()->update();
+        if (canShowSlider())
+        {
+            m_slider->show();
+            scene()->update();
+        }
     }
 }
 
@@ -268,7 +276,8 @@ void GraphicsSliderArea::onSceneSizeChanged(qreal _left, qreal _right)
 {
     const profiler_gui::BoolFlagGuard guard(m_bEmitChange, false);
     setRange(_left, _right);
-    m_slider->show();
+    if (canShowSlider())
+        m_slider->show();
 }
 
 //////////////////////////////////////////////////////////////////////////

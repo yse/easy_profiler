@@ -284,6 +284,10 @@ public:
     FilterType filterType() const;
     int filterWindowSize() const;
 
+protected:
+
+    bool canShowSlider() const override;
+
 private slots:
 
     void onAutoAdjustChartChanged();

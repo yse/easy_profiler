@@ -154,6 +154,7 @@ public:
 
 protected:
 
+    virtual bool canShowSlider() const;
     void validateScene();
 
 public slots:

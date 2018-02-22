@@ -1360,13 +1360,35 @@ void ArbitraryValuesChartItem::updateComplexityImageAsync(QRectF _boundingRect, 
 
             QPainterPath pp;
             pp.moveTo(averages.front());
-            const size_t step = std::max(averages.size() / (size_t)40, (size_t)1);
-            for (size_t k = 3 * step; k < averages.size(); k += 4 * step)
+            const auto last = averages.size() - 1;
+            size_t last_k = 0;
+            size_t step = std::max(averages.size() / (size_t)40, (size_t)1);
+            const auto dubstep = step << 1; // lol :P
+            const auto iteration_step = 3 * step;
+            for (size_t k = iteration_step; k < averages.size(); k += iteration_step)
             {
                 if (isReady())
                     return;
 
-                pp.cubicTo(averages[k - 2 * step], averages[k - 1 * step], averages[k]);
+                last_k = k;
+                pp.cubicTo(averages[k - dubstep], averages[k - step], averages[k]);
+            }
+
+            const auto rest = last - last_k;
+            if (rest < iteration_step)
+            {
+                if ((rest % 4) == 0)
+                {
+                    step = rest / 4;
+                    pp.cubicTo(averages[last - (step << 1)], averages[last - step], averages[last]);
+                }
+                else
+                {
+                    step = std::max(rest / (size_t)4, (size_t)1);
+                    const auto k1 = std::max(last - step, last_k);
+                    const auto k0 = std::max(k1   - step, last_k);
+                    pp.cubicTo(averages[k0], averages[k1], averages[last]);
+                }
             }
 
             p.drawPath(pp);
@@ -1539,6 +1561,11 @@ int GraphicsChart::filterWindowSize() const
     return m_chartItem->filterWindowSize();
 }
 
+bool GraphicsChart::canShowSlider() const
+{
+    return chartType() != ChartType::Complexity && !m_bBindMode;
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 enum class ArbitraryColumns : uint8_t
@@ -1614,11 +1641,12 @@ void ArbitraryTreeWidgetItem::collectValues(profiler::thread_id_t _threadId, Cha
         m_collection->interrupt();
 
     auto parentItem = parent();
-    auto parentBlockId = profiler_gui::numeric_max<profiler::block_id_t>();
-    bool directParent = false;
 
+    profiler::block_id_t parentBlockId = 0;
     if (parentItem->data(int_cast(ArbitraryColumns::Type), Qt::UserRole).toInt() == 1)
         parentBlockId = parentItem->data(int_cast(ArbitraryColumns::Vin), Qt::UserRole).toUInt();
+    else
+        parentBlockId = EASY_GLOBALS.selected_block_id;
 
     m_collection->collectValuesAndPoints(_chartType, _threadId, m_vin
         , text(int_cast(ArbitraryColumns::Name)).toStdString().c_str(), EASY_GLOBALS.begin_time
@@ -1992,9 +2020,63 @@ void ArbitraryValuesWidget::onExportToCsvClicked(bool)
     if (fileinfo.suffix() != QStringLiteral("csv"))
         filename += QStringLiteral(".csv");
 
-    QMessageBox::warning(this, "Warning", "Export to csv is not implemented yet", QMessageBox::Close);
+    QFile csv(filename);
+    if (!csv.open(QIODevice::WriteOnly | QIODevice::Text) || !csv.isOpen())
+    {
+        QMessageBox::warning(this, "Warning", "Can not open file for writing", QMessageBox::Close);
+        return;
+    }
 
-    // TODO: Implement export to csv
+    for (auto item : m_checkedItems)
+    {
+        if (item->collection()->status() == ArbitraryValuesCollection::InProgress)
+        {
+            QMessageBox::warning(this, "Warning", "Not all values collected to the moment.\nTry again a bit later.",
+                                 QMessageBox::Close);
+            return;
+        }
+    }
+
+    const auto writeHeader = [this, &csv]
+    {
+        csv.write(" ; ;\n"); // blank line
+        if (m_chart->chartType() == ChartType::Regular)
+            csv.write("timestamp;value;\n");
+        else
+            csv.write("value;duration;\n");
+    };
+
+    if (m_chart->chartType() == ChartType::Regular)
+    {
+        for (auto item : m_checkedItems)
+        {
+            const auto header = QString(" ; ;\nname:;%1;\ntimestamp;value;\n").arg(item->text(int_cast(ArbitraryColumns::Name)));
+            csv.write(header.toStdString().c_str());
+
+            auto collection = item->collection();
+            auto it = collection->valuesMap().find(EASY_GLOBALS.selected_thread);
+            if (it != collection->valuesMap().end())
+            {
+                for (auto val : it->second)
+                {
+                    const auto str = QString("%1;%2;\n").arg(val->begin()).arg(profiler_gui::valueString(*val));
+                    csv.write(str.toStdString().c_str());
+                }
+            }
+        }
+    }
+    else
+    {
+        QMessageBox::warning(this, "Warning", "Export to csv for complexity chart\nis not implemented yet",
+                             QMessageBox::Close);
+
+        // TODO: Implement complexity chart export to csv
+//        for (auto item : m_checkedItems)
+//        {
+//            const auto header = QString(" ; ;\nname:;%1;\nvalue;duration;\n").arg(item->text(int_cast(ArbitraryColumns::Name)));
+//            csv.write(header.toStdString().c_str());
+//        }
+    }
 }
 
 void ArbitraryValuesWidget::buildTree(profiler::thread_id_t _threadId, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId)
