@@ -1743,7 +1743,7 @@ ArbitraryValuesWidget::ArbitraryValuesWidget(QWidget* _parent)
     //m_treeWidget->setSortingEnabled(false);
     m_treeWidget->setColumnCount(int_cast(ArbitraryColumns::Count));
     m_treeWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_treeWidget->setItemDelegateForColumn(0, new TreeViewFirstColumnItemDelegate(this));
+    m_treeWidget->setItemDelegateForColumn(0, new TreeViewFirstColumnItemDelegate(m_treeWidget));
 
     auto headerItem = new QTreeWidgetItem();
     headerItem->setText(int_cast(ArbitraryColumns::Type), "Type");

@@ -14,7 +14,7 @@ class TreeViewFirstColumnItemDelegate : public QStyledItemDelegate
 
 public:
 
-    explicit TreeViewFirstColumnItemDelegate(QObject* parent = nullptr);
+    explicit TreeViewFirstColumnItemDelegate(class QTreeWidget* parent = nullptr);
     ~TreeViewFirstColumnItemDelegate() override;
     void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override;
 
