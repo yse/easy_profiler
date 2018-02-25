@@ -75,7 +75,6 @@
 #include <list>
 #include <cmath>
 #include "arbitrary_value_inspector.h"
-#include "treeview_first_column_delegate.h"
 #include "globals.h"
 #include "easy_complexity_calculator.h"
 
@@ -1744,7 +1743,6 @@ ArbitraryValuesWidget::ArbitraryValuesWidget(QWidget* _parent)
     //m_treeWidget->setSortingEnabled(false);
     m_treeWidget->setColumnCount(int_cast(ArbitraryColumns::Count));
     m_treeWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_treeWidget->setItemDelegateForColumn(0, new TreeViewFirstColumnItemDelegate(m_treeWidget));
 
     auto headerItem = new QTreeWidgetItem();
     headerItem->setText(int_cast(ArbitraryColumns::Type), "Type");

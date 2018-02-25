@@ -73,7 +73,6 @@
 #include <thread>
 #include "descriptors_tree_widget.h"
 #include "arbitrary_value_inspector.h"
-#include "treeview_first_column_delegate.h"
 #include "globals.h"
 
 #ifdef _WIN32
@@ -276,8 +275,6 @@ DescriptorsTreeWidget::DescriptorsTreeWidget(QWidget* _parent)
     connect(this, &Parent::currentItemChanged, this, &This::onCurrentItemChange);
 
     loadSettings();
-
-    setItemDelegateForColumn(0, new TreeViewFirstColumnItemDelegate(this));
 }
 
 DescriptorsTreeWidget::~DescriptorsTreeWidget()

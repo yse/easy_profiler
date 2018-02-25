@@ -50,8 +50,6 @@ if (Qt5Widgets_FOUND)
         tree_widget_item.cpp
         tree_widget_loader.h
         tree_widget_loader.cpp
-        treeview_first_column_delegate.h
-        treeview_first_column_delegate.cpp
         resources.qrc
         resources.rc
     )

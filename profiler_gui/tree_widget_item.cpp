@@ -350,57 +350,23 @@ TreeWidgetItemDelegate::~TreeWidgetItemDelegate()
 
 void TreeWidgetItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
-    const auto colorBlockSize = option.rect.height() >> 1;
-
     auto brushData = m_treeWidget->model()->data(index, BlockColorRole);
     if (brushData.isNull())
     {
-#ifdef _WIN32
-        const auto currentTreeIndex = m_treeWidget->currentIndex();
-        if (index.parent() == currentTreeIndex.parent() && index.row() == currentTreeIndex.row())
-        {
-            // Draw selection background for selected row
-            painter->save();
-            painter->setBrush(QColor::fromRgba(0xCC98DE98));
-            painter->setPen(Qt::NoPen);
-            painter->drawRect(QRect(0, option.rect.top(), option.rect.left() + colorBlockSize, option.rect.height()));
-            painter->restore();
-        }
-#endif
-
         // Draw item as usual
         QStyledItemDelegate::paint(painter, option, index);
-
-        // Draw line under tree indicator
-        const auto bottomLeft = option.rect.bottomLeft();
-        if (bottomLeft.x() > 0)
-        {
-            painter->save();
-            painter->setBrush(Qt::NoBrush);
-            painter->setPen(profiler_gui::SYSTEM_BORDER_COLOR);
-            painter->drawLine(QPoint(0, bottomLeft.y()), bottomLeft);
-            painter->restore();
-        }
-
         return;
     }
 
+    const auto colorBlockSize = option.rect.height() >> 1;
     const auto currentTreeIndex = m_treeWidget->currentIndex();
     if (index.parent() == currentTreeIndex.parent() && index.row() == currentTreeIndex.row())
     {
         // Draw selection background for selected row
-
         painter->save();
-
         painter->setBrush(QColor::fromRgba(0xCC98DE98));
         painter->setPen(Qt::NoPen);
-
-#ifdef _WIN32
-        painter->drawRect(QRect(0, option.rect.top(), option.rect.left() + colorBlockSize, option.rect.height()));
-#else
         painter->drawRect(QRect(option.rect.left(), option.rect.top(), colorBlockSize, option.rect.height()));
-#endif
-
         painter->restore();
     }
 
@@ -424,11 +390,8 @@ void TreeWidgetItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem
 
     // Draw line under tree indicator
     const auto bottomLeft = opt.rect.bottomLeft();
-    if (bottomLeft.x() > 0)
-    {
-        painter->setBrush(Qt::NoBrush);
-        painter->drawLine(QPoint(0, bottomLeft.y()), bottomLeft);
-    }
+    painter->setBrush(Qt::NoBrush);
+    painter->drawLine(QPoint(bottomLeft.x() - colorBlockSize, bottomLeft.y()), bottomLeft);
 
     painter->restore();
 }

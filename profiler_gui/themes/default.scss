@@ -160,6 +160,27 @@ QListView, QTableView, QTreeView {
     selection-color: $TextColor;
 }
 
+QTreeView::branch {
+    selection-background-color: rgb_a(#98DE98, 0.8);
+    border-bottom: 1px solid $BorderColor;
+}
+
+QTreeView::branch:selected {
+    background-color: transparent;
+}
+
+QTreeView::branch:open:has-children {
+    padding: 9px 0 9px 0;
+    border-image: none;
+    image: url(":/images/default/arrow-down");
+}
+
+QTreeView::branch:closed:has-children {
+    padding: 9px 0 9px 0;
+    border-image: none;
+    image: url(":/images/default/arrow-right");
+}
+
 QListView::item, QTableView::item, QTreeView::item {
     height: $DefaultHeight + 2px;
     border-bottom: 1px solid $BorderColor;

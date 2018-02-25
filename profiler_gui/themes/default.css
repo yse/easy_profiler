@@ -143,6 +143,23 @@ QListView, QTableView, QTreeView {
   selection-background-color: rgba(152, 222, 152, 0.8);
   selection-color: #504040; }
 
+QTreeView::branch {
+  selection-background-color: rgba(152, 222, 152, 0.8);
+  border-bottom: 1px solid #cccccc; }
+
+QTreeView::branch:selected {
+  background-color: transparent; }
+
+QTreeView::branch:open:has-children {
+  padding: 9px 0 9px 0;
+  border-image: none;
+  image: url(":/images/default/arrow-down"); }
+
+QTreeView::branch:closed:has-children {
+  padding: 9px 0 9px 0;
+  border-image: none;
+  image: url(":/images/default/arrow-right"); }
+
 QListView::item, QTableView::item, QTreeView::item {
   height: 26px;
   border-bottom: 1px solid #cccccc; }
