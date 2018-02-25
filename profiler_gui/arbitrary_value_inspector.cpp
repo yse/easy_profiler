@@ -77,6 +77,7 @@
 #include "arbitrary_value_inspector.h"
 #include "treeview_first_column_delegate.h"
 #include "globals.h"
+#include "easy_complexity_calculator.h"
 
 //////////////////////////////////////////////////////////////////////////
 

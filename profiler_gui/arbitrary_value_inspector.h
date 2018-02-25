@@ -95,18 +95,6 @@ enum class FilterType : uint8_t
     Median,
 };
 
-enum class ComplexityType : uint8_t
-{
-    Constant = 0, ///< O(1)
-    Logarithmic,  ///< O(logN)
-    Linear,       ///< O(N)
-    Quasilinear,  ///< O(N*logN)
-    Quadratic,    ///< O(N^2)
-    Cubic,        ///< O(N^3)
-    Exponential,  ///< O(2^N)
-    Factorial,    ///< O(N!)
-};
-
 enum class ChartPenStyle : uint8_t
 {
     Line = 0,
