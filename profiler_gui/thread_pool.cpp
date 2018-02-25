@@ -115,15 +115,23 @@ void ThreadPool::work()
         if (m_interrupt.load(std::memory_order_acquire))
             break;
 
-        if (m_tasks.empty())
-            continue;
+        while (true) // execute all available tasks
+        {
+            if (m_tasks.empty())
+                break; // the lock will be released on the outer loop new iteration
 
-        auto& task = m_tasks.front().get();
-        task.setStatus(TaskStatus::Processing);
-        m_tasks.pop_front();
+            auto& task = m_tasks.front().get();
+            task.setStatus(TaskStatus::Processing);
+            m_tasks.pop_front();
 
-        lock.unlock();
+            // unlock to permit tasks execution for other worker threads
+            lock.unlock();
 
-        task.execute();
+            // execute task
+            task.execute();
+
+            // lock again to check if there are new tasks in the queue
+            lock.lock();
+        }
     }
 }
