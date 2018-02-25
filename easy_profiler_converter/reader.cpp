@@ -57,20 +57,20 @@ inline bool isCompatibleVersion(uint32_t _version)
 
 #ifdef EASY_PROFILER_HASHED_CSTR_DEFINED
 
-typedef ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, ::profiler::passthrough_hash<::profiler::block_id_t> > StatsMap;
+using StatsMap = ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, ::estd::hash<::profiler::block_id_t> >;
 
 /** \note It is absolutely safe to use hashed_cstr (which simply stores pointer) because std::unordered_map,
 which uses it as a key, exists only inside fillTreesFromFile function. */
-typedef ::std::unordered_map<::profiler::hashed_cstr, ::profiler::block_id_t> IdMap;
+using IdMap = ::std::unordered_map<::profiler::hashed_cstr, ::profiler::block_id_t>;
 
-typedef ::std::unordered_map<::profiler::hashed_cstr, ::profiler::BlockStatistics*> CsStatsMap;
+using CsStatsMap = ::std::unordered_map<::profiler::hashed_cstr, ::profiler::BlockStatistics*>;
 
 #else
 
 // TODO: Create optimized version of profiler::hashed_cstr for Linux too.
-typedef ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, ::profiler::passthrough_hash<::profiler::block_id_t> > StatsMap;
-typedef ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::block_id_t> IdMap;
-typedef ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::BlockStatistics*> CsStatsMap;
+using StatsMap = ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, ::estd::hash<::profiler::block_id_t> >;
+using IdMap = ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::block_id_t>;
+using CsStatsMap = ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::BlockStatistics*>;
 
 #endif
 
@@ -125,8 +125,8 @@ using namespace profiler::reader;
 
     int64_t file_cpu_frequency = 0LL;
     inFile.read((char*)&file_cpu_frequency, sizeof(int64_t));
-    uint64_t cpu_frequency = file_cpu_frequency;
-    const double conversion_factor = static_cast<double>(TIME_FACTOR) / static_cast<double>(cpu_frequency);
+    const uint64_t cpu_frequency = file_cpu_frequency;
+    const double conversion_factor = (cpu_frequency != 0 ? static_cast<double>(TIME_FACTOR) / static_cast<double>(cpu_frequency) : 1.);
 
     ::profiler::timestamp_t begin_time = 0ULL;
     ::profiler::timestamp_t end_time = 0ULL;
@@ -189,14 +189,15 @@ using namespace profiler::reader;
         inFile.read(data, sz);
         auto descriptor = reinterpret_cast<::profiler::SerializedBlockDescriptor*>(data);
 
-        m_BlockDescriptors.push_back(::std::make_shared<BlockDescriptor>());
-        m_BlockDescriptors.back()->lineNumber = descriptor->line();
-        m_BlockDescriptors.back()->blockId = descriptor->id();
-        m_BlockDescriptors.back()->argbColor = descriptor->color();
-        m_BlockDescriptors.back()->blockType = descriptor->type();
-        m_BlockDescriptors.back()->status = descriptor->status();
-        m_BlockDescriptors.back()->compileTimeName = descriptor->name();
-        m_BlockDescriptors.back()->fileName = descriptor->file();
+        auto desc = ::std::make_shared<BlockDescriptor>();
+        desc->lineNumber = descriptor->line();
+        desc->blockId = descriptor->id();
+        desc->argbColor = descriptor->color();
+        desc->blockType = static_cast<decltype(desc->blockType)>(descriptor->type());
+        desc->status = descriptor->status();
+        desc->compileTimeName = descriptor->name();
+        desc->fileName = descriptor->file();
+        m_BlockDescriptors.push_back(::std::move(desc));
 
         i += sz;
     }
@@ -281,7 +282,7 @@ using namespace profiler::reader;
         prev_node->current_block = ::std::make_shared<BlockInfo>();
 
         ::std::shared_ptr<BlocksTreeNode> element;
-        uint level = 0;
+        uint32_t level = 0;
 
         while (!inFile.eof() && read_number < threshold)
         {

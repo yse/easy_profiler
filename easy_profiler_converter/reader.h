@@ -1,3 +1,45 @@
+/**
+Lightweight profiler library for c++
+Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+
+Licensed under either of
+	* MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
+    * Apache License, Version 2.0, (LICENSE.APACHE or http://www.apache.org/licenses/LICENSE-2.0)
+at your option.
+
+The MIT License
+	Permission is hereby granted, free of charge, to any person obtaining a copy
+	of this software and associated documentation files (the "Software"), to deal
+	in the Software without restriction, including without limitation the rights
+	to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+	of the Software, and to permit persons to whom the Software is furnished
+	to do so, subject to the following conditions:
+
+	The above copyright notice and this permission notice shall be included in all
+	copies or substantial portions of the Software.
+
+	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+	LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+	TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+	USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+The Apache License, Version 2.0 (the "License");
+	You may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+
+**/
+
 #ifndef EASY_PROFILER_READER_H
 #define EASY_PROFILER_READER_H
 
@@ -12,48 +54,38 @@
 ///this
 #include <easy/easy_protocol.h>
 #include <easy/reader.h>
+#include <easy/utility.h>
 
-#ifndef uint
-#define uint unsigned int
-#endif
-
-namespace profiler{
+namespace profiler {
 
 namespace reader {
+
+class BlocksTreeNode;
+using thread_blocks_tree_t = ::std::unordered_map<::profiler::thread_id_t, BlocksTreeNode, ::estd::hash<::profiler::thread_id_t> >;
+using thread_names_t = ::std::unordered_map<::profiler::thread_id_t, ::std::string>;
+using context_switches_t = ::std::vector<::std::shared_ptr<ContextSwitchEvent> >;
 
 class BlocksTreeNode
 {
 public:
+    ::std::vector<::std::shared_ptr<BlocksTreeNode>> children;
     ::std::shared_ptr<BlockInfo> current_block;
     BlocksTreeNode* parent;
-    ::std::vector<::std::shared_ptr<BlocksTreeNode>> children;
 
-    BlocksTreeNode(BlocksTreeNode&& other)
-        : current_block(::std::move(other.current_block)),
-          parent(other.parent),
-          children(::std::move(other.children))
+    BlocksTreeNode(BlocksTreeNode&& other) : children(::std::move(other.children))
+        , current_block(::std::move(other.current_block))
+        ,  parent(other.parent)
     {
     }
-    BlocksTreeNode():current_block(nullptr),
-        parent(nullptr)
+
+    BlocksTreeNode() : parent(nullptr)
     {
     }
-};
-
-typedef ::std::unordered_map<::profiler::thread_id_t, BlocksTreeNode, ::profiler::passthrough_hash<::profiler::thread_id_t> > thread_blocks_tree_t;
-typedef ::std::unordered_map<::profiler::thread_id_t, ::std::string> thread_names_t;
-typedef ::std::vector<::std::shared_ptr<ContextSwitchEvent> >  context_switches_t;
+}; // end of class BlocksTreeNode.
 
 class FileReader EASY_FINAL
 {
 public:
-
-
-    FileReader()
-    { }
-
-    ~FileReader()
-    { }
 
     /*-----------------------------------------------------------------*/
     ///initial read file with RAW data
@@ -78,6 +110,7 @@ public:
     /*-----------------------------------------------------------------*/
 
 private:
+
     ///serialized raw data
     ::profiler::SerializedData                             serialized_blocks, serialized_descriptors;
     ///error log stream
@@ -91,8 +124,11 @@ private:
     std::vector<std::shared_ptr<BlockDescriptor>>          m_BlockDescriptors;
     ///data file version
     uint32_t                                               m_version;
-};
 
-} //namespace reader
-} //namespace profiler
-#endif //EASY_PROFILER_READER_H
+}; // end of class FileReader.
+
+} // end of namespace reader.
+
+} // end of namespace profiler.
+
+#endif // EASY_PROFILER_READER_H
