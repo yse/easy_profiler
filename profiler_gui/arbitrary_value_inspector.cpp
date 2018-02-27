@@ -160,65 +160,23 @@ void getChartPoints(const ArbitraryValuesCollection& _collection, Points& _point
 {
     _minValue =  1e300;
     _maxValue = -1e300;
-
-    const auto size = _collection.size();
     _points.clear();
-    _points.reserve(size);
 
-    if (size == 0)
+    const auto& values = _collection.values();
+    if (values.empty())
         return;
 
-    const auto& valuesByThread = _collection.valuesMap();
-
-    if (valuesByThread.size() == 1)
+    _points.reserve(values.size());
+    for (auto value : values)
     {
-        const auto& values = valuesByThread.begin()->second;
-        for (auto value : values)
-        {
-            const qreal x = sceneX(value->begin());
-            const qreal y = profiler_gui::value2real(*value);
-            _points.emplace_back(x, y);
+        const qreal x = sceneX(value->begin());
+        const qreal y = profiler_gui::value2real(*value);
+        _points.emplace_back(x, y);
 
-            if (y > _maxValue)
-                _maxValue = y;
-            if (y < _minValue)
-                _minValue = y;
-        }
-    }
-    else
-    {
-        std::list<profiler::thread_id_t> threadIds;
-        for (const auto& it : valuesByThread)
-            threadIds.push_back(it.first);
-
-        size_t i = 0;
-        while (!threadIds.empty())
-        {
-            for (auto it = threadIds.begin(); it != threadIds.end();)
-            {
-                const auto& values = valuesByThread.at(*it);
-                if (i >= values.size())
-                {
-                    it = threadIds.erase(it);
-                    continue;
-                }
-
-                const qreal x = sceneX(values[i]->begin());
-                const qreal y = profiler_gui::value2real(*values[i]);
-                _points.emplace_back(x, y);
-
-                if (y > _maxValue)
-                    _maxValue = y;
-                if (y < _minValue)
-                    _minValue = y;
-
-                ++it;
-            }
-        }
-
-        std::sort(_points.begin(), _points.end(), [](const QPointF& lhs, const QPointF& rhs) -> bool {
-            return lhs.x() < rhs.x();
-        });
+        if (y > _maxValue)
+            _maxValue = y;
+        if (y < _minValue)
+            _minValue = y;
     }
 }
 
@@ -239,7 +197,7 @@ ArbitraryValuesCollection::ArbitraryValuesCollection()
 
 ArbitraryValuesCollection::~ArbitraryValuesCollection()
 {
-
+    interrupt();
 }
 
 ChartType ArbitraryValuesCollection::chartType() const
@@ -247,7 +205,7 @@ ChartType ArbitraryValuesCollection::chartType() const
     return m_chartType;
 }
 
-const ArbitraryValuesMap& ArbitraryValuesCollection::valuesMap() const
+const ArbitraryValues& ArbitraryValuesCollection::values() const
 {
     return m_values;
 }
@@ -265,14 +223,6 @@ const Points& ArbitraryValuesCollection::points() const
 ArbitraryValuesCollection::JobStatus ArbitraryValuesCollection::status() const
 {
     return static_cast<JobStatus>(m_status.load(std::memory_order_acquire));
-}
-
-size_t ArbitraryValuesCollection::size() const
-{
-    size_t totalSize = 0;
-    for (const auto& it : m_values)
-        totalSize += it.second.size();
-    return totalSize;
 }
 
 profiler::timestamp_t ArbitraryValuesCollection::minDuration() const
@@ -296,7 +246,7 @@ qreal ArbitraryValuesCollection::maxValue() const
 }
 
 void ArbitraryValuesCollection::collectValues(ChartType _chartType, profiler::thread_id_t _threadId, profiler::vin_t _valueId
-    , const char* _valueName, profiler::block_id_t _parentBlockId, bool _directParent)
+    , const char* _valueName, profiler::block_id_t _parentBlockId)
 {
     interrupt();
 
@@ -399,6 +349,14 @@ void ArbitraryValuesCollection::collectById(profiler::thread_id_t _threadId, pro
                     return;
             }
 
+            if (threadsCount > 1)
+            {
+                using Val = const profiler::ArbitraryValue*;
+                std::sort(m_values.begin(), m_values.end(), [] (Val lhs, Val rhs) {
+                    return lhs->begin() < rhs->begin();
+                });
+            }
+
             if (doCalculatePoints && !calculatePointsInner)
                 getChartPoints(*this, m_points, m_minValue, m_maxValue);
         }
@@ -413,6 +371,17 @@ void ArbitraryValuesCollection::collectById(profiler::thread_id_t _threadId, pro
         }
     }
 
+    if (m_chartType == ChartType::Complexity)
+    {
+        for (auto& it : m_complexityMap)
+        {
+            if (m_bInterrupt.load(std::memory_order_acquire))
+                return;
+            auto& durations = it.second;
+            std::sort(durations.begin(), durations.end());
+        }
+    }
+
     setStatus(Ready);
 }
 
@@ -423,7 +392,6 @@ bool ArbitraryValuesCollection::collectByIdForThread(const profiler::BlocksTreeR
     {
         // All values
 
-        auto& valuesList = m_values[_threadRoot.thread_id];
         for (auto i : _threadRoot.events)
         {
             if (m_bInterrupt.load(std::memory_order_acquire))
@@ -438,7 +406,7 @@ bool ArbitraryValuesCollection::collectByIdForThread(const profiler::BlocksTreeR
             if (value->value_id() != _valueId)
                 continue;
 
-            valuesList.push_back(value);
+            m_values.push_back(value);
             if (_calculatePoints)
                 addPoint(*value);
         }
@@ -468,6 +436,14 @@ void ArbitraryValuesCollection::collectByName(profiler::thread_id_t _threadId, c
                     return;
             }
 
+            if (threadsCount > 1)
+            {
+                using Val = const profiler::ArbitraryValue*;
+                std::sort(m_values.begin(), m_values.end(), [] (Val lhs, Val rhs) {
+                    return lhs->begin() < rhs->begin();
+                });
+            }
+
             if (doCalculatePoints && !calculatePointsInner)
                 getChartPoints(*this, m_points, m_minValue, m_maxValue);
         }
@@ -482,6 +458,17 @@ void ArbitraryValuesCollection::collectByName(profiler::thread_id_t _threadId, c
         }
     }
 
+    if (m_chartType == ChartType::Complexity)
+    {
+        for (auto& it : m_complexityMap)
+        {
+            if (m_bInterrupt.load(std::memory_order_acquire))
+                return;
+            auto& durations = it.second;
+            std::sort(durations.begin(), durations.end());
+        }
+    }
+
     setStatus(Ready);
 }
 
@@ -492,7 +479,6 @@ bool ArbitraryValuesCollection::collectByNameForThread(const profiler::BlocksTre
     {
         // All values
 
-        auto& valuesList = m_values[_threadRoot.thread_id];
         for (auto i : _threadRoot.events)
         {
             if (m_bInterrupt.load(std::memory_order_acquire))
@@ -503,7 +489,7 @@ bool ArbitraryValuesCollection::collectByNameForThread(const profiler::BlocksTre
             if (desc.type() != profiler::BlockType::Value || _valueName != desc.name())
                 continue;
 
-            valuesList.push_back(block.value);
+            m_values.push_back(block.value);
             if (_calculatePoints)
                 addPoint(*block.value);
         }
@@ -520,8 +506,6 @@ bool ArbitraryValuesCollection::depthFirstSearch(const profiler::BlocksTreeRoot&
 {
     if (_threadRoot.children.empty())
         return true;
-
-    auto& valuesList = m_values[_threadRoot.thread_id];
 
     using StackEntry = std::pair<profiler::block_index_t, profiler::block_index_t>;
     using Stack = std::vector<StackEntry>;
@@ -555,7 +539,7 @@ bool ArbitraryValuesCollection::depthFirstSearch(const profiler::BlocksTreeRoot&
                 const auto value = block.value;
                 if (_isSuitableValue(value->value_id(), desc.name()))
                 {
-                    valuesList.push_back(value);
+                    m_values.push_back(value);
                     if (_calculatePoints)
                     {
                         const auto val = addPoint(*value);
@@ -687,7 +671,6 @@ void ArbitraryValuesChartItem::paintMouseIndicator(QPainter* _painter, qreal _to
     // Horizontal
     const bool visibleY = (_top < y && y < _bottom);
     y = estd::clamp(_top, y, _bottom);
-    //if (visibleY)
     {
         _height -= ChartBounds;
 
@@ -757,9 +740,6 @@ void ArbitraryValuesChartItem::paintMouseIndicator(QPainter* _painter, qreal _to
             left = 0;
         else if (x > (_width - textWidthHalf))
             left = _width - textWidth;
-
-        //if (!visibleY)
-        //    _painter->setPen(Qt::blue);
 
         const QRectF rect(left, _bottom + 2, textWidth, _font_h);
         _painter->drawText(rect, Qt::AlignCenter, valueString);
@@ -929,7 +909,7 @@ void ArbitraryValuesChartItem::updateRegularImageAsync(QRectF _boundingRect, qre
 
             if (_autoAdjust)
             {
-                for (auto it = first; it != points.end() && it->x() < right; ++it)
+                for (auto it = first; it != points.end() && it->x() < right && !isReady(); ++it)
                 {
                     if (it->x() < _value)
                         continue;
@@ -1118,11 +1098,21 @@ void ArbitraryValuesChartItem::updateComplexityImageAsync(QRectF _boundingRect, 
 {
     const auto rectHeight = _boundingRect.height();
     const auto screenWidth = _boundingRect.width() * _current_scale;
+    const auto globalSceneLeft = _minimum;
     //const auto maxColumnHeight = _boundingRect.height();
 
-    m_workerImageScale = 1;
-    m_workerImageOrigin = _minimum;
-    m_workerImage = new QImage(screenWidth + 0.5, rectHeight, QImage::Format_ARGB32);
+    if (_bindMode)
+    {
+        m_workerImageScale = _range / _width;
+        m_workerImageOrigin = _value - _width * 3;
+        m_workerImage = new QImage(screenWidth * 7 + 0.5, rectHeight, QImage::Format_ARGB32);
+    }
+    else
+    {
+        m_workerImageScale = 1;
+        m_workerImageOrigin = _minimum;
+        m_workerImage = new QImage(screenWidth + 0.5, rectHeight, QImage::Format_ARGB32);
+    }
 
     m_workerImage->fill(0);
     QPainter p(m_workerImage);
@@ -1138,10 +1128,6 @@ void ArbitraryValuesChartItem::updateComplexityImageAsync(QRectF _boundingRect, 
         return;
     }
 
-    using LeftBounds = std::vector<Points::const_iterator>;
-    qreal realScale = _current_scale, offset = 0;
-
-    const auto right = std::min(_value + _width, _maximum);
     qreal minValue = 1e300, maxValue = -1e300;
     profiler::timestamp_t minDuration = profiler_gui::numeric_max<profiler::timestamp_t>(), maxDuration = 0;
     for (const auto& c : m_collections)
@@ -1171,6 +1157,80 @@ void ArbitraryValuesChartItem::updateComplexityImageAsync(QRectF _boundingRect, 
         m_workerMinDuration = 0;
         setReady(true);
         return;
+    }
+
+    using LeftBounds = std::vector<ComplexityValuesMap::const_iterator>;
+    qreal left = minValue, right = maxValue;
+
+    LeftBounds leftBounds;
+    leftBounds.reserve(m_collections.size());
+
+    if (_bindMode)
+    {
+        const auto valueRange = maxValue - minValue;
+
+        _minimum = m_workerImageOrigin;
+        _maximum = m_workerImageOrigin + _width * 7;
+
+        left = minValue + valueRange * (_minimum - globalSceneLeft) / _range;
+        right = minValue + valueRange * (_maximum - globalSceneLeft) / _range;
+
+        if (_autoAdjust)
+        {
+            minDuration = profiler_gui::numeric_max<profiler::timestamp_t>();
+            maxDuration = 0;
+        }
+
+        maxValue = minValue + valueRange * (_value + _width - globalSceneLeft) / _range;
+        minValue += valueRange * (_value - globalSceneLeft) / _range;
+    }
+
+    for (const auto& c : m_collections)
+    {
+        if (isReady())
+            return;
+
+        const auto& complexityMap = c.ptr->complexityMap();
+
+        if (complexityMap.empty())
+        {
+            leftBounds.emplace_back(complexityMap.end());
+            continue;
+        }
+
+        if (!_bindMode)
+        {
+            leftBounds.emplace_back(complexityMap.begin());
+            continue;
+        }
+
+        auto first = complexityMap.lower_bound(left);
+
+        if (first != complexityMap.end())
+        {
+            if (first != complexityMap.begin())
+                --first;
+        }
+        else
+        {
+            auto last = complexityMap.rbegin();
+            first = (++last).base();
+        }
+
+        leftBounds.emplace_back(first);
+
+        if (_autoAdjust)
+        {
+            for (auto it = first; it != complexityMap.end() && it->first < maxValue && !isReady(); ++it)
+            {
+                const auto value = it->first;
+                if (value < minValue || it->second.empty())
+                    continue;
+
+                minDuration = std::min(minDuration, it->second.front());
+                maxDuration = std::max(maxDuration, it->second.back());
+            }
+        }
     }
 
     m_workerMaxValue = maxValue;
@@ -1204,9 +1264,10 @@ void ArbitraryValuesChartItem::updateComplexityImageAsync(QRectF _boundingRect, 
         return y;
     };
 
-    const auto xmiddle = screenWidth * 0.5;
-    singleValue = fabs(maxValue - minValue) < 2 * std::numeric_limits<qreal>::epsilon();
-    const qreal width = std::max(maxValue - minValue, 0.01);
+    const qreal imageWidth = m_workerImage->width();
+    const auto xmiddle = imageWidth * 0.5;
+    singleValue = fabs(right - left) < 2 * std::numeric_limits<qreal>::epsilon();
+    const qreal width = std::max(right - left, 0.01);
     const auto getx = [=] (qreal x)
     {
         if (singleValue)
@@ -1215,14 +1276,15 @@ void ArbitraryValuesChartItem::updateComplexityImageAsync(QRectF _boundingRect, 
         }
         else
         {
-            x -= minValue;
-            x *= screenWidth / width;
+            x -= left;
+            x *= imageWidth / width;
         }
 
         return x;
     };
 
     std::vector<QPointF> averages;
+    size_t i = 0;
     for (const auto& c : m_collections)
     {
         if (isReady())
@@ -1230,7 +1292,17 @@ void ArbitraryValuesChartItem::updateComplexityImageAsync(QRectF _boundingRect, 
 
         const auto& complexityMap = c.ptr->complexityMap();
         if (complexityMap.empty())
+        {
+            ++i;
             continue;
+        }
+
+        const auto first = leftBounds[i];
+        if (first == complexityMap.end())
+        {
+            ++i;
+            continue;
+        }
 
         if (c.selected)
         {
@@ -1250,7 +1322,9 @@ void ArbitraryValuesChartItem::updateComplexityImageAsync(QRectF _boundingRect, 
         if (drawApproximateLine)
             averages.reserve(complexityMap.size());
 
-        auto it = complexityMap.begin();
+        auto it = first;
+        while (it->first < left)
+            ++it;
 
         qreal x = getx(it->first);
 
@@ -1285,6 +1359,9 @@ void ArbitraryValuesChartItem::updateComplexityImageAsync(QRectF _boundingRect, 
                 average /= it->second.size();
                 averages.emplace_back(x, gety(average));
             }
+
+            if (it->first > right)
+                break;
         }
 
         if (drawApproximateLine)
@@ -1404,6 +1481,7 @@ void ArbitraryValuesChartItem::clear()
     m_boundaryTimer.stop();
     m_collections.clear();
     m_minValue = m_maxValue = 0;
+    m_minDuration = m_maxDuration = 0;
 }
 
 void ArbitraryValuesChartItem::update(Collections _collections)
@@ -1561,10 +1639,10 @@ int GraphicsChart::filterWindowSize() const
     return m_chartItem->filterWindowSize();
 }
 
-bool GraphicsChart::canShowSlider() const
-{
-    return chartType() != ChartType::Complexity && !m_bBindMode;
-}
+//bool GraphicsChart::canShowSlider() const
+//{
+//    return chartType() != ChartType::Complexity && !m_bBindMode;
+//}
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -1688,7 +1766,7 @@ ArbitraryValuesWidget::ArbitraryValuesWidget(QWidget* _parent)
     m_splitter->setStretchFactor(0, 1);
     m_splitter->setStretchFactor(1, 1);
 
-    m_filterWindowPicker->setRange(3, 25);
+    m_filterWindowPicker->setRange(3, 50);
     m_filterWindowPicker->setSingleStep(1);
     m_filterWindowPicker->setValue(8);
 
@@ -2036,15 +2114,6 @@ void ArbitraryValuesWidget::onExportToCsvClicked(bool)
         }
     }
 
-    const auto writeHeader = [this, &csv]
-    {
-        csv.write(" ; ;\n"); // blank line
-        if (m_chart->chartType() == ChartType::Regular)
-            csv.write("timestamp;value;\n");
-        else
-            csv.write("value;duration;\n");
-    };
-
     if (m_chart->chartType() == ChartType::Regular)
     {
         for (auto item : m_checkedItems)
@@ -2052,30 +2121,56 @@ void ArbitraryValuesWidget::onExportToCsvClicked(bool)
             const auto header = QString(" ; ;\nname:;%1;\ntimestamp;value;\n").arg(item->text(int_cast(ArbitraryColumns::Name)));
             csv.write(header.toStdString().c_str());
 
-            auto collection = item->collection();
-            auto it = collection->valuesMap().find(EASY_GLOBALS.selected_thread);
-            if (it != collection->valuesMap().end())
+            const auto& values = item->collection()->values();
+            for (auto value : values)
             {
-                for (auto val : it->second)
-                {
-                    const auto str = QString("%1;%2;\n").arg(val->begin()).arg(profiler_gui::valueString(*val));
-                    csv.write(str.toStdString().c_str());
-                }
+                const auto str = QString("%1;%2;\n").arg(value->begin()).arg(profiler_gui::valueString(*value));
+                csv.write(str.toStdString().c_str());
             }
         }
     }
     else
     {
-        QMessageBox::warning(this, "Warning", "Export to csv for complexity chart\nis not implemented yet",
-                             QMessageBox::Close);
+        for (auto item : m_checkedItems)
+        {
+            const auto header = QString(" ; ; ; ; ;\nname:;%1; ; ; ;\nvalue;avg duration;min duration;max duration;count;\n")
+                .arg(item->text(int_cast(ArbitraryColumns::Name)));
 
-        // TODO: Implement complexity chart export to csv
-//        for (auto item : m_checkedItems)
-//        {
-//            const auto header = QString(" ; ;\nname:;%1;\nvalue;duration;\n").arg(item->text(int_cast(ArbitraryColumns::Name)));
-//            csv.write(header.toStdString().c_str());
-//        }
+            csv.write(header.toStdString().c_str());
+
+            const auto& complexityMap = item->collection()->complexityMap();
+            for (const auto& kv : complexityMap)
+            {
+                const auto& durations = kv.second;
+
+                auto val = QString::number(kv.first, 'f', 12);
+
+                const int last = val.size() - 1;
+                int c = last;
+                for (; c >= 0 && val[c] == QChar('0'); --c);
+                if (val[c] == QChar('.'))
+                    --c;
+
+                if (c != last)
+                    val.chop(last - c);
+
+                if (durations.empty())
+                {
+                    const auto str = QString("%1;0;0;0;0;\n").arg(val);
+                    csv.write(str.toStdString().c_str());
+                    continue;
+                }
+
+                const auto avg = std::accumulate(durations.begin(), durations.end(), profiler::timestamp_t(0)) / durations.size();
+                const auto str = QString("%1;%2;%3;%4;%5;\n").arg(val).arg(avg).arg(durations.front())
+                    .arg(durations.back()).arg(durations.size());
+
+                csv.write(str.toStdString().c_str());
+            }
+        }
     }
+
+    csv.write("\n");
 }
 
 void ArbitraryValuesWidget::buildTree(profiler::thread_id_t _threadId, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId)

@@ -358,7 +358,11 @@ void GraphicsSliderArea::setValue(qreal _value)
 
     const profiler_gui::BoolFlagGuard guard(m_bUpdatingPos, true);
 
-    m_value = estd::clamp(m_minimumValue, _value, std::max(m_minimumValue, m_maximumValue - m_slider->width()));
+    const auto newValue = estd::clamp(m_minimumValue, _value, std::max(m_minimumValue, m_maximumValue - m_slider->width()));
+    if (fabs(m_value - newValue) < 2 * std::numeric_limits<decltype(m_value)>::epsilon())
+        return;
+
+    m_value = newValue;
     m_slider->setX(m_value + m_slider->halfwidth());
 
     if (m_bEmitChange)

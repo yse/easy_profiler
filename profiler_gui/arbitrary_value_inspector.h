@@ -78,7 +78,6 @@
 
 using Points = std::vector<QPointF>;
 using ArbitraryValues = std::vector<const profiler::ArbitraryValue*>;
-using ArbitraryValuesMap = std::unordered_map<profiler::thread_id_t, ArbitraryValues, estd::hash<profiler::thread_id_t> >;
 using Durations = std::vector<profiler::timestamp_t>;
 using ComplexityValuesMap = std::map<double, Durations>;
 
@@ -112,7 +111,7 @@ private:
 
     using This = ArbitraryValuesCollection;
 
-    ArbitraryValuesMap         m_values;
+    ArbitraryValues            m_values;
     ComplexityValuesMap m_complexityMap;
     Points                     m_points;
     ThreadPoolTask             m_worker;
@@ -132,11 +131,10 @@ public:
     ~ArbitraryValuesCollection();
 
     ChartType chartType() const;
-    const ArbitraryValuesMap& valuesMap() const;
+    const ArbitraryValues& values() const;
     const ComplexityValuesMap& complexityMap() const;
     const Points& points() const;
     JobStatus status() const;
-    size_t size() const;
 
     profiler::timestamp_t minDuration() const;
     profiler::timestamp_t maxDuration() const;
@@ -144,7 +142,7 @@ public:
     qreal minValue() const;
     qreal maxValue() const;
 
-    void collectValues(ChartType _chartType, profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName, profiler::block_id_t _parentBlockId, bool _directParent);
+    void collectValues(ChartType _chartType, profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName, profiler::block_id_t _parentBlockId);
     bool calculatePoints(profiler::timestamp_t _beginTime);
 
     void collectValuesAndPoints(ChartType _chartType, profiler::thread_id_t _threadId, profiler::vin_t _valueId, const char* _valueName, profiler::timestamp_t _beginTime, profiler::block_id_t _parentBlockId);
@@ -245,12 +243,6 @@ private:
     using This = GraphicsChart;
 
     ArbitraryValuesChartItem* m_chartItem;
-    qreal               m_left;
-    qreal              m_right;
-    qreal             m_offset;
-    qreal             m_xscale;
-    qreal m_visibleRegionWidth;
-    bool           m_bBindMode;
 
 public:
 
@@ -274,7 +266,7 @@ public:
 
 protected:
 
-    bool canShowSlider() const override;
+    //bool canShowSlider() const override;
 
 private slots:
 
