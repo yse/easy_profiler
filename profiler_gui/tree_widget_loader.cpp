@@ -57,16 +57,7 @@
 #include "tree_widget_loader.h"
 #include "tree_widget_item.h"
 #include "globals.h"
-#include <thread>
-
-#ifdef _WIN32
-#include <Windows.h>
-
-#ifdef __MINGW32__
-#include <processthreadsapi.h>
-#endif
-
-#endif
+#include "thread_pool.h"
 
 #ifdef max
 #undef max
@@ -141,25 +132,21 @@ void TreeWidgetLoader::interrupt(bool _wait)
     m_bDone.store(false, std::memory_order_release);
     m_progress.store(0, std::memory_order_release);
 
-    if (!_wait)
+    if (!m_topLevelItems.empty())
     {
-        auto deleter_thread = ::std::thread([](decltype(m_topLevelItems) _items)
+        if (!_wait)
         {
-#ifdef _WIN32
-            SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST);
-#endif
-
-            for (auto item : _items)
+            auto items = std::move(m_topLevelItems);
+            ThreadPool::instance().backgroundJob([=] {
+                for (auto item : items)
+                    delete item.second;
+            });
+        }
+        else
+        {
+            for (auto item : m_topLevelItems)
                 delete item.second;
-
-        }, ::std::move(m_topLevelItems));
-
-        deleter_thread.detach();
-    }
-    else
-    {
-        for (auto item : m_topLevelItems)
-            delete item.second;
+        }
     }
 
     m_items.clear();

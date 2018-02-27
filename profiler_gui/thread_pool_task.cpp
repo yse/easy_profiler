@@ -64,18 +64,18 @@ ThreadPoolTask::~ThreadPoolTask()
 void ThreadPoolTask::enqueue(std::function<void()>&& func, std::atomic_bool& interruptFlag)
 {
     dequeue();
+    setStatus(TaskStatus::Enqueued);
 
     m_interrupt = & interruptFlag;
     m_interrupt->store(false, std::memory_order_release);
     m_func = std::move(func);
 
-    setStatus(TaskStatus::Enqueued);
     ThreadPool::instance().enqueue(*this);
 }
 
 void ThreadPoolTask::dequeue()
 {
-    if (m_interrupt == nullptr)
+    if (m_interrupt == nullptr || status() == TaskStatus::Finished)
         return;
 
     m_interrupt->store(true, std::memory_order_release);

@@ -79,18 +79,9 @@
 #include <QByteArray>
 #include <QDebug>
 #include <QApplication>
-#include <thread>
 #include "blocks_tree_widget.h"
 #include "globals.h"
-
-#ifdef _WIN32
-#include <Windows.h>
-
-#ifdef __MINGW32__
-#include <processthreadsapi.h>
-#endif
-
-#endif
+#include "thread_pool.h"
 
 #ifdef max
 #undef max
@@ -436,23 +427,18 @@ void BlocksTreeWidget::clearSilent(bool _global)
     m_items.clear();
     m_roots.clear();
 
-    ::std::vector<QTreeWidgetItem*> topLevelItems;
-    topLevelItems.reserve(static_cast<size_t>(topLevelItemCount()));
-    for (int i = topLevelItemCount() - 1; i >= 0; --i)
-        topLevelItems.push_back(takeTopLevelItem(i));
-
-    auto deleter_thread = ::std::thread([](decltype(topLevelItems) _items)
+    if (topLevelItemCount() != 0)
     {
-#ifdef _WIN32
-        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST);
-#endif
+        std::vector<QTreeWidgetItem*> topLevelItems;
+        topLevelItems.reserve(static_cast<size_t>(topLevelItemCount()));
+        for (int i = topLevelItemCount() - 1; i >= 0; --i)
+            topLevelItems.push_back(takeTopLevelItem(i));
 
-        for (auto item : _items)
-            delete item;
-
-    }, ::std::move(topLevelItems));
-
-    deleter_thread.detach();
+        ThreadPool::instance().backgroundJob([=] {
+            for (auto item : topLevelItems)
+                delete item;
+        });
+    }
 
     //clear();
 

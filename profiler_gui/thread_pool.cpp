@@ -56,6 +56,33 @@
 #include <iterator>
 #endif
 
+#ifdef _WIN32
+// For including SetThreadPriority()
+# include <Windows.h>
+# ifdef __MINGW32__
+#  include <processthreadsapi.h>
+# endif
+#else
+// For including pthread_setschedprio()
+# include <pthread.h>
+#endif
+
+void setLowestThreadPriority()
+{
+#ifdef _WIN32
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST);
+#else
+    pthread_attr_t attr;
+    if (pthread_attr_init(&attr) == 0)
+    {
+        int policy = 0;
+        if (pthread_attr_getschedpolicy(&attr, &policy) == 0)
+            pthread_setschedprio(pthread_self(), sched_get_priority_min(policy));
+        pthread_attr_destroy(&attr);
+    }
+#endif
+}
+
 ThreadPool& ThreadPool::instance()
 {
     static ThreadPool pool;
@@ -64,73 +91,119 @@ ThreadPool& ThreadPool::instance()
 
 ThreadPool::ThreadPool()
 {
-    const auto threadsCount = std::max(std::thread::hardware_concurrency(), 2U);
+    m_threads.reserve(std::thread::hardware_concurrency() + 1);
 
-    m_threads.reserve(threadsCount);
-    std::generate_n(std::back_inserter(m_threads), threadsCount, [this] {
-        return std::thread(&ThreadPool::work, this);
+    // N threads for main tasks
+    std::generate_n(std::back_inserter(m_threads), std::thread::hardware_concurrency(), [this] {
+        return std::thread(&ThreadPool::tasksWorker, this);
     });
+
+    // One thread for background jobs
+    m_threads.emplace_back(&ThreadPool::jobsWorker, this);
 }
 
 ThreadPool::~ThreadPool()
 {
     m_interrupt.store(true, std::memory_order_release);
-    m_cv.notify_all();
+    m_tasks.cv.notify_all();
+    m_backgroundJobs.cv.notify_all();
     for (auto& thread : m_threads)
         thread.join();
 }
 
+void ThreadPool::backgroundJob(std::function<void()>&& func)
+{
+    m_backgroundJobs.mutex.lock();
+    m_backgroundJobs.queue.push_back(std::move(func));
+    m_backgroundJobs.mutex.unlock();
+    m_backgroundJobs.cv.notify_one();
+}
+
 void ThreadPool::enqueue(ThreadPoolTask& task)
 {
-    m_mutex.lock();
-    m_tasks.emplace_back(task);
-    m_mutex.unlock();
-    m_cv.notify_one();
+    m_tasks.mutex.lock();
+    m_tasks.queue.emplace_back(task);
+    m_tasks.mutex.unlock();
+    m_tasks.cv.notify_one();
 }
 
 void ThreadPool::dequeue(ThreadPoolTask& task)
 {
-    const std::lock_guard<std::mutex> lock(m_mutex);
+    const std::lock_guard<std::mutex> lock(m_tasks.mutex);
 
     if (task.status() != TaskStatus::Enqueued)
         return;
 
-    for (auto it = m_tasks.begin(); it != m_tasks.end(); ++it)
+    for (auto it = m_tasks.queue.begin(); it != m_tasks.queue.end(); ++it)
     {
         if (&it->get() == &task)
         {
-            m_tasks.erase(it);
+            m_tasks.queue.erase(it);
             break;
         }
     }
 }
 
-void ThreadPool::work()
+void ThreadPool::tasksWorker()
 {
     while (true)
     {
-        std::unique_lock<std::mutex> lock(m_mutex);
-        m_cv.wait(lock, [this] { return !m_tasks.empty() || m_interrupt.load(std::memory_order_acquire); });
+        std::unique_lock<std::mutex> lock(m_tasks.mutex);
+        m_tasks.cv.wait(lock, [this] { return !m_tasks.queue.empty() || m_interrupt.load(std::memory_order_acquire); });
 
         if (m_interrupt.load(std::memory_order_acquire))
             break;
 
         while (true) // execute all available tasks
         {
-            if (m_tasks.empty())
+            if (m_tasks.queue.empty())
                 break; // the lock will be released on the outer loop new iteration
 
-            auto& task = m_tasks.front().get();
+            auto& task = m_tasks.queue.front().get();
             task.setStatus(TaskStatus::Processing);
-            m_tasks.pop_front();
+            m_tasks.queue.pop_front();
 
-            // unlock to permit tasks execution for other worker threads
+            // unlock to permit tasks execution for other worker threads and for adding new tasks
             lock.unlock();
 
             // execute task
             task.execute();
 
             // lock again to check if there are new tasks in the queue
+            lock.lock();
+        }
+    }
+}
+
+void ThreadPool::jobsWorker()
+{
+    setLowestThreadPriority(); // Background thread has lowest priority
+
+    while (true)
+    {
+        std::unique_lock<std::mutex> lock(m_backgroundJobs.mutex);
+        m_backgroundJobs.cv.wait(lock, [this] {
+            return !m_backgroundJobs.queue.empty() || m_interrupt.load(std::memory_order_acquire);
+        });
+
+        if (m_interrupt.load(std::memory_order_acquire))
+            break;
+
+        while (true) // execute all available tasks
+        {
+            if (m_backgroundJobs.queue.empty())
+                break; // the lock will be released on the outer loop new iteration
+
+            auto job = std::move(m_backgroundJobs.queue.front());
+            m_backgroundJobs.queue.pop_front();
+
+            // unlock to permit adding new jobs while executing current job
+            lock.unlock();
+
+            // execute job
+            job();
+
+            // lock again to check if there are new jobs in the queue
             lock.lock();
         }
     }

@@ -56,15 +56,23 @@
 #include <deque>
 #include <condition_variable>
 #include <thread>
+#include <functional>
 
 class ThreadPool EASY_FINAL
 {
     friend ThreadPoolTask;
 
+    template <class T>
+    struct Jobs
+    {
+        std::deque<T>        queue;
+        std::mutex           mutex;
+        std::condition_variable cv;
+    };
+
+    Jobs<std::reference_wrapper<ThreadPoolTask> > m_tasks;
+    Jobs<std::function<void()> > m_backgroundJobs;
     std::vector<std::thread> m_threads;
-    std::deque<std::reference_wrapper<ThreadPoolTask> > m_tasks;
-    std::mutex m_mutex;
-    std::condition_variable m_cv;
     std::atomic_bool m_interrupt;
 
     ThreadPool();
@@ -75,11 +83,14 @@ public:
 
     static ThreadPool& instance();
 
+    void backgroundJob(std::function<void()>&& func);
+
 private:
 
     void enqueue(ThreadPoolTask& task);
     void dequeue(ThreadPoolTask& task);
-    void work();
+    void tasksWorker();
+    void jobsWorker();
 
 }; // end of class ThreadPool.
 

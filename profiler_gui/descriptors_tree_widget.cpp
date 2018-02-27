@@ -70,19 +70,10 @@
 #include <QSplitter>
 #include <QVariant>
 #include <QTimer>
-#include <thread>
 #include "descriptors_tree_widget.h"
 #include "arbitrary_value_inspector.h"
 #include "globals.h"
-
-#ifdef _WIN32
-#include <Windows.h>
-
-#ifdef __MINGW32__
-#include <processthreadsapi.h>
-#endif
-
-#endif
+#include "thread_pool.h"
 
 #ifdef max
 #undef max
@@ -362,29 +353,25 @@ void DescriptorsTreeWidget::clearSilent(bool _global)
     m_highlightItems.clear();
     m_items.clear();
 
-    ::std::vector<QTreeWidgetItem*> topLevelItems;
-    topLevelItems.reserve(topLevelItemCount());
-    for (int i = topLevelItemCount() - 1; i >= 0; --i)
+    if (topLevelItemCount() != 0)
     {
-        const bool expanded = !_global && topLevelItem(i)->isExpanded();
-        auto item = takeTopLevelItem(i);
-        if (expanded)
-            m_expandedFilesTemp.insert(item->text(DESC_COL_FILE_LINE).toStdString());
-        topLevelItems.push_back(item);
+        ::std::vector<QTreeWidgetItem*> topLevelItems;
+        topLevelItems.reserve(static_cast<size_t>(topLevelItemCount()));
+
+        for (int i = topLevelItemCount() - 1; i >= 0; --i)
+        {
+            const bool expanded = !_global && topLevelItem(i)->isExpanded();
+            auto item = takeTopLevelItem(i);
+            if (expanded)
+                m_expandedFilesTemp.insert(item->text(DESC_COL_FILE_LINE).toStdString());
+            topLevelItems.push_back(item);
+        }
+
+        ThreadPool::instance().backgroundJob([=] {
+            for (auto item : topLevelItems)
+                delete item;
+        });
     }
-
-    auto deleter_thread = ::std::thread([](decltype(topLevelItems) _items)
-    {
-#ifdef _WIN32
-        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST);
-#endif
-
-        for (auto item : _items)
-            delete item;
-
-    }, ::std::move(topLevelItems));
-
-    deleter_thread.detach();
 
     //clear();
 }
