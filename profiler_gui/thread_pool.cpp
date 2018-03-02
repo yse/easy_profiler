@@ -62,16 +62,18 @@
 # ifdef __MINGW32__
 #  include <processthreadsapi.h>
 # endif
-#else
+#elif !defined(__APPLE__)
 // For including pthread_setschedprio()
 # include <pthread.h>
+#else
+# pragma message "TODO: include proper headers to be able to use pthread_setschedprio() on OSX and iOS (pthread.h is not enough...)"
 #endif
 
 void setLowestThreadPriority()
 {
 #ifdef _WIN32
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST);
-#else
+#elif !defined(__APPLE__)
     pthread_attr_t attr;
     if (pthread_attr_init(&attr) == 0)
     {
@@ -80,6 +82,8 @@ void setLowestThreadPriority()
             pthread_setschedprio(pthread_self(), sched_get_priority_min(policy));
         pthread_attr_destroy(&attr);
     }
+#else
+    /// TODO: include proper headers to be able to use pthread_setschedprio() on OSX and iOS (pthread.h is not enough...)
 #endif
 }
 
@@ -151,11 +155,11 @@ void ThreadPool::tasksWorker()
         std::unique_lock<std::mutex> lock(m_tasks.mutex);
         m_tasks.cv.wait(lock, [this] { return !m_tasks.queue.empty() || m_interrupt.load(std::memory_order_acquire); });
 
-        if (m_interrupt.load(std::memory_order_acquire))
-            break;
-
         while (true) // execute all available tasks
         {
+            if (m_interrupt.load(std::memory_order_acquire))
+                return;
+
             if (m_tasks.queue.empty())
                 break; // the lock will be released on the outer loop new iteration
 
@@ -186,11 +190,11 @@ void ThreadPool::jobsWorker()
             return !m_backgroundJobs.queue.empty() || m_interrupt.load(std::memory_order_acquire);
         });
 
-        if (m_interrupt.load(std::memory_order_acquire))
-            break;
-
-        while (true) // execute all available tasks
+        while (true) // execute all available jobs
         {
+            if (m_interrupt.load(std::memory_order_acquire))
+                return;
+
             if (m_backgroundJobs.queue.empty())
                 break; // the lock will be released on the outer loop new iteration
 
