@@ -148,7 +148,7 @@ QTreeView::branch {
   border-bottom: 1px solid #cccccc; }
 
 QTreeView::branch:selected {
-  background-color: transparent; }
+  background-color: rgba(152, 222, 152, 0.8); }
 
 QTreeView::branch:open:has-children {
   padding: 9px 0 9px 0;

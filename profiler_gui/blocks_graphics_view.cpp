@@ -2308,13 +2308,13 @@ void ThreadNamesWidget::onTreeChange()
     auto vbar = verticalScrollBar();
     auto viewBar = m_view->verticalScrollBar();
 
+    auto r = m_view->sceneRect();
+    setSceneRect(0, r.top(), maxLength, r.height() + m_additionalHeight);
+
     setVerticalScrollbarRange(viewBar->minimum(), viewBar->maximum());
     vbar->setSingleStep(viewBar->singleStep());
     vbar->setPageStep(viewBar->pageStep());
     vbar->setValue(viewBar->value());
-
-    auto r = m_view->sceneRect();
-    setSceneRect(0, r.top(), maxLength, r.height() + m_additionalHeight);
 
     auto item = new ThreadNameItem();
     item->setPos(0, 0);
@@ -2568,8 +2568,15 @@ void ThreadNamesWidget::wheelEvent(QWheelEvent* _event)
     if (vbar != nullptr)
     {
         _event->accept();
+
+        const auto prev = vbar->value();
         vbar->setValue(vbar->value() - _event->delta());
-        verticalScrollBar()->setValue(vbar->value());
+
+        if (prev != vbar->value())
+        {
+            verticalScrollBar()->setValue(vbar->value());
+            repaintScene();
+        }
     }
 }
 

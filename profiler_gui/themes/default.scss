@@ -166,7 +166,7 @@ QTreeView::branch {
 }
 
 QTreeView::branch:selected {
-    background-color: transparent;
+    background-color: rgb_a(#98DE98, 0.8);
 }
 
 QTreeView::branch:open:has-children {
