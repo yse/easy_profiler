@@ -285,7 +285,7 @@ void GraphicsHistogramItem::paintById(QPainter* _painter)
         _painter->setPen(m_topValue < m_maxValue ? QColor(Qt::darkRed) : profiler_gui::TEXT_COLOR);
         _painter->drawText(rect, Qt::AlignRight | Qt::AlignVCenter | Qt::TextDontClip, m_topDurationStr);
 
-        rect.setRect(0, bottom + 20, width - 3, font_h);
+        rect.setRect(0, bottom + 2, width - 3, font_h);
         _painter->setPen(m_bottomValue > m_minValue ? QColor(Qt::darkRed) : profiler_gui::TEXT_COLOR);
         _painter->drawText(rect, Qt::AlignRight | Qt::AlignVCenter | Qt::TextDontClip, m_bottomDurationStr);
     }
