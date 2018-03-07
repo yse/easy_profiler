@@ -202,6 +202,10 @@ namespace profiler {
             return reinterpret_cast<const char*>(this) + sizeof(ArbitraryValue);
         }
 
+        uint16_t data_size() const {
+            return m_size;
+        }
+
         vin_t value_id() const {
             return m_value_id;
         }

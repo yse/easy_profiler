@@ -114,7 +114,7 @@ struct ThreadStorage EASY_FINAL
     bool                         guarded; ///< True if thread has been registered using ThreadGuard
     bool                     frameOpened; ///< Is new frame opened (this does not depend on profiling status) \sa profiledFrameOpened
 
-    void storeValue(profiler::timestamp_t _timestamp, profiler::block_id_t _id, profiler::DataType _type, const void* _data, size_t _size, bool _isArray, profiler::ValueId _vin);
+    void storeValue(profiler::timestamp_t _timestamp, profiler::block_id_t _id, profiler::DataType _type, const void* _data, uint16_t _size, bool _isArray, profiler::ValueId _vin);
     void storeBlock(const profiler::Block& _block);
     void storeBlockForce(const profiler::Block& _block);
     void storeCSwitch(const CSwitchBlock& _block);

@@ -185,7 +185,8 @@ void modellingThread(){
         localSleep(1200000);
 
         ++step;
-        EASY_VALUE("step", sin((double)step), profiler::colors::Gold, EASY_VIN(step));
+        double vals[] = {(double)step, sin((double)step), cos((double)step)};
+        EASY_VALUE("step", vals, profiler::colors::Gold, EASY_VIN(step));
         if (step > 10000000)
             step = 0;
 

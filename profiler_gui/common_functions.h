@@ -204,6 +204,9 @@ inline QFont EFont(const char* _family, int _size, int _weight = -1) {
 QString valueTypeString(::profiler::DataType _dataType);
 QString valueTypeString(const ::profiler::ArbitraryValue& _serializedValue);
 QString valueString(const ::profiler::ArbitraryValue& _serializedValue);
+QString shortValueString(const ::profiler::ArbitraryValue& _serializedValue);
+QString valueString(const ::profiler::ArbitraryValue& _serializedValue, int _index);
+int valueArraySize(const ::profiler::ArbitraryValue& _serializedValue);
 double value2real(const ::profiler::ArbitraryValue& _serializedValue, int _index = 0);
 
 //////////////////////////////////////////////////////////////////////////

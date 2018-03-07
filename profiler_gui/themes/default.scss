@@ -200,13 +200,16 @@ QTreeView::indicator {
     margin: 0;
 }
 
-QTreeView::indicator:hover, QTreeView::indicator:checked {
+QTreeView::indicator:hover, QTreeView::indicator:checked, QTreeView::indicator:indeterminate {
     background-color: $BackgroundColor;
     border: 1px solid $BorderColor;
 }
 
 QTreeView::indicator:checked { image: url(":/images/default/check"); }
 QTreeView::indicator:checked:disabled { image: url(":/images/default/check-disabled"); }
+
+QTreeView::indicator:indeterminate { image: url(":/images/default/partial-check"); }
+QTreeView::indicator:indeterminate:disabled { image: url(":/images/default/partial-check-disabled"); }
 
 /* ****************************************************************************************************************** */
 QMenu {

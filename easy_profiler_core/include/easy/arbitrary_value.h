@@ -129,7 +129,7 @@ void foo(const A& a) {
 
 \note Also stores a time-stamp of it's occurrence like an Event.
 
-\note To store an array, please, use EASY_ARRAY macro.
+\note To store a dynamic array (which size is unknown at compile time), please, use EASY_ARRAY macro.
 
 \note Currently arbitrary values support only compile-time names.
 
@@ -149,6 +149,8 @@ void foo(const A& a) {
 
 \note Currently arbitrary values support only compile-time names.
 
+\warning Max array size is 4096. Passing bigger size has undefined behavior.
+
 \sa EASY_VALUE, EASY_TEXT, EASY_STRING
 
 \ingroup profiler
@@ -166,6 +168,8 @@ Could be C-string or std::string.
 \note Also stores a time-stamp of it's occurrence like an Event.
 
 \note Currently arbitrary values support only compile-time names.
+
+\warning Max string length is 4096 (including trailing '\0'). Passing bigger size has undefined behavior.
 
 \sa EASY_VALUE, EASY_ARRAY, EASY_STRING
 
@@ -188,6 +192,8 @@ Use this for C-strings of known length (compile-time or run-time).
 
 \note Currently arbitrary values support only compile-time names.
 
+\warning Max string length is 4096 (including trailing '\0'). Passing bigger size has undefined behavior.
+
 \sa EASY_VALUE, EASY_ARRAY, EASY_TEXT
 
 \ingroup profiler
@@ -201,10 +207,10 @@ Use this for C-strings of known length (compile-time or run-time).
 namespace profiler
 {
 
-    EASY_CONSTEXPR uint16_t MaxArbitraryValuesArraySize = 65535;
+    EASY_CONSTEXPR uint16_t MaxArbitraryValuesArraySize = 4096;
 
     extern "C" PROFILER_API void storeValue(const BaseBlockDescriptor* _desc, DataType _type, const void* _data,
-                                            size_t _size, bool _isArray, ValueId _vin);
+                                            uint16_t _size, bool _isArray, ValueId _vin);
 
     template <class T>
     inline void setValue(const BaseBlockDescriptor* _desc, T _value, ValueId _vin)
@@ -217,16 +223,17 @@ namespace profiler
         static_assert(StdToDataType<Type>::data_type != DataType::TypesCount,
                       "You should use standard builtin scalar types as profiler::Value type!");
 
-        storeValue(_desc, StdToDataType<Type>::data_type, &_value, sizeof(Type), false, _vin);
+        storeValue(_desc, StdToDataType<Type>::data_type, &_value, static_cast<uint16_t>(sizeof(Type)), false, _vin);
     }
 
+    ///< WARNING: Passing _arraySize > 4096 may cause undefined behavior!
     template <class T>
     inline void setValue(const BaseBlockDescriptor* _desc, const T* _valueArray, ValueId _vin, uint16_t _arraySize)
     {
         static_assert(StdToDataType<T>::data_type != DataType::TypesCount,
                       "You should use standard builtin scalar types as profiler::Value type!");
 
-        storeValue(_desc, StdToDataType<T>::data_type, _valueArray, sizeof(T) * _arraySize, true, _vin);
+        storeValue(_desc, StdToDataType<T>::data_type, _valueArray, static_cast<uint16_t>(sizeof(T) * _arraySize), true, _vin);
     }
 
     template <class T, size_t N>
@@ -235,31 +242,34 @@ namespace profiler
         static_assert(StdToDataType<T>::data_type != DataType::TypesCount,
                       "You should use standard builtin scalar types as profiler::Value type!");
 
-        static_assert(N <= MaxArbitraryValuesArraySize, "Maximum arbitrary values array size is 65535.");
+        static_assert(N <= MaxArbitraryValuesArraySize, "Maximum arbitrary values array size is 4096.");
 
-        storeValue(_desc, StdToDataType<T>::data_type, _value, sizeof(_value), true, _vin);
+        storeValue(_desc, StdToDataType<T>::data_type, _value, static_cast<uint16_t>(sizeof(_value)), true, _vin);
     }
 
+    ///< WARNING: Passing _textLength > 4096 may cause undefined behavior!
     inline void setText(const BaseBlockDescriptor* _desc, const char* _text, ValueId _vin, uint16_t _textLength)
     {
         storeValue(_desc, DataType::String, _text, _textLength, true, _vin);
     }
 
+    ///< WARNING: Passing _text with length > 4096 may cause undefined behavior!
     inline void setText(const BaseBlockDescriptor* _desc, const char* _text, ValueId _vin)
     {
-        storeValue(_desc, DataType::String, _text, strlen(_text) + 1, true, _vin);
+        storeValue(_desc, DataType::String, _text, static_cast<uint16_t>(strlen(_text) + 1), true, _vin);
     }
 
+    ///< WARNING: Passing _text with length > 4096 may cause undefined behavior!
     inline void setText(const BaseBlockDescriptor* _desc, const ::std::string& _text, ValueId _vin)
     {
-        storeValue(_desc, DataType::String, _text.c_str(), _text.size() + 1, true, _vin);
+        storeValue(_desc, DataType::String, _text.c_str(), static_cast<uint16_t>(_text.size() + 1), true, _vin);
     }
 
     template <size_t N>
     inline void setText(const BaseBlockDescriptor* _desc, const char (&_text)[N], ValueId _vin)
     {
-        static_assert(N <= MaxArbitraryValuesArraySize, "Maximum arbitrary values array size is 65535.");
-        storeValue(_desc, DataType::String, &_text[0], N, true, _vin);
+        static_assert(N <= MaxArbitraryValuesArraySize, "Maximum arbitrary values array size is 4096.");
+        storeValue(_desc, DataType::String, &_text[0], static_cast<uint16_t>(N), true, _vin);
     }
 
 } // end of namespace profiler.
@@ -277,7 +287,7 @@ namespace profiler
 namespace profiler
 {
 
-    inline void storeValue(const BaseBlockDescriptor*, DataType, const void*, size_t, bool, ValueId) {}
+    inline void storeValue(const BaseBlockDescriptor*, DataType, const void*, uint16_t, bool, ValueId) {}
 
     template <class T>
     inline void setValue(const BaseBlockDescriptor*, T, ValueId) {}

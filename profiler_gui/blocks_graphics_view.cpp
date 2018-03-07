@@ -1743,7 +1743,7 @@ void BlocksGraphicsView::onIdleTimeout()
                     ++row;
 
                     lay->addWidget(new QLabel("Value:", widget), row, 0, Qt::AlignRight);
-                    lay->addWidget(new QLabel(::profiler_gui::valueString(*itemBlock.value), widget), row, 1, Qt::AlignLeft);
+                    lay->addWidget(new QLabel(::profiler_gui::shortValueString(*itemBlock.value), widget), row, 1, Qt::AlignLeft);
                     ++row;
 
                     lay->addWidget(new QLabel("VIN:", widget), row, 0, Qt::AlignRight);

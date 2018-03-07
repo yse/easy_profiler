@@ -246,7 +246,7 @@ qreal ArbitraryValuesCollection::maxValue() const
 }
 
 void ArbitraryValuesCollection::collectValues(ChartType _chartType, profiler::thread_id_t _threadId, profiler::vin_t _valueId
-    , const char* _valueName, profiler::block_id_t _parentBlockId)
+    , const char* _valueName, profiler::block_id_t _parentBlockId, int _index)
 {
     interrupt();
 
@@ -262,13 +262,13 @@ void ArbitraryValuesCollection::collectValues(ChartType _chartType, profiler::th
     }
 
     if (_valueId == 0)
-        m_worker.enqueue([=] { collectByName(_threadId, _valueName, _parentBlockId); }, m_bInterrupt);
+        m_worker.enqueue([=] { collectByName(_threadId, _valueName, _parentBlockId, _index); }, m_bInterrupt);
     else
-        m_worker.enqueue([=] { collectById(_threadId, _valueId, _parentBlockId); }, m_bInterrupt);
+        m_worker.enqueue([=] { collectById(_threadId, _valueId, _parentBlockId, _index); }, m_bInterrupt);
 }
 
 void ArbitraryValuesCollection::collectValuesAndPoints(ChartType _chartType, profiler::thread_id_t _threadId, profiler::vin_t _valueId
-    , const char* _valueName, profiler::timestamp_t _beginTime, profiler::block_id_t _parentBlockId)
+    , const char* _valueName, profiler::timestamp_t _beginTime, profiler::block_id_t _parentBlockId, int _index)
 {
     interrupt();
 
@@ -287,9 +287,9 @@ void ArbitraryValuesCollection::collectValuesAndPoints(ChartType _chartType, pro
     }
 
     if (_valueId == 0)
-        m_worker.enqueue([=] { collectByName(_threadId, _valueName, _parentBlockId); }, m_bInterrupt);
+        m_worker.enqueue([=] { collectByName(_threadId, _valueName, _parentBlockId, _index); }, m_bInterrupt);
     else
-        m_worker.enqueue([=] { collectById(_threadId, _valueId, _parentBlockId); }, m_bInterrupt);
+        m_worker.enqueue([=] { collectById(_threadId, _valueId, _parentBlockId, _index); }, m_bInterrupt);
 }
 
 bool ArbitraryValuesCollection::calculatePoints(profiler::timestamp_t _beginTime)
@@ -332,7 +332,7 @@ void ArbitraryValuesCollection::setStatus(JobStatus _status)
 }
 
 void ArbitraryValuesCollection::collectById(profiler::thread_id_t _threadId, profiler::vin_t _valueId
-    , profiler::block_id_t _parentBlockId)
+    , profiler::block_id_t _parentBlockId, int _index)
 {
     const bool doCalculatePoints = (m_jobType & PointsJob) != 0;
 
@@ -345,7 +345,7 @@ void ArbitraryValuesCollection::collectById(profiler::thread_id_t _threadId, pro
 
             for (const auto& it : EASY_GLOBALS.profiler_blocks)
             {
-                if (!collectByIdForThread(it.second, _valueId, calculatePointsInner, _parentBlockId))
+                if (!collectByIdForThread(it.second, _valueId, calculatePointsInner, _parentBlockId, _index))
                     return;
             }
 
@@ -365,7 +365,7 @@ void ArbitraryValuesCollection::collectById(profiler::thread_id_t _threadId, pro
     {
         const auto t = EASY_GLOBALS.profiler_blocks.find(_threadId);
         if (t != EASY_GLOBALS.profiler_blocks.end() &&
-            !collectByIdForThread(t->second, _valueId, doCalculatePoints, _parentBlockId))
+            !collectByIdForThread(t->second, _valueId, doCalculatePoints, _parentBlockId, _index))
         {
             return;
         }
@@ -386,7 +386,7 @@ void ArbitraryValuesCollection::collectById(profiler::thread_id_t _threadId, pro
 }
 
 bool ArbitraryValuesCollection::collectByIdForThread(const profiler::BlocksTreeRoot& _threadRoot
-    , profiler::vin_t _valueId, bool _calculatePoints, profiler::block_id_t _parentBlockId)
+    , profiler::vin_t _valueId, bool _calculatePoints, profiler::block_id_t _parentBlockId, int _index)
 {
     if (profiler_gui::is_max(_parentBlockId))
     {
@@ -406,20 +406,23 @@ bool ArbitraryValuesCollection::collectByIdForThread(const profiler::BlocksTreeR
             if (value->value_id() != _valueId)
                 continue;
 
+            if (_index >= 0 && (!value->isArray() || profiler_gui::valueArraySize(*value) <= _index))
+                continue;
+
             m_values.push_back(value);
             if (_calculatePoints)
-                addPoint(*value);
+                addPoint(*value, _index);
         }
 
         return true;
     }
 
-    return depthFirstSearch(_threadRoot, _calculatePoints, _parentBlockId
+    return depthFirstSearch(_threadRoot, _calculatePoints, _parentBlockId, _index
         , [=] (profiler::vin_t _id, const char*) -> bool { return _id == _valueId; });
 }
 
 void ArbitraryValuesCollection::collectByName(profiler::thread_id_t _threadId, const std::string _valueName
-    , profiler::block_id_t _parentBlockId)
+    , profiler::block_id_t _parentBlockId, int _index)
 {
     const bool doCalculatePoints = (m_jobType & PointsJob) != 0;
 
@@ -432,7 +435,7 @@ void ArbitraryValuesCollection::collectByName(profiler::thread_id_t _threadId, c
 
             for (const auto& it : EASY_GLOBALS.profiler_blocks)
             {
-                if (!collectByNameForThread(it.second, _valueName, calculatePointsInner, _parentBlockId))
+                if (!collectByNameForThread(it.second, _valueName, calculatePointsInner, _parentBlockId, _index))
                     return;
             }
 
@@ -452,7 +455,7 @@ void ArbitraryValuesCollection::collectByName(profiler::thread_id_t _threadId, c
     {
         const auto t = EASY_GLOBALS.profiler_blocks.find(_threadId);
         if (t != EASY_GLOBALS.profiler_blocks.end() &&
-            !collectByNameForThread(t->second, _valueName, doCalculatePoints, _parentBlockId))
+            !collectByNameForThread(t->second, _valueName, doCalculatePoints, _parentBlockId, _index))
         {
             return;
         }
@@ -473,7 +476,7 @@ void ArbitraryValuesCollection::collectByName(profiler::thread_id_t _threadId, c
 }
 
 bool ArbitraryValuesCollection::collectByNameForThread(const profiler::BlocksTreeRoot& _threadRoot
-    , const std::string& _valueName, bool _calculatePoints, profiler::block_id_t _parentBlockId)
+    , const std::string& _valueName, bool _calculatePoints, profiler::block_id_t _parentBlockId, int _index)
 {
     if (profiler_gui::is_max(_parentBlockId))
     {
@@ -489,20 +492,24 @@ bool ArbitraryValuesCollection::collectByNameForThread(const profiler::BlocksTre
             if (desc.type() != profiler::BlockType::Value || _valueName != desc.name())
                 continue;
 
-            m_values.push_back(block.value);
+            const auto value = block.value;
+            if (_index >= 0 && (!value->isArray() || profiler_gui::valueArraySize(*value) <= _index))
+                continue;
+
+            m_values.push_back(value);
             if (_calculatePoints)
-                addPoint(*block.value);
+                addPoint(*value, _index);
         }
 
         return true;
     }
 
-    return depthFirstSearch(_threadRoot, _calculatePoints, _parentBlockId
+    return depthFirstSearch(_threadRoot, _calculatePoints, _parentBlockId, _index
         , [&_valueName] (profiler::vin_t, const char* _name) -> bool { return _valueName == _name; });
 }
 
 bool ArbitraryValuesCollection::depthFirstSearch(const profiler::BlocksTreeRoot& _threadRoot, bool _calculatePoints
-    , profiler::block_id_t _parentBlockId, std::function<bool(profiler::vin_t, const char*)> _isSuitableValue)
+    , profiler::block_id_t _parentBlockId, int _index, std::function<bool(profiler::vin_t, const char*)> _isSuitableValue)
 {
     if (_threadRoot.children.empty())
         return true;
@@ -539,17 +546,20 @@ bool ArbitraryValuesCollection::depthFirstSearch(const profiler::BlocksTreeRoot&
                 const auto value = block.value;
                 if (_isSuitableValue(value->value_id(), desc.name()))
                 {
-                    m_values.push_back(value);
-                    if (_calculatePoints)
+                    if (_index < 0 || (value->isArray() && _index < profiler_gui::valueArraySize(*value)))
                     {
-                        const auto val = addPoint(*value);
-                        if (m_chartType == ChartType::Complexity)
+                        m_values.push_back(value);
+                        if (_calculatePoints)
                         {
-                            m_complexityMap[val].push_back(lastMatchedParentDuration);
-                            if (lastMatchedParentDuration < m_minDuration)
-                                m_minDuration = lastMatchedParentDuration;
-                            if (lastMatchedParentDuration > m_maxDuration)
-                                m_maxDuration = lastMatchedParentDuration;
+                            const auto val = addPoint(*value, _index);
+                            if (m_chartType == ChartType::Complexity)
+                            {
+                                m_complexityMap[val].push_back(lastMatchedParentDuration);
+                                if (lastMatchedParentDuration < m_minDuration)
+                                    m_minDuration = lastMatchedParentDuration;
+                                if (lastMatchedParentDuration > m_maxDuration)
+                                    m_maxDuration = lastMatchedParentDuration;
+                            }
                         }
                     }
                 }
@@ -580,9 +590,9 @@ bool ArbitraryValuesCollection::depthFirstSearch(const profiler::BlocksTreeRoot&
     return true;
 }
 
-double ArbitraryValuesCollection::addPoint(const profiler::ArbitraryValue& _value)
+double ArbitraryValuesCollection::addPoint(const profiler::ArbitraryValue& _value, int _index)
 {
-    const auto p = point(_value);
+    const auto p = point(_value, _index);
 
     if (p.y() > m_maxValue)
         m_maxValue = p.y();
@@ -595,10 +605,10 @@ double ArbitraryValuesCollection::addPoint(const profiler::ArbitraryValue& _valu
     return p.y();
 }
 
-QPointF ArbitraryValuesCollection::point(const profiler::ArbitraryValue& _value) const
+QPointF ArbitraryValuesCollection::point(const profiler::ArbitraryValue& _value, int _index) const
 {
     const qreal x = PROF_MICROSECONDS(qreal(_value.begin() - m_beginTime));
-    const qreal y = profiler_gui::value2real(_value);
+    const qreal y = profiler_gui::value2real(_value, std::max(_index, 0));
     return {x, y};
 }
 
@@ -1297,12 +1307,9 @@ void ArbitraryValuesChartItem::updateComplexityImageAsync(QRectF _boundingRect, 
             continue;
         }
 
-        const auto first = leftBounds[i];
-        if (first == complexityMap.end())
-        {
-            ++i;
+        const auto first = leftBounds[i++];
+        if (first == complexityMap.end() || first->first > right)
             continue;
-        }
 
         if (c.selected)
         {
@@ -1323,8 +1330,11 @@ void ArbitraryValuesChartItem::updateComplexityImageAsync(QRectF _boundingRect, 
             averages.reserve(complexityMap.size());
 
         auto it = first;
-        while (it->first < left)
+        while (it != complexityMap.end() && it->first < left)
             ++it;
+
+        if (it == complexityMap.end() || it->first > right)
+            continue;
 
         qreal x = getx(it->first);
 
@@ -1667,14 +1677,21 @@ struct UsedValueTypes {
 
 //////////////////////////////////////////////////////////////////////////
 
-ArbitraryTreeWidgetItem::ArbitraryTreeWidgetItem(QTreeWidgetItem* _parent, profiler::color_t _color, profiler::vin_t _vin)
+ArbitraryTreeWidgetItem::ArbitraryTreeWidgetItem(QTreeWidgetItem* _parent, bool _checkable, profiler::color_t _color, profiler::vin_t _vin)
     : Parent(_parent, ValueItemType)
     , m_vin(_vin)
     , m_color(_color)
     , m_widthHint(0)
 {
-    setFlags(flags() | Qt::ItemIsUserCheckable | Qt::ItemIsSelectable);
-    setCheckState(CheckColumn, Qt::Unchecked);
+    if (_checkable)
+    {
+        setFlags(flags() | Qt::ItemIsUserCheckable | Qt::ItemIsSelectable);
+        setCheckState(CheckColumn, Qt::Unchecked);
+    }
+    else
+    {
+        setFlags(flags() & ~Qt::ItemIsUserCheckable);
+    }
 }
 
 ArbitraryTreeWidgetItem::~ArbitraryTreeWidgetItem()
@@ -1711,6 +1728,35 @@ ArbitraryValuesCollection* ArbitraryTreeWidgetItem::collection()
     return m_collection.get();
 }
 
+bool ArbitraryTreeWidgetItem::isArrayItem() const
+{
+    return childCount() != 0;
+}
+
+profiler::block_id_t ArbitraryTreeWidgetItem::getParentBlockId(QTreeWidgetItem* _item) const
+{
+    auto parentItem = _item->parent();
+    const auto parentRole = parentItem->data(int_cast(ArbitraryColumns::Type), Qt::UserRole).toInt();
+    switch (parentRole)
+    {
+        case 1:
+            return parentItem->data(int_cast(ArbitraryColumns::Vin), Qt::UserRole).toUInt();
+
+        case 2:
+            return getParentBlockId(parentItem);
+
+        default:
+            return EASY_GLOBALS.selected_block_id;
+    }
+}
+
+int ArbitraryTreeWidgetItem::getSelfIndexInArray()
+{
+    if (data(int_cast(ArbitraryColumns::Type), Qt::UserRole).toInt() != 3)
+        return -1;
+    return parent()->indexOfChild(this);
+}
+
 void ArbitraryTreeWidgetItem::collectValues(profiler::thread_id_t _threadId, ChartType _chartType)
 {
     if (!m_collection)
@@ -1718,17 +1764,14 @@ void ArbitraryTreeWidgetItem::collectValues(profiler::thread_id_t _threadId, Cha
     else
         m_collection->interrupt();
 
-    auto parentItem = parent();
+    const auto parentBlockId = getParentBlockId(this);
+    const int index = getSelfIndexInArray();
 
-    profiler::block_id_t parentBlockId = 0;
-    if (parentItem->data(int_cast(ArbitraryColumns::Type), Qt::UserRole).toInt() == 1)
-        parentBlockId = parentItem->data(int_cast(ArbitraryColumns::Vin), Qt::UserRole).toUInt();
-    else
-        parentBlockId = EASY_GLOBALS.selected_block_id;
+    EASY_CONSTEXPR auto nameColumn = int_cast(ArbitraryColumns::Name);
+    const auto name = index < 0 ? text(nameColumn).toStdString() : parent()->text(nameColumn).toStdString();
 
-    m_collection->collectValuesAndPoints(_chartType, _threadId, m_vin
-        , text(int_cast(ArbitraryColumns::Name)).toStdString().c_str(), EASY_GLOBALS.begin_time
-        , parentBlockId);
+    m_collection->collectValuesAndPoints(_chartType, _threadId, m_vin, name.c_str(),
+                                         EASY_GLOBALS.begin_time, parentBlockId, index);
 }
 
 void ArbitraryTreeWidgetItem::interrupt()
@@ -1918,10 +1961,10 @@ void ArbitraryValuesWidget::onSelectedBlockIdChanged(::profiler::block_id_t)
 
 void ArbitraryValuesWidget::onItemDoubleClicked(QTreeWidgetItem* _item, int)
 {
-    if (_item == nullptr || _item->type() != ValueItemType)
+    if (_item == nullptr || _item->type() != ValueItemType || (_item->flags() & Qt::ItemIsUserCheckable) == 0)
         return;
 
-    _item->setCheckState(CheckColumn, _item->checkState(CheckColumn) == Qt::Checked ? Qt::Unchecked : Qt::Checked);
+    _item->setCheckState(CheckColumn, _item->checkState(CheckColumn) != Qt::Unchecked ? Qt::Unchecked : Qt::Checked);
 }
 
 void ArbitraryValuesWidget::onItemChanged(QTreeWidgetItem* _item, int _column)
@@ -1929,15 +1972,61 @@ void ArbitraryValuesWidget::onItemChanged(QTreeWidgetItem* _item, int _column)
     if (_item == nullptr || _item->type() != ValueItemType || _column != CheckColumn)
         return;
 
+    if (_item->checkState(CheckColumn) == Qt::PartiallyChecked)
+        return;
+
     auto item = static_cast<ArbitraryTreeWidgetItem*>(_item);
 
     if (item->checkState(CheckColumn) == Qt::Checked)
     {
         m_exportToCsvAction->setEnabled(true);
-        m_checkedItems.push_back(item);
-        item->collectValues(EASY_GLOBALS.selected_thread, m_chart->chartType());
-        if (!m_collectionsTimer.isActive())
-            m_collectionsTimer.start(100);
+
+        const auto prevSize = m_checkedItems.size();
+        if (!item->isArrayItem())
+        {
+            m_checkedItems.push_back(item);
+            item->collectValues(EASY_GLOBALS.selected_thread, m_chart->chartType());
+
+            if (item->getSelfIndexInArray() >= 0)
+            {
+                Qt::CheckState newState = Qt::Checked;
+                auto parentItem = item->parent();
+                for (int i = 0; i < parentItem->childCount(); ++i)
+                {
+                    auto child = parentItem->child(i);
+                    if (child->checkState(CheckColumn) != Qt::Checked)
+                    {
+                        newState = Qt::PartiallyChecked;
+                        break;
+                    }
+                }
+
+                disconnect(m_treeWidget, &QTreeWidget::itemChanged, this, &This::onItemChanged);
+                parentItem->setCheckState(CheckColumn, newState);
+                connect(m_treeWidget, &QTreeWidget::itemChanged, this, &This::onItemChanged);
+            }
+        }
+        else
+        {
+            disconnect(m_treeWidget, &QTreeWidget::itemChanged, this, &This::onItemChanged);
+            for (int i = 0; i < item->childCount(); ++i)
+            {
+                auto child = static_cast<ArbitraryTreeWidgetItem*>(item->child(i));
+                if (child->checkState(CheckColumn) != Qt::Checked)
+                {
+                    child->setCheckState(CheckColumn, Qt::Checked);
+                    m_checkedItems.push_back(child);
+                    child->collectValues(EASY_GLOBALS.selected_thread, m_chart->chartType());
+                }
+            }
+            connect(m_treeWidget, &QTreeWidget::itemChanged, this, &This::onItemChanged);
+        }
+
+        if (prevSize != m_checkedItems.size())
+        {
+            if (!m_collectionsTimer.isActive())
+                m_collectionsTimer.start(100);
+        }
     }
     else
     {
@@ -1949,10 +2038,56 @@ void ArbitraryValuesWidget::onItemChanged(QTreeWidgetItem* _item, int _column)
         // in interrupt().
         // !!!
 
-        m_checkedItems.removeOne(item);
-        m_exportToCsvAction->setEnabled(!m_checkedItems.empty());
-        onCollectionsTimeout();
-        item->interrupt();
+        decltype(m_checkedItems) uncheckedItems;
+
+        if (!item->isArrayItem())
+        {
+            uncheckedItems.push_back(item);
+            m_checkedItems.removeOne(item);
+
+            if (item->getSelfIndexInArray() >= 0)
+            {
+                Qt::CheckState newState = Qt::Unchecked;
+                auto parentItem = item->parent();
+                for (int i = 0; i < parentItem->childCount(); ++i)
+                {
+                    auto child = parentItem->child(i);
+                    if (child->checkState(CheckColumn) != Qt::Unchecked)
+                    {
+                        newState = Qt::PartiallyChecked;
+                        break;
+                    }
+                }
+
+                disconnect(m_treeWidget, &QTreeWidget::itemChanged, this, &This::onItemChanged);
+                parentItem->setCheckState(CheckColumn, newState);
+                connect(m_treeWidget, &QTreeWidget::itemChanged, this, &This::onItemChanged);
+            }
+        }
+        else
+        {
+            disconnect(m_treeWidget, &QTreeWidget::itemChanged, this, &This::onItemChanged);
+            for (int i = 0; i < item->childCount(); ++i)
+            {
+                auto child = static_cast<ArbitraryTreeWidgetItem*>(item->child(i));
+                if (child->checkState(CheckColumn) == Qt::Checked)
+                {
+                    child->setCheckState(CheckColumn, Qt::Unchecked);
+                    uncheckedItems.push_back(child);
+                    m_checkedItems.removeOne(child);
+                }
+            }
+            connect(m_treeWidget, &QTreeWidget::itemChanged, this, &This::onItemChanged);
+        }
+
+        if (!uncheckedItems.isEmpty())
+        {
+            m_exportToCsvAction->setEnabled(!m_checkedItems.empty());
+            onCollectionsTimeout();
+
+            for (auto uncheckedItem : uncheckedItems)
+                uncheckedItem->interrupt();
+        }
     }
 }
 
@@ -2214,11 +2349,13 @@ QTreeWidgetItem* ArbitraryValuesWidget::buildTreeForThread(const profiler::Block
         const auto& desc = easyDescriptor(block.node->id());
         if (desc.type() == profiler::BlockType::Value)
         {
-            auto valueItem = new ArbitraryTreeWidgetItem(rootItem, desc.color(), block.value->value_id());
-            valueItem->setText(int_cast(ArbitraryColumns::Type), profiler_gui::valueTypeString(*block.value));
+            auto value = block.value;
+            const bool isString = value->type() == profiler::DataType::String;
+            auto valueItem = new ArbitraryTreeWidgetItem(rootItem, !isString, desc.color(), value->value_id());
+            valueItem->setText(int_cast(ArbitraryColumns::Type), profiler_gui::valueTypeString(*value));
             valueItem->setText(int_cast(ArbitraryColumns::Name), desc.name());
-            valueItem->setText(int_cast(ArbitraryColumns::Vin), QString("0x%1").arg(block.value->value_id(), 0, 16));
-            valueItem->setText(int_cast(ArbitraryColumns::Value), profiler_gui::valueString(*block.value));
+            valueItem->setText(int_cast(ArbitraryColumns::Vin), QString("0x%1").arg(value->value_id(), 0, 16));
+            valueItem->setText(int_cast(ArbitraryColumns::Value), profiler_gui::valueString(*value));
             valueItem->setData(int_cast(ArbitraryColumns::Type), Qt::UserRole, 2);
 
             const auto sizeHintWidth = valueItem->sizeHint(CheckColumn).width();
@@ -2311,8 +2448,31 @@ QTreeWidgetItem* ArbitraryValuesWidget::buildTreeForThread(const profiler::Block
                 if (valueItem != nullptr)
                 {
                     if (i == _blockIndex)
-                        valueItem->setText(int_cast(ArbitraryColumns::Value), profiler_gui::valueString(*value));
+                        valueItem->setText(int_cast(ArbitraryColumns::Value), profiler_gui::shortValueString(*value));
                     //continue; // already in set
+
+                    if (value->isArray() && value->type() != profiler::DataType::String)
+                    {
+                        const int size = profiler_gui::valueArraySize(*value);
+                        if (valueItem->childCount() < size)
+                        {
+                            for (int childIndex = valueItem->childCount(); childIndex < size; ++childIndex)
+                            {
+                                auto item = new ArbitraryTreeWidgetItem(valueItem, true, desc.color(), vin);
+                                item->setText(int_cast(ArbitraryColumns::Name), QString("%1[%2]").arg(desc.name()).arg(childIndex));
+                                item->setData(int_cast(ArbitraryColumns::Type), Qt::UserRole, 3);
+
+                                if (i == _blockIndex)
+                                    item->setText(int_cast(ArbitraryColumns::Value), profiler_gui::valueString(*value, childIndex));
+
+                                const auto sizeHintWidth = valueItem->sizeHint(CheckColumn).width();
+                                item->setWidthHint(std::max(sizeHintWidth, fm.width(valueItem->text(CheckColumn))) + 32);
+                            }
+
+                            auto typeString = profiler_gui::valueTypeString(*value);
+                            valueItem->setText(int_cast(ArbitraryColumns::Type), typeString.replace("[]", "[%1]").arg(size));
+                        }
+                    }
                 }
                 else
                 {
@@ -2339,19 +2499,43 @@ QTreeWidgetItem* ArbitraryValuesWidget::buildTreeForThread(const profiler::Block
                         }
                     }
 
-                    valueItem = new ArbitraryTreeWidgetItem(blockItem, desc.color(), vin);
+                    const bool isString = value->type() == profiler::DataType::String;
+                    valueItem = new ArbitraryTreeWidgetItem(blockItem, !isString, desc.color(), vin);
                     valueItem->setText(int_cast(ArbitraryColumns::Type), profiler_gui::valueTypeString(*value));
                     valueItem->setText(int_cast(ArbitraryColumns::Name), desc.name());
                     valueItem->setText(int_cast(ArbitraryColumns::Vin), QString("0x%1").arg(vin, 0, 16));
                     valueItem->setData(int_cast(ArbitraryColumns::Type), Qt::UserRole, 2);
 
                     if (i == _blockIndex)
-                        valueItem->setText(int_cast(ArbitraryColumns::Value), profiler_gui::valueString(*value));
+                        valueItem->setText(int_cast(ArbitraryColumns::Value), profiler_gui::shortValueString(*value));
 
-                    const auto sizeHintWidth = valueItem->sizeHint(CheckColumn).width();
+                    auto sizeHintWidth = valueItem->sizeHint(CheckColumn).width();
                     valueItem->setWidthHint(std::max(sizeHintWidth, fm.width(valueItem->text(CheckColumn))) + 32);
 
                     *(usedItems + typeIndex) = valueItem;
+
+                    if (value->isArray() && !isString)
+                    {
+                        const int size = profiler_gui::valueArraySize(*value);
+                        if (valueItem->childCount() < size)
+                        {
+                            for (int childIndex = valueItem->childCount(); childIndex < size; ++childIndex)
+                            {
+                                auto item = new ArbitraryTreeWidgetItem(valueItem, true, desc.color(), vin);
+                                item->setText(int_cast(ArbitraryColumns::Name), QString("%1[%2]").arg(desc.name()).arg(childIndex));
+                                item->setData(int_cast(ArbitraryColumns::Type), Qt::UserRole, 3);
+
+                                if (i == _blockIndex)
+                                    item->setText(int_cast(ArbitraryColumns::Value), profiler_gui::valueString(*value, childIndex));
+
+                                sizeHintWidth = valueItem->sizeHint(CheckColumn).width();
+                                item->setWidthHint(std::max(sizeHintWidth, fm.width(valueItem->text(CheckColumn))) + 32);
+                            }
+
+                            auto typeString = profiler_gui::valueTypeString(*value);
+                            valueItem->setText(int_cast(ArbitraryColumns::Type), typeString.replace("[]", "[%1]").arg(size));
+                        }
+                    }
                 }
             }
 

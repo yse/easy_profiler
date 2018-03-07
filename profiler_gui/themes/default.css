@@ -175,7 +175,7 @@ QTreeView::indicator {
   padding: 1px;
   margin: 0; }
 
-QTreeView::indicator:hover, QTreeView::indicator:checked {
+QTreeView::indicator:hover, QTreeView::indicator:checked, QTreeView::indicator:indeterminate {
   background-color: white;
   border: 1px solid #cccccc; }
 
@@ -184,6 +184,12 @@ QTreeView::indicator:checked {
 
 QTreeView::indicator:checked:disabled {
   image: url(":/images/default/check-disabled"); }
+
+QTreeView::indicator:indeterminate {
+  image: url(":/images/default/partial-check"); }
+
+QTreeView::indicator:indeterminate:disabled {
+  image: url(":/images/default/partial-check-disabled"); }
 
 /* ****************************************************************************************************************** */
 QMenu {

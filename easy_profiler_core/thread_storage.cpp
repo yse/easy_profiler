@@ -57,12 +57,12 @@ ThreadStorage::ThreadStorage()
     expired = ATOMIC_VAR_INIT(0);
 }
 
-void ThreadStorage::storeValue(profiler::timestamp_t _timestamp, profiler::block_id_t _id, profiler::DataType _type, const void* _data, size_t _size, bool _isArray, profiler::ValueId _vin)
+void ThreadStorage::storeValue(profiler::timestamp_t _timestamp, profiler::block_id_t _id, profiler::DataType _type, const void* _data, uint16_t _size, bool _isArray, profiler::ValueId _vin)
 {
-    const uint16_t serializedDataSize = static_cast<uint16_t>(sizeof(profiler::ArbitraryValue) + _size);
+    const uint16_t serializedDataSize = _size + static_cast<uint16_t>(sizeof(profiler::ArbitraryValue));
     void* data = blocks.closedList.allocate(serializedDataSize);
 
-    ::new (data) profiler::ArbitraryValue(_timestamp, _vin.m_id, _id, static_cast<uint16_t>(_size), _type, _isArray);
+    ::new (data) profiler::ArbitraryValue(_timestamp, _vin.m_id, _id, _size, _type, _isArray);
 
     char* cdata = reinterpret_cast<char*>(data);
     memcpy(cdata + sizeof(profiler::ArbitraryValue), _data, _size);

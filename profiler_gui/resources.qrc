@@ -31,6 +31,8 @@
         <file alias="check-disabled">images/default/check-disabled.svg</file>
         <file alias="radio-check">images/default/radio-indicator.svg</file>
         <file alias="radio-check-disabled">images/default/radio-indicator-disabled.svg</file>
+        <file alias="partial-check">images/default/check-partial.svg</file>
+        <file alias="partial-check-disabled">images/default/check-partial-disabled.svg</file>
         <file alias="dock-maximize-white">images/default/maximize-white.svg</file>
         <file alias="dock-maximize-white-hover">images/default/maximize-white-hover.svg</file>
         <file alias="dock-maximize-white-pressed">images/default/maximize-white-pressed.svg</file>
