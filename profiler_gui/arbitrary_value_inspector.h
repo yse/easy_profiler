@@ -296,18 +296,20 @@ class ArbitraryTreeWidgetItem : public QTreeWidgetItem
     using This = ArbitraryTreeWidgetItem;
     using CollectionPtr = std::unique_ptr<ArbitraryValuesCollection>;
 
+    const profiler::ArbitraryValue& m_value;
     QFont                 m_font;
     CollectionPtr   m_collection;
-    profiler::vin_t        m_vin;
     profiler::color_t    m_color;
     int              m_widthHint;
 
 public:
 
-    explicit ArbitraryTreeWidgetItem(QTreeWidgetItem* _parent, bool _checkable, profiler::color_t _color, profiler::vin_t _vin = 0);
+    explicit ArbitraryTreeWidgetItem(QTreeWidgetItem* _parent, bool _checkable, profiler::color_t _color, const profiler::ArbitraryValue& _value);
     ~ArbitraryTreeWidgetItem() override;
 
     QVariant data(int _column, int _role) const override;
+
+    const profiler::ArbitraryValue& value() const;
 
     void setWidthHint(int _width);
     void setBold(bool _isBold);
@@ -320,7 +322,7 @@ public:
     profiler::color_t color() const;
 
     bool isArrayItem() const;
-    int getSelfIndexInArray();
+    int getSelfIndexInArray() const;
 
 private:
 
@@ -354,12 +356,14 @@ public:
     explicit ArbitraryValuesWidget(QWidget* _parent = nullptr);
     ~ArbitraryValuesWidget() override;
 
-    void contextMenuEvent(QContextMenuEvent*) override {}
+    void contextMenuEvent(QContextMenuEvent*) override { /* ignore context menu event */ }
 
 public slots:
 
     void clear();
     void rebuild();
+    void rebuild(profiler::thread_id_t _threadId);
+    void select(const profiler::ArbitraryValue& _value, bool _resetOthers = true);
 
 private slots:
 

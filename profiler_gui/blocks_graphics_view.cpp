@@ -1058,6 +1058,7 @@ void BlocksGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
         }
     }
 
+    const bool isDoubleClick = m_bDoubleClick;
     m_bDoubleClick = false;
     m_mouseButtons = _event->buttons();
     m_mouseMovePath = QPoint();
@@ -1072,12 +1073,6 @@ void BlocksGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
     {
         profiler_gui::BoolFlagGuard guard(m_bUpdatingRect, true);
 
-        if (selectedBlock != nullptr && previouslySelectedBlock == EASY_GLOBALS.selected_block && !selectedBlock->tree.children.empty())
-        {
-            EASY_GLOBALS.gui_blocks[previouslySelectedBlock].expanded = !EASY_GLOBALS.gui_blocks[previouslySelectedBlock].expanded;
-            emit EASY_GLOBALS.events.itemsExpandStateChanged();
-        }
-
         emit EASY_GLOBALS.events.selectedBlockChanged(EASY_GLOBALS.selected_block);
 
         if (EASY_GLOBALS.selecting_block_changes_thread && selectedBlock != nullptr && EASY_GLOBALS.selected_thread != selectedBlockThread)
@@ -1087,6 +1082,20 @@ void BlocksGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
             emit EASY_GLOBALS.events.lockCharts();
             emit EASY_GLOBALS.events.selectedThreadChanged(EASY_GLOBALS.selected_thread);
             emit EASY_GLOBALS.events.unlockCharts();
+        }
+
+        if (selectedBlock != nullptr && isDoubleClick)
+        {
+            if (!selectedBlock->tree.children.empty())
+            {
+                auto& selected = EASY_GLOBALS.gui_blocks[EASY_GLOBALS.selected_block];
+                selected.expanded = !selected.expanded;
+                emit EASY_GLOBALS.events.itemsExpandStateChanged();
+            }
+            else if (easyDescriptor(selectedBlock->tree.node->id()).type() == profiler::BlockType::Value)
+            {
+                emit EASY_GLOBALS.events.selectValue(selectedBlockThread, *selectedBlock->tree.value);
+            }
         }
 
         guard.restore();

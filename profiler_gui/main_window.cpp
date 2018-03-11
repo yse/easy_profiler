@@ -97,6 +97,7 @@
 #include <QDateTime>
 
 #include "main_window.h"
+#include "arbitrary_value_inspector.h"
 #include "blocks_tree_widget.h"
 #include "blocks_graphics_view.h"
 #include "descriptors_tree_widget.h"
@@ -795,6 +796,7 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
 
     connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::blockStatusChanged, this, &This::onBlockStatusChange);
     connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::blocksRefreshRequired, this, &This::onGetBlockDescriptionsClicked);
+    connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::selectValue, this, &This::onSelectValue);
 }
 
 MainWindow::~MainWindow()
@@ -2414,6 +2416,12 @@ void MainWindow::onBlockStatusChange(::profiler::block_id_t _id, ::profiler::Eas
 {
     if (EASY_GLOBALS.connected)
         m_listener.send(profiler::net::BlockStatusMessage(_id, static_cast<uint8_t>(_status)));
+}
+
+void MainWindow::onSelectValue(profiler::thread_id_t _threadId, const profiler::ArbitraryValue& _value)
+{
+    onEditBlocksClicked(true);
+    m_dialogDescTree->dataViewer()->rebuild(_threadId);
 }
 
 void DialogWithGeometry::create()

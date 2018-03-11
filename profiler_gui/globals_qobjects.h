@@ -58,6 +58,8 @@
 #include <QObject>
 #include <easy/details/profiler_public_types.h>
 
+namespace profiler { class ArbitraryValue; }
+
 namespace profiler_gui {
 
     class GlobalSignals Q_DECL_FINAL : public QObject
@@ -99,6 +101,8 @@ namespace profiler_gui {
 
         void chartWheeled(qreal pos, int delta);
         void chartSliderChanged(qreal pos);
+
+        void selectValue(::profiler::thread_id_t _threadId, const ::profiler::ArbitraryValue& _value);
 
     }; // END of class GlobalSignals.
 

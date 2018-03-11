@@ -211,6 +211,7 @@ public:
 
     void build();
     void clear();
+    class ArbitraryValuesWidget* dataViewer() const;
 
 private slots:
 

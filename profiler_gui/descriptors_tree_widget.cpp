@@ -914,6 +914,11 @@ void BlockDescriptorsWidget::clear()
     m_values->clear();
 }
 
+ArbitraryValuesWidget* BlockDescriptorsWidget::dataViewer() const
+{
+    return m_values;
+}
+
 void BlockDescriptorsWidget::onSeachBoxReturnPressed()
 {
     if (m_searchButton->data().toBool() == true)
