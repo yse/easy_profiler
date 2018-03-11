@@ -562,7 +562,7 @@ size_t TreeWidgetLoader::setTreeInternal(const ::profiler::BlocksTreeRoot& _thre
         const auto endTime = child.node->end();
         const auto duration = endTime - startTime;
 
-        if (duration == 0 && !_addZeroBlocks)
+        if (duration == 0 && !_addZeroBlocks && easyDescriptor(child.node->id()).type() == profiler::BlockType::Block)
             continue;
 
         _duration += duration;
