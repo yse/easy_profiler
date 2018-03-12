@@ -1941,21 +1941,27 @@ ArbitraryValuesWidget::ArbitraryValuesWidget(QWidget* _parent)
 
 ArbitraryTreeWidgetItem* findSimilarItem(QTreeWidgetItem* _parentItem, ArbitraryTreeWidgetItem* _item)
 {
+    const auto index = _item->getSelfIndexInArray();
     for (int c = 0, childrenCount = _parentItem->childCount(); c < childrenCount; ++c)
     {
         auto child = _parentItem->child(c);
         if (child->type() == ValueItemType)
         {
             auto item = reinterpret_cast<ArbitraryTreeWidgetItem*>(child);
-            if (&_item->value() == &item->value())
-                return item;
-
-            if (_item->value().value_id() == item->value().value_id() &&
-                _item->value().type() == item->value().type() &&
-                _item->value().isArray() == item->value().isArray() &&
-                _item->text(int_cast(ArbitraryColumns::Name)) == item->text(int_cast(ArbitraryColumns::Name)))
+            if (item->getSelfIndexInArray() == index)
             {
-                return item;
+                if (&_item->value() == &item->value())
+                {
+                    return item;
+                }
+
+                else if (_item->value().value_id() == item->value().value_id() &&
+                         _item->value().type() == item->value().type() &&
+                         _item->value().isArray() == item->value().isArray() &&
+                         _item->text(int_cast(ArbitraryColumns::Name)) == item->text(int_cast(ArbitraryColumns::Name)))
+                {
+                    return item;
+                }
             }
         }
 
@@ -1992,6 +1998,7 @@ ArbitraryValuesWidget::ArbitraryValuesWidget(const QList<ArbitraryTreeWidgetItem
 
     if (!m_checkedItems.empty())
     {
+        m_exportToCsvAction->setEnabled(true);
         m_collectionsTimer.start();
 
         std::set<QTreeWidgetItem*> checked;
@@ -2278,9 +2285,9 @@ void ArbitraryValuesWidget::rebuild(profiler::thread_id_t _threadId, profiler::b
     for (int i = 0, columns = m_treeWidget->columnCount(); i < columns; ++i)
         m_treeWidget->resizeColumnToContents(i);
 
-    if (!profiler_gui::is_max(EASY_GLOBALS.selected_block))
+    if (m_bMainWidget && !profiler_gui::is_max(_blockIndex))
     {
-        const auto& block = easyBlocksTree(EASY_GLOBALS.selected_block);
+        const auto& block = easyBlocksTree(_blockIndex);
         if (easyDescriptor(block.node->id()).type() == profiler::BlockType::Value)
             select(*block.value, false);
     }
