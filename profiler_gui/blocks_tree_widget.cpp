@@ -1142,6 +1142,9 @@ HierarchyWidget::HierarchyWidget(QWidget* _parent) : Parent(_parent)
     lay->addWidget(m_tree);
 
     connect(m_searchBox, &QLineEdit::returnPressed, this, &This::onSeachBoxReturnPressed);
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::allDataGoingToBeDeleted, [this] {
+        clear(true);
+    });
 }
 
 HierarchyWidget::~HierarchyWidget()

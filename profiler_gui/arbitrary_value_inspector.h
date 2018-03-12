@@ -350,6 +350,16 @@ class ArbitraryValuesWidget : public QWidget
     class QSpinBox*           m_filterWindowPicker;
     class QAction*             m_exportToCsvAction;
     ArbitraryTreeWidgetItem*            m_boldItem;
+    profiler::thread_id_t               m_threadId;
+    profiler::block_index_t           m_blockIndex;
+    profiler::block_id_t                 m_blockId;
+    const bool                       m_bMainWidget;
+
+    explicit ArbitraryValuesWidget(bool _isMainWidget, profiler::thread_id_t _threadId
+        , profiler::block_index_t _blockIndex, profiler::block_id_t _blockId, QWidget* _parent);
+    explicit ArbitraryValuesWidget(const QList<ArbitraryTreeWidgetItem*>& _checkedItems
+        , QTreeWidgetItem* _currentItem, profiler::thread_id_t _threadId
+        , profiler::block_index_t _blockIndex, profiler::block_id_t _blockId, QWidget* _parent = nullptr);
 
 public:
 
@@ -362,11 +372,12 @@ public slots:
 
     void clear();
     void rebuild();
-    void rebuild(profiler::thread_id_t _threadId);
+    void rebuild(profiler::thread_id_t _threadId, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId);
     void select(const profiler::ArbitraryValue& _value, bool _resetOthers = true);
 
 private slots:
 
+    void onSelectedThreadChanged(profiler::thread_id_t);
     void onSelectedBlockChanged(uint32_t _block_index);
     void onSelectedBlockIdChanged(profiler::block_id_t _id);
     void onItemDoubleClicked(QTreeWidgetItem* _item, int _column);
@@ -378,6 +389,7 @@ private slots:
     void onFilterComboBoxChanged(int _index);
     void onFilterWindowSizeChanged(int _size);
     void onExportToCsvClicked(bool);
+    void onOpenInNewWindowClicked(bool);
 
 private:
 

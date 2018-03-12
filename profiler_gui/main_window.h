@@ -328,7 +328,7 @@ protected slots:
 
     void onBlockStatusChange(profiler::block_id_t _id, profiler::EasyBlockStatus _status);
 
-    void onSelectValue(profiler::thread_id_t _threadId, const profiler::ArbitraryValue& _value);
+    void onSelectValue(profiler::thread_id_t _thread_id, uint32_t _value_index, const profiler::ArbitraryValue& _value);
 
     void checkFrameTimeReady();
 

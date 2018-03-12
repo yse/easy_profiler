@@ -1096,14 +1096,7 @@ void MainWindow::onSaveFileClicked(bool)
 
 void MainWindow::clear()
 {
-    static_cast<HierarchyWidget*>(m_treeWidget->widget())->clear(true);
-    static_cast<DiagramWidget*>(m_graphicsView->widget())->clear();
-
-#if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
-    static_cast<BlockDescriptorsWidget*>(m_descTreeWidget->widget())->clear();
-#endif
-    if (m_dialogDescTree != nullptr)
-        m_dialogDescTree->clear();
+    emit EASY_GLOBALS.events.allDataGoingToBeDeleted();
 
     EASY_GLOBALS.selected_thread = 0;
     ::profiler_gui::set_max(EASY_GLOBALS.selected_block);
@@ -1821,7 +1814,7 @@ void MainWindow::onFileReaderTimeout()
         const auto nblocks = m_reader.size();
         if (nblocks != 0)
         {
-            static_cast<HierarchyWidget*>(m_treeWidget->widget())->clear(true);
+            emit EASY_GLOBALS.events.allDataGoingToBeDeleted();
 
             ::profiler::SerializedData serialized_blocks;
             ::profiler::SerializedData serialized_descriptors;
@@ -1899,14 +1892,6 @@ void MainWindow::onFileReaderTimeout()
 #endif
             }
 
-            static_cast<DiagramWidget*>(m_graphicsView->widget())->view()->setTree(EASY_GLOBALS.profiler_blocks);
-
-#if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
-            static_cast<BlockDescriptorsWidget*>(m_descTreeWidget->widget())->build();
-#endif
-            if (m_dialogDescTree != nullptr)
-                m_dialogDescTree->build();
-
             m_saveAction->setEnabled(true);
             m_deleteAction->setEnabled(true);
         }
@@ -1936,9 +1921,9 @@ void MainWindow::onFileReaderTimeout()
 
         if (nblocks != 0)
         {
+            emit EASY_GLOBALS.events.fileOpened();
             if (EASY_GLOBALS.all_items_expanded_by_default)
                 onExpandAllClicked(true);
-            emit EASY_GLOBALS.events.fileOpened();
         }
     }
     else if (m_progress != nullptr)
@@ -2418,10 +2403,10 @@ void MainWindow::onBlockStatusChange(::profiler::block_id_t _id, ::profiler::Eas
         m_listener.send(profiler::net::BlockStatusMessage(_id, static_cast<uint8_t>(_status)));
 }
 
-void MainWindow::onSelectValue(profiler::thread_id_t _threadId, const profiler::ArbitraryValue& _value)
+void MainWindow::onSelectValue(profiler::thread_id_t _thread_id, uint32_t _value_index, const profiler::ArbitraryValue& _value)
 {
     onEditBlocksClicked(true);
-    m_dialogDescTree->dataViewer()->rebuild(_threadId);
+    m_dialogDescTree->dataViewer()->rebuild(_thread_id, _value_index, _value.id());
 }
 
 void DialogWithGeometry::create()

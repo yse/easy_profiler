@@ -1167,6 +1167,8 @@ BlocksGraphicsScrollbar::BlocksGraphicsScrollbar(int _initialHeight, QWidget* _p
 
     connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::threadNameDecorationChanged, this, &This::onThreadViewChanged);
     connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::hexThreadIdChanged, this, &This::onThreadViewChanged);
+
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::allDataGoingToBeDeleted, this, &This::clear);
 }
 
 BlocksGraphicsScrollbar::~BlocksGraphicsScrollbar()

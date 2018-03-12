@@ -73,6 +73,7 @@ namespace profiler_gui {
 
     signals:
 
+        void allDataGoingToBeDeleted();
         void fileOpened();
 
         void selectedThreadChanged(::profiler::thread_id_t _id);
@@ -102,7 +103,7 @@ namespace profiler_gui {
         void chartWheeled(qreal pos, int delta);
         void chartSliderChanged(qreal pos);
 
-        void selectValue(::profiler::thread_id_t _threadId, const ::profiler::ArbitraryValue& _value);
+        void selectValue(::profiler::thread_id_t _thread_id, uint32_t _value_index, const ::profiler::ArbitraryValue& _value);
 
     }; // END of class GlobalSignals.
 

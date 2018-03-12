@@ -1094,7 +1094,7 @@ void BlocksGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
             }
             else if (easyDescriptor(selectedBlock->tree.node->id()).type() == profiler::BlockType::Value)
             {
-                emit EASY_GLOBALS.events.selectValue(selectedBlockThread, *selectedBlock->tree.value);
+                emit EASY_GLOBALS.events.selectValue(selectedBlockThread, EASY_GLOBALS.selected_block, *selectedBlock->tree.value);
             }
         }
 
@@ -1395,16 +1395,22 @@ void BlocksGraphicsView::initMode()
     connect(&m_flickerTimer, &QTimer::timeout, this, &This::onFlickerTimeout);
     connect(&m_idleTimer, &QTimer::timeout, this, &This::onIdleTimeout);
 
+    using profiler_gui::GlobalSignals;
     auto globalSignals = &EASY_GLOBALS.events;
-    connect(globalSignals, &::profiler_gui::GlobalSignals::hierarchyFlagChanged, this, &This::onHierarchyFlagChange);
-    connect(globalSignals, &::profiler_gui::GlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
-    connect(globalSignals, &::profiler_gui::GlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
-    connect(globalSignals, &::profiler_gui::GlobalSignals::itemsExpandStateChanged, this, &This::onRefreshRequired);
-    connect(globalSignals, &::profiler_gui::GlobalSignals::refreshRequired, this, &This::onRefreshRequired);
+    connect(globalSignals, &GlobalSignals::hierarchyFlagChanged, this, &This::onHierarchyFlagChange);
+    connect(globalSignals, &GlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
+    connect(globalSignals, &GlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
+    connect(globalSignals, &GlobalSignals::itemsExpandStateChanged, this, &This::onRefreshRequired);
+    connect(globalSignals, &GlobalSignals::refreshRequired, this, &This::onRefreshRequired);
+    connect(globalSignals, &GlobalSignals::allDataGoingToBeDeleted, this, &This::clear);
 
-    connect(globalSignals, &::profiler_gui::GlobalSignals::selectedBlockIdChanged, [this](::profiler::block_id_t)
+    connect(globalSignals, &GlobalSignals::fileOpened, [this] {
+        setTree(EASY_GLOBALS.profiler_blocks);
+    });
+
+    connect(globalSignals, &GlobalSignals::selectedBlockIdChanged, [this](::profiler::block_id_t)
     {
-        if (::profiler_gui::is_max(EASY_GLOBALS.selected_block_id))
+        if (profiler_gui::is_max(EASY_GLOBALS.selected_block_id))
         {
             if (EASY_GLOBALS.selected_thread != 0)
             {
@@ -2253,10 +2259,13 @@ ThreadNamesWidget::ThreadNamesWidget(BlocksGraphicsView* _view, int _additionalH
     setFixedWidth(m_maxLength);
 
     connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::selectedThreadChanged, [this](::profiler::thread_id_t){ repaintScene(); });
+    connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::allDataGoingToBeDeleted, this, &This::clear);
+
     connect(m_view, &BlocksGraphicsView::treeChanged, this, &This::onTreeChange);
     connect(m_view, &BlocksGraphicsView::sceneUpdated, this, &This::repaintScene);
     connect(m_view->verticalScrollBar(), &QScrollBar::valueChanged, verticalScrollBar(), &QScrollBar::setValue, Qt::QueuedConnection);
     connect(m_view->verticalScrollBar(), &QScrollBar::rangeChanged, this, &This::setVerticalScrollbarRange, Qt::QueuedConnection);
+
     connect(&m_idleTimer, &QTimer::timeout, this, &This::onIdleTimeout);
 }
 

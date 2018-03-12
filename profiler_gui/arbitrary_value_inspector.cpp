@@ -56,6 +56,7 @@
 #include <QActionGroup>
 #include <QColor>
 #include <QComboBox>
+#include <QDialog>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QGraphicsScene>
@@ -73,6 +74,7 @@
 #include <QVariant>
 #include <QVBoxLayout>
 #include <list>
+#include <set>
 #include <cmath>
 #include "arbitrary_value_inspector.h"
 #include "globals.h"
@@ -691,6 +693,8 @@ void ArbitraryValuesChartItem::paintMouseIndicator(QPainter* _painter, qreal _to
         {
             const auto value = m_minValue + ((_bottom - ChartBound - yvalue) / _height) * (m_maxValue - m_minValue);
             valueString = QString::number(value, 'f', 3);
+            if (valueString.endsWith(QStringLiteral(".000")))
+                valueString.chop(4);
         }
         else
         {
@@ -1797,7 +1801,8 @@ profiler::color_t ArbitraryTreeWidgetItem::color() const
 
 //////////////////////////////////////////////////////////////////////////
 
-ArbitraryValuesWidget::ArbitraryValuesWidget(QWidget* _parent)
+ArbitraryValuesWidget::ArbitraryValuesWidget(bool _isMainWidget, profiler::thread_id_t _threadId
+    , profiler::block_index_t _blockIndex, profiler::block_id_t _blockId, QWidget* _parent)
     : Parent(_parent)
     , m_splitter(new QSplitter(Qt::Horizontal, this))
     , m_treeWidget(new QTreeWidget(this))
@@ -1808,7 +1813,13 @@ ArbitraryValuesWidget::ArbitraryValuesWidget(QWidget* _parent)
     , m_filterWindowPicker(new QSpinBox(this))
     , m_exportToCsvAction(nullptr)
     , m_boldItem(nullptr)
+    , m_threadId(_threadId)
+    , m_blockIndex(_blockIndex)
+    , m_blockId(_blockId)
+    , m_bMainWidget(_isMainWidget)
 {
+    m_collectionsTimer.setInterval(100);
+
     m_splitter->setHandleWidth(1);
     m_splitter->setContentsMargins(0, 0, 0, 0);
     m_splitter->addWidget(m_treeWidget);
@@ -1831,9 +1842,11 @@ ArbitraryValuesWidget::ArbitraryValuesWidget(QWidget* _parent)
     auto action = tb->addAction(QIcon(imagePath("reload")), tr("Refresh values list"));
     connect(action, &QAction::triggered, this, Overload<void>::of(&This::rebuild));
 
+    action = tb->addAction(QIcon(imagePath("window")), tr("Open new window"));
+    connect(action, &QAction::triggered, this, &This::onOpenInNewWindowClicked);
+
     m_exportToCsvAction = tb->addAction(QIcon(imagePath("csv")), tr("Export to csv"));
     connect(m_exportToCsvAction, &QAction::triggered, this, &This::onExportToCsvClicked);
-    m_exportToCsvAction->setEnabled(false);
 
     tb->addSeparator();
 
@@ -1881,14 +1894,21 @@ ArbitraryValuesWidget::ArbitraryValuesWidget(QWidget* _parent)
 
     connect(&m_collectionsTimer, &QTimer::timeout, this, &This::onCollectionsTimeout);
 
-    connect(m_treeWidget, &QTreeWidget::itemDoubleClicked, this, &This::onItemDoubleClicked);
-    connect(m_treeWidget, &QTreeWidget::itemChanged, this, &This::onItemChanged);
-    connect(m_treeWidget, &QTreeWidget::currentItemChanged, this, &This::onCurrentItemChanged);
-
+    using profiler_gui::GlobalSignals;
     auto globalEvents = &EASY_GLOBALS.events;
-    connect(globalEvents, &profiler_gui::GlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChanged);
-    connect(globalEvents, &profiler_gui::GlobalSignals::selectedBlockIdChanged, this, &This::onSelectedBlockIdChanged);
-    connect(globalEvents, &profiler_gui::GlobalSignals::fileOpened, this, Overload<void>::of(&This::rebuild));
+    connect(globalEvents, &GlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChanged);
+    connect(globalEvents, &GlobalSignals::selectedBlockIdChanged, this, &This::onSelectedBlockIdChanged);
+    connect(globalEvents, &GlobalSignals::allDataGoingToBeDeleted, this, &This::clear);
+
+    if (_isMainWidget)
+    {
+        connect(m_treeWidget, &QTreeWidget::itemDoubleClicked, this, &This::onItemDoubleClicked);
+        connect(m_treeWidget, &QTreeWidget::itemChanged, this, &This::onItemChanged);
+        connect(m_treeWidget, &QTreeWidget::currentItemChanged, this, &This::onCurrentItemChanged);
+
+        connect(globalEvents, &GlobalSignals::fileOpened, this, Overload<void>::of(&This::rebuild));
+        connect(globalEvents, &GlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChanged);
+    }
 
     loadSettings();
 
@@ -1910,7 +1930,128 @@ ArbitraryValuesWidget::ArbitraryValuesWidget(QWidget* _parent)
     connect(m_filterComboBox, Overload<int>::of(&QComboBox::currentIndexChanged), this, &This::onFilterComboBoxChanged);
     connect(m_filterWindowPicker, Overload<int>::of(&QSpinBox::valueChanged), this, &This::onFilterWindowSizeChanged);
 
-    rebuild();
+    rebuild(_threadId, _blockIndex, _blockId);
+}
+
+ArbitraryValuesWidget::ArbitraryValuesWidget(QWidget* _parent)
+    : ArbitraryValuesWidget(true, EASY_GLOBALS.selected_thread, EASY_GLOBALS.selected_block, EASY_GLOBALS.selected_block_id, _parent)
+{
+    m_exportToCsvAction->setEnabled(false);
+}
+
+ArbitraryTreeWidgetItem* findSimilarItem(QTreeWidgetItem* _parentItem, ArbitraryTreeWidgetItem* _item)
+{
+    for (int c = 0, childrenCount = _parentItem->childCount(); c < childrenCount; ++c)
+    {
+        auto child = _parentItem->child(c);
+        if (child->type() == ValueItemType)
+        {
+            auto item = reinterpret_cast<ArbitraryTreeWidgetItem*>(child);
+            if (&_item->value() == &item->value())
+                return item;
+
+            if (_item->value().value_id() == item->value().value_id() &&
+                _item->value().type() == item->value().type() &&
+                _item->value().isArray() == item->value().isArray() &&
+                _item->text(int_cast(ArbitraryColumns::Name)) == item->text(int_cast(ArbitraryColumns::Name)))
+            {
+                return item;
+            }
+        }
+
+        auto item = findSimilarItem(child, _item);
+        if (item != nullptr)
+            return item;
+    }
+
+    return nullptr;
+}
+
+ArbitraryValuesWidget::ArbitraryValuesWidget(const QList<ArbitraryTreeWidgetItem*>& _checkedItems
+    , QTreeWidgetItem* _currentItem, profiler::thread_id_t _threadId, profiler::block_index_t _blockIndex
+    , profiler::block_id_t _blockId, QWidget* _parent)
+    : ArbitraryValuesWidget(false, _threadId, _blockIndex, _blockId, _parent)
+{
+    for (auto item : _checkedItems)
+    {
+        for (int i = 0, topLevelItemsCount = m_treeWidget->topLevelItemCount(); i < topLevelItemsCount; ++i)
+        {
+            auto foundItem = findSimilarItem(m_treeWidget->topLevelItem(i), item);
+            if (foundItem != nullptr)
+            {
+                const auto checkState = item->checkState(CheckColumn);
+                foundItem->setCheckState(CheckColumn, checkState);
+                if (checkState == Qt::Checked)
+                {
+                    m_checkedItems.push_back(foundItem);
+                    foundItem->collectValues(m_threadId, m_chart->chartType());
+                }
+            }
+        }
+    }
+
+    if (!m_checkedItems.empty())
+    {
+        m_collectionsTimer.start();
+
+        std::set<QTreeWidgetItem*> checked;
+        for (auto item : m_checkedItems)
+        {
+            if (item->getSelfIndexInArray() >= 0)
+            {
+                auto parentItem = item->parent();
+                if (checked.find(parentItem) != checked.end())
+                    continue;
+
+                checked.insert(parentItem);
+
+                Qt::CheckState newState = Qt::Checked;
+                for (int i = 0, childCount = parentItem->childCount(); i < childCount; ++i)
+                {
+                    auto child = parentItem->child(i);
+                    if (child->checkState(CheckColumn) != Qt::Checked)
+                    {
+                        newState = Qt::PartiallyChecked;
+                        break;
+                    }
+                }
+
+                parentItem->setCheckState(CheckColumn, newState);
+            }
+        }
+    }
+    else
+    {
+        m_exportToCsvAction->setEnabled(false);
+    }
+
+    if (_currentItem != nullptr)
+    {
+        if (_currentItem->type() == ValueItemType)
+        {
+            auto item = reinterpret_cast<ArbitraryTreeWidgetItem*>(_currentItem);
+            for (int i = 0, topLevelItemsCount = m_treeWidget->topLevelItemCount(); i < topLevelItemsCount; ++i)
+            {
+                auto foundItem = findSimilarItem(m_treeWidget->topLevelItem(i), item);
+                if (foundItem != nullptr)
+                {
+                    m_treeWidget->setCurrentItem(foundItem);
+                    break;
+                }
+            }
+        }
+        else
+        {
+            const int col = static_cast<int>(ArbitraryColumns::Name);
+            auto items = m_treeWidget->findItems(_currentItem->text(col), Qt::MatchExactly | Qt::MatchCaseSensitive | Qt::MatchRecursive, col);
+            if (!items.empty())
+                m_treeWidget->setCurrentItem(items.front());
+        }
+    }
+
+    connect(m_treeWidget, &QTreeWidget::itemDoubleClicked, this, &This::onItemDoubleClicked);
+    connect(m_treeWidget, &QTreeWidget::itemChanged, this, &This::onItemChanged);
+    connect(m_treeWidget, &QTreeWidget::currentItemChanged, this, &This::onCurrentItemChanged);
 }
 
 ArbitraryValuesWidget::~ArbitraryValuesWidget()
@@ -1931,6 +2072,11 @@ void ArbitraryValuesWidget::clear()
     m_checkedItems.clear();
     m_treeWidget->clear();
     m_boldItem = nullptr;
+}
+
+void ArbitraryValuesWidget::onSelectedThreadChanged(profiler::thread_id_t)
+{
+    //rebuild();
 }
 
 void ArbitraryValuesWidget::onSelectedBlockChanged(uint32_t)
@@ -2032,7 +2178,7 @@ void ArbitraryValuesWidget::onItemChanged(QTreeWidgetItem* _item, int _column)
         if (prevSize != m_checkedItems.size())
         {
             if (!m_collectionsTimer.isActive())
-                m_collectionsTimer.start(100);
+                m_collectionsTimer.start();
         }
     }
     else
@@ -2089,7 +2235,9 @@ void ArbitraryValuesWidget::onItemChanged(QTreeWidgetItem* _item, int _column)
 
         if (!uncheckedItems.isEmpty())
         {
-            m_exportToCsvAction->setEnabled(!m_checkedItems.empty());
+            const bool hasCheckedItems = !m_checkedItems.empty();
+            m_exportToCsvAction->setEnabled(hasCheckedItems);
+
             onCollectionsTimeout();
 
             for (auto uncheckedItem : uncheckedItems)
@@ -2112,14 +2260,19 @@ void ArbitraryValuesWidget::onCurrentItemChanged(QTreeWidgetItem* _current, QTre
 
 void ArbitraryValuesWidget::rebuild()
 {
-    rebuild(EASY_GLOBALS.selected_thread);
+    rebuild(EASY_GLOBALS.selected_thread, EASY_GLOBALS.selected_block, EASY_GLOBALS.selected_block_id);
 }
 
-void ArbitraryValuesWidget::rebuild(profiler::thread_id_t _threadId)
+void ArbitraryValuesWidget::rebuild(profiler::thread_id_t _threadId, profiler::block_index_t _blockIndex
+    , profiler::block_id_t _blockId)
 {
     clear();
 
-    buildTree(_threadId, EASY_GLOBALS.selected_block, EASY_GLOBALS.selected_block_id);
+    m_threadId = _threadId;
+    m_blockIndex = _blockIndex;
+    m_blockId = _blockId;
+
+    buildTree(_threadId, _blockIndex, _blockId);
 
     m_treeWidget->expandAll();
     for (int i = 0, columns = m_treeWidget->columnCount(); i < columns; ++i)
@@ -2144,6 +2297,7 @@ void ArbitraryValuesWidget::select(const profiler::ArbitraryValue& _value, bool 
         decltype(m_checkedItems) uncheckedItems(std::move(m_checkedItems));
 
         m_exportToCsvAction->setEnabled(false);
+
         onCollectionsTimeout();
 
         for (auto item : uncheckedItems)
@@ -2212,7 +2366,7 @@ void ArbitraryValuesWidget::repaint()
             item->collectValues(EASY_GLOBALS.selected_thread, m_chart->chartType());
 
         if (!m_collectionsTimer.isActive())
-            m_collectionsTimer.start(100);
+            m_collectionsTimer.start();
     }
 }
 
@@ -2365,6 +2519,35 @@ void ArbitraryValuesWidget::onExportToCsvClicked(bool)
     }
 
     csv.write("\n");
+}
+
+void ArbitraryValuesWidget::onOpenInNewWindowClicked(bool)
+{
+    saveSettings();
+
+    auto dialog = new QDialog(nullptr);
+    dialog->setAttribute(Qt::WA_DeleteOnClose, true);
+    dialog->setWindowTitle("EasyProfiler");
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::allDataGoingToBeDeleted, dialog, &QDialog::reject);
+
+    auto viewer = new ArbitraryValuesWidget(m_checkedItems, m_treeWidget->currentItem(), m_threadId, m_blockIndex, m_blockId, dialog);
+
+    auto layout = new QHBoxLayout(dialog);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(viewer);
+
+    // Load last dialog geometry
+    {
+        QSettings settings(profiler_gui::ORGANAZATION_NAME, profiler_gui::APPLICATION_NAME);
+        settings.beginGroup("ArbitraryValuesWidgetWindow");
+        auto geometry = settings.value("dialog/geometry").toByteArray();
+        settings.endGroup();
+
+        if (!geometry.isEmpty())
+            dialog->restoreGeometry(geometry);
+    }
+
+    dialog->show();
 }
 
 void ArbitraryValuesWidget::buildTree(profiler::thread_id_t _threadId, profiler::block_index_t _blockIndex, profiler::block_id_t _blockId)
@@ -2637,14 +2820,6 @@ void ArbitraryValuesWidget::loadSettings()
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
     settings.beginGroup("ArbitraryValuesWidget");
 
-    auto geometry = settings.value("hsplitter/geometry").toByteArray();
-    if (!geometry.isEmpty())
-        m_splitter->restoreGeometry(geometry);
-
-    auto state = settings.value("hsplitter/state").toByteArray();
-    if (!state.isEmpty())
-        m_splitter->restoreState(state);
-
     auto value = settings.value("chart/filterWindow");
     if (!value.isNull())
         m_chart->setFilterWindowSize(value.toInt());
@@ -2657,17 +2832,43 @@ void ArbitraryValuesWidget::loadSettings()
     if (!value.isNull())
         m_chart->setChartType(static_cast<ChartType>(value.toInt()));
 
+    if (!m_bMainWidget)
+    {
+        settings.endGroup();
+        settings.beginGroup("ArbitraryValuesWidgetWindow");
+    }
+
+    auto geometry = settings.value("hsplitter/geometry").toByteArray();
+    if (!geometry.isEmpty())
+        m_splitter->restoreGeometry(geometry);
+
+    auto state = settings.value("hsplitter/state").toByteArray();
+    if (!state.isEmpty())
+        m_splitter->restoreState(state);
+
     settings.endGroup();
 }
 
 void ArbitraryValuesWidget::saveSettings()
 {
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
-    settings.beginGroup("ArbitraryValuesWidget");
-    settings.setValue("hsplitter/geometry", m_splitter->saveGeometry());
-    settings.setValue("hsplitter/state", m_splitter->saveState());
-    settings.setValue("chart/type", static_cast<int>(m_chart->chartType()));
-    settings.setValue("chart/filter", static_cast<int>(m_chart->filterType()));
-    settings.setValue("chart/filterWindow", m_chart->filterWindowSize());
+
+    if (!m_bMainWidget)
+    {
+        settings.beginGroup("ArbitraryValuesWidgetWindow");
+        settings.setValue("dialog/geometry", parentWidget()->saveGeometry());
+        settings.setValue("hsplitter/geometry", m_splitter->saveGeometry());
+        settings.setValue("hsplitter/state", m_splitter->saveState());
+    }
+    else
+    {
+        settings.beginGroup("ArbitraryValuesWidget");
+        settings.setValue("hsplitter/geometry", m_splitter->saveGeometry());
+        settings.setValue("hsplitter/state", m_splitter->saveState());
+        settings.setValue("chart/type", static_cast<int>(m_chart->chartType()));
+        settings.setValue("chart/filter", static_cast<int>(m_chart->filterType()));
+        settings.setValue("chart/filterWindow", m_chart->filterWindowSize());
+    }
+
     settings.endGroup();
 }

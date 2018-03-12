@@ -841,6 +841,8 @@ BlockDescriptorsWidget::BlockDescriptorsWidget(QWidget* _parent) : Parent(_paren
 
     connect(m_searchBox, &QLineEdit::returnPressed, this, &This::onSeachBoxReturnPressed);
     connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::connectionChanged, refreshButton, &QAction::setEnabled);
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::allDataGoingToBeDeleted, this, &This::clear);
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::fileOpened, this, &This::build);
 
     loadSettings();
     caseSensitiveSwitch->setChecked(m_bCaseSensitiveSearch);
