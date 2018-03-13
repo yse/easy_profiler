@@ -73,6 +73,7 @@ namespace profiler_gui {
 
     signals:
 
+        void closeEvent();
         void allDataGoingToBeDeleted();
         void fileOpened();
 

@@ -646,22 +646,72 @@ void ArbitraryValuesChartItem::paint(QPainter* _painter, const QStyleOptionGraph
     _painter->save();
     _painter->setTransform(QTransform::fromScale(1.0 / currentScale, 1), true);
 
-    if (!bindMode)
-        paintImage(_painter);
-    else
-        paintImage(_painter, currentScale, widget->minimum(), widget->maximum(), widget->value(), widget->sliderWidth());
-
     const auto font_h = widget->fontHeight();
-    QRectF rect(0, m_boundingRect.top() - widget->margin(), width - 3, m_boundingRect.height() + widget->margins());
-    _painter->setPen(profiler_gui::TEXT_COLOR);
-    _painter->drawText(rect, Qt::AlignLeft | Qt::AlignTop, bindMode ? " Mode: Zoom" : " Mode: Overview");
+
+    const auto drawImage = [=] {
+        if (!bindMode)
+            paintImage(_painter);
+        else
+            paintImage(_painter, currentScale, widget->minimum(), widget->maximum(), widget->value(), widget->sliderWidth());
+    };
 
     if (!EASY_GLOBALS.scene.empty)
     {
+        if (!profiler_gui::is_max(EASY_GLOBALS.selected_block) && m_chartType == ChartType::Regular)
+        {
+            const auto& block = easyBlocksTree(EASY_GLOBALS.selected_block);
+            qreal left = PROF_MICROSECONDS(qreal(block.node->begin() - EASY_GLOBALS.begin_time)) * currentScale;
+            qreal right = PROF_MICROSECONDS(qreal(block.node->end() - EASY_GLOBALS.begin_time)) * currentScale;
+
+            if (bindMode)
+            {
+                const auto scale = widget->range() / widget->sliderWidth();
+                const auto offset = widget->value() * currentScale;
+
+                left -= offset;
+                right -= offset;
+                left *= scale;
+                right *= scale;
+            }
+
+            const auto leftBorder = m_boundingRect.left() * currentScale;
+            const auto rightBorder = leftBorder + width - 2;
+            const auto l = std::max(left, leftBorder);
+            const auto r = std::min(right, rightBorder);
+
+            const auto sceneRect = scene()->sceneRect();
+            const auto w = r - l;
+            if (w > 1)
+            {
+                const auto color = (easyDescriptor(block.node->id()).color() & 0x00ffffff) | 0x30000000;
+                _painter->fillRect(QRectF(l, sceneRect.top() - 1, w, sceneRect.height() + 2), QColor::fromRgba(color));
+            }
+
+            drawImage();
+
+            _painter->setPen(QPen(QColor::fromRgba(0xb0000000), 2, Qt::DotLine));
+            _painter->drawLine(QLineF(l, sceneRect.top(), l, sceneRect.bottom()));
+
+            if (w > 1)
+                _painter->drawLine(QLineF(r, sceneRect.top(), r, sceneRect.bottom()));
+        }
+        else
+        {
+            drawImage();
+        }
+
         const auto range = bindMode ? widget->sliderWidth() : widget->range();
         paintMouseIndicator(_painter, m_boundingRect.top(), bottom, width,
                             m_boundingRect.height(), font_h, widget->value(), range);
     }
+    else
+    {
+        drawImage();
+    }
+
+    QRectF rect(0, m_boundingRect.top() - widget->margin(), width - 3, m_boundingRect.height() + widget->margins());
+    _painter->setPen(profiler_gui::TEXT_COLOR);
+    _painter->drawText(rect, Qt::AlignLeft | Qt::AlignTop, bindMode ? " Mode: Zoom" : " Mode: Overview");
 
     _painter->setPen(Qt::darkGray);
     _painter->drawLine(QLineF(0, bottom, width, bottom));
@@ -2088,14 +2138,13 @@ void ArbitraryValuesWidget::onSelectedThreadChanged(profiler::thread_id_t)
 
 void ArbitraryValuesWidget::onSelectedBlockChanged(uint32_t)
 {
+    m_chart->scene()->update();
+
     if (profiler_gui::is_max(EASY_GLOBALS.selected_block))
     {
         onSelectedBlockIdChanged(EASY_GLOBALS.selected_block_id);
         return;
     }
-
-    if (!profiler_gui::is_max(EASY_GLOBALS.selected_block))
-        return;
 
     // TODO: find item corresponding to selected_block and make it bold
 }
@@ -2536,6 +2585,7 @@ void ArbitraryValuesWidget::onOpenInNewWindowClicked(bool)
     dialog->setAttribute(Qt::WA_DeleteOnClose, true);
     dialog->setWindowTitle("EasyProfiler");
     connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::allDataGoingToBeDeleted, dialog, &QDialog::reject);
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::closeEvent, dialog, &QDialog::reject);
 
     auto viewer = new ArbitraryValuesWidget(m_checkedItems, m_treeWidget->currentItem(), m_threadId, m_blockIndex, m_blockId, dialog);
 

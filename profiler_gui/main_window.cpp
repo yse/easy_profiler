@@ -1332,6 +1332,8 @@ void MainWindow::closeEvent(QCloseEvent* close_event)
         }
     }
 
+    emit EASY_GLOBALS.events.closeEvent();
+
     if (m_descTreeDialog.ptr != nullptr)
     {
         m_descTreeDialog.ptr->reject();
