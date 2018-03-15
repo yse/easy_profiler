@@ -305,6 +305,7 @@ protected slots:
     void onHierarchyFlagChange(bool);
     void onExpandAllClicked(bool);
     void onCollapseAllClicked(bool);
+    void onViewportInfoClicked(bool);
     void onSpacingChange(int _value);
     void onMinSizeChange(int _value);
     void onNarrowSizeChange(int _value);

@@ -753,6 +753,12 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     }
 
 
+
+    menu->addSeparator();
+    action = menu->addAction("See viewport info");
+    connect(action, &QAction::triggered, this, &This::onViewportInfoClicked);
+
+
     auto tb_height = toolbar->height() + 4;
     toolbar = addToolBar("FrameToolbar");
     toolbar->setIconSize(applicationIconsSize());
@@ -794,9 +800,10 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
         loadFile(opened_filename);
     }
 
-    connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::blockStatusChanged, this, &This::onBlockStatusChange);
-    connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::blocksRefreshRequired, this, &This::onGetBlockDescriptionsClicked);
-    connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::selectValue, this, &This::onSelectValue);
+    using profiler_gui::GlobalSignals;
+    connect(&EASY_GLOBALS.events, &GlobalSignals::blockStatusChanged, this, &This::onBlockStatusChange);
+    connect(&EASY_GLOBALS.events, &GlobalSignals::blocksRefreshRequired, this, &This::onGetBlockDescriptionsClicked);
+    connect(&EASY_GLOBALS.events, &GlobalSignals::selectValue, this, &This::onSelectValue);
 }
 
 MainWindow::~MainWindow()
@@ -1242,6 +1249,17 @@ void MainWindow::onCollapseAllClicked(bool)
     auto tree = static_cast<HierarchyWidget*>(m_treeWidget->widget())->tree();
     const QSignalBlocker b(tree);
     tree->collapseAll();
+}
+
+void MainWindow::onViewportInfoClicked(bool)
+{
+    const auto& size = EASY_GLOBALS.size;
+
+    auto contents = QString("Device pixel ratio = %1\nFont height = %2px\nDiagram row = %3px\nDiagram spacing = %4px\nIcon size = %5x%5 px")
+        .arg(size.pixelRatio).arg(size.font_height).arg(size.graphics_row_height)
+        .arg(size.threads_row_spacing).arg(size.icon_size);
+
+    QMessageBox::information(this, "Viewport info", contents);
 }
 
 //////////////////////////////////////////////////////////////////////////
