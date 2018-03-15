@@ -676,8 +676,8 @@ void ArbitraryValuesChartItem::paint(QPainter* _painter, const QStyleOptionGraph
 
             const auto leftBorder = m_boundingRect.left() * currentScale;
             const auto rightBorder = leftBorder + width - 2;
-            const auto l = std::max(left, leftBorder);
-            const auto r = std::min(right, rightBorder);
+            const auto l = estd::clamp(leftBorder,  left, rightBorder);
+            const auto r = estd::clamp(leftBorder, right, rightBorder);
 
             const auto sceneRect = scene()->sceneRect();
             const auto w = r - l;
