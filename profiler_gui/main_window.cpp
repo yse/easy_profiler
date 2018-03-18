@@ -367,6 +367,12 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     toolbar->addAction(QIcon(imagePath("expand")), "Expand all", this, SLOT(onExpandAllClicked(bool)));
     toolbar->addAction(QIcon(imagePath("collapse")), "Collapse all", this, SLOT(onCollapseAllClicked(bool)));
 
+    action = toolbar->addAction(QIcon(imagePath("binoculars")), "See blocks hierarchy");
+    action->setToolTip("Build blocks hierarchy\nfor current visible area\nor zoom to current selected area.");
+    connect(action, &QAction::triggered, [this] (bool) {
+        static_cast<DiagramWidget*>(m_graphicsView->widget())->view()->inspectCurrentView(true);
+    });
+
     toolbar->addSeparator();
     auto menu = new QMenu("Settings", this);
     menu->setToolTipsVisible(true);

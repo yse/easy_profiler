@@ -854,7 +854,7 @@ qreal BlocksGraphicsView::mapToDiagram(qreal x) const
 
 void BlocksGraphicsView::onWheel(qreal _scenePos, int _wheelDelta)
 {
-    const decltype(m_scale) scaleCoeff = _wheelDelta > 0 ? ::profiler_gui::SCALING_COEFFICIENT : ::profiler_gui::SCALING_COEFFICIENT_INV;
+    const decltype(m_scale) scaleCoeff = _wheelDelta > 0 ? profiler_gui::SCALING_COEFFICIENT : profiler_gui::SCALING_COEFFICIENT_INV;
 
     // Remember current mouse position
     _scenePos = clamp(0., _scenePos, m_sceneWidth);
@@ -1119,6 +1119,88 @@ void BlocksGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
     else if (chronoHidden)
     {
         emit sceneUpdated();
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void BlocksGraphicsView::addSelectionToHierarchy()
+{
+    if (!m_selectionItem->isVisible())
+        return;
+
+    //printf("INTERVAL: {%lf, %lf} ms\n", m_selectionItem->left(), m_selectionItem->right());
+
+    bool changedSelection = false;
+
+    if (!m_selectedBlocks.empty())
+    {
+        changedSelection = true;
+        m_selectedBlocks.clear();
+    }
+
+    for (auto item : m_items)
+    {
+        if (!EASY_GLOBALS.only_current_thread_hierarchy || item->threadId() == EASY_GLOBALS.selected_thread)
+            item->getBlocks(m_selectionItem->left(), m_selectionItem->right(), m_selectedBlocks);
+    }
+
+    if (!m_selectedBlocks.empty())
+    {
+        changedSelection = true;
+    }
+
+    if (changedSelection)
+    {
+        emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_selectionItem->left()), position2time(m_selectionItem->right()), m_selectionItem->reverse());
+    }
+}
+
+void BlocksGraphicsView::onZoomSelection()
+{
+    auto deltaScale = m_visibleRegionWidth / m_selectionItem->width();
+
+    if (fabs(deltaScale - 1) < 1e-6)
+    {
+        // Restore scale value multiple to SCALING_COEFFICIENT
+        const int steps = static_cast<int>(log(m_scale / MIN_SCALE) / log(profiler_gui::SCALING_COEFFICIENT));
+        const auto desiredScale = MIN_SCALE * pow(profiler_gui::SCALING_COEFFICIENT, steps);
+        deltaScale = desiredScale / m_scale;
+    }
+
+    m_offset = m_selectionItem->left() + (m_selectionItem->width() - m_visibleRegionWidth / deltaScale) * 0.5;
+    m_scale = clamp(MIN_SCALE, m_scale * deltaScale, MAX_SCALE);
+
+    // Update slider width for scrollbar
+    notifyVisibleRegionSizeChange();
+
+    // Update slider position
+    profiler_gui::BoolFlagGuard guard(m_bUpdatingRect, true); // To be sure that updateVisibleSceneRect will not be called by scrollbar change
+    notifyVisibleRegionPosChange();
+    guard.restore();
+
+    updateVisibleSceneRect(); // Update scene rect
+    updateTimelineStep(m_visibleRegionWidth);
+    repaintScene(); // repaint scene
+}
+
+void BlocksGraphicsView::onInspectCurrentView(bool _strict)
+{
+    if (m_bEmpty)
+        return;
+
+    if (!m_selectionItem->isVisible())
+    {
+        m_selectionItem->setReverse(_strict);
+        m_selectionItem->setLeftRight(m_offset, m_offset + m_visibleRegionWidth);
+        m_selectionItem->show();
+        m_pScrollbar->setSelectionPos(m_selectionItem->left(), m_selectionItem->right());
+        m_pScrollbar->showSelectionIndicator();
+        addSelectionToHierarchy();
+    }
+    else
+    {
+        onZoomSelection();
     }
 }
 

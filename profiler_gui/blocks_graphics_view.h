@@ -187,6 +187,10 @@ public:
 
     const Items& getItems() const;
 
+    void inspectCurrentView(bool _strict) {
+        onInspectCurrentView(_strict);
+    }
+
 signals:
 
     // Signals
@@ -218,6 +222,8 @@ private:
     void onWheel(qreal _scenePos, int _wheelDelta);
     qreal setTree(BlocksGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, uint32_t& _maxDepthChild, qreal _y, short _level);
 
+    void addSelectionToHierarchy();
+
 private slots:
 
     // Private Slots
@@ -233,6 +239,8 @@ private slots:
     void onSelectedBlockChange(unsigned int _block_index);
     void onRefreshRequired();
     void onThreadViewChanged();
+    void onZoomSelection();
+    void onInspectCurrentView(bool _strict);
 
 public:
 

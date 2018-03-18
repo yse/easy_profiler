@@ -6,6 +6,7 @@
         <file alias="logo">images/logo.svg</file>
     </qresource>
     <qresource prefix="/images/default">
+        <file alias="binoculars">images/default/binoculars.svg</file>
         <file alias="exit">images/default/off.svg</file>
         <file alias="open">images/default/open-folder2.svg</file>
         <file alias="reload">images/default/reload.svg</file>

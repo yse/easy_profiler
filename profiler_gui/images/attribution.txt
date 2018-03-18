@@ -25,6 +25,7 @@ default/search-next.svg          - Icon made by Freepik from www.flaticon.com
 default/settings.svg             - Icon made by Freepik from www.flaticon.com
 default/check.svg                - Icon made by Kirill Kazachek from www.flaticon.com
 default/check-disabled.svg       - Icon made by Kirill Kazachek from www.flaticon.com
+default/binoculars.svg           - Icon made by Gregor Cresnar from www.flaticon.com
 default/close-white.svg            - Icon made by Cole Bemis from www.flaticon.com
 default/close-white-hover.svg      - Icon made by Cole Bemis from www.flaticon.com
 default/close-white-pressed.svg    - Icon made by Cole Bemis from www.flaticon.com
