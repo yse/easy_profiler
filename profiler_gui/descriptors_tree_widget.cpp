@@ -284,6 +284,7 @@ DescriptorsTreeWidget::~DescriptorsTreeWidget()
 void DescriptorsTreeWidget::setSearchColumn(int column)
 {
     m_searchColumn = column;
+    emit searchColumnChanged(column);
 }
 
 int DescriptorsTreeWidget::searchColumn() const
@@ -754,7 +755,7 @@ BlockDescriptorsWidget::BlockDescriptorsWidget(QWidget* _parent) : Parent(_paren
     , m_tree(new DescriptorsTreeWidget(this))
     , m_values(new ArbitraryValuesWidget(this))
     , m_searchBox(new QLineEdit(this))
-    , m_foundNumber(new QLabel("Found 0 matches", this))
+    , m_foundNumber(new QLabel("0 matches", this))
     , m_searchButton(nullptr)
     , m_bCaseSensitiveSearch(false)
 {
@@ -767,6 +768,8 @@ BlockDescriptorsWidget::BlockDescriptorsWidget(QWidget* _parent) : Parent(_paren
 
     m_searchBox->setFixedWidth(300);
     m_searchBox->setContentsMargins(5, 0, 0, 0);
+    m_searchBox->setClearButtonEnabled(true);
+    m_searchBox->setPlaceholderText("Search");
 
     auto tb = new QToolBar(this);
     tb->setIconSize(applicationIconsSize());
@@ -831,8 +834,9 @@ BlockDescriptorsWidget::BlockDescriptorsWidget(QWidget* _parent) : Parent(_paren
     auto searchbox = new QHBoxLayout();
     searchbox->setContentsMargins(0, 0, 5, 0);
     searchbox->addWidget(tb);
+    searchbox->addSpacing(5);
+    searchbox->addWidget(m_foundNumber);
     searchbox->addStretch(100);
-    searchbox->addWidget(m_foundNumber, Qt::AlignRight);
 
     auto lay = new QVBoxLayout(this);
     lay->setContentsMargins(1, 1, 1, 1);
@@ -840,12 +844,19 @@ BlockDescriptorsWidget::BlockDescriptorsWidget(QWidget* _parent) : Parent(_paren
     lay->addWidget(m_splitter);
 
     connect(m_searchBox, &QLineEdit::returnPressed, this, &This::onSeachBoxReturnPressed);
+    connect(m_searchBox, &QLineEdit::textChanged, this, &This::onSearchBoxTextChanged);
+
+    connect(m_tree, &DescriptorsTreeWidget::searchColumnChanged, this, &This::onSearchColumnChanged);
+
     connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::connectionChanged, refreshButton, &QAction::setEnabled);
     connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::allDataGoingToBeDeleted, this, &This::clear);
     connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::fileOpened, this, &This::build);
 
     loadSettings();
     caseSensitiveSwitch->setChecked(m_bCaseSensitiveSearch);
+
+    onSearchColumnChanged(m_tree->searchColumn());
+    m_foundNumber->hide();
 }
 
 BlockDescriptorsWidget::~BlockDescriptorsWidget()
@@ -904,7 +915,8 @@ void BlockDescriptorsWidget::contextMenuEvent(QContextMenuEvent* _event)
 void BlockDescriptorsWidget::build()
 {
     m_tree->clearSilent(false);
-    m_foundNumber->setText(QString("Found 0 matches"));
+    m_foundNumber->setText(QString("0 matches"));
+    m_foundNumber->hide();
     m_tree->build();
     m_values->rebuild();
 }
@@ -912,7 +924,8 @@ void BlockDescriptorsWidget::build()
 void BlockDescriptorsWidget::clear()
 {
     m_tree->clearSilent(true);
-    m_foundNumber->setText(QString("Found 0 matches"));
+    m_foundNumber->setText(QString("0 matches"));
+    m_foundNumber->hide();
     m_values->clear();
 }
 
@@ -929,6 +942,32 @@ void BlockDescriptorsWidget::onSeachBoxReturnPressed()
         findPrev(true);
 }
 
+void BlockDescriptorsWidget::onSearchBoxTextChanged(const QString& _text)
+{
+    if (_text.isEmpty())
+        m_foundNumber->hide();
+}
+
+void BlockDescriptorsWidget::onSearchColumnChanged(int column)
+{
+    switch (column)
+    {
+        case DESC_COL_NAME:
+            m_searchBox->setPlaceholderText("Search by name");
+            break;
+
+        case DESC_COL_FILE_LINE:
+            m_searchBox->setPlaceholderText("Search by filename");
+            break;
+
+        default:
+            m_searchBox->setPlaceholderText("Search");
+            break;
+    }
+
+    onSeachBoxReturnPressed();
+}
+
 void BlockDescriptorsWidget::onSearchColumnChange(bool)
 {
     auto action = qobject_cast<QAction*>(sender());
@@ -938,22 +977,44 @@ void BlockDescriptorsWidget::onSearchColumnChange(bool)
 
 void BlockDescriptorsWidget::findNext(bool)
 {
-    auto matches = m_tree->findNext(m_searchBox->text(), m_bCaseSensitiveSearch ? Qt::MatchCaseSensitive : Qt::MatchFlags());
+    auto text = m_searchBox->text();
+    if (text.isEmpty())
+    {
+        if (m_foundNumber->isVisible())
+            m_foundNumber->hide();
+        return;
+    }
+
+    auto matches = m_tree->findNext(text, m_bCaseSensitiveSearch ? Qt::MatchCaseSensitive : Qt::MatchFlags());
 
     if (matches == 1)
-        m_foundNumber->setText(QString("Found 1 match"));
+        m_foundNumber->setText(QString("1 match"));
     else
-        m_foundNumber->setText(QString("Found %1 matches").arg(matches));
+        m_foundNumber->setText(QString("%1 matches").arg(matches));
+
+    if (!m_foundNumber->isVisible())
+        m_foundNumber->show();
 }
 
 void BlockDescriptorsWidget::findPrev(bool)
 {
-    auto matches = m_tree->findPrev(m_searchBox->text(), m_bCaseSensitiveSearch ? Qt::MatchCaseSensitive : Qt::MatchFlags());
+    auto text = m_searchBox->text();
+    if (text.isEmpty())
+    {
+        if (m_foundNumber->isVisible())
+            m_foundNumber->hide();
+        return;
+    }
+
+    auto matches = m_tree->findPrev(text, m_bCaseSensitiveSearch ? Qt::MatchCaseSensitive : Qt::MatchFlags());
 
     if (matches == 1)
-        m_foundNumber->setText(QString("Found 1 match"));
+        m_foundNumber->setText(QString("1 match"));
     else
-        m_foundNumber->setText(QString("Found %1 matches").arg(matches));
+        m_foundNumber->setText(QString("%1 matches").arg(matches));
+
+    if (!m_foundNumber->isVisible())
+        m_foundNumber->show();
 }
 
 void BlockDescriptorsWidget::findNextFromMenu(bool _checked)

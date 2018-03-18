@@ -1088,7 +1088,7 @@ void BlocksTreeWidget::saveSettings()
 HierarchyWidget::HierarchyWidget(QWidget* _parent) : Parent(_parent)
     , m_tree(new BlocksTreeWidget(this))
     , m_searchBox(new QLineEdit(this))
-    , m_foundNumber(new QLabel("Found 0 matches", this))
+    , m_foundNumber(new QLabel("0 matches", this))
     , m_searchButton(nullptr)
     , m_bCaseSensitiveSearch(false)
 {
@@ -1096,6 +1096,8 @@ HierarchyWidget::HierarchyWidget(QWidget* _parent) : Parent(_parent)
 
     m_searchBox->setFixedWidth(300);
     m_searchBox->setContentsMargins(5, 0, 0, 0);
+    m_searchBox->setClearButtonEnabled(true);
+    m_searchBox->setPlaceholderText("Search by name");
 
     auto menu = new QMenu(this);
     m_searchButton = menu->menuAction();
@@ -1133,8 +1135,9 @@ HierarchyWidget::HierarchyWidget(QWidget* _parent) : Parent(_parent)
     auto searchbox = new QHBoxLayout();
     searchbox->setContentsMargins(0, 0, 5, 0);
     searchbox->addWidget(tb);
+    searchbox->addSpacing(5);
+    searchbox->addWidget(m_foundNumber);
     searchbox->addStretch(100);
-    searchbox->addWidget(m_foundNumber, Qt::AlignRight);
 
     auto lay = new QVBoxLayout(this);
     lay->setContentsMargins(1, 1, 1, 1);
@@ -1142,9 +1145,13 @@ HierarchyWidget::HierarchyWidget(QWidget* _parent) : Parent(_parent)
     lay->addWidget(m_tree);
 
     connect(m_searchBox, &QLineEdit::returnPressed, this, &This::onSeachBoxReturnPressed);
+    connect(m_searchBox, &QLineEdit::textChanged, this, &This::onSearchBoxTextChanged);
+
     connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::allDataGoingToBeDeleted, [this] {
         clear(true);
     });
+
+    m_foundNumber->hide();
 }
 
 HierarchyWidget::~HierarchyWidget()
@@ -1202,7 +1209,8 @@ BlocksTreeWidget* HierarchyWidget::tree()
 void HierarchyWidget::clear(bool _global)
 {
     m_tree->clearSilent(_global);
-    m_foundNumber->setText(QString("Found 0 matches"));
+    m_foundNumber->setText(QString("0 matches"));
+    m_foundNumber->hide();
 }
 
 void HierarchyWidget::onSeachBoxReturnPressed()
@@ -1213,24 +1221,52 @@ void HierarchyWidget::onSeachBoxReturnPressed()
         findPrev(true);
 }
 
+void HierarchyWidget::onSearchBoxTextChanged(const QString& _text)
+{
+    if (_text.isEmpty())
+        m_foundNumber->hide();
+}
+
 void HierarchyWidget::findNext(bool)
 {
-    auto matches = m_tree->findNext(m_searchBox->text(), m_bCaseSensitiveSearch ? Qt::MatchCaseSensitive : Qt::MatchFlags());
+    auto text = m_searchBox->text();
+    if (text.isEmpty())
+    {
+        if (m_foundNumber->isVisible())
+            m_foundNumber->hide();
+        return;
+    }
+
+    auto matches = m_tree->findNext(text, m_bCaseSensitiveSearch ? Qt::MatchCaseSensitive : Qt::MatchFlags());
 
     if (matches == 1)
-        m_foundNumber->setText(QString("Found 1 match"));
+        m_foundNumber->setText(QString("1 match"));
     else
-        m_foundNumber->setText(QString("Found %1 matches").arg(matches));
+        m_foundNumber->setText(QString("%1 matches").arg(matches));
+
+    if (!m_foundNumber->isVisible())
+        m_foundNumber->show();
 }
 
 void HierarchyWidget::findPrev(bool)
 {
-    auto matches = m_tree->findPrev(m_searchBox->text(), m_bCaseSensitiveSearch ? Qt::MatchCaseSensitive : Qt::MatchFlags());
+    auto text = m_searchBox->text();
+    if (text.isEmpty())
+    {
+        if (m_foundNumber->isVisible())
+            m_foundNumber->hide();
+        return;
+    }
+
+    auto matches = m_tree->findPrev(text, m_bCaseSensitiveSearch ? Qt::MatchCaseSensitive : Qt::MatchFlags());
 
     if (matches == 1)
-        m_foundNumber->setText(QString("Found 1 match"));
+        m_foundNumber->setText(QString("1 match"));
     else
-        m_foundNumber->setText(QString("Found %1 matches").arg(matches));
+        m_foundNumber->setText(QString("%1 matches").arg(matches));
+
+    if (!m_foundNumber->isVisible())
+        m_foundNumber->show();
 }
 
 void HierarchyWidget::findNextFromMenu(bool _checked)

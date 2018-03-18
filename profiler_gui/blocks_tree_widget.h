@@ -202,6 +202,7 @@ private slots:
     // Private slots
 
     void onSeachBoxReturnPressed();
+    void onSearchBoxTextChanged(const QString& _text);
     void findNext(bool);
     void findPrev(bool);
     void findNextFromMenu(bool);

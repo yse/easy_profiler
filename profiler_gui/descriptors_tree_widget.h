@@ -152,6 +152,10 @@ public:
     void setSearchColumn(int column);
     int searchColumn() const;
 
+signals:
+
+    void searchColumnChanged(int column);
+
 public slots:
 
     void clearSilent(bool _global = false);
@@ -221,6 +225,8 @@ private slots:
     void findNextFromMenu(bool);
     void findPrevFromMenu(bool);
     void onSearchColumnChange(bool);
+    void onSearchBoxTextChanged(const QString& _text);
+    void onSearchColumnChanged(int column);
 
 private:
 
