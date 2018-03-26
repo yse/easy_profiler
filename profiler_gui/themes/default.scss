@@ -49,6 +49,15 @@ MainWindow, QToolBar, QDialog {
 QToolTip {
     background-color: #ffeccc;
     border: 1px solid $BorderColor;
+    color: $TextColor;
+}
+
+ArbitraryValueWatchWidget QTextEdit {
+    background-color: #ffeccc;
+    border: 1px solid $BorderColor;
+    color: $TextColor;
+    selection-color: $TextColor;
+    selection-background-color: $HoveredMenuRowColor;
 }
 
 QGraphicsView {

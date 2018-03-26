@@ -63,6 +63,7 @@
 #ifndef EASY_TREE_WIDGET_H
 #define EASY_TREE_WIDGET_H
 
+#include <QDialog>
 #include <QTreeWidget>
 #include <QTimer>
 
@@ -73,6 +74,16 @@
 
 //////////////////////////////////////////////////////////////////////////
 
+class ArbitraryValueWatchWidget : public QDialog
+{
+    Q_OBJECT
+
+public:
+
+    explicit ArbitraryValueWatchWidget(const QString& _name, const profiler::BlocksTree& _block, QWidget* _parent = nullptr);
+    ~ArbitraryValueWatchWidget() override;
+};
+
 class BlocksTreeWidget : public QTreeWidget
 {
     Q_OBJECT
@@ -82,17 +93,19 @@ class BlocksTreeWidget : public QTreeWidget
 
 protected:
 
-    TreeWidgetLoader  m_hierarchyBuilder;
+    TreeWidgetLoader      m_hierarchyBuilder;
     Items                            m_items;
     RootsMap                         m_roots;
     ::profiler_gui::TreeBlocks m_inputBlocks;
     QTimer                       m_fillTimer;
+    QTimer                       m_idleTimer;
     QString                     m_lastSearch;
     QTreeWidgetItem*             m_lastFound;
     ::profiler::timestamp_t      m_beginTime;
     class QProgressDialog*        m_progress;
     class QLabel*                m_hintLabel;
-    TreeMode                      m_mode;
+    ArbitraryValueWatchWidget* m_watchDialog;
+    TreeMode                          m_mode;
     bool                           m_bLocked;
     bool             m_bSilentExpandCollapse;
     char m_columnsHiddenStatus[COL_COLUMNS_NUMBER];
@@ -102,6 +115,8 @@ public:
     explicit BlocksTreeWidget(QWidget* _parent = nullptr);
     ~BlocksTreeWidget() override;
 
+    bool eventFilter(QObject* object, QEvent* event) override;
+    void mousePressEvent(QMouseEvent* _event) override;
     void contextMenuEvent(QContextMenuEvent* _event) override;
     void dragEnterEvent(QDragEnterEvent*) override {}
 
@@ -148,6 +163,7 @@ private slots:
     void onModeChange(bool);
 
     void onFillTimerTimeout();
+    void onIdleTimeout();
 
 protected:
 

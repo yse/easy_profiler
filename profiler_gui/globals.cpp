@@ -68,7 +68,8 @@ namespace profiler_gui {
     }
 
     Globals::Fonts::Fonts()
-        : background(::profiler_gui::EFont("DejaVu Sans", 13, QFont::Bold))
+        : default_font(::profiler_gui::EFont("DejaVu Sans", 13))
+        , background(::profiler_gui::EFont("DejaVu Sans", 13, QFont::Bold))
         , ruler(::profiler_gui::EFont("DejaVu Sans", 16, QFont::Bold))
         , item(::profiler_gui::EFont("DejaVu Sans", 13, QFont::Medium))
         , selected_item(::profiler_gui::EFont("DejaVu Sans", 13, QFont::Medium))

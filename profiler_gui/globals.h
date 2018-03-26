@@ -169,6 +169,7 @@ namespace profiler_gui {
 
         struct Fonts
         {
+            QFont  default_font; ///< Default font
             QFont    background; ///< Font for blocks_graphics_view
             QFont         ruler; ///< Font for diagram rulers
             QFont          item; ///< Font for graphics items
@@ -181,6 +182,7 @@ namespace profiler_gui {
         {
             qreal pixelRatio = 1;
             int font_height = 17;
+            int font_line_spacing = 20;
             int graphics_row_height = 20;
             int graphics_row_spacing = 0;
             int graphics_row_full = 20;

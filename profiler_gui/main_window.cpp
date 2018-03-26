@@ -211,9 +211,13 @@ void MainWindow::configureSizes()
     QWidget w(this);
     w.show(); // All sizes (font() size for example) become valid only after show()
 
+    EASY_GLOBALS.font.default_font = w.font();
+    const QFontMetricsF fm(w.font());
+
     auto& size = EASY_GLOBALS.size;
     size.pixelRatio = qApp->devicePixelRatio();
-    size.font_height = static_cast<int>(QFontMetricsF(w.font()).height() + 0.5);
+    size.font_height = static_cast<int>(fm.height() + 0.5);
+    size.font_line_spacing = static_cast<int>(fm.lineSpacing() + 0.5);
     size.graphics_row_height = size.font_height + px(4);
     size.graphics_row_spacing = 0;
     size.graphics_row_full = size.graphics_row_height;
@@ -238,6 +242,7 @@ void MainWindow::configureSizes()
     printf("Viewport info:\n");
     printf("- device pixel ratio = %f\n", size.pixelRatio);
     printf("- font height = %dpx\n", size.font_height);
+    printf("- font line spacing = %dpx\n", size.font_line_spacing);
     printf("- diagram row = %dpx\n", size.graphics_row_height);
     printf("- diagram spacing = %dpx\n", size.threads_row_spacing);
     printf("- icon size = %dx%d px\n", size.icon_size, size.icon_size);
@@ -1261,9 +1266,9 @@ void MainWindow::onViewportInfoClicked(bool)
 {
     const auto& size = EASY_GLOBALS.size;
 
-    auto contents = QString("Device pixel ratio = %1\nFont height = %2px\nDiagram row = %3px\nDiagram spacing = %4px\nIcon size = %5x%5 px")
-        .arg(size.pixelRatio).arg(size.font_height).arg(size.graphics_row_height)
-        .arg(size.threads_row_spacing).arg(size.icon_size);
+    auto contents = QString("Device pixel ratio = %1\nFont height = %2px\nFont line spacing = %2px\nDiagram row = %3px\nDiagram spacing = %4px\nIcon size = %5x%5 px")
+        .arg(size.pixelRatio).arg(size.font_height).arg(size.font_line_spacing)
+        .arg(size.graphics_row_height).arg(size.threads_row_spacing).arg(size.icon_size);
 
     QMessageBox::information(this, "Viewport info", contents);
 }

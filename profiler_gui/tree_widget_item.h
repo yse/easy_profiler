@@ -119,7 +119,7 @@ class TreeWidgetItem : public QTreeWidgetItem
     using This = TreeWidgetItem;
 
     QFont                                    m_font;
-    const profiler::block_index_t         m_block;
+    const profiler::block_index_t           m_block;
     QRgb                            m_customBGColor;
     std::bitset<17>                   m_bHasToolTip;
     bool                                    m_bMain;
@@ -134,6 +134,7 @@ public:
 
 public:
 
+    bool hasToolTip(int _column) const;
     profiler::block_index_t block_index() const;
     profiler_gui::EasyBlock& guiBlock();
     const profiler::BlocksTree& block() const;
@@ -159,7 +160,6 @@ public:
 
 private:
 
-    bool hasToolTip(int _column) const;
     void setHasToolTip(int _column);
 
 }; // END of class TreeWidgetItem.
