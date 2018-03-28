@@ -63,7 +63,6 @@
 #ifndef EASY_TREE_WIDGET_H
 #define EASY_TREE_WIDGET_H
 
-#include <QDialog>
 #include <QTreeWidget>
 #include <QTimer>
 
@@ -73,16 +72,6 @@
 #include <easy/reader.h>
 
 //////////////////////////////////////////////////////////////////////////
-
-class ArbitraryValueWatchWidget : public QDialog
-{
-    Q_OBJECT
-
-public:
-
-    explicit ArbitraryValueWatchWidget(const QString& _name, const profiler::BlocksTree& _block, QWidget* _parent = nullptr);
-    ~ArbitraryValueWatchWidget() override;
-};
 
 class BlocksTreeWidget : public QTreeWidget
 {
@@ -104,7 +93,7 @@ protected:
     ::profiler::timestamp_t      m_beginTime;
     class QProgressDialog*        m_progress;
     class QLabel*                m_hintLabel;
-    ArbitraryValueWatchWidget* m_watchDialog;
+    class ArbitraryValueToolTip* m_valueTooltip;
     TreeMode                          m_mode;
     bool                           m_bLocked;
     bool             m_bSilentExpandCollapse;

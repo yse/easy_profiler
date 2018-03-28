@@ -28,12 +28,23 @@ QToolTip {
   border: 1px solid #cccccc;
   color: #504040; }
 
-ArbitraryValueWatchWidget QTextEdit {
-  background-color: #ffeccc;
+ArbitraryValueToolTip {
   border: 1px solid #cccccc;
-  color: #504040;
-  selection-color: #504040;
-  selection-background-color: rgba(152, 222, 152, 0.5); }
+  background-color: #ffeccc; }
+  ArbitraryValueToolTip QLabel {
+    background-color: transparent;
+    border: none;
+    color: #504040; }
+  ArbitraryValueToolTip QTextEdit {
+    background-color: transparent;
+    border: none;
+    color: #504040;
+    selection-color: #504040;
+    selection-background-color: rgba(152, 222, 152, 0.5); }
+
+QWidget#DiagramPopup, QWidget#ThreadsPopup {
+  background-color: #ffeccc;
+  border: 1px solid #cccccc; }
 
 QGraphicsView {
   border: 1px solid #cccccc; }
@@ -331,11 +342,6 @@ DockWidget QWidget#EasyDockWidgetTitle {
     image: url(":/images/default/dock-close-white-hover"); }
   DockWidget QWidget#EasyDockWidgetTitle QPushButton#EasyDockWidgetCloseButton:pressed {
     image: url(":/images/default/dock-close-white-pressed"); }
-
-/* ****************************************************************************************************************** */
-QWidget#DiagramPopup, QWidget#ThreadsPopup {
-  background-color: white;
-  border: 1px solid #cccccc; }
 
 /* ****************************************************************************************************************** */
 QProgressBar {

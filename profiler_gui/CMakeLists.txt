@@ -14,6 +14,8 @@ if (Qt5Widgets_FOUND)
         main.cpp
         arbitrary_value_inspector.h
         arbitrary_value_inspector.cpp
+        arbitrary_value_tooltip.h
+        arbitrary_value_tooltip.cpp
         blocks_graphics_view.h
         blocks_graphics_view.cpp
         blocks_tree_widget.h

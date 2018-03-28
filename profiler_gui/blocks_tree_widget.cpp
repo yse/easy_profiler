@@ -73,7 +73,6 @@
 #include <QMoveEvent>
 #include <QLineEdit>
 #include <QLabel>
-#include <QTextEdit>
 #include <QToolBar>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -81,6 +80,7 @@
 #include <QDebug>
 #include <QApplication>
 #include "blocks_tree_widget.h"
+#include "arbitrary_value_tooltip.h"
 #include "globals.h"
 #include "thread_pool.h"
 
@@ -129,78 +129,13 @@ const bool SIMPLIFIED_REGIME_COLUMNS[COL_COLUMNS_NUMBER] = {
 
 //////////////////////////////////////////////////////////////////////////
 
-ArbitraryValueWatchWidget::ArbitraryValueWatchWidget(const QString& _name
-    , const profiler::BlocksTree& _block, QWidget* _parent)
-    : QDialog(_parent)
-{
-    setWindowFlags(windowFlags() | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
-    setAttribute(Qt::WA_DeleteOnClose, true);
-
-    auto layout = new QVBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
-
-    auto pane = new QTextEdit();
-    pane->setWordWrapMode(QTextOption::NoWrap);
-    pane->setReadOnly(true);
-
-    layout->addWidget(pane);
-
-    QString firstString;
-    int rowsCount = 0;
-    if (_block.value->isArray())
-    {
-        const auto size = profiler_gui::valueArraySize(*_block.value);
-        firstString = QString("%1  %2[%3]  (0x%4)").arg(profiler_gui::valueTypeString(_block.value->type()))
-            .arg(_name).arg(size).arg(_block.value->value_id(), 0, 16);
-        pane->append(firstString);
-
-        if (_block.value->type() == profiler::DataType::String)
-        {
-            pane->append(QString("value:\t%1").arg(profiler_gui::valueString(*_block.value)));
-            rowsCount = 2;
-        }
-        else
-        {
-            rowsCount = size + 1;
-            for (int i = 0; i < size; ++i)
-                pane->append(QString("[%1]\t%2").arg(i).arg(profiler_gui::valueString(*_block.value, i)));
-
-            if (rowsCount > 15)
-                rowsCount = 15;
-        }
-    }
-    else
-    {
-        firstString = QString("%1  %2  (0x%3)").arg(profiler_gui::valueTypeString(_block.value->type()))
-            .arg(_name).arg(_block.value->value_id(), 0, 16);
-
-        pane->append(firstString);
-        pane->append(QString("value:\t%1").arg(profiler_gui::valueString(*_block.value)));
-
-        rowsCount = 2;
-    }
-
-    QFontMetrics fm(EASY_GLOBALS.font.default_font);
-    pane->setMinimumWidth(fm.width(firstString) + 24);
-    pane->setMaximumHeight((EASY_GLOBALS.size.font_height + 5) * rowsCount);
-
-    setMaximumHeight(pane->maximumHeight());
-}
-
-ArbitraryValueWatchWidget::~ArbitraryValueWatchWidget()
-{
-
-}
-
-//////////////////////////////////////////////////////////////////////////
-
 BlocksTreeWidget::BlocksTreeWidget(QWidget* _parent)
     : Parent(_parent)
     , m_beginTime(::std::numeric_limits<decltype(m_beginTime)>::max())
     , m_lastFound(nullptr)
     , m_progress(nullptr)
     , m_hintLabel(nullptr)
-    , m_watchDialog(nullptr)
+    , m_valueTooltip(nullptr)
     , m_mode(TreeMode::Plain)
     , m_bLocked(false)
     , m_bSilentExpandCollapse(false)
@@ -291,7 +226,7 @@ BlocksTreeWidget::BlocksTreeWidget(QWidget* _parent)
     connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange, Qt::QueuedConnection);
     connect(&m_fillTimer, &QTimer::timeout, this, &This::onFillTimerTimeout);
     connect(&m_idleTimer, &QTimer::timeout, this, &This::onIdleTimeout);
-    m_idleTimer.setInterval(1000);
+    m_idleTimer.setInterval(500);
 
     loadSettings();
 
@@ -331,6 +266,7 @@ BlocksTreeWidget::BlocksTreeWidget(QWidget* _parent)
 BlocksTreeWidget::~BlocksTreeWidget()
 {
     saveSettings();
+    delete m_valueTooltip;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -344,22 +280,21 @@ bool BlocksTreeWidget::eventFilter(QObject* _object, QEvent* _event)
             if (m_idleTimer.isActive())
                 m_idleTimer.stop();
 
-            if (m_watchDialog != nullptr)
+            if (m_valueTooltip != nullptr)
             {
-                const int w = m_watchDialog->width() >> 1;
-                const int h = m_watchDialog->height() >> 1;
-                const auto rect = m_watchDialog->rect().adjusted(-w, -h, w, h);
-                const auto pos = m_watchDialog->mapFromGlobal(QCursor::pos());
+                const int size = std::min(m_valueTooltip->width(), m_valueTooltip->height()) >> 1;
+                const auto rect = m_valueTooltip->rect().adjusted(-size, -size, size, size);
+                const auto pos = m_valueTooltip->mapFromGlobal(QCursor::pos());
 
                 if (rect.contains(pos))
                 {
-                    if (!m_watchDialog->rect().contains(pos))
+                    if (!m_valueTooltip->rect().contains(pos))
                         m_idleTimer.start();
                     return false;
                 }
 
-                m_watchDialog->reject();
-                m_watchDialog = nullptr;
+                delete m_valueTooltip;
+                m_valueTooltip = nullptr;
             }
 
             m_idleTimer.start();
@@ -371,11 +306,8 @@ bool BlocksTreeWidget::eventFilter(QObject* _object, QEvent* _event)
 
 void BlocksTreeWidget::mousePressEvent(QMouseEvent* _event)
 {
-    if (m_watchDialog != nullptr)
-    {
-        m_watchDialog->reject();
-        m_watchDialog = nullptr;
-    }
+    delete m_valueTooltip;
+    m_valueTooltip = nullptr;
 
     if (m_idleTimer.isActive())
         m_idleTimer.stop();
@@ -436,12 +368,9 @@ void BlocksTreeWidget::onIdleTimeout()
     if (m_idleTimer.isActive())
         m_idleTimer.stop();
 
-    if (m_watchDialog != nullptr)
-    {
-        // Close old dialog
-        m_watchDialog->reject();
-        m_watchDialog = nullptr;
-    }
+    // Close old tooltip
+    delete m_valueTooltip;
+    m_valueTooltip = nullptr;
 
     const auto pos = viewport()->mapFromGlobal(QCursor::pos());
     auto itemUnderCursor = itemAt(pos);
@@ -461,12 +390,12 @@ void BlocksTreeWidget::onIdleTimeout()
     if (item->hasToolTip(column))
         return;
 
-    m_watchDialog = new ArbitraryValueWatchWidget(itemUnderCursor->text(COL_NAME), block, nullptr);
-    m_watchDialog->move(QCursor::pos());
-    m_watchDialog->show();
+    m_valueTooltip = new ArbitraryValueToolTip(itemUnderCursor->text(COL_NAME), block, nullptr);
+    m_valueTooltip->move(QCursor::pos());
+    m_valueTooltip->show();
 
     // Actual size becomes valid only after show()
-    m_watchDialog->setFixedSize(m_watchDialog->size());
+    m_valueTooltip->setFixedSize(m_valueTooltip->size());
 }
 
 void BlocksTreeWidget::setTree(const unsigned int _blocksNumber, const profiler::thread_blocks_tree_t& _blocksTree)

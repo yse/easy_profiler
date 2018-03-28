@@ -145,7 +145,7 @@ private:
     BlocksGraphicsScrollbar*       m_pScrollbar; ///< Pointer to the graphics scrollbar widget
     GraphicsRulerItem*          m_selectionItem; ///< Pointer to the GraphicsRulerItem which is displayed when you press right mouse button and move mouse left or right. This item is used to select blocks to display in tree widget.
     GraphicsRulerItem*              m_rulerItem; ///< Pointer to the GraphicsRulerItem which is displayed when you double click left mouse button and move mouse left or right. This item is used only to measure time.
-    QGraphicsProxyWidget*         m_popupWidget; ///< 
+    QWidget*                      m_popupWidget; ///<
     int                         m_flickerSpeedX; ///< Current flicking speed x
     int                         m_flickerSpeedY; ///< Current flicking speed y
     int                       m_flickerCounterX;
@@ -153,6 +153,7 @@ private:
     bool                         m_bDoubleClick; ///< Is mouse buttons double clicked
     bool                        m_bUpdatingRect; ///< Stub flag which is used to avoid excess calculations on some scene update (flicking, scaling and so on)
     bool                               m_bEmpty; ///< Indicates whether scene is empty and has no items
+    bool              m_isArbitraryValueTooltip;
 
 public:
 
@@ -161,13 +162,13 @@ public:
 
     // Public virtual methods
 
+    bool eventFilter(QObject* _object, QEvent* _event) override;
     void wheelEvent(QWheelEvent* _event) override;
     void mousePressEvent(QMouseEvent* _event) override;
     void mouseDoubleClickEvent(QMouseEvent* _event) override;
     void mouseReleaseEvent(QMouseEvent* _event) override;
     void mouseMoveEvent(QMouseEvent* _event) override;
     void keyPressEvent(QKeyEvent* _event) override;
-    void keyReleaseEvent(QKeyEvent* _event) override;
     void resizeEvent(QResizeEvent* _event) override;
 
     void dragEnterEvent(QDragEnterEvent*) override {}
@@ -209,7 +210,8 @@ private:
     void notifyVisibleRegionPosChange();
     void notifyVisibleRegionPosChange(qreal _pos);
 
-    void removePopup(bool _removeFromScene = false);
+    void removePopup();
+    bool needToIgnoreMouseEvent() const;
 
     GraphicsRulerItem* createChronometer(bool _main = true);
     bool moveChrono(GraphicsRulerItem* _chronometerItem, qreal _mouseX);

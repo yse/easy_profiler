@@ -82,6 +82,7 @@
 #include "easy_graphics_item.h"
 #include "easy_chronometer_item.h"
 #include "easy_graphics_scrollbar.h"
+#include "arbitrary_value_tooltip.h"
 #include "globals.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -302,6 +303,7 @@ BlocksGraphicsView::BlocksGraphicsView(QWidget* _parent)
     , m_bDoubleClick(false)
     , m_bUpdatingRect(false)
     , m_bEmpty(true)
+    , m_isArbitraryValueTooltip(false)
 {
     initMode();
     setScene(new QGraphicsScene(this));
@@ -310,24 +312,21 @@ BlocksGraphicsView::BlocksGraphicsView(QWidget* _parent)
 
 BlocksGraphicsView::~BlocksGraphicsView()
 {
+    removePopup();
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void BlocksGraphicsView::removePopup(bool _removeFromScene)
+void BlocksGraphicsView::removePopup()
 {
-    if (m_popupWidget != nullptr)
-    {
-        auto widget = m_popupWidget->widget();
-        widget->setParent(nullptr);
-        m_popupWidget->setWidget(nullptr);
-        delete widget;
+    delete m_popupWidget;
+    m_popupWidget = nullptr;
+    m_isArbitraryValueTooltip = false;
+}
 
-        if (_removeFromScene)
-            scene()->removeItem(m_popupWidget);
-
-        m_popupWidget = nullptr;
-    }
+bool BlocksGraphicsView::needToIgnoreMouseEvent() const
+{
+    return m_isArbitraryValueTooltip && m_popupWidget->rect().contains(m_popupWidget->mapFromGlobal(QCursor::pos()));
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -727,9 +726,6 @@ qreal BlocksGraphicsView::setTree(BlocksGraphicsItem* _item, const ::profiler::B
 
 void BlocksGraphicsView::setScrollbar(BlocksGraphicsScrollbar* _scrollbar)
 {
-    auto const prevScrollbar = m_pScrollbar;
-    const bool makeConnect = prevScrollbar == nullptr || prevScrollbar != _scrollbar;
-
     disconnect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::chartSliderChanged, this, &This::onGraphicsScrollbarValueChange);
     disconnect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::chartWheeled, this, &This::onGraphicsScrollbarWheel);
 
@@ -795,6 +791,31 @@ void BlocksGraphicsView::repaintScene()
 
 //////////////////////////////////////////////////////////////////////////
 
+bool BlocksGraphicsView::eventFilter(QObject* _object, QEvent* _event)
+{
+    if (_object == m_popupWidget)
+    {
+        switch (_event->type())
+        {
+            case QEvent::HoverEnter:
+            case QEvent::HoverLeave:
+            case QEvent::HoverMove:
+            case QEvent::MouseButtonPress:
+            case QEvent::MouseButtonRelease:
+            case QEvent::MouseButtonDblClick:
+            case QEvent::MouseMove:
+                m_idleTime = 0;
+                break;
+        }
+
+        return false;
+    }
+
+    return Parent::eventFilter(_object, _event);
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 void BlocksGraphicsView::scaleTo(qreal _scale)
 {
     if (m_bEmpty)
@@ -817,9 +838,14 @@ void BlocksGraphicsView::scaleTo(qreal _scale)
 
 void BlocksGraphicsView::wheelEvent(QWheelEvent* _event)
 {
+    if (needToIgnoreMouseEvent())
+        return;
+
     m_idleTime = 0;
+
     if (!m_bEmpty)
         onWheel(mapToDiagram(mapToScene(_event->pos()).x()), _event->delta());
+
     _event->accept();
 }
 
@@ -888,6 +914,9 @@ void BlocksGraphicsView::onWheel(qreal _scenePos, int _wheelDelta)
 
 void BlocksGraphicsView::mousePressEvent(QMouseEvent* _event)
 {
+    if (needToIgnoreMouseEvent())
+        return;
+
     m_idleTime = 0;
 
     if (m_bEmpty)
@@ -934,6 +963,9 @@ void BlocksGraphicsView::mousePressEvent(QMouseEvent* _event)
 
 void BlocksGraphicsView::mouseDoubleClickEvent(QMouseEvent* _event)
 {
+    if (needToIgnoreMouseEvent())
+        return;
+
     m_idleTime = 0;
 
     if (m_bEmpty)
@@ -961,7 +993,8 @@ void BlocksGraphicsView::mouseDoubleClickEvent(QMouseEvent* _event)
 
 void BlocksGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
 {
-    m_idleTime = 0;
+    if (needToIgnoreMouseEvent())
+        return;
 
     if (m_bEmpty)
     {
@@ -1256,6 +1289,14 @@ bool BlocksGraphicsView::moveChrono(GraphicsRulerItem* _chronometerItem, qreal _
 
 void BlocksGraphicsView::mouseMoveEvent(QMouseEvent* _event)
 {
+    if (m_isArbitraryValueTooltip)
+    {
+        const int size = std::min(m_popupWidget->width(), m_popupWidget->height()) >> 1;
+        const auto rect = m_popupWidget->rect().adjusted(-size, -size, size, size);
+        if (rect.contains(m_popupWidget->mapFromGlobal(QCursor::pos())))
+            return;
+    }
+
     m_idleTime = 0;
 
     if (m_bEmpty || (m_mouseButtons == 0 && !m_selectionItem->isVisible() && !m_rulerItem->isVisible()))
@@ -1374,7 +1415,6 @@ void BlocksGraphicsView::keyPressEvent(QKeyEvent* _event)
     static const int KeyStep = 100;
 
     const int key = _event->key();
-    m_idleTime = 0;
 
     switch (key)
     {
@@ -1422,16 +1462,7 @@ void BlocksGraphicsView::keyPressEvent(QKeyEvent* _event)
         }
     }
 
-    //m_keys.insert(key);
-    _event->accept();
-}
-
-void BlocksGraphicsView::keyReleaseEvent(QKeyEvent* _event)
-{
-    //const int key = _event->key();
     m_idleTime = 0;
-
-    //m_keys.erase(key);
     _event->accept();
 }
 
@@ -1636,13 +1667,14 @@ void BlocksGraphicsView::onIdleTimeout()
 
     if (m_idleTime < IDLE_TIME)
     {
-        removePopup(true);
+        removePopup();
         return;
     }
 
     if (m_popupWidget != nullptr)
         return;
 
+    m_isArbitraryValueTooltip = false;
     auto scenePos = mapToScene(mapFromGlobal(QCursor::pos()));
 
     if (scenePos.x() < m_visibleSceneRect.left() || scenePos.x() > m_visibleSceneRect.right())
@@ -1661,12 +1693,15 @@ void BlocksGraphicsView::onIdleTimeout()
         {
             const auto& itemBlock = cse->tree;
 
-            auto widget = new QWidget(nullptr, Qt::FramelessWindowHint);
+            auto widget = new QWidget(nullptr);
             if (widget == nullptr)
                 return;
 
-            widget->setAttribute(Qt::WA_ShowWithoutActivating, true);
-            widget->setFocusPolicy(Qt::NoFocus);
+            widget->setObjectName(QStringLiteral("DiagramPopup"));
+            widget->setWindowFlags(widget->windowFlags() | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+            widget->setAttribute(Qt::WA_MouseTracking, true);
+            widget->setAttribute(Qt::WA_TransparentForMouseEvents, false);
+            widget->installEventFilter(this);
 
             auto lay = new QGridLayout(widget);
             if (lay == nullptr)
@@ -1753,8 +1788,7 @@ void BlocksGraphicsView::onIdleTimeout()
                 }
             }
 
-            m_popupWidget = new QGraphicsProxyWidget();
-            m_popupWidget->setWidget(widget);
+            m_popupWidget = widget;
 
             break;
         }
@@ -1766,13 +1800,22 @@ void BlocksGraphicsView::onIdleTimeout()
             const auto& itemBlock = block->tree;
             const auto& itemDesc = easyDescriptor(itemBlock.node->id());
 
-            auto widget = new QWidget(nullptr, Qt::FramelessWindowHint);
+            if (itemDesc.type() == profiler::BlockType::Value)
+            {
+                m_isArbitraryValueTooltip = true;
+                m_popupWidget = new ArbitraryValueToolTip(itemDesc.name(), itemBlock, nullptr);
+                break;
+            }
+
+            auto widget = new QWidget(nullptr);
             if (widget == nullptr)
                 return;
 
             widget->setObjectName(QStringLiteral("DiagramPopup"));
-            widget->setAttribute(Qt::WA_ShowWithoutActivating, true);
-            widget->setFocusPolicy(Qt::NoFocus);
+            widget->setWindowFlags(widget->windowFlags() | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+            widget->setAttribute(Qt::WA_MouseTracking, true);
+            widget->setAttribute(Qt::WA_TransparentForMouseEvents, false);
+            widget->installEventFilter(this);
 
             auto lay = new QGridLayout(widget);
             if (lay == nullptr)
@@ -1975,8 +2018,7 @@ void BlocksGraphicsView::onIdleTimeout()
                 }
             }
 
-            m_popupWidget = new QGraphicsProxyWidget();
-            m_popupWidget->setWidget(widget);
+            m_popupWidget = widget;
 
             break;
         }
@@ -1984,22 +2026,22 @@ void BlocksGraphicsView::onIdleTimeout()
 
     if (m_popupWidget != nullptr)
     {
-        auto effect = new QGraphicsDropShadowEffect();
-        effect->setBlurRadius(5);
-        effect->setOffset(3, 3);
-        m_popupWidget->setGraphicsEffect(effect);
+        m_popupWidget->move(QCursor::pos());
+        m_popupWidget->show();
+        m_popupWidget->raise();
 
-        scene()->addItem(m_popupWidget);
+        const auto w = std::min(m_popupWidget->width(), (int)m_visibleSceneRect.width());
+        const auto h = std::min(m_popupWidget->height(), (int)m_visibleSceneRect.height());
+        m_popupWidget->setFixedSize(w, h);
 
-        auto br = m_popupWidget->boundingRect();
+        auto br = m_popupWidget->rect();
         if (scenePos.y() + br.height() > m_visibleSceneRect.bottom())
             scenePos.setY(::std::max(scenePos.y() - br.height(), m_visibleSceneRect.top()));
 
         if (scenePos.x() + br.width() > m_visibleSceneRect.right())
             scenePos.setX(::std::max(scenePos.x() - br.width(), m_visibleSceneRect.left()));
 
-        m_popupWidget->setPos(scenePos);
-        m_popupWidget->setOpacity(0.95);
+        m_popupWidget->move(mapToGlobal(mapFromScene(scenePos)));
     }
 }
 
@@ -2490,7 +2532,7 @@ void ThreadNamesWidget::onIdleTimeout()
 
     if (intersectingItem != nullptr)
     {
-        auto widget = new QWidget(nullptr, Qt::FramelessWindowHint);
+        auto widget = new QWidget(nullptr, Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
         if (widget == nullptr)
             return;
 
@@ -2581,7 +2623,6 @@ void ThreadNamesWidget::onIdleTimeout()
                 scenePos.setX(::std::max(scenePos.x() - br.width(), visibleSceneRect.left()));
 
             m_popupWidget->setPos(scenePos.x(), scenePos.y() - visibleSceneRect.top());
-            m_popupWidget->setOpacity(0.95);
         }
     }
 }
@@ -2657,7 +2698,7 @@ void ThreadNamesWidget::keyPressEvent(QKeyEvent* _event)
 void ThreadNamesWidget::keyReleaseEvent(QKeyEvent* _event)
 {
     m_idleTime = 0;
-    m_view->keyReleaseEvent(_event);
+    _event->accept();
 }
 
 void ThreadNamesWidget::wheelEvent(QWheelEvent* _event)

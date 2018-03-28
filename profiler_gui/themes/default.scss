@@ -25,6 +25,7 @@ $DisabledBackgroundColor: #f0f0f0;
 $ButtonHoverColor: #922c2c;//#d77d7d;
 $ButtonPressedColor: #370400;//#922c2c;
 $FocusBorderColor: #ffbcbc;
+$TooltipColor: #ffeccc;
 $DefaultHeight: 24px;
 $ComboBoxArrowSize: 8px;
 $SpinBoxArrowSize: 8px;
@@ -47,17 +48,31 @@ MainWindow, QToolBar, QDialog {
 }
 
 QToolTip {
-    background-color: #ffeccc;
+    background-color: $TooltipColor;
     border: 1px solid $BorderColor;
     color: $TextColor;
 }
 
-ArbitraryValueWatchWidget QTextEdit {
-    background-color: #ffeccc;
+ArbitraryValueToolTip {
     border: 1px solid $BorderColor;
-    color: $TextColor;
-    selection-color: $TextColor;
-    selection-background-color: $HoveredMenuRowColor;
+    background-color: $TooltipColor;
+    QLabel {
+        background-color: transparent;
+        border: none;
+        color: $TextColor;
+    }
+    QTextEdit {
+        background-color: transparent;
+        border: none;
+        color: $TextColor;
+        selection-color: $TextColor;
+        selection-background-color: $HoveredMenuRowColor;
+    }
+}
+
+QWidget#DiagramPopup, QWidget#ThreadsPopup {
+    background-color: $TooltipColor;
+    border: 1px solid $BorderColor;
 }
 
 QGraphicsView {
@@ -365,12 +380,6 @@ DockWidget
         QPushButton#EasyDockWidgetCloseButton:hover { image: url(":/images/default/dock-close-white-hover"); }
         QPushButton#EasyDockWidgetCloseButton:pressed { image: url(":/images/default/dock-close-white-pressed"); }
     }
-}
-
-/* ****************************************************************************************************************** */
-QWidget#DiagramPopup, QWidget#ThreadsPopup {
-    background-color: $BackgroundColor;
-    border: 1px solid $BorderColor;
 }
 
 /* ****************************************************************************************************************** */
