@@ -304,6 +304,7 @@ BlocksGraphicsView::BlocksGraphicsView(QWidget* _parent)
     , m_bUpdatingRect(false)
     , m_bEmpty(true)
     , m_isArbitraryValueTooltip(false)
+    , m_bHovered(false)
 {
     initMode();
     setScene(new QGraphicsScene(this));
@@ -383,7 +384,8 @@ void BlocksGraphicsView::clear()
     m_timelineStep = 1;
     m_offset = 0; // scroll back to the beginning of the scene
 
-    m_idleTimer.stop();
+    if (m_idleTimer.isActive())
+        m_idleTimer.stop();
     m_idleTime = 0;
 
     // Reset necessary flags
@@ -603,7 +605,8 @@ void BlocksGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocks
             notifyVisibleRegionPosChange(longestItem->items(0).front().left() - m_visibleRegionWidth * 0.25);
     }
 
-    m_idleTimer.start(IDLE_TIMER_INTERVAL);
+    if (m_bHovered && !m_idleTimer.isActive())
+        m_idleTimer.start();
 }
 
 const BlocksGraphicsView::Items &BlocksGraphicsView::getItems() const
@@ -791,31 +794,6 @@ void BlocksGraphicsView::repaintScene()
 
 //////////////////////////////////////////////////////////////////////////
 
-bool BlocksGraphicsView::eventFilter(QObject* _object, QEvent* _event)
-{
-    if (_object == m_popupWidget)
-    {
-        switch (_event->type())
-        {
-            case QEvent::HoverEnter:
-            case QEvent::HoverLeave:
-            case QEvent::HoverMove:
-            case QEvent::MouseButtonPress:
-            case QEvent::MouseButtonRelease:
-            case QEvent::MouseButtonDblClick:
-            case QEvent::MouseMove:
-                m_idleTime = 0;
-                break;
-        }
-
-        return false;
-    }
-
-    return Parent::eventFilter(_object, _event);
-}
-
-//////////////////////////////////////////////////////////////////////////
-
 void BlocksGraphicsView::scaleTo(qreal _scale)
 {
     if (m_bEmpty)
@@ -835,6 +813,28 @@ void BlocksGraphicsView::scaleTo(qreal _scale)
     updateTimelineStep(windowWidth);
     repaintScene();
 }
+
+//////////////////////////////////////////////////////////////////////////
+
+void BlocksGraphicsView::enterEvent(QEvent* _event)
+{
+    Parent::enterEvent(_event);
+    m_bHovered = true;
+    if (!m_bEmpty && !m_idleTimer.isActive())
+        m_idleTimer.start();
+    m_idleTime = 0;
+}
+
+void BlocksGraphicsView::leaveEvent(QEvent* _event)
+{
+    Parent::leaveEvent(_event);
+    m_bHovered = false;
+    if (m_idleTimer.isActive())
+        m_idleTimer.stop();
+    m_idleTime = 0;
+}
+
+//////////////////////////////////////////////////////////////////////////
 
 void BlocksGraphicsView::wheelEvent(QWheelEvent* _event)
 {
@@ -1508,6 +1508,8 @@ void BlocksGraphicsView::initMode()
     connect(&m_flickerTimer, &QTimer::timeout, this, &This::onFlickerTimeout);
     connect(&m_idleTimer, &QTimer::timeout, this, &This::onIdleTimeout);
 
+    m_idleTimer.setInterval(IDLE_TIMER_INTERVAL);
+
     using profiler_gui::GlobalSignals;
     auto globalSignals = &EASY_GLOBALS.events;
     connect(globalSignals, &GlobalSignals::hierarchyFlagChanged, this, &This::onHierarchyFlagChange);
@@ -1693,15 +1695,11 @@ void BlocksGraphicsView::onIdleTimeout()
         {
             const auto& itemBlock = cse->tree;
 
-            auto widget = new QWidget(nullptr);
+            auto widget = new QWidget(this, Qt::ToolTip | Qt::WindowStaysOnTopHint | Qt::WindowTransparentForInput);
             if (widget == nullptr)
                 return;
 
             widget->setObjectName(QStringLiteral("DiagramPopup"));
-            widget->setWindowFlags(widget->windowFlags() | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
-            widget->setAttribute(Qt::WA_MouseTracking, true);
-            widget->setAttribute(Qt::WA_TransparentForMouseEvents, false);
-            widget->installEventFilter(this);
 
             auto lay = new QGridLayout(widget);
             if (lay == nullptr)
@@ -1803,19 +1801,15 @@ void BlocksGraphicsView::onIdleTimeout()
             if (itemDesc.type() == profiler::BlockType::Value)
             {
                 m_isArbitraryValueTooltip = true;
-                m_popupWidget = new ArbitraryValueToolTip(itemDesc.name(), itemBlock, nullptr);
+                m_popupWidget = new ArbitraryValueToolTip(itemDesc.name(), itemBlock, this);
                 break;
             }
 
-            auto widget = new QWidget(nullptr);
+            auto widget = new QWidget(this, Qt::ToolTip | Qt::WindowStaysOnTopHint | Qt::WindowTransparentForInput);
             if (widget == nullptr)
                 return;
 
             widget->setObjectName(QStringLiteral("DiagramPopup"));
-            widget->setWindowFlags(widget->windowFlags() | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
-            widget->setAttribute(Qt::WA_MouseTracking, true);
-            widget->setAttribute(Qt::WA_TransparentForMouseEvents, false);
-            widget->installEventFilter(this);
 
             auto lay = new QGridLayout(widget);
             if (lay == nullptr)
@@ -2034,6 +2028,8 @@ void BlocksGraphicsView::onIdleTimeout()
         const auto h = std::min(m_popupWidget->height(), (int)m_visibleSceneRect.height());
         m_popupWidget->setFixedSize(w, h);
 
+        const auto prevPos = scenePos;
+
         auto br = m_popupWidget->rect();
         if (scenePos.y() + br.height() > m_visibleSceneRect.bottom())
             scenePos.setY(::std::max(scenePos.y() - br.height(), m_visibleSceneRect.top()));
@@ -2041,7 +2037,8 @@ void BlocksGraphicsView::onIdleTimeout()
         if (scenePos.x() + br.width() > m_visibleSceneRect.right())
             scenePos.setX(::std::max(scenePos.x() - br.width(), m_visibleSceneRect.left()));
 
-        m_popupWidget->move(mapToGlobal(mapFromScene(scenePos)));
+        if ((scenePos - prevPos).manhattanLength() != 0)
+            m_popupWidget->move(mapToGlobal(mapFromScene(scenePos)));
     }
 }
 
@@ -2532,7 +2529,7 @@ void ThreadNamesWidget::onIdleTimeout()
 
     if (intersectingItem != nullptr)
     {
-        auto widget = new QWidget(nullptr, Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+        auto widget = new QWidget(this, Qt::ToolTip | Qt::WindowStaysOnTopHint | Qt::WindowTransparentForInput);
         if (widget == nullptr)
             return;
 

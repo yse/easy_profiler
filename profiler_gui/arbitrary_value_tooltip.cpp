@@ -61,12 +61,10 @@
 
 ArbitraryValueToolTip::ArbitraryValueToolTip(const QString& _name
     , const profiler::BlocksTree& _block, QWidget* _parent)
-    : QWidget(_parent)
+    : QWidget(_parent, Qt::ToolTip | Qt::WindowStaysOnTopHint)
 {
-    setWindowFlags(windowFlags() | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
-
     auto layout = new QVBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
+    //layout->setContentsMargins(1, 1, 1, 1);
     layout->setSpacing(0);
 
     auto pane = new QTextEdit();
@@ -84,43 +82,51 @@ ArbitraryValueToolTip::ArbitraryValueToolTip(const QString& _name
     QString firstString;
     int rowsCount = 0;
 
-    if (_block.per_thread_stats != nullptr)
-    {
-        pane->append(QString("N calls/Thread: %1").arg(_block.per_thread_stats->calls_number));
-        rowsCount = 1;
-    }
-
     if (_block.value->isArray())
     {
         const auto size = profiler_gui::valueArraySize(*_block.value);
         firstString = QString("%1  %2[%3]  (0x%4)").arg(profiler_gui::valueTypeString(_block.value->type()))
             .arg(_name).arg(size).arg(_block.value->value_id(), 0, 16);
         pane->append(firstString);
+        rowsCount += 1;
+
+        if (_block.per_thread_stats != nullptr)
+        {
+            pane->append(QString("N calls/Thread: %1").arg(_block.per_thread_stats->calls_number));
+            rowsCount += 1;
+        }
 
         if (_block.value->type() == profiler::DataType::String)
         {
             pane->append(QString("value:\t%1").arg(profiler_gui::valueString(*_block.value)));
-            rowsCount += 2;
+            rowsCount += 1;
         }
         else
         {
-            rowsCount += size + 1;
+            rowsCount += size;
             for (int i = 0; i < size; ++i)
                 pane->append(QString("[%1]\t%2").arg(i).arg(profiler_gui::valueString(*_block.value, i)));
 
-            if (rowsCount > 15)
-                rowsCount = 15;
+            if (rowsCount > 9)
+                rowsCount = 9;
         }
     }
     else
     {
+        rowsCount += 2;
+
         firstString = QString("%1  %2  (0x%3)").arg(profiler_gui::valueTypeString(_block.value->type()))
             .arg(_name).arg(_block.value->value_id(), 0, 16);
 
         pane->append(firstString);
-        pane->append(QString("value:\t%1").arg(profiler_gui::valueString(*_block.value)));
 
-        rowsCount += 2;
+        if (_block.per_thread_stats != nullptr)
+        {
+            pane->append(QString("N calls/Thread: %1").arg(_block.per_thread_stats->calls_number));
+            rowsCount += 1;
+        }
+
+        pane->append(QString("value:\t%1").arg(profiler_gui::valueString(*_block.value)));
     }
 
     ++rowsCount;

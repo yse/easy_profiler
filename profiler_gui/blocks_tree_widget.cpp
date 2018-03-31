@@ -390,7 +390,7 @@ void BlocksTreeWidget::onIdleTimeout()
     if (item->hasToolTip(column))
         return;
 
-    m_valueTooltip = new ArbitraryValueToolTip(itemUnderCursor->text(COL_NAME), block, nullptr);
+    m_valueTooltip = new ArbitraryValueToolTip(itemUnderCursor->text(COL_NAME), block, this);
     m_valueTooltip->move(QCursor::pos());
     m_valueTooltip->show();
 

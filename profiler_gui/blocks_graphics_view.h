@@ -154,6 +154,7 @@ private:
     bool                        m_bUpdatingRect; ///< Stub flag which is used to avoid excess calculations on some scene update (flicking, scaling and so on)
     bool                               m_bEmpty; ///< Indicates whether scene is empty and has no items
     bool              m_isArbitraryValueTooltip;
+    bool                             m_bHovered;
 
 public:
 
@@ -162,7 +163,8 @@ public:
 
     // Public virtual methods
 
-    bool eventFilter(QObject* _object, QEvent* _event) override;
+    void enterEvent(QEvent* _event) override;
+    void leaveEvent(QEvent* _event) override;
     void wheelEvent(QWheelEvent* _event) override;
     void mousePressEvent(QMouseEvent* _event) override;
     void mouseDoubleClickEvent(QMouseEvent* _event) override;
