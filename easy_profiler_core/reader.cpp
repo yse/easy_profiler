@@ -90,6 +90,7 @@ extern const uint32_t EASY_CURRENT_VERSION;
 const uint32_t MIN_COMPATIBLE_VERSION = EASY_VERSION_INT(0, 1, 0); ///< minimal compatible version (.prof file format was not changed seriously since this version)
 const uint32_t EASY_V_100 = EASY_VERSION_INT(1, 0, 0); ///< in v1.0.0 some additional data were added into .prof file
 const uint32_t EASY_V_130 = EASY_VERSION_INT(1, 3, 0); ///< in v1.3.0 changed sizeof(thread_id_t) uint32_t -> uint64_t
+const uint32_t EASY_V_200 = EASY_VERSION_INT(2, 0, 0); ///< in v2.0.0 file header was slightly rearranged
 # undef EASY_VERSION_INT
 
 const uint64_t TIME_FACTOR = 1000000000ULL;
@@ -390,6 +391,115 @@ static bool update_progress(::std::atomic<int>& progress, int new_value, ::std::
 
 //////////////////////////////////////////////////////////////////////////
 
+struct EasyFileHeader
+{
+    uint32_t signature = 0;
+    uint32_t version = 0;
+    processid_t pid = 0;
+    int64_t cpu_frequency = 0;
+    profiler::timestamp_t begin_time = 0;
+    profiler::timestamp_t end_time = 0;
+    uint64_t memory_size = 0;
+    uint64_t descriptors_memory_size = 0;
+    uint32_t total_blocks_number = 0;
+    uint32_t total_descriptors_number = 0;
+};
+
+bool readHeader_v1(EasyFileHeader& _header, ::std::stringstream& inFile, std::stringstream& _log)
+{
+    // File header before v2.0.0
+
+    if (_header.version > EASY_V_100)
+    {
+        if (_header.version < EASY_V_130)
+        {
+            uint32_t old_pid = 0;
+            inFile.read((char*)&old_pid, sizeof(uint32_t));
+            _header.pid = old_pid;
+        }
+        else
+        {
+            inFile.read((char*)&_header.pid, sizeof(processid_t));
+        }
+    }
+
+    inFile.read((char*)&_header.cpu_frequency, sizeof(int64_t));
+    inFile.read((char*)&_header.begin_time, sizeof(::profiler::timestamp_t));
+    inFile.read((char*)&_header.end_time, sizeof(::profiler::timestamp_t));
+
+    inFile.read((char*)&_header.total_blocks_number, sizeof(uint32_t));
+    if (_header.total_blocks_number == 0)
+    {
+        _log << "Profiled blocks number == 0";
+        return false;
+    }
+
+    inFile.read((char*)&_header.memory_size, sizeof(decltype(_header.memory_size)));
+    if (_header.memory_size == 0)
+    {
+        _log << "Wrong memory size == 0 for " << _header.total_blocks_number << " blocks";
+        return false;
+    }
+
+    inFile.read((char*)&_header.total_descriptors_number, sizeof(uint32_t));
+    if (_header.total_descriptors_number == 0)
+    {
+        _log << "Blocks description number == 0";
+        return false;
+    }
+
+    inFile.read((char*)&_header.descriptors_memory_size, sizeof(decltype(_header.descriptors_memory_size)));
+    if (_header.descriptors_memory_size == 0)
+    {
+        _log << "Wrong memory size == 0 for " << _header.total_descriptors_number << " blocks descriptions";
+        return false;
+    }
+
+    return true;
+}
+
+bool readHeader_v2(EasyFileHeader& _header, ::std::stringstream& inFile, std::stringstream& _log)
+{
+    // File header after v2.0.0
+
+    inFile.read((char*)&_header.pid, sizeof(processid_t));
+    inFile.read((char*)&_header.cpu_frequency, sizeof(int64_t));
+    inFile.read((char*)&_header.begin_time, sizeof(::profiler::timestamp_t));
+    inFile.read((char*)&_header.end_time, sizeof(::profiler::timestamp_t));
+
+    inFile.read((char*)&_header.memory_size, sizeof(decltype(_header.memory_size)));
+    if (_header.memory_size == 0)
+    {
+        _log << "Wrong memory size == 0 for " << _header.total_blocks_number << " blocks";
+        return false;
+    }
+
+    inFile.read((char*)&_header.descriptors_memory_size, sizeof(decltype(_header.descriptors_memory_size)));
+    if (_header.descriptors_memory_size == 0)
+    {
+        _log << "Wrong memory size == 0 for " << _header.total_descriptors_number << " blocks descriptions";
+        return false;
+    }
+
+    inFile.read((char*)&_header.total_blocks_number, sizeof(uint32_t));
+    if (_header.total_blocks_number == 0)
+    {
+        _log << "Profiled blocks number == 0";
+        return false;
+    }
+
+    inFile.read((char*)&_header.total_descriptors_number, sizeof(uint32_t));
+    if (_header.total_descriptors_number == 0)
+    {
+        _log << "Blocks description number == 0";
+        return false;
+    }
+
+    return true;
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 extern "C" {
 
     PROFILER_API ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progress, const char* filename,
@@ -468,66 +578,36 @@ extern "C" {
             return 0;
         }
 
-        processid_t pid = 0;
-        if (version > EASY_V_100)
+        EasyFileHeader header;
+        header.signature = signature;
+        header.version = version;
+
+        if (version < EASY_V_200)
         {
-            if (version < EASY_V_130)
-            {
-                uint32_t old_pid = 0;
-                inFile.read((char*)&old_pid, sizeof(uint32_t));
-                pid = old_pid;
-            }
-            else
-            {
-                inFile.read((char*)&pid, sizeof(processid_t));
-            }
+            if (!readHeader_v1(header, inFile, _log))
+                return 0;
+        }
+        else
+        {
+            if (!readHeader_v2(header, inFile, _log))
+                return 0;
         }
 
-        int64_t file_cpu_frequency = 0LL;
-        inFile.read((char*)&file_cpu_frequency, sizeof(int64_t));
-        const uint64_t cpu_frequency = file_cpu_frequency;
+        const uint64_t cpu_frequency = header.cpu_frequency;
         const double conversion_factor = (cpu_frequency != 0 ? static_cast<double>(TIME_FACTOR) / static_cast<double>(cpu_frequency) : 1.);
 
-        ::profiler::timestamp_t begin_time = 0ULL;
-        ::profiler::timestamp_t end_time = 0ULL;
-        inFile.read((char*)&begin_time, sizeof(::profiler::timestamp_t));
-        inFile.read((char*)&end_time, sizeof(::profiler::timestamp_t));
+        auto begin_time = header.begin_time;
+        auto end_time = header.end_time;
+
+        const auto memory_size = header.memory_size;
+        const auto descriptors_memory_size = header.descriptors_memory_size;
+        const auto total_blocks_number = header.total_blocks_number;
+        total_descriptors_number = header.total_descriptors_number;
+
         if (cpu_frequency != 0)
         {
             EASY_CONVERT_TO_NANO(begin_time, cpu_frequency, conversion_factor);
             EASY_CONVERT_TO_NANO(end_time, cpu_frequency, conversion_factor);
-        }
-
-        uint32_t total_blocks_number = 0;
-        inFile.read((char*)&total_blocks_number, sizeof(uint32_t));
-        if (total_blocks_number == 0)
-        {
-            _log << "Profiled blocks number == 0";
-            return 0;
-        }
-
-        uint64_t memory_size = 0;
-        inFile.read((char*)&memory_size, sizeof(decltype(memory_size)));
-        if (memory_size == 0)
-        {
-            _log << "Wrong memory size == 0 for " << total_blocks_number << " blocks";
-            return 0;
-        }
-
-        total_descriptors_number = 0;
-        inFile.read((char*)&total_descriptors_number, sizeof(uint32_t));
-        if (total_descriptors_number == 0)
-        {
-            _log << "Blocks description number == 0";
-            return 0;
-        }
-
-        uint64_t descriptors_memory_size = 0;
-        inFile.read((char*)&descriptors_memory_size, sizeof(decltype(descriptors_memory_size)));
-        if (descriptors_memory_size == 0)
-        {
-            _log << "Wrong memory size == 0 for " << total_descriptors_number << " blocks descriptions";
-            return 0;
         }
 
         descriptors.reserve(total_descriptors_number);

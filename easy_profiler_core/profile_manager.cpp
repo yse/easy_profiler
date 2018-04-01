@@ -654,7 +654,7 @@ ProfileManager::ProfileManager() :
 #else
     m_processId((processid_t)getpid())
 #endif
-    , m_usedMemorySize(0)
+    , m_descriptorsMemorySize(0)
     , m_beginTime(0)
     , m_endTime(0)
 {
@@ -751,7 +751,7 @@ const BaseBlockDescriptor* ProfileManager::addBlockDescriptor(EasyBlockStatus _d
         return m_descriptors[it->second];
 
     const auto nameLen = strlen(_name);
-    m_usedMemorySize += sizeof(profiler::SerializedBlockDescriptor) + nameLen + strlen(_filename) + 2;
+    m_descriptorsMemorySize += sizeof(profiler::SerializedBlockDescriptor) + nameLen + strlen(_filename) + 2;
 
 #if EASY_BLOCK_DESC_FULL_COPY == 0
     BlockDescriptor* desc = nullptr;
@@ -1395,10 +1395,10 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
     _outputStream.write(m_endTime);
 
     // Write blocks number and used memory size
-    _outputStream.write(blocks_number);
     _outputStream.write(usedMemorySize);
+    _outputStream.write(m_descriptorsMemorySize);
+    _outputStream.write(blocks_number);
     _outputStream.write(static_cast<uint32_t>(m_descriptors.size()));
-    _outputStream.write(m_usedMemorySize);
 
     // Write block descriptors
     for (const auto descriptor : m_descriptors)
@@ -1818,7 +1818,7 @@ void ProfileManager::listen(uint16_t _port)
                     // Write block descriptors
                     m_storedSpin.lock();
                     os.write(static_cast<uint32_t>(m_descriptors.size()));
-                    os.write(m_usedMemorySize);
+                    os.write(m_descriptorsMemorySize);
                     for (const auto descriptor : m_descriptors)
                     {
                         const auto name_size = descriptor->nameSize();

@@ -94,7 +94,7 @@ class ProfileManager
     map_of_threads_stacks                   m_threads;
     block_descriptors_t                 m_descriptors;
     descriptors_map_t                m_descriptorsMap;
-    uint64_t                         m_usedMemorySize;
+    uint64_t                  m_descriptorsMemorySize;
     profiler::timestamp_t                 m_beginTime;
     profiler::timestamp_t                   m_endTime;
     std::atomic<profiler::timestamp_t>     m_frameMax;
