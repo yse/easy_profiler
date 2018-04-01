@@ -6,6 +6,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
+# Status
+Branch `develop` has been rebased to `release_2_0` and now contains all v2.0.0 features and new UI style.
 
 1. [About](#about)
 2. [Key features](#key-features)
