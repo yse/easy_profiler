@@ -63,8 +63,11 @@ ArbitraryValueToolTip::ArbitraryValueToolTip(const QString& _name
     , const profiler::BlocksTree& _block, QWidget* _parent)
     : QWidget(_parent, Qt::ToolTip | Qt::WindowStaysOnTopHint)
 {
-    auto layout = new QVBoxLayout(this);
-    //layout->setContentsMargins(1, 1, 1, 1);
+    auto content = new QWidget();
+    content->setObjectName("cnt");
+
+    auto layout = new QVBoxLayout(content);
+    layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
     auto pane = new QTextEdit();
@@ -137,6 +140,10 @@ ArbitraryValueToolTip::ArbitraryValueToolTip(const QString& _name
     pane->setMaximumHeight((fm.height() + fm.leading() + 1) * rowsCount);
 
     setMaximumHeight(pane->maximumHeight() + fm2.height() + fm2.leading() + 10);
+
+    auto l = new QVBoxLayout(this);
+    l->setContentsMargins(0, 0, 0, 0);
+    l->addWidget(content);
 }
 
 ArbitraryValueToolTip::~ArbitraryValueToolTip()

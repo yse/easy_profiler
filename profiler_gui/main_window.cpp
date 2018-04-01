@@ -1266,7 +1266,7 @@ void MainWindow::onViewportInfoClicked(bool)
 {
     const auto& size = EASY_GLOBALS.size;
 
-    auto contents = QString("Device pixel ratio = %1\nFont height = %2px\nFont line spacing = %2px\nDiagram row = %3px\nDiagram spacing = %4px\nIcon size = %5x%5 px")
+    auto contents = QString("Device pixel ratio = %1\nFont height = %2px\nFont line spacing = %3px\nDiagram row = %4px\nDiagram spacing = %5px\nIcon size = %6x%6 px")
         .arg(size.pixelRatio).arg(size.font_height).arg(size.font_line_spacing)
         .arg(size.graphics_row_height).arg(size.threads_row_spacing).arg(size.icon_size);
 

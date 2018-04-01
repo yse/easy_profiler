@@ -17,7 +17,7 @@
 /* Constants */
 $TextColor: #504040;
 $DisabledTextColor: #a08888;
-$BorderColor: #cccccc;
+$BorderColor: #c4c4c4;
 $MainColor: #f44336;
 $HoveredMenuRowColor: rgb_a(#98DE98, 0.5);
 $BackgroundColor: white;
@@ -54,8 +54,14 @@ QToolTip {
 }
 
 ArbitraryValueToolTip {
-    border: 1px solid $BorderColor;
+    margin: 0;
+    border: none;
     background-color: $TooltipColor;
+    QWidget#cnt {
+        border: 1px solid $BorderColor;
+        background-color: transparent;
+        margin: 0;
+    }
     QLabel {
         background-color: transparent;
         border: none;
@@ -137,7 +143,11 @@ QSpinBox::down-button {
 }
 
 QSpinBox::up-button:pressed, QSpinBox::down-button:pressed {
-    background-color: #f4f4f4;
+    background-color: #eaeaea;
+}
+
+QSpinBox::up-button:!pressed:hover, QSpinBox::down-button:!pressed:hover {
+    background-color: #fafafa;
 }
 
 QSpinBox::up-arrow { image: url(":/images/default/arrow-up"); height: $SpinBoxArrowSize; width: $SpinBoxArrowSize; }

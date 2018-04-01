@@ -25,12 +25,17 @@ MainWindow, QToolBar, QDialog {
 
 QToolTip {
   background-color: #ffeccc;
-  border: 1px solid #cccccc;
+  border: 1px solid #c4c4c4;
   color: #504040; }
 
 ArbitraryValueToolTip {
-  border: 1px solid #cccccc;
+  margin: 0;
+  border: none;
   background-color: #ffeccc; }
+  ArbitraryValueToolTip QWidget#cnt {
+    border: 1px solid #c4c4c4;
+    background-color: transparent;
+    margin: 0; }
   ArbitraryValueToolTip QLabel {
     background-color: transparent;
     border: none;
@@ -44,10 +49,10 @@ ArbitraryValueToolTip {
 
 QWidget#DiagramPopup, QWidget#ThreadsPopup {
   background-color: #ffeccc;
-  border: 1px solid #cccccc; }
+  border: 1px solid #c4c4c4; }
 
 QGraphicsView {
-  border: 1px solid #cccccc; }
+  border: 1px solid #c4c4c4; }
 
 QSplitter::handle:hover {
   background-color: rgba(244, 67, 54, 0.5); }
@@ -58,7 +63,7 @@ QSplitter::handle:pressed {
 /* ****************************************************************************************************************** */
 QLineEdit, QComboBox, QSpinBox {
   height: 24px;
-  border: 1px solid #cccccc;
+  border: 1px solid #c4c4c4;
   background-color: white;
   selection-background-color: rgba(152, 222, 152, 0.5);
   selection-color: #504040; }
@@ -97,18 +102,21 @@ QSpinBox::up-button {
   subcontrol-position: top right;
   margin-left: 5px;
   width: 24px;
-  border-left: 1px solid #cccccc;
-  border-bottom: 1px solid #cccccc; }
+  border-left: 1px solid #c4c4c4;
+  border-bottom: 1px solid #c4c4c4; }
 
 QSpinBox::down-button {
   subcontrol-origin: padding;
   subcontrol-position: bottom right;
   margin-left: 5px;
   width: 24px;
-  border-left: 1px solid #cccccc; }
+  border-left: 1px solid #c4c4c4; }
 
 QSpinBox::up-button:pressed, QSpinBox::down-button:pressed {
-  background-color: #f4f4f4; }
+  background-color: #eaeaea; }
+
+QSpinBox::up-button:!pressed:hover, QSpinBox::down-button:!pressed:hover {
+  background-color: #fafafa; }
 
 QSpinBox::up-arrow {
   image: url(":/images/default/arrow-up");
@@ -136,7 +144,7 @@ QSpinBox::down-arrow:disabled {
 QPushButton {
   height: 24px;
   min-width: 50px;
-  border: 1px solid #cccccc;
+  border: 1px solid #c4c4c4;
   background-color: white;
   padding: 0 5px 0 5px; }
 
@@ -155,7 +163,7 @@ QPushButton:pressed {
 /* ****************************************************************************************************************** */
 QListView {
   background-color: white;
-  border: 1px solid #cccccc; }
+  border: 1px solid #c4c4c4; }
 
 QListView, QTableView, QTreeView {
   alternate-background-color: #e4e4ec;
@@ -164,7 +172,7 @@ QListView, QTableView, QTreeView {
 
 QTreeView::branch {
   selection-background-color: rgba(152, 222, 152, 0.8);
-  border-bottom: 1px solid #cccccc; }
+  border-bottom: 1px solid #c4c4c4; }
 
 QTreeView::branch:selected {
   background-color: rgba(152, 222, 152, 0.8); }
@@ -181,7 +189,7 @@ QTreeView::branch:closed:has-children {
 
 QListView::item, QTableView::item, QTreeView::item {
   height: 26px;
-  border-bottom: 1px solid #cccccc; }
+  border-bottom: 1px solid #c4c4c4; }
 
 QListView::item:selected, QTableView::item:selected, QTreeView::item:selected {
   background-color: rgba(152, 222, 152, 0.8); }
@@ -196,7 +204,7 @@ QTreeView::indicator {
 
 QTreeView::indicator:hover, QTreeView::indicator:checked, QTreeView::indicator:indeterminate {
   background-color: white;
-  border: 1px solid #cccccc; }
+  border: 1px solid #c4c4c4; }
 
 QTreeView::indicator:checked {
   image: url(":/images/default/check"); }
@@ -213,7 +221,7 @@ QTreeView::indicator:indeterminate:disabled {
 /* ****************************************************************************************************************** */
 QMenu {
   background-color: white;
-  border: 1px solid #cccccc;
+  border: 1px solid #c4c4c4;
   padding-top: 4px;
   padding-bottom: 4px; }
 
@@ -242,7 +250,7 @@ QMenu::icon:checked {
 
 QMenu::separator {
   height: 1px;
-  background: #cccccc;
+  background: #c4c4c4;
   margin-left: 5px;
   margin-right: 5px; }
 
@@ -250,7 +258,7 @@ QMenu::indicator {
   width: 14px;
   height: 14px;
   background-color: white;
-  border: 1px solid #cccccc;
+  border: 1px solid #c4c4c4;
   margin-left: 2px;
   padding: 1px; }
 
@@ -347,7 +355,7 @@ DockWidget QWidget#EasyDockWidgetTitle {
 QProgressBar {
   height: 24px;
   background-color: white;
-  border: 1px solid #cccccc;
+  border: 1px solid #c4c4c4;
   color: #0B530B;
   text-align: center; }
 
