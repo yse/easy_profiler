@@ -43,35 +43,34 @@ struct FileHeader                                   //64
 
 struct BlockInfo
 {
-    uint64_t                         beginTime;
-    uint64_t                         endTime;
-    uint32_t                         blockId;
-    uint32_t                         parentBlockId;
-    std::string                      runTimeBlockName;
-    std::string                      thread_name;       ///< Name of parent thread
-    std::shared_ptr<BlockDescriptor> descriptor;
+    uint64_t                beginTime;
+    uint64_t                  endTime;
+    const BlockDescriptor* descriptor;
+    uint32_t               blockIndex;
 };
 
-struct ContextSwitchEvent{
-    uint64_t                            beginTime;
-    uint64_t                            endTime;
-    uint64_t                            targetThreadId;
-    std::string                         switchName;
+struct ContextSwitchEvent
+{
+    uint64_t         beginTime;
+    uint64_t           endTime;
+    uint64_t    targetThreadId;
+    std::string  targetProcess; ///< Contains process id and process name
 };
 
 struct BlockDescriptor
 {
-    uint32_t        blockId;
-    int             lineNumber;
-    uint32_t        argbColor;
-    uint8_t         blockType;
-    uint8_t         status;
-    std::string     compileTimeName;
-    std::string     fileName;
+    uint32_t     parentId; ///< This will differ from id if this descriptor was created from runtime named block
+    uint32_t           id;
+    int        lineNumber;
+    uint32_t    argbColor;
+    uint8_t     blockType;
+    uint8_t        status;
+    std::string blockName;
+    std::string  fileName;
 };
 
-
 } //namespace reader
+
 } //namespace profiler
 
 #endif

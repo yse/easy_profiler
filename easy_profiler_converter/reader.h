@@ -43,15 +43,11 @@ The Apache License, Version 2.0 (the "License");
 #ifndef EASY_PROFILER_READER_H
 #define EASY_PROFILER_READER_H
 
-///std
-#include <fstream>
 #include <vector>
-#include <memory>
 #include <sstream>
 #include <string>
 #include <unordered_map>
 
-///this
 #include <easy/easy_protocol.h>
 #include <easy/reader.h>
 #include <easy/utility.h>
@@ -63,67 +59,80 @@ namespace reader {
 class BlocksTreeNode;
 using thread_blocks_tree_t = ::std::unordered_map<::profiler::thread_id_t, BlocksTreeNode, ::estd::hash<::profiler::thread_id_t> >;
 using thread_names_t = ::std::unordered_map<::profiler::thread_id_t, ::std::string>;
-using context_switches_t = ::std::vector<::std::shared_ptr<ContextSwitchEvent> >;
+using context_switches_list_t = ::std::vector<ContextSwitchEvent>;
+using context_switches_t = ::std::unordered_map<::profiler::thread_id_t, context_switches_list_t, ::estd::hash<::profiler::thread_id_t> >;
+using descriptors_list_t = ::std::vector<BlockDescriptor>;
 
-class BlocksTreeNode
+class BlocksTreeNode EASY_FINAL
 {
 public:
-    ::std::vector<::std::shared_ptr<BlocksTreeNode>> children;
-    ::std::shared_ptr<BlockInfo> current_block;
-    BlocksTreeNode* parent;
 
-    BlocksTreeNode(BlocksTreeNode&& other) : children(::std::move(other.children))
-        , current_block(::std::move(other.current_block))
-        ,  parent(other.parent)
+    using children_t = ::std::vector<BlocksTreeNode>;
+
+    BlockInfo                   info;
+    children_t              children;
+    BlocksTreeNode* parent = nullptr;
+
+    BlocksTreeNode(BlocksTreeNode&& other) EASY_NOEXCEPT
+        : info(other.info)
+        , children(::std::move(other.children))
+        , parent(other.parent)
     {
     }
 
-    BlocksTreeNode() : parent(nullptr)
+    BlocksTreeNode& operator = (BlocksTreeNode&& other) EASY_NOEXCEPT
     {
+        info = other.info;
+        children = ::std::move(other.children);
+        parent = other.parent;
+        return *this;
     }
+
+    BlocksTreeNode() = default;
+    ~BlocksTreeNode() = default;
+
+    BlocksTreeNode(const BlocksTreeNode&) = delete;
+    BlocksTreeNode& operator = (const BlocksTreeNode&) = delete;
+
 }; // end of class BlocksTreeNode.
 
 class FileReader EASY_FINAL
 {
 public:
 
-    /*-----------------------------------------------------------------*/
-    ///initial read file with RAW data
+    ///< initial read file with RAW data
     ::profiler::block_index_t readFile(const ::std::string& filename);
-    /*-----------------------------------------------------------------*/
-    ///get blocks tree
-    const thread_blocks_tree_t& getBlocksTreeData();
-    /*-----------------------------------------------------------------*/
+
+    ///< get blocks tree
+    const thread_blocks_tree_t& getBlocksTree() const;
+
+    const descriptors_list_t& getBlockDescriptors() const;
+
     /*! get thread name by Id
     \param threadId thread Id
     \return Name of thread
     */
-    const std::string &getThreadName(uint64_t threadId);
-    /*-----------------------------------------------------------------*/
+    const std::string& getThreadName(uint64_t threadId) const;
+
     /*! get file version
     \return data file version
     */
-    uint32_t getVersion();
-    /*-----------------------------------------------------------------*/
-    ///get sontext switches
-    const context_switches_t& getContextSwitches();
-    /*-----------------------------------------------------------------*/
+    uint32_t getVersion() const;
+
+    ::std::string getVersionString() const;
+
+    ///< get context switches
+    const context_switches_t& getContextSwitches() const;
 
 private:
 
-    ///serialized raw data
-    ::profiler::SerializedData                             serialized_blocks, serialized_descriptors;
-    ///error log stream
-    ::std::stringstream                                    errorMessage;
-    ///thread's blocks
-    thread_blocks_tree_t                                   m_BlocksTree;
-    ///[thread_id, thread_name]
-    thread_names_t                                         m_threadNames;
-    ///context switches info
-    context_switches_t                                     m_ContextSwitches;
-    std::vector<std::shared_ptr<BlockDescriptor>>          m_BlockDescriptors;
-    ///data file version
-    uint32_t                                               m_version;
+    ::std::string             m_emptyString;
+    ::std::stringstream      m_errorMessage; ///< error log stream
+    thread_blocks_tree_t       m_blocksTree; ///< thread's blocks hierarchy
+    thread_names_t            m_threadNames; ///< [thread_id, thread_name]
+    context_switches_t    m_contextSwitches; ///< context switches info
+    descriptors_list_t   m_blockDescriptors; ///< block descriptors
+    uint32_t                      m_version; ///< .prof file version
 
 }; // end of class FileReader.
 
