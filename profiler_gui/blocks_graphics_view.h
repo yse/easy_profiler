@@ -190,6 +190,8 @@ public:
 
     const Items& getItems() const;
 
+    void saveSelectionToFile(const QString& _filename) const;
+
     void inspectCurrentView(bool _strict) {
         onInspectCurrentView(_strict);
     }
