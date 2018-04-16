@@ -159,7 +159,12 @@ set(SOURCES
     ${INCLUDE_FILES}
 )
 
-add_library(easy_profiler ${SOURCES} resources.rc)
+set(LIBRARY_TYPE SHARED)
+if (NOT BUILD_SHARED_LIBS)
+    set(LIBRARY_TYPE STATIC)
+endif ()
+
+add_library(easy_profiler ${LIBRARY_TYPE} ${SOURCES} resources.rc)
 # End adding source files.
 #################################################
 
