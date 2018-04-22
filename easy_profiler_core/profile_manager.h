@@ -65,7 +65,7 @@ The Apache License, Version 2.0 (the "License");
 
 //////////////////////////////////////////////////////////////////////////
 
-typedef uint64_t processid_t;
+using processid_t = uint64_t;
 
 class BlockDescriptor;
 
@@ -79,14 +79,15 @@ class ProfileManager
 
     ProfileManager();
 
-    typedef profiler::guard_lock<profiler::spin_lock> guard_lock_t;
-    typedef std::map<profiler::thread_id_t, ThreadStorage> map_of_threads_stacks;
-    typedef std::vector<BlockDescriptor*> block_descriptors_t;
+    using atomic_timestamp_t = std::atomic<profiler::timestamp_t>;
+    using guard_lock_t = profiler::guard_lock<profiler::spin_lock>;
+    using map_of_threads_stacks = std::map<profiler::thread_id_t, ThreadStorage>;
+    using block_descriptors_t = std::vector<BlockDescriptor*>;
 
 #ifdef EASY_PROFILER_HASHED_CSTR_DEFINED
-    typedef std::unordered_map<profiler::hashed_cstr, profiler::block_id_t> descriptors_map_t;
+    using descriptors_map_t = std::unordered_map<profiler::hashed_cstr, profiler::block_id_t>;
 #else
-    typedef std::unordered_map<profiler::hashed_stdstring, profiler::block_id_t> descriptors_map_t;
+    using descriptors_map_t = std::unordered_map<profiler::hashed_stdstring, profiler::block_id_t>;
 #endif
 
     const processid_t                     m_processId;
@@ -97,9 +98,9 @@ class ProfileManager
     uint64_t                  m_descriptorsMemorySize;
     profiler::timestamp_t                 m_beginTime;
     profiler::timestamp_t                   m_endTime;
-    std::atomic<profiler::timestamp_t>     m_frameMax;
-    std::atomic<profiler::timestamp_t>     m_frameAvg;
-    std::atomic<profiler::timestamp_t>     m_frameCur;
+    atomic_timestamp_t                     m_frameMax;
+    atomic_timestamp_t                     m_frameAvg;
+    atomic_timestamp_t                     m_frameCur;
     profiler::spin_lock                        m_spin;
     profiler::spin_lock                  m_storedSpin;
     profiler::spin_lock                    m_dumpSpin;

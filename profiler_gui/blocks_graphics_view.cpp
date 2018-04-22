@@ -614,6 +614,31 @@ const BlocksGraphicsView::Items &BlocksGraphicsView::getItems() const
     return m_items;
 }
 
+bool BlocksGraphicsView::getSelectionRegionForSaving(profiler::timestamp_t& _beginTime, profiler::timestamp_t& _endTime) const
+{
+    if (m_selectedBlocks.empty())
+        return false;
+
+    _beginTime = ~0ULL;
+    _endTime = 0;
+
+    for (const auto& selection : m_selectedBlocks)
+    {
+        const auto& tree = easyBlocksTree(selection.tree);
+        _beginTime = std::min(_beginTime, tree.node->begin());
+        _endTime = std::max(_endTime, tree.node->end());
+    }
+
+    if (_beginTime > 10)
+        _beginTime -= 10;
+    else
+        _beginTime = 0;
+
+    _endTime += 10;
+
+    return true;
+}
+
 qreal BlocksGraphicsView::setTree(BlocksGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, uint32_t& _maxDepthChild, qreal _y, short _level)
 {
     if (_children.empty())

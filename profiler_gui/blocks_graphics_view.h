@@ -190,6 +190,8 @@ public:
 
     const Items& getItems() const;
 
+    bool getSelectionRegionForSaving(profiler::timestamp_t& _beginTime, profiler::timestamp_t& _endTime) const;
+
     void inspectCurrentView(bool _strict) {
         onInspectCurrentView(_strict);
     }

@@ -79,6 +79,7 @@ namespace profiler_gui {
 
     Globals::Globals()
         : theme("default")
+        , pid(0)
         , begin_time(0)
         , selected_thread(0U)
         , selected_block(::profiler_gui::numeric_max<decltype(selected_block)>())

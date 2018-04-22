@@ -122,8 +122,6 @@ struct EasyBlock Q_DECL_FINAL
     {
     }
 
-private:
-
     EasyBlock(const EasyBlock&) = delete;
 };
 #pragma pack(pop)
