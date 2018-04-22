@@ -378,9 +378,9 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
         static_cast<DiagramWidget*>(m_graphicsView->widget())->view()->inspectCurrentView(true);
     });
 
-    action = toolbar->addAction(QIcon(imagePath("crop")), "Crop and save");
-    action->setToolTip("Crop and save selected area\nas separate .prof file.");
-    connect(action, &QAction::triggered, this, &This::onCropAndSaveClicked);
+    action = toolbar->addAction(QIcon(imagePath("crop")), "Snapshot");
+    action->setToolTip("Save selected area\nas separate .prof file.");
+    connect(action, &QAction::triggered, this, &This::onSnapshotClicked);
 
     toolbar->addSeparator();
     auto menu = new QMenu("Settings", this);
@@ -2230,7 +2230,7 @@ void MainWindow::onFrameTimeChanged()
 
 //////////////////////////////////////////////////////////////////////////
 
-void MainWindow::onCropAndSaveClicked(bool)
+void MainWindow::onSnapshotClicked(bool)
 {
     profiler::timestamp_t beginTime = 0, endTime = 0;
     const bool hasSelection = static_cast<DiagramWidget*>(m_graphicsView->widget())->view()->getSelectionRegionForSaving(beginTime, endTime);
