@@ -8435,6 +8435,7 @@ class basic_json
     };
 
 
+public:
     /*!
     @brief internal implementation of the serialization function
 

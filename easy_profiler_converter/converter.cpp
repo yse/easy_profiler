@@ -1,70 +1,138 @@
-///this
-#include "converter.h"
-/// reader
-#include "reader.h"
+/**
+Lightweight profiler library for c++
+Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 
+Licensed under either of
+	* MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
+    * Apache License, Version 2.0, (LICENSE.APACHE or http://www.apache.org/licenses/LICENSE-2.0)
+at your option.
+
+The MIT License
+	Permission is hereby granted, free of charge, to any person obtaining a copy
+	of this software and associated documentation files (the "Software"), to deal
+	in the Software without restriction, including without limitation the rights
+	to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+	of the Software, and to permit persons to whom the Software is furnished
+	to do so, subject to the following conditions:
+
+	The above copyright notice and this permission notice shall be included in all
+	copies or substantial portions of the Software.
+
+	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+	LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+	TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+	USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+The Apache License, Version 2.0 (the "License");
+	You may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+
+**/
+
+#include "converter.h"
 #include <fstream>
 
-void JSONConverter::readThreadBlocks(const profiler::reader::BlocksTreeNode &node,nlohmann::json& json)
+void JsonExporter::convert(const profiler::reader::BlocksTreeNode& node, nlohmann::json& json) const
 {
-    auto j_local = nlohmann::json::object();
-
-    if(node.current_block != nullptr){
-        json = {{"id",static_cast<int>(node.current_block->blockId)}};
-        json["start"] = (node.current_block->beginTime);
-        json["stop"] = (node.current_block->endTime);
-        ///read data from block desciptor
-        if(node.current_block->descriptor)
-        {
-            json["compileTimeName"] = node.current_block->descriptor->compileTimeName;
-
-            std::stringstream stream;
-            stream << "0x"
-                   << std::hex << node.current_block->descriptor->argbColor;
-            std::string result( stream.str() );
-
-            json["color"] = result;
-            json["blockType"] = node.current_block->descriptor->blockType;
-        }
-    }
-
-    auto jsonObjects = nlohmann::json::array();
-
-    for(const auto &value : node.children)
+    if (node.info.descriptor != nullptr)
     {
-        jsonObjects.push_back(nlohmann::json::object());
-        readThreadBlocks(*value.get(),jsonObjects.back());
+        json = {{"id", node.info.blockIndex},
+                {"name", node.info.descriptor->blockName},
+                {"start", node.info.beginTime},
+                {"stop", node.info.endTime},
+                {"descriptor", node.info.descriptor->id}};
     }
 
-    json["children"] = jsonObjects;
+    convertChildren(node, json);
 }
 
-void JSONConverter::convert()
+void JsonExporter::convertChildren(const profiler::reader::BlocksTreeNode& node, nlohmann::json& json) const
+{
+    if (node.children.empty())
+        return;
+
+    auto children = nlohmann::json::array();
+    for (const auto& child : node.children)
+    {
+        children.emplace_back();
+        convert(child, children.back());
+    }
+
+    json["children"] = children;
+}
+
+void JsonExporter::convert(const ::std::string& inputFile, const ::std::string& outputFile) const
 {
     profiler::reader::FileReader fr;
-    fr.readFile(m_file_in);
-    const profiler::reader::thread_blocks_tree_t &blocks_tree = fr.getBlocksTreeData();
-    nlohmann::json json;
-    json["version"] = fr.getVersion();
-    json["timeUnit"] = "ns";
-    auto jsonObjects = nlohmann::json::array();
-    for(const auto &value : blocks_tree)
-    {
-        jsonObjects.push_back(nlohmann::json::object());
-        jsonObjects.back()["threadId"] = value.first;
-        jsonObjects.back()["name"] = fr.getThreadName(value.first);
-        readThreadBlocks(value.second,jsonObjects.back());
+    if (fr.readFile(inputFile) == 0)
+        return;
 
-    }
-    json["threads"] = jsonObjects;
+    nlohmann::json json = {{"version", fr.getVersionString()}, {"timeUnits", "ns"}};
 
-    if(!m_file_out.empty())
+    auto descriptors = nlohmann::json::array();
+    const auto& block_descriptors = fr.getBlockDescriptors();
+    for (const auto& descriptor : block_descriptors)
     {
-        std::ofstream file(m_file_out);
-        file << json;
+        descriptors.emplace_back();
+
+        std::stringstream stream;
+        stream << "0x" << std::hex << descriptor.argbColor;
+
+        auto& desc = descriptors.back();
+
+        desc["id"] = descriptor.id;
+        if (descriptor.parentId != descriptor.id)
+            desc["parentId"] = descriptor.parentId;
+
+        desc["name"] = descriptor.blockName;
+        desc["type"] = descriptor.blockType;
+        desc["color"] = stream.str();
+        desc["sourceFile"] = descriptor.fileName;
+        desc["sourceLine"] = descriptor.lineNumber;
     }
-    else
+
+    json["blockDescriptors"] = descriptors;
+
+    auto threads = nlohmann::json::array();
+    const auto& blocks_tree = fr.getBlocksTree();
+    for (const auto& kv : blocks_tree)
     {
-        ::std::cout << nlohmann::json(json).dump(2);
+        threads.emplace_back();
+
+        auto& thread = threads.back();
+        thread["threadId"] = kv.first;
+        thread["threadName"] = fr.getThreadName(kv.first);
+
+        convertChildren(kv.second, thread);
+    }
+
+    json["threads"] = threads;
+
+    try
+    {
+        if (!outputFile.empty())
+        {
+            ::std::ofstream file(outputFile);
+            json.dump(file, true, 1);
+        }
+        else
+        {
+            json.dump(::std::cout, true, 1);
+        }
+    }
+    catch (...)
+    {
+        ::std::cout << "json.dump() error...";
     }
 }
