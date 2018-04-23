@@ -66,16 +66,17 @@
 *                   : limitations under the License.
 ************************************************************************/
 
-#include <easy/reader.h>
-#include <easy/profiler.h>
-
-#include "hashed_cstr.h"
-
 #include <fstream>
 #include <iterator>
 #include <algorithm>
 #include <unordered_map>
 #include <thread>
+
+#include <easy/reader.h>
+#include <easy/profiler.h>
+
+#include "hashed_cstr.h"
+#include "alignment_helpers.h"
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -1055,18 +1056,39 @@ struct BlocksRange
 {
     profiler::block_index_t begin;
     profiler::block_index_t   end;
-};
 
-struct BlocksAndCSwitchesRange
-{
-    BlocksRange    blocks;
-    BlocksRange cswitches;
+    BlocksRange(profiler::block_index_t size = 0)
+        : begin(size), end(size)
+    {
+    }
+
+    BlocksRange(profiler::block_index_t beginIndex, profiler::block_index_t endIndex)
+        : begin(beginIndex), end(endIndex)
+    {
+    }
 };
 
 struct BlocksMemoryAndCount
 {
     uint64_t usedMemorySize = 0; // memory size used by profiler blocks
     profiler::block_index_t blocksCount = 0;
+
+    BlocksMemoryAndCount() = default;
+
+    BlocksMemoryAndCount& operator += (const BlocksMemoryAndCount& another)
+    {
+        usedMemorySize += another.usedMemorySize;
+        blocksCount += another.blocksCount;
+        return *this;
+    }
+};
+
+struct BlocksAndCSwitchesRange
+{
+    BlocksMemoryAndCount    blocksMemoryAndCount;
+    BlocksMemoryAndCount cswitchesMemoryAndCount;
+    BlocksRange                           blocks;
+    BlocksRange                        cswitches;
 };
 
 template <typename T>
@@ -1085,7 +1107,7 @@ BlocksRange findRange(const profiler::BlocksTree::children_t& children, profiler
                       const profiler::block_getter_fn& getter)
 {
     const auto size = static_cast<profiler::block_index_t>(children.size());
-    BlocksRange range {size, size};
+    BlocksRange range(size);
 
     auto first_it = std::lower_bound(children.begin(), children.end(), beginTime, [&](profiler::block_index_t element, profiler::timestamp_t value)
     {
@@ -1120,6 +1142,92 @@ BlocksRange findRange(const profiler::BlocksTree::children_t& children, profiler
     }
 
     return range;
+}
+
+BlocksMemoryAndCount calculateUsedMemoryAndBlocksCount(const profiler::BlocksTree::children_t& children,
+                                                       const BlocksRange& range,
+                                                       const profiler::block_getter_fn& getter, bool contextSwitches)
+{
+    BlocksMemoryAndCount memoryAndCount;
+
+    if (!contextSwitches)
+    {
+        for (auto i = range.begin; i < range.end; ++i)
+        {
+            const auto& child = getter(children[i]);
+
+            // Calculate self memory consumption
+            const uint64_t usedMemorySize = sizeof(profiler::SerializedBlock) + strlen(child.node->name()) + 1;
+
+            // Calculate children memory consumption
+            const BlocksRange childRange(0, static_cast<profiler::block_index_t>(child.children.size()));
+            const auto childrenMemoryAndCount = calculateUsedMemoryAndBlocksCount(child.children, childRange,
+                                                                                  getter,
+                                                                                  false);
+
+            // Accumulate memory and count
+            memoryAndCount += childrenMemoryAndCount;
+            memoryAndCount.usedMemorySize += usedMemorySize;
+            ++memoryAndCount.blocksCount;
+        }
+    }
+    else
+    {
+        for (auto i = range.begin; i < range.end; ++i)
+        {
+            const auto& child = getter(children[i]);
+            const uint64_t usedMemorySize = sizeof(profiler::SerializedCSwitch) + strlen(child.cs->name()) + 1;
+            memoryAndCount.usedMemorySize += usedMemorySize;
+            ++memoryAndCount.blocksCount;
+        }
+    }
+
+    return memoryAndCount;
+}
+
+void serialize(profiler::SerializedData& output, uint64_t& position, const profiler::BlocksTree::children_t& children,
+               const BlocksRange& range, const profiler::block_getter_fn& getter, bool contextSwitches)
+{
+    if (!contextSwitches)
+    {
+        // Serialize blocks
+
+        for (auto i = range.begin; i < range.end; ++i)
+        {
+            const auto& child = getter(children[i]);
+
+            // Serialize children
+            const BlocksRange childRange(0, static_cast<profiler::block_index_t>(child.children.size()));
+            serialize(output, position, child.children, childRange, getter, false);
+
+            // Serialize self
+            const auto usedMemorySize = static_cast<uint16_t>(
+                sizeof(profiler::SerializedBlock) + strlen(child.node->name()) + 1);
+
+            unaligned_store16(output.data() + position, usedMemorySize);
+            memcpy(output.data() + position + sizeof(uint16_t), child.node, static_cast<size_t>(usedMemorySize));
+
+            // TODO: write valid block id (it can be dynamic)
+
+            position += usedMemorySize + sizeof(uint16_t);
+        }
+
+        return;
+    }
+
+    // Serialize context switches
+    for (auto i = range.begin; i < range.end; ++i)
+    {
+        const auto& child = getter(children[i]);
+
+        const auto usedMemorySize = static_cast<uint16_t>(
+            sizeof(profiler::SerializedCSwitch) + strlen(child.cs->name()) + 1);
+
+        unaligned_store16(output.data() + position, usedMemorySize);
+        memcpy(output.data() + position + sizeof(uint16_t), child.cs, static_cast<size_t>(usedMemorySize));
+
+        position += usedMemorySize + sizeof(uint16_t);
+    }
 }
 
 extern "C" PROFILER_API profiler::block_index_t writeTreesToFile(std::atomic<int>& progress, const char* filename,
@@ -1172,17 +1280,25 @@ extern "C" PROFILER_API profiler::block_index_t writeTreesToStream(std::atomic<i
     using ranges_t = std::unordered_map<profiler::thread_id_t, BlocksAndCSwitchesRange, estd::hash<profiler::thread_id_t> >;
     ranges_t block_ranges;
 
-    size_t counter = 0, i = 0;
+    // Calculate block ranges and used memory (for serialization)
+    size_t i = 0;
     for (const auto& kv : trees)
     {
         const auto id = kv.first;
         const auto& tree = kv.second;
-        const auto childrenRange = findRange(tree.children, begin_time, end_time, block_getter);
-        const auto cswitcesRange = findRange(tree.sync, begin_time, end_time, block_getter);
 
-        counter += childrenRange.end - childrenRange.begin;
-        counter += cswitcesRange.end - cswitcesRange.begin;
-        block_ranges[id] = BlocksAndCSwitchesRange {childrenRange, cswitcesRange};
+        BlocksAndCSwitchesRange range;
+
+        range.blocks = findRange(tree.children, begin_time, end_time, block_getter);
+        range.cswitches = findRange(tree.sync, begin_time, end_time, block_getter);
+
+        range.blocksMemoryAndCount = calculateUsedMemoryAndBlocksCount(tree.children, range.blocks, block_getter, false);
+        total += range.blocksMemoryAndCount;
+
+        range.cswitchesMemoryAndCount = calculateUsedMemoryAndBlocksCount(tree.sync, range.cswitches, block_getter, true);
+        total += range.cswitchesMemoryAndCount;
+
+        block_ranges[id] = range;
 
         if (!update_progress_write(progress, 15 / static_cast<int>(trees.size() - i), log))
             return 0;
@@ -1190,29 +1306,73 @@ extern "C" PROFILER_API profiler::block_index_t writeTreesToStream(std::atomic<i
         ++i;
     }
 
-    if (counter == 0)
+    if (total.blocksCount == 0)
     {
         log << "Nothing to save";
         return 0;
     }
 
+    const uint64_t usedMemorySizeDescriptors = serialized_descriptors.size() + descriptors_count * sizeof(uint16_t);
+
+    // Write data to stream
     write(str, PROFILER_SIGNATURE);
     write(str, EASY_CURRENT_VERSION);
     write(str, pid);
 
-    // write 0 because we do not need to oncvert time from ticks to nanoseconds (it's already converted here)
+    // write 0 because we do not need to convert time from ticks to nanoseconds (it's already converted)
     write<int64_t>(str, 0LL); // CPU frequency
 
     write(str, begin_time);
     write(str, end_time);
 
     write(str, total.usedMemorySize);
-    write(str, serialized_descriptors.size());
+    write(str, usedMemorySizeDescriptors);
     write(str, total.blocksCount);
     write(str, descriptors_count);
 
-    log << "Not implemented";
-    progress.store(100, std::memory_order_release);
+    // Serialize all descriptors
+    // TODO
+
+    // Serialize all blocks
+    profiler::SerializedData serializedBlocks;
+    serializedBlocks.set(total.usedMemorySize + sizeof(uint16_t) * total.blocksCount);
+    uint64_t position = 0;
+
+    i = 0;
+    for (const auto& kv : trees)
+    {
+        const auto id = kv.first;
+        const auto& tree = kv.second;
+        const auto& range = block_ranges.at(id);
+
+        const auto nameSize = static_cast<uint16_t>(tree.thread_name.size() + 1);
+        write(str, id);
+        write(str, nameSize);
+        write(str, tree.name(), nameSize);
+        write(str, range.cswitchesMemoryAndCount.blocksCount);
+
+        // Serialize context switches
+        write(str, range.cswitchesMemoryAndCount.blocksCount);
+        if (range.cswitchesMemoryAndCount.blocksCount != 0)
+        {
+            const auto previousPosition = position;
+            serialize(serializedBlocks, position, tree.sync, range.cswitches, block_getter, true);
+            write(str, serializedBlocks.data() + previousPosition, position - previousPosition);
+        }
+
+        // Serialize blocks
+        write(str, range.blocksMemoryAndCount.blocksCount);
+        if (range.blocksMemoryAndCount.blocksCount != 0)
+        {
+            const auto previousPosition = position;
+            serialize(serializedBlocks, position, tree.children, range.blocks, block_getter, false);
+            write(str, serializedBlocks.data() + previousPosition, position - previousPosition);
+        }
+
+        if (!update_progress_write(progress, 40 + 60 / static_cast<int>(trees.size() - i), log))
+            return 0;
+    }
+
     return total.blocksCount;
 }
 
