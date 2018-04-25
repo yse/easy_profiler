@@ -614,6 +614,18 @@ const BlocksGraphicsView::Items &BlocksGraphicsView::getItems() const
     return m_items;
 }
 
+void BlocksGraphicsView::saveSelectionToFile(const QString& _filename) const
+{
+    if (m_selectedBlocks.empty())
+        return;
+
+//    profiler::timestamp_t beginTime = ~0ULL;
+//    for (const auto& selection : m_selectedBlocks)
+//    {
+//        const auto& tree = easy
+//    }
+}
+
 qreal BlocksGraphicsView::setTree(BlocksGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, uint32_t& _maxDepthChild, qreal _y, short _level)
 {
     if (_children.empty())

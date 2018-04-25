@@ -378,6 +378,10 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
         static_cast<DiagramWidget*>(m_graphicsView->widget())->view()->inspectCurrentView(true);
     });
 
+    action = toolbar->addAction(QIcon(imagePath("crop")), "Crop and save");
+    action->setToolTip("Crop and save selected area\nas separate .prof file.");
+    connect(action, &QAction::triggered, this, &This::onCropAndSaveClicked);
+
     toolbar->addSeparator();
     auto menu = new QMenu("Settings", this);
     menu->setToolTipsVisible(true);
@@ -2138,6 +2142,28 @@ void MainWindow::onFrameTimeEditFinish()
 void MainWindow::onFrameTimeChanged()
 {
     m_frameTimeEdit->setText(QString::number(EASY_GLOBALS.frame_time * 1e-3));
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void MainWindow::onCropAndSaveClicked(bool)
+{
+    QString lastFile = m_lastFiles.empty() ? QString() : m_lastFiles.front();
+
+    const auto i = lastFile.lastIndexOf(QChar('/'));
+    const auto j = lastFile.lastIndexOf(QChar('\\'));
+    auto k = std::max(i, j);
+
+    QString dir;
+    if (k > 0)
+        dir = lastFile.mid(0, ++k);
+
+    auto filename = QFileDialog::getSaveFileName(this, "Save cropped area to EasyProfiler File", dir,
+                                                 "EasyProfiler File (*.prof);;All Files (*.*)");
+    if (filename.isEmpty())
+        return;
+
+    static_cast<DiagramWidget*>(m_graphicsView->widget())->view()->saveSelectionToFile(filename);
 }
 
 //////////////////////////////////////////////////////////////////////////

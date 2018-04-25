@@ -326,6 +326,7 @@ protected slots:
     void onEventTracingEnableChange(bool _checked);
     void onFrameTimeEditFinish();
     void onFrameTimeChanged();
+    void onCropAndSaveClicked(bool);
 
     void onBlockStatusChange(profiler::block_id_t _id, profiler::EasyBlockStatus _status);
 
