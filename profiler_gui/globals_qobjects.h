@@ -93,6 +93,7 @@ namespace profiler_gui {
         void hexThreadIdChanged();
         void refreshRequired();
         void blocksTreeModeChanged();
+        void rulerVisible(bool);
 
         void sceneCleared();
         void sceneSizeChanged(qreal left, qreal right);

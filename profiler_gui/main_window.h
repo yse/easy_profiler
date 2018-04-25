@@ -130,8 +130,9 @@ public:
     /** \brief Save data to file.
     */
     void save(const QString& _filename, profiler::timestamp_t _beginTime, profiler::timestamp_t _endTime,
-              const profiler::SerializedData& _serializedDescriptors, profiler::block_id_t descriptors_count,
-              const profiler::thread_blocks_tree_t& _trees, profiler::block_getter_fn block_getter, profiler::processid_t _pid);
+              const profiler::SerializedData& _serializedDescriptors, const profiler::descriptors_list_t& _descriptors,
+              profiler::block_id_t descriptors_count, const profiler::thread_blocks_tree_t& _trees,
+              profiler::block_getter_fn block_getter, profiler::processid_t _pid);
 
     void interrupt();
     void get(profiler::SerializedData& _serializedBlocks, profiler::SerializedData& _serializedDescriptors,

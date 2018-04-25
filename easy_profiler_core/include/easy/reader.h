@@ -283,86 +283,41 @@ namespace profiler {
 
     class PROFILER_API SerializedData EASY_FINAL
     {
-        char*  m_data;
-        size_t m_size;
+        uint64_t m_size;
+        char*    m_data;
 
     public:
 
         SerializedData(const SerializedData&) = delete;
         SerializedData& operator = (const SerializedData&) = delete;
 
-        SerializedData() : m_data(nullptr), m_size(0)
-        {
-        }
+        SerializedData();
 
-        SerializedData(SerializedData&& that) : m_data(that.m_data), m_size(that.m_size)
-        {
-            that.m_data = nullptr;
-            that.m_size = 0;
-        }
+        SerializedData(SerializedData&& that);
 
-        ~SerializedData()
-        {
-            clear();
-        }
+        ~SerializedData();
 
         void set(uint64_t _size);
+
         void extend(uint64_t _size);
 
-        SerializedData& operator = (SerializedData&& that)
-        {
-            set(that.m_data, that.m_size);
-            that.m_data = nullptr;
-            that.m_size = 0;
-            return *this;
-        }
+        SerializedData& operator = (SerializedData&& that);
 
-        char* operator [] (uint64_t i)
-        {
-            return m_data + i;
-        }
+        char* operator [] (uint64_t i);
 
-        const char* operator [] (uint64_t i) const
-        {
-            return m_data + i;
-        }
+        const char* operator [] (uint64_t i) const;
 
-        bool empty() const
-        {
-            return m_size == 0;
-        }
+        bool empty() const;
 
-        uint64_t size() const
-        {
-            return m_size;
-        }
+        uint64_t size() const;
 
-        char* data()
-        {
-            return m_data;
-        }
+        char* data();
 
-        const char* data() const
-        {
-            return m_data;
-        }
+        const char* data() const;
 
-        void clear()
-        {
-            set(nullptr, 0);
-        }
+        void clear();
 
-        void swap(SerializedData& other)
-        {
-            char* d = other.m_data;
-            uint64_t sz = other.m_size;
-
-            other.m_data = m_data;
-            other.m_size = m_size;
-
-            m_data = d;
-            m_size = (size_t)sz;
-        }
+        void swap(SerializedData& other);
 
     private:
 
@@ -409,6 +364,7 @@ extern "C" {
 
     PROFILER_API profiler::block_index_t writeTreesToFile(std::atomic<int>& progress, const char* filename,
                                                           const profiler::SerializedData& serialized_descriptors,
+                                                          const profiler::descriptors_list_t& descriptors,
                                                           profiler::block_id_t descriptors_count,
                                                           const profiler::thread_blocks_tree_t& trees,
                                                           profiler::block_getter_fn block_getter,
@@ -419,6 +375,7 @@ extern "C" {
 
     PROFILER_API profiler::block_index_t writeTreesToStream(std::atomic<int>& progress, std::ostream& str,
                                                             const profiler::SerializedData& serialized_descriptors,
+                                                            const profiler::descriptors_list_t& descriptors,
                                                             profiler::block_id_t descriptors_count,
                                                             const profiler::thread_blocks_tree_t& trees,
                                                             profiler::block_getter_fn block_getter,
@@ -445,6 +402,7 @@ inline profiler::block_index_t fillTreesFromFile(const char* filename, profiler:
 
 inline profiler::block_index_t writeTreesToFile(const char* filename,
                                                 const profiler::SerializedData& serialized_descriptors,
+                                                const profiler::descriptors_list_t& descriptors,
                                                 profiler::block_id_t descriptors_count,
                                                 const profiler::thread_blocks_tree_t& trees,
                                                 profiler::block_getter_fn block_getter,
@@ -454,12 +412,13 @@ inline profiler::block_index_t writeTreesToFile(const char* filename,
                                                 std::ostream& log)
 {
     std::atomic<int> progress = ATOMIC_VAR_INIT(0);
-    return writeTreesToFile(progress, filename, serialized_descriptors, descriptors_count, trees, std::move(block_getter),
-                            begin_time, end_time, pid, log);
+    return writeTreesToFile(progress, filename, serialized_descriptors, descriptors, descriptors_count, trees,
+                            std::move(block_getter), begin_time, end_time, pid, log);
 }
 
 inline profiler::block_index_t writeTreesToStream(std::ostream& str,
                                                   const profiler::SerializedData& serialized_descriptors,
+                                                  const profiler::descriptors_list_t& descriptors,
                                                   profiler::block_id_t descriptors_count,
                                                   const profiler::thread_blocks_tree_t& trees,
                                                   profiler::block_getter_fn block_getter,
@@ -469,8 +428,8 @@ inline profiler::block_index_t writeTreesToStream(std::ostream& str,
                                                   std::ostream& log)
 {
     std::atomic<int> progress = ATOMIC_VAR_INIT(0);
-    return writeTreesToStream(progress, str, serialized_descriptors, descriptors_count, trees, std::move(block_getter),
-                              begin_time, end_time, pid, log);
+    return writeTreesToStream(progress, str, serialized_descriptors, descriptors, descriptors_count, trees,
+                              std::move(block_getter), begin_time, end_time, pid, log);
 }
 
 inline bool readDescriptionsFromStream(std::istream& str,

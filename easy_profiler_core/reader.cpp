@@ -129,11 +129,26 @@ inline bool isCompatibleVersion(uint32_t _version)
 
 namespace profiler {
 
+    SerializedData::SerializedData() : m_size(0), m_data(nullptr)
+    {
+    }
+
+    SerializedData::SerializedData(SerializedData&& that) : m_size(that.m_size), m_data(that.m_data)
+    {
+        that.m_size = 0;
+        that.m_data = nullptr;
+    }
+
+    SerializedData::~SerializedData()
+    {
+        clear();
+    }
+
     void SerializedData::set(char* _data, uint64_t _size)
     {
         delete [] m_data;
-        m_data = _data;
         m_size = _size;
+        m_data = _data;
     }
 
     void SerializedData::set(uint64_t _size)
@@ -146,8 +161,8 @@ namespace profiler {
 
     void SerializedData::extend(uint64_t _size)
     {
-        auto olddata = m_data;
         auto oldsize = m_size;
+        auto olddata = m_data;
 
         m_size = oldsize + _size;
         m_data = new char[m_size];
@@ -156,6 +171,61 @@ namespace profiler {
             memcpy(m_data, olddata, oldsize);
             delete [] olddata;
         }
+    }
+
+    SerializedData& SerializedData::operator = (SerializedData&& that)
+    {
+        set(that.m_data, that.m_size);
+        that.m_size = 0;
+        that.m_data = nullptr;
+        return *this;
+    }
+
+    char* SerializedData::operator [] (uint64_t i)
+    {
+        return m_data + i;
+    }
+
+    const char* SerializedData::operator [] (uint64_t i) const
+    {
+        return m_data + i;
+    }
+
+    bool SerializedData::empty() const
+    {
+        return m_size == 0;
+    }
+
+    uint64_t SerializedData::size() const
+    {
+        return m_size;
+    }
+
+    char* SerializedData::data()
+    {
+        return m_data;
+    }
+
+    const char* SerializedData::data() const
+    {
+        return m_data;
+    }
+
+    void SerializedData::clear()
+    {
+        set(nullptr, 0);
+    }
+
+    void SerializedData::swap(SerializedData& other)
+    {
+        char* d = other.m_data;
+        const auto sz = other.m_size;
+
+        other.m_data = m_data;
+        other.m_size = m_size;
+
+        m_data = d;
+        m_size = sz;
     }
 
     extern "C" PROFILER_API void release_stats(BlockStatistics*& _stats)
@@ -653,6 +723,12 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
                 return 0;
             }
 
+            if (i + sz > memory_size)
+            {
+                _log << "File corrupted.\nActual context switches data size > size pointed in file.";
+                return 0;
+            }
+
             char* data = serialized_blocks[i];
             inFile.read(data, sz);
             i += sz;
@@ -711,6 +787,12 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
             if (sz == 0)
             {
                 _log << "Bad block size == 0";
+                return 0;
+            }
+
+            if (i + sz > memory_size)
+            {
+                _log << "File corrupted.\nActual blocks data size > size pointed in file.";
                 return 0;
             }
 
@@ -1146,7 +1228,9 @@ BlocksRange findRange(const profiler::BlocksTree::children_t& children, profiler
 
 BlocksMemoryAndCount calculateUsedMemoryAndBlocksCount(const profiler::BlocksTree::children_t& children,
                                                        const BlocksRange& range,
-                                                       const profiler::block_getter_fn& getter, bool contextSwitches)
+                                                       const profiler::block_getter_fn& getter,
+                                                       const profiler::descriptors_list_t& descriptors,
+                                                       bool contextSwitches)
 {
     BlocksMemoryAndCount memoryAndCount;
 
@@ -1157,12 +1241,18 @@ BlocksMemoryAndCount calculateUsedMemoryAndBlocksCount(const profiler::BlocksTre
             const auto& child = getter(children[i]);
 
             // Calculate self memory consumption
-            const uint64_t usedMemorySize = sizeof(profiler::SerializedBlock) + strlen(child.node->name()) + 1;
+            const auto& desc = *descriptors[child.node->id()];
+            uint64_t usedMemorySize = 0;
+
+            if (desc.type() == profiler::BlockType::Value)
+                usedMemorySize = sizeof(profiler::ArbitraryValue) + child.value->data_size();
+            else
+                usedMemorySize = sizeof(profiler::SerializedBlock) + strlen(child.node->name()) + 1;
 
             // Calculate children memory consumption
             const BlocksRange childRange(0, static_cast<profiler::block_index_t>(child.children.size()));
             const auto childrenMemoryAndCount = calculateUsedMemoryAndBlocksCount(child.children, childRange,
-                                                                                  getter,
+                                                                                  getter, descriptors,
                                                                                   false);
 
             // Accumulate memory and count
@@ -1185,37 +1275,53 @@ BlocksMemoryAndCount calculateUsedMemoryAndBlocksCount(const profiler::BlocksTre
     return memoryAndCount;
 }
 
-void serialize(profiler::SerializedData& output, uint64_t& position, const profiler::BlocksTree::children_t& children,
-               const BlocksRange& range, const profiler::block_getter_fn& getter, bool contextSwitches)
+void serializeBlocks(std::ostream& output, std::vector<char>& buffer, const profiler::BlocksTree::children_t& children,
+                     const BlocksRange& range, const profiler::block_getter_fn& getter,
+                     const profiler::descriptors_list_t& descriptors)
 {
-    if (!contextSwitches)
+    for (auto i = range.begin; i < range.end; ++i)
     {
-        // Serialize blocks
+        const auto& child = getter(children[i]);
 
-        for (auto i = range.begin; i < range.end; ++i)
+        // Serialize children
+        const BlocksRange childRange(0, static_cast<profiler::block_index_t>(child.children.size()));
+        serializeBlocks(output, buffer, child.children, childRange, getter, descriptors);
+
+        // Serialize self
+        const auto& desc = *descriptors[child.node->id()];
+        uint16_t usedMemorySize = 0;
+
+        if (desc.type() == profiler::BlockType::Value)
         {
-            const auto& child = getter(children[i]);
+            usedMemorySize = static_cast<uint16_t>(sizeof(profiler::ArbitraryValue)) + child.value->data_size();
+            buffer.resize(usedMemorySize + sizeof(uint16_t));
+            unaligned_store16(buffer.data(), usedMemorySize);
+            memcpy(buffer.data() + sizeof(uint16_t), child.value, static_cast<size_t>(usedMemorySize));
+        }
+        else
+        {
+            usedMemorySize = static_cast<uint16_t>(sizeof(profiler::SerializedBlock)
+                                                   + strlen(child.node->name()) + 1);
 
-            // Serialize children
-            const BlocksRange childRange(0, static_cast<profiler::block_index_t>(child.children.size()));
-            serialize(output, position, child.children, childRange, getter, false);
+            buffer.resize(usedMemorySize + sizeof(uint16_t));
+            unaligned_store16(buffer.data(), usedMemorySize);
+            memcpy(buffer.data() + sizeof(uint16_t), child.node, static_cast<size_t>(usedMemorySize));
 
-            // Serialize self
-            const auto usedMemorySize = static_cast<uint16_t>(
-                sizeof(profiler::SerializedBlock) + strlen(child.node->name()) + 1);
-
-            unaligned_store16(output.data() + position, usedMemorySize);
-            memcpy(output.data() + position + sizeof(uint16_t), child.node, static_cast<size_t>(usedMemorySize));
-
-            // TODO: write valid block id (it can be dynamic)
-
-            position += usedMemorySize + sizeof(uint16_t);
+            if (child.node->id() != desc.id())
+            {
+                // This block id is dynamic. Restore it's value like it was before in the input .prof file
+                auto block = reinterpret_cast<profiler::SerializedBlock*>(buffer.data() + sizeof(uint16_t));
+                block->setId(desc.id());
+            }
         }
 
-        return;
+        write(output, buffer.data(), buffer.size());
     }
+}
 
-    // Serialize context switches
+void serializeContextSwitches(std::ostream& output, std::vector<char>& buffer, const profiler::BlocksTree::children_t& children,
+                              const BlocksRange& range, const profiler::block_getter_fn& getter)
+{
     for (auto i = range.begin; i < range.end; ++i)
     {
         const auto& child = getter(children[i]);
@@ -1223,15 +1329,39 @@ void serialize(profiler::SerializedData& output, uint64_t& position, const profi
         const auto usedMemorySize = static_cast<uint16_t>(
             sizeof(profiler::SerializedCSwitch) + strlen(child.cs->name()) + 1);
 
-        unaligned_store16(output.data() + position, usedMemorySize);
-        memcpy(output.data() + position + sizeof(uint16_t), child.cs, static_cast<size_t>(usedMemorySize));
+        buffer.resize(usedMemorySize + sizeof(uint16_t));
+        unaligned_store16(buffer.data(), usedMemorySize);
+        memcpy(buffer.data() + sizeof(uint16_t), child.cs, static_cast<size_t>(usedMemorySize));
 
-        position += usedMemorySize + sizeof(uint16_t);
+        write(output, buffer.data(), buffer.size());
+    }
+}
+
+void serializeDescriptors(std::ostream& output, std::vector<char>& buffer,
+                          const profiler::descriptors_list_t& descriptors,
+                          profiler::block_id_t descriptors_count)
+{
+    const size_t size = std::min(descriptors.size(), static_cast<size_t>(descriptors_count));
+    for (size_t i = 0; i < size; ++i)
+    {
+        const auto& desc = *descriptors[i];
+        if (desc.id() != i)
+            break;
+
+        const auto usedMemorySize = static_cast<uint16_t>(sizeof(profiler::SerializedBlockDescriptor)
+                                                          + strlen(desc.name()) + strlen(desc.file()) + 2);
+
+        buffer.resize(usedMemorySize + sizeof(uint16_t));
+        unaligned_store16(buffer.data(), usedMemorySize);
+        memcpy(buffer.data() + sizeof(uint16_t), &desc, static_cast<size_t>(usedMemorySize));
+
+        write(output, buffer.data(), buffer.size());
     }
 }
 
 extern "C" PROFILER_API profiler::block_index_t writeTreesToFile(std::atomic<int>& progress, const char* filename,
                                                                  const profiler::SerializedData& serialized_descriptors,
+                                                                 const profiler::descriptors_list_t& descriptors,
                                                                  profiler::block_id_t descriptors_count,
                                                                  const profiler::thread_blocks_tree_t& trees,
                                                                  profiler::block_getter_fn block_getter,
@@ -1251,8 +1381,8 @@ extern "C" PROFILER_API profiler::block_index_t writeTreesToFile(std::atomic<int
     }
 
     // Write data to file
-    auto result = writeTreesToStream(progress, outFile, serialized_descriptors, descriptors_count, trees, std::move(block_getter),
-                                        begin_time, end_time, pid, log);
+    auto result = writeTreesToStream(progress, outFile, serialized_descriptors, descriptors, descriptors_count, trees,
+                                     std::move(block_getter), begin_time, end_time, pid, log);
 
     return result;
 }
@@ -1261,6 +1391,7 @@ extern "C" PROFILER_API profiler::block_index_t writeTreesToFile(std::atomic<int
 
 extern "C" PROFILER_API profiler::block_index_t writeTreesToStream(std::atomic<int>& progress, std::ostream& str,
                                                                    const profiler::SerializedData& serialized_descriptors,
+                                                                   const profiler::descriptors_list_t& descriptors,
                                                                    profiler::block_id_t descriptors_count,
                                                                    const profiler::thread_blocks_tree_t& trees,
                                                                    profiler::block_getter_fn block_getter,
@@ -1281,6 +1412,7 @@ extern "C" PROFILER_API profiler::block_index_t writeTreesToStream(std::atomic<i
     ranges_t block_ranges;
 
     // Calculate block ranges and used memory (for serialization)
+    profiler::timestamp_t beginTime = begin_time, endTime = end_time;
     size_t i = 0;
     for (const auto& kv : trees)
     {
@@ -1292,11 +1424,25 @@ extern "C" PROFILER_API profiler::block_index_t writeTreesToStream(std::atomic<i
         range.blocks = findRange(tree.children, begin_time, end_time, block_getter);
         range.cswitches = findRange(tree.sync, begin_time, end_time, block_getter);
 
-        range.blocksMemoryAndCount = calculateUsedMemoryAndBlocksCount(tree.children, range.blocks, block_getter, false);
+        range.blocksMemoryAndCount = calculateUsedMemoryAndBlocksCount(tree.children, range.blocks, block_getter,
+                                                                       descriptors, false);
         total += range.blocksMemoryAndCount;
 
-        range.cswitchesMemoryAndCount = calculateUsedMemoryAndBlocksCount(tree.sync, range.cswitches, block_getter, true);
+        if (range.blocksMemoryAndCount.blocksCount != 0)
+        {
+            beginTime = std::min(beginTime, block_getter(tree.children[range.blocks.begin]).node->begin());
+            endTime = std::max(endTime, block_getter(tree.children[range.blocks.end - 1]).node->end());
+        }
+
+        range.cswitchesMemoryAndCount = calculateUsedMemoryAndBlocksCount(tree.sync, range.cswitches, block_getter,
+                                                                          descriptors, true);
         total += range.cswitchesMemoryAndCount;
+
+        if (range.cswitchesMemoryAndCount.blocksCount != 0)
+        {
+            beginTime = std::min(beginTime, block_getter(tree.children[range.cswitches.begin]).cs->begin());
+            endTime = std::max(endTime, block_getter(tree.children[range.cswitches.end - 1]).cs->end());
+        }
 
         block_ranges[id] = range;
 
@@ -1322,22 +1468,20 @@ extern "C" PROFILER_API profiler::block_index_t writeTreesToStream(std::atomic<i
     // write 0 because we do not need to convert time from ticks to nanoseconds (it's already converted)
     write<int64_t>(str, 0LL); // CPU frequency
 
-    write(str, begin_time);
-    write(str, end_time);
+    write(str, beginTime);
+    write(str, endTime);
 
     write(str, total.usedMemorySize);
     write(str, usedMemorySizeDescriptors);
     write(str, total.blocksCount);
     write(str, descriptors_count);
 
+    std::vector<char> buffer;
+
     // Serialize all descriptors
-    // TODO
+    serializeDescriptors(str, buffer, descriptors, descriptors_count);
 
     // Serialize all blocks
-    profiler::SerializedData serializedBlocks;
-    serializedBlocks.set(total.usedMemorySize + sizeof(uint16_t) * total.blocksCount);
-    uint64_t position = 0;
-
     i = 0;
     for (const auto& kv : trees)
     {
@@ -1349,25 +1493,16 @@ extern "C" PROFILER_API profiler::block_index_t writeTreesToStream(std::atomic<i
         write(str, id);
         write(str, nameSize);
         write(str, tree.name(), nameSize);
-        write(str, range.cswitchesMemoryAndCount.blocksCount);
 
         // Serialize context switches
         write(str, range.cswitchesMemoryAndCount.blocksCount);
         if (range.cswitchesMemoryAndCount.blocksCount != 0)
-        {
-            const auto previousPosition = position;
-            serialize(serializedBlocks, position, tree.sync, range.cswitches, block_getter, true);
-            write(str, serializedBlocks.data() + previousPosition, position - previousPosition);
-        }
+            serializeContextSwitches(str, buffer, tree.sync, range.cswitches, block_getter);
 
         // Serialize blocks
         write(str, range.blocksMemoryAndCount.blocksCount);
         if (range.blocksMemoryAndCount.blocksCount != 0)
-        {
-            const auto previousPosition = position;
-            serialize(serializedBlocks, position, tree.children, range.blocks, block_getter, false);
-            write(str, serializedBlocks.data() + previousPosition, position - previousPosition);
-        }
+            serializeBlocks(str, buffer, tree.children, range.blocks, block_getter, descriptors);
 
         if (!update_progress_write(progress, 40 + 60 / static_cast<int>(trees.size() - i), log))
             return 0;

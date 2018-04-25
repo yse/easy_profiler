@@ -379,8 +379,10 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     });
 
     action = toolbar->addAction(QIcon(imagePath("crop")), "Snapshot");
-    action->setToolTip("Save selected area\nas separate .prof file.");
+    action->setToolTip("Take a snapshot.\nSave selected area to\nseparate .prof file.");
+    action->setEnabled(false);
     connect(action, &QAction::triggered, this, &This::onSnapshotClicked);
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::rulerVisible, action, &QAction::setEnabled);
 
     toolbar->addSeparator();
     auto menu = new QMenu("Settings", this);
@@ -1944,7 +1946,8 @@ void MainWindow::onLoadingFinish(profiler::block_index_t& _nblocks)
     }
     else
     {
-        QMessageBox::warning(this, "Warning", QString("Cannot read profiled blocks.\n\nReason:\n%1").arg(m_reader.getError()), QMessageBox::Close);
+        QMessageBox::warning(this, "Warning", QString("Cannot read profiled blocks.\n\nReason:\n%1")
+            .arg(m_reader.getError()), QMessageBox::Close);
 
         if (m_reader.isFile())
         {
@@ -1964,7 +1967,12 @@ void MainWindow::onLoadingFinish(profiler::block_index_t& _nblocks)
 
 void MainWindow::onSavingFinish()
 {
-
+    const auto errorMessage = m_reader.getError();
+    if (!errorMessage.isEmpty())
+    {
+        QMessageBox::warning(this, "Warning", QString("Cannot save profiled blocks.\n\nReason:\n%1")
+            .arg(errorMessage), QMessageBox::Close);
+    }
 }
 
 void MainWindow::onFileReaderTimeout()
@@ -2114,7 +2122,8 @@ void FileReader::load(std::stringstream& _stream)
 }
 
 void FileReader::save(const QString& _filename, profiler::timestamp_t _beginTime, profiler::timestamp_t _endTime,
-                      const profiler::SerializedData& _serializedDescriptors, profiler::block_id_t descriptors_count,
+                      const profiler::SerializedData& _serializedDescriptors,
+                      const profiler::descriptors_list_t& _descriptors, profiler::block_id_t descriptors_count,
                       const profiler::thread_blocks_tree_t& _trees, profiler::block_getter_fn block_getter,
                       profiler::processid_t _pid)
 {
@@ -2125,13 +2134,37 @@ void FileReader::save(const QString& _filename, profiler::timestamp_t _beginTime
     m_filename = _filename;
 
     auto serializedDescriptors = std::ref(_serializedDescriptors);
+    auto descriptors = std::ref(_descriptors);
     auto trees = std::ref(_trees);
 
-    m_thread = std::thread([=] (profiler::block_getter_fn getter) {
-        writeTreesToFile(m_progress, m_filename.toStdString().c_str(), serializedDescriptors, descriptors_count, trees,
-                         getter, _beginTime, _endTime, _pid, m_errorMessage);
+    m_thread = std::thread([=] (profiler::block_getter_fn getter)
+    {
+        const QString tmpFile = m_filename + ".tmp";
+
+        const auto result = writeTreesToFile(m_progress, tmpFile.toStdString().c_str(), serializedDescriptors,
+                                             descriptors, descriptors_count, trees, getter, _beginTime, _endTime,
+                                             _pid, m_errorMessage);
+
+        if (result == 0 || !m_errorMessage.str().empty())
+        {
+            // Remove temporary file in case of error
+            QFile::remove(tmpFile);
+        }
+        else
+        {
+            // Remove old file if exists
+            {
+                QFile out(m_filename);
+                if (out.exists())
+                    out.remove();
+            }
+
+            QFile::rename(tmpFile, m_filename);
+        }
+
         m_progress.store(100, std::memory_order_release);
         m_bDone.store(true, std::memory_order_release);
+
     }, std::move(block_getter));
 }
 
@@ -2254,8 +2287,9 @@ void MainWindow::onSnapshotClicked(bool)
 
     createProgressDialog(tr("Saving selected region..."));
     m_readerTimer.start();
-    m_reader.save(filename, beginTime, endTime, m_serializedDescriptors, m_descriptorsNumberInFile,
-                  EASY_GLOBALS.profiler_blocks, easyBlocksTree, EASY_GLOBALS.pid);
+
+    m_reader.save(filename, beginTime, endTime, m_serializedDescriptors, EASY_GLOBALS.descriptors,
+                  m_descriptorsNumberInFile, EASY_GLOBALS.profiler_blocks, easyBlocksTree, EASY_GLOBALS.pid);
 }
 
 //////////////////////////////////////////////////////////////////////////
