@@ -7,7 +7,27 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
 # Status
-Branch `develop` has been rebased to `release_2_0` and now contains all v2.0.0 features and new UI style.
+Branch `develop` contains all v2.0.0 features and new UI style.
+
+Please, note that .prof file header has changed in v2.0.0.
+Now it is:
+```cpp
+struct EasyFileHeader
+{
+    uint32_t signature = 0;
+    uint32_t version = 0;
+    profiler::processid_t pid = 0;
+    int64_t cpu_frequency = 0;
+    profiler::timestamp_t begin_time = 0;
+    profiler::timestamp_t end_time = 0;
+    
+    // Changed order of memory_size and blocks_number relative to v1.3.0
+    uint64_t memory_size = 0;
+    uint64_t descriptors_memory_size = 0;
+    uint32_t total_blocks_number = 0;
+    uint32_t total_descriptors_number = 0;
+};
+```
 
 1. [About](#about)
 2. [Key features](#key-features)
