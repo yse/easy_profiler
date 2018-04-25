@@ -20,7 +20,7 @@ int MODELLING_STEPS = 1500;
 int RENDER_STEPS = 1500;
 int RESOURCE_LOADING_COUNT = 50;
 
-#define SAMPLE_NETWORK_TEST
+//#define SAMPLE_NETWORK_TEST
 
 void localSleep(uint64_t magic=200000)
 {
