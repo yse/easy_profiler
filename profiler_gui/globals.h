@@ -204,6 +204,7 @@ namespace profiler_gui {
 
         SceneData                                  scene; ///< Diagram scene sizes and visible area position
         SizeGuide                                   size; ///< Various widgets and font sizes adapted to current device pixel ratio
+        ::profiler::processid_t                      pid; ///< Profiled process ID
         ::profiler::timestamp_t               begin_time; ///< Timestamp of the most left diagram scene point (x=0)
         ::profiler::thread_id_t          selected_thread; ///< Current selected thread id
         ::profiler::block_index_t         selected_block; ///< Current selected profiler block index
@@ -261,6 +262,10 @@ inline profiler_gui::EasyBlock& easyBlock(profiler::block_index_t i) {
 
 inline profiler::SerializedBlockDescriptor& easyDescriptor(profiler::block_id_t i) {
     return *EASY_GLOBALS.descriptors[i];
+}
+
+inline profiler::SerializedBlockDescriptor& easyDescriptor(const profiler::BlocksTree& _block) {
+    return easyDescriptor(_block.node->id());
 }
 
 EASY_FORCE_INLINE const profiler::BlocksTree& easyBlocksTree(profiler::block_index_t i) {

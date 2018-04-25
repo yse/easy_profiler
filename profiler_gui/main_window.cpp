@@ -250,7 +250,7 @@ void MainWindow::configureSizes()
     w.hide();
 }
 
-MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhost"), m_lastPort(::profiler::DEFAULT_PORT)
+MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhost"), m_lastPort(profiler::DEFAULT_PORT)
 {
     { QIcon icon(":/images/logo"); if (!icon.isNull()) QApplication::setWindowIcon(icon); }
 
@@ -377,6 +377,12 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     connect(action, &QAction::triggered, [this] (bool) {
         static_cast<DiagramWidget*>(m_graphicsView->widget())->view()->inspectCurrentView(true);
     });
+
+    action = toolbar->addAction(QIcon(imagePath("crop")), "Snapshot");
+    action->setToolTip("Take a snapshot.\nSave selected area to\nseparate .prof file.");
+    action->setEnabled(false);
+    connect(action, &QAction::triggered, this, &This::onSnapshotClicked);
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::rulerVisible, action, &QAction::setEnabled);
 
     toolbar->addSeparator();
     auto menu = new QMenu("Settings", this);
@@ -547,8 +553,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     action = new QAction("Chrono text at top", actionGroup);
     action->setToolTip("Draw duration of selected interval\nat the top of the screen.");
     action->setCheckable(true);
-    action->setData(static_cast<int>(::profiler_gui::ChronoTextPosition_Top));
-    if (EASY_GLOBALS.chrono_text_position == ::profiler_gui::ChronoTextPosition_Top)
+    action->setData(static_cast<int>(profiler_gui::ChronoTextPosition_Top));
+    if (EASY_GLOBALS.chrono_text_position == profiler_gui::ChronoTextPosition_Top)
         action->setChecked(true);
     submenu->addAction(action);
     connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
@@ -556,8 +562,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     action = new QAction("Chrono text at center", actionGroup);
     action->setToolTip("Draw duration of selected interval\nat the center of the screen.");
     action->setCheckable(true);
-    action->setData(static_cast<int>(::profiler_gui::ChronoTextPosition_Center));
-    if (EASY_GLOBALS.chrono_text_position == ::profiler_gui::ChronoTextPosition_Center)
+    action->setData(static_cast<int>(profiler_gui::ChronoTextPosition_Center));
+    if (EASY_GLOBALS.chrono_text_position == profiler_gui::ChronoTextPosition_Center)
         action->setChecked(true);
     submenu->addAction(action);
     connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
@@ -565,8 +571,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     action = new QAction("Chrono text at bottom", actionGroup);
     action->setToolTip("Draw duration of selected interval\nat the bottom of the screen.");
     action->setCheckable(true);
-    action->setData(static_cast<int>(::profiler_gui::ChronoTextPosition_Bottom));
-    if (EASY_GLOBALS.chrono_text_position == ::profiler_gui::ChronoTextPosition_Bottom)
+    action->setData(static_cast<int>(profiler_gui::ChronoTextPosition_Bottom));
+    if (EASY_GLOBALS.chrono_text_position == profiler_gui::ChronoTextPosition_Bottom)
         action->setChecked(true);
     submenu->addAction(action);
     connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
@@ -674,32 +680,32 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     actionGroup->setExclusive(true);
     action = new QAction("Auto", actionGroup);
     action->setCheckable(true);
-    action->setData(static_cast<int>(::profiler_gui::TimeUnits_auto));
-    if (EASY_GLOBALS.time_units == ::profiler_gui::TimeUnits_auto)
+    action->setData(static_cast<int>(profiler_gui::TimeUnits_auto));
+    if (EASY_GLOBALS.time_units == profiler_gui::TimeUnits_auto)
         action->setChecked(true);
     submenu->addAction(action);
     connect(action, &QAction::triggered, this, &This::onUnitsChanged);
 
     action = new QAction("Milliseconds", actionGroup);
     action->setCheckable(true);
-    action->setData(static_cast<int>(::profiler_gui::TimeUnits_ms));
-    if (EASY_GLOBALS.time_units == ::profiler_gui::TimeUnits_ms)
+    action->setData(static_cast<int>(profiler_gui::TimeUnits_ms));
+    if (EASY_GLOBALS.time_units == profiler_gui::TimeUnits_ms)
         action->setChecked(true);
     submenu->addAction(action);
     connect(action, &QAction::triggered, this, &This::onUnitsChanged);
 
     action = new QAction("Microseconds", actionGroup);
     action->setCheckable(true);
-    action->setData(static_cast<int>(::profiler_gui::TimeUnits_us));
-    if (EASY_GLOBALS.time_units == ::profiler_gui::TimeUnits_us)
+    action->setData(static_cast<int>(profiler_gui::TimeUnits_us));
+    if (EASY_GLOBALS.time_units == profiler_gui::TimeUnits_us)
         action->setChecked(true);
     submenu->addAction(action);
     connect(action, &QAction::triggered, this, &This::onUnitsChanged);
 
     action = new QAction("Nanoseconds", actionGroup);
     action->setCheckable(true);
-    action->setData(static_cast<int>(::profiler_gui::TimeUnits_ns));
-    if (EASY_GLOBALS.time_units == ::profiler_gui::TimeUnits_ns)
+    action->setData(static_cast<int>(profiler_gui::TimeUnits_ns));
+    if (EASY_GLOBALS.time_units == profiler_gui::TimeUnits_ns)
         action->setChecked(true);
     submenu->addAction(action);
     connect(action, &QAction::triggered, this, &This::onUnitsChanged);
@@ -789,13 +795,14 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     m_frameTimeEdit->setValidator(val);
     m_frameTimeEdit->setText(QString::number(EASY_GLOBALS.frame_time * 1e-3));
     connect(m_frameTimeEdit, &QLineEdit::editingFinished, this, &This::onFrameTimeEditFinish);
-    connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::expectedFrameTimeChanged, this, &This::onFrameTimeChanged);
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::expectedFrameTimeChanged, this, &This::onFrameTimeChanged);
     toolbar->addWidget(m_frameTimeEdit);
 
     lbl = new QLabel("ms", toolbar);
     lbl->setContentsMargins(5, 2, 1, 1);
     toolbar->addWidget(lbl);
 
+    m_readerTimer.setInterval(LOADER_TIMER_INTERVAL);
 
     connect(graphicsView->view(), &BlocksGraphicsView::intervalChanged, treeWidget->tree(), &BlocksTreeWidget::setTreeBlocks);
     connect(&m_readerTimer, &QTimer::timeout, this, &This::onFileReaderTimeout);
@@ -962,14 +969,14 @@ void MainWindow::loadFile(const QString& filename)
 
     createProgressDialog(QString("Loading %1...").arg(filename.mid(std::max(i, j) + 1)));
 
-    m_readerTimer.start(LOADER_TIMER_INTERVAL);
+    m_readerTimer.start();
     m_reader.load(filename);
 }
 
 void MainWindow::readStream(std::stringstream& _data)
 {
     createProgressDialog(tr("Reading from stream..."));
-    m_readerTimer.start(LOADER_TIMER_INTERVAL);
+    m_readerTimer.start();
     m_reader.load(_data);
 }
 
@@ -1117,8 +1124,8 @@ void MainWindow::clear()
     emit EASY_GLOBALS.events.allDataGoingToBeDeleted();
 
     EASY_GLOBALS.selected_thread = 0;
-    ::profiler_gui::set_max(EASY_GLOBALS.selected_block);
-    ::profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
+    profiler_gui::set_max(EASY_GLOBALS.selected_block);
+    profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
     EASY_GLOBALS.profiler_blocks.clear();
     EASY_GLOBALS.descriptors.clear();
     EASY_GLOBALS.gui_blocks.clear();
@@ -1181,14 +1188,14 @@ void MainWindow::onEncodingChanged(bool)
 void MainWindow::onChronoTextPosChanged(bool)
 {
     auto _sender = qobject_cast<QAction*>(sender());
-    EASY_GLOBALS.chrono_text_position = static_cast<::profiler_gui::ChronometerTextPosition>(_sender->data().toInt());
+    EASY_GLOBALS.chrono_text_position = static_cast<profiler_gui::ChronometerTextPosition>(_sender->data().toInt());
     refreshDiagram();
 }
 
 void MainWindow::onUnitsChanged(bool)
 {
     auto _sender = qobject_cast<QAction*>(sender());
-    EASY_GLOBALS.time_units = static_cast<::profiler_gui::TimeUnits>(_sender->data().toInt());
+    EASY_GLOBALS.time_units = static_cast<profiler_gui::TimeUnits>(_sender->data().toInt());
 }
 
 void MainWindow::onEnableDisableStatistics(bool _checked)
@@ -1379,7 +1386,7 @@ void MainWindow::closeEvent(QCloseEvent* close_event)
 
 void MainWindow::loadSettings()
 {
-    QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
+    QSettings settings(profiler_gui::ORGANAZATION_NAME, profiler_gui::APPLICATION_NAME);
     settings.beginGroup("main");
 
     auto last_files = settings.value("last_files");
@@ -1400,11 +1407,11 @@ void MainWindow::loadSettings()
 
     auto val = settings.value("chrono_text_position");
     if (!val.isNull())
-        EASY_GLOBALS.chrono_text_position = static_cast<::profiler_gui::ChronometerTextPosition>(val.toInt());
+        EASY_GLOBALS.chrono_text_position = static_cast<profiler_gui::ChronometerTextPosition>(val.toInt());
 
     val = settings.value("time_units");
     if (!val.isNull())
-        EASY_GLOBALS.time_units = static_cast<::profiler_gui::TimeUnits>(val.toInt());
+        EASY_GLOBALS.time_units = static_cast<profiler_gui::TimeUnits>(val.toInt());
 
 
     val = settings.value("frame_time");
@@ -1529,7 +1536,7 @@ void MainWindow::loadSettings()
 
 void MainWindow::loadGeometry()
 {
-    QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
+    QSettings settings(profiler_gui::ORGANAZATION_NAME, profiler_gui::APPLICATION_NAME);
     settings.beginGroup("main");
 
     auto geometry = settings.value("geometry").toByteArray();
@@ -1559,7 +1566,7 @@ void MainWindow::loadGeometry()
 
 void MainWindow::saveSettingsAndGeometry()
 {
-    QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
+    QSettings settings(profiler_gui::ORGANAZATION_NAME, profiler_gui::APPLICATION_NAME);
     settings.beginGroup("main");
 
     settings.setValue("geometry", this->saveGeometry());
@@ -1838,123 +1845,162 @@ void MainWindow::onListenerDialogClose(int _result)
 
 //////////////////////////////////////////////////////////////////////////
 
+void MainWindow::closeProgressDialogAndClearReader()
+{
+    m_reader.interrupt();
+    m_readerTimer.stop();
+    destroyProgressDialog();
+}
+
+void MainWindow::onLoadingFinish(profiler::block_index_t& _nblocks)
+{
+    _nblocks = m_reader.size();
+    if (_nblocks != 0)
+    {
+        emit EASY_GLOBALS.events.allDataGoingToBeDeleted();
+
+        profiler::SerializedData serialized_blocks;
+        profiler::SerializedData serialized_descriptors;
+        profiler::descriptors_list_t descriptors;
+        profiler::blocks_t blocks;
+        profiler::thread_blocks_tree_t threads_map;
+        QString filename;
+        uint32_t descriptorsNumberInFile = 0;
+        uint32_t version = 0;
+        profiler::processid_t pid = 0;
+
+        m_reader.get(serialized_blocks, serialized_descriptors, descriptors, blocks, threads_map,
+                     descriptorsNumberInFile, version, pid, filename);
+
+        if (threads_map.size() > 0xff)
+        {
+            if (m_reader.isFile())
+                qWarning() << "Warning: file " << filename << " contains " << threads_map.size() << " threads!";
+            else
+                qWarning() << "Warning: input stream contains " << threads_map.size() << " threads!";
+            qWarning() << "Warning:    Currently, maximum number of displayed threads is 255! Some threads will not be displayed.";
+        }
+
+        m_bNetworkFileRegime = !m_reader.isFile();
+        if (!m_bNetworkFileRegime)
+        {
+            auto index = m_lastFiles.indexOf(filename, 0);
+            if (index == -1)
+            {
+                // This file is totally new. Add it to the list.
+                addFileToList(filename);
+            }
+            else
+            {
+                if (index != 0)
+                {
+                    // This file has been already loaded. Move it to the front.
+                    m_lastFiles.move(index, 0);
+                    auto fileActions = m_loadActionMenu->actions();
+                    auto action = fileActions.at(index);
+                    m_loadActionMenu->removeAction(action);
+                    m_loadActionMenu->insertAction(fileActions.front(), action);
+                    validateLastDir();
+                }
+
+                m_bOpenedCacheFile = filename.contains(NETWORK_CACHE_FILE);
+
+                if (m_bOpenedCacheFile)
+                    setWindowTitle(QString(EASY_DEFAULT_WINDOW_TITLE " - [%1] - UNSAVED network cache file").arg(filename));
+                else
+                    setWindowTitle(QString(EASY_DEFAULT_WINDOW_TITLE " - [%1]").arg(filename));
+            }
+        }
+        else
+        {
+            m_bOpenedCacheFile = false;
+            setWindowTitle(EASY_DEFAULT_WINDOW_TITLE " - UNSAVED network cache");
+        }
+
+        m_serializedBlocks = std::move(serialized_blocks);
+        m_serializedDescriptors = std::move(serialized_descriptors);
+        m_descriptorsNumberInFile = descriptorsNumberInFile;
+        EASY_GLOBALS.selected_thread = 0;
+        EASY_GLOBALS.version = version;
+        EASY_GLOBALS.pid = pid;
+        profiler_gui::set_max(EASY_GLOBALS.selected_block);
+        profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
+        EASY_GLOBALS.profiler_blocks.swap(threads_map);
+        EASY_GLOBALS.descriptors.swap(descriptors);
+
+        EASY_GLOBALS.gui_blocks.clear();
+        EASY_GLOBALS.gui_blocks.resize(_nblocks);
+        memset(EASY_GLOBALS.gui_blocks.data(), 0, sizeof(profiler_gui::EasyBlock) * _nblocks);
+
+        for (std::remove_reference<decltype(_nblocks)>::type i = 0; i < _nblocks; ++i)
+        {
+            auto& guiblock = EASY_GLOBALS.gui_blocks[i];
+            guiblock.tree = std::move(blocks[i]);
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
+            profiler_gui::set_max(guiblock.tree_item);
+#endif
+        }
+
+        m_saveAction->setEnabled(true);
+        m_deleteAction->setEnabled(true);
+    }
+    else
+    {
+        QMessageBox::warning(this, "Warning", QString("Cannot read profiled blocks.\n\nReason:\n%1")
+            .arg(m_reader.getError()), QMessageBox::Close);
+
+        if (m_reader.isFile())
+        {
+            auto index = m_lastFiles.indexOf(m_reader.filename(), 0);
+            if (index >= 0)
+            {
+                // Remove unexisting file from list
+                m_lastFiles.removeAt(index);
+                auto action = m_loadActionMenu->actions().at(index);
+                m_loadActionMenu->removeAction(action);
+                delete action;
+                validateLastDir();
+            }
+        }
+    }
+}
+
+void MainWindow::onSavingFinish()
+{
+    const auto errorMessage = m_reader.getError();
+    if (!errorMessage.isEmpty())
+    {
+        QMessageBox::warning(this, "Warning", QString("Cannot save profiled blocks.\n\nReason:\n%1")
+            .arg(errorMessage), QMessageBox::Close);
+    }
+}
+
 void MainWindow::onFileReaderTimeout()
 {
     if (m_reader.done())
     {
-        const auto nblocks = m_reader.size();
-        if (nblocks != 0)
+        if (m_reader.isLoading())
         {
-            emit EASY_GLOBALS.events.allDataGoingToBeDeleted();
+            profiler::block_index_t nblocks = 0;
 
-            ::profiler::SerializedData serialized_blocks;
-            ::profiler::SerializedData serialized_descriptors;
-            ::profiler::descriptors_list_t descriptors;
-            ::profiler::blocks_t blocks;
-            ::profiler::thread_blocks_tree_t threads_map;
-            QString filename;
-            uint32_t descriptorsNumberInFile = 0;
-            uint32_t version = 0;
-            m_reader.get(serialized_blocks, serialized_descriptors, descriptors, blocks, threads_map, descriptorsNumberInFile, version, filename);
+            onLoadingFinish(nblocks);
+            closeProgressDialogAndClearReader();
 
-            if (threads_map.size() > 0xff)
+            if (nblocks != 0)
             {
-                if (m_reader.isFile())
-                    qWarning() << "Warning: file " << filename << " contains " << threads_map.size() << " threads!";
-                else
-                    qWarning() << "Warning: input stream contains " << threads_map.size() << " threads!";
-                qWarning() << "Warning:    Currently, maximum number of displayed threads is 255! Some threads will not be displayed.";
+                emit EASY_GLOBALS.events.fileOpened();
+                if (EASY_GLOBALS.all_items_expanded_by_default)
+                    onExpandAllClicked(true);
             }
-
-            m_bNetworkFileRegime = !m_reader.isFile();
-            if (!m_bNetworkFileRegime)
-            {
-                auto index = m_lastFiles.indexOf(filename, 0);
-                if (index == -1)
-                {
-                    // This file is totally new. Add it to the list.
-                    addFileToList(filename);
-                }
-                else
-                {
-                    if (index != 0)
-                    {
-                        // This file has been already loaded. Move it to the front.
-                        m_lastFiles.move(index, 0);
-                        auto fileActions = m_loadActionMenu->actions();
-                        auto action = fileActions.at(index);
-                        m_loadActionMenu->removeAction(action);
-                        m_loadActionMenu->insertAction(fileActions.front(), action);
-                        validateLastDir();
-                    }
-
-                    m_bOpenedCacheFile = filename.contains(NETWORK_CACHE_FILE);
-
-                    if (m_bOpenedCacheFile)
-                        setWindowTitle(QString(EASY_DEFAULT_WINDOW_TITLE " - [%1] - UNSAVED network cache file").arg(filename));
-                    else
-                        setWindowTitle(QString(EASY_DEFAULT_WINDOW_TITLE " - [%1]").arg(filename));
-                }
-            }
-            else
-            {
-                m_bOpenedCacheFile = false;
-                setWindowTitle(EASY_DEFAULT_WINDOW_TITLE " - UNSAVED network cache");
-            }
-
-            m_serializedBlocks = std::move(serialized_blocks);
-            m_serializedDescriptors = std::move(serialized_descriptors);
-            m_descriptorsNumberInFile = descriptorsNumberInFile;
-            EASY_GLOBALS.selected_thread = 0;
-            EASY_GLOBALS.version = version;
-            ::profiler_gui::set_max(EASY_GLOBALS.selected_block);
-            ::profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
-            EASY_GLOBALS.profiler_blocks.swap(threads_map);
-            EASY_GLOBALS.descriptors.swap(descriptors);
-
-            EASY_GLOBALS.gui_blocks.clear();
-            EASY_GLOBALS.gui_blocks.resize(nblocks);
-            memset(EASY_GLOBALS.gui_blocks.data(), 0, sizeof(::profiler_gui::EasyBlock) * nblocks);
-            for (std::remove_const<decltype(nblocks)>::type i = 0; i < nblocks; ++i) {
-                auto& guiblock = EASY_GLOBALS.gui_blocks[i];
-                guiblock.tree = std::move(blocks[i]);
-#ifdef EASY_TREE_WIDGET__USE_VECTOR
-                ::profiler_gui::set_max(guiblock.tree_item);
-#endif
-            }
-
-            m_saveAction->setEnabled(true);
-            m_deleteAction->setEnabled(true);
+        }
+        else if (m_reader.isSaving())
+        {
+            onSavingFinish();
+            closeProgressDialogAndClearReader();
         }
         else
         {
-            QMessageBox::warning(this, "Warning", QString("Cannot read profiled blocks.\n\nReason:\n%1").arg(m_reader.getError()), QMessageBox::Close);
-
-            if (m_reader.isFile())
-            {
-                auto index = m_lastFiles.indexOf(m_reader.filename(), 0);
-                if (index >= 0)
-                {
-                    // Remove unexisting file from list
-                    m_lastFiles.removeAt(index);
-                    auto action = m_loadActionMenu->actions().at(index);
-                    m_loadActionMenu->removeAction(action);
-                    delete action;
-                    validateLastDir();
-                }
-            }
-        }
-
-        m_reader.interrupt();
-
-        m_readerTimer.stop();
-        destroyProgressDialog();
-
-        if (nblocks != 0)
-        {
-            emit EASY_GLOBALS.events.fileOpened();
-            if (EASY_GLOBALS.all_items_expanded_by_default)
-                onExpandAllClicked(true);
+            closeProgressDialogAndClearReader();
         }
     }
     else if (m_progress != nullptr)
@@ -1987,6 +2033,16 @@ const bool FileReader::isFile() const
     return m_isFile;
 }
 
+const bool FileReader::isSaving() const
+{
+    return m_jobType == JobType::Saving;
+}
+
+const bool FileReader::isLoading() const
+{
+    return m_jobType == JobType::Loading;
+}
+
 bool FileReader::done() const
 {
     return m_bDone.load(std::memory_order_acquire);
@@ -2011,13 +2067,20 @@ void FileReader::load(const QString& _filename)
 {
     interrupt();
 
+    m_jobType = JobType::Loading;
     m_isFile = true;
     m_filename = _filename;
-    m_thread = std::thread([this](bool _enableStatistics) {
-        m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_serializedBlocks, m_serializedDescriptors,
-            m_descriptors, m_blocks, m_blocksTree, m_descriptorsNumberInFile, m_version, _enableStatistics, m_errorMessage), std::memory_order_release);
+
+    m_thread = std::thread([this](bool _enableStatistics)
+    {
+        m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_serializedBlocks,
+                                       m_serializedDescriptors, m_descriptors, m_blocks, m_blocksTree,
+                                       m_descriptorsNumberInFile, m_version, m_pid, _enableStatistics,
+                                       m_errorMessage), std::memory_order_release);
+
         m_progress.store(100, std::memory_order_release);
         m_bDone.store(true, std::memory_order_release);
+
     }, EASY_GLOBALS.enable_statistics);
 }
 
@@ -2025,6 +2088,7 @@ void FileReader::load(std::stringstream& _stream)
 {
     interrupt();
 
+    m_jobType = JobType::Loading;
     m_isFile = false;
     m_filename.clear();
 
@@ -2038,17 +2102,70 @@ void FileReader::load(std::stringstream& _stream)
     m_stream.swap(_stream);
 #endif
 
-    m_thread = std::thread([this](bool _enableStatistics) {
+    m_thread = std::thread([this](bool _enableStatistics)
+    {
         std::ofstream cache_file(NETWORK_CACHE_FILE, std::fstream::binary);
-        if (cache_file.is_open()) {
+        if (cache_file.is_open())
+        {
             cache_file << m_stream.str();
             cache_file.close();
         }
-        m_size.store(fillTreesFromStream(m_progress, m_stream, m_serializedBlocks, m_serializedDescriptors, m_descriptors,
-            m_blocks, m_blocksTree, m_descriptorsNumberInFile, m_version, _enableStatistics, m_errorMessage), std::memory_order_release);
+
+        m_size.store(fillTreesFromStream(m_progress, m_stream, m_serializedBlocks, m_serializedDescriptors,
+                                         m_descriptors, m_blocks, m_blocksTree, m_descriptorsNumberInFile,
+                                         m_version, m_pid, _enableStatistics, m_errorMessage), std::memory_order_release);
+
         m_progress.store(100, std::memory_order_release);
         m_bDone.store(true, std::memory_order_release);
+
     }, EASY_GLOBALS.enable_statistics);
+}
+
+void FileReader::save(const QString& _filename, profiler::timestamp_t _beginTime, profiler::timestamp_t _endTime,
+                      const profiler::SerializedData& _serializedDescriptors,
+                      const profiler::descriptors_list_t& _descriptors, profiler::block_id_t descriptors_count,
+                      const profiler::thread_blocks_tree_t& _trees, profiler::block_getter_fn block_getter,
+                      profiler::processid_t _pid)
+{
+    interrupt();
+
+    m_jobType = JobType::Saving;
+    m_isFile = true;
+    m_filename = _filename;
+
+    auto serializedDescriptors = std::ref(_serializedDescriptors);
+    auto descriptors = std::ref(_descriptors);
+    auto trees = std::ref(_trees);
+
+    m_thread = std::thread([=] (profiler::block_getter_fn getter)
+    {
+        const QString tmpFile = m_filename + ".tmp";
+
+        const auto result = writeTreesToFile(m_progress, tmpFile.toStdString().c_str(), serializedDescriptors,
+                                             descriptors, descriptors_count, trees, getter, _beginTime, _endTime,
+                                             _pid, m_errorMessage);
+
+        if (result == 0 || !m_errorMessage.str().empty())
+        {
+            // Remove temporary file in case of error
+            QFile::remove(tmpFile);
+        }
+        else
+        {
+            // Remove old file if exists
+            {
+                QFile out(m_filename);
+                if (out.exists())
+                    out.remove();
+            }
+
+            QFile::rename(tmpFile, m_filename);
+        }
+
+        m_progress.store(100, std::memory_order_release);
+        m_bDone.store(true, std::memory_order_release);
+
+    }, std::move(block_getter));
 }
 
 void FileReader::interrupt()
@@ -2064,25 +2181,29 @@ void FileReader::interrupt()
     m_blocksTree.clear();
     m_descriptorsNumberInFile = 0;
     m_version = 0;
+    m_pid = 0;
+    m_jobType = JobType::Idle;
 
     clear_stream(m_stream);
     clear_stream(m_errorMessage);
 }
 
-void FileReader::get(::profiler::SerializedData& _serializedBlocks, ::profiler::SerializedData& _serializedDescriptors,
-                         ::profiler::descriptors_list_t& _descriptors, ::profiler::blocks_t& _blocks,
-                         ::profiler::thread_blocks_tree_t& _tree, uint32_t& _descriptorsNumberInFile, uint32_t& _version, QString& _filename)
+void FileReader::get(profiler::SerializedData& _serializedBlocks, profiler::SerializedData& _serializedDescriptors,
+                     profiler::descriptors_list_t& _descriptors, profiler::blocks_t& _blocks,
+                     profiler::thread_blocks_tree_t& _trees, uint32_t& _descriptorsNumberInFile, uint32_t& _version,
+                     profiler::processid_t& _pid, QString& _filename)
 {
     if (done())
     {
         m_serializedBlocks.swap(_serializedBlocks);
         m_serializedDescriptors.swap(_serializedDescriptors);
-        ::profiler::descriptors_list_t(std::move(m_descriptors)).swap(_descriptors);
+        profiler::descriptors_list_t(std::move(m_descriptors)).swap(_descriptors);
         m_blocks.swap(_blocks);
-        m_blocksTree.swap(_tree);
+        m_blocksTree.swap(_trees);
         m_filename.swap(_filename);
         _descriptorsNumberInFile = m_descriptorsNumberInFile;
         _version = m_version;
+        _pid = m_pid;
     }
 }
 
@@ -2126,18 +2247,49 @@ void MainWindow::onFrameTimeEditFinish()
 
     EASY_GLOBALS.frame_time = text.toFloat() * 1e3f;
 
-    disconnect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::expectedFrameTimeChanged,
+    disconnect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::expectedFrameTimeChanged,
                this, &This::onFrameTimeChanged);
 
     emit EASY_GLOBALS.events.expectedFrameTimeChanged();
 
-    connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::expectedFrameTimeChanged,
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::expectedFrameTimeChanged,
             this, &This::onFrameTimeChanged);
 }
 
 void MainWindow::onFrameTimeChanged()
 {
     m_frameTimeEdit->setText(QString::number(EASY_GLOBALS.frame_time * 1e-3));
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void MainWindow::onSnapshotClicked(bool)
+{
+    profiler::timestamp_t beginTime = 0, endTime = 0;
+    const bool hasSelection = static_cast<DiagramWidget*>(m_graphicsView->widget())->view()->getSelectionRegionForSaving(beginTime, endTime);
+    if (!hasSelection)
+        return;
+
+    QString lastFile = m_lastFiles.empty() ? QString() : m_lastFiles.front();
+
+    const auto i = lastFile.lastIndexOf(QChar('/'));
+    const auto j = lastFile.lastIndexOf(QChar('\\'));
+    auto k = std::max(i, j);
+
+    QString dir;
+    if (k > 0)
+        dir = lastFile.mid(0, ++k);
+
+    auto filename = QFileDialog::getSaveFileName(this, "Save cropped area to EasyProfiler File", dir,
+                                                 "EasyProfiler File (*.prof);;All Files (*.*)");
+    if (filename.isEmpty())
+        return;
+
+    createProgressDialog(tr("Saving selected region..."));
+    m_readerTimer.start();
+
+    m_reader.save(filename, beginTime, endTime, m_serializedDescriptors, EASY_GLOBALS.descriptors,
+                  m_descriptorsNumberInFile, EASY_GLOBALS.profiler_blocks, easyBlocksTree, EASY_GLOBALS.pid);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -2428,7 +2580,7 @@ void MainWindow::onGetBlockDescriptionsClicked(bool)
 
 //////////////////////////////////////////////////////////////////////////
 
-void MainWindow::onBlockStatusChange(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status)
+void MainWindow::onBlockStatusChange(profiler::block_id_t _id, profiler::EasyBlockStatus _status)
 {
     if (EASY_GLOBALS.connected)
         m_listener.send(profiler::net::BlockStatusMessage(_id, static_cast<uint8_t>(_status)));
@@ -2613,7 +2765,7 @@ bool SocketListener::connect(const char* _ipaddress, uint16_t _port, profiler::n
             seek += bytes;
         }
 
-        auto message = reinterpret_cast<const ::profiler::net::EasyProfilerStatus*>(buffer);
+        auto message = reinterpret_cast<const profiler::net::EasyProfilerStatus*>(buffer);
         if (message->isEasyNetMessage() && message->type == profiler::net::MessageType::Connection_Accepted)
             _reply = *message;
 
@@ -2625,7 +2777,7 @@ bool SocketListener::connect(const char* _ipaddress, uint16_t _port, profiler::n
     return isConnected;
 }
 
-bool SocketListener::reconnect(const char* _ipaddress, uint16_t _port, ::profiler::net::EasyProfilerStatus& _reply)
+bool SocketListener::reconnect(const char* _ipaddress, uint16_t _port, profiler::net::EasyProfilerStatus& _reply)
 {
     return connect(_ipaddress, _port, _reply, true);
 }
@@ -2820,7 +2972,7 @@ void SocketListener::listenCapture()
 
         if (bytes > 0)
         {
-            auto message = reinterpret_cast<const ::profiler::net::Message*>(buf);
+            auto message = reinterpret_cast<const profiler::net::Message*>(buf);
             if (!message->isEasyNetMessage())
                 continue;
 
@@ -2978,7 +3130,7 @@ void SocketListener::listenDescription()
 
         if (bytes > 0)
         {
-            auto message = reinterpret_cast<const ::profiler::net::Message*>(buf);
+            auto message = reinterpret_cast<const profiler::net::Message*>(buf);
             if (!message->isEasyNetMessage())
                 continue;
 
@@ -3069,7 +3221,7 @@ void SocketListener::listenDescription()
 
 void SocketListener::listenFrameTime()
 {
-    EASY_STATIC_CONSTEXPR size_t buffer_size = sizeof(::profiler::net::TimestampMessage) << 2;
+    EASY_STATIC_CONSTEXPR size_t buffer_size = sizeof(profiler::net::TimestampMessage) << 2;
 
     char buffer[buffer_size] = {};
     int seek = 0, bytes = 0;
@@ -3108,7 +3260,7 @@ void SocketListener::listenFrameTime()
 
         if (bytes > 0)
         {
-            auto message = reinterpret_cast<const ::profiler::net::Message*>(buf);
+            auto message = reinterpret_cast<const profiler::net::Message*>(buf);
             if (!message->isEasyNetMessage())
                 continue;
 

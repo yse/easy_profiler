@@ -62,11 +62,12 @@ profiler::block_index_t FileReader::readFile(const std::string& filename)
     profiler::blocks_t blocks;
     profiler::thread_blocks_tree_t threaded_trees;
 
+    profiler::processid_t pid = 0;
     uint32_t total_descriptors_number = 0;
 
     EASY_CONSTEXPR bool DoNotGatherStats = false;
     const auto blocks_number = ::fillTreesFromFile(filename.c_str(), serialized_blocks, serialized_descriptors,
-        descriptors, blocks, threaded_trees, total_descriptors_number, m_version, DoNotGatherStats, m_errorMessage);
+        descriptors, blocks, threaded_trees, total_descriptors_number, m_version, pid, DoNotGatherStats, m_errorMessage);
 
     if (blocks_number == 0)
         return 0;

@@ -40,7 +40,7 @@ public:
 };
 
 
-void printTree(TreePrinter& printer, const ::profiler::BlocksTree& tree, int level = 0, profiler::timestamp_t parent_dur = 0, profiler::timestamp_t root_dur = 0)
+void printTree(TreePrinter& printer, const profiler::BlocksTree& tree, int level = 0, profiler::timestamp_t parent_dur = 0, profiler::timestamp_t root_dur = 0)
 {
     //
     //if (tree.node){
@@ -72,7 +72,7 @@ void printTree(TreePrinter& printer, const ::profiler::BlocksTree& tree, int lev
 int main(int argc, char* argv[])
 {
 
-    ::profiler::thread_blocks_tree_t threaded_trees;
+    profiler::thread_blocks_tree_t threaded_trees;
 
     ::std::string filename;// = "test.prof";
     if (argc > 1 && argv[1])
@@ -110,14 +110,15 @@ int main(int argc, char* argv[])
 
     auto start = std::chrono::system_clock::now();
 
-    ::profiler::SerializedData serialized_blocks, serialized_descriptors;
-    ::profiler::descriptors_list_t descriptors;
-    ::profiler::blocks_t blocks;
-    ::std::stringstream errorMessage;
+    profiler::SerializedData serialized_blocks, serialized_descriptors;
+    profiler::descriptors_list_t descriptors;
+    profiler::blocks_t blocks;
+    std::stringstream errorMessage;
     uint32_t descriptorsNumberInFile = 0;
     uint32_t version = 0;
+    profiler::processid_t pid = 0;
     auto blocks_counter = fillTreesFromFile(filename.c_str(), serialized_blocks, serialized_descriptors, descriptors, blocks,
-                                            threaded_trees, descriptorsNumberInFile, version, true, errorMessage);
+                                            threaded_trees, descriptorsNumberInFile, version, pid, true, errorMessage);
     if (blocks_counter == 0)
         std::cout << "Can not read blocks from file " << filename.c_str() << "\nReason: " << errorMessage.str();
 

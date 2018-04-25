@@ -407,6 +407,8 @@ void BlocksGraphicsView::clear()
 
     EASY_GLOBALS.selected_thread = 0;
     emit EASY_GLOBALS.events.selectedThreadChanged(0);
+
+    emit EASY_GLOBALS.events.rulerVisible(false);
 }
 
 void BlocksGraphicsView::notifySceneSizeChange()
@@ -438,7 +440,10 @@ void BlocksGraphicsView::notifyVisibleRegionPosChange()
 
 void BlocksGraphicsView::notifyVisibleRegionPosChange(qreal _pos)
 {
-    m_offset = estd::clamp(0., _pos, m_sceneWidth - m_visibleRegionWidth);
+    if (m_sceneWidth < m_visibleRegionWidth)
+        m_offset = 0;
+    else
+        m_offset = estd::clamp(0., _pos, m_sceneWidth - m_visibleRegionWidth);
     notifyVisibleRegionPosChange();
 }
 
@@ -612,6 +617,21 @@ void BlocksGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocks
 const BlocksGraphicsView::Items &BlocksGraphicsView::getItems() const
 {
     return m_items;
+}
+
+bool BlocksGraphicsView::getSelectionRegionForSaving(profiler::timestamp_t& _beginTime, profiler::timestamp_t& _endTime) const
+{
+    if (m_bEmpty)
+        return false;
+
+    if (!m_selectionItem->isVisible() && !m_rulerItem->isVisible())
+        return false;
+
+    decltype(m_selectionItem) ruler = m_selectionItem->isVisible() ? m_selectionItem : m_rulerItem;
+    _beginTime = m_beginTime + position2time(ruler->left());
+    _endTime = m_beginTime + position2time(ruler->right());
+
+    return true;
 }
 
 qreal BlocksGraphicsView::setTree(BlocksGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, uint32_t& _maxDepthChild, qreal _y, short _level)
@@ -898,7 +918,10 @@ void BlocksGraphicsView::onWheel(qreal _scenePos, int _wheelDelta)
     notifyVisibleRegionSizeChange();
 
     // Calculate new offset to simulate QGraphicsView::AnchorUnderMouse scaling behavior
-    m_offset = clamp(0., initialPosition - _scenePos / m_scale, m_sceneWidth - m_visibleRegionWidth);
+    if (m_sceneWidth < m_visibleRegionWidth)
+        m_offset = 0;
+    else
+        m_offset = clamp(0., initialPosition - _scenePos / m_scale, m_sceneWidth - m_visibleRegionWidth);
 
     // Update slider position
     profiler_gui::BoolFlagGuard guard(m_bUpdatingRect, true); // To be sure that updateVisibleSceneRect will not be called by scrollbar change
@@ -955,6 +978,7 @@ void BlocksGraphicsView::mousePressEvent(QMouseEvent* _event)
             m_selectionItem->setLeftRight(mouseX, mouseX);
             m_selectionItem->hide();
             m_pScrollbar->hideSelectionIndicator();
+            emit EASY_GLOBALS.events.rulerVisible(m_rulerItem->isVisible());
         }
     }
 
@@ -984,6 +1008,7 @@ void BlocksGraphicsView::mouseDoubleClickEvent(QMouseEvent* _event)
         m_rulerItem->setLeftRight(mouseX, mouseX);
         m_rulerItem->hide();
         emit sceneUpdated();
+        emit EASY_GLOBALS.events.rulerVisible(m_selectionItem->isVisible());
     }
 
     _event->accept();
@@ -1010,6 +1035,7 @@ void BlocksGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
         {
             m_selectionItem->hide();
             m_pScrollbar->hideSelectionIndicator();
+            emit EASY_GLOBALS.events.rulerVisible(m_rulerItem->isVisible());
         }
 
         if (!m_selectedBlocks.empty())
@@ -1046,6 +1072,7 @@ void BlocksGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
         {
             chronoHidden = true;
             m_rulerItem->hide();
+            emit EASY_GLOBALS.events.rulerVisible(m_selectionItem->isVisible());
         }
         else if (m_selectionItem->isVisible() && m_selectionItem->hoverIndicator())
         {
@@ -1191,6 +1218,9 @@ void BlocksGraphicsView::addSelectionToHierarchy()
 
 void BlocksGraphicsView::onZoomSelection()
 {
+    if (m_selectionItem->width() < 1e-6)
+        return;
+
     auto deltaScale = m_visibleRegionWidth / m_selectionItem->width();
 
     if (fabs(deltaScale - 1) < 1e-6)
@@ -1229,6 +1259,9 @@ void BlocksGraphicsView::onInspectCurrentView(bool _strict)
         m_selectionItem->show();
         m_pScrollbar->setSelectionPos(m_selectionItem->left(), m_selectionItem->right());
         m_pScrollbar->showSelectionIndicator();
+
+        emit EASY_GLOBALS.events.rulerVisible(true);
+
         addSelectionToHierarchy();
     }
     else
@@ -1281,6 +1314,7 @@ bool BlocksGraphicsView::moveChrono(GraphicsRulerItem* _chronometerItem, qreal _
     if (!_chronometerItem->isVisible() && _chronometerItem->width() > 1e-6)
     {
         _chronometerItem->show();
+        emit EASY_GLOBALS.events.rulerVisible(true);
         return true;
     }
 

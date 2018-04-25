@@ -54,10 +54,10 @@
 #ifndef EASY_PROFILER_GUI__MAIN_WINDOW__H
 #define EASY_PROFILER_GUI__MAIN_WINDOW__H
 
-#include <string>
-#include <thread>
 #include <atomic>
 #include <sstream>
+#include <string>
+#include <thread>
 
 #include <QMainWindow>
 #include <QDockWidget>
@@ -85,6 +85,13 @@ namespace profiler { namespace net { struct EasyProfilerStatus; } }
 
 class FileReader Q_DECL_FINAL
 {
+    enum class JobType : int8_t
+    {
+        Idle=0,
+        Loading,
+        Saving,
+    };
+
     profiler::SerializedData      m_serializedBlocks; ///< 
     profiler::SerializedData m_serializedDescriptors; ///< 
     profiler::descriptors_list_t       m_descriptors; ///< 
@@ -93,12 +100,14 @@ class FileReader Q_DECL_FINAL
     std::stringstream                       m_stream; ///< 
     std::stringstream                 m_errorMessage; ///< 
     QString                               m_filename; ///<
+    profiler::processid_t                  m_pid = 0; ///<
     uint32_t           m_descriptorsNumberInFile = 0; ///<
     uint32_t                           m_version = 0; ///<
     std::thread                             m_thread; ///< 
     std::atomic_bool                         m_bDone; ///< 
     std::atomic<int>                      m_progress; ///< 
-    std::atomic<unsigned int>                 m_size; ///< 
+    std::atomic<unsigned int>                 m_size; ///<
+    JobType                m_jobType = JobType::Idle; ///<
     bool                            m_isFile = false; ///<
 
 public:
@@ -107,6 +116,9 @@ public:
     ~FileReader();
 
     const bool isFile() const;
+    const bool isSaving() const;
+    const bool isLoading() const;
+
     bool done() const;
     int progress() const;
     unsigned int size() const;
@@ -114,10 +126,18 @@ public:
 
     void load(const QString& _filename);
     void load(std::stringstream& _stream);
+
+    /** \brief Save data to file.
+    */
+    void save(const QString& _filename, profiler::timestamp_t _beginTime, profiler::timestamp_t _endTime,
+              const profiler::SerializedData& _serializedDescriptors, const profiler::descriptors_list_t& _descriptors,
+              profiler::block_id_t descriptors_count, const profiler::thread_blocks_tree_t& _trees,
+              profiler::block_getter_fn block_getter, profiler::processid_t _pid);
+
     void interrupt();
     void get(profiler::SerializedData& _serializedBlocks, profiler::SerializedData& _serializedDescriptors,
-             profiler::descriptors_list_t& _descriptors, profiler::blocks_t& _blocks, profiler::thread_blocks_tree_t& _tree,
-             uint32_t& _descriptorsNumberInFile, uint32_t& _version, QString& _filename);
+             profiler::descriptors_list_t& _descriptors, profiler::blocks_t& _blocks, profiler::thread_blocks_tree_t& _trees,
+             uint32_t& _descriptorsNumberInFile, uint32_t& _version, profiler::processid_t& _pid, QString& _filename);
 
     void join();
 
@@ -238,42 +258,43 @@ protected:
     QStringList                            m_lastFiles;
     QString                                    m_theme;
     QString                              m_lastAddress;
-    QDockWidget*                          m_treeWidget = nullptr;
-    QDockWidget*                        m_graphicsView = nullptr;
-    QDockWidget*                           m_fpsViewer = nullptr;
+
+    QDockWidget*                m_treeWidget = nullptr;
+    QDockWidget*              m_graphicsView = nullptr;
+    QDockWidget*                 m_fpsViewer = nullptr;
 
 #if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
     QDockWidget*                      m_descTreeWidget = nullptr;
 #endif
 
-    class QProgressDialog*                  m_progress = nullptr;
-    class BlockDescriptorsWidget*             m_dialogDescTree = nullptr;
-    class QMessageBox*                m_listenerDialog = nullptr;
+    class QProgressDialog*        m_progress = nullptr;
+    class BlockDescriptorsWidget* m_dialogDescTree = nullptr;
+    class QMessageBox*      m_listenerDialog = nullptr;
     QTimer                               m_readerTimer;
     QTimer                             m_listenerTimer;
     QTimer                           m_fpsRequestTimer;
-    profiler::SerializedData      m_serializedBlocks;
-    profiler::SerializedData m_serializedDescriptors;
-    FileReader                            m_reader;
-    SocketListener                      m_listener;
+    profiler::SerializedData        m_serializedBlocks;
+    profiler::SerializedData   m_serializedDescriptors;
+    FileReader                                m_reader;
+    SocketListener                          m_listener;
 
-    class QLineEdit* m_addressEdit = nullptr;
-    class QLineEdit* m_portEdit = nullptr;
+    class QLineEdit*   m_addressEdit = nullptr;
+    class QLineEdit*      m_portEdit = nullptr;
     class QLineEdit* m_frameTimeEdit = nullptr;
 
     class QMenu*   m_loadActionMenu = nullptr;
-    class QAction* m_saveAction = nullptr;
-    class QAction* m_deleteAction = nullptr;
+    class QAction*     m_saveAction = nullptr;
+    class QAction*   m_deleteAction = nullptr;
 
-    class QAction* m_captureAction = nullptr;
-    class QAction* m_connectAction = nullptr;
-    class QAction* m_eventTracingEnableAction = nullptr;
+    class QAction*              m_captureAction = nullptr;
+    class QAction*              m_connectAction = nullptr;
+    class QAction*   m_eventTracingEnableAction = nullptr;
     class QAction* m_eventTracingPriorityAction = nullptr;
 
     uint32_t m_descriptorsNumberInFile = 0;
-    uint16_t m_lastPort = 0;
-    bool m_bNetworkFileRegime = false;
-    bool m_bOpenedCacheFile = false;
+    uint16_t                m_lastPort = 0;
+    bool      m_bNetworkFileRegime = false;
+    bool        m_bOpenedCacheFile = false;
 
 public:
 
@@ -326,6 +347,7 @@ protected slots:
     void onEventTracingEnableChange(bool _checked);
     void onFrameTimeEditFinish();
     void onFrameTimeChanged();
+    void onSnapshotClicked(bool);
 
     void onBlockStatusChange(profiler::block_id_t _id, profiler::EasyBlockStatus _status);
 
@@ -338,6 +360,10 @@ protected slots:
 private:
 
     // Private non-virtual methods
+
+    void closeProgressDialogAndClearReader();
+    void onLoadingFinish(profiler::block_index_t& _nblocks);
+    void onSavingFinish();
 
     void configureSizes();
 
