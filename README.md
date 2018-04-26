@@ -104,6 +104,7 @@ find_package(easy_profiler REQUIRED)
 
 add_executable(app_for_profiling ${SOURCES})
 
+target_include_directories(app_for_profiling $<TARGET_PROPERTY:easy_profiler,INTERFACE_INCLUDE_DIRECTORIES>)
 target_link_libraries(app_for_profiling easy_profiler)
 ```
 
