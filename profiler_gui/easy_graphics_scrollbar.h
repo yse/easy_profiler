@@ -141,7 +141,11 @@ class EasyHistogramItem : public QGraphicsItem
     typedef QGraphicsItem Parent;
     typedef EasyHistogramItem This;
 
+public:
+
     enum HistRegime : uint8_t { Hist_Pointer, Hist_Id };
+
+private:
 
     QRectF                               m_boundingRect;
     qreal                                 m_topDuration;
@@ -157,9 +161,11 @@ class EasyHistogramItem : public QGraphicsItem
     qreal                            m_workerImageScale;
     qreal                           m_workerTopDuration;
     qreal                        m_workerBottomDuration;
+    ::profiler::timestamp_t         m_blockTotalDuraion;
     QString                            m_topDurationStr;
     QString                         m_bottomDurationStr;
     QString                                m_threadName;
+    QString                                 m_blockName;
     ::profiler::BlocksTree::children_t m_selectedBlocks;
     QImage                                  m_mainImage;
     EasyQTimer                                  m_timer;
@@ -201,6 +207,8 @@ public:
 
     void setSource(::profiler::thread_id_t _thread_id, const ::profiler_gui::EasyItems* _items);
     void setSource(::profiler::thread_id_t _thread_id, ::profiler::block_id_t _block_id);
+    void rebuildSource(HistRegime _regime);
+    void rebuildSource();
     void validateName();
     void updateImage();
     void cancelImageUpdate();
@@ -270,7 +278,6 @@ public:
     void mouseMoveEvent(QMouseEvent* _event) override;
     void wheelEvent(QWheelEvent* _event) override;
     void resizeEvent(QResizeEvent* _event) override;
-    //void contextMenuEvent(QContextMenuEvent* _event) override;
 
     void dragEnterEvent(QDragEnterEvent*) override {}
 
@@ -325,7 +332,7 @@ signals:
 
 private slots:
 
-    void onThreadActionClicked(bool);
+    void onThreadViewChanged();
     void onWindowWidthChange(qreal _width);
 
 }; // END of class EasyGraphicsScrollbar.

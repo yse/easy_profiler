@@ -45,6 +45,8 @@ The Apache License, Version 2.0 (the "License");
 
 #include <easy/profiler.h>
 
+class CSwitchBlock;
+
 namespace profiler {
 
     //////////////////////////////////////////////////////////////////////////
@@ -57,11 +59,13 @@ namespace profiler {
     public:
 
         inline const char* data() const { return reinterpret_cast<const char*>(this); }
+
+        ///< Run-time block name is stored right after main BaseBlockData data
         inline const char* name() const { return data() + sizeof(BaseBlockData); }
 
     private:
 
-        SerializedBlock(const ::profiler::Block& block, uint16_t name_length);
+        SerializedBlock(const Block& block, uint16_t name_length);
 
         SerializedBlock(const SerializedBlock&) = delete;
         SerializedBlock& operator = (const SerializedBlock&) = delete;
@@ -71,10 +75,34 @@ namespace profiler {
 
     //////////////////////////////////////////////////////////////////////////
 
+    class PROFILER_API SerializedCSwitch EASY_FINAL : public CSwitchEvent
+    {
+        friend ::ProfileManager;
+        friend ::ThreadStorage;
+
+    public:
+
+        inline const char* data() const { return reinterpret_cast<const char*>(this); }
+
+        ///< Run-time block name is stored right after main CSwitchEvent data
+        inline const char* name() const { return data() + sizeof(CSwitchEvent); }
+
+    private:
+
+        SerializedCSwitch(const CSwitchBlock& block, uint16_t name_length);
+
+        SerializedCSwitch(const SerializedCSwitch&) = delete;
+        SerializedCSwitch& operator = (const SerializedCSwitch&) = delete;
+        ~SerializedCSwitch() = delete;
+
+    }; // END of SerializedCSwitch.
+
+    //////////////////////////////////////////////////////////////////////////
+
 #pragma pack(push, 1)
     class PROFILER_API SerializedBlockDescriptor EASY_FINAL : public BaseBlockDescriptor
     {
-        uint16_t m_nameLength;
+        uint16_t m_nameLength; ///< Length of the name including trailing '\0' sybmol
 
     public:
 
@@ -82,17 +110,18 @@ namespace profiler {
             return reinterpret_cast<const char*>(this);
         }
 
+        ///< Name is stored right after m_nameLength
         inline const char* name() const {
             static const auto shift = sizeof(BaseBlockDescriptor) + sizeof(decltype(m_nameLength));
             return data() + shift;
         }
 
+        ///< File name is stored right after the name
         inline const char* file() const {
             return name() + m_nameLength;
         }
 
-        inline void setStatus(EasyBlockStatus _status)
-        {
+        inline void setStatus(EasyBlockStatus _status) {
             m_status = _status;
         }
 

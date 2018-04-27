@@ -63,15 +63,18 @@ namespace profiler_gui {
 
     EasyGlobals& EasyGlobals::instance()
     {
+        // It's okay even without C++11 "magic statics" feature because first call happens
+        // on application initialization - there is only one thread and no data races occur.
         static EasyGlobals globals;
         return globals;
     }
 
     EasyGlobals::EasyGlobals()
-        : selected_thread(0U)
+        : begin_time(0)
+        , selected_thread(0U)
         , selected_block(::profiler_gui::numeric_max<decltype(selected_block)>())
         , selected_block_id(::profiler_gui::numeric_max<decltype(selected_block_id)>())
-        , begin_time(0)
+        , version(0)
         , frame_time(16700)
         , blocks_spacing(0)
         , blocks_size_min(2)
@@ -84,6 +87,7 @@ namespace profiler_gui {
         , connected(false)
         , fps_enabled(true)
         , use_decorated_thread_name(false)
+        , hex_thread_id(false)
         , enable_event_markers(true)
         , enable_statistics(true)
         , enable_zero_length(true)
@@ -98,7 +102,12 @@ namespace profiler_gui {
         , highlight_blocks_with_same_id(true)
         , selecting_block_changes_thread(true)
         , auto_adjust_histogram_height(true)
+        , display_only_frames_on_histogram(false)
         , bind_scene_and_tree_expand_status(true)
+        , bg_font(::profiler_gui::EFont("Helvetica", 10, QFont::Bold))
+        , chronometer_font(::profiler_gui::EFont("Helvetica", 16, QFont::Bold))
+        , items_font(::profiler_gui::EFont("Helvetica", 10, QFont::Medium))
+        , selected_item_font(::profiler_gui::EFont("Helvetica", 10, QFont::Medium))
     {
 
     }

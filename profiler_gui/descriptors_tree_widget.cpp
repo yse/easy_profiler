@@ -261,11 +261,11 @@ void EasyDescTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     QMenu menu;
     menu.setToolTipsVisible(true);
     auto action = menu.addAction("Expand all");
-    SET_ICON(action, ":/Expand");
+    action->setIcon(QIcon(":/Expand"));
     connect(action, &QAction::triggered, this, &This::expandAll);
 
     action = menu.addAction("Collapse all");
-    SET_ICON(action, ":/Collapse");
+    action->setIcon(QIcon(":/Collapse"));
     connect(action, &QAction::triggered, this, &This::collapseAll);
 
     menu.addSeparator();
@@ -368,7 +368,7 @@ void EasyDescTreeWidget::clearSilent(bool _global)
 
 struct FileItems
 {
-    typedef ::std::unordered_map<int, EasyDescWidgetItem*, ::profiler_gui::do_no_hash<int>::hasher_t> Items;
+    typedef ::std::unordered_map<int, EasyDescWidgetItem*, ::profiler::passthrough_hash<int> > Items;
     Items children;
     QTreeWidgetItem* item = nullptr;
 };
@@ -394,7 +394,7 @@ void EasyDescTreeWidget::build()
             if (p.item == nullptr)
             {
                 p.item = new QTreeWidgetItem();
-                p.item->setText(DESC_COL_FILE_LINE, desc->file());
+                p.item->setText(DESC_COL_FILE_LINE, QString(desc->file()).remove(QRegExp("^(\\.{2}\\\\+|\\/+)+")));
                 p.item->setText(DESC_COL_TYPE, "F");
                 p.item->setToolTip(DESC_COL_TYPE, "File");
             }

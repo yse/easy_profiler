@@ -3,40 +3,40 @@ Lightweight profiler library for c++
 Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
 
 Licensed under either of
-	* MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
+    * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
     * Apache License, Version 2.0, (LICENSE.APACHE or http://www.apache.org/licenses/LICENSE-2.0)
 at your option.
 
 The MIT License
-	Permission is hereby granted, free of charge, to any person obtaining a copy
-	of this software and associated documentation files (the "Software"), to deal
-	in the Software without restriction, including without limitation the rights 
-	to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
-	of the Software, and to permit persons to whom the Software is furnished 
-	to do so, subject to the following conditions:
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights 
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
+    of the Software, and to permit persons to whom the Software is furnished 
+    to do so, subject to the following conditions:
 
-	The above copyright notice and this permission notice shall be included in all 
-	copies or substantial portions of the Software.
+    The above copyright notice and this permission notice shall be included in all 
+    copies or substantial portions of the Software.
 
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR 
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE 
-	LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
-	TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE 
-	USE OR OTHER DEALINGS IN THE SOFTWARE.
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+    INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR 
+    PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE 
+    LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+    TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE 
+    USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 The Apache License, Version 2.0 (the "License");
-	You may not use this file except in compliance with the License.
-	You may obtain a copy of the License at
+    You may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
-	Unless required by applicable law or agreed to in writing, software
-	distributed under the License is distributed on an "AS IS" BASIS,
-	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	See the License for the specific language governing permissions and
-	limitations under the License.
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
 
 **/
 
@@ -49,399 +49,18 @@ The Apache License, Version 2.0 (the "License");
 #include "spin_lock.h"
 #include "outstream.h"
 #include "hashed_cstr.h"
+#include "thread_storage.h"
 
 #include <map>
 #include <vector>
 #include <unordered_map>
 #include <thread>
 #include <atomic>
-#include <list>
+#include <type_traits>
 
 //////////////////////////////////////////////////////////////////////////
 
-#ifdef _WIN32
-#include <Windows.h>
-#else
-#include <sys/types.h>
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <chrono>
-#include <time.h>
-#endif
-
-#ifdef max
-#undef max
-#endif
-
-inline uint32_t getCurrentThreadId()
-{
-#ifdef _WIN32
-    return (uint32_t)::GetCurrentThreadId();
-#else
-    EASY_THREAD_LOCAL static const pid_t x = syscall(__NR_gettid);
-    EASY_THREAD_LOCAL static const uint32_t _id = (uint32_t)x;//std::hash<std::thread::id>()(std::this_thread::get_id());
-    return _id;
-#endif
-}
-
-namespace profiler {
-    
-    class SerializedBlock;
-
-    struct do_not_calc_hash {
-        template <class T> inline size_t operator()(T _value) const {
-            return static_cast<size_t>(_value);
-        }
-    };
-
-}
-
-//////////////////////////////////////////////////////////////////////////
-
-#ifndef EASY_ENABLE_BLOCK_STATUS
-# define EASY_ENABLE_BLOCK_STATUS 1
-#endif
-
-#ifndef EASY_ENABLE_ALIGNMENT
-# define EASY_ENABLE_ALIGNMENT 0
-#endif
-
-#ifndef EASY_ALIGNMENT_SIZE
-# define EASY_ALIGNMENT_SIZE 64
-#endif
-
-
-#if EASY_ENABLE_ALIGNMENT == 0
-# define EASY_ALIGNED(TYPE, VAR, A) TYPE VAR
-# define EASY_MALLOC(MEMSIZE, A) malloc(MEMSIZE)
-# define EASY_FREE(MEMPTR) free(MEMPTR)
-#else
-# if defined(_MSC_VER)
-#  define EASY_ALIGNED(TYPE, VAR, A) __declspec(align(A)) TYPE VAR
-#  define EASY_MALLOC(MEMSIZE, A) _aligned_malloc(MEMSIZE, A)
-#  define EASY_FREE(MEMPTR) _aligned_free(MEMPTR)
-# elif defined(__GNUC__)
-#  define EASY_ALIGNED(TYPE, VAR, A) TYPE VAR __attribute__(aligned(A))
-# else
-#  define EASY_ALIGNED(TYPE, VAR, A) TYPE VAR
-# endif
-#endif
-
-template <const uint16_t N>
-class chunk_allocator
-{
-    struct chunk { EASY_ALIGNED(int8_t, data[N], EASY_ALIGNMENT_SIZE); chunk* prev = nullptr; };
-
-    struct chunk_list
-    {
-        chunk* last = nullptr;
-
-        ~chunk_list()
-        {
-            clear();
-        }
-
-        void clear()
-        {
-            do {
-                auto p = last;
-                last = last->prev;
-                EASY_FREE(p);
-            } while (last != nullptr);
-        }
-
-        chunk& back()
-        {
-            return *last;
-        }
-
-        void emplace_back()
-        {
-            auto prev = last;
-            last = ::new (EASY_MALLOC(sizeof(chunk), EASY_ALIGNMENT_SIZE)) chunk();
-            last->prev = prev;
-            *(uint16_t*)last->data = 0;
-        }
-
-        /** Invert current chunks list to enable to iterate over chunks list in direct order.
-
-        This method is used by serialize().
-        */
-        void invert()
-        {
-            chunk* next = nullptr;
-
-            while (last->prev != nullptr) {
-                auto p = last->prev;
-                last->prev = next;
-                next = last;
-                last = p;
-            }
-
-            last->prev = next;
-        }
-    };
-
-    //typedef std::list<chunk> chunk_list;
-
-    chunk_list m_chunks;
-    uint32_t     m_size;
-    uint16_t    m_shift;
-
-public:
-
-    chunk_allocator() : m_size(0), m_shift(0)
-    {
-        m_chunks.emplace_back();
-    }
-
-    /** Allocate n bytes.
-
-    Automatically checks if there is enough preserved memory to store additional n bytes
-    and allocates additional buffer if needed.
-    */
-    void* allocate(uint16_t n)
-    {
-        ++m_size;
-
-        if (!need_expand(n))
-        {
-            int8_t* data = m_chunks.back().data + m_shift;
-            m_shift += n + sizeof(uint16_t);
-
-            *(uint16_t*)data = n;
-            data = data + sizeof(uint16_t);
-
-            if (m_shift + 1 < N)
-                *(uint16_t*)(data + n) = 0;
-
-            return data;
-        }
-
-        m_shift = n + sizeof(uint16_t);
-        m_chunks.emplace_back();
-        auto data = m_chunks.back().data;
-
-        *(uint16_t*)data = n;
-        data = data + sizeof(uint16_t);
-
-        *(uint16_t*)(data + n) = 0;
-        return data;
-    }
-
-    /** Check if current storage is not enough to store additional n bytes.
-    */
-    inline bool need_expand(uint16_t n) const
-    {
-        return (m_shift + n + sizeof(uint16_t)) > N;
-    }
-
-    inline uint32_t size() const
-    {
-        return m_size;
-    }
-
-    inline bool empty() const
-    {
-        return m_size == 0;
-    }
-
-    void clear()
-    {
-        m_size = 0;
-        m_shift = 0;
-        m_chunks.clear();
-        m_chunks.emplace_back();
-    }
-
-    /** Serialize data to stream.
-
-    \warning Data will be cleared after serialization.
-    */
-    void serialize(profiler::OStream& _outputStream)
-    {
-        // Chunks are stored in reversed order (stack).
-        // To be able to iterate them in direct order we have to invert chunks list.
-        m_chunks.invert();
-
-        // Iterate over chunks and perform blocks serialization
-        auto current = m_chunks.last;
-        do {
-            const int8_t* data = current->data;
-            uint16_t i = 0;
-            while (i + 1 < N && *(uint16_t*)data != 0) {
-                const uint16_t size = sizeof(uint16_t) + *(uint16_t*)data;
-                _outputStream.write((const char*)data, size);
-                data = data + size;
-                i += size;
-            }
-            current = current->prev;
-        } while (current != nullptr);
-
-        clear();
-    }
-
-}; // END of class chunk_allocator.
-
-//////////////////////////////////////////////////////////////////////////
-
-class NonscopedBlock : public profiler::Block
-{
-    std::string m_runtimeName; ///< a copy of _runtimeName to make it safe to begin block in one function and end it in another
-
-    NonscopedBlock() = delete;
-    NonscopedBlock(const NonscopedBlock&) = delete;
-    NonscopedBlock(NonscopedBlock&&) = delete;
-    NonscopedBlock& operator = (const NonscopedBlock&) = delete;
-    NonscopedBlock& operator = (NonscopedBlock&&) = delete;
-
-public:
-
-    NonscopedBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, bool = false);
-    ~NonscopedBlock();
-
-    /** Copy string from m_name to m_runtimeName to make it safe to end block in another function.
-
-    Performs any work if block is ON and m_name != ""
-    */
-    void copyname();
-
-    void destroy();
-
-}; // END of class NonscopedBlock.
-
-//////////////////////////////////////////////////////////////////////////
-
-template <class T>
-inline void destroy_elem(T*)
-{
-
-}
-
-inline void destroy_elem(NonscopedBlock* _elem)
-{
-    _elem->destroy();
-}
-
-template <class T>
-class StackBuffer
-{
-    struct chunk { int8_t data[sizeof(T)]; };
-
-    std::list<chunk> m_overflow; ///< List of additional stack elements if current capacity of buffer is not enough
-    T*                 m_buffer; ///< Contiguous buffer used for stack
-    uint32_t             m_size; ///< Current size of stack
-    uint32_t         m_capacity; ///< Current capacity of m_buffer
-    uint32_t      m_maxcapacity; ///< Maximum used capacity including m_buffer and m_overflow
-
-public:
-
-    StackBuffer(uint32_t N) : m_buffer((T*)malloc(N * sizeof(T))), m_size(0), m_capacity(N), m_maxcapacity(N)
-    {
-    }
-
-    ~StackBuffer()
-    {
-        for (uint32_t i = 0; i < m_size; ++i)
-            destroy_elem(m_buffer + i);
-
-        free(m_buffer);
-
-        for (auto& elem : m_overflow)
-            destroy_elem(reinterpret_cast<T*>(elem.data + 0));
-    }
-
-    template <class ... TArgs>
-    T& push(TArgs ... _args)
-    {
-        if (m_size < m_capacity)
-            return *(::new (m_buffer + m_size++) T(_args...));
-
-        m_overflow.emplace_back();
-        const uint32_t cap = m_capacity + (uint32_t)m_overflow.size();
-        if (m_maxcapacity < cap)
-            m_maxcapacity = cap;
-
-        return *(::new (m_overflow.back().data + 0) T(_args...));
-    }
-
-    void pop()
-    {
-        if (m_overflow.empty())
-        {
-            // m_size should not be equal to 0 here because ProfileManager behavior does not allow such situation
-            destroy_elem(m_buffer + --m_size);
-
-            if (m_size == 0 && m_maxcapacity > m_capacity)
-            {
-                // When stack gone empty we can resize buffer to use enough space in the future
-                free(m_buffer);
-                m_maxcapacity = m_capacity = std::max(m_maxcapacity, m_capacity << 1);
-                m_buffer = (T*)malloc(m_capacity * sizeof(T));
-            }
-
-            return;
-        }
-
-        destroy_elem(reinterpret_cast<T*>(m_overflow.back().data + 0));
-        m_overflow.pop_back();
-    }
-
-}; // END of class StackBuffer.
-
-//////////////////////////////////////////////////////////////////////////
-
-template <class T, const uint16_t N>
-struct BlocksList
-{
-    BlocksList() = default;
-
-    std::vector<T>            openedList;
-    chunk_allocator<N>        closedList;
-    uint64_t          usedMemorySize = 0;
-
-    void clearClosed() {
-        //closedList.clear();
-        usedMemorySize = 0;
-    }
-
-}; // END of struct BlocksList.
-
-//////////////////////////////////////////////////////////////////////////
-
-const uint16_t SIZEOF_CSWITCH = sizeof(profiler::BaseBlockData) + 1 + sizeof(uint16_t);
-
-struct ThreadStorage
-{
-    StackBuffer<NonscopedBlock>                                                 nonscopedBlocks;
-    BlocksList<std::reference_wrapper<profiler::Block>, SIZEOF_CSWITCH * (uint16_t)128U> blocks;
-    BlocksList<profiler::Block, SIZEOF_CSWITCH * (uint16_t)128U>                           sync;
-
-    std::string name; ///< Thread name
-
-#ifndef _WIN32
-    const pthread_t pthread_id; ///< Thread pointer
-#endif
-
-    const profiler::thread_id_t id; ///< Thread ID
-    std::atomic<char>      expired; ///< Is thread expired
-    std::atomic_bool         frame; ///< Is new frame opened
-    bool             allowChildren; ///< False if one of previously opened blocks has OFF_RECURSIVE or ON_WITHOUT_CHILDREN status
-    bool                     named; ///< True if thread name was set
-    bool                   guarded; ///< True if thread has been registered using ThreadGuard
-
-    void storeBlock(const profiler::Block& _block);
-    void storeCSwitch(const profiler::Block& _block);
-    void clearClosed();
-    void popSilent();
-
-    ThreadStorage();
-
-}; // END of struct ThreadStorage.
-
-//////////////////////////////////////////////////////////////////////////
-
-typedef uint32_t processid_t;
+typedef uint64_t processid_t;
 
 class BlockDescriptor;
 
@@ -544,13 +163,15 @@ public:
 
 private:
 
+    void registerThread();
+
     void beginFrame();
     void endFrame();
 
     void enableEventTracer();
     void disableEventTracer();
 
-    char checkThreadExpired(ThreadStorage& _registeredThread);
+    static char checkThreadExpired(ThreadStorage& _registeredThread);
 
     void storeBlockForce(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t& _timestamp);
     void storeBlockForce2(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t _timestamp);

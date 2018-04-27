@@ -62,8 +62,6 @@
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-const auto CHRONOMETER_FONT = ::profiler_gui::EFont("Helvetica", 16, QFont::Bold);
-
 #ifdef max
 #undef max
 #endif
@@ -152,7 +150,7 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     selectedInterval = units2microseconds(selectedInterval);
 
     const QString text = ::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, selectedInterval); // Displayed text
-    const auto textRect = QFontMetricsF(CHRONOMETER_FONT, sceneView).boundingRect(text); // Calculate displayed text boundingRect
+    const auto textRect = QFontMetricsF(EASY_GLOBALS.chronometer_font, sceneView).boundingRect(text); // Calculate displayed text boundingRect
     const auto rgb = m_color.rgb() & 0x00ffffff;
 
 
@@ -239,7 +237,7 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     _painter->setCompositionMode(QPainter::CompositionMode_Difference); // This lets the text to be visible on every background
     _painter->setRenderHint(QPainter::TextAntialiasing);
     _painter->setPen(0x00ffffff - rgb);
-    _painter->setFont(CHRONOMETER_FONT);
+    _painter->setFont(EASY_GLOBALS.chronometer_font);
 
     int textFlags = 0;
     switch (EASY_GLOBALS.chrono_text_position)

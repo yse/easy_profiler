@@ -60,6 +60,7 @@
 #include <QColor>
 #include <QTextCodec>
 #include <QSize>
+#include <QFont>
 #include "common_types.h"
 #include "globals_qobjects.h"
 
@@ -78,6 +79,8 @@ namespace profiler_gui {
 
     const qreal SCALING_COEFFICIENT = 1.25;
     const qreal SCALING_COEFFICIENT_INV = 1.0 / SCALING_COEFFICIENT;
+
+    const uint32_t V130 = 0x01030000;
 
     const QSize ICONS_SIZE(28, 28);
     const uint16_t GRAPHICS_ROW_SIZE = 18;
@@ -101,29 +104,47 @@ namespace profiler_gui {
 
     //////////////////////////////////////////////////////////////////////////
 
-    inline QString decoratedThreadName(bool _use_decorated_thread_name, const::profiler::BlocksTreeRoot& _root, const QString& _unicodeThreadWord)
+    inline QString decoratedThreadName(bool _use_decorated_thread_name, const::profiler::BlocksTreeRoot& _root, const QString& _unicodeThreadWord, bool _hex = false)
     {
         if (_root.got_name())
         {
             QString rootname(toUnicode(_root.name()));
             if (!_use_decorated_thread_name || rootname.contains(_unicodeThreadWord, Qt::CaseInsensitive))
+            {
+                if (_hex)
+                    return QString("%1 0x%2").arg(rootname).arg(_root.thread_id, 0, 16);
                 return QString("%1 %2").arg(rootname).arg(_root.thread_id);
+            }
+
+            if (_hex)
+                return QString("%1 Thread 0x%2").arg(rootname).arg(_root.thread_id, 0, 16);
             return QString("%1 Thread %2").arg(rootname).arg(_root.thread_id);
         }
 
+        if (_hex)
+            return QString("Thread 0x%1").arg(_root.thread_id, 0, 16);
         return QString("Thread %1").arg(_root.thread_id);
     }
 
-    inline QString decoratedThreadName(bool _use_decorated_thread_name, const ::profiler::BlocksTreeRoot& _root)
+    inline QString decoratedThreadName(bool _use_decorated_thread_name, const ::profiler::BlocksTreeRoot& _root, bool _hex = false)
     {
         if (_root.got_name())
         {
             QString rootname(toUnicode(_root.name()));
             if (!_use_decorated_thread_name || rootname.contains(toUnicode("thread"), Qt::CaseInsensitive))
+            {
+                if (_hex)
+                    return QString("%1 0x%2").arg(rootname).arg(_root.thread_id, 0, 16);
                 return QString("%1 %2").arg(rootname).arg(_root.thread_id);
+            }
+
+            if (_hex)
+                return QString("%1 Thread 0x%2").arg(rootname).arg(_root.thread_id, 0, 16);
             return QString("%1 Thread %2").arg(rootname).arg(_root.thread_id);
         }
 
+        if (_hex)
+            return QString("Thread 0x%1").arg(_root.thread_id, 0, 16);
         return QString("Thread %1").arg(_root.thread_id);
     }
 
@@ -151,6 +172,7 @@ namespace profiler_gui {
         ::profiler::thread_id_t          selected_thread; ///< Current selected thread id
         ::profiler::block_index_t         selected_block; ///< Current selected profiler block index
         ::profiler::block_id_t         selected_block_id; ///< Current selected profiler block id
+        uint32_t                                 version; ///< Opened file version (files may have different format)
         float                                 frame_time; ///< Expected frame time value in microseconds to be displayed at minimap on graphics scrollbar
         int                               blocks_spacing; ///< Minimum blocks spacing on diagram
         int                              blocks_size_min; ///< Minimum blocks size on diagram
@@ -163,6 +185,7 @@ namespace profiler_gui {
         bool                                   connected; ///< Is connected to source (to be able to capture profiling information)
         bool                                 fps_enabled; ///< Is FPS Monitor enabled
         bool                   use_decorated_thread_name; ///< Add "Thread" to the name of each thread (if there is no one)
+        bool                               hex_thread_id; ///< Use hex view for thread-id instead of decimal
         bool                        enable_event_markers; ///< Enable event indicators painting (These are narrow rectangles at the bottom of each thread)
         bool                           enable_statistics; ///< Enable gathering and using statistics (Disable if you want to consume less memory)
         bool                          enable_zero_length; ///< Enable zero length blocks (if true, then such blocks will have width == 1 pixel on each scale)
@@ -177,9 +200,13 @@ namespace profiler_gui {
         bool               highlight_blocks_with_same_id; ///< Highlight all blocks with same id on diagram
         bool              selecting_block_changes_thread; ///< If true then current selected thread will change every time you select block
         bool                auto_adjust_histogram_height; ///< Automatically adjust histogram height to the visible region
+        bool            display_only_frames_on_histogram; ///< Display only top-level blocks on histogram when drawing histogram by block id
         bool           bind_scene_and_tree_expand_status; /** \brief If true then items on graphics scene and in the tree (blocks hierarchy) are binded on each other
                                                                 so expanding/collapsing items on scene also expands/collapse items in the tree. */
-
+        QFont                                    bg_font; ///< Font for blocks_graphics_view
+        QFont                           chronometer_font; ///< Font for easy_chronometer_item
+        QFont                                 items_font; ///< Font for easy_graphics_item
+        QFont                         selected_item_font; ///< Font for easy_graphics_item
     private:
 
         EasyGlobals();
@@ -191,7 +218,7 @@ namespace profiler_gui {
 } // END of namespace profiler_gui.
 
 #ifndef IGNORE_GLOBALS_DECLARATION
-static ::profiler_gui::EasyGlobals& EASY_GLOBALS = ::profiler_gui::EasyGlobals::instance();
+#define EASY_GLOBALS ::profiler_gui::EasyGlobals::instance()
 
 inline ::profiler_gui::EasyBlock& easyBlock(::profiler::block_index_t i) {
     return EASY_GLOBALS.gui_blocks[i];
@@ -205,8 +232,6 @@ inline ::profiler::BlocksTree& blocksTree(::profiler::block_index_t i) {
     return easyBlock(i).tree;
 }
 #endif
-
-#define SET_ICON(objectName, iconName) { QIcon icon(iconName); if (!icon.isNull()) objectName->setIcon(icon); }
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////

@@ -124,10 +124,10 @@ private:
     typedef QGraphicsView Parent;
     typedef EasyGraphicsView This;
     typedef ::std::vector<EasyGraphicsItem*> Items;
-    typedef ::std::unordered_set<int, ::profiler_gui::do_no_hash<int>::hasher_t> Keys;
+    //typedef ::std::unordered_set<int, ::profiler::passthrough_hash<int> > Keys;
 
     Items                               m_items; ///< Array of all EasyGraphicsItem items
-    Keys                                 m_keys; ///< Pressed keys
+    //Keys                                 m_keys; ///< Pressed keyboard keys
     ::profiler_gui::TreeBlocks m_selectedBlocks; ///< Array of items which were selected by selection zone (EasyChronometerItem)
     QTimer                       m_flickerTimer; ///< Timer for flicking behavior
     QTimer                          m_idleTimer; ///< 
@@ -144,7 +144,7 @@ private:
     EasyGraphicsScrollbar*         m_pScrollbar; ///< Pointer to the graphics scrollbar widget
     EasyChronometerItem*      m_chronometerItem; ///< Pointer to the EasyChronometerItem which is displayed when you press right mouse button and move mouse left or right. This item is used to select blocks to display in tree widget.
     EasyChronometerItem*   m_chronometerItemAux; ///< Pointer to the EasyChronometerItem which is displayed when you double click left mouse button and move mouse left or right. This item is used only to measure time.
-    QGraphicsProxyWidget*        m_csInfoWidget; ///< 
+    QGraphicsProxyWidget*         m_popupWidget; ///< 
     int                         m_flickerSpeedX; ///< Current flicking speed x
     int                         m_flickerSpeedY; ///< Current flicking speed y
     int                       m_flickerCounterX;
@@ -198,6 +198,8 @@ private:
 
     // Private non-virtual methods
 
+    void removePopup(bool _removeFromScene = false);
+
     EasyChronometerItem* createChronometer(bool _main = true);
     bool moveChrono(EasyChronometerItem* _chronometerItem, qreal _mouseX);
     void initMode();
@@ -222,6 +224,7 @@ private slots:
     void onSelectedThreadChange(::profiler::thread_id_t _id);
     void onSelectedBlockChange(unsigned int _block_index);
     void onRefreshRequired();
+    void onThreadViewChanged();
 
 public:
 
@@ -272,8 +275,12 @@ private:
     typedef QGraphicsView Parent;
     typedef EasyThreadNamesWidget This;
 
-    EasyGraphicsView*     m_view;
-    const int m_additionalHeight;
+    QTimer                  m_idleTimer; ///< 
+    uint64_t                 m_idleTime; ///< 
+    EasyGraphicsView*            m_view; ///< 
+    QGraphicsProxyWidget* m_popupWidget; ///< 
+    int                     m_maxLength; ///< 
+    const int        m_additionalHeight; ///< 
 
 public:
 
@@ -297,10 +304,15 @@ public:
         return m_view;
     }
 
+private:
+
+    void removePopup(bool _removeFromScene = false);
+
 private slots:
 
     void setVerticalScrollbarRange(int _minValue, int _maxValue);
     void onTreeChange();
+    void onIdleTimeout();
     void repaintScene();
 
 }; // END of class EasyThreadNamesWidget.

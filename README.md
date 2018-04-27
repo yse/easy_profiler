@@ -1,6 +1,7 @@
-# easy_profiler [![1.2.0](https://img.shields.io/badge/version-1.2.0-009688.svg)](https://github.com/yse/easy_profiler/releases)
+# easy_profiler [![1.3.0](https://img.shields.io/badge/version-1.3.0-009688.svg)](https://github.com/yse/easy_profiler/releases)
 
 [![Build Status](https://travis-ci.org/yse/easy_profiler.svg?branch=develop)](https://travis-ci.org/yse/easy_profiler)
+[![Build Status](https://ci.appveyor.com/api/projects/status/github/yse/easy_profiler?branch=develop&svg=true)](https://ci.appveyor.com/project/yse/easy-profiler/branch/develop)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
@@ -173,11 +174,11 @@ APPLICATION_NAME - name of profiling application
 
 ## Prerequisites
 
-For core:
-* compiler with c++11 support
-* cmake 3.0 or higher
+* CMake 3.0 or higher
+* Compiler with c++11 support
+  * for Unix systems: compiler with `thread_local` support is **highly recommended**: _GCC >=4.8_, _Clang >=3.3_
 
-For GUI:
+Additional requirements for GUI:
 * Qt 5.3.0 or higher
 
 ## Linux
@@ -185,7 +186,7 @@ For GUI:
 ```bash
 $ mkdir build
 $ cd build
-$ cmake ..
+$ cmake -DCMAKE_BUILD_TYPE="Release" ..
 $ make
 ```
 

@@ -258,6 +258,8 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
 
     toolbar->addSeparator();
     auto menu = new QMenu("Settings", this);
+    menu->setToolTipsVisible(true);
+
     QToolButton* toolButton = new QToolButton(toolbar);
     toolButton->setIcon(QIcon(":/Settings"));
     toolButton->setMenu(menu);
@@ -273,13 +275,24 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
         auto f = action->font();
         f.setBold(true);
         action->setFont(f);
-        SET_ICON(action, ":/Stats");
+        action->setIcon(QIcon(":/Stats"));
     }
     else
     {
         action->setText("Statistics disabled");
-        SET_ICON(action, ":/Stats-off");
+        action->setIcon(QIcon(":/Stats-off"));
     }
+
+
+    action = menu->addAction("Only frames on histogram");
+    action->setToolTip("Display only top-level blocks on histogram.");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.display_only_frames_on_histogram);
+    connect(action, &QAction::triggered, [this](bool _checked)
+    {
+        EASY_GLOBALS.display_only_frames_on_histogram = _checked;
+        emit EASY_GLOBALS.events.displayOnlyFramesOnHistogramChanged();
+    });
 
 
     menu->addSeparator();
@@ -383,6 +396,16 @@ EasyMainWindow::EasyMainWindow() : Parent(), m_lastAddress("localhost"), m_lastP
     {
         EASY_GLOBALS.use_decorated_thread_name = _checked;
         emit EASY_GLOBALS.events.threadNameDecorationChanged();
+    });
+
+    action = submenu->addAction("Display hex thread id");
+    action->setToolTip("Display hex thread id instead of decimal.");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.hex_thread_id);
+    connect(action, &QAction::triggered, [this](bool _checked)
+    {
+        EASY_GLOBALS.hex_thread_id = _checked;
+        emit EASY_GLOBALS.events.hexThreadIdChanged();
     });
 
     submenu->addSeparator();
@@ -805,7 +828,7 @@ void EasyMainWindow::onSaveFileClicked(bool)
         {
             // Can not open the file!
 
-            QMessageBox::warning(this, "Warning", "Can not open source file.\nSaving incomplete.", QMessageBox::Close);
+            QMessageBox::warning(this, "Warning", "Cannot open source file.\nSaving incomplete.", QMessageBox::Close);
 
             m_lastFiles.pop_front();
             auto action = m_loadActionMenu->actions().front();
@@ -894,14 +917,14 @@ void EasyMainWindow::onSaveFileClicked(bool)
         }
         else if (inOk)
         {
-            QMessageBox::warning(this, "Warning", "Can not open destination file.\nSaving incomplete.", QMessageBox::Close);
+            QMessageBox::warning(this, "Warning", "Cannot open destination file.\nSaving incomplete.", QMessageBox::Close);
         }
         else
         {
             if (m_bNetworkFileRegime)
-                QMessageBox::warning(this, "Warning", "Can not open network cache file.\nSaving incomplete.", QMessageBox::Close);
+                QMessageBox::warning(this, "Warning", "Cannot open network cache file.\nSaving incomplete.", QMessageBox::Close);
             else
-                QMessageBox::warning(this, "Warning", "Can not open source file.\nSaving incomplete.", QMessageBox::Close);
+                QMessageBox::warning(this, "Warning", "Cannot open source file.\nSaving incomplete.", QMessageBox::Close);
         }
     }
 }
@@ -1004,12 +1027,12 @@ void EasyMainWindow::onEnableDisableStatistics(bool _checked)
         if (_checked)
         {
             action->setText("Statistics enabled");
-            SET_ICON(action, ":/Stats");
+            action->setIcon(QIcon(":/Stats"));
         }
         else
         {
             action->setText("Statistics disabled");
-            SET_ICON(action, ":/Stats-off");
+            action->setIcon(QIcon(":/Stats-off"));
         }
     }
 }
@@ -1143,7 +1166,7 @@ void EasyMainWindow::closeEvent(QCloseEvent* close_event)
     if (m_bNetworkFileRegime)
     {
         // Warn user about unsaved network information and suggest to save
-        if (QMessageBox::Yes == QMessageBox::question(this, "Unsaved session", "You unsaved data!\nSave before exit?", QMessageBox::Yes, QMessageBox::No))
+        if (QMessageBox::Yes == QMessageBox::question(this, "Unsaved session", "You have unsaved data!\nSave before exit?", QMessageBox::Yes, QMessageBox::No))
         {
             onSaveFileClicked(true);
         }
@@ -1260,9 +1283,17 @@ void EasyMainWindow::loadSettings()
     if (!flag.isNull())
         EASY_GLOBALS.auto_adjust_histogram_height = flag.toBool();
 
+    flag = settings.value("display_only_frames_on_histogram");
+    if (!flag.isNull())
+        EASY_GLOBALS.display_only_frames_on_histogram = flag.toBool();
+
     flag = settings.value("use_decorated_thread_name");
     if (!flag.isNull())
         EASY_GLOBALS.use_decorated_thread_name = flag.toBool();
+
+    flag = settings.value("hex_thread_id");
+    if (!flag.isNull())
+        EASY_GLOBALS.hex_thread_id = flag.toBool();
 
     flag = settings.value("fps_timer_interval");
     if (!flag.isNull())
@@ -1333,7 +1364,9 @@ void EasyMainWindow::saveSettingsAndGeometry()
     settings.setValue("selecting_block_changes_thread", EASY_GLOBALS.selecting_block_changes_thread);
     settings.setValue("enable_event_indicators", EASY_GLOBALS.enable_event_markers);
     settings.setValue("auto_adjust_histogram_height", EASY_GLOBALS.auto_adjust_histogram_height);
+    settings.setValue("display_only_frames_on_histogram", EASY_GLOBALS.display_only_frames_on_histogram);
     settings.setValue("use_decorated_thread_name", EASY_GLOBALS.use_decorated_thread_name);
+    settings.setValue("hex_thread_id", EASY_GLOBALS.hex_thread_id);
     settings.setValue("enable_statistics", EASY_GLOBALS.enable_statistics);
     settings.setValue("fps_timer_interval", EASY_GLOBALS.fps_timer_interval);
     settings.setValue("max_fps_history", EASY_GLOBALS.max_fps_history);
@@ -1349,15 +1382,18 @@ void EasyMainWindow::setDisconnected(bool _showMessage)
         m_fpsRequestTimer.stop();
 
     if (_showMessage)
-        QMessageBox::warning(this, "Warning", "Connection has lost", QMessageBox::Close);
+        QMessageBox::warning(this, "Warning", "Connection was lost", QMessageBox::Close);
 
     EASY_GLOBALS.connected = false;
     m_captureAction->setEnabled(false);
-    SET_ICON(m_connectAction, ":/Connection");
+    m_connectAction->setIcon(QIcon(":/Connection"));
     m_connectAction->setText(tr("Connect"));
 
     m_eventTracingEnableAction->setEnabled(false);
     m_eventTracingPriorityAction->setEnabled(false);
+
+    m_addressEdit->setEnabled(true);
+    m_portEdit->setEnabled(true);
 
     emit EASY_GLOBALS.events.connectionChanged(false);
 
@@ -1375,6 +1411,7 @@ void EasyMainWindow::onFrameTimeRequestTimeout()
         }
         else if (!m_listener.connected())
         {
+            m_listener.closeSocket();
             setDisconnected();
         }
     }
@@ -1404,7 +1441,8 @@ void EasyMainWindow::onListenerTimerTimeout()
     {
         if (m_listener.regime() == LISTENER_CAPTURE_RECEIVE)
             m_listener.finalizeCapture();
-        m_listenerDialog->reject();
+        if (m_listenerDialog)
+            m_listenerDialog->reject();
     }
     else if (m_listener.regime() == LISTENER_CAPTURE_RECEIVE)
     {
@@ -1481,10 +1519,11 @@ void EasyMainWindow::onListenerDialogClose(int _result)
                     if (m_listener.connected())
                     {
                         // make reconnect to clear socket buffers
-                        std::string address = m_listener.address();
+                        const std::string address = m_listener.address();
+                        const auto port = m_listener.port();
 
                         profiler::net::EasyProfilerStatus reply(false, false, false);
-                        if (m_listener.connect(address.c_str(), m_listener.port(), reply))
+                        if (m_listener.reconnect(address.c_str(), port, reply))
                         {
                             disconnect(m_eventTracingEnableAction, &QAction::triggered, this, &This::onEventTracingEnableChange);
                             disconnect(m_eventTracingPriorityAction, &QAction::triggered, this, &This::onEventTracingPriorityChange);
@@ -1533,6 +1572,7 @@ void EasyMainWindow::onListenerDialogClose(int _result)
 
     if (!m_listener.connected())
     {
+        m_listener.closeSocket();
         setDisconnected();
     }
 }
@@ -1556,7 +1596,8 @@ void EasyMainWindow::onFileReaderTimeout()
             ::profiler::thread_blocks_tree_t threads_map;
             QString filename;
             uint32_t descriptorsNumberInFile = 0;
-            m_reader.get(serialized_blocks, serialized_descriptors, descriptors, blocks, threads_map, descriptorsNumberInFile, filename);
+            uint32_t version = 0;
+            m_reader.get(serialized_blocks, serialized_descriptors, descriptors, blocks, threads_map, descriptorsNumberInFile, version, filename);
 
             if (threads_map.size() > 0xff)
             {
@@ -1606,6 +1647,7 @@ void EasyMainWindow::onFileReaderTimeout()
             m_serializedDescriptors = ::std::move(serialized_descriptors);
             m_descriptorsNumberInFile = descriptorsNumberInFile;
             EASY_GLOBALS.selected_thread = 0;
+            EASY_GLOBALS.version = version;
             ::profiler_gui::set_max(EASY_GLOBALS.selected_block);
             ::profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
             EASY_GLOBALS.profiler_blocks.swap(threads_map);
@@ -1635,7 +1677,7 @@ void EasyMainWindow::onFileReaderTimeout()
         }
         else
         {
-            QMessageBox::warning(this, "Warning", QString("Can not read profiled blocks.\n\nReason:\n%1").arg(m_reader.getError()), QMessageBox::Close);
+            QMessageBox::warning(this, "Warning", QString("Cannot read profiled blocks.\n\nReason:\n%1").arg(m_reader.getError()), QMessageBox::Close);
 
             if (m_reader.isFile())
             {
@@ -1721,7 +1763,7 @@ void EasyFileReader::load(const QString& _filename)
     m_filename = _filename;
     m_thread = ::std::thread([this](bool _enableStatistics) {
         m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_serializedBlocks, m_serializedDescriptors,
-            m_descriptors, m_blocks, m_blocksTree, m_descriptorsNumberInFile, _enableStatistics, m_errorMessage), ::std::memory_order_release);
+            m_descriptors, m_blocks, m_blocksTree, m_descriptorsNumberInFile, m_version, _enableStatistics, m_errorMessage), ::std::memory_order_release);
         m_progress.store(100, ::std::memory_order_release);
         m_bDone.store(true, ::std::memory_order_release);
     }, EASY_GLOBALS.enable_statistics);
@@ -1751,7 +1793,7 @@ void EasyFileReader::load(::std::stringstream& _stream)
             cache_file.close();
         }
         m_size.store(fillTreesFromStream(m_progress, m_stream, m_serializedBlocks, m_serializedDescriptors, m_descriptors,
-            m_blocks, m_blocksTree, m_descriptorsNumberInFile, _enableStatistics, m_errorMessage), ::std::memory_order_release);
+            m_blocks, m_blocksTree, m_descriptorsNumberInFile, m_version, _enableStatistics, m_errorMessage), ::std::memory_order_release);
         m_progress.store(100, ::std::memory_order_release);
         m_bDone.store(true, ::std::memory_order_release);
     }, EASY_GLOBALS.enable_statistics);
@@ -1772,6 +1814,7 @@ void EasyFileReader::interrupt()
     m_blocks.clear();
     m_blocksTree.clear();
     m_descriptorsNumberInFile = 0;
+    m_version = 0;
 
     clear_stream(m_stream);
     clear_stream(m_errorMessage);
@@ -1779,7 +1822,7 @@ void EasyFileReader::interrupt()
 
 void EasyFileReader::get(::profiler::SerializedData& _serializedBlocks, ::profiler::SerializedData& _serializedDescriptors,
                          ::profiler::descriptors_list_t& _descriptors, ::profiler::blocks_t& _blocks,
-                         ::profiler::thread_blocks_tree_t& _tree, uint32_t& _descriptorsNumberInFile, QString& _filename)
+                         ::profiler::thread_blocks_tree_t& _tree, uint32_t& _descriptorsNumberInFile, uint32_t& _version, QString& _filename)
 {
     if (done())
     {
@@ -1790,6 +1833,7 @@ void EasyFileReader::get(::profiler::SerializedData& _serializedBlocks, ::profil
         m_blocksTree.swap(_tree);
         m_filename.swap(_filename);
         _descriptorsNumberInFile = m_descriptorsNumberInFile;
+        _version = m_version;
     }
 }
 
@@ -1839,71 +1883,22 @@ void EasyMainWindow::onFrameTimeChanged()
 
 void EasyMainWindow::onConnectClicked(bool)
 {
-    auto text = m_addressEdit->text();
-//     auto parts = text.split(QChar('.'));
-//     if (parts.size() != 4)
-//     {
-//         QMessageBox::warning(this, "Warning", "Invalid IP-Address", QMessageBox::Close);
-// 
-//         if (EASY_GLOBALS.connected)
-//         {
-//             // Restore last values
-//             m_addressEdit->setText(m_lastAddress);
-//             m_portEdit->setText(QString::number(m_lastPort));
-//         }
-// 
-//         return;
-//     }
-// 
-//     for (auto& part : parts)
-//     {
-//         int i = 0;
-//         for (; i < part.size(); ++i)
-//         {
-//             if (part[i] != QChar('0'))
-//                 break;
-//         }
-// 
-//         if (i < part.size())
-//             part = part.mid(i);
-//         else
-//             part = "0";
-//     }
-
-    QString& address = text;// parts.join(QChar('.'));
-    const decltype(m_lastPort) port = m_portEdit->text().toUShort();
-    //m_addressEdit->setText(address);
-
-    const bool isSameAddress = (EASY_GLOBALS.connected && m_listener.port() == port && address.toStdString() == m_listener.address());
     if (EASY_GLOBALS.connected)
     {
-        //if (QMessageBox::question(this, isSameAddress ? "Reconnect" : "New connection", QString("Current connection will be broken\n\n%1")
-        //    .arg(isSameAddress ? "Re-connect?" : "Establish new connection?"),
-        //    QMessageBox::Yes, QMessageBox::No) != QMessageBox::Yes)
-        //{
-        //    if (!isSameAddress)
-        //    {
-        //        // Restore last values
-        //        m_addressEdit->setText(m_lastAddress);
-        //        m_portEdit->setText(QString::number(m_lastPort));
-        //    }
-        //
-        //    return;
-        //}
-
-        if (isSameAddress)
-        {
-            // Disconnect if clicked "Connect" with the same address
-            m_listener.disconnect();
-            setDisconnected(false);
-            return;
-        }
+        // Disconnect if already connected
+        m_listener.disconnect();
+        setDisconnected(false);
+        return;
     }
+
+    QString address = m_addressEdit->text();
+    const decltype(m_lastPort) port = m_portEdit->text().toUShort();
+    const bool isSameAddress = (EASY_GLOBALS.connected && m_listener.port() == port && address.toStdString() == m_listener.address());
 
     profiler::net::EasyProfilerStatus reply(false, false, false);
     if (!m_listener.connect(address.toStdString().c_str(), port, reply))
     {
-        if (EASY_GLOBALS.connected && !isSameAddress)
+        /*if (EASY_GLOBALS.connected && !isSameAddress)
         {
             if (QMessageBox::warning(this, "Warning", QString("Cannot connect to %1\n\nRestore previous connection?").arg(address),
                 QMessageBox::Yes, QMessageBox::No) == QMessageBox::Yes)
@@ -1929,11 +1924,14 @@ void EasyMainWindow::onConnectClicked(bool)
                 m_lastPort = port;
             }
         }
-        else
+        else*/
         {
             QMessageBox::warning(this, "Warning", QString("Cannot connect to %1").arg(address), QMessageBox::Close);
             if (EASY_GLOBALS.connected)
+            {
+                m_listener.closeSocket();
                 setDisconnected(false);
+            }
 
             if (!isSameAddress)
             {
@@ -1951,7 +1949,7 @@ void EasyMainWindow::onConnectClicked(bool)
     qInfo() << "Connected successfully";
     EASY_GLOBALS.connected = true;
     m_captureAction->setEnabled(true);
-    SET_ICON(m_connectAction, ":/Connection-on");
+    m_connectAction->setIcon(QIcon(":/Connection-on"));
     m_connectAction->setText(tr("Disconnect"));
 
     if (m_fpsViewer->isVisible())
@@ -1971,6 +1969,9 @@ void EasyMainWindow::onConnectClicked(bool)
 
     connect(m_eventTracingEnableAction, &QAction::triggered, this, &This::onEventTracingEnableChange);
     connect(m_eventTracingPriorityAction, &QAction::triggered, this, &This::onEventTracingPriorityChange);
+
+    m_addressEdit->setEnabled(false);
+    m_portEdit->setEnabled(false);
 
     emit EASY_GLOBALS.events.connectionChanged(true);
 
@@ -2006,12 +2007,14 @@ void EasyMainWindow::onCaptureClicked(bool)
         profiler::net::EasyProfilerStatus reply(false, false, false);
         if (!m_listener.connect(m_lastAddress.toStdString().c_str(), m_lastPort, reply))
         {
+            m_listener.closeSocket();
             setDisconnected();
             return;
         }
 
         if (!m_listener.startCapture())
         {
+            m_listener.closeSocket();
             setDisconnected();
             return;
         }
@@ -2047,7 +2050,7 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
         if (m_listener.regime() == LISTENER_DESCRIBE)
             QMessageBox::warning(this, "Warning", "Already capturing blocks description.\nFinish old capturing session first.", QMessageBox::Close);
         else
-            QMessageBox::warning(this, "Warning", "Capturing capturing frames.\nFinish old capturing session first.", QMessageBox::Close);
+            QMessageBox::warning(this, "Warning", "Already capturing frames.\nFinish old capturing session first.", QMessageBox::Close);
         return;
     }
 
@@ -2161,7 +2164,7 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
         }
         else
         {
-            QMessageBox::warning(this, "Warning", QString("Can not read blocks description from stream.\n\nReason:\n%1").arg(errorMessage.str().c_str()), QMessageBox::Close);
+            QMessageBox::warning(this, "Warning", QString("Cannot read blocks description from stream.\n\nReason:\n%1").arg(errorMessage.str().c_str()), QMessageBox::Close);
         }
 
         m_listener.clearData();
@@ -2169,6 +2172,7 @@ void EasyMainWindow::onGetBlockDescriptionsClicked(bool)
 
     if (!m_listener.connected())
     {
+        m_listener.closeSocket();
         setDisconnected();
     }
 }
@@ -2259,11 +2263,16 @@ void EasySocketListener::disconnect()
     m_address.clear();
     m_port = 0;
 
+    closeSocket();
+}
+
+void EasySocketListener::closeSocket()
+{
     m_easySocket.flush();
     m_easySocket.init();
 }
 
-bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profiler::net::EasyProfilerStatus& _reply)
+bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profiler::net::EasyProfilerStatus& _reply, bool _disconnectFirst)
 {
     if (connected())
     {
@@ -2280,8 +2289,9 @@ bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profile
     m_address.clear();
     m_port = 0;
 
-    m_easySocket.flush();
-    m_easySocket.init();
+    if (_disconnectFirst)
+        closeSocket();
+
     int res = m_easySocket.setAddress(_ipaddress, _port);
     res = m_easySocket.connect();
 
@@ -2340,6 +2350,11 @@ bool EasySocketListener::connect(const char* _ipaddress, uint16_t _port, profile
 
     m_bConnected.store(isConnected, ::std::memory_order_release);
     return isConnected;
+}
+
+bool EasySocketListener::reconnect(const char* _ipaddress, uint16_t _port, ::profiler::net::EasyProfilerStatus& _reply)
+{
+    return connect(_ipaddress, _port, _reply, true);
 }
 
 bool EasySocketListener::startCapture()

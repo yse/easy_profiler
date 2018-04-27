@@ -176,7 +176,7 @@ void EasyTreeWidgetLoader::fillTree(::profiler::timestamp_t& _beginTime, const u
     m_mode = _mode;
     m_thread = ::std::thread(&EasyTreeWidgetLoader::setTreeInternal1, this,
         ::std::ref(_beginTime), _blocksNumber, ::std::ref(_blocksTree), _colorizeRows,
-        EASY_GLOBALS.add_zero_blocks_to_hierarchy, EASY_GLOBALS.use_decorated_thread_name, EASY_GLOBALS.time_units);
+        EASY_GLOBALS.add_zero_blocks_to_hierarchy, EASY_GLOBALS.use_decorated_thread_name, EASY_GLOBALS.hex_thread_id, EASY_GLOBALS.time_units);
 }
 
 void EasyTreeWidgetLoader::fillTreeBlocks(const::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _beginTime, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, bool _colorizeRows, EasyTreeMode _mode)
@@ -185,12 +185,12 @@ void EasyTreeWidgetLoader::fillTreeBlocks(const::profiler_gui::TreeBlocks& _bloc
     m_mode = _mode;
     m_thread = ::std::thread(&EasyTreeWidgetLoader::setTreeInternal2, this,
         _beginTime, ::std::ref(_blocks), _left, _right, _strict, _colorizeRows,
-        EASY_GLOBALS.add_zero_blocks_to_hierarchy, EASY_GLOBALS.use_decorated_thread_name, EASY_GLOBALS.time_units);
+        EASY_GLOBALS.add_zero_blocks_to_hierarchy, EASY_GLOBALS.use_decorated_thread_name, EASY_GLOBALS.hex_thread_id, EASY_GLOBALS.time_units);
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyTreeWidgetLoader::setTreeInternal1(::profiler::timestamp_t& _beginTime, const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, bool _colorizeRows, bool _addZeroBlocks, bool _decoratedThreadNames, ::profiler_gui::TimeUnits _units)
+void EasyTreeWidgetLoader::setTreeInternal1(::profiler::timestamp_t& _beginTime, const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree, bool _colorizeRows, bool _addZeroBlocks, bool _decoratedThreadNames, bool _hexThreadId, ::profiler_gui::TimeUnits _units)
 {
     m_items.reserve(_blocksNumber + _blocksTree.size()); // _blocksNumber does not include Thread root blocks
 
@@ -219,7 +219,7 @@ void EasyTreeWidgetLoader::setTreeInternal1(::profiler::timestamp_t& _beginTime,
 
         const auto& root = threadTree.second;
         auto item = new EasyTreeWidgetItem();
-        item->setText(COL_NAME, ::profiler_gui::decoratedThreadName(_decoratedThreadNames, root, u_thread));
+        item->setText(COL_NAME, ::profiler_gui::decoratedThreadName(_decoratedThreadNames, root, u_thread, _hexThreadId));
 
         ::profiler::timestamp_t duration = 0;
         if (!root.children.empty())
@@ -266,9 +266,9 @@ void EasyTreeWidgetLoader::setTreeInternal1(::profiler::timestamp_t& _beginTime,
 //     return children_number;
 // }
 
-typedef ::std::unordered_map<::profiler::thread_id_t, ::profiler::block_index_t, ::profiler_gui::do_no_hash<::profiler::thread_id_t>::hasher_t> BeginEndIndicesMap;
+typedef ::std::unordered_map<::profiler::thread_id_t, ::profiler::block_index_t, ::profiler::passthrough_hash<::profiler::thread_id_t> > BeginEndIndicesMap;
 
-void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _beginTime, const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, bool _colorizeRows, bool _addZeroBlocks, bool _decoratedThreadNames, ::profiler_gui::TimeUnits _units)
+void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _beginTime, const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict, bool _colorizeRows, bool _addZeroBlocks, bool _decoratedThreadNames, bool _hexThreadId, ::profiler_gui::TimeUnits _units)
 {
     //size_t blocksNumber = 0;
     //for (const auto& block : _blocks)
@@ -309,7 +309,7 @@ void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _begi
         else
         {
             thread_item = new EasyTreeWidgetItem();
-            thread_item->setText(COL_NAME, ::profiler_gui::decoratedThreadName(_decoratedThreadNames, *block.root, u_thread));
+            thread_item->setText(COL_NAME, ::profiler_gui::decoratedThreadName(_decoratedThreadNames, *block.root, u_thread, _hexThreadId));
 
             if (!block.root->children.empty())
                 duration = blocksTree(block.root->children.back()).node->end() - blocksTree(block.root->children.front()).node->begin();
@@ -398,8 +398,8 @@ void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _begi
 
             if (per_thread_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_THREAD, _units, easyBlock(per_thread_stats->min_duration_block).tree.node->duration(), "min ");
-                item->setTimeSmart(COL_MAX_PER_THREAD, _units, easyBlock(per_thread_stats->max_duration_block).tree.node->duration(), "max ");
+                item->setTimeSmart(COL_MIN_PER_THREAD, _units, easyBlock(per_thread_stats->min_duration_block).tree.node->duration());
+                item->setTimeSmart(COL_MAX_PER_THREAD, _units, easyBlock(per_thread_stats->max_duration_block).tree.node->duration());
                 item->setTimeSmart(COL_AVERAGE_PER_THREAD, _units, per_thread_stats->average_duration());
                 item->setTimeSmart(COL_DURATION_SUM_PER_THREAD, _units, per_thread_stats->total_duration);
             }
@@ -414,8 +414,8 @@ void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _begi
 
             if (per_parent_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_PARENT, _units, easyBlock(per_parent_stats->min_duration_block).tree.node->duration(), "min ");
-                item->setTimeSmart(COL_MAX_PER_PARENT, _units, easyBlock(per_parent_stats->max_duration_block).tree.node->duration(), "max ");
+                item->setTimeSmart(COL_MIN_PER_PARENT, _units, easyBlock(per_parent_stats->min_duration_block).tree.node->duration());
+                item->setTimeSmart(COL_MAX_PER_PARENT, _units, easyBlock(per_parent_stats->max_duration_block).tree.node->duration());
                 item->setTimeSmart(COL_AVERAGE_PER_PARENT, _units, per_parent_stats->average_duration());
                 item->setTimeSmart(COL_DURATION_SUM_PER_PARENT, _units, per_parent_stats->total_duration);
             }
@@ -426,8 +426,8 @@ void EasyTreeWidgetLoader::setTreeInternal2(const ::profiler::timestamp_t& _begi
 
             if (per_frame_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_FRAME, _units, easyBlock(per_frame_stats->min_duration_block).tree.node->duration(), "min ");
-                item->setTimeSmart(COL_MAX_PER_FRAME, _units, easyBlock(per_frame_stats->max_duration_block).tree.node->duration(), "max ");
+                item->setTimeSmart(COL_MIN_PER_FRAME, _units, easyBlock(per_frame_stats->min_duration_block).tree.node->duration());
+                item->setTimeSmart(COL_MAX_PER_FRAME, _units, easyBlock(per_frame_stats->max_duration_block).tree.node->duration());
                 item->setTimeSmart(COL_AVERAGE_PER_FRAME, _units, per_frame_stats->average_duration());
                 item->setTimeSmart(COL_DURATION_SUM_PER_FRAME, _units, per_frame_stats->total_duration);
             }
@@ -638,8 +638,8 @@ size_t EasyTreeWidgetLoader::setTreeInternal(const ::profiler::BlocksTreeRoot& _
 
             if (per_thread_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_THREAD, _units, easyBlock(per_thread_stats->min_duration_block).tree.node->duration(), "min ");
-                item->setTimeSmart(COL_MAX_PER_THREAD, _units, easyBlock(per_thread_stats->max_duration_block).tree.node->duration(), "max ");
+                item->setTimeSmart(COL_MIN_PER_THREAD, _units, easyBlock(per_thread_stats->min_duration_block).tree.node->duration());
+                item->setTimeSmart(COL_MAX_PER_THREAD, _units, easyBlock(per_thread_stats->max_duration_block).tree.node->duration());
                 item->setTimeSmart(COL_AVERAGE_PER_THREAD, _units, per_thread_stats->average_duration());
                 item->setTimeSmart(COL_DURATION_SUM_PER_THREAD, _units, per_thread_stats->total_duration);
             }
@@ -654,8 +654,8 @@ size_t EasyTreeWidgetLoader::setTreeInternal(const ::profiler::BlocksTreeRoot& _
 
             if (per_parent_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_PARENT, _units, easyBlock(per_parent_stats->min_duration_block).tree.node->duration(), "min ");
-                item->setTimeSmart(COL_MAX_PER_PARENT, _units, easyBlock(per_parent_stats->max_duration_block).tree.node->duration(), "max ");
+                item->setTimeSmart(COL_MIN_PER_PARENT, _units, easyBlock(per_parent_stats->min_duration_block).tree.node->duration());
+                item->setTimeSmart(COL_MAX_PER_PARENT, _units, easyBlock(per_parent_stats->max_duration_block).tree.node->duration());
                 item->setTimeSmart(COL_AVERAGE_PER_PARENT, _units, per_parent_stats->average_duration());
                 item->setTimeSmart(COL_DURATION_SUM_PER_PARENT, _units, per_parent_stats->total_duration);
             }
@@ -666,8 +666,8 @@ size_t EasyTreeWidgetLoader::setTreeInternal(const ::profiler::BlocksTreeRoot& _
 
             if (per_frame_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_FRAME, _units, easyBlock(per_frame_stats->min_duration_block).tree.node->duration(), "min ");
-                item->setTimeSmart(COL_MAX_PER_FRAME, _units, easyBlock(per_frame_stats->max_duration_block).tree.node->duration(), "max ");
+                item->setTimeSmart(COL_MIN_PER_FRAME, _units, easyBlock(per_frame_stats->min_duration_block).tree.node->duration());
+                item->setTimeSmart(COL_MAX_PER_FRAME, _units, easyBlock(per_frame_stats->max_duration_block).tree.node->duration());
                 item->setTimeSmart(COL_AVERAGE_PER_FRAME, _units, per_frame_stats->average_duration());
                 item->setTimeSmart(COL_DURATION_SUM_PER_FRAME, _units, per_frame_stats->total_duration);
             }
@@ -895,8 +895,8 @@ size_t EasyTreeWidgetLoader::setTreeInternalPlain(const ::profiler::BlocksTreeRo
             const ::profiler::BlockStatistics* per_thread_stats = child.per_thread_stats;
             if (per_thread_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_THREAD, _units, easyBlock(per_thread_stats->min_duration_block).tree.node->duration(), "min ");
-                item->setTimeSmart(COL_MAX_PER_THREAD, _units, easyBlock(per_thread_stats->max_duration_block).tree.node->duration(), "max ");
+                item->setTimeSmart(COL_MIN_PER_THREAD, _units, easyBlock(per_thread_stats->min_duration_block).tree.node->duration());
+                item->setTimeSmart(COL_MAX_PER_THREAD, _units, easyBlock(per_thread_stats->max_duration_block).tree.node->duration());
                 item->setTimeSmart(COL_AVERAGE_PER_THREAD, _units, per_thread_stats->average_duration());
             }
 
@@ -915,8 +915,8 @@ size_t EasyTreeWidgetLoader::setTreeInternalPlain(const ::profiler::BlocksTreeRo
 
             if (per_frame_stats->calls_number > 1 || !EASY_GLOBALS.display_only_relevant_stats)
             {
-                item->setTimeSmart(COL_MIN_PER_FRAME, _units, easyBlock(per_frame_stats->min_duration_block).tree.node->duration(), "min ");
-                item->setTimeSmart(COL_MAX_PER_FRAME, _units, easyBlock(per_frame_stats->max_duration_block).tree.node->duration(), "max ");
+                item->setTimeSmart(COL_MIN_PER_FRAME, _units, easyBlock(per_frame_stats->min_duration_block).tree.node->duration());
+                item->setTimeSmart(COL_MAX_PER_FRAME, _units, easyBlock(per_frame_stats->max_duration_block).tree.node->duration());
                 item->setTimeSmart(COL_AVERAGE_PER_FRAME, _units, per_frame_stats->average_duration());
             }
 

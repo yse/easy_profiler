@@ -171,8 +171,14 @@ namespace profiler {
 
     //////////////////////////////////////////////////////////////////////////
 
-    typedef ::std::unordered_map<decltype(CSwitch::NewThreadId), ProcessInfo*, ::profiler::do_not_calc_hash> thread_process_info_map;
-    typedef ::std::unordered_map<processid_t, ProcessInfo, ::profiler::do_not_calc_hash> process_info_map;
+    struct do_not_calc_hash {
+        template <class T> inline size_t operator()(T _value) const {
+            return static_cast<size_t>(_value);
+        }
+    };
+
+    typedef ::std::unordered_map<decltype(CSwitch::NewThreadId), ProcessInfo*, do_not_calc_hash> thread_process_info_map;
+    typedef ::std::unordered_map<processid_t, ProcessInfo, do_not_calc_hash> process_info_map;
 
     // Using static is safe because processTraceEvent() is called from one thread
     process_info_map PROCESS_INFO_TABLE;
@@ -195,7 +201,7 @@ namespace profiler {
         if (time > TRACING_END_TIME.load(::std::memory_order_acquire))
             return;
 
-        processid_t pid = 0;
+        DWORD pid = 0;
         const char* process_name = "";
 
         // Trying to get target process name and id
@@ -407,7 +413,7 @@ namespace profiler {
                         p.base = m_properties.base; // Use copy of m_properties to make sure m_properties will not be changed
 
                         // Stop another session
-                        ControlTrace(NULL, KERNEL_LOGGER_NAME, reinterpret_cast<EVENT_TRACE_PROPERTIES*>(&p), EVENT_TRACE_CONTROL_STOP);
+                        ControlTrace((TRACEHANDLE)NULL, KERNEL_LOGGER_NAME, reinterpret_cast<EVENT_TRACE_PROPERTIES*>(&p), EVENT_TRACE_CONTROL_STOP);
 
                         // Console window variant:
                         //if (32 >= (int)ShellExecute(NULL, NULL, "logman", "stop \"" KERNEL_LOGGER_NAME "\" -ets", NULL, SW_HIDE))

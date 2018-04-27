@@ -3,47 +3,47 @@ Lightweight profiler library for c++
 Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
 
 Licensed under either of
-	* MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
+    * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
     * Apache License, Version 2.0, (LICENSE.APACHE or http://www.apache.org/licenses/LICENSE-2.0)
 at your option.
 
 The MIT License
-	Permission is hereby granted, free of charge, to any person obtaining a copy
-	of this software and associated documentation files (the "Software"), to deal
-	in the Software without restriction, including without limitation the rights 
-	to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
-	of the Software, and to permit persons to whom the Software is furnished 
-	to do so, subject to the following conditions:
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights 
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
+    of the Software, and to permit persons to whom the Software is furnished 
+    to do so, subject to the following conditions:
 
-	The above copyright notice and this permission notice shall be included in all 
-	copies or substantial portions of the Software.
+    The above copyright notice and this permission notice shall be included in all 
+    copies or substantial portions of the Software.
 
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR 
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE 
-	LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
-	TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE 
-	USE OR OTHER DEALINGS IN THE SOFTWARE.
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+    INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR 
+    PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE 
+    LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+    TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE 
+    USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 The Apache License, Version 2.0 (the "License");
-	You may not use this file except in compliance with the License.
-	You may obtain a copy of the License at
+    You may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
-	Unless required by applicable law or agreed to in writing, software
-	distributed under the License is distributed on an "AS IS" BASIS,
-	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	See the License for the specific language governing permissions and
-	limitations under the License.
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
 
 **/
 
 #ifndef EASY_PROFILER_H
 #define EASY_PROFILER_H
 
-#include <easy/profiler_aux.h>
+#include <easy/profiler_public_types.h>
 
 #if defined ( __clang__ )
 # pragma clang diagnostic push
@@ -430,150 +430,37 @@ Otherwise, no log messages will be printed.
 #  define EASY_DEFAULT_PORT 28077
 # endif
 
-//////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////
+/** Alias for EASY_PROFILER_ENABLE.
 
-class NonscopedBlock;
-class ProfileManager;
-struct ThreadStorage;
+Added for clarification.
+
+\sa EASY_PROFILER_ENABLE
+
+\ingroup profiler
+*/
+#define EASY_START_CAPTURE EASY_PROFILER_ENABLE
+
+/** Alias for EASY_PROFILER_DISABLE.
+
+Added for clarification.
+
+\sa EASY_PROFILER_DISABLE
+
+\ingroup profiler
+*/
+#define EASY_STOP_CAPTURE EASY_PROFILER_DISABLE
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
 
 namespace profiler {
 
-    //////////////////////////////////////////////////////////////////////
-    // Core types
-
     const uint16_t DEFAULT_PORT = EASY_DEFAULT_PORT;
-
-    typedef uint64_t timestamp_t;
-    typedef uint32_t thread_id_t;
-    typedef uint32_t  block_id_t;
-
-    enum BlockType : uint8_t
-    {
-        BLOCK_TYPE_EVENT = 0,
-        BLOCK_TYPE_BLOCK,
-
-        BLOCK_TYPES_NUMBER
-    };
-    typedef BlockType block_type_t;
-
-    enum Duration : uint8_t
-    {
-        TICKS = 0, ///< CPU ticks
-        MICROSECONDS ///< Microseconds
-    };
-
-    //***********************************************
-
-#pragma pack(push,1)
-    class PROFILER_API BaseBlockDescriptor
-    {
-        friend ::ProfileManager;
-        friend ::ThreadStorage;
-
-    protected:
-
-        block_id_t          m_id; ///< This descriptor id (We can afford this spending because there are much more blocks than descriptors)
-        int               m_line; ///< Line number in the source file
-        color_t          m_color; ///< Color of the block packed into 1-byte structure
-        block_type_t      m_type; ///< Type of the block (See BlockType)
-        EasyBlockStatus m_status; ///< If false then blocks with such id() will not be stored by profiler during profile session
-
-        BaseBlockDescriptor(block_id_t _id, EasyBlockStatus _status, int _line, block_type_t _block_type, color_t _color);
-
-    public:
-
-        inline block_id_t id() const { return m_id; }
-        inline int line() const { return m_line; }
-        inline color_t color() const { return m_color; }
-        inline block_type_t type() const { return m_type; }
-        inline EasyBlockStatus status() const { return m_status; }
-
-    }; // END of class BaseBlockDescriptor.
-
-    //***********************************************
-
-    class PROFILER_API BaseBlockData
-    {
-        friend ::ProfileManager;
-
-    protected:
-
-        timestamp_t m_begin;
-        timestamp_t   m_end;
-        block_id_t     m_id;
-
-    public:
-
-        BaseBlockData(const BaseBlockData&) = default;
-        BaseBlockData(timestamp_t _begin_time, block_id_t _id);
-        BaseBlockData(timestamp_t _begin_time, timestamp_t _end_time, block_id_t _id);
-
-        inline timestamp_t begin() const { return m_begin; }
-        inline timestamp_t end() const { return m_end; }
-        inline block_id_t id() const { return m_id; }
-        inline timestamp_t duration() const { return m_end - m_begin; }
-
-        inline void setId(block_id_t _id) { m_id = _id; }
-
-    private:
-
-        BaseBlockData() = delete;
-
-    }; // END of class BaseBlockData.
-#pragma pack(pop)
-
-    //***********************************************
-
-    class PROFILER_API Block : public BaseBlockData
-    {
-        friend ::ProfileManager;
-        friend ::ThreadStorage;
-        friend ::NonscopedBlock;
-
-        const char*       m_name;
-        EasyBlockStatus m_status;
-        bool          m_isScoped;
-
-    private:
-
-        void start();
-        void start(timestamp_t _time);
-        void finish();
-        void finish(timestamp_t _time);
-        inline bool finished() const { return m_end >= m_begin; }
-        inline EasyBlockStatus status() const { return m_status; }
-        inline void setStatus(EasyBlockStatus _status) { m_status = _status; }
-
-    public:
-
-        Block(Block&& that);
-        Block(const BaseBlockDescriptor* _desc, const char* _runtimeName, bool _scoped = true);
-        Block(timestamp_t _begin_time, block_id_t _id, const char* _runtimeName);
-        Block(timestamp_t _begin_time, timestamp_t _end_time, block_id_t _id, const char* _runtimeName);
-        ~Block();
-
-        inline const char* name() const { return m_name; }
-
-    private:
-
-        Block(const Block&) = delete;
-        Block& operator = (const Block&) = delete;
-
-    }; // END of class Block.
-
-    //***********************************************
-
-    class PROFILER_API ThreadGuard EASY_FINAL {
-        friend ::ProfileManager;
-        thread_id_t m_id = 0;
-    public:
-        ~ThreadGuard();
-    }; // END of class ThreadGuard.
 
     //////////////////////////////////////////////////////////////////////
     // Core API
-    // Note: it is better to use macros defined above than a direct calls to API.
+    // Note: It is better to use macros defined above than a direct calls to API.
+    //       But some API functions does not have macro wrappers...
 
 #ifdef BUILD_WITH_EASY_PROFILER
     extern "C" {
@@ -582,17 +469,23 @@ namespace profiler {
 
         You can use it if you want to store block explicitly.
 
+        \retval Current CPU time in ticks.
+
         \ingroup profiler
         */
         PROFILER_API timestamp_t currentTime();
 
         /** Convert ticks to nanoseconds.
 
+        \retval _ticks converted to nanoseconds.
+
         \ingroup profiler
         */
         PROFILER_API timestamp_t toNanoseconds(timestamp_t _ticks);
 
         /** Convert ticks to microseconds.
+
+        \retval _ticks converted to microseconds.
 
         \ingroup profiler
         */
@@ -605,6 +498,8 @@ namespace profiler {
 
         \note This API function is used by EASY_EVENT, EASY_BLOCK, EASY_FUNCTION macros.
         There is no need to invoke this function explicitly.
+
+        \retval Pointer to registered block description.
 
         \ingroup profiler
         */
@@ -674,6 +569,8 @@ namespace profiler {
 
         /** Enable or disable profiler.
 
+        AKA start or stop profiling (capturing blocks).
+
         \ingroup profiler
         */
         PROFILER_API void setEnabled(bool _isEnable);
@@ -683,13 +580,25 @@ namespace profiler {
 
         \note This also disables profiler.
 
+        \retval Number of saved blocks. If 0 then nothing was profiled or an error occured.
+
         \ingroup profiler
         */
         PROFILER_API uint32_t dumpBlocksToFile(const char* _filename);
 
         /** Register current thread and give it a name.
 
+        Also creates a scoped ThreadGuard which would unregister thread on it's destructor.
+        This helps for memory management while using an old compiler whitout thread_local support.
+
         \note Only first call of registerThread() for the current thread will have an effect.
+
+        \note Use this function if you want to build your source code with an old compiler (MSVC < 2013, GCC < 4.8, Clang < 3.3).
+        Otherwise there is no need in this function because a thread_local ThreadGuard created inside.
+
+        \retval Registered name of the thread. It may differ from _name if the thread was registered before.
+
+        \sa registerThread, ThreadGuard
 
         \ingroup profiler
         */
@@ -698,6 +607,8 @@ namespace profiler {
         /** Register current thread and give it a name.
 
         \note Only first call of registerThread() for the current thread will have an effect.
+
+        \retval Registered name of the thread. It may differ from _name if the thread was registered before.
 
         \ingroup profiler
         */
@@ -739,8 +650,29 @@ namespace profiler {
         */
         PROFILER_API const char* getContextSwitchLogFilename();
 
+        /** Start listening for network commands.
+
+        Launches a separate listening thread which would listen to the network commands (start, stop, etc.).
+        The listening thread sends all profiled blocks via network after receiving network command 'stop'.
+
+        \ingroup profiler
+        */
         PROFILER_API void startListen(uint16_t _port = ::profiler::DEFAULT_PORT);
+
+        /** Stops listening thread.
+
+        \note This would be invoked automatically on application exit.
+
+        \note Does not send any messages to the network, just stops thread.
+
+        \ingroup profiler
+        */
         PROFILER_API void stopListen();
+
+        /** Check if listening thread launched.
+
+        \ingroup profiler
+        */
         PROFILER_API bool isListening();
 
         /** Returns current major version.
@@ -763,11 +695,16 @@ namespace profiler {
 
         /** Returns current version in 32-bit integer format.
 
+        \note Format is: 0x MAJ-MAJ MIN-MIN PATCH-PATCH-PATCH-PATCH
+        For example v1.3.0 is: 0x01030000
+
         \ingroup profiler
         */
         PROFILER_API uint32_t version();
 
-        /** Returns current version in 32-bit integer format.
+        /** Returns current version string.
+
+        Example: "v1.3.0"
 
         \ingroup profiler
         */
@@ -775,12 +712,16 @@ namespace profiler {
 
         /** Returns true if current thread has been marked as Main.
         Otherwise, returns false.
+
+        \ingroup profiler
         */
         PROFILER_API bool isMainThread();
 
         /** Returns last frame duration for current thread.
 
         \param _durationCast desired duration units (could be cpu-ticks or microseconds)
+
+        \ingroup profiler
         */
         PROFILER_API timestamp_t this_thread_frameTime(Duration _durationCast = ::profiler::MICROSECONDS);
 
@@ -789,6 +730,8 @@ namespace profiler {
         Local max is maximum frame duration since last frameTimeLocalMax() call.
 
         \param _durationCast desired duration units (could be cpu-ticks or microseconds)
+
+        \ingroup profiler
         */
         PROFILER_API timestamp_t this_thread_frameTimeLocalMax(Duration _durationCast = ::profiler::MICROSECONDS);
 
@@ -797,12 +740,16 @@ namespace profiler {
         Local average is average frame duration since last frameTimeLocalAvg() call.
 
         \param _durationCast desired duration units (could be cpu-ticks or microseconds)
+
+        \ingroup profiler
         */
         PROFILER_API timestamp_t this_thread_frameTimeLocalAvg(Duration _durationCast = ::profiler::MICROSECONDS);
 
         /** Returns last frame duration for main thread.
 
         \param _durationCast desired duration units (could be cpu-ticks or microseconds)
+
+        \ingroup profiler
         */
         PROFILER_API timestamp_t main_thread_frameTime(Duration _durationCast = ::profiler::MICROSECONDS);
 
@@ -811,6 +758,8 @@ namespace profiler {
         Local max is maximum frame duration since last frameTimeLocalMax() call.
 
         \param _durationCast desired duration units (could be cpu-ticks or microseconds)
+
+        \ingroup profiler
         */
         PROFILER_API timestamp_t main_thread_frameTimeLocalMax(Duration _durationCast = ::profiler::MICROSECONDS);
 
@@ -819,6 +768,8 @@ namespace profiler {
         Local average is average frame duration since last frameTimeLocalAvg() call.
 
         \param _durationCast desired duration units (could be cpu-ticks or microseconds)
+
+        \ingroup profiler
         */
         PROFILER_API timestamp_t main_thread_frameTimeLocalAvg(Duration _durationCast = ::profiler::MICROSECONDS);
 
@@ -921,6 +872,36 @@ namespace profiler {
         }
 
     } // END of namespace main_thread.
+
+    /** Alias for isEnabled().
+
+    Added for clarification.
+
+    \sa isEnabled
+
+    \ingroup profiler
+    */
+    EASY_FORCE_INLINE bool isCapturing() { return isEnabled(); }
+
+    /** Alias for EASY_PROFILER_ENABLE.
+
+    Added for clarification.
+
+    \sa EASY_PROFILER_ENABLE
+
+    \ingroup profiler
+    */
+    EASY_FORCE_INLINE void startCapture() { EASY_PROFILER_ENABLE; }
+
+    /** Alias for EASY_PROFILER_DISABLE.
+
+    Added for clarification.
+
+    \sa EASY_PROFILER_DISABLE
+
+    \ingroup profiler
+    */
+    EASY_FORCE_INLINE void stopCapture() { EASY_PROFILER_DISABLE; }
 
     //////////////////////////////////////////////////////////////////////
 
