@@ -165,3 +165,69 @@ if(UNIX)
 endif(UNIX)
 
 target_link_libraries(${LIB_NAME} ${PLATFORM_LIBS})
+
+####
+# Installation 
+set(config_install_dir "cmake/${PROJECT_NAME}")
+set(include_install_dir "include")
+
+set(generated_dir "${CMAKE_CURRENT_BINARY_DIR}/generated")
+
+# Configuration
+set(version_config "${generated_dir}/${PROJECT_NAME}ConfigVersion.cmake")
+set(project_config "${generated_dir}/${PROJECT_NAME}Config.cmake")
+set(targets_export_name "${PROJECT_NAME}Targets")
+
+include(CMakePackageConfigHelpers)
+include(InstallRequiredSystemLibraries)
+
+write_basic_package_version_file(
+    "${version_config}" 
+	VERSION
+	${EASY_PRODUCT_VERSION_STRING}
+	COMPATIBILITY 
+	SameMajorVersion
+)
+
+configure_package_config_file(
+    "cmake/config.cmake.in"
+    "${project_config}"
+    INSTALL_DESTINATION "${config_install_dir}"
+)
+
+install(
+    FILES "${project_config}" "${version_config}"
+    DESTINATION "${config_install_dir}"
+)
+
+install(
+    FILES
+    ${INCLUDE_FILES}
+    DESTINATION
+    include/easy
+)
+
+install(
+    FILES
+    version.info
+    LICENSE.GPL3
+    LICENSE.APACHE
+    DESTINATION
+    .
+)
+
+install(
+    TARGETS
+    ${LIB_NAME}
+	EXPORT 
+	${targets_export_name}
+    DESTINATION
+    bin
+	INCLUDES DESTINATION "${include_install_dir}"
+)
+
+install(
+    EXPORT "${targets_export_name}"
+    DESTINATION "${config_install_dir}"
+)
+
