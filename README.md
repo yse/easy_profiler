@@ -1,4 +1,4 @@
-# easy_profiler [![1.0.3](https://img.shields.io/badge/version-1.0.3-009688.svg)](https://github.com/yse/easy_profiler/releases)
+# easy_profiler [![1.2.0](https://img.shields.io/badge/version-1.2.0-009688.svg)](https://github.com/yse/easy_profiler/releases)
 
 [![Build Status](https://travis-ci.org/yse/easy_profiler.svg?branch=develop)](https://travis-ci.org/yse/easy_profiler)
 
@@ -41,6 +41,7 @@ duration, target thread id, thread owner process id, thread owner process name.
 You can see the results of measuring in simple GUI application which provides full statistics and renders beautiful time-line.
 
 ![GUI screenshot](https://cloud.githubusercontent.com/assets/1775230/24852044/a0b1edd0-1dde-11e7-8736-7052b840ad06.png)
+_Profiling CryEngine SDK example_
 
 # Key features
 
@@ -52,6 +53,7 @@ You can see the results of measuring in simple GUI application which provides fu
 - Fully remove integration via defines
 - GUI could be connected to an application which is already profiling (so you can profile initialization of your application)
 - Monitor main thread fps at real-time in GUI even if profiling is disabled or draw your own HUD/fps-plot directly in your application using data provided by profiler 
+- Configurable timer type with CMakeLists or defines 
 
 # Usage
 

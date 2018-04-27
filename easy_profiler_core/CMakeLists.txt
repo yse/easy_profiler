@@ -42,12 +42,40 @@ set(EASY_OPTION_LOG OFF) # Print errors to stderr
 set(EASY_OPTION_PREDEFINED_COLORS ON) # Use predefined set of colors (see profiler_colors.h)
                                       # If you want to use your own colors palette you can turn this option OFF
 
+option(BUILD_WITH_CHRONO_STEADY_CLOCK "Use std::chrono::steady_clock as a timer" OFF)
+option(BUILD_WITH_CHRONO_HIGH_RESOLUTION_CLOCK "Use std::chrono::high_resolution_clock as a timer" OFF)
+
+if(BUILD_WITH_CHRONO_STEADY_CLOCK)
+    add_definitions(
+            -DEASY_CHRONO_STEADY_CLOCK
+        )
+endif(BUILD_WITH_CHRONO_STEADY_CLOCK)
+
+if(BUILD_WITH_CHRONO_HIGH_RESOLUTION_CLOCK)
+    add_definitions(
+            -DEASY_CHRONO_HIGHRES_CLOCK
+        )
+endif(BUILD_WITH_CHRONO_HIGH_RESOLUTION_CLOCK)
+
 if(WIN32)
  set(EASY_OPTION_EVENT_TRACING ON) # Enable event tracing by default
  set(EASY_OPTION_LOW_PRIORITY_EVENT_TRACING ON) # Set low priority for event tracing thread
 endif(WIN32)
 
 MESSAGE(STATUS "EASY_PROFILER OPTIONS:--------------")
+
+if(BUILD_WITH_CHRONO_STEADY_CLOCK)
+    MESSAGE(STATUS "  Use std::chrono::steady_clock as a timer")
+elseif(BUILD_WITH_CHRONO_HIGH_RESOLUTION_CLOCK)
+    MESSAGE(STATUS "  Use std::chrono::high_resolution_clock as a timer")
+else()
+    if(WIN32)
+        MESSAGE(STATUS "  Use QueryPerformanceCounter as a timer")
+    else()
+        MESSAGE(STATUS "  Use rtdsc as a timer")
+    endif(WIN32)
+endif(BUILD_WITH_CHRONO_STEADY_CLOCK)
+
 MESSAGE(STATUS "  Default listening port = ${EASY_DEFAULT_PORT}")
 MESSAGE(STATUS "  Auto-start listening = ${EASY_OPTION_LISTEN}")
 MESSAGE(STATUS "  Profile self = ${EASY_OPTION_PROFILE_SELF}")

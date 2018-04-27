@@ -755,19 +755,19 @@ void EasyHistogramItem::paintById(QPainter* _painter)
         const auto name = *item->tree.node->name() != 0 ? item->tree.node->name() : easyDescriptor(item->tree.node->id()).name();
         if (item->tree.per_thread_stats != nullptr)
         {
-            _painter->drawText(rect, Qt::AlignHCenter | Qt::TextDontClip, QString("%1  |  %2  |  %3 calls  |  %4% of thread profiled time").arg(m_threadName).arg(name)
+            _painter->drawText(rect, Qt::AlignHCenter | Qt::TextDontClip, QString("%1  |  %2  |  %3 calls  |  %4% of thread profiled time").arg(m_threadName).arg(::profiler_gui::toUnicode(name))
                                .arg(item->tree.per_thread_stats->calls_number)
                                .arg(m_threadProfiledTime ? QString::number(100. * (double)item->tree.per_thread_stats->total_duration / (double)m_threadProfiledTime, 'f', 2) : QString("100")));
         }
         else
         {
-            _painter->drawText(rect, Qt::AlignHCenter | Qt::TextDontClip, QString("%1  |  %2  |  %3 calls").arg(m_threadName).arg(name)
+            _painter->drawText(rect, Qt::AlignHCenter | Qt::TextDontClip, QString("%1  |  %2  |  %3 calls").arg(m_threadName).arg(::profiler_gui::toUnicode(name))
                                .arg(m_selectedBlocks.size()));
         }
     }
     else
     {
-        _painter->drawText(rect, Qt::AlignHCenter | Qt::TextDontClip, QString("%1  |  %2  |  %3 calls").arg(m_threadName).arg(easyDescriptor(m_blockId).name())
+        _painter->drawText(rect, Qt::AlignHCenter | Qt::TextDontClip, QString("%1  |  %2  |  %3 calls").arg(m_threadName).arg(::profiler_gui::toUnicode(easyDescriptor(m_blockId).name()))
                            .arg(m_selectedBlocks.size()));
     }
 

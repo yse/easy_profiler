@@ -63,14 +63,16 @@ namespace profiler {
 #pragma pack(push, 1)
     struct BlockStatistics EASY_FINAL
     {
-        ::profiler::timestamp_t        total_duration; ///< Total duration of all block calls
-        ::profiler::block_index_t  min_duration_block; ///< Will be used in GUI to jump to the block with min duration
-        ::profiler::block_index_t  max_duration_block; ///< Will be used in GUI to jump to the block with max duration
-        ::profiler::block_index_t        parent_block; ///< Index of block which is "parent" for "per_parent_stats" or "frame" for "per_frame_stats" or thread-id for "per_thread_stats"
-        ::profiler::calls_number_t       calls_number; ///< Block calls number
+        ::profiler::timestamp_t          total_duration; ///< Total duration of all block calls
+        ::profiler::timestamp_t total_children_duration; ///< Total duration of all children of all block calls
+        ::profiler::block_index_t    min_duration_block; ///< Will be used in GUI to jump to the block with min duration
+        ::profiler::block_index_t    max_duration_block; ///< Will be used in GUI to jump to the block with max duration
+        ::profiler::block_index_t          parent_block; ///< Index of block which is "parent" for "per_parent_stats" or "frame" for "per_frame_stats" or thread-id for "per_thread_stats"
+        ::profiler::calls_number_t         calls_number; ///< Block calls number
 
         explicit BlockStatistics(::profiler::timestamp_t _duration, ::profiler::block_index_t _block_index, ::profiler::block_index_t _parent_index)
             : total_duration(_duration)
+            , total_children_duration(0)
             , min_duration_block(_block_index)
             , max_duration_block(_block_index)
             , parent_block(_parent_index)
@@ -106,7 +108,7 @@ namespace profiler {
         ::profiler::BlockStatistics* per_parent_stats; ///< Pointer to statistics for this block within the parent (may be nullptr for top-level blocks)
         ::profiler::BlockStatistics*  per_frame_stats; ///< Pointer to statistics for this block within the frame (may be nullptr for top-level blocks)
         ::profiler::BlockStatistics* per_thread_stats; ///< Pointer to statistics for this block within the bounds of all frames per current thread
-        uint16_t                                depth; ///< Maximum number of sublevels (maximum children depth)
+        uint8_t                                 depth; ///< Maximum number of sublevels (maximum children depth)
 
         BlocksTree()
             : node(nullptr)
@@ -205,7 +207,7 @@ namespace profiler {
         ::profiler::timestamp_t       wait_time; ///< Wait time of this thread (sum of all context switches)
         ::profiler::thread_id_t       thread_id; ///< System Id of this thread
         ::profiler::block_index_t blocks_number; ///< Total blocks number including their children
-        uint16_t                          depth; ///< Maximum stack depth (number of levels)
+        uint8_t                           depth; ///< Maximum stack depth (number of levels)
 
         BlocksTreeRoot() : profiled_time(0), wait_time(0), thread_id(0), blocks_number(0), depth(0)
         {

@@ -147,11 +147,12 @@ extern const uint32_t EASY_CURRENT_VERSION = EASY_VERSION_INT(EASY_PROFILER_VERS
 # define MANAGER ProfileManager::instance()
 const uint8_t FORCE_ON_FLAG = profiler::FORCE_ON & ~profiler::ON;
 
-#ifdef _WIN32
-decltype(LARGE_INTEGER::QuadPart) const CPU_FREQUENCY = ([](){ LARGE_INTEGER freq; QueryPerformanceFrequency(&freq); return freq.QuadPart; })();
+#if defined(EASY_CHRONO_CLOCK)
+const int64_t CPU_FREQUENCY = EASY_CHRONO_CLOCK::period::den / EASY_CHRONO_CLOCK::period::num;
 # define TICKS_TO_US(ticks) ticks * 1000000LL / CPU_FREQUENCY
-#elif defined(USE_STD_CHRONO)
-# define TICKS_TO_US(ticks) ticks / 1000
+#elif defined(_WIN32)
+const decltype(LARGE_INTEGER::QuadPart) CPU_FREQUENCY = ([](){ LARGE_INTEGER freq; QueryPerformanceFrequency(&freq); return freq.QuadPart; })();
+# define TICKS_TO_US(ticks) ticks * 1000000LL / CPU_FREQUENCY
 #else
 int64_t calculate_cpu_frequency()
 {
@@ -248,6 +249,25 @@ EASY_THREAD_LOCAL static bool THIS_THREAD_FRAME_T_RESET_AVG = false;
 extern "C" {
 
 #if !defined(EASY_PROFILER_API_DISABLED)
+    PROFILER_API timestamp_t currentTime()
+    {
+        return getCurrentTime();
+    }
+
+    PROFILER_API timestamp_t toNanoseconds(timestamp_t _ticks)
+    {
+#if defined(EASY_CHRONO_CLOCK) || defined(_WIN32)
+        return _ticks * 1000000000LL / CPU_FREQUENCY;
+#else
+        return _ticks / CPU_FREQUENCY.load(std::memory_order_acquire);
+#endif
+    }
+
+    PROFILER_API timestamp_t toMicroseconds(timestamp_t _ticks)
+    {
+        return TICKS_TO_US(_ticks);
+    }
+
     PROFILER_API const BaseBlockDescriptor* registerDescription(EasyBlockStatus _status, const char* _autogenUniqueId, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color, bool _copyName)
     {
         return MANAGER.addBlockDescriptor(_status, _autogenUniqueId, _name, _filename, _line, _block_type, _color, _copyName);
@@ -273,9 +293,19 @@ extern "C" {
         MANAGER.storeBlock(_desc, _runtimeName);
     }
 
+    PROFILER_API void storeBlock(const BaseBlockDescriptor* _desc, const char* _runtimeName, timestamp_t _beginTime, timestamp_t _endTime)
+    {
+        MANAGER.storeBlock(_desc, _runtimeName, _beginTime, _endTime);
+    }
+
     PROFILER_API void beginBlock(Block& _block)
     {
         MANAGER.beginBlock(_block);
+    }
+
+    PROFILER_API void beginNonScopedBlock(const BaseBlockDescriptor* _desc, const char* _runtimeName)
+    {
+        MANAGER.beginNonScopedBlock(_desc, _runtimeName);
     }
 
     PROFILER_API uint32_t dumpBlocksToFile(const char* filename)
@@ -412,12 +442,17 @@ extern "C" {
     }
 
 #else
+    PROFILER_API timestamp_t currentTime() { return 0; }
+    PROFILER_API timestamp_t toNanoseconds(timestamp_t) { return 0; }
+    PROFILER_API timestamp_t toMicroseconds(timestamp_t) { return 0; }
     PROFILER_API const BaseBlockDescriptor* registerDescription(EasyBlockStatus, const char*, const char*, const char*, int, block_type_t, color_t, bool) { return reinterpret_cast<const BaseBlockDescriptor*>(0xbad); }
     PROFILER_API void endBlock() { }
     PROFILER_API void setEnabled(bool) { }
     PROFILER_API bool isEnabled() { return false; }
     PROFILER_API void storeEvent(const BaseBlockDescriptor*, const char*) { }
+    PROFILER_API void storeBlock(const BaseBlockDescriptor*, const char*, timestamp_t, timestamp_t) { }
     PROFILER_API void beginBlock(Block&) { }
+    PROFILER_API void beginNonScopedBlock(const BaseBlockDescriptor*, const char*) { }
     PROFILER_API uint32_t dumpBlocksToFile(const char*) { return 0; }
     PROFILER_API const char* registerThreadScoped(const char*, ThreadGuard&) { return ""; }
     PROFILER_API const char* registerThread(const char*) { return ""; }
@@ -548,7 +583,34 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
-ThreadStorage::ThreadStorage() : id(getCurrentThreadId()), allowChildren(true), named(false), guarded(false)
+NonscopedBlock::NonscopedBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, bool)
+    : profiler::Block(_desc, _runtimeName, false)
+{
+
+}
+
+NonscopedBlock::~NonscopedBlock()
+{
+    m_end = m_begin; // to restrict profiler::Block to invoke profiler::endBlock() on destructor.
+}
+
+void NonscopedBlock::copyname()
+{
+    if ((m_status & profiler::ON) != 0 && m_name[0] != 0)
+    {
+        m_runtimeName = m_name;
+        m_name = m_runtimeName.c_str();
+    }
+}
+
+void NonscopedBlock::destroy()
+{
+    std::string().swap(m_runtimeName); // free memory used by m_runtimeName
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+ThreadStorage::ThreadStorage() : nonscopedBlocks(16), id(getCurrentThreadId()), allowChildren(true), named(false), guarded(false)
 #ifndef _WIN32
 , pthread_id(pthread_self())
 #endif
@@ -619,9 +681,11 @@ void ThreadStorage::popSilent()
 {
     if (!blocks.openedList.empty())
     {
-        Block& top = blocks.openedList.top();
+        Block& top = blocks.openedList.back();
         top.m_end = top.m_begin;
-        blocks.openedList.pop();
+        if (!top.m_isScoped)
+            nonscopedBlocks.pop();
+        blocks.openedList.pop_back();
     }
 }
 
@@ -669,7 +733,7 @@ ProfileManager::ProfileManager() :
     startListen(profiler::DEFAULT_PORT);
 #endif
 
-#if !defined(EASY_PROFILER_API_DISABLED) && !defined(_WIN32) && !defined(USE_STD_CHRONO)
+#if !defined(EASY_PROFILER_API_DISABLED) && !defined(EASY_CHRONO_CLOCK) && !defined(_WIN32)
     const int64_t cpu_frequency = calculate_cpu_frequency();
     CPU_FREQUENCY.store(cpu_frequency, std::memory_order_release);
 #endif
@@ -804,6 +868,34 @@ bool ProfileManager::storeBlock(const profiler::BaseBlockDescriptor* _desc, cons
     return true;
 }
 
+bool ProfileManager::storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, profiler::timestamp_t _beginTime, profiler::timestamp_t _endTime)
+{
+    const auto state = m_profilerStatus.load(std::memory_order_acquire);
+    if (state == EASY_PROF_DISABLED || !(_desc->m_status & profiler::ON))
+        return false;
+
+    if (state == EASY_PROF_DUMP)
+    {
+        if (THIS_THREAD == nullptr || THIS_THREAD->blocks.openedList.empty())
+            return false;
+    }
+    else if (THIS_THREAD == nullptr)
+    {
+        THIS_THREAD = &threadStorage(getCurrentThreadId());
+    }
+
+#if EASY_ENABLE_BLOCK_STATUS != 0
+    if (!THIS_THREAD->allowChildren && !(_desc->m_status & FORCE_ON_FLAG))
+        return false;
+#endif
+
+    profiler::Block b(_beginTime, _endTime, _desc->id(), _runtimeName);
+    THIS_THREAD->storeBlock(b);
+    b.m_end = b.m_begin;
+
+    return true;
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 void ProfileManager::storeBlockForce(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t& _timestamp)
@@ -863,7 +955,7 @@ void ProfileManager::beginBlock(Block& _block)
     if (++THIS_THREAD_STACK_SIZE > 1)
     {
         _block.m_status = profiler::OFF;
-        THIS_THREAD->blocks.openedList.emplace(_block);
+        THIS_THREAD->blocks.openedList.emplace_back(_block);
         return;
     }
 
@@ -872,7 +964,7 @@ void ProfileManager::beginBlock(Block& _block)
     {
         THIS_THREAD_HALT = false;
         _block.m_status = profiler::OFF;
-        THIS_THREAD->blocks.openedList.emplace(_block);
+        THIS_THREAD->blocks.openedList.emplace_back(_block);
         beginFrame();
         return;
     }
@@ -883,7 +975,7 @@ void ProfileManager::beginBlock(Block& _block)
         if (THIS_THREAD_HALT || THIS_THREAD->blocks.openedList.empty())
         {
             _block.m_status = profiler::OFF;
-            THIS_THREAD->blocks.openedList.emplace(_block);
+            THIS_THREAD->blocks.openedList.emplace_back(_block);
 
             if (!THIS_THREAD_HALT)
             {
@@ -930,7 +1022,17 @@ void ProfileManager::beginBlock(Block& _block)
         THIS_THREAD->frame.store(true, std::memory_order_release);
     }
 
-    THIS_THREAD->blocks.openedList.emplace(_block);
+    THIS_THREAD->blocks.openedList.emplace_back(_block);
+}
+
+void ProfileManager::beginNonScopedBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName)
+{
+    if (THIS_THREAD == nullptr)
+        THIS_THREAD = &threadStorage(getCurrentThreadId());
+
+    NonscopedBlock& b = THIS_THREAD->nonscopedBlocks.push(_desc, _runtimeName, false);
+    beginBlock(b);
+    b.copyname();
 }
 
 void ProfileManager::beginContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, const char* _target_process, bool _lockSpin)
@@ -939,7 +1041,7 @@ void ProfileManager::beginContextSwitch(profiler::thread_id_t _thread_id, profil
     if (ts != nullptr)
         // Dirty hack: _target_thread_id will be written to the field "block_id_t m_id"
         // and will be available calling method id().
-        ts->sync.openedList.emplace(_time, _time, _target_thread_id, _target_process);
+        ts->sync.openedList.emplace_back(_time, _time, _target_thread_id, _target_process);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -952,6 +1054,7 @@ void ProfileManager::endBlock()
         return;
     }
 
+    THIS_THREAD_STACK_SIZE = 0;
     if (THIS_THREAD_HALT || m_profilerStatus.load(std::memory_order_acquire) == EASY_PROF_DISABLED)
     {
         THIS_THREAD->popSilent();
@@ -959,11 +1062,10 @@ void ProfileManager::endBlock()
         return;
     }
 
-    THIS_THREAD_STACK_SIZE = 0;
     if (THIS_THREAD->blocks.openedList.empty())
         return;
 
-    Block& top = THIS_THREAD->blocks.openedList.top();
+    Block& top = THIS_THREAD->blocks.openedList.back();
     if (top.m_status & profiler::ON)
     {
         if (!top.finished())
@@ -975,7 +1077,10 @@ void ProfileManager::endBlock()
         top.m_end = top.m_begin; // this is to restrict endBlock() call inside ~Block()
     }
 
-    THIS_THREAD->blocks.openedList.pop();
+    if (!top.m_isScoped)
+        THIS_THREAD->nonscopedBlocks.pop();
+
+    THIS_THREAD->blocks.openedList.pop_back();
     const bool empty = THIS_THREAD->blocks.openedList.empty();
     if (empty)
     {
@@ -986,7 +1091,7 @@ void ProfileManager::endBlock()
     }
     else
     {
-        THIS_THREAD->allowChildren = !(THIS_THREAD->blocks.openedList.top().get().m_status & profiler::OFF_RECURSIVE);
+        THIS_THREAD->allowChildren = !(THIS_THREAD->blocks.openedList.back().get().m_status & profiler::OFF_RECURSIVE);
     }
 #else
     }
@@ -1006,11 +1111,11 @@ void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, processi
     if (ts == nullptr || ts->sync.openedList.empty())
         return;
 
-    Block& lastBlock = ts->sync.openedList.top();
+    Block& lastBlock = ts->sync.openedList.back();
     lastBlock.m_end = _endtime;
 
     ts->storeCSwitch(lastBlock);
-    ts->sync.openedList.pop();
+    ts->sync.openedList.pop_back();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1341,20 +1446,15 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bo
     _outputStream.write(m_processId);
 
     // Write CPU frequency to let GUI calculate real time value from CPU clocks
-#ifdef _WIN32
+#if defined(EASY_CHRONO_CLOCK) || defined(_WIN32)
     _outputStream.write(CPU_FREQUENCY);
 #else
-
-#if !defined(USE_STD_CHRONO)
     EASY_LOGMSG("Calculating CPU frequency\n");
     const int64_t cpu_frequency = calculate_cpu_frequency();
     _outputStream.write(cpu_frequency * 1000LL);
     EASY_LOGMSG("Done calculating CPU frequency\n");
 
     CPU_FREQUENCY.store(cpu_frequency, std::memory_order_release);
-#else
-    _outputStream.write(0LL);
-#endif
 #endif
 
     // Write begin and end time
@@ -1503,7 +1603,7 @@ const char* ProfileManager::registerThread(const char* name)
 
 void ProfileManager::setBlockStatus(block_id_t _id, EasyBlockStatus _status)
 {
-    if (m_profilerStatus.load(std::memory_order_acquire) != EASY_PROF_ENABLED)
+    if (m_profilerStatus.load(std::memory_order_acquire) != EASY_PROF_DISABLED)
         return; // Changing blocks statuses is restricted while profile session is active
 
     guard_lock_t lock(m_storedSpin);

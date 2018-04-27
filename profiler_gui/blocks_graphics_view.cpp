@@ -575,7 +575,7 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
     _item->reserve(level, n);
 
     _maxDepthChild = 0;
-    uint16_t maxDepth = 0;
+    uint8_t maxDepth = 0;
     const short next_level = _level + 1;
     bool warned = false;
     qreal total_duration = 0, prev_end = 0, maxh = 0;
@@ -1130,8 +1130,8 @@ void EasyGraphicsView::mouseMoveEvent(QMouseEvent* _event)
 
     if (m_mouseButtons != 0)
     {
-        m_mouseMovePath.setX(m_mouseMovePath.x() + ::std::abs(delta.x()));
-        m_mouseMovePath.setY(m_mouseMovePath.y() + ::std::abs(delta.y()));
+        m_mouseMovePath.setX(m_mouseMovePath.x() + abs(delta.x()));
+        m_mouseMovePath.setY(m_mouseMovePath.y() + abs(delta.y()));
     }
 
     auto mouseScenePos = mapToScene(m_mousePressPos);
@@ -1508,11 +1508,22 @@ void EasyGraphicsView::onIdleTimeout()
                 if (itemDesc.type() == ::profiler::BLOCK_TYPE_BLOCK)
                 {
                     //lay->addWidget(new QLabel("Name:", widget), row, 0, Qt::AlignRight);
-                    lay->addWidget(new EasyBoldLabel(name, widget), row, 0, 1, 5, Qt::AlignHCenter);
+                    lay->addWidget(new EasyBoldLabel(::profiler_gui::toUnicode(name), widget), row, 0, 1, 5, Qt::AlignHCenter);
                     ++row;
 
+                    const auto duration = itemBlock.node->duration();
                     lay->addWidget(new QLabel("Duration:", widget), row, 0, Qt::AlignRight);
-                    lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, itemBlock.node->duration(), 3), widget), row, 1, 1, 3, Qt::AlignLeft);
+                    lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, duration, 3), widget), row, 1, 1, 3, Qt::AlignLeft);
+                    ++row;
+
+                    ::profiler::timestamp_t children_duration = 0;
+                    for (auto child : itemBlock.children)
+                        children_duration += easyBlock(child).tree.node->duration();
+
+                    const auto self_duration = duration - children_duration;
+                    const auto self_percent = duration == 0 ? 100. : ::profiler_gui::percentReal(self_duration, duration);
+                    lay->addWidget(new QLabel("Self:", widget), row, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel(QString("%1 (%2%)").arg(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, self_duration, 3)).arg(QString::number(self_percent, 'g', 3)), widget), row, 1, 1, 3, Qt::AlignLeft);
                     ++row;
                 }
                 else
@@ -1521,7 +1532,7 @@ void EasyGraphicsView::onIdleTimeout()
                     ++row;
 
                     lay->addWidget(new QLabel("Name:", widget), row, 0, Qt::AlignRight);
-                    lay->addWidget(new QLabel(name, widget), row, 1, Qt::AlignLeft);
+                    lay->addWidget(new QLabel(::profiler_gui::toUnicode(name), widget), row, 1, Qt::AlignLeft);
                     ++row;
                 }
 
@@ -1569,8 +1580,8 @@ void EasyGraphicsView::onIdleTimeout()
                                     idleTime += cs->duration();
                             }
 
-                            auto active_time = duration - idleTime;
-                            auto active_percent = duration == 0 ? 100. : ::profiler_gui::percentReal(active_time, duration);
+                            const auto active_time = duration - idleTime;
+                            const auto active_percent = duration == 0 ? 100. : ::profiler_gui::percentReal(active_time, duration);
                             lay->addWidget(new QLabel("Active time:", widget), row, 0, Qt::AlignRight);
                             lay->addWidget(new QLabel(QString("%1 (%2%)").arg(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, active_time, 3)).arg(QString::number(active_percent, 'g', 3)), widget), row, 1, 1, 3, Qt::AlignLeft);
                             ++row;
@@ -1580,7 +1591,8 @@ void EasyGraphicsView::onIdleTimeout()
                         lay->addWidget(new QLabel("per ", widget), row + 1, 0, Qt::AlignRight);
                         lay->addWidget(new QLabel("This %:", widget), row + 2, 0, Qt::AlignRight);
                         lay->addWidget(new QLabel("Sum %:", widget), row + 3, 0, Qt::AlignRight);
-                        lay->addWidget(new QLabel("N Calls:", widget), row + 4, 0, Qt::AlignRight);
+                        lay->addWidget(new QLabel("Sum self %:", widget), row + 4, 0, Qt::AlignRight);
+                        lay->addWidget(new QLabel("N Calls:", widget), row + 5, 0, Qt::AlignRight);
 
                         lay->addWidget(new QLabel("Thread", widget), row + 1, 1, Qt::AlignHCenter);
 
@@ -1589,7 +1601,9 @@ void EasyGraphicsView::onIdleTimeout()
 
                         lay->addWidget(new QLabel(QString::number(::profiler_gui::percent(itemBlock.per_thread_stats->total_duration, item->root()->profiled_time)), widget), row + 3, 1, Qt::AlignHCenter);
 
-                        lay->addWidget(new QLabel(QString::number(itemBlock.per_thread_stats->calls_number), widget), row + 4, 1, Qt::AlignHCenter);
+                        lay->addWidget(new QLabel(QString::number(::profiler_gui::percent(itemBlock.per_thread_stats->total_duration - itemBlock.per_thread_stats->total_children_duration, item->root()->profiled_time)), widget), row + 4, 1, Qt::AlignHCenter);
+
+                        lay->addWidget(new QLabel(QString::number(itemBlock.per_thread_stats->calls_number), widget), row + 5, 1, Qt::AlignHCenter);
 
                         int col = 1;
 
@@ -1606,7 +1620,10 @@ void EasyGraphicsView::onIdleTimeout()
                             percent = ::profiler_gui::percentReal(itemBlock.per_frame_stats->total_duration, frame_duration);
                             lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 3, col, Qt::AlignHCenter);
 
-                            lay->addWidget(new QLabel(QString::number(itemBlock.per_frame_stats->calls_number), widget), row + 4, col, Qt::AlignHCenter);
+                            percent = ::profiler_gui::percentReal(itemBlock.per_frame_stats->total_duration - itemBlock.per_frame_stats->total_children_duration, frame_duration);
+                            lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 4, col, Qt::AlignHCenter);
+
+                            lay->addWidget(new QLabel(QString::number(itemBlock.per_frame_stats->calls_number), widget), row + 5, col, Qt::AlignHCenter);
                         }
 
                         if (itemBlock.per_parent_stats->parent_block != item->threadId())
@@ -1622,7 +1639,10 @@ void EasyGraphicsView::onIdleTimeout()
                             percent = ::profiler_gui::percentReal(itemBlock.per_parent_stats->total_duration, parent_duration);
                             lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 3, col, Qt::AlignHCenter);
 
-                            lay->addWidget(new QLabel(QString::number(itemBlock.per_parent_stats->calls_number), widget), row + 4, col, Qt::AlignHCenter);
+                            percent = ::profiler_gui::percentReal(itemBlock.per_parent_stats->total_duration - itemBlock.per_parent_stats->total_children_duration, parent_duration);
+                            lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 4, col, Qt::AlignHCenter);
+
+                            lay->addWidget(new QLabel(QString::number(itemBlock.per_parent_stats->calls_number), widget), row + 5, col, Qt::AlignHCenter);
 
                             ++col;
                         }
@@ -1720,9 +1740,10 @@ void EasyGraphicsView::onIdleTimeout()
 
             auto br = m_csInfoWidget->boundingRect();
             if (scenePos.y() + br.height() > m_visibleSceneRect.bottom())
-                scenePos.setY(scenePos.y() - br.height());
+                scenePos.setY(::std::max(scenePos.y() - br.height(), m_visibleSceneRect.top()));
+
             if (scenePos.x() + br.width() > m_visibleSceneRect.right())
-                scenePos.setX(scenePos.x() - br.width());
+                scenePos.setX(::std::max(scenePos.x() - br.width(), m_visibleSceneRect.left()));
 
             m_csInfoWidget->setPos(scenePos);
             m_csInfoWidget->setOpacity(0.9);

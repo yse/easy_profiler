@@ -82,7 +82,11 @@
 
 #ifdef _WIN32
 #include <Windows.h>
+
+#ifdef __MINGW32__
 #include <processthreadsapi.h>
+#endif
+
 #endif
 
 #ifdef max
@@ -135,6 +139,7 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
     , m_beginTime(::std::numeric_limits<decltype(m_beginTime)>::max())
     , m_lastFound(nullptr)
     , m_progress(nullptr)
+    , m_hintLabel(nullptr)
     , m_mode(EasyTreeMode_Plain)
     , m_bColorRows(true)
     , m_bLocked(false)
@@ -253,6 +258,10 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
     m_progress->setValue(100);
     //m_progress->hide();
 
+    m_hintLabel = new QLabel("Use Right Mouse Button on the Diagram to build a hierarchy...\nPress and hold, move, release", this);
+    m_hintLabel->setAlignment(Qt::AlignCenter);
+    m_hintLabel->setStyleSheet("QLabel { color: gray; font: 12pt; }");
+
     QTimer::singleShot(1500, this, &This::alignProgressBar);
 }
 
@@ -260,6 +269,7 @@ EasyTreeWidget::~EasyTreeWidget()
 {
     saveSettings();
     delete m_progress;
+    delete m_hintLabel;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -320,6 +330,7 @@ void EasyTreeWidget::setTree(const unsigned int _blocksNumber, const ::profiler:
     if (!_blocksTree.empty())
     {
         m_bLocked = true;
+        m_hintLabel->hide();
         m_progress->setValue(0);
         m_progress->show();
         m_hierarchyBuilder.fillTree(m_beginTime, _blocksNumber, _blocksTree, m_bColorRows, m_mode);
@@ -353,6 +364,7 @@ void EasyTreeWidget::setTreeBlocks(const ::profiler_gui::TreeBlocks& _blocks, ::
     if (!m_inputBlocks.empty())
     {
         m_bLocked = true;
+        m_hintLabel->hide();
         m_progress->setValue(0);
         m_progress->show();
         m_hierarchyBuilder.fillTreeBlocks(m_inputBlocks, _session_begin_time, _left, _right, _strict, m_bColorRows, m_mode);
@@ -395,6 +407,8 @@ void EasyTreeWidget::clearSilent(bool _global)
         m_progress->setValue(100);
         //m_progress->hide();
     }
+
+    m_hintLabel->show();
 
     m_bLocked = false;
     m_beginTime = ::std::numeric_limits<decltype(m_beginTime)>::max();
@@ -731,8 +745,10 @@ void EasyTreeWidget::moveEvent(QMoveEvent* _event)
 
 void EasyTreeWidget::alignProgressBar()
 {
-    auto pos = mapToGlobal(rect().center());
+    auto center = rect().center();
+    auto pos = mapToGlobal(center);
     m_progress->move(pos.x() - (m_progress->width() >> 1), pos.y() - (m_progress->height() >> 1));
+    m_hintLabel->move(center.x() - (m_hintLabel->width() >> 1), std::max(center.y() - (m_hintLabel->height() >> 1), header()->height()));
 }
 
 //////////////////////////////////////////////////////////////////////////

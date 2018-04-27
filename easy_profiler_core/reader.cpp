@@ -216,7 +216,7 @@ typedef ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::BlockStat
 automatically receive statistics update.
 
 */
-::profiler::BlockStatistics* update_statistics(StatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, const ::profiler::blocks_t& _blocks)
+::profiler::BlockStatistics* update_statistics(StatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, const ::profiler::blocks_t& _blocks, bool _calculate_children = true)
 {
     auto duration = _current.node->duration();
     //StatsMap::key_type key(_current.node->name());
@@ -230,6 +230,12 @@ automatically receive statistics update.
 
         ++stats->calls_number; // update calls number of this block
         stats->total_duration += duration; // update summary duration of all block calls
+
+        if (_calculate_children)
+        {
+            for (auto i : _current.children)
+                stats->total_children_duration += _blocks[i].node->duration();
+        }
 
         if (duration > _blocks[stats->max_duration_block].node->duration())
         {
@@ -256,10 +262,16 @@ automatically receive statistics update.
     //_stats_map.emplace(key, stats);
     _stats_map.emplace(_current.node->id(), stats);
 
+    if (_calculate_children)
+    {
+        for (auto i : _current.children)
+            stats->total_children_duration += _blocks[i].node->duration();
+    }
+
     return stats;
 }
 
-::profiler::BlockStatistics* update_statistics(CsStatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, const ::profiler::blocks_t& _blocks)
+::profiler::BlockStatistics* update_statistics(CsStatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, const ::profiler::blocks_t& _blocks, bool _calculate_children = true)
 {
     auto duration = _current.node->duration();
     CsStatsMap::key_type key(_current.node->name());
@@ -272,6 +284,12 @@ automatically receive statistics update.
 
         ++stats->calls_number; // update calls number of this block
         stats->total_duration += duration; // update summary duration of all block calls
+
+        if (_calculate_children)
+        {
+            for (auto i : _current.children)
+                stats->total_children_duration += _blocks[i].node->duration();
+        }
 
         if (duration > _blocks[stats->max_duration_block].node->duration())
         {
@@ -297,6 +315,12 @@ automatically receive statistics update.
     auto stats = new ::profiler::BlockStatistics(duration, _current_index, _parent_index);
     _stats_map.emplace(key, stats);
 
+    if (_calculate_children)
+    {
+        for (auto i : _current.children)
+            stats->total_children_duration += _blocks[i].node->duration();
+    }
+
     return stats;
 }
 
@@ -304,9 +328,12 @@ automatically receive statistics update.
 
 void update_statistics_recursive(StatsMap& _stats_map, ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, ::profiler::blocks_t& _blocks)
 {
-    _current.per_frame_stats = update_statistics(_stats_map, _current, _current_index, _parent_index, _blocks);
+    _current.per_frame_stats = update_statistics(_stats_map, _current, _current_index, _parent_index, _blocks, false);
     for (auto i : _current.children)
+    {
+        _current.per_frame_stats->total_children_duration += _blocks[i].node->duration();
         update_statistics_recursive(_stats_map, _blocks[i], i, _parent_index, _blocks);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -729,6 +756,19 @@ extern "C" {
                                     if (tree.depth < child.depth)
                                         tree.depth = child.depth;
                                 }
+                            }
+
+                            if (tree.depth == 254)
+                            {
+                                // 254 because we need 1 additional level for root (thread).
+                                // In other words: real stack depth = 1 root block + 254 children
+
+                                if (*tree.node->name() != 0)
+                                    _log << "Stack depth exceeded value of 254\nfor block \"" << desc->name() << "\"";
+                                else
+                                    _log << "Stack depth exceeded value of 254\nfor block \"" << desc->name() << "\"\nfrom file \"" << desc->file() << "\":" << desc->line();
+
+                                return 0;
                             }
 
                             ++tree.depth;

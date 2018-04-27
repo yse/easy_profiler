@@ -45,19 +45,38 @@ The Apache License, Version 2.0 (the "License");
 
 #include <easy/profiler.h>
 
-#ifdef _WIN32
-#include <Windows.h>
+#if defined(_WIN32) && defined(_MSC_VER) && _MSC_VER <= 1800
+// std::chrono for MSVC2013 is broken - it has very low resolution of 16ms
+// restrict usage of std::chrono
+# ifdef EASY_CHRONO_HIGHRES_CLOCK
+#  undef EASY_CHRONO_HIGHRES_CLOCK
+# endif
+# ifdef EASY_CHRONO_STEADY_CLOCK
+#  undef EASY_CHRONO_STEADY_CLOCK
+# endif
+#endif
+
+#if defined(EASY_CHRONO_HIGHRES_CLOCK)
+# include <chrono>
+# define EASY_CHRONO_CLOCK std::chrono::high_resolution_clock
+#elif defined(EASY_CHRONO_STEADY_CLOCK)
+# include <chrono>
+# define EASY_CHRONO_CLOCK std::chrono::steady_clock
+#elif defined(_WIN32)
+# include <Windows.h>
 #else
-#include <chrono>
-#include <time.h>
-#ifdef __ARM_ARCH
-#include <sys/time.h>
-#endif//__ARM_ARCH
+# include <chrono>
+# include <time.h>
+# ifdef __ARM_ARCH
+#  include <sys/time.h>
+# endif//__ARM_ARCH
 #endif
 
 static inline profiler::timestamp_t getCurrentTime()
 {
-#ifdef _WIN32
+#if defined(EASY_CHRONO_HIGHRES_CLOCK) || defined(EASY_CHRONO_STEADY_CLOCK)
+    return (profiler::timestamp_t)EASY_CHRONO_CLOCK::now().time_since_epoch().count();
+#elif defined(_WIN32)
     //see https://msdn.microsoft.com/library/windows/desktop/dn553408(v=vs.85).aspx
     LARGE_INTEGER elapsedMicroseconds;
     if (!QueryPerformanceCounter(&elapsedMicroseconds))
@@ -138,14 +157,14 @@ static inline profiler::timestamp_t getCurrentTime()
 	  return static_cast<int64_t>(tv.tv_sec) * 1000000 + tv.tv_usec;
 	#else
 	  #warning You need to define fast getCurrentTime() for your OS and CPU
-	  return std::chrono::time_point_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now()).time_since_epoch().count();
-      #define USE_STD_CHRONO
+	  return std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    #define EASY_CHRONO_CLOCK std::chrono::high_resolution_clock
 	#endif
 
 #else // not _WIN32, __GNUC__, __ICC
 	#warning You need to define fast getCurrentTime() for your OS and CPU
-    return std::chrono::time_point_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now()).time_since_epoch().count();
-    #define USE_STD_CHRONO
+    return std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    #define EASY_CHRONO_CLOCK std::chrono::high_resolution_clock
 #endif
 
 #endif

@@ -66,7 +66,11 @@
 
 #include "event_trace_win.h"
 #include <Psapi.h>
+
+#ifdef __MINGW32__
 #include <processthreadsapi.h>
+#endif
+
 //#include <Shellapi.h>
 
 #if EASY_OPTION_LOG_ENABLED != 0

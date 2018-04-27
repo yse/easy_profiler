@@ -165,6 +165,7 @@ public:
     ::std::stringstream& data();
     void clearData();
 
+    void disconnect();
     bool connect(const char* _ipaddress, uint16_t _port, ::profiler::net::EasyProfilerStatus& _reply);
 
     bool startCapture();
@@ -237,6 +238,7 @@ protected:
     uint32_t m_descriptorsNumberInFile = 0;
     uint16_t m_lastPort = 0;
     bool m_bNetworkFileRegime = false;
+    bool m_bOpenedCacheFile = false;
 
 public:
 

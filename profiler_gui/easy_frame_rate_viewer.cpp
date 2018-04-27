@@ -268,11 +268,12 @@ EasyFrameRateViewer::EasyFrameRateViewer(QWidget* _parent) : Parent(_parent), m_
     centerOn(0, 0);
 
     // Dirty hack for QDockWidget stupid initial size policy :(
-    setMinimumHeight(5); // Set very small height to enable appropriate minimum height on the application startup
+    setFixedHeight(10); // Set very small height to enable appropriate minimum height on the application startup
     QTimer::singleShot(100, [this]()
     {
         // Now set appropriate minimum height
         setMinimumHeight((QFontMetrics(scene()->font()).height() + 3) * 6);
+        setMaximumHeight(minimumHeight() * 20);
     });
 }
 
@@ -323,10 +324,10 @@ void EasyFrameRateViewer::contextMenuEvent(QContextMenuEvent* _event)
     QMenu menu;
     QAction* action = nullptr;
 
-    action = menu.addAction("Clear");
+    action = menu.addAction(QIcon(":/Delete"), "Clear");
     connect(action, &QAction::triggered, [this](bool){ clear(); });
 
-    action = menu.addAction("Hide");
+    action = menu.addAction("Close");
     connect(action, &QAction::triggered, [this](bool){ parentWidget()->hide(); });
 
     menu.exec(QCursor::pos());
