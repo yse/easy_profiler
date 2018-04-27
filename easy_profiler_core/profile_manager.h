@@ -90,6 +90,11 @@ namespace profiler {
 # define EASY_ENABLE_ALIGNMENT 0
 #endif
 
+#ifndef EASY_ALIGNMENT_SIZE
+# define EASY_ALIGNMENT_SIZE 64
+#endif
+
+
 #if EASY_ENABLE_ALIGNMENT == 0
 # define EASY_ALIGNED(TYPE, VAR, A) TYPE VAR
 # define EASY_MALLOC(MEMSIZE, A) malloc(MEMSIZE)
@@ -109,7 +114,7 @@ namespace profiler {
 template <const uint16_t N>
 class chunk_allocator
 {
-    struct chunk { EASY_ALIGNED(int8_t, data[N], 64); chunk* prev = nullptr; };
+    struct chunk { EASY_ALIGNED(int8_t, data[N], EASY_ALIGNMENT_SIZE); chunk* prev = nullptr; };
 
     struct chunk_list
     {
@@ -137,7 +142,7 @@ class chunk_allocator
         void emplace_back()
         {
             auto prev = last;
-            last = ::new (EASY_MALLOC(sizeof(chunk), 64)) chunk();
+            last = ::new (EASY_MALLOC(sizeof(chunk), EASY_ALIGNMENT_SIZE)) chunk();
             last->prev = prev;
             *(uint16_t*)last->data = 0;
         }
@@ -309,22 +314,28 @@ struct ThreadStorage
     BlocksList<std::reference_wrapper<profiler::Block>, SIZEOF_CSWITCH * (uint16_t)128U> blocks;
     BlocksList<profiler::Block, SIZEOF_CSWITCH * (uint16_t)128U>                           sync;
     std::string name;
-    profiler::thread_id_t id = 0;
-    std::atomic_bool expired;
-    bool allowChildren = true;
-    bool named = false;
+
+#ifndef _WIN32
+    const pthread_t pthread_id;
+#endif
+
+    const profiler::thread_id_t id;
+    std::atomic<char> expired;
+    std::atomic_bool frame; ///< is new frame working
+    bool allowChildren;
+    bool named;
+    bool guarded;
 
     void storeBlock(const profiler::Block& _block);
     void storeCSwitch(const profiler::Block& _block);
     void clearClosed();
 
-    ThreadStorage()
-    {
-        expired = ATOMIC_VAR_INIT(false);
-    }
+    ThreadStorage();
 };
 
 //////////////////////////////////////////////////////////////////////////
+
+typedef uint32_t processid_t;
 
 class BlockDescriptor;
 
@@ -348,25 +359,28 @@ class ProfileManager
     typedef std::unordered_map<profiler::hashed_stdstring, profiler::block_id_t> descriptors_map_t;
 #endif
 
+    const processid_t               m_processId;
+
     map_of_threads_stacks             m_threads;
     block_descriptors_t           m_descriptors;
     descriptors_map_t          m_descriptorsMap;
-    uint64_t               m_usedMemorySize = 0;
-    profiler::timestamp_t       m_beginTime = 0;
-    profiler::timestamp_t         m_endTime = 0;
+    uint64_t                   m_usedMemorySize;
+    profiler::timestamp_t           m_beginTime;
+    profiler::timestamp_t             m_endTime;
     profiler::spin_lock                  m_spin;
     profiler::spin_lock            m_storedSpin;
-    std::atomic_bool                m_isEnabled;
+    profiler::spin_lock              m_dumpSpin;
+    std::atomic<char>          m_profilerStatus;
     std::atomic_bool    m_isEventTracingEnabled;
+    std::atomic_bool       m_isAlreadyListening;
 
     std::string m_csInfoFilename = "/tmp/cs_profiling_info.log";
 
-    uint32_t dumpBlocksToStream(profiler::OStream& _outputStream);
+    uint32_t dumpBlocksToStream(profiler::OStream& _outputStream, bool _lockSpin);
     void setBlockStatus(profiler::block_id_t _id, profiler::EasyBlockStatus _status);
 
     std::thread m_listenThread;
-    bool m_isAlreadyListened = false;
-    void listen();
+    void listen(uint16_t _port);
 
     int m_socket = 0;//TODO crossplatform
 
@@ -383,15 +397,17 @@ public:
                                                             const char* _filename,
                                                             int _line,
                                                             profiler::block_type_t _block_type,
-                                                            profiler::color_t _color);
+                                                            profiler::color_t _color,
+                                                            bool _copyName = false);
 
-    void storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName);
+    bool storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName);
     void beginBlock(profiler::Block& _block);
     void endBlock();
-    void setEnabled(bool isEnable, bool _setTime = true);
+    void setEnabled(bool isEnable);
     void setEventTracingEnabled(bool _isEnable);
     uint32_t dumpBlocksToFile(const char* filename);
     const char* registerThread(const char* name, profiler::ThreadGuard& threadGuard);
+    const char* registerThread(const char* name);
 
     void setContextSwitchLogFilename(const char* name)
     {
@@ -404,20 +420,31 @@ public:
     }
 
     void beginContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, const char* _target_process, bool _lockSpin = true);
-    void storeContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, bool _lockSpin = true);
-    void endContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime, bool _lockSpin = true);
-    void startListenSignalToCapture();
-    void stopListenSignalToCapture();
+    void endContextSwitch(profiler::thread_id_t _thread_id, processid_t _process_id, profiler::timestamp_t _endtime, bool _lockSpin = true);
+    void startListen(uint16_t _port);
+    void stopListen();
 
 private:
 
+    void enableEventTracer();
+    void disableEventTracer();
+
+    char checkThreadExpired(ThreadStorage& _registeredThread);
+
     void storeBlockForce(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t& _timestamp);
     void storeBlockForce2(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t _timestamp);
+    void storeBlockForce2(ThreadStorage& _registeredThread, const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t _timestamp);
 
-    ThreadStorage& threadStorage(profiler::thread_id_t _thread_id);
+    ThreadStorage& _threadStorage(profiler::thread_id_t _thread_id);
     ThreadStorage* _findThreadStorage(profiler::thread_id_t _thread_id);
 
-    ThreadStorage* findThreadStorage(profiler::thread_id_t _thread_id)
+    inline ThreadStorage& threadStorage(profiler::thread_id_t _thread_id)
+    {
+        guard_lock_t lock(m_spin);
+        return _threadStorage(_thread_id);
+    }
+
+    inline ThreadStorage* findThreadStorage(profiler::thread_id_t _thread_id)
     {
         guard_lock_t lock(m_spin);
         return _findThreadStorage(_thread_id);

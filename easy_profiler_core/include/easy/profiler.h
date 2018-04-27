@@ -40,18 +40,19 @@ along with this program.If not, see <http://www.gnu.org/licenses/>.
 # pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
 #endif
 
-namespace profiler {
-    const uint8_t EASY_VERSION_MAJOR = 1;
-    const uint8_t EASY_VERSION_MINOR = 0;
-    const uint16_t  EASY_VERSION_REV = 0;
-    const uint32_t EASY_FULL_VERSION = ((uint32_t)EASY_VERSION_MAJOR << 24) | ((uint32_t)EASY_VERSION_MINOR << 16) | (uint32_t)EASY_VERSION_REV;
-}
-
 #ifdef BUILD_WITH_EASY_PROFILER
 
 /**
 \defgroup profiler EasyProfiler
 */
+
+
+/** Indicates that EasyProfiler is used.
+
+\ingroup profiler
+*/
+#define USING_EASY_PROFILER
+
 
 // EasyProfiler core API:
 
@@ -90,7 +91,8 @@ Block will be automatically completed by destructor.
 */
 # define EASY_BLOCK(name, ...)\
     EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), ::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__),\
-        EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name), __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__)));\
+        EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name), __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__),\
+        ::std::is_base_of<::profiler::ForceConstStr, decltype(name)>::value));\
     ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name));\
     ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
@@ -120,7 +122,7 @@ Name of the block automatically created with function name.
 */
 # define EASY_FUNCTION(...)\
     EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), ::profiler::registerDescription(::profiler::extract_enable_flag(__VA_ARGS__),\
-        EASY_UNIQUE_LINE_ID, __func__, __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__)));\
+        EASY_UNIQUE_LINE_ID, __func__, __FILE__, __LINE__, ::profiler::BLOCK_TYPE_BLOCK, ::profiler::extract_color(__VA_ARGS__), false));\
     ::profiler::Block EASY_UNIQUE_BLOCK(__LINE__)(EASY_UNIQUE_DESC(__LINE__), "");\
     ::profiler::beginBlock(EASY_UNIQUE_BLOCK(__LINE__)); // this is to avoid compiler warning about unused variable
 
@@ -161,7 +163,8 @@ will end previously opened EASY_BLOCK or EASY_FUNCTION.
 # define EASY_EVENT(name, ...)\
     EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), ::profiler::registerDescription(\
         ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
-            __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__)));\
+            __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__),\
+            ::std::is_base_of<::profiler::ForceConstStr, decltype(name)>::value));\
     ::profiler::storeEvent(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name));
 
 /** Macro for enabling profiler.
@@ -184,9 +187,23 @@ will end previously opened EASY_BLOCK or EASY_FUNCTION.
 */
 # define EASY_THREAD(name)\
     EASY_THREAD_LOCAL static const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = 0;\
+    if (!EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__))\
+        EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = ::profiler::registerThread(name);
+
+/** Macro for current thread registration and creating a thread guard object.
+
+\note If this thread has been already registered then nothing happens.
+
+\note Also creates thread guard which marks thread as "expired" on it's destructor
+and creates "ThreadFinished" profiler event.
+
+\ingroup profiler
+*/
+# define EASY_THREAD_SCOPE(name)\
+    EASY_THREAD_LOCAL static const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = 0;\
     ::profiler::ThreadGuard EASY_TOKEN_CONCATENATE(unique_profiler_thread_guard, __LINE__);\
     if (!EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__))\
-        EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = ::profiler::registerThread(name,\
+        EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = ::profiler::registerThreadScoped(name,\
         EASY_TOKEN_CONCATENATE(unique_profiler_thread_guard, __LINE__));
 
 /** Macro for main thread registration.
@@ -199,11 +216,11 @@ This is just for user's comfort. There is no difference for EasyProfiler GUI bet
 
 /** Enable or disable event tracing (context switch events).
 
-\note Default value is controlled by EASY_EVENT_TRACING_ENABLED macro.
+\note Default value is controlled by EASY_OPTION_EVENT_TRACING_ENABLED macro.
 
 \note Change will take effect on the next call to EASY_PROFILER_ENABLE.
 
-\sa EASY_PROFILER_ENABLE, EASY_EVENT_TRACING_ENABLED
+\sa EASY_PROFILER_ENABLE, EASY_OPTION_EVENT_TRACING_ENABLED
 
 \ingroup profiler
 */
@@ -220,7 +237,7 @@ Event tracing with normal priority could gather more information about processes
 it could affect performance as it has more work to do. Usually you will not notice any performance
 breakdown, but if you care about that then you change set event tracing priority level to low.
 
-\sa EASY_LOW_PRIORITY_EVENT_TRACING
+\sa EASY_OPTION_LOW_PRIORITY_EVENT_TRACING
 
 \ingroup profiler
 */
@@ -232,13 +249,13 @@ breakdown, but if you care about that then you change set event tracing priority
 
 \ingroup profiler
 */
-#  define EASY_EVENT_TRACING_SET_LOG(filename) ::profiler::setContextSwitchLogFilename(filename);
+# define EASY_EVENT_TRACING_SET_LOG(filename) ::profiler::setContextSwitchLogFilename(filename);
 
 /** Macro returning current path to the temporary log-file for Unix event tracing system.
 
 \ingroup profiler
 */
-#  define EASY_EVENT_TRACING_LOG ::profiler::getContextSwitchLogFilename();
+# define EASY_EVENT_TRACING_LOG ::profiler::getContextSwitchLogFilename();
 
 // EasyProfiler settings:
 
@@ -250,15 +267,22 @@ These are "EasyProfiler.ExpandStorage" blocks on a diagram.
 
 \ingroup profiler
 */
-# define EASY_MEASURE_STORAGE_EXPAND 0
+# ifndef EASY_OPTION_MEASURE_STORAGE_EXPAND
+#  define EASY_OPTION_MEASURE_STORAGE_EXPAND 0
+# endif
 
-/** If true then "EasyProfiler.ExpandStorage" events are enabled by default and will be
+# if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
+/** If true then "EasyProfiler.ExpandStorage" blocks are enabled by default and will be
 writed to output file or translated over the net.
-If false then you need to enable these events via GUI if you'll want to see them.
+If false then you need to enable these blocks via GUI if you want to see them.
 
 \ingroup profiler
 */
-# define EASY_STORAGE_EXPAND_ENABLED true
+#  ifndef EASY_OPTION_STORAGE_EXPAND_BLOCKS_ON
+#   define EASY_OPTION_STORAGE_EXPAND_BLOCKS_ON true
+#  endif
+
+# endif // EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
 
 /** If true then EasyProfiler event tracing is enabled by default
 and will be turned on and off when you call profiler::setEnabled().
@@ -267,7 +291,9 @@ turned on/off with next calls of profiler::setEnabled().
 
 \ingroup profiler
 */
-# define EASY_EVENT_TRACING_ENABLED true
+# ifndef EASY_OPTION_EVENT_TRACING_ENABLED
+#  define EASY_OPTION_EVENT_TRACING_ENABLED true
+# endif
 
 /** If true then EasyProfiler.ETW thread (Event tracing for Windows) will have low priority by default.
 
@@ -278,7 +304,9 @@ You don't need to rebuild or restart your application for that.
 
 \ingroup profiler
 */
-# define EASY_LOW_PRIORITY_EVENT_TRACING true
+# ifndef EASY_OPTION_LOW_PRIORITY_EVENT_TRACING
+#  define EASY_OPTION_LOW_PRIORITY_EVENT_TRACING true
+# endif
 
 
 /** If != 0 then EasyProfiler will print error messages into stderr.
@@ -286,8 +314,19 @@ Otherwise, no log messages will be printed.
 
 \ingroup profiler
 */
-# define EASY_LOG_ENABLED 1
+# ifndef EASY_OPTION_LOG_ENABLED
+#  define EASY_OPTION_LOG_ENABLED 0
+# endif
 
+/** If != 0 then EasyProfiler will start listening thread immidiately on ProfileManager initialization.
+
+\sa startListen
+
+\ingroup profiler
+*/
+# ifndef EASY_OPTION_START_LISTEN_ON_STARTUP
+#  define EASY_OPTION_START_LISTEN_ON_STARTUP 0
+# endif
 
 #else // #ifdef BUILD_WITH_EASY_PROFILER
 
@@ -298,6 +337,7 @@ Otherwise, no log messages will be printed.
 # define EASY_PROFILER_DISABLE 
 # define EASY_EVENT(...)
 # define EASY_THREAD(...)
+# define EASY_THREAD_SCOPE(...)
 # define EASY_MAIN_THREAD 
 # define EASY_SET_EVENT_TRACING_ENABLED(isEnabled) 
 # define EASY_SET_LOW_PRIORITY_EVENT_TRACING(isLowPriority) 
@@ -307,13 +347,31 @@ Otherwise, no log messages will be printed.
 #  define EASY_EVENT_TRACING_LOG ""
 # endif
 
-# define EASY_MEASURE_STORAGE_EXPAND 0
-# define EASY_STORAGE_EXPAND_ENABLED false
-# define EASY_EVENT_TRACING_ENABLED false
-# define EASY_LOW_PRIORITY_EVENT_TRACING true
-# define EASY_LOG_ENABLED 0
+# ifndef EASY_OPTION_MEASURE_STORAGE_EXPAND
+#  define EASY_OPTION_MEASURE_STORAGE_EXPAND 0
+# endif
+
+# ifndef EASY_OPTION_EVENT_TRACING_ENABLED
+#  define EASY_OPTION_EVENT_TRACING_ENABLED false
+# endif
+
+# ifndef EASY_OPTION_LOW_PRIORITY_EVENT_TRACING
+#  define EASY_OPTION_LOW_PRIORITY_EVENT_TRACING true
+# endif
+
+# ifndef EASY_OPTION_LOG_ENABLED
+#  define EASY_OPTION_LOG_ENABLED 0
+# endif
+
+# ifndef EASY_OPTION_START_LISTEN_ON_STARTUP
+#  define EASY_OPTION_START_LISTEN_ON_STARTUP 0
+# endif
 
 #endif // #ifndef BUILD_WITH_EASY_PROFILER
+
+# ifndef EASY_DEFAULT_PORT
+#  define EASY_DEFAULT_PORT 28077
+# endif
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
@@ -326,7 +384,7 @@ namespace profiler {
     //////////////////////////////////////////////////////////////////////
     // Core types
 
-    const uint16_t DEFAULT_PORT = 28077;
+    const uint16_t DEFAULT_PORT = EASY_DEFAULT_PORT;
 
     typedef uint64_t timestamp_t;
     typedef uint32_t thread_id_t;
@@ -449,6 +507,7 @@ namespace profiler {
     // Core API
     // Note: it is better to use macros defined above than a direct calls to API.
 
+#ifdef BUILD_WITH_EASY_PROFILER
     extern "C" {
 
         /** Registers static description of a block.
@@ -458,7 +517,7 @@ namespace profiler {
 
         \ingroup profiler
         */
-        PROFILER_API const BaseBlockDescriptor* registerDescription(EasyBlockStatus _status, const char* _autogenUniqueId, const char* _compiletimeName, const char* _filename, int _line, block_type_t _block_type, color_t _color);
+        PROFILER_API const BaseBlockDescriptor* registerDescription(EasyBlockStatus _status, const char* _autogenUniqueId, const char* _compiletimeName, const char* _filename, int _line, block_type_t _block_type, color_t _color, bool _copyName = false);
 
         /** Stores event in the blocks list.
 
@@ -503,7 +562,15 @@ namespace profiler {
 
         \ingroup profiler
         */
-        PROFILER_API const char* registerThread(const char* _name, ThreadGuard&);
+        PROFILER_API const char* registerThreadScoped(const char* _name, ThreadGuard&);
+
+        /** Register current thread and give it a name.
+
+        \note Only first call of registerThread() for the current thread will have an effect.
+
+        \ingroup profiler
+        */
+        PROFILER_API const char* registerThread(const char* _name);
 
         /** Enable or disable event tracing.
 
@@ -539,10 +606,62 @@ namespace profiler {
         */
         PROFILER_API const char* getContextSwitchLogFilename();
 
-        PROFILER_API void startListenSignalToCapture();
-        PROFILER_API void stopListenSignalToCapture();
+        PROFILER_API void startListen(uint16_t _port = ::profiler::DEFAULT_PORT);
+        PROFILER_API void stopListen();
+
+        /** Returns current major version.
+        
+        \ingroup profiler
+        */
+        PROFILER_API uint8_t versionMajor();
+
+        /** Returns current minor version.
+
+        \ingroup profiler
+        */
+        PROFILER_API uint8_t versionMinor();
+
+        /** Returns current version patch.
+
+        \ingroup profiler
+        */
+        PROFILER_API uint16_t versionPatch();
+
+        /** Returns current version in 32-bit integer format.
+
+        \ingroup profiler
+        */
+        PROFILER_API uint32_t version();
+
+        /** Returns current version in 32-bit integer format.
+
+        \ingroup profiler
+        */
+        PROFILER_API const char* versionName();
 
     }
+#else
+    inline const BaseBlockDescriptor* registerDescription(EasyBlockStatus, const char*, const char*, const char*, int, block_type_t, color_t, bool = false)
+    { return reinterpret_cast<const BaseBlockDescriptor*>(0xbad); }
+    inline void endBlock() { }
+    inline void setEnabled(bool) { }
+    inline void storeEvent(const BaseBlockDescriptor*, const char*) { }
+    inline void beginBlock(Block&) { }
+    inline uint32_t dumpBlocksToFile(const char*) { return 0; }
+    inline const char* registerThreadScoped(const char*, ThreadGuard&) { return ""; }
+    inline const char* registerThread(const char*) { return ""; }
+    inline void setEventTracingEnabled(bool) { }
+    inline void setLowPriorityEventTracing(bool) { }
+    inline void setContextSwitchLogFilename(const char*) { }
+    inline const char* getContextSwitchLogFilename() { return ""; }
+    inline void startListen(uint16_t = ::profiler::DEFAULT_PORT) { }
+    inline void stopListen() { }
+    inline uint8_t versionMajor() { return 0; }
+    inline uint8_t versionMinor() { return 0; }
+    inline uint16_t versionPatch() { return 0; }
+    inline uint32_t version() { return 0; }
+    inline const char* versionName() { return "v0.0.0_disabled"; }
+#endif
 
     //////////////////////////////////////////////////////////////////////
 

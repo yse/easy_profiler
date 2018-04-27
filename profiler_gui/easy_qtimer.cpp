@@ -1,13 +1,14 @@
 /************************************************************************
-* file name         : globals.cpp
+* file name         : easy_qtimer.h
 * ----------------- :
-* creation time     : 2016/08/03
+* creation time     : 2016/12/05
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : The file contains implementation of global constants and variables for profiler gui.
+* description       : This file contains implementation of EasyQTimer class used to
+*                   : connect QTimer to non-QObject classes.
 * ----------------- :
-* change log        : * 2016/08/03 Victor Zarubkin: initial commit.
+* change log        : * 2016/12/05 Victor Zarubkin: Initial commit.
 *                   :
 *                   : *
 * ----------------- :
@@ -42,54 +43,32 @@
 *                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
-#define IGNORE_GLOBALS_DECLARATION
-#include "globals.h"
-#undef IGNORE_GLOBALS_DECLARATION
+#include "easy_qtimer.h"
 
 //////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////
 
-namespace profiler_gui {
+EasyQTimer::EasyQTimer()
+    : QObject()
+{
+    connect(&m_timer, &QTimer::timeout, [this](){ m_handler(); });
+}
 
-    EasyGlobals& EasyGlobals::instance()
-    {
-        static EasyGlobals globals;
-        return globals;
-    }
+EasyQTimer::EasyQTimer(::std::function<void()>&& _handler)
+    : QObject()
+    , m_handler(::std::forward<::std::function<void()>&&>(_handler))
+{
+    connect(&m_timer, &QTimer::timeout, [this](){ m_handler(); });
+}
 
-    EasyGlobals::EasyGlobals()
-        : selected_thread(0U)
-        , selected_block(::profiler_gui::numeric_max<decltype(selected_block)>())
-        , selected_block_id(::profiler_gui::numeric_max<decltype(selected_block_id)>())
-        , begin_time(0)
-        , frame_time(4e4f)
-        , blocks_spacing(2)
-        , blocks_size_min(3)
-        , blocks_narrow_size(20)
-        , chrono_text_position(ChronoTextPosition_Center)
-        , time_units(TimeUnits_auto)
-        , connected(false)
-        , use_decorated_thread_name(true)
-        , enable_event_indicators(true)
-        , enable_statistics(true)
-        , enable_zero_length(true)
-        , add_zero_blocks_to_hierarchy(false)
-        , draw_graphics_items_borders(true)
-        , hide_narrow_children(false)
-        , hide_minsize_blocks(false)
-        , display_only_relevant_stats(true)
-        , collapse_items_on_tree_close(false)
-        , all_items_expanded_by_default(true)
-        , only_current_thread_hierarchy(false)
-        , highlight_blocks_with_same_id(true)
-        , selecting_block_changes_thread(true)
-        , bind_scene_and_tree_expand_status(true)
-    {
+EasyQTimer::~EasyQTimer()
+{
 
-    }
+}
 
-} // END of namespace profiler_gui.
+void EasyQTimer::setHandler(::std::function<void()>&& _handler)
+{
+    m_handler = _handler;
+}
 
-//////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 

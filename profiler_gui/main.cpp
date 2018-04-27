@@ -47,9 +47,9 @@
 #include "easy/reader.h"
 
 
-//#ifdef _WIN32
-//#pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
-//#endif
+#if defined(_WIN32) && defined (_BUILD_RELEASE_)
+#pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
+#endif
 
 int main(int argc, char **argv)
 {

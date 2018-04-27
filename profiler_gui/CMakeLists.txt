@@ -8,9 +8,22 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-find_package(Qt5Widgets REQUIRED)
-find_package(Qt5Network REQUIRED)
-find_package(Qt5Svg REQUIRED)
+find_package(Qt5Widgets)
+
+if(Qt5Widgets_FOUND)
+
+if(NOT DEFINED EASY_PROGRAM_VERSION_MAJOR)
+    set(EASY_PROGRAM_VERSION_MAJOR 1)
+    set(EASY_PROGRAM_VERSION_MINOR 0)
+    set(EASY_PROGRAM_VERSION_PATCH 0)
+    set(EASY_PRODUCT_VERSION_STRING "1.0.0")
+endif(NOT DEFINED EASY_PROGRAM_VERSION_MAJOR)
+
+add_definitions(
+	-DEASY_PROFILER_VERSION_MAJOR=${EASY_PROGRAM_VERSION_MAJOR}
+	-DEASY_PROFILER_VERSION_MINOR=${EASY_PROGRAM_VERSION_MINOR}
+	-DEASY_PROFILER_VERSION_PATCH=${EASY_PROGRAM_VERSION_PATCH}
+)
 
 add_executable(${PROJECT_NAME}
     main.cpp
@@ -26,6 +39,8 @@ add_executable(${PROJECT_NAME}
     easy_graphics_item.cpp
     easy_graphics_scrollbar.h
     easy_graphics_scrollbar.cpp
+    easy_qtimer.h
+    easy_qtimer.cpp
     globals.h
     globals.cpp
     globals_qobjects.cpp
@@ -47,25 +62,10 @@ if(UNIX)
     set(SPECIAL_LIB pthread)
 endif(UNIX)
 
-target_link_libraries(${PROJECT_NAME} Qt5::Widgets  Qt5::Network easy_profiler ${SPECIAL_LIB})
+target_link_libraries(${PROJECT_NAME} Qt5::Widgets  easy_profiler ${SPECIAL_LIB})
+else()
 
-install(TARGETS ${PROJECT_NAME}
-        DESTINATION bin
-        COMPONENT binaries 
-)
+message(STATUS "INFO\n\n\tQt5 not found! Generating EasyProfiler projects without GUI.\n")
 
-get_target_property(QtCore_location    Qt5::Core    LOCATION)
-get_target_property(QtWidgets_location Qt5::Widgets LOCATION)
-get_target_property(QtNetwork_location Qt5::Network LOCATION)
-get_target_property(QtGui_location     Qt5::Gui     LOCATION)
-get_target_property(QtSvg_location     Qt5::Svg     LOCATION)
+endif(Qt5Widgets_FOUND)
 
-install(FILES 
-    ${QtCore_location}
-    ${QtWidgets_location}
-    ${QtNetwork_location}
-    ${QtGui_location}
-    ${QtSvg_location}
-    DESTINATION bin
-    COMPONENT binaries 
-)

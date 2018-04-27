@@ -47,44 +47,96 @@
 #include "event_trace_win.h"
 #include "current_time.h"
 
+#ifdef min
+#undef min
+#endif
+
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
 using namespace profiler;
 
-const uint32_t PROFILER_SIGNATURE = ('E' << 24) | ('a' << 16) | ('s' << 8) | 'y';
-const uint8_t FORCE_ON_FLAG = profiler::FORCE_ON & ~profiler::ON;
+//////////////////////////////////////////////////////////////////////////
+
+#if !defined(EASY_PROFILER_VERSION_MAJOR) || !defined(EASY_PROFILER_VERSION_MINOR) || !defined(EASY_PROFILER_VERSION_PATCH)
+# ifdef _WIN32
+#  error EASY_PROFILER_VERSION_MAJOR and EASY_PROFILER_VERSION_MINOR and EASY_PROFILER_VERSION_PATCH macros must be defined
+# else
+#  error "EASY_PROFILER_VERSION_MAJOR and EASY_PROFILER_VERSION_MINOR and EASY_PROFILER_VERSION_PATCH macros must be defined"
+# endif
+#endif
+
+# define EASY_PROFILER_PRODUCT_VERSION "v" EASY_STRINGIFICATION(EASY_PROFILER_VERSION_MAJOR) "." \
+                                           EASY_STRINGIFICATION(EASY_PROFILER_VERSION_MINOR) "." \
+                                           EASY_STRINGIFICATION(EASY_PROFILER_VERSION_PATCH)
+
+# define EASY_VERSION_INT(v_major, v_minor, v_patch) ((static_cast<uint32_t>(v_major) << 24) | (static_cast<uint32_t>(v_minor) << 16) | static_cast<uint32_t>(v_patch))
+extern const uint32_t PROFILER_SIGNATURE = ('E' << 24) | ('a' << 16) | ('s' << 8) | 'y';
+extern const uint32_t EASY_CURRENT_VERSION = EASY_VERSION_INT(EASY_PROFILER_VERSION_MAJOR, EASY_PROFILER_VERSION_MINOR, EASY_PROFILER_VERSION_PATCH);
+# undef EASY_VERSION_INT
+
+//////////////////////////////////////////////////////////////////////////
+
+# define EASY_PROF_DISABLED 0
+# define EASY_PROF_ENABLED 1
+# define EASY_PROF_DUMP 2
+
+//////////////////////////////////////////////////////////////////////////
 
 //auto& MANAGER = ProfileManager::instance();
-#define MANAGER ProfileManager::instance()
-
-EASY_THREAD_LOCAL static ::ThreadStorage* THREAD_STORAGE = nullptr;
+# define MANAGER ProfileManager::instance()
+const uint8_t FORCE_ON_FLAG = profiler::FORCE_ON & ~profiler::ON;
 
 #ifdef _WIN32
-decltype(LARGE_INTEGER::QuadPart) CPU_FREQUENCY = ([](){ LARGE_INTEGER freq; QueryPerformanceFrequency(&freq); return freq.QuadPart; })();
+decltype(LARGE_INTEGER::QuadPart) const CPU_FREQUENCY = ([](){ LARGE_INTEGER freq; QueryPerformanceFrequency(&freq); return freq.QuadPart; })();
 #endif
 
 //////////////////////////////////////////////////////////////////////////
 
-#define EASY_FORCE_EVENT(timestamp, name, ...)\
-    EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), addBlockDescriptor(\
-        ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
-            __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__)));\
-    storeBlockForce(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name), timestamp);
+EASY_THREAD_LOCAL static ::ThreadStorage* THREAD_STORAGE = nullptr;
+EASY_THREAD_LOCAL static int32_t THREAD_STACK_SIZE = 0;
 
-#define EASY_FORCE_EVENT2(timestamp, name, ...)\
+//////////////////////////////////////////////////////////////////////////
+
+#ifdef BUILD_WITH_EASY_PROFILER
+# define EASY_EVENT_RES(res, name, ...)\
+    EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), MANAGER.addBlockDescriptor(\
+        ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
+            __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__)));\
+    res = MANAGER.storeBlock(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name))
+
+# define EASY_FORCE_EVENT(timestamp, name, ...)\
     EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), addBlockDescriptor(\
         ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
             __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__)));\
-    storeBlockForce2(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name), timestamp);
+    storeBlockForce(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name), timestamp)
+
+# define EASY_FORCE_EVENT2(timestamp, name, ...)\
+    EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), addBlockDescriptor(\
+        ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
+            __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__)));\
+    storeBlockForce2(EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name), timestamp)
+
+# define EASY_FORCE_EVENT3(ts, timestamp, name, ...)\
+    EASY_LOCAL_STATIC_PTR(const ::profiler::BaseBlockDescriptor*, EASY_UNIQUE_DESC(__LINE__), addBlockDescriptor(\
+        ::profiler::extract_enable_flag(__VA_ARGS__), EASY_UNIQUE_LINE_ID, EASY_COMPILETIME_NAME(name),\
+            __FILE__, __LINE__, ::profiler::BLOCK_TYPE_EVENT, ::profiler::extract_color(__VA_ARGS__)));\
+    storeBlockForce2(ts, EASY_UNIQUE_DESC(__LINE__), EASY_RUNTIME_NAME(name), timestamp)
+#else
+# define EASY_EVENT_RES(res, name, ...) 
+# define EASY_FORCE_EVENT(timestamp, name, ...) 
+# define EASY_FORCE_EVENT2(timestamp, name, ...) 
+# define EASY_FORCE_EVENT3(ts, timestamp, name, ...) 
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 
 extern "C" {
 
-    PROFILER_API const BaseBlockDescriptor* registerDescription(EasyBlockStatus _status, const char* _autogenUniqueId, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
+#if !defined(EASY_PROFILER_API_DISABLED)
+    PROFILER_API const BaseBlockDescriptor* registerDescription(EasyBlockStatus _status, const char* _autogenUniqueId, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color, bool _copyName)
     {
-        return MANAGER.addBlockDescriptor(_status, _autogenUniqueId, _name, _filename, _line, _block_type, _color);
+        return MANAGER.addBlockDescriptor(_status, _autogenUniqueId, _name, _filename, _line, _block_type, _color, _copyName);
     }
 
     PROFILER_API void endBlock()
@@ -112,9 +164,14 @@ extern "C" {
         return MANAGER.dumpBlocksToFile(filename);
     }
 
-    PROFILER_API const char* registerThread(const char* name, ThreadGuard& threadGuard)
+    PROFILER_API const char* registerThreadScoped(const char* name, ThreadGuard& threadGuard)
     {
         return MANAGER.registerThread(name, threadGuard);
+    }
+
+    PROFILER_API const char* registerThread(const char* name)
+    {
+        return MANAGER.registerThread(name);
     }
 
     PROFILER_API void setEventTracingEnabled(bool _isEnable)
@@ -122,14 +179,14 @@ extern "C" {
         MANAGER.setEventTracingEnabled(_isEnable);
     }
 
-#ifdef _WIN32
+# ifdef _WIN32
     PROFILER_API void setLowPriorityEventTracing(bool _isLowPriority)
     {
         EasyEventTracer::instance().setLowPriority(_isLowPriority);
     }
-#else
+# else
     PROFILER_API void setLowPriorityEventTracing(bool) { }
-#endif
+# endif
 
     PROFILER_API void setContextSwitchLogFilename(const char* name)
     {
@@ -141,17 +198,67 @@ extern "C" {
         return MANAGER.getContextSwitchLogFilename();
     }
 
-    PROFILER_API void   startListenSignalToCapture()
+    PROFILER_API void   startListen(uint16_t _port)
     {
-        return MANAGER.startListenSignalToCapture();
+        return MANAGER.startListen(_port);
     }
 
-    PROFILER_API void   stopListenSignalToCapture()
+    PROFILER_API void   stopListen()
     {
-        return MANAGER.stopListenSignalToCapture();
+        return MANAGER.stopListen();
+    }
+#else
+    PROFILER_API const BaseBlockDescriptor* registerDescription(EasyBlockStatus, const char*, const char*, const char*, int, block_type_t, color_t, bool) { return reinterpret_cast<const BaseBlockDescriptor*>(0xbad); }
+    PROFILER_API void endBlock() { }
+    PROFILER_API void setEnabled(bool) { }
+    PROFILER_API void storeEvent(const BaseBlockDescriptor*, const char*) { }
+    PROFILER_API void beginBlock(Block&) { }
+    PROFILER_API uint32_t dumpBlocksToFile(const char*) { return 0; }
+    PROFILER_API const char* registerThreadScoped(const char*, ThreadGuard&) { return ""; }
+    PROFILER_API const char* registerThread(const char*) { return ""; }
+    PROFILER_API void setEventTracingEnabled(bool) { }
+    PROFILER_API void setLowPriorityEventTracing(bool) { }
+    PROFILER_API void setContextSwitchLogFilename(const char*) { }
+    PROFILER_API const char* getContextSwitchLogFilename() { return ""; }
+    PROFILER_API void   startListen(uint16_t) { }
+    PROFILER_API void   stopListen() { }
+#endif
+
+    PROFILER_API uint8_t versionMajor()
+    {
+        static_assert(0 <= EASY_PROFILER_VERSION_MAJOR && EASY_PROFILER_VERSION_MAJOR <= 255, "EASY_PROFILER_VERSION_MAJOR must be defined in range [0, 255]");
+        return EASY_PROFILER_VERSION_MAJOR;
+    }
+
+    PROFILER_API uint8_t versionMinor()
+    {
+        static_assert(0 <= EASY_PROFILER_VERSION_MINOR && EASY_PROFILER_VERSION_MINOR <= 255, "EASY_PROFILER_VERSION_MINOR must be defined in range [0, 255]");
+        return EASY_PROFILER_VERSION_MINOR;
+    }
+
+    PROFILER_API uint16_t versionPatch()
+    {
+        static_assert(0 <= EASY_PROFILER_VERSION_PATCH && EASY_PROFILER_VERSION_PATCH <= 65535, "EASY_PROFILER_VERSION_PATCH must be defined in range [0, 65535]");
+        return EASY_PROFILER_VERSION_PATCH;
+    }
+
+    PROFILER_API uint32_t version()
+    {
+        return EASY_CURRENT_VERSION;
+    }
+
+    PROFILER_API const char* versionName()
+    {
+        return EASY_PROFILER_PRODUCT_VERSION
+#ifdef EASY_PROFILER_API_DISABLED
+            "_disabled"
+#endif
+            ;
     }
 
 }
+
+//////////////////////////////////////////////////////////////////////////
 
 SerializedBlock::SerializedBlock(const Block& block, uint16_t name_length)
     : BaseBlockData(block)
@@ -193,17 +300,15 @@ class BlockDescriptor : public BaseBlockDescriptor
 {
     friend ProfileManager;
 
-    EASY_BLOCK_DESC_STRING     m_name; ///< Static name of all blocks of the same type (blocks can have dynamic name) which is, in pair with descriptor id, a unique block identifier
     EASY_BLOCK_DESC_STRING m_filename; ///< Source file name where this block is declared
-    uint16_t                   m_size; ///< Used memory size
+    EASY_BLOCK_DESC_STRING     m_name; ///< Static name of all blocks of the same type (blocks can have dynamic name) which is, in pair with descriptor id, a unique block identifier
 
 public:
 
     BlockDescriptor(block_id_t _id, EasyBlockStatus _status, const char* _name, const char* _filename, int _line, block_type_t _block_type, color_t _color)
         : BaseBlockDescriptor(_id, _status, _line, _block_type, _color)
-        , m_name(_name)
         , m_filename(_filename)
-        , m_size(static_cast<uint16_t>(sizeof(profiler::SerializedBlockDescriptor) + strlen(_name) + strlen(_filename) + 2))
+        , m_name(_name)
     {
     }
 
@@ -227,11 +332,21 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
+ThreadStorage::ThreadStorage() : id(getCurrentThreadId()), allowChildren(true), named(false), guarded(false)
+#ifndef _WIN32
+, pthread_id(pthread_self())
+#endif
+
+{
+    expired = ATOMIC_VAR_INIT(0);
+    frame = ATOMIC_VAR_INIT(false);
+}
+
 void ThreadStorage::storeBlock(const profiler::Block& block)
 {
-#if EASY_MEASURE_STORAGE_EXPAND != 0
+#if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
     EASY_LOCAL_STATIC_PTR(const BaseBlockDescriptor*, desc,\
-        MANAGER.addBlockDescriptor(EASY_STORAGE_EXPAND_ENABLED ? profiler::ON : profiler::OFF, EASY_UNIQUE_LINE_ID, "EasyProfiler.ExpandStorage",\
+        MANAGER.addBlockDescriptor(EASY_OPTION_STORAGE_EXPAND_BLOCKS_ON ? profiler::ON : profiler::OFF, EASY_UNIQUE_LINE_ID, "EasyProfiler.ExpandStorage",\
             __FILE__, __LINE__, profiler::BLOCK_TYPE_BLOCK, profiler::colors::White));
 
     EASY_THREAD_LOCAL static profiler::timestamp_t beginTime = 0ULL;
@@ -241,21 +356,21 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
     auto name_length = static_cast<uint16_t>(strlen(block.name()));
     auto size = static_cast<uint16_t>(sizeof(BaseBlockData) + name_length + 1);
 
-#if EASY_MEASURE_STORAGE_EXPAND != 0
+#if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
     const bool expanded = (desc->m_status & profiler::ON) && blocks.closedList.need_expand(size);
     if (expanded) beginTime = getCurrentTime();
 #endif
 
     auto data = blocks.closedList.allocate(size);
 
-#if EASY_MEASURE_STORAGE_EXPAND != 0
+#if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
     if (expanded) endTime = getCurrentTime();
 #endif
 
     ::new (data) SerializedBlock(block, name_length);
     blocks.usedMemorySize += size;
 
-#if EASY_MEASURE_STORAGE_EXPAND != 0
+#if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
     if (expanded)
     {
         profiler::Block b(beginTime, desc->id(), "");
@@ -288,31 +403,54 @@ void ThreadStorage::clearClosed()
 
 ThreadGuard::~ThreadGuard()
 {
+#ifndef EASY_PROFILER_API_DISABLED
     if (m_id != 0 && THREAD_STORAGE != nullptr && THREAD_STORAGE->id == m_id)
     {
-        EASY_EVENT("ThreadFinished", profiler::colors::Dark);
-        THREAD_STORAGE->expired.store(true, std::memory_order_release);
+        bool isMarked = false;
+        EASY_EVENT_RES(isMarked, "ThreadFinished", profiler::colors::Dark, ::profiler::FORCE_ON);
+        THREAD_STORAGE->frame.store(false, std::memory_order_release);
+        THREAD_STORAGE->expired.store(isMarked ? 2 : 1, std::memory_order_release);
         THREAD_STORAGE = nullptr;
     }
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-ProfileManager::ProfileManager()
+ProfileManager::ProfileManager() :
+#ifdef _WIN32
+    m_processId(GetProcessId(GetCurrentProcess()))
+#else
+    m_processId((processid_t)getpid())
+#endif
+    , m_usedMemorySize(0)
+    , m_beginTime(0)
+    , m_endTime(0)
 {
-    m_isEnabled = ATOMIC_VAR_INIT(false);
-    m_isEventTracingEnabled = ATOMIC_VAR_INIT(EASY_EVENT_TRACING_ENABLED);
+    m_profilerStatus = ATOMIC_VAR_INIT(EASY_PROF_DISABLED);
+    m_isEventTracingEnabled = ATOMIC_VAR_INIT(EASY_OPTION_EVENT_TRACING_ENABLED);
+    m_isAlreadyListening = ATOMIC_VAR_INIT(false);
     m_stopListen = ATOMIC_VAR_INIT(false);
+
+#if !defined(EASY_PROFILER_API_DISABLED) && EASY_OPTION_START_LISTEN_ON_STARTUP != 0
+    startListen(profiler::DEFAULT_PORT);
+#endif
 }
 
 ProfileManager::~ProfileManager()
 {
-    stopListenSignalToCapture();
+#ifndef EASY_PROFILER_API_DISABLED
+    stopListen();
+#endif
 
-    for (auto desc : m_descriptors)
-    {
-        if (desc != nullptr)
-            delete desc;
+    for (auto desc : m_descriptors) {
+#if EASY_BLOCK_DESC_FULL_COPY == 0
+        if (desc)
+            desc->~BlockDescriptor();
+        free(desc);
+#else
+        delete desc;
+#endif
     }
 }
 
@@ -322,6 +460,8 @@ class ProfileManagerInstance {
     ProfileManager instance;
 } PROFILE_MANAGER;
 #endif
+
+//////////////////////////////////////////////////////////////////////////
 
 ProfileManager& ProfileManager::instance()
 {
@@ -335,9 +475,10 @@ ProfileManager& ProfileManager::instance()
 #endif
 }
 
-ThreadStorage& ProfileManager::threadStorage(profiler::thread_id_t _thread_id)
+//////////////////////////////////////////////////////////////////////////
+
+ThreadStorage& ProfileManager::_threadStorage(profiler::thread_id_t _thread_id)
 {
-    guard_lock_t lock(m_spin);
     return m_threads[_thread_id];
 }
 
@@ -347,13 +488,16 @@ ThreadStorage* ProfileManager::_findThreadStorage(profiler::thread_id_t _thread_
     return it != m_threads.end() ? &it->second : nullptr;
 }
 
+//////////////////////////////////////////////////////////////////////////
+
 const BaseBlockDescriptor* ProfileManager::addBlockDescriptor(EasyBlockStatus _defaultStatus,
                                                         const char* _autogenUniqueId,
                                                         const char* _name,
                                                         const char* _filename,
                                                         int _line,
                                                         block_type_t _block_type,
-                                                        color_t _color)
+                                                        color_t _color,
+                                                        bool _copyName)
 {
     guard_lock_t lock(m_storedSpin);
 
@@ -362,25 +506,55 @@ const BaseBlockDescriptor* ProfileManager::addBlockDescriptor(EasyBlockStatus _d
     if (it != m_descriptorsMap.end())
         return m_descriptors[it->second];
 
+    const auto nameLen = strlen(_name);
+    m_usedMemorySize += sizeof(profiler::SerializedBlockDescriptor) + nameLen + strlen(_filename) + 2;
+
+#if EASY_BLOCK_DESC_FULL_COPY == 0
+    BlockDescriptor* desc = nullptr;
+
+    if (_copyName)
+    {
+        void* data = malloc(sizeof(BlockDescriptor) + nameLen + 1);
+        char* name = reinterpret_cast<char*>(data) + sizeof(BlockDescriptor);
+        strncpy(name, _name, nameLen);
+        desc = ::new (data)BlockDescriptor(static_cast<block_id_t>(m_descriptors.size()), _defaultStatus, name, _filename, _line, _block_type, _color);
+    }
+    else
+    {
+        void* data = malloc(sizeof(BlockDescriptor));
+        desc = ::new (data)BlockDescriptor(static_cast<block_id_t>(m_descriptors.size()), _defaultStatus, _name, _filename, _line, _block_type, _color);
+    }
+#else
     auto desc = new BlockDescriptor(static_cast<block_id_t>(m_descriptors.size()), _defaultStatus, _name, _filename, _line, _block_type, _color);
-    m_usedMemorySize += desc->m_size;
+#endif
+
     m_descriptors.emplace_back(desc);
     m_descriptorsMap.emplace(key, desc->id());
 
     return desc;
 }
 
-void ProfileManager::storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName)
-{
-    if (!m_isEnabled.load(std::memory_order_acquire) || !(_desc->m_status & profiler::ON))
-        return;
+//////////////////////////////////////////////////////////////////////////
 
-    if (THREAD_STORAGE == nullptr)
+bool ProfileManager::storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName)
+{
+    const auto state = m_profilerStatus.load(std::memory_order_acquire);
+    if (state == EASY_PROF_DISABLED || !(_desc->m_status & profiler::ON))
+        return false;
+
+    if (state == EASY_PROF_DUMP)
+    {
+        if (THREAD_STORAGE == nullptr || THREAD_STORAGE->blocks.openedList.empty())
+            return false;
+    }
+    else if (THREAD_STORAGE == nullptr)
+    {
         THREAD_STORAGE = &threadStorage(getCurrentThreadId());
+    }
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
-    if (!THREAD_STORAGE->allowChildren)
-        return;
+    if (!THREAD_STORAGE->allowChildren && !(_desc->m_status & FORCE_ON_FLAG))
+        return false;
 #endif
 
     profiler::Block b(_desc, _runtimeName);
@@ -388,7 +562,11 @@ void ProfileManager::storeBlock(const profiler::BaseBlockDescriptor* _desc, cons
     b.m_end = b.m_begin;
 
     THREAD_STORAGE->storeBlock(b);
+
+    return true;
 }
+
+//////////////////////////////////////////////////////////////////////////
 
 void ProfileManager::storeBlockForce(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t& _timestamp)
 {
@@ -399,7 +577,7 @@ void ProfileManager::storeBlockForce(const profiler::BaseBlockDescriptor* _desc,
         THREAD_STORAGE = &threadStorage(getCurrentThreadId());
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
-    if (!THREAD_STORAGE->allowChildren)
+    if (!THREAD_STORAGE->allowChildren && !(_desc->m_status & FORCE_ON_FLAG))
         return;
 #endif
 
@@ -420,7 +598,7 @@ void ProfileManager::storeBlockForce2(const profiler::BaseBlockDescriptor* _desc
         THREAD_STORAGE = &threadStorage(getCurrentThreadId());
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
-    if (!THREAD_STORAGE->allowChildren)
+    if (!THREAD_STORAGE->allowChildren && !(_desc->m_status & FORCE_ON_FLAG))
         return;
 #endif
 
@@ -430,13 +608,40 @@ void ProfileManager::storeBlockForce2(const profiler::BaseBlockDescriptor* _desc
     THREAD_STORAGE->storeBlock(b);
 }
 
+void ProfileManager::storeBlockForce2(ThreadStorage& _registeredThread, const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, ::profiler::timestamp_t _timestamp)
+{
+    profiler::Block b(_desc, _runtimeName);
+    b.m_end = b.m_begin = _timestamp;
+    _registeredThread.storeBlock(b);
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 void ProfileManager::beginBlock(Block& _block)
 {
-    if (!m_isEnabled.load(std::memory_order_acquire))
+    if (++THREAD_STACK_SIZE > 1)
         return;
 
-    if (THREAD_STORAGE == nullptr)
+    const auto state = m_profilerStatus.load(std::memory_order_acquire);
+    if (state == EASY_PROF_DISABLED)
+        return;
+
+    THREAD_STACK_SIZE = 0;
+    bool empty = true;
+    if (state == EASY_PROF_DUMP)
+    {
+        if (THREAD_STORAGE == nullptr || THREAD_STORAGE->blocks.openedList.empty())
+            return;
+        empty = false;
+    }
+    else if (THREAD_STORAGE == nullptr)
+    {
         THREAD_STORAGE = &threadStorage(getCurrentThreadId());
+    }
+    else
+    {
+        empty = THREAD_STORAGE->blocks.openedList.empty();
+    }
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
     if (THREAD_STORAGE->allowChildren)
@@ -458,6 +663,8 @@ void ProfileManager::beginBlock(Block& _block)
     }
 #endif
 
+    if (empty)
+        THREAD_STORAGE->frame.store(true, std::memory_order_release);
     THREAD_STORAGE->blocks.openedList.emplace(_block);
 }
 
@@ -470,26 +677,15 @@ void ProfileManager::beginContextSwitch(profiler::thread_id_t _thread_id, profil
         ts->sync.openedList.emplace(_time, _target_thread_id, _target_process);
 }
 
-void ProfileManager::storeContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, bool _lockSpin)
-{
-    auto ts = _lockSpin ? findThreadStorage(_thread_id) : _findThreadStorage(_thread_id);
-    if (ts != nullptr)
-    {
-        profiler::Block b(_time, _target_thread_id, "");
-        b.finish(_time);
-        ts->storeCSwitch(b);
-    }
-}
+//////////////////////////////////////////////////////////////////////////
 
 void ProfileManager::endBlock()
 {
-    if (!m_isEnabled.load(std::memory_order_acquire))
+    if (--THREAD_STACK_SIZE > 0 || m_profilerStatus.load(std::memory_order_acquire) == EASY_PROF_DISABLED)
         return;
 
-    if (THREAD_STORAGE == nullptr)
-        THREAD_STORAGE = &threadStorage(getCurrentThreadId());
-
-    if (THREAD_STORAGE->blocks.openedList.empty())
+    THREAD_STACK_SIZE = 0;
+    if (THREAD_STORAGE == nullptr || THREAD_STORAGE->blocks.openedList.empty())
         return;
 
     Block& lastBlock = THREAD_STORAGE->blocks.openedList.top();
@@ -505,15 +701,25 @@ void ProfileManager::endBlock()
     }
 
     THREAD_STORAGE->blocks.openedList.pop();
+    const bool empty = THREAD_STORAGE->blocks.openedList.empty();
+    if (empty)
+        THREAD_STORAGE->frame.store(false, std::memory_order_release);
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
-    THREAD_STORAGE->allowChildren = THREAD_STORAGE->blocks.openedList.empty() || !(lastBlock.m_status & profiler::OFF_RECURSIVE);
+    THREAD_STORAGE->allowChildren = empty || !(THREAD_STORAGE->blocks.openedList.top().get().m_status & profiler::OFF_RECURSIVE);
 #endif
 }
 
-void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _endtime, bool _lockSpin)
+void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, processid_t _process_id, profiler::timestamp_t _endtime, bool _lockSpin)
 {
-    auto ts = _lockSpin ? findThreadStorage(_thread_id) : _findThreadStorage(_thread_id);
+    ThreadStorage* ts = nullptr;
+    if (_process_id == m_processId)
+        // If thread owned by current process then create new ThreadStorage if there is no one
+        ts = _lockSpin ? &threadStorage(_thread_id) : &_threadStorage(_thread_id);
+    else
+        // If thread owned by another process OR _process_id IS UNKNOWN then do not create ThreadStorage for this
+        ts = _lockSpin ? findThreadStorage(_thread_id) : _findThreadStorage(_thread_id);
+
     if (ts == nullptr || ts->sync.openedList.empty())
         return;
 
@@ -524,37 +730,42 @@ void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, profiler
     ts->sync.openedList.pop();
 }
 
-void ProfileManager::setEnabled(bool isEnable, bool _setTime)
+//////////////////////////////////////////////////////////////////////////
+
+void ProfileManager::enableEventTracer()
 {
+#ifdef _WIN32
+    if (m_isEventTracingEnabled.load(std::memory_order_acquire))
+        EasyEventTracer::instance().enable(true);
+#endif
+}
+
+void ProfileManager::disableEventTracer()
+{
+#ifdef _WIN32
+    EasyEventTracer::instance().disable();
+#endif
+}
+
+void ProfileManager::setEnabled(bool isEnable)
+{
+    guard_lock_t lock(m_dumpSpin);
+
     auto time = getCurrentTime();
-    const bool prev = m_isEnabled.exchange(isEnable, std::memory_order_release);
-    if (prev == isEnable)
+    const auto status = isEnable ? EASY_PROF_ENABLED : EASY_PROF_DISABLED;
+    const auto prev = m_profilerStatus.exchange(status, std::memory_order_release);
+    if (prev == status)
         return;
 
     if (isEnable)
     {
-#ifdef _WIN32
-        if (m_isEventTracingEnabled.load(std::memory_order_acquire))
-            EasyEventTracer::instance().enable(true);
-#endif
-
-        if (_setTime)
-        {
-            guard_lock_t lk(m_spin);
-            m_beginTime = time;
-        }
+        enableEventTracer();
+        m_beginTime = time;
     }
     else
     {
-#ifdef _WIN32
-        EasyEventTracer::instance().disable();
-#endif
-
-        if (_setTime)
-        {
-            guard_lock_t lk(m_spin);
-            m_endTime = time;
-        }
+        disableEventTracer();
+        m_endTime = time;
     }
 }
 
@@ -565,30 +776,88 @@ void ProfileManager::setEventTracingEnabled(bool _isEnable)
 
 //////////////////////////////////////////////////////////////////////////
 
-uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
+char ProfileManager::checkThreadExpired(ThreadStorage& _registeredThread)
 {
-    const bool wasEnabled = m_isEnabled.load(std::memory_order_acquire);
+    const char val = _registeredThread.expired.load(std::memory_order_acquire);
+    if (val != 0)
+        return val;
+
+    if (_registeredThread.guarded)
+        return 0;
+
+#ifdef _WIN32
+
+    // Check thread for Windows
+
+    DWORD exitCode = 0;
+    auto hThread = OpenThread(THREAD_QUERY_LIMITED_INFORMATION, FALSE, _registeredThread.id);
+    if (hThread == nullptr || GetExitCodeThread(hThread, &exitCode) == FALSE || exitCode != STILL_ACTIVE)
+    {
+        // Thread has been expired
+        _registeredThread.expired.store(1, std::memory_order_release);
+        if (hThread != nullptr)
+            CloseHandle(hThread);
+        return 1;
+    }
+
+    if (hThread != nullptr)
+        CloseHandle(hThread);
+
+    return 0;
+
+#else
+
+    return 0;//pthread_kill(_registeredThread.pthread_id, 0) != 0;
+
+#endif
+
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream, bool _lockSpin)
+{
+    if (_lockSpin)
+        m_dumpSpin.lock();
+
+    const auto state = m_profilerStatus.load(std::memory_order_acquire);
 
 #ifndef _WIN32
     const bool eventTracingEnabled = m_isEventTracingEnabled.load(std::memory_order_acquire);
 #endif
 
-    if (wasEnabled)
-        ::profiler::setEnabled(false);
+    if (state == EASY_PROF_ENABLED) {
+        m_profilerStatus.store(EASY_PROF_DUMP, std::memory_order_release);
+        disableEventTracer();
+        m_endTime = getCurrentTime();
+    }
 
 
     // This is to make sure that no new descriptors or new threads will be
     // added until we finish sending data.
-    guard_lock_t lock1(m_storedSpin);
-    guard_lock_t lock2(m_spin);
+    //m_spin.lock();
     // This is the only place using both spins, so no dead-lock will occur
 
 
     // Wait for some time to be sure that all operations which began before setEnabled(false) will be finished.
     // This is much better than inserting spin-lock or atomic variable check into each store operation.
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+    // wait for all threads finish opened frames
+    for (auto it = m_threads.begin(), end = m_threads.end(); it != end;)
+    {
+        if (!it->second.frame.load(std::memory_order_acquire))
+            ++it;
+        else
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    m_profilerStatus.store(EASY_PROF_DISABLED, std::memory_order_release);
+    m_spin.lock();
+    m_storedSpin.lock();
     // TODO: think about better solution because this one is not 100% safe...
 
+    const profiler::timestamp_t now = getCurrentTime();
+    const profiler::timestamp_t endtime = m_endTime == 0 ? now : std::min(now, m_endTime);
 
 #ifndef _WIN32
     if (eventTracingEnabled)
@@ -600,9 +869,11 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
 
         std::ifstream infile(m_csInfoFilename.c_str());
         if(infile.is_open()) {
-            while (infile >> timestamp >> thread_from >> thread_to) {
-                beginContextSwitch(thread_from, timestamp, thread_to, "", false);
-                endContextSwitch(thread_to, timestamp, false);
+            std::string next_task_name;
+            pid_t process_to = 0;
+            while (infile >> timestamp >> thread_from >> thread_to >> next_task_name >> process_to) {
+                beginContextSwitch(thread_from, timestamp, thread_to, next_task_name.c_str(), false);
+                endContextSwitch(thread_to, (processid_t)process_to, timestamp, false);
             }
         }
     }
@@ -613,14 +884,19 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
     uint32_t blocks_number = 0;
     for (auto it = m_threads.begin(), end = m_threads.end(); it != end;)
     {
-        const auto& t = it->second;
-        const uint32_t num = static_cast<uint32_t>(t.blocks.closedList.size()) + static_cast<uint32_t>(t.sync.closedList.size());
+        auto& t = it->second;
+        uint32_t num = static_cast<uint32_t>(t.blocks.closedList.size()) + static_cast<uint32_t>(t.sync.closedList.size());
 
-        if (t.expired.load(std::memory_order_acquire) && num == 0) {
-            // Thread has been finished and contains no profiled information.
-            // Remove it now.
+        const char expired = checkThreadExpired(t);
+        if (num == 0 && (expired != 0 || !t.guarded)) {
+            // Remove thread if it contains no profiled information and has been finished or is not guarded.
             m_threads.erase(it++);
             continue;
+        }
+
+        if (expired == 1) {
+            EASY_FORCE_EVENT3(t, endtime, "ThreadExpired", profiler::colors::Dark);
+            ++num;
         }
 
         usedMemorySize += t.blocks.usedMemorySize + t.sync.usedMemorySize;
@@ -630,7 +906,8 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
 
     // Write profiler signature and version
     _outputStream.write(PROFILER_SIGNATURE);
-    _outputStream.write(profiler::EASY_FULL_VERSION);
+    _outputStream.write(EASY_CURRENT_VERSION);
+    _outputStream.write(m_processId);
 
     // Write CPU frequency to let GUI calculate real time value from CPU clocks
 #ifdef _WIN32
@@ -715,14 +992,17 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
         t.blocks.openedList.clear();
         t.sync.openedList.clear();
 
-        if (t.expired.load(std::memory_order_acquire))
+        if (t.expired.load(std::memory_order_acquire) != 0)
             m_threads.erase(it++); // Remove expired thread after writing all profiled information
         else
             ++it;
     }
 
-    //if (wasEnabled)
-    //    ::profiler::setEnabled(true);
+    m_storedSpin.unlock();
+    m_spin.unlock();
+
+    if (_lockSpin)
+        m_dumpSpin.unlock();
 
     return blocks_number;
 }
@@ -730,7 +1010,7 @@ uint32_t ProfileManager::dumpBlocksToStream(profiler::OStream& _outputStream)
 uint32_t ProfileManager::dumpBlocksToFile(const char* _filename)
 {
     profiler::OStream outputStream;
-    const auto blocksNumber = dumpBlocksToStream(outputStream);
+    const auto blocksNumber = dumpBlocksToStream(outputStream, true);
 
     std::ofstream of(_filename, std::fstream::binary);
     of << outputStream.stream().str();
@@ -740,20 +1020,26 @@ uint32_t ProfileManager::dumpBlocksToFile(const char* _filename)
 
 const char* ProfileManager::registerThread(const char* name, ThreadGuard& threadGuard)
 {
-    const bool isNewThread = THREAD_STORAGE == nullptr;
-    if (isNewThread)
-    {
-        const auto id = getCurrentThreadId();
-        THREAD_STORAGE = &threadStorage(id);
-        threadGuard.m_id = THREAD_STORAGE->id = id;
+    if (THREAD_STORAGE == nullptr)
+        THREAD_STORAGE = &threadStorage(getCurrentThreadId());
+
+    THREAD_STORAGE->guarded = true;
+    if (!THREAD_STORAGE->named) {
+        THREAD_STORAGE->named = true;
+        THREAD_STORAGE->name = name;
     }
 
-    if (!THREAD_STORAGE->named)
-    {
-        if (!isNewThread) {
-            threadGuard.m_id = THREAD_STORAGE->id = getCurrentThreadId();
-        }
+    threadGuard.m_id = THREAD_STORAGE->id;
 
+    return THREAD_STORAGE->name.c_str();
+}
+
+const char* ProfileManager::registerThread(const char* name)
+{
+    if (THREAD_STORAGE == nullptr)
+        THREAD_STORAGE = &threadStorage(getCurrentThreadId());
+
+    if (!THREAD_STORAGE->named) {
         THREAD_STORAGE->named = true;
         THREAD_STORAGE->name = name;
     }
@@ -763,7 +1049,7 @@ const char* ProfileManager::registerThread(const char* name, ThreadGuard& thread
 
 void ProfileManager::setBlockStatus(block_id_t _id, EasyBlockStatus _status)
 {
-    if (m_isEnabled.load(std::memory_order_acquire))
+    if (m_profilerStatus.load(std::memory_order_acquire) != EASY_PROF_ENABLED)
         return; // Changing blocks statuses is restricted while profile session is active
 
     guard_lock_t lock(m_storedSpin);
@@ -775,36 +1061,35 @@ void ProfileManager::setBlockStatus(block_id_t _id, EasyBlockStatus _status)
     }
 }
 
-void ProfileManager::startListenSignalToCapture()
+void ProfileManager::startListen(uint16_t _port)
 {
-    if (!m_isAlreadyListened)
+    if (!m_isAlreadyListening.exchange(true, std::memory_order_release))
     {
         m_stopListen.store(false, std::memory_order_release);
-        m_listenThread = std::move(std::thread(&ProfileManager::listen, this));
-        m_isAlreadyListened = true;
+        m_listenThread = std::move(std::thread(&ProfileManager::listen, this, _port));
     }
 }
 
-void ProfileManager::stopListenSignalToCapture()
+void ProfileManager::stopListen()
 {
     m_stopListen.store(true, std::memory_order_release);
     if (m_listenThread.joinable())
         m_listenThread.join();
-    m_isAlreadyListened = false;
+    m_isAlreadyListening.store(false, std::memory_order_release);
 }
 
 //////////////////////////////////////////////////////////////////////////
 
 //#define EASY_DEBUG_NET_PRINT
 
-void ProfileManager::listen()
+void ProfileManager::listen(uint16_t _port)
 {
-    EASY_THREAD("EasyProfiler.Listen");
+    EASY_THREAD_SCOPE("EasyProfiler.Listen");
 
     EasySocket socket;
     profiler::net::Message replyMessage(profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING);
 
-    socket.bind(profiler::DEFAULT_PORT);
+    socket.bind(_port);
     int bytes = 0;
     while (!m_stopListen.load(std::memory_order_acquire))
     {
@@ -828,7 +1113,7 @@ void ProfileManager::listen()
 #else
                 false;
 #endif
-            profiler::net::EasyProfilerStatus connectionReply(m_isEnabled.load(std::memory_order_acquire), m_isEventTracingEnabled.load(std::memory_order_acquire), wasLowPriorityET);
+            profiler::net::EasyProfilerStatus connectionReply(m_profilerStatus.load(std::memory_order_acquire) == EASY_PROF_ENABLED, m_isEventTracingEnabled.load(std::memory_order_acquire), wasLowPriorityET);
             bytes = socket.send(&connectionReply, sizeof(connectionReply));
             hasConnect = bytes > 0;
         }
@@ -852,6 +1137,13 @@ void ProfileManager::listen()
 
                 switch (message->type)
                 {
+                    case profiler::net::MESSAGE_TYPE_CHECK_CONNECTION:
+                    {
+#ifdef EASY_DEBUG_NET_PRINT
+                        printf("receive MESSAGE_TYPE_CHECK_CONNECTION\n");
+#endif
+                        break;
+                    }
                     case profiler::net::MESSAGE_TYPE_REQUEST_START_CAPTURE:
                     {
 #ifdef EASY_DEBUG_NET_PRINT
@@ -859,11 +1151,14 @@ void ProfileManager::listen()
 #endif
                         ::profiler::timestamp_t t = 0;
                         EASY_FORCE_EVENT(t, "StartCapture", profiler::colors::Green, profiler::OFF);
-                        ProfileManager::setEnabled(true, false);
 
-                        m_spin.lock();
-                        m_beginTime = t;
-                        m_spin.unlock();
+                        m_dumpSpin.lock();
+                        const auto prev = m_profilerStatus.exchange(EASY_PROF_ENABLED, std::memory_order_release);
+                        if (prev != EASY_PROF_ENABLED) {
+                            enableEventTracer();
+                            m_beginTime = t;
+                        }
+                        m_dumpSpin.unlock();
 
                         replyMessage.type = profiler::net::MESSAGE_TYPE_REPLY_START_CAPTURING;
                         bytes = socket.send(&replyMessage, sizeof(replyMessage));
@@ -877,19 +1172,23 @@ void ProfileManager::listen()
 #ifdef EASY_DEBUG_NET_PRINT
                         printf("receive REQUEST_STOP_CAPTURE\n");
 #endif
-                        ProfileManager::setEnabled(false);
-
-                        m_spin.lock();
-                        ::profiler::timestamp_t t = m_endTime;
-                        m_spin.unlock();
-                        EASY_FORCE_EVENT2(t, "StopCapture", profiler::colors::Red, profiler::OFF);
+                        m_dumpSpin.lock();
+                        auto time = getCurrentTime();
+                        const auto prev = m_profilerStatus.exchange(EASY_PROF_DUMP, std::memory_order_release);
+                        if (prev == EASY_PROF_ENABLED) {
+                            disableEventTracer();
+                            m_endTime = time;
+                        }
+                        EASY_FORCE_EVENT2(m_endTime, "StopCapture", profiler::colors::Red, profiler::OFF);
 
                         //TODO
                         //if connection aborted - ignore this part
 
-                        profiler::net::DataMessage dm;
                         profiler::OStream os;
-                        dumpBlocksToStream(os);
+                        dumpBlocksToStream(os, false);
+                        m_dumpSpin.unlock();
+
+                        profiler::net::DataMessage dm;
                         dm.size = (uint32_t)os.stream().str().length();
 
                         int packet_size = int(sizeof(dm)) + int(dm.size);
@@ -927,7 +1226,7 @@ void ProfileManager::listen()
 
                         // Write profiler signature and version
                         os.write(PROFILER_SIGNATURE);
-                        os.write(profiler::EASY_FULL_VERSION);
+                        os.write(EASY_CURRENT_VERSION);
 
                         // Write block descriptors
                         m_storedSpin.lock();

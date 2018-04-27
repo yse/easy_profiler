@@ -49,10 +49,16 @@ namespace profiler_gui {
 
         void selectedThreadChanged(::profiler::thread_id_t _id);
         void selectedBlockChanged(uint32_t _block_index);
+        void selectedBlockIdChanged(::profiler::block_id_t _id);
         void itemsExpandStateChanged();
         void blockStatusChanged(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status);
         void connectionChanged(bool _connected);
         void blocksRefreshRequired(bool);
+        void timelineMarkerChanged();
+        void hierarchyFlagChanged(bool);
+        void threadNameDecorationChanged();
+        void refreshRequired();
+        void blocksTreeModeChanged();
 
     }; // END of class EasyGlobalSignals.
 

@@ -103,7 +103,7 @@ void EasySocket::flush()
 
 void EasySocket::checkResult(int result)
 {
-//    printf("Errno: %s\n", strerror(errno));
+    //printf("Errno: %s\n", strerror(errno));
     if(result >= 0){
         m_state = CONNECTION_STATE_SUCCESS;
         return;
@@ -122,18 +122,23 @@ void EasySocket::checkResult(int result)
         const int CONNECTION_ABORTED = ECONNABORTED;
         const int CONNECTION_RESET = ECONNRESET;
         const int CONNECTION_IN_PROGRESS = EINPROGRESS;
+        const int CONNECTION_BROKEN_PIPE = EPIPE;
+        const int CONNECTION_ENOENT = ENOENT;
 #endif
 
         switch(error_code)
         {
         case CONNECTION_ABORTED:
         case CONNECTION_RESET:
+#ifndef _WIN32
+        case CONNECTION_BROKEN_PIPE:
+        case CONNECTION_ENOENT:
+#endif
             m_state = CONNECTION_STATE_DISCONNECTED;
             break;
         case CONNECTION_IN_PROGRESS:
             m_state = CONNECTION_STATE_IN_PROGRESS;
             break;
-
         default:
             break;
         }
@@ -193,7 +198,7 @@ int EasySocket::send(const void *buf, size_t nbyte)
 #ifdef _WIN32
     res = ::send(m_replySocket, (const char*)buf, (int)nbyte, 0);
 #else
-    res = ::write(m_replySocket,buf,nbyte);
+    res = ::send(m_replySocket,buf,nbyte,MSG_NOSIGNAL);
 #endif
     checkResult(res);
     return res;

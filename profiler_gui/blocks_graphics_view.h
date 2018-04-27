@@ -60,6 +60,7 @@
 #include <QPoint>
 #include <QRectF>
 #include <QTimer>
+#include <QLabel>
 #include "easy/reader.h"
 #include "common_types.h"
 
@@ -91,6 +92,13 @@ EASY_QGRAPHICSITEM(EasyTimelineIndicatorItem);
 EASY_QGRAPHICSITEM(EasyThreadNameItem);
 
 #undef EASY_QGRAPHICSITEM
+
+//////////////////////////////////////////////////////////////////////////
+
+struct EasyBoldLabel : public QLabel {
+    EasyBoldLabel(const QString& _text, QWidget* _parent = nullptr);
+    virtual ~EasyBoldLabel();
+};
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -148,6 +156,8 @@ public:
     void keyReleaseEvent(QKeyEvent* _event) override;
     void resizeEvent(QResizeEvent* _event) override;
 
+    void dragEnterEvent(QDragEnterEvent*) override {}
+
 public:
 
     // Public non-virtual methods
@@ -178,11 +188,12 @@ private:
     EasyChronometerItem* createChronometer(bool _main = true);
     bool moveChrono(EasyChronometerItem* _chronometerItem, qreal _mouseX);
     void initMode();
-    void updateVisibleSceneRect();
+    int updateVisibleSceneRect();
     void updateTimelineStep(qreal _windowWidth);
     void scaleTo(qreal _scale);
+    void scrollTo(const EasyGraphicsItem* _item);
     void onWheel(qreal _mouseX, int _wheelDelta);
-    qreal setTree(EasyGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, qreal _y, short _level);
+    qreal setTree(EasyGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, uint32_t& _maxDepthChild, qreal _y, short _level);
 
 private slots:
 
@@ -194,9 +205,10 @@ private slots:
     void onGraphicsScrollbarValueChange(qreal);
     void onFlickerTimeout();
     void onIdleTimeout();
+    void onHierarchyFlagChange(bool _value);
     void onSelectedThreadChange(::profiler::thread_id_t _id);
     void onSelectedBlockChange(unsigned int _block_index);
-    void onItemsEspandStateChange();
+    void onRefreshRequired();
 
 public:
 
@@ -261,6 +273,9 @@ public:
     void mouseMoveEvent(QMouseEvent* _event) override;
     void keyPressEvent(QKeyEvent* _event) override;
     void keyReleaseEvent(QKeyEvent* _event) override;
+    void wheelEvent(QWheelEvent* _event) override;
+
+    void dragEnterEvent(QDragEnterEvent*) override {}
 
     void clear();
 
@@ -273,7 +288,6 @@ private slots:
 
     void setVerticalScrollbarRange(int _minValue, int _maxValue);
     void onTreeChange();
-    void onSelectedThreadChange(::profiler::thread_id_t _id);
     void repaintScene();
 
 }; // END of class EasyThreadNamesWidget.

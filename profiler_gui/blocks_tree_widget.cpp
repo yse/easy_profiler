@@ -60,9 +60,14 @@
 #include <QProgressDialog>
 #include <QResizeEvent>
 #include <QMoveEvent>
+#include <QLineEdit>
+#include <QLabel>
+#include <QToolBar>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
+#include <QByteArray>
 #include <QDebug>
 #include "blocks_tree_widget.h"
-#include "tree_widget_item.h"
 #include "globals.h"
 
 #ifdef _WIN32
@@ -81,16 +86,51 @@
 
 const int HIERARCHY_BUILDER_TIMER_INTERVAL = 40;
 
+const bool SIMPLIFIED_REGIME_COLUMNS[COL_COLUMNS_NUMBER] = {
+    true, //COL_NAME,
+    true, //COL_BEGIN,
+    true, //COL_DURATION,
+    true, //COL_SELF_DURATION,
+    false, //COL_DURATION_SUM_PER_PARENT,
+    false, //COL_DURATION_SUM_PER_FRAME,
+    true, //COL_DURATION_SUM_PER_THREAD,
+    true, //COL_SELF_DURATION_PERCENT,
+    false, //COL_PERCENT_PER_PARENT,
+    true, //COL_PERCENT_PER_FRAME,
+    false, //COL_PERCENT_SUM_PER_PARENT,
+    false, //COL_PERCENT_SUM_PER_FRAME,
+    true, //COL_PERCENT_SUM_PER_THREAD,
+    true, //COL_END,
+    true, //COL_MIN_PER_FRAME,
+    true, //COL_MAX_PER_FRAME,
+    true, //COL_AVERAGE_PER_FRAME,
+    true, //COL_NCALLS_PER_FRAME,
+    true, //COL_MIN_PER_THREAD,
+    true, //COL_MAX_PER_THREAD,
+    true, //COL_AVERAGE_PER_THREAD,
+    true, //COL_NCALLS_PER_THREAD,
+    false, //COL_MIN_PER_PARENT,
+    false, //COL_MAX_PER_PARENT,
+    false, //COL_AVERAGE_PER_PARENT,
+    false, //COL_NCALLS_PER_PARENT,
+    true, //COL_ACTIVE_TIME,
+    true //COL_ACTIVE_PERCENT,
+};
+
 //////////////////////////////////////////////////////////////////////////
 
 EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
     : Parent(_parent)
     , m_beginTime(::std::numeric_limits<decltype(m_beginTime)>::max())
+    , m_lastFound(nullptr)
     , m_progress(nullptr)
+    , m_mode(EasyTreeMode_Plain)
     , m_bColorRows(true)
     , m_bLocked(false)
     , m_bSilentExpandCollapse(false)
 {
+    memset(m_columnsHiddenStatus, 0, sizeof(m_columnsHiddenStatus));
+
     setAutoFillBackground(false);
     setAlternatingRowColors(true);
     setItemsExpandable(true);
@@ -110,16 +150,16 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
     header_item->setText(COL_DURATION, "Duration");
     header_item->setText(COL_SELF_DURATION, "Self Dur.");
     //header_item->setToolTip(COL_SELF_DURATION, "");
-    header_item->setText(COL_DURATION_SUM_PER_PARENT, "Tot. Dur./Parent");
-    header_item->setText(COL_DURATION_SUM_PER_FRAME, "Tot. Dur./Frame");
-    header_item->setText(COL_DURATION_SUM_PER_THREAD, "Tot. Dur./Thread");
+    header_item->setText(COL_DURATION_SUM_PER_PARENT, "Sum Dur./Parent");
+    header_item->setText(COL_DURATION_SUM_PER_FRAME,  "Sum Dur./Frame");
+    header_item->setText(COL_DURATION_SUM_PER_THREAD, "Sum Dur./Thread");
 
     header_item->setText(COL_SELF_DURATION_PERCENT, "Self %");
     header_item->setText(COL_PERCENT_PER_PARENT, "% / Parent");
     header_item->setText(COL_PERCENT_PER_FRAME, "% / Frame");
-    header_item->setText(COL_PERCENT_SUM_PER_FRAME, "Tot. % / Frame");
-    header_item->setText(COL_PERCENT_SUM_PER_PARENT, "Tot. % / Parent");
-    header_item->setText(COL_PERCENT_SUM_PER_THREAD, "Tot. % / Thread");
+    header_item->setText(COL_PERCENT_SUM_PER_FRAME,  "Sum % / Frame");
+    header_item->setText(COL_PERCENT_SUM_PER_PARENT, "Sum % / Parent");
+    header_item->setText(COL_PERCENT_SUM_PER_THREAD, "Sum % / Thread");
 
     header_item->setText(COL_END, "End, ms");
 
@@ -137,6 +177,9 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
     header_item->setText(COL_MAX_PER_THREAD, "Max dur./Thread");
     header_item->setText(COL_AVERAGE_PER_THREAD, "Average dur./Thread");
     header_item->setText(COL_NCALLS_PER_THREAD, "N Calls/Thread");
+
+    header_item->setText(COL_ACTIVE_TIME, "Active time");
+    header_item->setText(COL_ACTIVE_PERCENT, "Active %");
 
     auto color = QColor::fromRgb(::profiler::colors::DeepOrange900);
     header_item->setForeground(COL_MIN_PER_THREAD, color);
@@ -171,6 +214,27 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
     connect(&m_fillTimer, &QTimer::timeout, this, &This::onFillTimerTimeout);
 
     loadSettings();
+
+    if (m_mode == EasyTreeMode_Full)
+    {
+        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+            m_columnsHiddenStatus[i] = isColumnHidden(i) ? 1 : 0;
+    }
+    else
+    {
+        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+        {
+            if (SIMPLIFIED_REGIME_COLUMNS[i])
+            {
+                if (isColumnHidden(i))
+                    m_columnsHiddenStatus[i] = 1;
+            }
+            else if (!isColumnHidden(i))
+            {
+                setColumnHidden(i, true);
+            }
+        }
+    }
 
     m_progress = new QProgressDialog("Building blocks hierarchy...", "", 0, 100, this, Qt::FramelessWindowHint);
     m_progress->setAttribute(Qt::WA_TranslucentBackground);
@@ -218,7 +282,11 @@ void EasyTreeWidget::onFillTimerTimeout()
         m_inputBlocks.clear();
 
         setSortingEnabled(true);
-        sortByColumn(COL_BEGIN, Qt::AscendingOrder);
+
+        sortByColumn(COL_BEGIN, Qt::AscendingOrder); // sort by begin time
+        if (m_mode == EasyTreeMode_Plain) // and after that, sort by frame %
+            sortByColumn(COL_PERCENT_PER_FRAME, Qt::DescendingOrder);
+
         //resizeColumnToContents(COL_NAME);
         resizeColumnsToContents();
 
@@ -243,7 +311,7 @@ void EasyTreeWidget::setTree(const unsigned int _blocksNumber, const ::profiler:
         m_bLocked = true;
         m_progress->setValue(0);
         m_progress->show();
-        m_hierarchyBuilder.fillTree(m_beginTime, _blocksNumber, _blocksTree, m_bColorRows);
+        m_hierarchyBuilder.fillTree(m_beginTime, _blocksNumber, _blocksTree, m_bColorRows, m_mode);
         m_fillTimer.start(HIERARCHY_BUILDER_TIMER_INTERVAL);
     }
 
@@ -276,7 +344,7 @@ void EasyTreeWidget::setTreeBlocks(const ::profiler_gui::TreeBlocks& _blocks, ::
         m_bLocked = true;
         m_progress->setValue(0);
         m_progress->show();
-        m_hierarchyBuilder.fillTreeBlocks(m_inputBlocks, _session_begin_time, _left, _right, _strict, m_bColorRows);
+        m_hierarchyBuilder.fillTreeBlocks(m_inputBlocks, _session_begin_time, _left, _right, _strict, m_bColorRows, m_mode);
         m_fillTimer.start(HIERARCHY_BUILDER_TIMER_INTERVAL);
     }
 
@@ -324,19 +392,32 @@ void EasyTreeWidget::clearSilent(bool _global)
     disconnect(this, &Parent::itemExpanded, this, &This::onItemExpand);
     disconnect(this, &Parent::itemCollapsed, this, &This::onItemCollapse);
     disconnect(this, &Parent::currentItemChanged, this, &This::onCurrentItemChange);
+    m_lastFound = nullptr;
+    m_lastSearch.clear();
 
     if (!_global)
     {
-        if (EASY_GLOBALS.collapse_items_on_tree_close) for (auto item : m_items)
+        if (EASY_GLOBALS.collapse_items_on_tree_close)
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
+            for (auto item : m_items)
+#else
+            for (auto& item : m_items)
+#endif
         {
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
             auto& gui_block = item->guiBlock();
-            ::profiler_gui::set_max(gui_block.tree_item);
             gui_block.expanded = false;
+            ::profiler_gui::set_max(gui_block.tree_item);
+#else
+            item.second->guiBlock().expanded = false;
+#endif
         }
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
         else for (auto item : m_items)
         {
             ::profiler_gui::set_max(item->guiBlock().tree_item);
         }
+#endif
     }
 
     m_items.clear();
@@ -362,6 +443,104 @@ void EasyTreeWidget::clearSilent(bool _global)
 
     if (!_global)
         emit EASY_GLOBALS.events.itemsExpandStateChanged();
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+int EasyTreeWidget::findNext(const QString& _str, Qt::MatchFlags _flags)
+{
+    if (m_bLocked || _str.isEmpty())
+        return 0;
+
+    const bool isNewSearch = (m_lastSearch != _str);
+    auto itemsList = findItems(_str, Qt::MatchContains | Qt::MatchRecursive | _flags, COL_NAME);
+
+    if (!isNewSearch)
+    {
+        if (!itemsList.empty())
+        {
+            bool stop = false;
+            decltype(m_lastFound) next = nullptr;
+            for (auto item : itemsList)
+            {
+                if (item->parent() == nullptr)
+                    continue;
+
+                if (stop)
+                {
+                    next = item;
+                    break;
+                }
+
+                stop = item == m_lastFound;
+            }
+
+            m_lastFound = next == nullptr ? itemsList.front() : next;
+        }
+        else
+        {
+            m_lastFound = nullptr;
+        }
+    }
+    else
+    {
+        m_lastSearch = _str;
+        m_lastFound = !itemsList.empty() ? itemsList.front() : nullptr;
+    }
+
+    if (m_lastFound != nullptr)
+    {
+        scrollToItem(m_lastFound, QAbstractItemView::PositionAtCenter);
+        setCurrentItem(m_lastFound);
+    }
+
+    return itemsList.size();
+}
+
+int EasyTreeWidget::findPrev(const QString& _str, Qt::MatchFlags _flags)
+{
+    if (m_bLocked || _str.isEmpty())
+        return 0;
+
+    const bool isNewSearch = (m_lastSearch != _str);
+    auto itemsList = findItems(_str, Qt::MatchContains | Qt::MatchRecursive | _flags, COL_NAME);
+
+    if (!isNewSearch)
+    {
+        if (!itemsList.empty())
+        {
+            decltype(m_lastFound) prev = nullptr;
+            for (auto item : itemsList)
+            {
+                if (item->parent() == nullptr)
+                    continue;
+
+                if (item == m_lastFound)
+                    break;
+
+                prev = item;
+            }
+
+            m_lastFound = prev == nullptr ? itemsList.back() : prev;
+        }
+        else
+        {
+            m_lastFound = nullptr;
+        }
+    }
+    else
+    {
+        m_lastSearch = _str;
+        m_lastFound = !itemsList.empty() ? itemsList.front() : nullptr;
+    }
+
+    if (m_lastFound != nullptr)
+    {
+        scrollToItem(m_lastFound, QAbstractItemView::PositionAtCenter);
+        setCurrentItem(m_lastFound);
+    }
+
+    return itemsList.size();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -406,7 +585,24 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
         menu.addSeparator();
     }
 
+    action = menu.addAction("Hierarchy mode");
+    action->setToolTip("Display full blocks hierarchy");
+    action->setCheckable(true);
+    action->setChecked(m_mode == EasyTreeMode_Full);
+    action->setData((quint32)EasyTreeMode_Full);
+    connect(action, &QAction::triggered, this, &This::onModeChange);
+
+    action = menu.addAction("Plain mode");
+    action->setToolTip("Display plain list of blocks per frame.\nSome columns are disabled with this mode.");
+    action->setCheckable(true);
+    action->setChecked(m_mode == EasyTreeMode_Plain);
+    action->setData((quint32)EasyTreeMode_Plain);
+    connect(action, &QAction::triggered, this, &This::onModeChange);
+
+    menu.addSeparator();
+
     action = menu.addAction("Color rows");
+    action->setToolTip("Colorize rows with same colors as on diagram");
     action->setCheckable(true);
     action->setChecked(m_bColorRows);
     connect(action, &QAction::triggered, this, &This::onColorizeRowsTriggered);
@@ -493,8 +689,11 @@ void EasyTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
         auto columnAction = new QAction(hdr->text(i), nullptr);
         columnAction->setData(i);
         columnAction->setCheckable(true);
-        columnAction->setChecked(!isColumnHidden(i));
-        connect(columnAction, &QAction::triggered, this, &This::onHideShowColumn);
+        columnAction->setChecked(m_columnsHiddenStatus[i] == 0);// !isColumnHidden(i));
+        if (m_mode == EasyTreeMode_Full || SIMPLIFIED_REGIME_COLUMNS[i])
+            connect(columnAction, &QAction::triggered, this, &This::onHideShowColumn);
+        else
+            columnAction->setEnabled(false);
         hidemenu->addAction(columnAction);
     }
 
@@ -533,6 +732,10 @@ void EasyTreeWidget::onJumpToItemClicked(bool)
 
     auto block_index = action->data().toUInt();
     EASY_GLOBALS.selected_block = block_index;
+    if (block_index < EASY_GLOBALS.gui_blocks.size())
+        EASY_GLOBALS.selected_block_id = easyBlock(block_index).tree.node->id();
+    else
+        ::profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
     emit EASY_GLOBALS.events.selectedBlockChanged(block_index);
 }
 
@@ -546,8 +749,13 @@ void EasyTreeWidget::onCollapseAllClicked(bool)
 
     if (EASY_GLOBALS.bind_scene_and_tree_expand_status)
     {
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
         for (auto item : m_items)
             item->guiBlock().expanded = false;
+#else
+        for (auto& item : m_items)
+            item.second->guiBlock().expanded = false;
+#endif
         emit EASY_GLOBALS.events.itemsExpandStateChanged();
     }
 }
@@ -563,9 +771,13 @@ void EasyTreeWidget::onExpandAllClicked(bool)
 
     if (EASY_GLOBALS.bind_scene_and_tree_expand_status)
     {
-        for (auto item : m_items)
-        {
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
+        for (auto item : m_items){
             auto& b = item->guiBlock();
+#else
+        for (auto& item : m_items){
+            auto& b = item.second->guiBlock();
+#endif
             b.expanded = !b.tree.children.empty();
         }
 
@@ -656,12 +868,33 @@ void EasyTreeWidget::onItemCollapse(QTreeWidgetItem* _item)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyTreeWidget::onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidgetItem*)
+void EasyTreeWidget::onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidgetItem* _previous)
 {
+    if (_previous != nullptr)
+    {
+        auto f = font();
+        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+            _previous->setFont(i, f);
+    }
+
     if (_item == nullptr)
+    {
         ::profiler_gui::set_max(EASY_GLOBALS.selected_block);
+        ::profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
+    }
     else
+    {
+        auto f = font();
+        f.setBold(true);
+        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+            _item->setFont(i, f);
+
         EASY_GLOBALS.selected_block = static_cast<EasyTreeWidgetItem*>(_item)->block_index();
+        if (EASY_GLOBALS.selected_block < EASY_GLOBALS.gui_blocks.size())
+            EASY_GLOBALS.selected_block_id = easyBlock(EASY_GLOBALS.selected_block).tree.node->id();
+        else
+            ::profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
+    }
 
     disconnect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
     emit EASY_GLOBALS.events.selectedBlockChanged(EASY_GLOBALS.selected_block);
@@ -680,11 +913,19 @@ void EasyTreeWidget::onColorizeRowsTriggered(bool _colorize)
     collapseAll(); // Without collapseAll() changing items process is VERY VERY SLOW.
     // TODO: Find the reason of such behavior. QSignalBlocker(this) does not help. QSignalBlocker(item) does not work, because items are not inherited from QObject.
 
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
     for (auto item : m_items)
     {
         if (item->parent() != nullptr)
             item->colorize(m_bColorRows);
     }
+#else
+    for (auto& item : m_items)
+    {
+        if (item.second->parent() != nullptr)
+            item.second->colorize(m_bColorRows);
+    }
+#endif
 
     // Scroll back to previously selected item
     if (current)
@@ -712,14 +953,24 @@ void EasyTreeWidget::onSelectedBlockChange(uint32_t _block_index)
 
     if (_block_index < EASY_GLOBALS.gui_blocks.size())
     {
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
         const auto i = easyBlock(_block_index).tree_item;
         if (i < m_items.size())
             item = m_items[i];
+#else
+        auto it = m_items.find(_block_index);
+        if (it != m_items.end())
+            item = it->second;
+#endif
     }
 
     if (item != nullptr)
     {
         //const QSignalBlocker b(this);
+        auto previous = currentItem();
+        auto f = font();
+        if (previous != nullptr) for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+            previous->setFont(i, f);
 
         if (EASY_GLOBALS.bind_scene_and_tree_expand_status)
         {
@@ -743,9 +994,21 @@ void EasyTreeWidget::onSelectedBlockChange(uint32_t _block_index)
             resizeColumnsToContents();
             connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
         }
+
+        f.setBold(true);
+        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+            item->setFont(i, f);
     }
     else
     {
+        auto previous = currentItem();
+        if (previous != nullptr)
+        {
+            auto f = font();
+            for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+                previous->setFont(i, f);
+        }
+
         setCurrentItem(item);
     }
 
@@ -770,11 +1033,36 @@ void EasyTreeWidget::onHideShowColumn(bool)
     if (action == nullptr)
         return;
 
-    auto col = action->data().toInt();
-    if (isColumnHidden(col))
-        showColumn(col);
+    const auto col = action->data().toInt();
+    const bool hideCol = m_columnsHiddenStatus[col] == 0;
+    setColumnHidden(col, hideCol);
+    m_columnsHiddenStatus[col] = hideCol ? 1 : 0;
+}
+
+void EasyTreeWidget::onModeChange(bool)
+{
+    auto action = qobject_cast<QAction*>(sender());
+    if (action == nullptr)
+        return;
+
+    const auto prev = m_mode;
+    m_mode = static_cast<EasyTreeMode>(action->data().toUInt());
+
+    if (m_mode == prev)
+        return;
+
+    if (m_mode == EasyTreeMode_Full)
+    {
+        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+            setColumnHidden(i, m_columnsHiddenStatus[i] != 0);
+    }
     else
-        hideColumn(col);
+    {
+        for (int i = 0; i < COL_COLUMNS_NUMBER; ++i)
+            setColumnHidden(i, m_columnsHiddenStatus[i] != 0 || !SIMPLIFIED_REGIME_COLUMNS[i]);
+    }
+
+    emit EASY_GLOBALS.events.blocksTreeModeChanged();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -784,15 +1072,24 @@ void EasyTreeWidget::loadSettings()
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
     settings.beginGroup("tree_widget");
 
-    auto color_rows_set = settings.value("color_rows");
-    if (!color_rows_set.isNull())
-        m_bColorRows = color_rows_set.toBool();
+    auto val = settings.value("color_rows");
+    if (!val.isNull())
+        m_bColorRows = val.toBool();
 
-    for (int i = 0; i < columnCount(); i++)
+    val = settings.value("regime");
+    if (!val.isNull())
+        m_mode = static_cast<EasyTreeMode>(val.toUInt());
+
+    val = settings.value("columns");
+    if (!val.isNull())
     {
-        if (settings.value(QString("Column") + QString::number(i)).toBool())
-            hideColumn(i);
+        auto byteArray = val.toByteArray();
+        memcpy(m_columnsHiddenStatus, byteArray.constData(), ::std::min(sizeof(m_columnsHiddenStatus), (size_t)byteArray.size()));
     }
+
+    auto state = settings.value("headerState").toByteArray();
+    if (!state.isEmpty())
+        header()->restoreState(state);
 
     settings.endGroup();
 }
@@ -801,15 +1098,194 @@ void EasyTreeWidget::saveSettings()
 {
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
     settings.beginGroup("tree_widget");
-
     settings.setValue("color_rows", m_bColorRows);
+    settings.setValue("regime", static_cast<uint8_t>(m_mode));
+    settings.setValue("columns", QByteArray(m_columnsHiddenStatus, COL_COLUMNS_NUMBER));
+    settings.setValue("headerState", header()->saveState());
+    settings.endGroup();
+}
 
-    for (int i = 0; i < columnCount(); i++)
-    {
-        settings.setValue(QString("Column") + QString::number(i) , isColumnHidden(i));
-    }
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+EasyHierarchyWidget::EasyHierarchyWidget(QWidget* _parent) : Parent(_parent)
+    , m_tree(new EasyTreeWidget(this))
+    , m_searchBox(new QLineEdit(this))
+    , m_foundNumber(new QLabel("Found 0 matches", this))
+    , m_searchButton(nullptr)
+    , m_bCaseSensitiveSearch(false)
+{
+    loadSettings();
+
+    m_searchBox->setFixedWidth(200);
+    m_searchBox->setContentsMargins(5, 0, 0, 0);
+
+    QMenu* menu = new QMenu(this);
+    m_searchButton = menu->menuAction();
+    m_searchButton->setText("Find next");
+    m_searchButton->setIcon(QIcon(":/Search-next"));
+    m_searchButton->setData(true);
+    connect(m_searchButton, &QAction::triggered, this, &This::findNext);
+
+    auto actionGroup = new QActionGroup(this);
+    actionGroup->setExclusive(true);
+
+    auto a = new QAction(tr("Find next"), actionGroup);
+    a->setCheckable(true);
+    a->setChecked(true);
+    connect(a, &QAction::triggered, this, &This::findNextFromMenu);
+    menu->addAction(a);
+
+    a = new QAction(tr("Find previous"), actionGroup);
+    a->setCheckable(true);
+    connect(a, &QAction::triggered, this, &This::findPrevFromMenu);
+    menu->addAction(a);
+
+    menu->addSeparator();
+    a = menu->addAction("Case sensitive");
+    a->setCheckable(true);
+    a->setChecked(m_bCaseSensitiveSearch);
+    connect(a, &QAction::triggered, [this](bool _checked){ m_bCaseSensitiveSearch = _checked; });
+    menu->addAction(a);
+
+    auto tb = new QToolBar(this);
+    tb->setIconSize(::profiler_gui::ICONS_SIZE);
+    tb->setContentsMargins(0, 0, 0, 0);
+    tb->addAction(m_searchButton);
+    tb->addWidget(m_searchBox);
+
+    auto searchbox = new QHBoxLayout();
+    searchbox->setContentsMargins(0, 0, 5, 0);
+    searchbox->addWidget(tb);
+    searchbox->addStretch(100);
+    searchbox->addWidget(m_foundNumber, Qt::AlignRight);
+
+    auto lay = new QVBoxLayout(this);
+    lay->setContentsMargins(1, 1, 1, 1);
+    lay->addLayout(searchbox);
+    lay->addWidget(m_tree);
+
+    connect(m_searchBox, &QLineEdit::returnPressed, this, &This::onSeachBoxReturnPressed);
+}
+
+EasyHierarchyWidget::~EasyHierarchyWidget()
+{
+    saveSettings();
+}
+
+void EasyHierarchyWidget::loadSettings()
+{
+    QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
+    settings.beginGroup("EasyHierarchyWidget");
+
+    auto val = settings.value("case_sensitive");
+    if (!val.isNull())
+        m_bCaseSensitiveSearch = val.toBool();
 
     settings.endGroup();
+}
+
+void EasyHierarchyWidget::saveSettings()
+{
+    QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
+    settings.beginGroup("EasyHierarchyWidget");
+    settings.setValue("case_sensitive", m_bCaseSensitiveSearch);
+    settings.endGroup();
+}
+
+void EasyHierarchyWidget::keyPressEvent(QKeyEvent* _event)
+{
+    if (_event->key() == Qt::Key_F3)
+    {
+        if (_event->modifiers() & Qt::ShiftModifier)
+            findPrev(true);
+        else
+            findNext(true);
+    }
+
+    _event->accept();
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void EasyHierarchyWidget::contextMenuEvent(QContextMenuEvent* _event)
+{
+    m_tree->contextMenuEvent(_event);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+EasyTreeWidget* EasyHierarchyWidget::tree()
+{
+    return m_tree;
+}
+
+void EasyHierarchyWidget::clear(bool _global)
+{
+    m_tree->clearSilent(_global);
+    m_foundNumber->setText(QString("Found 0 matches"));
+}
+
+void EasyHierarchyWidget::onSeachBoxReturnPressed()
+{
+    if (m_searchButton->data().toBool() == true)
+        findNext(true);
+    else
+        findPrev(true);
+}
+
+void EasyHierarchyWidget::findNext(bool)
+{
+    auto matches = m_tree->findNext(m_searchBox->text(), m_bCaseSensitiveSearch ? Qt::MatchCaseSensitive : Qt::MatchFlags());
+
+    if (matches == 1)
+        m_foundNumber->setText(QString("Found 1 match"));
+    else
+        m_foundNumber->setText(QString("Found %1 matches").arg(matches));
+}
+
+void EasyHierarchyWidget::findPrev(bool)
+{
+    auto matches = m_tree->findPrev(m_searchBox->text(), m_bCaseSensitiveSearch ? Qt::MatchCaseSensitive : Qt::MatchFlags());
+
+    if (matches == 1)
+        m_foundNumber->setText(QString("Found 1 match"));
+    else
+        m_foundNumber->setText(QString("Found %1 matches").arg(matches));
+}
+
+void EasyHierarchyWidget::findNextFromMenu(bool _checked)
+{
+    if (!_checked)
+        return;
+
+    if (m_searchButton->data().toBool() == false)
+    {
+        m_searchButton->setData(true);
+        m_searchButton->setText(tr("Find next"));
+        m_searchButton->setIcon(QIcon(":/Search-next"));
+        disconnect(m_searchButton, &QAction::triggered, this, &This::findPrev);
+        connect(m_searchButton, &QAction::triggered, this, &This::findNext);
+    }
+
+    findNext(true);
+}
+
+void EasyHierarchyWidget::findPrevFromMenu(bool _checked)
+{
+    if (!_checked)
+        return;
+
+    if (m_searchButton->data().toBool() == true)
+    {
+        m_searchButton->setData(false);
+        m_searchButton->setText(tr("Find prev"));
+        m_searchButton->setIcon(QIcon(":/Search-prev"));
+        disconnect(m_searchButton, &QAction::triggered, this, &This::findNext);
+        connect(m_searchButton, &QAction::triggered, this, &This::findPrev);
+    }
+
+    findPrev(true);
 }
 
 //////////////////////////////////////////////////////////////////////////

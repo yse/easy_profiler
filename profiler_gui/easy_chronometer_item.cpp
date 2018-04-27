@@ -138,7 +138,7 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     QRectF rect((m_left - offset) * currentScale, visibleSceneRect.top(), ::std::max(selectedInterval * currentScale, 1.0), visibleSceneRect.height());
     selectedInterval = units2microseconds(selectedInterval);
 
-    const QString text = ::profiler_gui::timeStringReal(selectedInterval); // Displayed text
+    const QString text = ::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, selectedInterval); // Displayed text
     const auto textRect = QFontMetricsF(CHRONOMETER_FONT, sceneView).boundingRect(text); // Calculate displayed text boundingRect
     const auto rgb = m_color.rgb() & 0x00ffffff;
 
@@ -169,7 +169,16 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
 
     // draw left and right borders
     _painter->setBrush(Qt::NoBrush);
-    _painter->setPen(QColor::fromRgba(0xd0000000 | rgb));
+    if (m_bMain && !m_bReverse)
+    {
+        QPen p(QColor::fromRgba(0xd0000000 | rgb));
+        p.setStyle(Qt::DotLine);
+        _painter->setPen(p);
+    }
+    else
+    {
+        _painter->setPen(QColor::fromRgba(0xd0000000 | rgb));
+    }
 
     if (m_left > sceneLeft)
         _painter->drawLine(QPointF(rect.left(), rect.top()), QPointF(rect.left(), rect.bottom()));

@@ -56,8 +56,6 @@
 
 #include <QGraphicsScene>
 #include <QGraphicsProxyWidget>
-#include <QFormLayout>
-#include <QLabel>
 #include <QWheelEvent>
 #include <QMouseEvent>
 #include <QKeyEvent>
@@ -94,8 +92,6 @@ const qreal FLICKER_FACTOR = 16.0 / FLICKER_INTERVAL;
 const auto BG_FONT = ::profiler_gui::EFont("Helvetica", 10, QFont::Bold);
 const auto CHRONOMETER_FONT = ::profiler_gui::EFont("Helvetica", 16, QFont::Bold);
 
-const uint64_t ADDITIONAL_OFFSET = 50000000ULL; // Additional 50 ms before first block and after last block
-
 #ifdef max
 #undef max
 #endif
@@ -106,9 +102,9 @@ const uint64_t ADDITIONAL_OFFSET = 50000000ULL; // Additional 50 ms before first
 
 //////////////////////////////////////////////////////////////////////////
 
-auto const sign = [](int _value) { return _value < 0 ? -1 : 1; };
-auto const absmin = [](int _a, int _b) { return abs(_a) < abs(_b) ? _a : _b; };
-auto const clamp = [](qreal _minValue, qreal _value, qreal _maxValue) { return _value < _minValue ? _minValue : (_value > _maxValue ? _maxValue : _value); };
+inline int sign(int _value) { return _value < 0 ? -1 : 1; }
+inline int absmin(int _a, int _b) { return abs(_a) < abs(_b) ? _a : _b; }
+inline qreal clamp(qreal _minValue, qreal _value, qreal _maxValue) { return _value < _minValue ? _minValue : (_value > _maxValue ? _maxValue : _value); }
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -117,6 +113,20 @@ inline T logn(T _value)
 {
     static const double div = 1.0 / log2((double)N);
     return log2(_value) * div;
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+EasyBoldLabel::EasyBoldLabel(const QString& _text, QWidget* _parent) : QLabel(_text, _parent)
+{
+    auto f = font();
+    f.setBold(true);
+    setFont(f);
+}
+
+EasyBoldLabel::~EasyBoldLabel()
+{
+
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -165,6 +175,9 @@ void EasyBackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
             const auto dh = rect.bottom() - visibleBottom;
             if (dh > 0)
                 rect.setHeight(rect.height() - dh);
+
+            if (rect.top() < 0)
+                rect.setTop(0);
 
             _painter->drawRect(rect);
         }
@@ -241,7 +254,7 @@ void EasyTimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGrap
     const auto sceneView = static_cast<const EasyGraphicsView*>(scene()->parent());
     const auto visibleSceneRect = sceneView->visibleSceneRect();
     const auto step = sceneView->timelineStep() * sceneView->scale();
-    const QString text = ::profiler_gui::timeStringInt(units2microseconds(sceneView->timelineStep())); // Displayed text
+    const QString text = ::profiler_gui::autoTimeStringInt(units2microseconds(sceneView->timelineStep())); // Displayed text
 
     // Draw scale indicator
     _painter->save();
@@ -389,7 +402,7 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
     // calculate scene size and fill it with items
 
     // Calculating start and end time
-    ::profiler::timestamp_t finish = 0;
+    ::profiler::timestamp_t finish = 0, busyTime = 0;
     ::profiler::thread_id_t longestTree = 0, mainTree = 0;
     for (const auto& threadTree : _blocksTree)
     {
@@ -411,8 +424,11 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
         if (m_beginTime > timestart)
             m_beginTime = timestart;
 
-        if (finish < timefinish) {
+        if (finish < timefinish)
             finish = timefinish;
+
+        if (t.profiled_time > busyTime) {
+            busyTime = t.profiled_time;
             longestTree = threadTree.first;
         }
 
@@ -420,22 +436,31 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
             mainTree = threadTree.first;
     }
 
-    finish += ADDITIONAL_OFFSET << 1;
-    m_beginTime -= ::std::min(m_beginTime, ADDITIONAL_OFFSET);
+    const decltype(m_beginTime) additional_offset = (finish - m_beginTime) / 20; // Additional 5% before first block and after last block
+    finish += additional_offset;
+    m_beginTime -= ::std::min(m_beginTime, additional_offset);
+    EASY_GLOBALS.begin_time = m_beginTime;
+
+    // Sort threads by name
+    ::std::vector<::std::reference_wrapper<const ::profiler::BlocksTreeRoot> > sorted_roots;
+    sorted_roots.reserve(_blocksTree.size());
+    for (const auto& threadTree : _blocksTree)
+        sorted_roots.push_back(threadTree.second);
+    ::std::sort(sorted_roots.begin(), sorted_roots.end(), [](const ::profiler::BlocksTreeRoot& _a, const ::profiler::BlocksTreeRoot& _b) {
+        return _a.thread_name < _b.thread_name;
+    });
 
     // Filling scene with items
     m_items.reserve(_blocksTree.size());
     qreal y = TIMELINE_ROW_SIZE;
     const EasyGraphicsItem *longestItem = nullptr, *mainThreadItem = nullptr;
-    for (const auto& threadTree : _blocksTree)
+    for (const ::profiler::BlocksTreeRoot& t : sorted_roots)
     {
         if (m_items.size() == 0xff)
         {
             qWarning() << "Warning: Maximum threads number (255 threads) exceeded! See EasyGraphicsView::setTree() : " << __LINE__ << " in file " << __FILE__;
             break;
         }
-
-        const auto& t = threadTree.second;
 
         // fill scene with new items
         qreal h = 0, x = 0;
@@ -454,7 +479,8 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
 
         if (!t.children.empty())
         {
-            children_duration = setTree(item, t.children, h, y, 0);
+            uint32_t dummy = 0;
+            children_duration = setTree(item, t.children, h, dummy, y, 0);
         }
         else
         {
@@ -469,10 +495,10 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
 
         y += h + ::profiler_gui::THREADS_ROW_SPACING;
 
-        if (longestTree == threadTree.first)
+        if (longestTree == t.thread_id)
             longestItem = item;
 
-        if (mainTree == threadTree.first)
+        if (mainTree == t.thread_id)
             mainThreadItem = item;
     }
 
@@ -509,9 +535,13 @@ void EasyGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocksTr
 
     if (longestItem != nullptr)
     {
-        m_pScrollbar->setMinimapFrom(longestItem->threadId(), longestItem->items(0));
         EASY_GLOBALS.selected_thread = longestItem->threadId();
         emit EASY_GLOBALS.events.selectedThreadChanged(longestItem->threadId());
+
+        scrollTo(longestItem);
+        m_pScrollbar->setHystogramFrom(longestItem->threadId(), longestItem->items(0));
+        if (!longestItem->items(0).empty())
+            m_pScrollbar->setValue(longestItem->items(0).front().left() - m_pScrollbar->sliderWidth() * 0.25);
     }
 
     m_idleTimer.start(IDLE_TIMER_INTERVAL);
@@ -522,26 +552,33 @@ const EasyGraphicsView::Items &EasyGraphicsView::getItems() const
     return m_items;
 }
 
-qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, qreal _y, short _level)
+qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, uint32_t& _maxDepthChild, qreal _y, short _level)
 {
-    static const qreal MIN_DURATION = 0.25;
-
     if (_children.empty())
     {
         return 0;
     }
 
     const auto level = static_cast<uint8_t>(_level);
-    _item->reserve(level, static_cast<unsigned int>(_children.size()));
+    const auto n = static_cast<unsigned int>(_children.size());
+    _item->reserve(level, n);
 
+    _maxDepthChild = 0;
+    uint16_t maxDepth = 0;
     const short next_level = _level + 1;
     bool warned = false;
     qreal total_duration = 0, prev_end = 0, maxh = 0;
     qreal start_time = -1;
+    uint32_t j = 0;
     for (auto child_index : _children)
     {
         auto& gui_block = easyBlock(child_index);
         const auto& child = gui_block.tree;
+        if (child.depth > maxDepth)
+        {
+            maxDepth = child.depth;
+            _maxDepthChild = j;
+        }
 
         auto xbegin = time2position(child.node->begin());
         if (start_time < 0)
@@ -558,12 +595,11 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
         //    xbegin -= dt;
         //}
 
-        if (duration < MIN_DURATION)
-        {
-            duration = MIN_DURATION;
-        }
+        //static const qreal MIN_DURATION = 0.25;
+        //if (duration < MIN_DURATION)
+        //    duration = MIN_DURATION;
 
-        auto i = _item->addItem(level);
+        const auto i = _item->addItem(level);
         auto& b = _item->getItem(level, i);
 
         gui_block.graphics_item = _item->index();
@@ -581,10 +617,11 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
 
         qreal h = 0;
         qreal children_duration = 0;
+        uint32_t maxDepthChild = 0;
 
         if (next_level < 256)
         {
-            children_duration = setTree(_item, child.children, h, _y + ::profiler_gui::GRAPHICS_ROW_SIZE_FULL, next_level);
+            children_duration = setTree(_item, child.children, h, maxDepthChild, _y + ::profiler_gui::GRAPHICS_ROW_SIZE_FULL, next_level);
         }
         else if (!child.children.empty() && !warned)
         {
@@ -603,12 +640,21 @@ qreal EasyGraphicsView::setTree(EasyGraphicsItem* _item, const ::profiler::Block
         }
 
         b.block = child_index;// &child;
+
+#ifndef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
+        b.neighbours = n;
+        b.state = j > 0 || level == 0 ? 0 : -1;
+#else
+        b.max_depth_child = maxDepthChild;
+#endif
+
         b.setPos(xbegin, duration);
-        b.totalHeight = ::profiler_gui::GRAPHICS_ROW_SIZE + h;
-        b.state = 0;
+        //b.totalHeight = ::profiler_gui::GRAPHICS_ROW_SIZE + h;
 
         prev_end = xbegin + duration;
         total_duration = prev_end - start_time;
+
+        ++j;
     }
 
     _height += ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + maxh;
@@ -632,7 +678,10 @@ void EasyGraphicsView::setScrollbar(EasyGraphicsScrollbar* _scrollbar)
     m_pScrollbar = _scrollbar;
     m_pScrollbar->clear();
     m_pScrollbar->setRange(0, m_sceneWidth);
-    m_pScrollbar->setSliderWidth(m_visibleSceneRect.width());
+
+    auto vbar = verticalScrollBar();
+    const int vbar_width = (vbar != nullptr && vbar->isVisible() ? vbar->width() + 2 : 0);
+    m_pScrollbar->setSliderWidth(m_visibleSceneRect.width() + vbar_width);
 
     if (makeConnect)
     {
@@ -646,14 +695,19 @@ void EasyGraphicsView::setScrollbar(EasyGraphicsScrollbar* _scrollbar)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::updateVisibleSceneRect()
+int EasyGraphicsView::updateVisibleSceneRect()
 {
     m_visibleSceneRect = mapToScene(rect()).boundingRect();
 
     auto vbar = verticalScrollBar();
+    int vbar_width = 0;
     if (vbar && vbar->isVisible())
-        m_visibleSceneRect.setWidth(m_visibleSceneRect.width() - vbar->width() - 2);
+        vbar_width = vbar->width() + 2;
+
+    m_visibleSceneRect.setWidth(m_visibleSceneRect.width() - vbar_width);
     m_visibleSceneRect.setHeight(m_visibleSceneRect.height() - TIMELINE_ROW_SIZE);
+
+    return vbar_width;
 }
 
 void EasyGraphicsView::updateTimelineStep(qreal _windowWidth)
@@ -696,10 +750,10 @@ void EasyGraphicsView::scaleTo(qreal _scale)
     // have to limit scale because of Qt's QPainter feature: it doesn't draw text
     // with very big coordinates (but it draw rectangles with the same coordinates good).
     m_scale = clamp(MIN_SCALE, _scale, MAX_SCALE); 
-    updateVisibleSceneRect();
+    const int vbar_width = updateVisibleSceneRect();
 
     // Update slider width for scrollbar
-    const auto windowWidth = m_visibleSceneRect.width() / m_scale;
+    const auto windowWidth = (m_visibleSceneRect.width() + vbar_width) / m_scale;
     m_pScrollbar->setSliderWidth(windowWidth);
 
     updateTimelineStep(windowWidth);
@@ -723,15 +777,20 @@ void EasyGraphicsView::onGraphicsScrollbarWheel(qreal _mouseX, int _wheelDelta)
     {
         if (item->threadId() == EASY_GLOBALS.selected_thread)
         {
-            m_bUpdatingRect = true;
-            auto vbar = verticalScrollBar();
-            vbar->setValue(item->y() + (item->boundingRect().height() - vbar->pageStep()) * 0.5);
-            m_bUpdatingRect = false;
+            scrollTo(item);
             break;
         }
     }
 
     onWheel(_mouseX, _wheelDelta);
+}
+
+void EasyGraphicsView::scrollTo(const EasyGraphicsItem* _item)
+{
+    m_bUpdatingRect = true;
+    auto vbar = verticalScrollBar();
+    vbar->setValue(_item->y() + (_item->boundingRect().height() - vbar->pageStep()) * 0.5);
+    m_bUpdatingRect = false;
 }
 
 void EasyGraphicsView::onWheel(qreal _mouseX, int _wheelDelta)
@@ -749,7 +808,9 @@ void EasyGraphicsView::onWheel(qreal _mouseX, int _wheelDelta)
     //updateVisibleSceneRect(); // Update scene rect
 
     // Update slider width for scrollbar
-    const auto windowWidth = m_visibleSceneRect.width() / m_scale;
+    auto vbar = verticalScrollBar();
+    const int vbar_width = (vbar != nullptr && vbar->isVisible() ? vbar->width() + 2 : 0);
+    const auto windowWidth = (m_visibleSceneRect.width() + vbar_width) / m_scale;
     m_pScrollbar->setSliderWidth(windowWidth);
 
     // Calculate new offset to simulate QGraphicsView::AnchorUnderMouse scaling behavior
@@ -853,7 +914,8 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
 
             for (auto item : m_items)
             {
-                item->getBlocks(m_chronometerItem->left(), m_chronometerItem->right(), m_selectedBlocks);
+                if (!EASY_GLOBALS.only_current_thread_hierarchy || item->threadId() == EASY_GLOBALS.selected_thread)
+                    item->getBlocks(m_chronometerItem->left(), m_chronometerItem->right(), m_selectedBlocks);
             }
 
             if (!m_selectedBlocks.empty())
@@ -863,7 +925,8 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
         }
     }
 
-    const ::profiler_gui::EasyBlockItem* selectedBlock = nullptr;
+    const ::profiler_gui::EasyBlock* selectedBlock = nullptr;
+    ::profiler::thread_id_t selectedBlockThread = 0;
     const auto previouslySelectedBlock = EASY_GLOBALS.selected_block;
     if (m_mouseButtons & Qt::LeftButton)
     {
@@ -895,20 +958,24 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
                 // Try to select one of item blocks
                 for (auto item : m_items)
                 {
-                    auto block = item->intersect(mouseClickPos);
+                    ::profiler::block_index_t i = ~0U;
+                    auto block = item->intersect(mouseClickPos, i);
                     if (block)
                     {
                         changedSelectedItem = true;
                         selectedBlock = block;
-                        EASY_GLOBALS.selected_block = block->block;
+                        selectedBlockThread = item->threadId();
+                        EASY_GLOBALS.selected_block = i;
+                        EASY_GLOBALS.selected_block_id = easyBlock(i).tree.node->id();
                         break;
                     }
                 }
 
-                if (!changedSelectedItem && EASY_GLOBALS.selected_block != ::profiler_gui::numeric_max(EASY_GLOBALS.selected_block))
+                if (!changedSelectedItem && !::profiler_gui::is_max(EASY_GLOBALS.selected_block))
                 {
                     changedSelectedItem = true;
                     ::profiler_gui::set_max(EASY_GLOBALS.selected_block);
+                    ::profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
                 }
             }
         }
@@ -924,18 +991,39 @@ void EasyGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
         emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_chronometerItem->left()), position2time(m_chronometerItem->right()), m_chronometerItem->reverse());
     }
 
-    m_chronometerItem->setReverse(false);
-
     if (changedSelectedItem)
     {
         m_bUpdatingRect = true;
-        if (selectedBlock != nullptr && previouslySelectedBlock == EASY_GLOBALS.selected_block && !blocksTree(selectedBlock->block).children.empty())
+        if (selectedBlock != nullptr && previouslySelectedBlock == EASY_GLOBALS.selected_block && !selectedBlock->tree.children.empty())
         {
             EASY_GLOBALS.gui_blocks[previouslySelectedBlock].expanded = !EASY_GLOBALS.gui_blocks[previouslySelectedBlock].expanded;
             emit EASY_GLOBALS.events.itemsExpandStateChanged();
         }
         emit EASY_GLOBALS.events.selectedBlockChanged(EASY_GLOBALS.selected_block);
+
+        if (EASY_GLOBALS.selecting_block_changes_thread && selectedBlock != nullptr && EASY_GLOBALS.selected_thread != selectedBlockThread)
+        {
+            EASY_GLOBALS.selected_thread = selectedBlockThread;
+
+            m_pScrollbar->lock();
+            emit EASY_GLOBALS.events.selectedThreadChanged(EASY_GLOBALS.selected_thread);
+            m_pScrollbar->unlock();
+        }
         m_bUpdatingRect = false;
+
+        if (selectedBlock != nullptr && selectedBlockThread == EASY_GLOBALS.selected_thread)
+            m_pScrollbar->setHystogramFrom(EASY_GLOBALS.selected_thread, EASY_GLOBALS.selected_block_id);
+        else
+        {
+            for (auto item : m_items)
+            {
+                if (item->threadId() == EASY_GLOBALS.selected_thread)
+                {
+                    m_pScrollbar->setHystogramFrom(EASY_GLOBALS.selected_thread, item->items(0));
+                    break;
+                }
+            }
+        }
 
         repaintScene();
     }
@@ -1143,10 +1231,10 @@ void EasyGraphicsView::resizeEvent(QResizeEvent* _event)
     Parent::resizeEvent(_event);
 
     const QRectF previousRect = m_visibleSceneRect;
-    updateVisibleSceneRect(); // Update scene visible rect only once    
+    const int vbar_width = updateVisibleSceneRect(); // Update scene visible rect only once    
 
     // Update slider width for scrollbar
-    const auto windowWidth = m_visibleSceneRect.width() / m_scale;
+    const auto windowWidth = (m_visibleSceneRect.width() + vbar_width) / m_scale;
     m_pScrollbar->setSliderWidth(windowWidth);
 
     // Calculate new offset to save old screen center
@@ -1179,9 +1267,58 @@ void EasyGraphicsView::initMode()
     connect(&m_idleTimer, &QTimer::timeout, this, &This::onIdleTimeout);
 
     auto globalSignals = &EASY_GLOBALS.events;
+    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::hierarchyFlagChanged, this, &This::onHierarchyFlagChange);
     connect(globalSignals, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
     connect(globalSignals, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
-    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::itemsExpandStateChanged, this, &This::onItemsEspandStateChange);
+    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::itemsExpandStateChanged, this, &This::onRefreshRequired);
+    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::refreshRequired, this, &This::onRefreshRequired);
+
+    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::selectedBlockIdChanged, [this](::profiler::block_id_t)
+    {
+        if (::profiler_gui::is_max(EASY_GLOBALS.selected_block_id))
+        {
+            if (EASY_GLOBALS.selected_thread != 0)
+            {
+                for (auto item : m_items)
+                {
+                    if (item->threadId() == EASY_GLOBALS.selected_thread)
+                    {
+                        m_pScrollbar->setHystogramFrom(EASY_GLOBALS.selected_thread, item->items(0));
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                m_pScrollbar->setHystogramFrom(0, nullptr);
+            }
+        }
+        else
+            m_pScrollbar->setHystogramFrom(EASY_GLOBALS.selected_thread, EASY_GLOBALS.selected_block_id);
+        onRefreshRequired();
+    });
+
+    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::threadNameDecorationChanged, [this]()
+    {
+        if (m_bEmpty)
+            return;
+
+        for (auto item : m_items)
+            item->validateName();
+
+        emit treeChanged();
+
+        updateVisibleSceneRect();
+        onHierarchyFlagChange(EASY_GLOBALS.only_current_thread_hierarchy);
+
+        repaintScene();
+    });
+
+    connect(globalSignals, &::profiler_gui::EasyGlobalSignals::blocksTreeModeChanged, [this]()
+    {
+        if (!m_selectedBlocks.empty())
+            emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_chronometerItem->left()), position2time(m_chronometerItem->right()), m_chronometerItem->reverse());
+    });
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1287,30 +1424,143 @@ void EasyGraphicsView::onIdleTimeout()
         // Try to select one of context switches or items
         for (auto item : m_items)
         {
-            auto block = item->intersect(pos);
+            ::profiler::block_index_t i = ~0U;
+            auto block = item->intersect(pos, i);
             if (block)
             {
-                const auto& itemBlock = blocksTree(block->block);
-                auto name = *itemBlock.node->name() != 0 ? itemBlock.node->name() : easyDescriptor(itemBlock.node->id()).name();
+                const auto& itemBlock = block->tree;
+                const auto& itemDesc = easyDescriptor(itemBlock.node->id());
+                auto name = *itemBlock.node->name() != 0 ? itemBlock.node->name() : itemDesc.name();
 
                 auto widget = new QWidget();
-                auto lay = new QFormLayout(widget);
-                lay->setLabelAlignment(Qt::AlignRight);
-                lay->addRow("Name:", new QLabel(name));
-                lay->addRow("Duration:", new QLabel(::profiler_gui::timeStringReal(PROF_MICROSECONDS(itemBlock.node->duration()), 3)));
+                auto lay = new QGridLayout(widget);
+                int row = 0;
+                if (itemDesc.type() == ::profiler::BLOCK_TYPE_BLOCK)
+                {
+                    //lay->addWidget(new QLabel("Name:", widget), row, 0, Qt::AlignRight);
+                    lay->addWidget(new EasyBoldLabel(name, widget), row, 0, 1, 5, Qt::AlignHCenter);
+                    ++row;
+
+                    lay->addWidget(new QLabel("Duration:", widget), row, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, itemBlock.node->duration(), 3), widget), row, 1, 1, 3, Qt::AlignLeft);
+                    ++row;
+                }
+                else
+                {
+                    lay->addWidget(new EasyBoldLabel("User defined event", widget), row, 0, 1, 2, Qt::AlignHCenter);
+                    ++row;
+
+                    lay->addWidget(new QLabel("Name:", widget), row, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel(name, widget), row, 1, Qt::AlignLeft);
+                    ++row;
+                }
+
                 if (itemBlock.per_thread_stats)
                 {
-                    lay->addRow("%/Thread:", new QLabel(QString::number(::profiler_gui::percent(itemBlock.per_thread_stats->total_duration, item->root()->active_time))));
-                    lay->addRow("N/Thread:", new QLabel(QString::number(itemBlock.per_thread_stats->calls_number)));
-                    if (itemBlock.per_parent_stats->parent_block == item->threadId())
+                    if (itemDesc.type() == ::profiler::BLOCK_TYPE_BLOCK)
                     {
-                        auto percent = ::profiler_gui::percentReal(itemBlock.node->duration(), item->root()->active_time);
-                        lay->addRow("%:", new QLabel(percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent))));
+                        const auto duration = itemBlock.node->duration();
+
+                        lay->addWidget(new QLabel("Average:", widget), row, 0, Qt::AlignRight);
+                        lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, itemBlock.per_thread_stats->average_duration(), 3), widget), row, 1, 1, 3, Qt::AlignLeft);
+                        ++row;
+
+                        // Calculate idle/active time
+                        {
+                            auto threadRoot = item->root();
+
+                            ::profiler::block_index_t ind = 0;
+                            auto it = ::std::lower_bound(threadRoot->sync.begin(), threadRoot->sync.end(), itemBlock.node->begin(), [](::profiler::block_index_t _cs_index, ::profiler::timestamp_t _val)
+                            {
+                                return EASY_GLOBALS.gui_blocks[_cs_index].tree.node->begin() < _val;
+                            });
+
+                            if (it != threadRoot->sync.end())
+                            {
+                                ind = it - threadRoot->sync.begin();
+                                if (ind > 0)
+                                    --ind;
+                            }
+                            else
+                            {
+                                ind = static_cast<::profiler::block_index_t>(threadRoot->sync.size());
+                            }
+
+                            ::profiler::timestamp_t idleTime = 0;
+                            for (::profiler::block_index_t ncs = static_cast<::profiler::block_index_t>(threadRoot->sync.size()); ind < ncs; ++ind)
+                            {
+                                auto cs_index = threadRoot->sync[ind];
+                                const auto cs = EASY_GLOBALS.gui_blocks[cs_index].tree.node;
+
+                                if (cs->begin() > itemBlock.node->end())
+                                    break;
+
+                                if (itemBlock.node->begin() <= cs->begin() && cs->end() <= itemBlock.node->end())
+                                    idleTime += cs->duration();
+                            }
+
+                            auto active_time = duration - idleTime;
+                            auto active_percent = duration == 0 ? 100. : ::profiler_gui::percentReal(active_time, duration);
+                            lay->addWidget(new QLabel("Active time:", widget), row, 0, Qt::AlignRight);
+                            lay->addWidget(new QLabel(QString("%1 (%2%)").arg(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, active_time, 3)).arg(QString::number(active_percent, 'g', 3)), widget), row, 1, 1, 3, Qt::AlignLeft);
+                            ++row;
+                        }
+
+                        lay->addWidget(new EasyBoldLabel("-------- Statistics --------", widget), row, 0, 1, 5, Qt::AlignHCenter);
+                        lay->addWidget(new QLabel("per ", widget), row + 1, 0, Qt::AlignRight);
+                        lay->addWidget(new QLabel("This %:", widget), row + 2, 0, Qt::AlignRight);
+                        lay->addWidget(new QLabel("Sum %:", widget), row + 3, 0, Qt::AlignRight);
+                        lay->addWidget(new QLabel("N Calls:", widget), row + 4, 0, Qt::AlignRight);
+
+                        lay->addWidget(new QLabel("Thread", widget), row + 1, 1, Qt::AlignHCenter);
+
+                        auto percent = ::profiler_gui::percentReal(duration, item->root()->profiled_time);
+                        lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 2, 1, Qt::AlignHCenter);
+
+                        lay->addWidget(new QLabel(QString::number(::profiler_gui::percent(itemBlock.per_thread_stats->total_duration, item->root()->profiled_time)), widget), row + 3, 1, Qt::AlignHCenter);
+
+                        lay->addWidget(new QLabel(QString::number(itemBlock.per_thread_stats->calls_number), widget), row + 4, 1, Qt::AlignHCenter);
+
+                        int col = 1;
+
+                        if (itemBlock.per_frame_stats->parent_block != i)
+                        {
+                            ++col;
+                            auto frame_duration = blocksTree(itemBlock.per_frame_stats->parent_block).node->duration();
+
+                            lay->addWidget(new QLabel("Frame", widget), row + 1, col, Qt::AlignHCenter);
+
+                            percent = ::profiler_gui::percentReal(duration, frame_duration);
+                            lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 2, col, Qt::AlignHCenter);
+
+                            percent = ::profiler_gui::percentReal(itemBlock.per_frame_stats->total_duration, frame_duration);
+                            lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 3, col, Qt::AlignHCenter);
+
+                            lay->addWidget(new QLabel(QString::number(itemBlock.per_frame_stats->calls_number), widget), row + 4, col, Qt::AlignHCenter);
+                        }
+
+                        if (itemBlock.per_parent_stats->parent_block != item->threadId())
+                        {
+                            ++col;
+                            auto parent_duration = blocksTree(itemBlock.per_parent_stats->parent_block).node->duration();
+
+                            lay->addWidget(new QLabel("Parent", widget), row + 1, col, Qt::AlignHCenter);
+
+                            percent = ::profiler_gui::percentReal(duration, parent_duration);
+                            lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 2, col, Qt::AlignHCenter);
+
+                            percent = ::profiler_gui::percentReal(itemBlock.per_parent_stats->total_duration, parent_duration);
+                            lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 3, col, Qt::AlignHCenter);
+
+                            lay->addWidget(new QLabel(QString::number(itemBlock.per_parent_stats->calls_number), widget), row + 4, col, Qt::AlignHCenter);
+
+                            ++col;
+                        }
                     }
                     else
                     {
-                        auto percent = ::profiler_gui::percentReal(itemBlock.node->duration(), blocksTree(itemBlock.per_parent_stats->parent_block).node->duration());
-                        lay->addRow("%:", new QLabel(percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent))));
+                        lay->addWidget(new QLabel("N calls/Thread:", widget), row, 0, Qt::AlignRight);
+                        lay->addWidget(new QLabel(QString::number(itemBlock.per_thread_stats->calls_number), widget), row, 1, Qt::AlignLeft);
                     }
                 }
 
@@ -1323,17 +1573,69 @@ void EasyGraphicsView::onIdleTimeout()
             auto cse = item->intersectEvent(pos);
             if (cse)
             {
-                auto widget = new QWidget();
-                auto lay = new QFormLayout(widget);
-                lay->setLabelAlignment(Qt::AlignRight);
+                const auto& itemBlock = cse->tree;
 
+                auto widget = new QWidget();
+                auto lay = new QGridLayout(widget);
+
+                int row = 0;
+                lay->addWidget(new EasyBoldLabel("Context switch event", widget), row, 0, 1, 3, Qt::AlignHCenter);
+                ++row;
+
+                lay->addWidget(new QLabel("Thread:", widget), row, 0, Qt::AlignRight);
                 auto it = EASY_GLOBALS.profiler_blocks.find(cse->tree.node->id());
                 if (it != EASY_GLOBALS.profiler_blocks.end())
-                    lay->addRow("Thread:", new QLabel(QString("%1 %2").arg(cse->tree.node->id()).arg(it->second.name())));
+                    lay->addWidget(new QLabel(QString("%1 %2").arg(cse->tree.node->id()).arg(it->second.name()), widget), row, 1, 1, 2, Qt::AlignLeft);
                 else
-                    lay->addRow("Thread:", new QLabel(QString::number(cse->tree.node->id())));
-                lay->addRow("Process:", new QLabel(cse->tree.node->name()));
-                lay->addRow("Duration:", new QLabel(::profiler_gui::timeStringReal(PROF_MICROSECONDS(cse->tree.node->duration()), 3)));
+                    lay->addWidget(new QLabel(QString::number(cse->tree.node->id()), widget), row, 1, 1, 2, Qt::AlignLeft);
+                ++row;
+
+                lay->addWidget(new QLabel("Process:", widget), row, 0, Qt::AlignRight);
+                lay->addWidget(new QLabel(cse->tree.node->name(), widget), row, 1, 1, 2, Qt::AlignLeft);
+                ++row;
+
+                const auto duration = itemBlock.node->duration();
+                lay->addWidget(new QLabel("Duration:", widget), row, 0, Qt::AlignRight);
+                lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, duration, 3), widget), row, 1, 1, 2, Qt::AlignLeft);
+                ++row;
+
+                if (itemBlock.per_thread_stats)
+                {
+                    lay->addWidget(new QLabel("Sum:", widget), row, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, itemBlock.per_thread_stats->total_duration, 3), widget), row, 1, 1, 2, Qt::AlignLeft);
+                    ++row;
+
+                    lay->addWidget(new EasyBoldLabel("-------- Statistics --------", widget), row, 0, 1, 3, Qt::AlignHCenter);
+                    lay->addWidget(new QLabel("per ", widget), row + 1, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel("This %:", widget), row + 2, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel("Sum %:", widget), row + 3, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel("N Calls:", widget), row + 4, 0, Qt::AlignRight);
+
+                    lay->addWidget(new QLabel("Thread", widget), row + 1, 1, Qt::AlignHCenter);
+
+                    auto percent = ::profiler_gui::percentReal(duration, item->root()->profiled_time);
+                    lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 2, 1, Qt::AlignHCenter);
+
+                    lay->addWidget(new QLabel(QString::number(::profiler_gui::percent(itemBlock.per_thread_stats->total_duration, item->root()->profiled_time)), widget), row + 3, 1, Qt::AlignHCenter);
+
+                    lay->addWidget(new QLabel(QString::number(itemBlock.per_thread_stats->calls_number), widget), row + 4, 1, Qt::AlignHCenter);
+
+                    if (itemBlock.per_frame_stats)
+                    {
+                        int col = 2;
+                        auto frame_duration = blocksTree(itemBlock.per_frame_stats->parent_block).node->duration();
+
+                        lay->addWidget(new QLabel("Frame", widget), row + 1, col, Qt::AlignHCenter);
+
+                        percent = ::profiler_gui::percentReal(duration, frame_duration);
+                        lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 2, col, Qt::AlignHCenter);
+
+                        percent = ::profiler_gui::percentReal(itemBlock.per_frame_stats->total_duration, frame_duration);
+                        lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 3, col, Qt::AlignHCenter);
+
+                        lay->addWidget(new QLabel(QString::number(itemBlock.per_frame_stats->calls_number), widget), row + 4, col, Qt::AlignHCenter);
+                    }
+                }
 
                 m_csInfoWidget = new QGraphicsProxyWidget();
                 m_csInfoWidget->setWidget(widget);
@@ -1353,7 +1655,7 @@ void EasyGraphicsView::onIdleTimeout()
                 scenePos.setX(scenePos.x() - br.width());
 
             m_csInfoWidget->setPos(scenePos);
-            m_csInfoWidget->setOpacity(0.85);
+            m_csInfoWidget->setOpacity(0.9);
         }
     }
     else if (m_csInfoWidget != nullptr)
@@ -1369,16 +1671,46 @@ void EasyGraphicsView::onIdleTimeout()
 
 //////////////////////////////////////////////////////////////////////////
 
+void EasyGraphicsView::onHierarchyFlagChange(bool)
+{
+    bool changedSelection = false;
+
+    if (!m_selectedBlocks.empty())
+    {
+        changedSelection = true;
+        m_selectedBlocks.clear();
+    }
+
+    if (m_chronometerItem->isVisible())
+    {
+        for (auto item : m_items)
+        {
+            if (!EASY_GLOBALS.only_current_thread_hierarchy || item->threadId() == EASY_GLOBALS.selected_thread)
+                item->getBlocks(m_chronometerItem->left(), m_chronometerItem->right(), m_selectedBlocks);
+        }
+
+        if (!m_selectedBlocks.empty())
+        {
+            changedSelection = true;
+        }
+    }
+
+    if (changedSelection)
+    {
+        emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_chronometerItem->left()), position2time(m_chronometerItem->right()), m_chronometerItem->reverse());
+    }
+}
+
 void EasyGraphicsView::onSelectedThreadChange(::profiler::thread_id_t _id)
 {
-    if (m_pScrollbar == nullptr || m_pScrollbar->minimapThread() == _id)
+    if (m_pScrollbar == nullptr || m_pScrollbar->hystThread() == _id)
     {
         return;
     }
 
     if (_id == 0)
     {
-        m_pScrollbar->setMinimapFrom(0, nullptr);
+        m_pScrollbar->setHystogramFrom(0, nullptr);
         return;
     }
 
@@ -1386,13 +1718,36 @@ void EasyGraphicsView::onSelectedThreadChange(::profiler::thread_id_t _id)
     {
         if (item->threadId() == _id)
         {
-            m_pScrollbar->setMinimapFrom(_id, item->items(0));
+            m_pScrollbar->setHystogramFrom(_id, item->items(0));
+
+            bool changedSelection = false;
+            if (EASY_GLOBALS.only_current_thread_hierarchy)
+            {
+                if (!m_selectedBlocks.empty())
+                {
+                    changedSelection = true;
+                    m_selectedBlocks.clear();
+                }
+
+                if (m_chronometerItem->isVisible())
+                {
+                    item->getBlocks(m_chronometerItem->left(), m_chronometerItem->right(), m_selectedBlocks);
+                    if (!m_selectedBlocks.empty())
+                        changedSelection = true;
+                }
+            }
+
+            if (changedSelection)
+            {
+                emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_chronometerItem->left()), position2time(m_chronometerItem->right()), m_chronometerItem->reverse());
+            }
+
             repaintScene();
             return;
         }
     }
 
-    m_pScrollbar->setMinimapFrom(0, nullptr);
+    m_pScrollbar->setHystogramFrom(0, nullptr);
     repaintScene();
 }
 
@@ -1415,7 +1770,34 @@ void EasyGraphicsView::onSelectedBlockChange(unsigned int _block_index)
             m_bUpdatingRect = true;
             verticalScrollBar()->setValue(static_cast<int>(thread_item->levelY(guiblock.graphics_item_level) - m_visibleSceneRect.height() * 0.5));
             m_pScrollbar->setValue(item.left() + item.width() * 0.5 - m_pScrollbar->sliderHalfWidth());
+
+            if (EASY_GLOBALS.selecting_block_changes_thread && EASY_GLOBALS.selected_thread != thread_item->threadId())
+            {
+                EASY_GLOBALS.selected_thread = thread_item->threadId();
+
+                m_pScrollbar->lock();
+                emit EASY_GLOBALS.events.selectedThreadChanged(EASY_GLOBALS.selected_thread);
+                m_pScrollbar->unlock();
+            }
+
+            m_pScrollbar->setHystogramFrom(EASY_GLOBALS.selected_thread, guiblock.tree.node->id());
+
             m_bUpdatingRect = false;
+        }
+        else if (EASY_GLOBALS.selected_thread != 0)
+        {
+            for (auto item : m_items)
+            {
+                if (item->threadId() == EASY_GLOBALS.selected_thread)
+                {
+                    m_pScrollbar->setHystogramFrom(EASY_GLOBALS.selected_thread, item->items(0));
+                    break;
+                }
+            }
+        }
+        else
+        {
+            m_pScrollbar->setHystogramFrom(0, nullptr);
         }
 
         updateVisibleSceneRect();
@@ -1425,7 +1807,7 @@ void EasyGraphicsView::onSelectedBlockChange(unsigned int _block_index)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsView::onItemsEspandStateChange()
+void EasyGraphicsView::onRefreshRequired()
 {
     if (!m_bUpdatingRect)
     {
@@ -1488,7 +1870,8 @@ void EasyThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
 
     const auto visibleSceneRect = view->visibleSceneRect();
     const auto h = visibleSceneRect.height() + TIMELINE_ROW_SIZE - 2;
-    const auto w = parentView->sceneRect().width();
+    const auto sceneRect = parentView->sceneRect();
+    const auto w = sceneRect.width();
 
     static const uint16_t OVERLAP = ::profiler_gui::THREADS_ROW_SPACING >> 1;
     static const QBrush brushes[2] = {QColor::fromRgb(BACKGROUND_1), QColor::fromRgb(BACKGROUND_2)};
@@ -1499,6 +1882,7 @@ void EasyThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
     _painter->resetTransform();
 
     // Draw thread names
+    auto default_font = _painter->font();
     _painter->setFont(BG_FONT);
     for (auto item : items)
     {
@@ -1556,17 +1940,17 @@ void EasyThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
     // Draw information
     _painter->setFont(CHRONOMETER_FONT);
     QFontMetricsF fm(CHRONOMETER_FONT, parentView);
+    const qreal th = fm.height(); // Calculate displayed text height
     const qreal time1 = view->chronoTime();
     const qreal time2 = view->chronoTimeAux();
 
     auto y = h + 2;
 
-    auto drawTimeText = [&rect, &w, &y, &fm, &_painter](qreal time, QRgb color)
+    auto drawTimeText = [&rect, &w, &y, &fm, &_painter](qreal time, qreal th, QRgb color)
     {
         if (time > 0)
         {
-            const QString text = ::profiler_gui::timeStringReal(time); // Displayed text
-            const auto th = fm.height(); // Calculate displayed text height
+            const QString text = ::profiler_gui::autoTimeStringReal(time); // Displayed text
             rect.setRect(0, y, w, th);
 
             _painter->setPen(color);
@@ -1576,8 +1960,8 @@ void EasyThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
         }
     };
 
-    drawTimeText(time1, ::profiler_gui::CHRONOMETER_COLOR.rgb() & 0x00ffffff);
-    drawTimeText(time2, ::profiler_gui::CHRONOMETER_COLOR2.rgb() & 0x00ffffff);
+    drawTimeText(time1, th, ::profiler_gui::CHRONOMETER_COLOR.rgb() & 0x00ffffff);
+    drawTimeText(time2, th, ::profiler_gui::CHRONOMETER_COLOR2.rgb() & 0x00ffffff);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1597,7 +1981,7 @@ EasyThreadNamesWidget::EasyThreadNamesWidget(EasyGraphicsView* _view, int _addit
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setFixedWidth(100);
 
-    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, this, &This::onSelectedThreadChange);
+    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedThreadChanged, [this](::profiler::thread_id_t){ repaintScene(); });
     connect(m_view, &EasyGraphicsView::treeChanged, this, &This::onTreeChange);
     connect(m_view, &EasyGraphicsView::sceneUpdated, this, &This::repaintScene);
     connect(m_view->verticalScrollBar(), &QScrollBar::valueChanged, verticalScrollBar(), &QScrollBar::setValue);
@@ -1648,11 +2032,6 @@ void EasyThreadNamesWidget::onTreeChange()
     scene()->addItem(item);
 
     setFixedWidth(maxLength);
-}
-
-void EasyThreadNamesWidget::onSelectedThreadChange(::profiler::thread_id_t)
-{
-    scene()->update();
 }
 
 void EasyThreadNamesWidget::repaintScene()
@@ -1717,6 +2096,16 @@ void EasyThreadNamesWidget::keyPressEvent(QKeyEvent* _event)
 void EasyThreadNamesWidget::keyReleaseEvent(QKeyEvent* _event)
 {
     m_view->keyReleaseEvent(_event);
+}
+
+void EasyThreadNamesWidget::wheelEvent(QWheelEvent* _event)
+{
+    auto vbar = m_view->verticalScrollBar();
+    if (vbar != nullptr)
+    {
+        _event->accept();
+        vbar->setValue(vbar->value() - _event->delta());
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////

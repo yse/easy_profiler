@@ -1,4 +1,7 @@
-# easy_profiler [![Build Status](https://travis-ci.org/yse/easy_profiler.svg?branch=develop)](https://travis-ci.org/yse/easy_profiler)
+# easy_profiler [![version](https://img.shields.io/badge/version-1.0.1%20beta-009688.svg)](https://github.com/yse/easy_profiler/releases)
+
+[![Build Status](https://travis-ci.org/yse/easy_profiler.svg?branch=develop)](https://travis-ci.org/yse/easy_profiler)
+
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](http://www.gnu.org/licenses/gpl-3.0)
 
@@ -15,6 +18,9 @@ You can profile any function in you code. Furthermore this library provide measu
 For example, information for 12 millions of blocks is using less than 300Mb of memory.
 Working profiler slows your application execution for only 1-2%.
 
+![Block time](https://hsto.org/files/3e4/afe/8b7/3e4afe8b77ac4ad3a6f8c805be4b7f13.png)
+_Average overhead per block is about 15ns/block (tested on Intel Core i7-5930K 3.5GHz, Win7)_
+
 Disabled profiler will not affect your application execution in any way. You can leave it in your Release build
 and enable it at run-time at any moment during application launch to see what is happening at the moment.
 
@@ -23,7 +29,7 @@ duration, target thread id, thread owner process id, thread owner process name.
 
 You can see the results of measuring in simple GUI application which provides full statistics and renders beautiful time-line.
 
-![GUI screenshot](https://cloud.githubusercontent.com/assets/10530007/20060202/0eb687de-a50b-11e6-8075-5adb951943db.png)
+![GUI screenshot](https://cloud.githubusercontent.com/assets/10530007/21056780/2383d472-be48-11e6-8b35-d1a32e64b910.png)
 
 # Usage
 

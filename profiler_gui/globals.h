@@ -69,6 +69,7 @@ namespace profiler_gui {
     const qreal SCALING_COEFFICIENT = 1.25;
     const qreal SCALING_COEFFICIENT_INV = 1.0 / SCALING_COEFFICIENT;
 
+    const QSize ICONS_SIZE(28, 28);
     const uint16_t GRAPHICS_ROW_SIZE = 18;
     const uint16_t GRAPHICS_ROW_SPACING = 2;
     const uint16_t GRAPHICS_ROW_SIZE_FULL = GRAPHICS_ROW_SIZE + GRAPHICS_ROW_SPACING;
@@ -90,7 +91,35 @@ namespace profiler_gui {
 
     //////////////////////////////////////////////////////////////////////////
 
-    enum ChronometerTextPosition
+    inline QString decoratedThreadName(bool _use_decorated_thread_name, const::profiler::BlocksTreeRoot& _root, const QString& _unicodeThreadWord)
+    {
+        if (_root.got_name())
+        {
+            QString rootname(toUnicode(_root.name()));
+            if (!_use_decorated_thread_name || rootname.contains(_unicodeThreadWord, Qt::CaseInsensitive))
+                return QString("%1 %2").arg(rootname).arg(_root.thread_id);
+            return QString("%1 Thread %2").arg(rootname).arg(_root.thread_id);
+        }
+
+        return QString("Thread %1").arg(_root.thread_id);
+    }
+
+    inline QString decoratedThreadName(bool _use_decorated_thread_name, const ::profiler::BlocksTreeRoot& _root)
+    {
+        if (_root.got_name())
+        {
+            QString rootname(toUnicode(_root.name()));
+            if (!_use_decorated_thread_name || rootname.contains(toUnicode("thread"), Qt::CaseInsensitive))
+                return QString("%1 %2").arg(rootname).arg(_root.thread_id);
+            return QString("%1 Thread %2").arg(rootname).arg(_root.thread_id);
+        }
+
+        return QString("Thread %1").arg(_root.thread_id);
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+
+    enum ChronometerTextPosition : int8_t
     {
         ChronoTextPosition_Center = 0,
         ChronoTextPosition_Top,
@@ -108,17 +137,31 @@ namespace profiler_gui {
         ::profiler::thread_blocks_tree_t profiler_blocks; ///< Profiler blocks tree loaded from file
         ::profiler::descriptors_list_t       descriptors; ///< Profiler block descriptors list
         EasyBlocks                            gui_blocks; ///< Profiler graphics blocks builded by GUI
+        ::profiler::timestamp_t               begin_time; ///< 
         ::profiler::thread_id_t          selected_thread; ///< Current selected thread id
         ::profiler::block_index_t         selected_block; ///< Current selected profiler block index
+        ::profiler::block_id_t         selected_block_id; ///< Current selected profiler block id
+        float                                 frame_time; ///< Value in microseconds to be displayed at minimap on graphics scrollbar
+        int                               blocks_spacing; ///< Minimum blocks spacing on diagram
+        int                              blocks_size_min; ///< Minimum blocks size on diagram
+        int                           blocks_narrow_size; ///< Width indicating narrow blocks
         ChronometerTextPosition     chrono_text_position; ///< Selected interval text position
+        TimeUnits                             time_units; ///< Units type for time (milliseconds, microseconds, nanoseconds or auto-definition)
         bool                                   connected; ///< Is connected to source (to be able to capture profiling information)
+        bool                   use_decorated_thread_name; ///< Add "Thread" to the name of each thread (if there is no one)
         bool                     enable_event_indicators; ///< Enable event indicators painting (These are narrow rectangles at the bottom of each thread)
         bool                           enable_statistics; ///< Enable gathering and using statistics (Disable if you want to consume less memory)
+        bool                          enable_zero_length; ///< Enable zero length blocks (if true, then such blocks will have width == 1 pixel on each scale)
+        bool                add_zero_blocks_to_hierarchy; ///< Enable adding zero blocks into hierarchy tree
         bool                 draw_graphics_items_borders; ///< Draw borders for graphics blocks or not
-        bool                        hide_narrow_children; ///< Hide children for narrow graphics blocks
+        bool                        hide_narrow_children; ///< Hide children for narrow graphics blocks (See blocks_narrow_size)
+        bool                         hide_minsize_blocks; ///< Hide blocks which screen size is less than blocks_size_min
         bool                 display_only_relevant_stats; ///< Display only relevant information in ProfTreeWidget (excludes min, max, average times if there are only 1 calls number)
         bool                collapse_items_on_tree_close; ///< Collapse all items which were displayed in the hierarchy tree after tree close/reset
         bool               all_items_expanded_by_default; ///< Expand all items after file is opened
+        bool               only_current_thread_hierarchy; ///< Build hierarchy tree for current thread only
+        bool               highlight_blocks_with_same_id; ///< Highlight all blocks with same id on diagram
+        bool              selecting_block_changes_thread; ///< If true then current selected thread will change every time you select block
         bool           bind_scene_and_tree_expand_status; /** \brief If true then items on graphics scene and in the tree (blocks hierarchy) are binded on each other
                                                                 so expanding/collapsing items on scene also expands/collapse items in the tree. */
 

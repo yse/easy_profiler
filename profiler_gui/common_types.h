@@ -140,6 +140,11 @@ inline bool isLightColor(::profiler::color_t _color, qreal _maxSum)
     return sum < _maxSum || ((_color & 0xff000000) >> 24) < 0x80;
 }
 
+inline ::profiler::color_t textColorForFlag(bool _is_light)
+{
+    return _is_light ? ::profiler::colors::Dark : ::profiler::colors::CreamWhite;
+}
+
 inline ::profiler::color_t textColorForRgb(::profiler::color_t _color)
 {
     return isLightColor(_color) ? ::profiler::colors::Dark : ::profiler::colors::CreamWhite;
@@ -147,15 +152,24 @@ inline ::profiler::color_t textColorForRgb(::profiler::color_t _color)
 
 //////////////////////////////////////////////////////////////////////////
 
+#define EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
+//#undef  EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
+
 #pragma pack(push, 1)
 struct EasyBlockItem Q_DECL_FINAL
 {
-    qreal                             x; ///< x coordinate of the item (this is made qreal=double to avoid mistakes on very wide scene)
-    float                             w; ///< Width of the item
-    ::profiler::block_index_t     block; ///< Index of profiler block
-    uint32_t             children_begin; ///< Index of first child item on the next sublevel
-    uint16_t                totalHeight; ///< Total height of the item including heights of all it's children
-    int8_t                        state; ///< 0 = no change, 1 = paint, -1 = do not paint
+    qreal                              x; ///< x coordinate of the item (this is made qreal=double to avoid mistakes on very wide scene)
+    float                              w; ///< Width of the item
+    ::profiler::block_index_t      block; ///< Index of profiler block
+
+#ifndef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
+    ::profiler::block_index_t neighbours; ///< Number of neighbours (parent.children.size())
+    uint32_t              children_begin; ///< Index of first child item on the next sublevel
+    int8_t                         state; ///< 0 = no change, 1 = paint, -1 = do not paint
+#else
+    ::profiler::block_index_t max_depth_child; ///< Index of child with maximum tree depth
+    uint32_t              children_begin; ///< Index of first child item on the next sublevel
+#endif
 
     // Possible optimizations:
     // 1) We can save 1 more byte per block if we will use char instead of short + real time calculations for "totalHeight" var;
@@ -169,10 +183,13 @@ struct EasyBlockItem Q_DECL_FINAL
 
 }; // END of struct EasyBlockItem.
 
+//#define EASY_TREE_WIDGET__USE_VECTOR
 struct EasyBlock Q_DECL_FINAL
 {
     ::profiler::BlocksTree       tree;
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
     uint32_t                tree_item;
+#endif
     uint32_t      graphics_item_index;
     uint8_t       graphics_item_level;
     uint8_t             graphics_item;
@@ -182,7 +199,9 @@ struct EasyBlock Q_DECL_FINAL
 
     EasyBlock(EasyBlock&& that)
         : tree(::std::move(that.tree))
+#ifdef EASY_TREE_WIDGET__USE_VECTOR
         , tree_item(that.tree_item)
+#endif
         , graphics_item_index(that.graphics_item_index)
         , graphics_item_level(that.graphics_item_level)
         , graphics_item(that.graphics_item)
@@ -222,6 +241,15 @@ typedef ::std::vector<EasySelectedBlock> TreeBlocks;
 
 //////////////////////////////////////////////////////////////////////////
 
+enum TimeUnits : int8_t
+{
+    TimeUnits_ms = 0,
+    TimeUnits_us,
+    TimeUnits_ns,
+    TimeUnits_auto
+
+}; // END of enum TimeUnits.
+
 inline qreal timeFactor(qreal _interval)
 {
     if (_interval < 1) // interval in nanoseconds
@@ -237,10 +265,10 @@ inline qreal timeFactor(qreal _interval)
     return 1e-6;
 }
 
-inline QString timeStringReal(qreal _interval, int _precision = 1)
+inline QString autoTimeStringReal(qreal _interval, int _precision = 1)
 {
     if (_interval < 1) // interval in nanoseconds
-        return QString("%1 ns").arg(static_cast<quint32>(_interval * 1e3));
+        return QString("%1 ns").arg(static_cast<quint64>(_interval * 1e3));
 
     if (_interval < 1e3) // interval in microseconds
         return QString("%1 us").arg(_interval, 0, 'f', _precision);
@@ -249,22 +277,140 @@ inline QString timeStringReal(qreal _interval, int _precision = 1)
         return QString("%1 ms").arg(_interval * 1e-3, 0, 'f', _precision);
 
     // interval in seconds
-    return QString("%1 sec").arg(_interval * 1e-6, 0, 'f', _precision);
+    return QString("%1 s").arg(_interval * 1e-6, 0, 'f', _precision);
 }
 
-inline QString timeStringInt(qreal _interval)
+inline QString autoTimeStringInt(qreal _interval)
 {
     if (_interval < 1) // interval in nanoseconds
-        return QString("%1 ns").arg(static_cast<int>(_interval * 1e3));
+        return QString("%1 ns").arg(static_cast<quint64>(_interval * 1e3));
 
     if (_interval < 1e3) // interval in microseconds
-        return QString("%1 us").arg(static_cast<int>(_interval));
+        return QString("%1 us").arg(static_cast<quint32>(_interval));
 
     if (_interval < 1e6) // interval in milliseconds
-        return QString("%1 ms").arg(static_cast<int>(_interval * 1e-3));
+        return QString("%1 ms").arg(static_cast<quint32>(_interval * 1e-3));
 
     // interval in seconds
-    return QString("%1 sec").arg(static_cast<int>(_interval * 1e-6));
+    return QString("%1 s").arg(static_cast<quint32>(_interval * 1e-6));
+}
+
+inline QString autoTimeStringRealNs(::profiler::timestamp_t _interval, int _precision = 1)
+{
+    if (_interval < 1000) // interval in nanoseconds
+        return QString("%1 ns").arg(_interval);
+
+    if (_interval < 1000000) // interval in microseconds
+        return QString("%1 us").arg(_interval * 1e-3, 0, 'f', _precision);
+
+    if (_interval < 1000000000U) // interval in milliseconds
+        return QString("%1 ms").arg(_interval * 1e-6, 0, 'f', _precision);
+
+    // interval in seconds
+    return QString("%1 s").arg(_interval * 1e-9, 0, 'f', _precision);
+}
+
+inline QString autoTimeStringIntNs(::profiler::timestamp_t _interval)
+{
+    if (_interval < 1000) // interval in nanoseconds
+        return QString("%1 ns").arg(_interval);
+
+    if (_interval < 1000000) // interval in microseconds
+        return QString("%1 us").arg(static_cast<quint32>(_interval * 1e-3));
+
+    if (_interval < 1000000000U) // interval in milliseconds
+        return QString("%1 ms").arg(static_cast<quint32>(_interval * 1e-6));
+
+    // interval in seconds
+    return QString("%1 s").arg(static_cast<quint32>(_interval * 1e-9));
+}
+
+inline QString timeStringReal(TimeUnits _units, qreal _interval, int _precision = 1)
+{
+    switch (_units)
+    {
+        case TimeUnits_ms:{
+            const char fmt = _interval <= 1 ? 'g' : 'f';
+            return QString("%1 ms").arg(_interval * 1e-3, 0, fmt, _precision);
+        }
+
+        case TimeUnits_us:
+            return QString("%1 us").arg(_interval, 0, 'f', _precision);
+
+        case TimeUnits_ns:
+            return QString("%1 ns").arg(static_cast<quint64>(_interval * 1e3));
+
+        case TimeUnits_auto:
+        default:
+            return autoTimeStringReal(_interval, _precision);
+    }
+
+    return QString();
+}
+
+inline QString timeStringRealNs(TimeUnits _units, ::profiler::timestamp_t _interval, int _precision = 1)
+{
+    switch (_units)
+    {
+        case TimeUnits_ms:{
+            const char fmt = _interval <= 1000 ? 'g' : 'f';
+            return QString("%1 ms").arg(_interval * 1e-6, 0, fmt, _precision);
+        }
+
+        case TimeUnits_us:
+            return QString("%1 us").arg(_interval * 1e-3, 0, 'f', _precision);
+
+        case TimeUnits_ns:
+            return QString("%1 ns").arg(_interval);
+
+        case TimeUnits_auto:
+        default:
+            return autoTimeStringRealNs(_interval, _precision);
+    }
+
+    return QString();
+}
+
+inline QString timeStringInt(TimeUnits _units, qreal _interval)
+{
+    switch (_units)
+    {
+        case TimeUnits_ms:
+            return QString("%1 ms").arg(static_cast<quint32>(_interval * 1e-3));
+
+        case TimeUnits_us:
+            return QString("%1 us").arg(static_cast<quint32>(_interval));
+
+        case TimeUnits_ns:
+            return QString("%1 ns").arg(static_cast<quint64>(_interval * 1e3));
+
+        case TimeUnits_auto:
+        default:
+            return autoTimeStringInt(_interval);
+    }
+
+    return QString();
+}
+
+inline QString timeStringIntNs(TimeUnits _units, ::profiler::timestamp_t _interval)
+{
+    switch (_units)
+    {
+        case TimeUnits_ms:
+            return QString("%1 ms").arg(static_cast<quint32>(_interval * 1e-6));
+
+        case TimeUnits_us:
+            return QString("%1 us").arg(static_cast<quint32>(_interval * 1e-3));
+
+        case TimeUnits_ns:
+            return QString("%1 ns").arg(_interval);
+
+        case TimeUnits_auto:
+        default:
+            return autoTimeStringIntNs(_interval);
+    }
+
+    return QString();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -281,11 +427,15 @@ template <class T> inline void set_max(T& _value) {
     _value = ::std::numeric_limits<T>::max();
 }
 
+template <class T> inline bool is_max(const T& _value) {
+    return _value == ::std::numeric_limits<T>::max();
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 inline double percentReal(::profiler::timestamp_t _partial, ::profiler::timestamp_t _total)
 {
-    return 100. * static_cast<double>(_partial) / static_cast<double>(_total);
+    return _total ? 100. * static_cast<double>(_partial) / static_cast<double>(_total) : 0.;
 }
 
 inline int percent(::profiler::timestamp_t _partial, ::profiler::timestamp_t _total)

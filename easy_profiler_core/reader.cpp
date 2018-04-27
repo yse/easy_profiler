@@ -67,26 +67,58 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-#define EASY_FULL_VER(Major, Minor, Rev) (((uint32_t)(Major) << 24) | ((uint32_t)(Minor) << 16) | (uint32_t)(Rev))
+typedef uint32_t processid_t;
 
+extern const uint32_t PROFILER_SIGNATURE;
+extern const uint32_t EASY_CURRENT_VERSION;
+
+# define EASY_VERSION_INT(v_major, v_minor, v_patch) ((static_cast<uint32_t>(v_major) << 24) | (static_cast<uint32_t>(v_minor) << 16) | static_cast<uint32_t>(v_patch))
+const uint32_t EASY_V_100 = EASY_VERSION_INT(1, 0, 0);
 const uint32_t COMPATIBLE_VERSIONS[] = {
-    ::profiler::EASY_FULL_VERSION,
-    EASY_FULL_VER(0, 1, 0)
+    EASY_V_100,
+    EASY_VERSION_INT(0, 1, 0)
 };
+// WARNING: Modify isCompatibleVersion(uint32_t _version) if COMPATIBLE_VERSIONS_NUM == 0
 const uint16_t COMPATIBLE_VERSIONS_NUM = sizeof(COMPATIBLE_VERSIONS) / sizeof(uint32_t);
+# undef EASY_VERSION_INT
 
-#undef EASY_FULL_VER
+const uint64_t TIME_FACTOR = 1000000000ULL;
 
-const int64_t TIME_FACTOR = 1000000000LL;
-const uint32_t PROFILER_SIGNATURE = ('E' << 24) | ('a' << 16) | ('s' << 8) | 'y';
+// TODO: use 128 bit integer operations for better accuracy
+#define EASY_USE_FLOATING_POINT_CONVERSION
+
+#ifdef EASY_USE_FLOATING_POINT_CONVERSION
+
+// Suppress warnings about double to uint64 conversion
+# ifdef _WIN32
+#  pragma warning(disable:4244)
+# elif defined(__GNUC__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wconversion"
+#  pragma GCC diagnostic ignored "-Wsign-conversion"
+# elif defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wconversion"
+#  pragma clang diagnostic ignored "-Wsign-conversion"
+# endif
+
+# define EASY_CONVERT_TO_NANO(t, freq, factor) t *= factor
+
+#else
+
+# define EASY_CONVERT_TO_NANO(t, freq, factor) t *= TIME_FACTOR; t /= freq
+
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 
 bool isCompatibleVersion(uint32_t _version)
 {
-    if (_version == ::profiler::EASY_FULL_VERSION)
+    if (_version == EASY_CURRENT_VERSION)
         return true;
-    return COMPATIBLE_VERSIONS_NUM > 1 && ::std::binary_search(COMPATIBLE_VERSIONS + 1, COMPATIBLE_VERSIONS + COMPATIBLE_VERSIONS_NUM, _version);
+
+    return ::std::binary_search(COMPATIBLE_VERSIONS, COMPATIBLE_VERSIONS + COMPATIBLE_VERSIONS_NUM,
+                                _version, [](uint32_t _a, uint32_t _b){ return _a > _b; });
 }
 
 inline void write(::std::stringstream& _stream, const char* _value, size_t _size)
@@ -156,11 +188,14 @@ typedef ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics
 which uses it as a key, exists only inside fillTreesFromFile function. */
 typedef ::std::unordered_map<::profiler::hashed_cstr, ::profiler::block_id_t> IdMap;
 
+typedef ::std::unordered_map<::profiler::hashed_cstr, ::profiler::BlockStatistics*> CsStatsMap;
+
 #else
 
 // TODO: Create optimized version of profiler::hashed_cstr for Linux too.
 typedef ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, ::profiler::passthrough_hash> StatsMap;
 typedef ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::block_id_t> IdMap;
+typedef ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::BlockStatistics*> CsStatsMap;
 
 #endif
 
@@ -178,7 +213,7 @@ typedef ::std::unordered_map<::profiler::hashed_stdstring, ::profiler::block_id_
 automatically receive statistics update.
 
 */
-::profiler::BlockStatistics* update_statistics(StatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index)
+::profiler::BlockStatistics* update_statistics(StatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, const ::profiler::blocks_t& _blocks)
 {
     auto duration = _current.node->duration();
     //StatsMap::key_type key(_current.node->name());
@@ -193,18 +228,18 @@ automatically receive statistics update.
         ++stats->calls_number; // update calls number of this block
         stats->total_duration += duration; // update summary duration of all block calls
 
-        if (duration > stats->max_duration)
+        if (duration > _blocks[stats->max_duration_block].node->duration())
         {
             // update max duration
             stats->max_duration_block = _current_index;
-            stats->max_duration = duration;
+            //stats->max_duration = duration;
         }
 
-        if (duration < stats->min_duration)
+        if (duration < _blocks[stats->min_duration_block].node->duration())
         {
             // update min duraton
             stats->min_duration_block = _current_index;
-            stats->min_duration = duration;
+            //stats->min_duration = duration;
         }
 
         // average duration is calculated inside average_duration() method by dividing total_duration to the calls_number
@@ -221,11 +256,52 @@ automatically receive statistics update.
     return stats;
 }
 
+::profiler::BlockStatistics* update_statistics(CsStatsMap& _stats_map, const ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, const ::profiler::blocks_t& _blocks)
+{
+    auto duration = _current.node->duration();
+    CsStatsMap::key_type key(_current.node->name());
+    auto it = _stats_map.find(key);
+    if (it != _stats_map.end())
+    {
+        // Update already existing statistics
+
+        auto stats = it->second; // write pointer to statistics into output (this is BlocksTree:: per_thread_stats or per_parent_stats or per_frame_stats)
+
+        ++stats->calls_number; // update calls number of this block
+        stats->total_duration += duration; // update summary duration of all block calls
+
+        if (duration > _blocks[stats->max_duration_block].node->duration())
+        {
+            // update max duration
+            stats->max_duration_block = _current_index;
+            //stats->max_duration = duration;
+        }
+
+        if (duration < _blocks[stats->min_duration_block].node->duration())
+        {
+            // update min duraton
+            stats->min_duration_block = _current_index;
+            //stats->min_duration = duration;
+        }
+
+        // average duration is calculated inside average_duration() method by dividing total_duration to the calls_number
+
+        return stats;
+    }
+
+    // This is first time the block appear in the file.
+    // Create new statistics.
+    auto stats = new ::profiler::BlockStatistics(duration, _current_index, _parent_index);
+    _stats_map.emplace(key, stats);
+
+    return stats;
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 void update_statistics_recursive(StatsMap& _stats_map, ::profiler::BlocksTree& _current, ::profiler::block_index_t _current_index, ::profiler::block_index_t _parent_index, ::profiler::blocks_t& _blocks)
 {
-    _current.per_frame_stats = update_statistics(_stats_map, _current, _current_index, _parent_index);
+    _current.per_frame_stats = update_statistics(_stats_map, _current, _current_index, _parent_index, _blocks);
     for (auto i : _current.children)
         update_statistics_recursive(_stats_map, _blocks[i], i, _parent_index, _blocks);
 }
@@ -343,8 +419,14 @@ extern "C" {
             return 0;
         }
 
-        int64_t cpu_frequency = 0LL;
-        inFile.read((char*)&cpu_frequency, sizeof(int64_t));
+        processid_t pid = 0;
+        if (version > EASY_V_100)
+            inFile.read((char*)&pid, sizeof(processid_t));
+
+        int64_t file_cpu_frequency = 0LL;
+        inFile.read((char*)&file_cpu_frequency, sizeof(int64_t));
+        uint64_t cpu_frequency = file_cpu_frequency;
+        const double conversion_factor = static_cast<double>(TIME_FACTOR) / static_cast<double>(cpu_frequency);
 
         ::profiler::timestamp_t begin_time = 0ULL;
         ::profiler::timestamp_t end_time = 0ULL;
@@ -352,10 +434,8 @@ extern "C" {
         inFile.read((char*)&end_time, sizeof(::profiler::timestamp_t));
         if (cpu_frequency != 0)
         {
-            begin_time *= TIME_FACTOR;
-            begin_time /= cpu_frequency;
-            end_time *= TIME_FACTOR;
-            end_time /= cpu_frequency;
+            EASY_CONVERT_TO_NANO(begin_time, cpu_frequency, conversion_factor);
+            EASY_CONVERT_TO_NANO(end_time, cpu_frequency, conversion_factor);
         }
 
         uint32_t total_blocks_number = 0;
@@ -426,7 +506,7 @@ extern "C" {
         }
 
         typedef ::std::unordered_map<::profiler::thread_id_t, StatsMap, ::profiler::passthrough_hash> PerThreadStats;
-        PerThreadStats thread_statistics, parent_statistics, frame_statistics;
+        PerThreadStats parent_statistics, frame_statistics;
         IdMap identification_table;
 
         blocks.reserve(total_blocks_number);
@@ -456,6 +536,8 @@ extern "C" {
                 root.thread_name = name.data();
             }
 
+            CsStatsMap per_thread_statistics_cs;
+
             uint32_t blocks_number_in_thread = 0;
             inFile.read((char*)&blocks_number_in_thread, sizeof(decltype(blocks_number_in_thread)));
             auto threshold = read_number + blocks_number_in_thread;
@@ -482,10 +564,8 @@ extern "C" {
 
                 if (cpu_frequency != 0)
                 {
-                    *t_begin *= TIME_FACTOR;
-                    *t_begin /= cpu_frequency;
-                    *t_end *= TIME_FACTOR;
-                    *t_end /= cpu_frequency;
+                    EASY_CONVERT_TO_NANO(*t_begin, cpu_frequency, conversion_factor);
+                    EASY_CONVERT_TO_NANO(*t_end, cpu_frequency, conversion_factor);
                 }
 
                 if (*t_end > begin_time)
@@ -498,7 +578,14 @@ extern "C" {
                     tree.node = baseData;
                     const auto block_index = blocks_counter++;
 
+                    root.wait_time += baseData->duration();
                     root.sync.emplace_back(block_index);
+
+                    if (gather_statistics)
+                    {
+                        EASY_BLOCK("Gather per thread statistics", ::profiler::colors::Coral);
+                        tree.per_thread_stats = update_statistics(per_thread_statistics_cs, tree, block_index, thread_id, blocks);
+                    }
                 }
 
                 auto oldprogress = progress.exchange(20 + static_cast<int>(70 * i / memory_size), ::std::memory_order_release);
@@ -511,6 +598,8 @@ extern "C" {
 
             if (inFile.eof())
                 break;
+
+            StatsMap per_thread_statistics;
 
             blocks_number_in_thread = 0;
             inFile.read((char*)&blocks_number_in_thread, sizeof(decltype(blocks_number_in_thread)));
@@ -551,10 +640,8 @@ extern "C" {
 
                 if (cpu_frequency != 0)
                 {
-                    *t_begin *= TIME_FACTOR;
-                    *t_begin /= cpu_frequency;
-                    *t_end *= TIME_FACTOR;
-                    *t_end /= cpu_frequency;
+                    EASY_CONVERT_TO_NANO(*t_begin, cpu_frequency, conversion_factor);
+                    EASY_CONVERT_TO_NANO(*t_end, cpu_frequency, conversion_factor);
                 }
 
                 if (*t_end >= begin_time)
@@ -566,9 +653,6 @@ extern "C" {
                     ::profiler::BlocksTree& tree = blocks.back();
                     tree.node = baseData;
                     const auto block_index = blocks_counter++;
-
-                    auto& per_parent_statistics = parent_statistics[thread_id];
-                    auto& per_thread_statistics = thread_statistics[thread_id];
 
                     if (*tree.node->name() != 0)
                     {
@@ -616,6 +700,7 @@ extern "C" {
                             if (gather_statistics)
                             {
                                 EASY_BLOCK("Gather statistic within parent", ::profiler::colors::Magenta);
+                                auto& per_parent_statistics = parent_statistics[thread_id];
                                 per_parent_statistics.clear();
 
                                 //per_parent_statistics.reserve(tree.children.size());     // this gives slow-down on Windows
@@ -625,9 +710,7 @@ extern "C" {
                                 for (auto i : tree.children)
                                 {
                                     auto& child = blocks[i];
-                                    child.per_parent_stats = update_statistics(per_parent_statistics, child, i, block_index);
-
-                                    children_duration += child.node->duration();
+                                    child.per_parent_stats = update_statistics(per_parent_statistics, child, i, block_index, blocks);
                                     if (tree.depth < child.depth)
                                         tree.depth = child.depth;
                                 }
@@ -637,7 +720,6 @@ extern "C" {
                                 for (auto i : tree.children)
                                 {
                                     const auto& child = blocks[i];
-                                    children_duration += child.node->duration();
                                     if (tree.depth < child.depth)
                                         tree.depth = child.depth;
                                 }
@@ -647,6 +729,7 @@ extern "C" {
                         }
                     }
 
+                    ++root.blocks_number;
                     root.children.emplace_back(block_index);// ::std::move(tree));
                     if (desc->type() == ::profiler::BLOCK_TYPE_EVENT)
                         root.events.emplace_back(block_index);
@@ -655,7 +738,7 @@ extern "C" {
                     if (gather_statistics)
                     {
                         EASY_BLOCK("Gather per thread statistics", ::profiler::colors::Coral);
-                        tree.per_thread_stats = update_statistics(per_thread_statistics, tree, block_index, thread_id);
+                        tree.per_thread_stats = update_statistics(per_thread_statistics, tree, block_index, thread_id, blocks);
                     }
                 }
 
@@ -697,18 +780,35 @@ extern "C" {
                     //    return blocks[left].node->begin() < blocks[right].node->begin();
                     //});
 
+                    ::profiler::block_index_t cs_index = 0;
                     for (auto i : root.children)
                     {
                         auto& frame = blocks[i];
-                        frame.per_parent_stats = update_statistics(per_parent_statistics, frame, i, root.thread_id);
+                        frame.per_parent_stats = update_statistics(per_parent_statistics, frame, i, root.thread_id, blocks);
 
                         per_frame_statistics.clear();
                         update_statistics_recursive(per_frame_statistics, frame, i, i, blocks);
 
+                        if (cs_index < root.sync.size())
+                        {
+                            CsStatsMap frame_stats_cs;
+                            do {
+
+                                auto j = root.sync[cs_index];
+                                auto& cs = blocks[j];
+                                if (cs.node->end() < frame.node->begin())
+                                    continue;
+                                if (cs.node->begin() > frame.node->end())
+                                    break;
+                                cs.per_frame_stats = update_statistics(frame_stats_cs, cs, cs_index, i, blocks);
+
+                            } while (++cs_index < root.sync.size());
+                        }
+
                         if (root.depth < frame.depth)
                             root.depth = frame.depth;
 
-                        root.active_time += frame.node->duration();
+                        root.profiled_time += frame.node->duration();
                     }
 
                     ++root.depth;
@@ -741,7 +841,7 @@ extern "C" {
                     auto& frame = blocks[i];
                     if (root.depth < frame.depth)
                         root.depth = frame.depth;
-                    root.active_time += frame.node->duration();
+                    root.profiled_time += frame.node->duration();
                 }
 
                 ++root.depth;
@@ -769,7 +869,7 @@ extern "C" {
         inFile.read((char*)&signature, sizeof(uint32_t));
         if (signature != PROFILER_SIGNATURE)
         {
-            _log << "Wrong signature " << signature << "\nThis is not EasyProfiler file/stream.";
+            _log << "Wrong file signature.\nThis is not EasyProfiler file/stream.";
             return false;
         }
 
@@ -838,3 +938,16 @@ extern "C" {
     //////////////////////////////////////////////////////////////////////////
 
 }
+
+#undef EASY_CONVERT_TO_NANO
+
+#ifdef EASY_USE_FLOATING_POINT_CONVERSION
+# ifdef _WIN32
+#  pragma warning(default:4244)
+# elif defined(__GNUC__)
+#  pragma GCC diagnostic pop
+# elif defined(__clang__)
+#  pragma clang diagnostic pop
+# endif
+# undef EASY_USE_FLOATING_POINT_CONVERSION
+#endif

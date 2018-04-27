@@ -207,7 +207,7 @@ int main(int argc, char* argv[])
 #endif
 
     EASY_MAIN_THREAD;
-    profiler::startListenSignalToCapture();
+    profiler::startListen();
 
     std::vector<std::thread> threads;
     for (int i=0; i < 3; i++) {

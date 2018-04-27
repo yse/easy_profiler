@@ -92,6 +92,9 @@ enum EasyColumnsIndexes
     COL_AVERAGE_PER_PARENT,
     COL_NCALLS_PER_PARENT,
 
+    COL_ACTIVE_TIME,
+    COL_ACTIVE_PERCENT,
+
     COL_COLUMNS_NUMBER
 };
 
@@ -111,7 +114,7 @@ public:
     using Parent::setBackgroundColor;
     using Parent::setTextColor;
 
-    EasyTreeWidgetItem(const ::profiler::block_index_t _treeBlock = ::profiler_gui::numeric_max<decltype(m_block)>(), Parent* _parent = nullptr);
+    explicit EasyTreeWidgetItem(const ::profiler::block_index_t _treeBlock = ::profiler_gui::numeric_max<decltype(m_block)>(), Parent* _parent = nullptr);
     virtual ~EasyTreeWidgetItem();
 
     bool operator < (const Parent& _other) const override;
@@ -125,7 +128,8 @@ public:
     ::profiler::timestamp_t duration() const;
     ::profiler::timestamp_t selfDuration() const;
 
-    void setTimeSmart(int _column, const ::profiler::timestamp_t& _time, const QString& _prefix = "");
+    void setTimeSmart(int _column, ::profiler_gui::TimeUnits _units, const ::profiler::timestamp_t& _time, const QString& _prefix);
+    void setTimeSmart(int _column, ::profiler_gui::TimeUnits _units, const ::profiler::timestamp_t& _time);
 
     void setTimeMs(int _column, const ::profiler::timestamp_t& _time);
     void setTimeMs(int _column, const ::profiler::timestamp_t& _time, const QString& _prefix);

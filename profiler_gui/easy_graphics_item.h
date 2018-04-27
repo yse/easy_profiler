@@ -61,10 +61,12 @@ class EasyGraphicsView;
 class EasyGraphicsItem : public QGraphicsItem
 {
     typedef ::profiler_gui::EasyItems       Children;
-    typedef ::std::vector<unsigned int>  DrawIndexes;
+    typedef ::std::vector<uint32_t>      DrawIndexes;
+    typedef ::std::vector<qreal>         RightBounds;
     typedef ::std::vector<Children>        Sublevels;
 
     DrawIndexes               m_levelsIndexes; ///< Indexes of first item on each level from which we must start painting
+    RightBounds                 m_rightBounds; ///< 
     Sublevels                        m_levels; ///< Arrays of items for each level
 
     QRectF                     m_boundingRect; ///< boundingRect (see QGraphicsItem)
@@ -86,6 +88,8 @@ public:
 public:
 
     // Public non-virtual methods
+
+    void validateName();
 
     const ::profiler::BlocksTreeRoot* root() const;
     const QString& threadName() const;
@@ -148,13 +152,17 @@ public:
     \param _blocks Reference to the array of selected blocks */
     void getBlocks(qreal _left, qreal _right, ::profiler_gui::TreeBlocks& _blocks) const;
 
-    const ::profiler_gui::EasyBlockItem* intersect(const QPointF& _pos) const;
+    const ::profiler_gui::EasyBlock* intersect(const QPointF& _pos, ::profiler::block_index_t& _blockIndex) const;
     const ::profiler_gui::EasyBlock* intersectEvent(const QPointF& _pos) const;
 
 private:
 
     ///< Returns pointer to the EasyGraphicsView widget.
     const EasyGraphicsView* view() const;
+
+#ifdef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
+    void paintChildren(const float _minWidth, const int _narrowSizeHalf, const uint8_t _levelsNumber, QPainter* _painter, struct EasyPainterInformation& p, ::profiler_gui::EasyBlockItem& _item, const ::profiler_gui::EasyBlock& _itemBlock, RightBounds& _rightBounds, uint8_t _level, int8_t _mode);
+#endif
 
 public:
 

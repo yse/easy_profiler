@@ -57,8 +57,11 @@
 #include "event_trace_win.h"
 #include <Psapi.h>
 
-#if EASY_LOG_ENABLED != 0
-#include <iostream>
+#if EASY_OPTION_LOG_ENABLED != 0
+# include <iostream>
+# ifndef EASY_ETW_LOG
+#  define EASY_ETW_LOG ::std::cerr
+# endif
 #endif
 
 //////////////////////////////////////////////////////////////////////////
@@ -77,9 +80,9 @@ namespace profiler {
     //////////////////////////////////////////////////////////////////////////
 
     struct ProcessInfo {
-        std::string    name;
-        uint32_t     id = 0;
-        int8_t    valid = 0;
+        std::string      name;
+        processid_t    id = 0;
+        int8_t      valid = 0;
     };
 
     //////////////////////////////////////////////////////////////////////////
@@ -106,7 +109,7 @@ namespace profiler {
     //////////////////////////////////////////////////////////////////////////
 
     typedef ::std::unordered_map<decltype(CSwitch::NewThreadId), ProcessInfo*, ::profiler::do_not_calc_hash> thread_process_info_map;
-    typedef ::std::unordered_map<uint32_t, ProcessInfo, ::profiler::do_not_calc_hash> process_info_map;
+    typedef ::std::unordered_map<processid_t, ProcessInfo, ::profiler::do_not_calc_hash> process_info_map;
 
     // Using static is safe because processTraceEvent() is called from one thread
     process_info_map PROCESS_INFO_TABLE;
@@ -129,6 +132,7 @@ namespace profiler {
         if (time > TRACING_END_TIME.load(::std::memory_order_acquire))
             return;
 
+        processid_t pid = 0;
         const char* process_name = "";
 
         // Trying to get target process name and id
@@ -138,7 +142,7 @@ namespace profiler {
             auto hThread = OpenThread(THREAD_QUERY_LIMITED_INFORMATION, FALSE, _contextSwitchEvent->NewThreadId);
             if (hThread != nullptr)
             {
-                auto pid = GetProcessIdOfThread(hThread);
+                pid = GetProcessIdOfThread(hThread);
                 auto pinfo = &PROCESS_INFO_TABLE[pid];
 
                 if (pinfo->valid == 0)
@@ -182,6 +186,11 @@ namespace profiler {
                         //auto err = GetLastError();
                         //printf("OpenProcess(%u) fail: GetLastError() == %u\n", pid, err);
                         pinfo->valid = -1;
+
+                        if (pid == 4) {
+                            pinfo->name.reserve(pinfo->name.size() + 8);
+                            pinfo->name.append(" System", 7);
+                        }
                     }
                 }
 
@@ -201,10 +210,14 @@ namespace profiler {
             auto pinfo = it->second;
             if (pinfo != nullptr)
                 process_name = pinfo->name.c_str();
+            else if (it->first == 0)
+                process_name = "System Idle";
+            else if (it->first == 4)
+                process_name = "System";
         }
 
         MANAGER.beginContextSwitch(_contextSwitchEvent->OldThreadId, time, _contextSwitchEvent->NewThreadId, process_name);
-        MANAGER.endContextSwitch(_contextSwitchEvent->NewThreadId, time);
+        MANAGER.endContextSwitch(_contextSwitchEvent->NewThreadId, pid, time);
     }
 
     //////////////////////////////////////////////////////////////////////////
@@ -228,7 +241,7 @@ namespace profiler {
 
     EasyEventTracer::EasyEventTracer()
     {
-        m_lowPriority = ATOMIC_VAR_INIT(EASY_LOW_PRIORITY_EVENT_TRACING);
+        m_lowPriority = ATOMIC_VAR_INIT(EASY_OPTION_LOW_PRIORITY_EVENT_TRACING);
     }
 
     EasyEventTracer::~EasyEventTracer()
@@ -246,15 +259,14 @@ namespace profiler {
         m_lowPriority.store(_value, ::std::memory_order_release);
     }
 
-    bool EasyEventTracer::setDebugPrivilege()
+    bool setPrivilege(HANDLE hToken, LPCSTR _privelegeName)
     {
         bool success = false;
 
-        HANDLE hToken = nullptr;
-        if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
+        if (hToken)
         {
             LUID privilegyId;
-            if (LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &privilegyId))
+            if (LookupPrivilegeValue(NULL, _privelegeName, &privilegyId))
             {
                 TOKEN_PRIVILEGES tokenPrivilege;
                 tokenPrivilege.PrivilegeCount = 1;
@@ -262,16 +274,43 @@ namespace profiler {
                 tokenPrivilege.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
                 success = AdjustTokenPrivileges(hToken, FALSE, &tokenPrivilege, sizeof(TOKEN_PRIVILEGES), NULL, NULL) != FALSE;
             }
-
-            CloseHandle(hToken);
         }
 
-#if EASY_LOG_ENABLED != 0
+#if EASY_OPTION_LOG_ENABLED != 0
         if (!success)
-            ::std::cerr << "Warning: EasyProfiler failed to set Debug privelege for the application. Some context switch events could not get process name.\n";
+            EASY_ETW_LOG << "Warning: EasyProfiler failed to set " << _privelegeName << " privelege for the application.\n";
 #endif
 
         return success;
+    }
+
+    void EasyEventTracer::setProcessPrivileges()
+    {
+        static bool alreadySet = false;
+        if (alreadySet)
+            return;
+
+        alreadySet = true;
+
+        HANDLE hToken = nullptr;
+        if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
+        {
+#if EASY_OPTION_LOG_ENABLED != 0
+            const bool success = setPrivilege(hToken, SE_DEBUG_NAME);
+            if (!success)
+                EASY_ETW_LOG << "Warning: Some context switch events could not get process name.\n";
+#else
+            setPrivilege(hToken, SE_DEBUG_NAME);
+#endif
+            
+            CloseHandle(hToken);
+        }
+#if EASY_OPTION_LOG_ENABLED != 0
+        else
+        {
+            EASY_ETW_LOG << "Warning: EasyProfiler failed to open process to adjust priveleges.\n";
+        }
+#endif
     }
 
     ::profiler::EventTracingEnableStatus EasyEventTracer::startTrace(bool _force, int _step)
@@ -321,27 +360,27 @@ namespace profiler {
                     }
                 }
 
-#if EASY_LOG_ENABLED != 0
-                ::std::cerr << "Error: EasyProfiler.ETW not launched: ERROR_ALREADY_EXISTS. To stop another session execute cmd: logman stop \"" << KERNEL_LOGGER_NAME << "\" -ets\n";
+#if EASY_OPTION_LOG_ENABLED != 0
+                EASY_ETW_LOG << "Error: EasyProfiler.ETW not launched: ERROR_ALREADY_EXISTS. To stop another session execute cmd: logman stop \"" << KERNEL_LOGGER_NAME << "\" -ets\n";
 #endif
                 return EVENT_TRACING_WAS_LAUNCHED_BY_SOMEBODY_ELSE;
             }
 
             case ERROR_ACCESS_DENIED:
-#if EASY_LOG_ENABLED != 0
-                ::std::cerr << "Error: EasyProfiler.ETW not launched: ERROR_ACCESS_DENIED. Try to launch your application as Administrator.\n";
+#if EASY_OPTION_LOG_ENABLED != 0
+                EASY_ETW_LOG << "Error: EasyProfiler.ETW not launched: ERROR_ACCESS_DENIED. Try to launch your application as Administrator.\n";
 #endif
                 return EVENT_TRACING_NOT_ENOUGH_ACCESS_RIGHTS;
 
             case ERROR_BAD_LENGTH:
-#if EASY_LOG_ENABLED != 0
-                ::std::cerr << "Error: EasyProfiler.ETW not launched: ERROR_BAD_LENGTH. It seems that your KERNEL_LOGGER_NAME differs from \"" << m_properties.sessionName << "\". Try to re-compile easy_profiler or contact EasyProfiler developers.\n";
+#if EASY_OPTION_LOG_ENABLED != 0
+                EASY_ETW_LOG << "Error: EasyProfiler.ETW not launched: ERROR_BAD_LENGTH. It seems that your KERNEL_LOGGER_NAME differs from \"" << m_properties.sessionName << "\". Try to re-compile easy_profiler or contact EasyProfiler developers.\n";
 #endif
                 return EVENT_TRACING_BAD_PROPERTIES_SIZE;
         }
 
-#if EASY_LOG_ENABLED != 0
-        ::std::cerr << "Error: EasyProfiler.ETW not launched: StartTrace() returned " << startTraceResult << ::std::endl;
+#if EASY_OPTION_LOG_ENABLED != 0
+        EASY_ETW_LOG << "Error: EasyProfiler.ETW not launched: StartTrace() returned " << startTraceResult << ::std::endl;
 #endif
         return EVENT_TRACING_MISTERIOUS_ERROR;
     }
@@ -355,12 +394,8 @@ namespace profiler {
         /*
         Trying to set debug privilege for current process
         to be able to get other process information (process name).
-
-        Also it seems that debug privelege lets you to launch
-        event tracing without Administrator access rights.
         */
-        if (!m_bPrivilegeSet)
-            m_bPrivilegeSet = setDebugPrivilege();
+        EasyEventTracer::setProcessPrivileges();
 
         // Clear properties
         memset(&m_properties, 0, sizeof(m_properties));
@@ -385,8 +420,8 @@ namespace profiler {
         m_openedHandle = OpenTrace(&m_trace);
         if (m_openedHandle == INVALID_PROCESSTRACE_HANDLE)
         {
-#if EASY_LOG_ENABLED != 0
-            ::std::cerr << "Error: EasyProfiler.ETW not launched: OpenTrace() returned invalid handle.\n";
+#if EASY_OPTION_LOG_ENABLED != 0
+            EASY_ETW_LOG << "Error: EasyProfiler.ETW not launched: OpenTrace() returned invalid handle.\n";
 #endif
             return EVENT_TRACING_OPEN_TRACE_ERROR;
         }
@@ -402,7 +437,7 @@ namespace profiler {
         */
         m_processThread = ::std::move(::std::thread([this]()
         {
-            EASY_THREAD("EasyProfiler.ETW");
+            EASY_THREAD_SCOPE("EasyProfiler.ETW");
             ProcessTrace(&m_openedHandle, 1, 0, 0);
         }));
 

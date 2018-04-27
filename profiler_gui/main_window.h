@@ -51,6 +51,7 @@
 
 #include <QMainWindow>
 #include <QTimer>
+#include <QStringList>
 
 #include "easy/easy_socket.h"
 #include "easy/reader.h"
@@ -124,11 +125,14 @@ enum EasyListenerRegime : uint8_t
 class EasySocketListener Q_DECL_FINAL
 {
     EasySocket            m_easySocket; ///< 
+    ::std::string            m_address; ///< 
     ::std::stringstream m_receivedData; ///< 
     ::std::thread             m_thread; ///< 
     uint64_t            m_receivedSize; ///< 
+    uint16_t                    m_port; ///< 
     ::std::atomic_bool    m_bInterrupt; ///< 
     ::std::atomic_bool    m_bConnected; ///< 
+    ::std::atomic_bool  m_bStopReceive; ///< 
     EasyListenerRegime        m_regime; ///< 
 
 public:
@@ -139,13 +143,15 @@ public:
     bool connected() const;
     EasyListenerRegime regime() const;
     uint64_t size() const;
+    const ::std::string& address() const;
+    uint16_t port() const;
 
     ::std::stringstream& data();
     void clearData();
 
     bool connect(const char* _ipaddress, uint16_t _port, ::profiler::net::EasyProfilerStatus& _reply);
 
-    void startCapture();
+    bool startCapture();
     void stopCapture();
     void requestBlocksDescription();
 
@@ -172,7 +178,7 @@ protected:
     typedef EasyMainWindow This;
     typedef QMainWindow  Parent;
 
-    QString                                 m_lastFile;
+    QStringList                            m_lastFiles;
     QString                              m_lastAddress;
     QDockWidget*                          m_treeWidget = nullptr;
     QDockWidget*                        m_graphicsView = nullptr;
@@ -192,9 +198,11 @@ protected:
     EasyFileReader                            m_reader;
     EasySocketListener                      m_listener;
 
-    class QLineEdit* m_ipEdit = nullptr;
+    class QLineEdit* m_addressEdit = nullptr;
     class QLineEdit* m_portEdit = nullptr;
+    class QLineEdit* m_frameTimeEdit = nullptr;
 
+    class QMenu*   m_loadActionMenu = nullptr;
     class QAction* m_saveAction = nullptr;
     class QAction* m_deleteAction = nullptr;
 
@@ -215,25 +223,31 @@ public:
     // Public virtual methods
 
     void closeEvent(QCloseEvent* close_event) override;
+    void dragEnterEvent(QDragEnterEvent* drag_event) override;
+    void dragMoveEvent(QDragMoveEvent* drag_event) override;
+    void dragLeaveEvent(QDragLeaveEvent* drag_event) override;
+    void dropEvent(QDropEvent* drop_event) override;
 
 protected slots:
 
     void onOpenFileClicked(bool);
-    void onReloadFileClicked(bool);
     void onSaveFileClicked(bool);
     void onDeleteClicked(bool);
     void onExitClicked(bool);
     void onEncodingChanged(bool);
     void onChronoTextPosChanged(bool);
+    void onUnitsChanged(bool);
     void onEventIndicatorsChange(bool);
     void onEnableDisableStatistics(bool);
-    void onDrawBordersChanged(bool);
-    void onHideNarrowChildrenChanged(bool);
     void onCollapseItemsAfterCloseChanged(bool);
     void onAllItemsExpandedByDefaultChange(bool);
     void onBindExpandStatusChange(bool);
+    void onHierarchyFlagChange(bool);
     void onExpandAllClicked(bool);
     void onCollapseAllClicked(bool);
+    void onSpacingChange(int _value);
+    void onMinSizeChange(int _value);
+    void onNarrowSizeChange(int _value);
     void onFileReaderTimeout();
     void onListenerTimerTimeout();
     void onFileReaderCancel();
@@ -245,6 +259,7 @@ protected slots:
     void onConnectClicked(bool);
     void onEventTracingPriorityChange(bool _checked);
     void onEventTracingEnableChange(bool _checked);
+    void onFrameTimeEditFinish();
 
     void onBlockStatusChange(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status);
 
@@ -254,12 +269,17 @@ private:
 
     void clear();
 
+    void refreshDiagram();
+
+    void addFileToList(const QString& filename);
     void loadFile(const QString& filename);
     void readStream(::std::stringstream& data);
 
     void loadSettings();
     void loadGeometry();
     void saveSettingsAndGeometry();
+
+    void setDisconnected(bool _showMessage = true);
 
 }; // END of class EasyMainWindow.
 

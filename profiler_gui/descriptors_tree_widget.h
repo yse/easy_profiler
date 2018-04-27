@@ -49,6 +49,7 @@
 #include <QTreeWidget>
 #include <QString>
 #include <vector>
+#include <unordered_set>
 #include "easy/profiler.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -88,14 +89,19 @@ class EasyDescTreeWidget : public QTreeWidget
     typedef EasyDescTreeWidget   This;
 
     typedef ::std::vector<EasyDescWidgetItem*> Items;
+    typedef ::std::vector<QTreeWidgetItem*> TreeItems;
+    typedef ::std::unordered_set<::std::string> ExpandedFiles;
 
 protected:
 
-    Items                 m_items;
-    QString          m_lastSearch;
-    QTreeWidgetItem*  m_lastFound;
-    int            m_searchColumn;
-    bool                m_bLocked;
+    ExpandedFiles    m_expandedFilesTemp;
+    Items                        m_items;
+    TreeItems           m_highlightItems;
+    QString                 m_lastSearch;
+    QTreeWidgetItem*         m_lastFound;
+    int               m_lastSearchColumn;
+    int                   m_searchColumn;
+    bool                       m_bLocked;
 
 public:
 
@@ -104,14 +110,13 @@ public:
     explicit EasyDescTreeWidget(QWidget* _parent = nullptr);
     virtual ~EasyDescTreeWidget();
     void contextMenuEvent(QContextMenuEvent* _event) override;
-    void keyPressEvent(QKeyEvent* _event) override;
 
 public:
 
     // Public non-virtual methods
 
-    int findNext(const QString& _str);
-    int findPrev(const QString& _str);
+    int findNext(const QString& _str, Qt::MatchFlags _flags);
+    int findPrev(const QString& _str, Qt::MatchFlags _flags);
 
 public slots:
 
@@ -133,6 +138,7 @@ private:
 
     // Private methods
 
+    void resetHighlight();
     void loadSettings();
     void saveSettings();
 
@@ -153,6 +159,7 @@ private:
     class QLineEdit*  m_searchBox;
     class QLabel*   m_foundNumber;
     class QAction* m_searchButton;
+    bool   m_bCaseSensitiveSearch;
 
 public:
 
@@ -161,6 +168,7 @@ public:
     explicit EasyDescWidget(QWidget* _parent = nullptr);
     virtual ~EasyDescWidget();
     void keyPressEvent(QKeyEvent* _event) override;
+    void contextMenuEvent(QContextMenuEvent* _event) override;
 
 public:
 
@@ -176,6 +184,13 @@ private slots:
     void findPrev(bool);
     void findNextFromMenu(bool);
     void findPrevFromMenu(bool);
+
+private:
+
+    // Private non-virtual slots
+
+    void loadSettings();
+    void saveSettings();
 
 }; // END of class EasyDescWidget.
 
