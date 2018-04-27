@@ -510,10 +510,10 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     // Iterate through layers and draw visible items
     if (gotItems)
     {
-        static const auto MAX_CHILD_INDEX = ::profiler_gui::numeric_max<decltype(::profiler_gui::EasyBlockItem::children_begin)>();
         const int narrow_size_half = EASY_GLOBALS.blocks_narrow_size >> 1;
 
 #ifndef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
+        static const auto MAX_CHILD_INDEX = ::profiler_gui::numeric_max<decltype(::profiler_gui::EasyBlockItem::children_begin)>();
         auto const dont_skip_children = [this, &levelsNumber](short next_level, decltype(::profiler_gui::EasyBlockItem::children_begin) children_begin, int8_t _state)
         {
             if (next_level < levelsNumber && children_begin != MAX_CHILD_INDEX)
@@ -539,7 +539,6 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         {
             auto& level = m_levels[l];
             const short next_level = l + 1;
-            char state = BLOCK_ITEM_DO_PAINT;
 
             const auto top = levelY(l);
             if (top > p.visibleBottom)
@@ -558,6 +557,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     break; // This is first totally invisible item. No need to check other items.
 
 #ifndef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
+                char state = BLOCK_ITEM_DO_PAINT;
                 if (item.state != BLOCK_ITEM_UNCHANGED)
                 {
                     neighbour = 0; // first block in parent's children list

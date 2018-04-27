@@ -73,14 +73,8 @@ extern const uint32_t PROFILER_SIGNATURE;
 extern const uint32_t EASY_CURRENT_VERSION;
 
 # define EASY_VERSION_INT(v_major, v_minor, v_patch) ((static_cast<uint32_t>(v_major) << 24) | (static_cast<uint32_t>(v_minor) << 16) | static_cast<uint32_t>(v_patch))
-const uint32_t EASY_V_100 = EASY_VERSION_INT(1, 0, 0);
-const uint32_t COMPATIBLE_VERSIONS[] = {
-    EASY_VERSION_INT(1, 0, 1),
-    EASY_V_100,
-    EASY_VERSION_INT(0, 1, 0)
-};
-// WARNING: Modify isCompatibleVersion(uint32_t _version) if COMPATIBLE_VERSIONS_NUM == 0
-const uint16_t COMPATIBLE_VERSIONS_NUM = sizeof(COMPATIBLE_VERSIONS) / sizeof(uint32_t);
+const uint32_t MIN_COMPATIBLE_VERSION = EASY_VERSION_INT(0, 1, 0); ///< minimal compatible version (.prof file format was not changed seriously since this version)
+const uint32_t EASY_V_100 = EASY_VERSION_INT(1, 0, 0); ///< in v1.0.0 some additional data were added into .prof file
 # undef EASY_VERSION_INT
 
 const uint64_t TIME_FACTOR = 1000000000ULL;
@@ -91,7 +85,7 @@ const uint64_t TIME_FACTOR = 1000000000ULL;
 #ifdef EASY_USE_FLOATING_POINT_CONVERSION
 
 // Suppress warnings about double to uint64 conversion
-# ifdef _WIN32
+# ifdef _MSC_VER
 #  pragma warning(disable:4244)
 # elif defined(__GNUC__)
 #  pragma GCC diagnostic push
@@ -113,13 +107,9 @@ const uint64_t TIME_FACTOR = 1000000000ULL;
 
 //////////////////////////////////////////////////////////////////////////
 
-bool isCompatibleVersion(uint32_t _version)
+inline bool isCompatibleVersion(uint32_t _version)
 {
-    if (_version == EASY_CURRENT_VERSION)
-        return true;
-
-    return ::std::binary_search(COMPATIBLE_VERSIONS, COMPATIBLE_VERSIONS + COMPATIBLE_VERSIONS_NUM,
-                                _version, [](uint32_t _a, uint32_t _b){ return _a > _b; });
+    return _version >= MIN_COMPATIBLE_VERSION;
 }
 
 inline void write(::std::stringstream& _stream, const char* _value, size_t _size)
@@ -181,7 +171,7 @@ namespace profiler {
 
 //////////////////////////////////////////////////////////////////////////
 
-#ifdef _WIN32
+#ifdef EASY_PROFILER_HASHED_CSTR_DEFINED
 
 typedef ::std::unordered_map<::profiler::block_id_t, ::profiler::BlockStatistics*, ::profiler::passthrough_hash> StatsMap;
 
@@ -372,12 +362,16 @@ extern "C" {
 
         ::std::stringstream str;
 
+        // Replace str buffer to inFile buffer to avoid redundant copying
         typedef ::std::basic_iostream<::std::stringstream::char_type, ::std::stringstream::traits_type> stringstream_parent;
         stringstream_parent& s = str;
         auto oldbuf = s.rdbuf(inFile.rdbuf());
         
+        // Read data from file
         auto result = fillTreesFromStream(progress, str, serialized_blocks, serialized_descriptors, descriptors, blocks,
                                           threaded_trees, total_descriptors_number, gather_statistics, _log);
+
+        // Restore old str buffer to avoid possible second memory free on stringstream destructor
         s.rdbuf(oldbuf);
 
         return result;
@@ -697,7 +691,6 @@ extern "C" {
                             root.children.erase(lower, root.children.end());
                             EASY_END_BLOCK;
 
-                            ::profiler::timestamp_t children_duration = 0;
                             if (gather_statistics)
                             {
                                 EASY_BLOCK("Gather statistic within parent", ::profiler::colors::Magenta);
@@ -943,7 +936,7 @@ extern "C" {
 #undef EASY_CONVERT_TO_NANO
 
 #ifdef EASY_USE_FLOATING_POINT_CONVERSION
-# ifdef _WIN32
+# ifdef _MSC_VER
 #  pragma warning(default:4244)
 # elif defined(__GNUC__)
 #  pragma GCC diagnostic pop

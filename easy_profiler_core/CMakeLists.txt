@@ -1,4 +1,5 @@
-project(easy_profiler)
+cmake_minimum_required(VERSION 2.8)
+project(easy_profiler CXX)
 
 IF (NOT DEFINED LIB_NAME)
     SET(LIB_NAME ${PROJECT_NAME})
@@ -33,11 +34,13 @@ message(STATUS "")
 
 
 # EasyProfiler options:----------------------------------------------
-set(EASY_DEFAULT_PORT 28077) # default listening port
-set(EASY_OPTION_LISTEN OFF) # enable automatic startListen on startup
-set(EASY_OPTION_PROFILE_SELF OFF) # enable self profiling (measure time for internal storage expand)
-set(EASY_OPTION_PROFILE_SELF_BLOCKS_ON OFF) # storage expand default status (profiler::ON or profiler::OFF)
-set(EASY_OPTION_LOG OFF) # print errors to stderr
+set(EASY_DEFAULT_PORT 28077) # Default listening port
+set(EASY_OPTION_LISTEN OFF) # Enable automatic startListen on startup
+set(EASY_OPTION_PROFILE_SELF OFF) # Enable self profiling (measure time for internal storage expand)
+set(EASY_OPTION_PROFILE_SELF_BLOCKS_ON OFF) # Storage expand default status (profiler::ON or profiler::OFF)
+set(EASY_OPTION_LOG OFF) # Print errors to stderr
+set(EASY_OPTION_PREDEFINED_COLORS ON) # Use predefined set of colors (see profiler_colors.h)
+                                      # If you want to use your own colors palette you can turn this option OFF
 
 if(WIN32)
  set(EASY_OPTION_EVENT_TRACING ON) # Enable event tracing by default
@@ -57,7 +60,8 @@ if(WIN32)
   MESSAGE(STATUS "  Event tracing has low priority = No")
  endif(EASY_OPTION_LOW_PRIORITY_EVENT_TRACING)
 endif(WIN32)
-MESSAGE(STATUS "  Print errors to stderr = ${EASY_OPTION_LOG}")
+MESSAGE(STATUS "  Log messages = ${EASY_OPTION_LOG}")
+MESSAGE(STATUS "  Use EasyProfiler colors palette = ${EASY_OPTION_PREDEFINED_COLORS}")
 MESSAGE(STATUS "END EASY_PROFILER OPTIONS.----------")
 MESSAGE(STATUS "")
 # END EasyProfiler options.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -99,6 +103,12 @@ if(EASY_OPTION_LOG)
 else()
  add_definitions(-DEASY_OPTION_LOG_ENABLED=0)
 endif(EASY_OPTION_LOG)
+
+if(EASY_OPTION_PREDEFINED_COLORS)
+ add_definitions(-DEASY_OPTION_BUILTIN_COLORS=1)
+else()
+ add_definitions(-DEASY_OPTION_BUILTIN_COLORS=0)
+endif(EASY_OPTION_PREDEFINED_COLORS)
 
 set(CPP_FILES
     block.cpp
@@ -143,14 +153,6 @@ add_definitions(
     #-DEASY_PROFILER_API_DISABLED # uncomment this to disable profiler api only (you will have to rebuild only easy_profiler)
 )
 
-if (CMAKE_VERSION VERSION_LESS "3.1")
-    if (UNIX)
-      set (CMAKE_CXX_FLAGS "-std=gnu++11 ${CMAKE_CXX_FLAGS}")
-    endif (UNIX)
-  else ()
-    set (CMAKE_CXX_STANDARD 11)
-endif (CMAKE_VERSION VERSION_LESS "3.1")
-
 if(WIN32)
     add_definitions(
         -D_WINSOCK_DEPRECATED_NO_WARNINGS
@@ -160,15 +162,33 @@ endif(WIN32)
 
 add_library(${LIB_NAME} SHARED ${SOURCES} resources.rc)
 
+if (MINGW)
+    add_definitions(
+        -D_WIN32_WINNT=0x0600
+        -DSTRSAFE_NO_DEPRECATE
+    )
+    set (PLATFORM_LIBS ${PLATFORM_LIBS} ws2_32 psapi)
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+elseif (CMAKE_VERSION VERSION_LESS "3.1")
+    if (UNIX OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        set (CMAKE_CXX_FLAGS "-std=gnu++11 ${CMAKE_CXX_FLAGS}")
+    endif (UNIX OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+else ()
+    set_target_properties(${LIB_NAME} PROPERTIES
+        CXX_STANDARD 11
+        CXX_STANDARD_REQUIRED ON
+    )
+endif (MINGW)
+
 if(UNIX)
-    set(PLATFORM_LIBS pthread)
+    set(PLATFORM_LIBS ${PLATFORM_LIBS} pthread)
 endif(UNIX)
 
 target_link_libraries(${LIB_NAME} ${PLATFORM_LIBS})
 
 ####
 # Installation 
-set(config_install_dir "cmake/${PROJECT_NAME}")
+set(config_install_dir "lib/cmake/${PROJECT_NAME}")
 set(include_install_dir "include")
 
 set(generated_dir "${CMAKE_CURRENT_BINARY_DIR}/generated")
@@ -231,3 +251,4 @@ install(
     DESTINATION "${config_install_dir}"
 )
 
+target_compile_definitions(easy_profiler PUBLIC BUILD_WITH_EASY_PROFILER)

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0.0 FATAL_ERROR)
 
-project(profiler_gui)
+project(profiler_gui CXX)
 
 #set(CMAKE_PREFIX_PATH f:/qt/5.5/5.6/msvc2013_64/lib/cmake)
 
@@ -58,8 +58,26 @@ add_executable(${PROJECT_NAME}
     resources.rc
 )
 
+if (MINGW)
+    add_definitions(
+        -D_WIN32_WINNT=0x0600
+        -DSTRSAFE_NO_DEPRECATE
+    )
+    set (SPECIAL_LIB ${SPECIAL_LIB} ws2_32 psapi)
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+elseif (CMAKE_VERSION VERSION_LESS "3.1")
+    if (UNIX OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        set (CMAKE_CXX_FLAGS "-std=gnu++11 ${CMAKE_CXX_FLAGS}")
+    endif (UNIX OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+else ()
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        CXX_STANDARD 11
+        CXX_STANDARD_REQUIRED ON
+    )
+endif (MINGW)
+
 if(UNIX)
-    set(SPECIAL_LIB pthread)
+    set(SPECIAL_LIB ${SPECIAL_LIB} pthread)
 endif(UNIX)
 
 target_link_libraries(${PROJECT_NAME} Qt5::Widgets  easy_profiler ${SPECIAL_LIB})

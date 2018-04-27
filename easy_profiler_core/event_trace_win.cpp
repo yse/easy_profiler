@@ -56,12 +56,54 @@
 
 #include "event_trace_win.h"
 #include <Psapi.h>
+#include <processthreadsapi.h>
+//#include <Shellapi.h>
 
 #if EASY_OPTION_LOG_ENABLED != 0
 # include <iostream>
-# ifndef EASY_ETW_LOG
-#  define EASY_ETW_LOG ::std::cerr
+
+# ifndef EASY_ERRORLOG
+#  define EASY_ERRORLOG ::std::cerr
 # endif
+
+# ifndef EASY_LOG
+#  define EASY_LOG ::std::cerr
+# endif
+
+# ifndef EASY_ERROR
+#  define EASY_ERROR(LOG_MSG) EASY_ERRORLOG << "EasyProfiler ERROR: " << LOG_MSG
+# endif
+
+# ifndef EASY_WARNING
+#  define EASY_WARNING(LOG_MSG) EASY_ERRORLOG << "EasyProfiler WARNING: " << LOG_MSG
+# endif
+
+# ifndef EASY_LOGMSG
+#  define EASY_LOGMSG(LOG_MSG) EASY_LOG << "EasyProfiler INFO: " << LOG_MSG
+# endif
+
+# ifndef EASY_LOG_ONLY
+#  define EASY_LOG_ONLY(CODE) CODE
+# endif
+
+#else
+
+# ifndef EASY_ERROR
+#  define EASY_ERROR(LOG_MSG) 
+# endif
+
+# ifndef EASY_WARNING
+#  define EASY_WARNING(LOG_MSG) 
+# endif
+
+# ifndef EASY_LOGMSG
+#  define EASY_LOGMSG(LOG_MSG) 
+# endif
+
+# ifndef EASY_LOG_ONLY
+#  define EASY_LOG_ONLY(CODE) 
+# endif
+
 #endif
 
 //////////////////////////////////////////////////////////////////////////
@@ -70,7 +112,14 @@
 //extern ProfileManager& MANAGER;
 #define MANAGER ProfileManager::instance()
 
+extern const ::profiler::color_t EASY_COLOR_INTERNAL_EVENT;
+
+#ifdef __MINGW32__
+::std::atomic<uint64_t> TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
+char KERNEL_LOGGER[] = KERNEL_LOGGER_NAME;
+#else
 ::std::atomic_uint64_t TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
+#endif
 
 namespace profiler {
 
@@ -125,7 +174,7 @@ namespace profiler {
         if (sizeof(CSwitch) != _traceEvent->UserDataLength)
             return;
 
-        EASY_FUNCTION(::profiler::colors::White, ::profiler::OFF);
+        EASY_FUNCTION(EASY_COLOR_INTERNAL_EVENT, ::profiler::OFF);
 
         auto _contextSwitchEvent = reinterpret_cast<CSwitch*>(_traceEvent->UserData);
         const auto time = static_cast<::profiler::timestamp_t>(_traceEvent->EventHeader.TimeStamp.QuadPart);
@@ -276,10 +325,10 @@ namespace profiler {
             }
         }
 
-#if EASY_OPTION_LOG_ENABLED != 0
-        if (!success)
-            EASY_ETW_LOG << "Warning: EasyProfiler failed to set " << _privelegeName << " privelege for the application.\n";
-#endif
+        EASY_LOG_ONLY(
+            if (!success)
+                EASY_WARNING("Failed to set " << _privelegeName << " privelege for the application.\n");
+        )
 
         return success;
     }
@@ -298,19 +347,18 @@ namespace profiler {
 #if EASY_OPTION_LOG_ENABLED != 0
             const bool success = setPrivilege(hToken, SE_DEBUG_NAME);
             if (!success)
-                EASY_ETW_LOG << "Warning: Some context switch events could not get process name.\n";
+                EASY_WARNING("Some context switch events could not get process name.\n");
 #else
             setPrivilege(hToken, SE_DEBUG_NAME);
 #endif
             
             CloseHandle(hToken);
         }
-#if EASY_OPTION_LOG_ENABLED != 0
-        else
-        {
-            EASY_ETW_LOG << "Warning: EasyProfiler failed to open process to adjust priveleges.\n";
-        }
-#endif
+        EASY_LOG_ONLY(
+            else {
+                EASY_WARNING("Failed to open process to adjust priveleges.\n");
+            }
+        )
     }
 
     ::profiler::EventTracingEnableStatus EasyEventTracer::startTrace(bool _force, int _step)
@@ -360,28 +408,21 @@ namespace profiler {
                     }
                 }
 
-#if EASY_OPTION_LOG_ENABLED != 0
-                EASY_ETW_LOG << "Error: EasyProfiler.ETW not launched: ERROR_ALREADY_EXISTS. To stop another session execute cmd: logman stop \"" << KERNEL_LOGGER_NAME << "\" -ets\n";
-#endif
+                EASY_ERROR("Event tracing not launched: ERROR_ALREADY_EXISTS. To stop another session execute cmd: logman stop \"" << KERNEL_LOGGER_NAME << "\" -ets\n");
                 return EVENT_TRACING_WAS_LAUNCHED_BY_SOMEBODY_ELSE;
             }
 
             case ERROR_ACCESS_DENIED:
-#if EASY_OPTION_LOG_ENABLED != 0
-                EASY_ETW_LOG << "Error: EasyProfiler.ETW not launched: ERROR_ACCESS_DENIED. Try to launch your application as Administrator.\n";
-#endif
+                EASY_ERROR("Event tracing not launched: ERROR_ACCESS_DENIED. Try to launch your application as Administrator.\n");
                 return EVENT_TRACING_NOT_ENOUGH_ACCESS_RIGHTS;
 
             case ERROR_BAD_LENGTH:
-#if EASY_OPTION_LOG_ENABLED != 0
-                EASY_ETW_LOG << "Error: EasyProfiler.ETW not launched: ERROR_BAD_LENGTH. It seems that your KERNEL_LOGGER_NAME differs from \"" << m_properties.sessionName << "\". Try to re-compile easy_profiler or contact EasyProfiler developers.\n";
-#endif
+                EASY_ERROR("Event tracing not launched: ERROR_BAD_LENGTH. It seems that your KERNEL_LOGGER_NAME differs from \"" << m_properties.sessionName << "\". Try to re-compile easy_profiler or contact EasyProfiler developers.\n");
                 return EVENT_TRACING_BAD_PROPERTIES_SIZE;
         }
 
-#if EASY_OPTION_LOG_ENABLED != 0
-        EASY_ETW_LOG << "Error: EasyProfiler.ETW not launched: StartTrace() returned " << startTraceResult << ::std::endl;
-#endif
+        EASY_ERROR("Event tracing not launched: StartTrace() returned " << startTraceResult << ::std::endl);
+
         return EVENT_TRACING_MISTERIOUS_ERROR;
     }
 
@@ -413,16 +454,18 @@ namespace profiler {
             return res;
 
         memset(&m_trace, 0, sizeof(m_trace));
+#ifdef __MINGW32__
+        m_trace.LoggerName = KERNEL_LOGGER;
+#else
         m_trace.LoggerName = KERNEL_LOGGER_NAME;
+#endif
         m_trace.ProcessTraceMode = PROCESS_TRACE_MODE_REAL_TIME | PROCESS_TRACE_MODE_EVENT_RECORD | PROCESS_TRACE_MODE_RAW_TIMESTAMP;
         m_trace.EventRecordCallback = ::profiler::processTraceEvent;
 
         m_openedHandle = OpenTrace(&m_trace);
         if (m_openedHandle == INVALID_PROCESSTRACE_HANDLE)
         {
-#if EASY_OPTION_LOG_ENABLED != 0
-            EASY_ETW_LOG << "Error: EasyProfiler.ETW not launched: OpenTrace() returned invalid handle.\n";
-#endif
+            EASY_ERROR("Event tracing not launched: OpenTrace() returned invalid handle.\n");
             return EVENT_TRACING_OPEN_TRACE_ERROR;
         }
 
@@ -435,18 +478,18 @@ namespace profiler {
         
         https://msdn.microsoft.com/en-us/library/windows/desktop/aa364093(v=vs.85).aspx
         */
-        m_processThread = ::std::move(::std::thread([this]()
+        m_processThread = ::std::thread([this](bool _lowPriority)
         {
+            if (_lowPriority) // Set low priority for event tracing thread
+                SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST);
             EASY_THREAD_SCOPE("EasyProfiler.ETW");
             ProcessTrace(&m_openedHandle, 1, 0, 0);
-        }));
 
-        // Set low priority for event tracing thread
-        if (m_lowPriority.load(::std::memory_order_acquire))
-            SetThreadPriority(m_processThread.native_handle(), THREAD_PRIORITY_LOWEST);
+        }, m_lowPriority.load(::std::memory_order_acquire));
 
         m_bEnabled = true;
 
+        EASY_LOGMSG("Event tracing launched\n");
         return EVENT_TRACING_LAUNCHED_SUCCESSFULLY;
     }
 
@@ -455,6 +498,8 @@ namespace profiler {
         ::profiler::guard_lock<::profiler::spin_lock> lock(m_spin);
         if (!m_bEnabled)
             return;
+
+        EASY_LOGMSG("Event tracing is stopping...\n");
 
         TRACING_END_TIME.store(getCurrentTime(), ::std::memory_order_release);
 
@@ -473,6 +518,8 @@ namespace profiler {
         THREAD_PROCESS_INFO_TABLE[0U] = nullptr;
 
         TRACING_END_TIME.store(~0ULL, ::std::memory_order_release);
+
+        EASY_LOGMSG("Event tracing stopped\n");
     }
 
 } // END of namespace profiler.

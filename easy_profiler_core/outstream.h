@@ -60,6 +60,11 @@ namespace profiler {
             m_stream.write((const char*)&_data, sizeof(T));
         }
 
+        ::std::stringstream& stream()
+        {
+            return m_stream;
+        }
+
         const ::std::stringstream& stream() const
         {
             return m_stream;

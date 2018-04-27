@@ -100,7 +100,7 @@ namespace profiler {
 # define EASY_MALLOC(MEMSIZE, A) malloc(MEMSIZE)
 # define EASY_FREE(MEMPTR) free(MEMPTR)
 #else
-# if defined(_WIN32)
+# if defined(_MSC_VER)
 #  define EASY_ALIGNED(TYPE, VAR, A) __declspec(align(A)) TYPE VAR
 #  define EASY_MALLOC(MEMSIZE, A) _aligned_malloc(MEMSIZE, A)
 #  define EASY_FREE(MEMPTR) _aligned_free(MEMPTR)
@@ -353,7 +353,7 @@ class ProfileManager
     typedef std::map<profiler::thread_id_t, ThreadStorage> map_of_threads_stacks;
     typedef std::vector<BlockDescriptor*> block_descriptors_t;
 
-#ifdef _WIN32
+#ifdef EASY_PROFILER_HASHED_CSTR_DEFINED
     typedef std::unordered_map<profiler::hashed_cstr, profiler::block_id_t> descriptors_map_t;
 #else
     typedef std::unordered_map<profiler::hashed_stdstring, profiler::block_id_t> descriptors_map_t;
@@ -381,8 +381,6 @@ class ProfileManager
 
     std::thread m_listenThread;
     void listen(uint16_t _port);
-
-    int m_socket = 0;//TODO crossplatform
 
     std::atomic_bool m_stopListen;
 
