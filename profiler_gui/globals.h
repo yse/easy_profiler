@@ -12,11 +12,35 @@
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
 *                   :
+*                   : Licensed under either of
+*                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
+*                   :     * Apache License, Version 2.0, (LICENSE.APACHE or http://www.apache.org/licenses/LICENSE-2.0)
+*                   : at your option.
 *                   :
-*                   : Licensed under the Apache License, Version 2.0 (the "License");
-*                   : you may not use this file except in compliance with the License.
+*                   : The MIT License
+*                   :
+*                   : Permission is hereby granted, free of charge, to any person obtaining a copy
+*                   : of this software and associated documentation files (the "Software"), to deal
+*                   : in the Software without restriction, including without limitation the rights 
+*                   : to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
+*                   : of the Software, and to permit persons to whom the Software is furnished 
+*                   : to do so, subject to the following conditions:
+*                   : 
+*                   : The above copyright notice and this permission notice shall be included in all 
+*                   : copies or substantial portions of the Software.
+*                   : 
+*                   : THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+*                   : INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR 
+*                   : PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE 
+*                   : LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+*                   : TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE 
+*                   : USE OR OTHER DEALINGS IN THE SOFTWARE.
+*                   : 
+*                   : The Apache License, Version 2.0 (the "License")
+*                   :
+*                   : You may not use this file except in compliance with the License.
 *                   : You may obtain a copy of the License at
 *                   :
 *                   : http://www.apache.org/licenses/LICENSE-2.0
@@ -26,20 +50,6 @@
 *                   : WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 *                   : See the License for the specific language governing permissions and
 *                   : limitations under the License.
-*                   :
-*                   :
-*                   : GNU General Public License Usage
-*                   : Alternatively, this file may be used under the terms of the GNU
-*                   : General Public License as published by the Free Software Foundation,
-*                   : either version 3 of the License, or (at your option) any later version.
-*                   :
-*                   : This program is distributed in the hope that it will be useful,
-*                   : but WITHOUT ANY WARRANTY; without even the implied warranty of
-*                   : MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
-*                   : GNU General Public License for more details.
-*                   :
-*                   : You should have received a copy of the GNU General Public License
-*                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
 #ifndef EASY_PROFILER__GUI_GLOBALS_H
@@ -71,7 +81,7 @@ namespace profiler_gui {
 
     const QSize ICONS_SIZE(28, 28);
     const uint16_t GRAPHICS_ROW_SIZE = 18;
-    const uint16_t GRAPHICS_ROW_SPACING = 2;
+    const uint16_t GRAPHICS_ROW_SPACING = 0;
     const uint16_t GRAPHICS_ROW_SIZE_FULL = GRAPHICS_ROW_SIZE + GRAPHICS_ROW_SPACING;
     const uint16_t THREADS_ROW_SPACING = 8;
 
@@ -141,15 +151,19 @@ namespace profiler_gui {
         ::profiler::thread_id_t          selected_thread; ///< Current selected thread id
         ::profiler::block_index_t         selected_block; ///< Current selected profiler block index
         ::profiler::block_id_t         selected_block_id; ///< Current selected profiler block id
-        float                                 frame_time; ///< Value in microseconds to be displayed at minimap on graphics scrollbar
+        float                                 frame_time; ///< Expected frame time value in microseconds to be displayed at minimap on graphics scrollbar
         int                               blocks_spacing; ///< Minimum blocks spacing on diagram
         int                              blocks_size_min; ///< Minimum blocks size on diagram
         int                           blocks_narrow_size; ///< Width indicating narrow blocks
+        int                              max_fps_history; ///< Max frames history displayed in FPS Monitor
+        int                           fps_timer_interval; ///< Interval in milliseconds for sending network requests to the profiled application (used by FPS Monitor)
+        int                        fps_widget_line_width; ///< Line width in pixels of FPS lines for FPS Monitor
         ChronometerTextPosition     chrono_text_position; ///< Selected interval text position
         TimeUnits                             time_units; ///< Units type for time (milliseconds, microseconds, nanoseconds or auto-definition)
         bool                                   connected; ///< Is connected to source (to be able to capture profiling information)
+        bool                                 fps_enabled; ///< Is FPS Monitor enabled
         bool                   use_decorated_thread_name; ///< Add "Thread" to the name of each thread (if there is no one)
-        bool                     enable_event_indicators; ///< Enable event indicators painting (These are narrow rectangles at the bottom of each thread)
+        bool                        enable_event_markers; ///< Enable event indicators painting (These are narrow rectangles at the bottom of each thread)
         bool                           enable_statistics; ///< Enable gathering and using statistics (Disable if you want to consume less memory)
         bool                          enable_zero_length; ///< Enable zero length blocks (if true, then such blocks will have width == 1 pixel on each scale)
         bool                add_zero_blocks_to_hierarchy; ///< Enable adding zero blocks into hierarchy tree
@@ -162,6 +176,7 @@ namespace profiler_gui {
         bool               only_current_thread_hierarchy; ///< Build hierarchy tree for current thread only
         bool               highlight_blocks_with_same_id; ///< Highlight all blocks with same id on diagram
         bool              selecting_block_changes_thread; ///< If true then current selected thread will change every time you select block
+        bool                auto_adjust_histogram_height; ///< Automatically adjust histogram height to the visible region
         bool           bind_scene_and_tree_expand_status; /** \brief If true then items on graphics scene and in the tree (blocks hierarchy) are binded on each other
                                                                 so expanding/collapsing items on scene also expands/collapse items in the tree. */
 

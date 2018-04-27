@@ -1,43 +1,55 @@
 /**
 Lightweight profiler library for c++
-Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
+Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+
+Licensed under either of
+	* MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
+    * Apache License, Version 2.0, (LICENSE.APACHE or http://www.apache.org/licenses/LICENSE-2.0)
+at your option.
+
+The MIT License
+	Permission is hereby granted, free of charge, to any person obtaining a copy
+	of this software and associated documentation files (the "Software"), to deal
+	in the Software without restriction, including without limitation the rights 
+	to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
+	of the Software, and to permit persons to whom the Software is furnished 
+	to do so, subject to the following conditions:
+
+	The above copyright notice and this permission notice shall be included in all 
+	copies or substantial portions of the Software.
+
+	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR 
+	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE 
+	LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+	TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE 
+	USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+The Apache License, Version 2.0 (the "License");
+	You may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
 
-http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
 
-
-GNU General Public License Usage
-Alternatively, this file may be used under the terms of the GNU
-General Public License as published by the Free Software Foundation,
-either version 3 of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#ifndef EASY_PROFILER____MANAGER____H______
-#define EASY_PROFILER____MANAGER____H______
+#ifndef EASY_PROFILER_MANAGER_H
+#define EASY_PROFILER_MANAGER_H
 
-#include "easy/profiler.h"
-#include "easy/easy_socket.h"
+#include <easy/profiler.h>
+#include <easy/easy_socket.h>
+
 #include "spin_lock.h"
 #include "outstream.h"
 #include "hashed_cstr.h"
+
 #include <map>
 #include <vector>
 #include <unordered_map>
@@ -308,7 +320,6 @@ struct BlocksList
     }
 };
 
-
 struct ThreadStorage
 {
     BlocksList<std::reference_wrapper<profiler::Block>, SIZEOF_CSWITCH * (uint16_t)128U> blocks;
@@ -329,6 +340,7 @@ struct ThreadStorage
     void storeBlock(const profiler::Block& _block);
     void storeCSwitch(const profiler::Block& _block);
     void clearClosed();
+    void popSilent();
 
     ThreadStorage();
 };
@@ -359,20 +371,26 @@ class ProfileManager
     typedef std::unordered_map<profiler::hashed_stdstring, profiler::block_id_t> descriptors_map_t;
 #endif
 
-    const processid_t               m_processId;
+    const processid_t                     m_processId;
 
-    map_of_threads_stacks             m_threads;
-    block_descriptors_t           m_descriptors;
-    descriptors_map_t          m_descriptorsMap;
-    uint64_t                   m_usedMemorySize;
-    profiler::timestamp_t           m_beginTime;
-    profiler::timestamp_t             m_endTime;
-    profiler::spin_lock                  m_spin;
-    profiler::spin_lock            m_storedSpin;
-    profiler::spin_lock              m_dumpSpin;
-    std::atomic<char>          m_profilerStatus;
-    std::atomic_bool    m_isEventTracingEnabled;
-    std::atomic_bool       m_isAlreadyListening;
+    map_of_threads_stacks                   m_threads;
+    block_descriptors_t                 m_descriptors;
+    descriptors_map_t                m_descriptorsMap;
+    uint64_t                         m_usedMemorySize;
+    profiler::timestamp_t                 m_beginTime;
+    profiler::timestamp_t                   m_endTime;
+    std::atomic<profiler::timestamp_t>     m_frameMax;
+    std::atomic<profiler::timestamp_t>     m_frameAvg;
+    std::atomic<profiler::timestamp_t>     m_frameCur;
+    profiler::spin_lock                        m_spin;
+    profiler::spin_lock                  m_storedSpin;
+    profiler::spin_lock                    m_dumpSpin;
+    std::atomic<profiler::thread_id_t> m_mainThreadId;
+    std::atomic<char>                m_profilerStatus;
+    std::atomic_bool          m_isEventTracingEnabled;
+    std::atomic_bool             m_isAlreadyListening;
+    std::atomic_bool                  m_frameMaxReset;
+    std::atomic_bool                  m_frameAvgReset;
 
     std::string m_csInfoFilename = "/tmp/cs_profiling_info.log";
 
@@ -401,8 +419,13 @@ public:
     bool storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName);
     void beginBlock(profiler::Block& _block);
     void endBlock();
+    profiler::timestamp_t maxFrameDuration();
+    profiler::timestamp_t avgFrameDuration();
+    profiler::timestamp_t curFrameDuration() const;
     void setEnabled(bool isEnable);
+    bool isEnabled() const;
     void setEventTracingEnabled(bool _isEnable);
+    bool isEventTracingEnabled() const;
     uint32_t dumpBlocksToFile(const char* filename);
     const char* registerThread(const char* name, profiler::ThreadGuard& threadGuard);
     const char* registerThread(const char* name);
@@ -421,8 +444,12 @@ public:
     void endContextSwitch(profiler::thread_id_t _thread_id, processid_t _process_id, profiler::timestamp_t _endtime, bool _lockSpin = true);
     void startListen(uint16_t _port);
     void stopListen();
+    bool isListening() const;
 
 private:
+
+    void beginFrame();
+    void endFrame();
 
     void enableEventTracer();
     void disableEventTracer();
@@ -449,4 +476,4 @@ private:
     }
 };
 
-#endif // EASY_PROFILER____MANAGER____H______
+#endif // EASY_PROFILER_MANAGER_H

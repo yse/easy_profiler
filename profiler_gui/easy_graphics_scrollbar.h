@@ -12,11 +12,35 @@
 *                   : * 
 * ----------------- : 
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
 *                   :
+*                   : Licensed under either of
+*                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
+*                   :     * Apache License, Version 2.0, (LICENSE.APACHE or http://www.apache.org/licenses/LICENSE-2.0)
+*                   : at your option.
 *                   :
-*                   : Licensed under the Apache License, Version 2.0 (the "License");
-*                   : you may not use this file except in compliance with the License.
+*                   : The MIT License
+*                   :
+*                   : Permission is hereby granted, free of charge, to any person obtaining a copy
+*                   : of this software and associated documentation files (the "Software"), to deal
+*                   : in the Software without restriction, including without limitation the rights 
+*                   : to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
+*                   : of the Software, and to permit persons to whom the Software is furnished 
+*                   : to do so, subject to the following conditions:
+*                   : 
+*                   : The above copyright notice and this permission notice shall be included in all 
+*                   : copies or substantial portions of the Software.
+*                   : 
+*                   : THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+*                   : INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR 
+*                   : PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE 
+*                   : LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+*                   : TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE 
+*                   : USE OR OTHER DEALINGS IN THE SOFTWARE.
+*                   : 
+*                   : The Apache License, Version 2.0 (the "License")
+*                   :
+*                   : You may not use this file except in compliance with the License.
 *                   : You may obtain a copy of the License at
 *                   :
 *                   : http://www.apache.org/licenses/LICENSE-2.0
@@ -26,20 +50,6 @@
 *                   : WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 *                   : See the License for the specific language governing permissions and
 *                   : limitations under the License.
-*                   :
-*                   :
-*                   : GNU General Public License Usage
-*                   : Alternatively, this file may be used under the terms of the GNU
-*                   : General Public License as published by the Free Software Foundation,
-*                   : either version 3 of the License, or (at your option) any later version.
-*                   :
-*                   : This program is distributed in the hope that it will be useful,
-*                   : but WITHOUT ANY WARRANTY; without even the implied warranty of
-*                   : MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
-*                   : GNU General Public License for more details.
-*                   :
-*                   : You should have received a copy of the GNU General Public License
-*                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
 #ifndef EASY__GRAPHICS_SCROLLBAR__H
@@ -126,42 +136,54 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyHystogramItem : public QGraphicsItem
+class EasyHistogramItem : public QGraphicsItem
 {
     typedef QGraphicsItem Parent;
-    typedef EasyHystogramItem This;
+    typedef EasyHistogramItem This;
 
-    enum HystRegime : uint8_t { Hyst_Pointer, Hyst_Id };
+    enum HistRegime : uint8_t { Hist_Pointer, Hist_Id };
 
     QRectF                               m_boundingRect;
+    qreal                                 m_topDuration;
+    qreal                              m_bottomDuration;
     qreal                                 m_maxDuration;
     qreal                                 m_minDuration;
-    QString                            m_maxDurationStr;
-    QString                            m_minDurationStr;
+    qreal                                      m_mouseY;
+    qreal                                 m_imageOrigin;
+    qreal                                  m_imageScale;
+    qreal                           m_imageOriginUpdate;
+    qreal                            m_imageScaleUpdate;
+    qreal                           m_workerImageOrigin;
+    qreal                            m_workerImageScale;
+    qreal                           m_workerTopDuration;
+    qreal                        m_workerBottomDuration;
+    QString                            m_topDurationStr;
+    QString                         m_bottomDurationStr;
     QString                                m_threadName;
     ::profiler::BlocksTree::children_t m_selectedBlocks;
     QImage                                  m_mainImage;
     EasyQTimer                                  m_timer;
+    EasyQTimer                          m_boundaryTimer;
     ::std::thread                        m_workerThread;
     ::profiler::timestamp_t            m_threadDuration;
     ::profiler::timestamp_t        m_threadProfiledTime;
     ::profiler::timestamp_t            m_threadWaitTime;
     const ::profiler_gui::EasyItems*          m_pSource;
-    QImage*                            m_temporaryImage;
+    QImage*                               m_workerImage;
     const ::profiler::BlocksTreeRoot* m_pProfilerThread;
     ::profiler::thread_id_t                  m_threadId;
     ::profiler::block_index_t                 m_blockId;
     int                                      m_timeouts;
     ::profiler_gui::TimeUnits               m_timeUnits;
-    HystRegime                                 m_regime;
-    bool                               m_bUpdatingImage;
+    HistRegime                                 m_regime;
+    bool                           m_bPermitImageUpdate; ///< Is false when m_workerThread is parsing input dataset (when setSource(_block_id) is called)
     ::profiler_gui::spin_lock                    m_spin;
     ::std::atomic_bool                         m_bReady;
 
 public:
 
-    explicit EasyHystogramItem();
-    virtual ~EasyHystogramItem();
+    explicit EasyHistogramItem();
+    virtual ~EasyHistogramItem();
 
     // Public virtual methods
 
@@ -181,18 +203,35 @@ public:
     void setSource(::profiler::thread_id_t _thread_id, ::profiler::block_id_t _block_id);
     void validateName();
     void updateImage();
+    void cancelImageUpdate();
+
+    void pickTopBoundary(qreal _y);
+    void increaseTopBoundary();
+    void decreaseTopBoundary();
+
+    void pickBottomBoundary(qreal _y);
+    void increaseBottomBoundary();
+    void decreaseBottomBoundary();
+
+    void setMouseY(qreal _mouseY);
+    void pickFrameTime(qreal _y) const;
+
+    void onValueChanged();
+    void onModeChanged();
 
 private:
 
+    void paintBusyIndicator(QPainter* _painter, qreal _current_scale);
+    void paintMouseIndicator(QPainter* _painter, qreal _top, qreal _bottom, qreal _width, qreal _height, qreal _top_width, qreal _mouse_y, qreal _delta_time, int _font_h);
     void paintByPtr(QPainter* _painter);
     void paintById(QPainter* _painter);
     void onTimeout();
-    void updateImage(HystRegime _regime, qreal _current_scale,
+    void updateImage(QRectF _boundingRect, HistRegime _regime, qreal _current_scale,
                      qreal _minimum, qreal _maximum, qreal _range,
-                     qreal _value, qreal _width, bool _bindMode,
-                     float _frame_time, ::profiler::timestamp_t _begin_time);
+                     qreal _value, qreal _width, qreal _top_duration, qreal _bottom_duration, bool _bindMode,
+                     float _frame_time, ::profiler::timestamp_t _begin_time, qreal _origin, bool _autoAdjustHist);
 
-}; // END of class EasyHystogramItem.
+}; // END of class EasyHistogramItem.
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -213,7 +252,7 @@ private:
     Qt::MouseButtons                m_mouseButtons;
     EasyGraphicsSliderItem*               m_slider;
     EasyGraphicsSliderItem* m_chronometerIndicator;
-    EasyHystogramItem*             m_hystogramItem;
+    EasyHistogramItem*             m_histogramItem;
     int                        m_defaultFontHeight;
     bool                              m_bScrolling;
     bool                               m_bBindMode;
@@ -260,12 +299,12 @@ public:
     void showChrono();
     void hideChrono();
 
-    void setHystogramFrom(::profiler::thread_id_t _thread_id, const::profiler_gui::EasyItems* _items);
-    void setHystogramFrom(::profiler::thread_id_t _thread_id, ::profiler::block_id_t _block_id);
+    void setHistogramSource(::profiler::thread_id_t _thread_id, const::profiler_gui::EasyItems* _items);
+    void setHistogramSource(::profiler::thread_id_t _thread_id, ::profiler::block_id_t _block_id);
 
-    inline void setHystogramFrom(::profiler::thread_id_t _thread_id, const ::profiler_gui::EasyItems& _items)
+    inline void setHistogramSource(::profiler::thread_id_t _thread_id, const ::profiler_gui::EasyItems& _items)
     {
-        setHystogramFrom(_thread_id, &_items);
+        setHistogramSource(_thread_id, &_items);
     }
 
     inline void lock()

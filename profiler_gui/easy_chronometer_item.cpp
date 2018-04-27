@@ -12,11 +12,35 @@
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
 *                   :
+*                   : Licensed under either of
+*                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
+*                   :     * Apache License, Version 2.0, (LICENSE.APACHE or http://www.apache.org/licenses/LICENSE-2.0)
+*                   : at your option.
 *                   :
-*                   : Licensed under the Apache License, Version 2.0 (the "License");
-*                   : you may not use this file except in compliance with the License.
+*                   : The MIT License
+*                   :
+*                   : Permission is hereby granted, free of charge, to any person obtaining a copy
+*                   : of this software and associated documentation files (the "Software"), to deal
+*                   : in the Software without restriction, including without limitation the rights
+*                   : to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+*                   : of the Software, and to permit persons to whom the Software is furnished
+*                   : to do so, subject to the following conditions:
+*                   :
+*                   : The above copyright notice and this permission notice shall be included in all
+*                   : copies or substantial portions of the Software.
+*                   :
+*                   : THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+*                   : INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+*                   : PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+*                   : LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+*                   : TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+*                   : USE OR OTHER DEALINGS IN THE SOFTWARE.
+*                   :
+*                   : The Apache License, Version 2.0 (the "License")
+*                   :
+*                   : You may not use this file except in compliance with the License.
 *                   : You may obtain a copy of the License at
 *                   :
 *                   : http://www.apache.org/licenses/LICENSE-2.0
@@ -26,24 +50,11 @@
 *                   : WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 *                   : See the License for the specific language governing permissions and
 *                   : limitations under the License.
-*                   :
-*                   :
-*                   : GNU General Public License Usage
-*                   : Alternatively, this file may be used under the terms of the GNU
-*                   : General Public License as published by the Free Software Foundation,
-*                   : either version 3 of the License, or (at your option) any later version.
-*                   :
-*                   : This program is distributed in the hope that it will be useful,
-*                   : but WITHOUT ANY WARRANTY; without even the implied warranty of
-*                   : MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
-*                   : GNU General Public License for more details.
-*                   :
-*                   : You should have received a copy of the GNU General Public License
-*                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
 #include <QGraphicsScene>
 #include <QFontMetricsF>
+#include <math.h>
 #include "blocks_graphics_view.h"
 #include "easy_chronometer_item.h"
 #include "globals.h"
@@ -64,13 +75,15 @@ const auto CHRONOMETER_FONT = ::profiler_gui::EFont("Helvetica", 16, QFont::Bold
 //////////////////////////////////////////////////////////////////////////
 
 EasyChronometerItem::EasyChronometerItem(bool _main)
-    : QGraphicsItem()
+    : Parent()
     , m_color(::profiler_gui::CHRONOMETER_COLOR)
     , m_left(0)
     , m_right(0)
     , m_bMain(_main)
     , m_bReverse(false)
     , m_bHoverIndicator(false)
+    , m_bHoverLeftBorder(false)
+    , m_bHoverRightBorder(false)
 {
     m_indicator.reserve(3);
 }
@@ -181,9 +194,46 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     }
 
     if (m_left > sceneLeft)
+    {
+        if (m_bHoverLeftBorder)
+        {
+            // Set bold if border is hovered
+            QPen p = _painter->pen();
+            p.setWidth(3);
+            _painter->setPen(p);
+        }
+
         _painter->drawLine(QPointF(rect.left(), rect.top()), QPointF(rect.left(), rect.bottom()));
+    }
+
     if (m_right < sceneRight)
+    {
+        if (m_bHoverLeftBorder)
+        {
+            // Restore width
+            QPen p = _painter->pen();
+            p.setWidth(1);
+            _painter->setPen(p);
+        }
+        else if (m_bHoverRightBorder)
+        {
+            // Set bold if border is hovered
+            QPen p = _painter->pen();
+            p.setWidth(3);
+            _painter->setPen(p);
+        }
+
         _painter->drawLine(QPointF(rect.right(), rect.top()), QPointF(rect.right(), rect.bottom()));
+
+        // This is not necessary because another setPen() invoked for draw text
+        //if (m_bHoverRightBorder)
+        //{
+        //    // Restore width
+        //    QPen p = _painter->pen();
+        //    p.setWidth(1);
+        //    _painter->setPen(p);
+        //}
+    }
 
     // draw text
     _painter->setCompositionMode(QPainter::CompositionMode_Difference); // This lets the text to be visible on every background
@@ -242,13 +292,56 @@ void EasyChronometerItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
     // END Paint!~~~~~~~~~~~~~~~~~~~~~~
 }
 
-bool EasyChronometerItem::contains(const QPointF& _pos) const
+void EasyChronometerItem::hide()
+{
+    m_bHoverIndicator = false;
+    m_bHoverLeftBorder = false;
+    m_bHoverRightBorder = false;
+    m_bReverse = false;
+    Parent::hide();
+}
+
+bool EasyChronometerItem::indicatorContains(const QPointF& _pos) const
+{
+    if (m_indicator.empty())
+        return false;
+
+    const auto itemX = toItem(_pos.x());
+    return m_indicator.containsPoint(QPointF(itemX, _pos.y()), Qt::OddEvenFill);
+}
+
+void EasyChronometerItem::setHoverLeft(bool _hover)
+{
+    m_bHoverLeftBorder = _hover;
+}
+
+void EasyChronometerItem::setHoverRight(bool _hover)
+{
+    m_bHoverRightBorder = _hover;
+}
+
+bool EasyChronometerItem::hoverLeft(qreal _x) const
+{
+    const auto dx = fabs(_x - m_left) * view()->scale();
+    return dx < 4;
+}
+
+bool EasyChronometerItem::hoverRight(qreal _x) const
+{
+    const auto dx = fabs(_x - m_right) * view()->scale();
+    return dx < 4;
+}
+
+QPointF EasyChronometerItem::toItem(const QPointF& _pos) const
 {
     const auto sceneView = view();
-    const auto clickX = (_pos.x() - sceneView->offset()) * sceneView->scale() - x();
-    if (!m_indicator.empty() && m_indicator.containsPoint(QPointF(clickX, _pos.y()), Qt::OddEvenFill))
-        return true;
-    return false;
+    return QPointF((_pos.x() - sceneView->offset()) * sceneView->scale() - x(), _pos.y());
+}
+
+qreal EasyChronometerItem::toItem(qreal _x) const
+{
+    const auto sceneView = view();
+    return (_x - sceneView->offset()) * sceneView->scale() - x();
 }
 
 void EasyChronometerItem::setColor(const QColor& _color)
@@ -285,7 +378,7 @@ void EasyChronometerItem::setReverse(bool _reverse)
     m_bReverse = _reverse;
 }
 
-void EasyChronometerItem::setHover(bool _hover)
+void EasyChronometerItem::setHoverIndicator(bool _hover)
 {
     m_bHoverIndicator = _hover;
 }

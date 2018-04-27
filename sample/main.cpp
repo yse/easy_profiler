@@ -1,13 +1,14 @@
 //#define FULL_DISABLE_PROFILER
-#include "easy/profiler.h"
 #include <chrono>
 #include <thread>
 #include <vector>
 #include <iostream>
 #include <condition_variable>
-#include "easy/reader.h"
 #include <cstdlib>
 #include <math.h>
+
+#include <easy/profiler.h>
+#include <easy/reader.h>
 
 std::condition_variable cv;
 std::mutex cv_m;
@@ -157,7 +158,10 @@ void modellingThread(){
 #else
     for (int i = 0; i < MODELLING_STEPS; i++){
 #endif
+        //EASY_FRAME_COUNTER;
         modellingStep();
+        //EASY_END_FRAME_COUNTER;
+
         localSleep(1200000);
         //std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
@@ -210,7 +214,8 @@ int main(int argc, char* argv[])
     profiler::startListen();
 
     std::vector<std::thread> threads;
-    for (int i=0; i < 3; i++) {
+    //for (int i=0; i < 3; i++)
+    {
         threads.emplace_back(loadingResourcesThread);
         threads.emplace_back(renderThread);
         threads.emplace_back(modellingThread);
@@ -221,7 +226,24 @@ int main(int argc, char* argv[])
     cv_m.unlock();
     cv.notify_all();
 
+#ifndef SAMPLE_NETWORK_TEST
+    std::atomic_bool stop = ATOMIC_VAR_INIT(false);
+    auto frame_time_printer_thread = std::thread([&stop]()
+    {
+        while (!stop.load(std::memory_order_acquire))
+        {
+            std::cout << "Frame time: max " << profiler::main_thread::frameTimeLocalMax() << " us // avg " << profiler::main_thread::frameTimeLocalAvg() << " us\n";
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        }
+    });
+#endif
+
     modellingThread();
+
+#ifndef SAMPLE_NETWORK_TEST
+    stop.store(true, std::memory_order_release);
+    frame_time_printer_thread.join();
+#endif
 
     for(auto& t : threads)
         t.join();

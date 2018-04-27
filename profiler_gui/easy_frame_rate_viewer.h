@@ -1,17 +1,16 @@
 /************************************************************************
-* file name         : easy_chronometer_item.h
+* file name         : easy_frame_rate_viewer.cpp
 * ----------------- :
-* creation time     : 2016/09/15
+* creation time     : 2017/04/02
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : The file contains declaration of EasyChronometerItem - an item
-*                   : used to display selected interval on graphics scene.
+* description       : This file contains declaration of EasyFrameRateViewer widget.
 * ----------------- :
-* change log        : * 2016/09/15 Victor Zarubkin: moved sources from blocks_graphics_view.h
+* change log        : * 2017/04/02 Victor Zarubkin: Initial commit.
 *                   :
 *                   : *
-* ----------------- :
+* ----------------- : 
 * license           : Lightweight profiler library for c++
 *                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
 *                   :
@@ -53,119 +52,74 @@
 *                   : limitations under the License.
 ************************************************************************/
 
-#ifndef EASY_CHRONOMETER_ITEM_H
-#define EASY_CHRONOMETER_ITEM_H
+#ifndef EASY__FRAME_RATE_VIEWER__H
+#define EASY__FRAME_RATE_VIEWER__H
 
+#include <QGraphicsView>
 #include <QGraphicsItem>
-#include <QRectF>
-#include <QPolygonF>
-#include <QColor>
+#include <QTimer>
+#include <vector>
+#include <deque>
+#include <easy/profiler.h>
 
 //////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////
 
-class QWidget;
-class QPainter;
-class QStyleOptionGraphicsItem;
-class EasyGraphicsView;
-
-class EasyChronometerItem : public QGraphicsItem
+class EasyFPSGraphicsItem : public QGraphicsItem
 {
-    typedef QGraphicsItem Parent;
-    typedef EasyChronometerItem This;
+    typedef QGraphicsItem                                  Parent;
+    typedef EasyFPSGraphicsItem                              This;
+    typedef std::deque<std::pair<uint32_t, uint32_t> > FrameTimes;
 
-    QPolygonF  m_indicator; ///< Indicator displayed when this chrono item is out of screen (displaying only for main item)
-    QRectF  m_boundingRect; ///< boundingRect (see QGraphicsItem)
-    QColor         m_color; ///< Color of the item
-    qreal  m_left, m_right; ///< Left and right bounds of the selection zone
-    bool           m_bMain; ///< Is this chronometer main (true, by default)
-    bool        m_bReverse; ///< 
-    bool m_bHoverIndicator; ///< Mouse hover above indicator
-    bool  m_bHoverLeftBorder;
-    bool m_bHoverRightBorder;
+    std::vector<QPointF> m_points1, m_points2;
+    FrameTimes                       m_frames;
+    QRectF                     m_boundingRect;
 
 public:
 
-    explicit EasyChronometerItem(bool _main = true);
-    virtual ~EasyChronometerItem();
-
-    // Public virtual methods
+    explicit EasyFPSGraphicsItem();
+    virtual ~EasyFPSGraphicsItem();
 
     QRectF boundingRect() const override;
     void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
 
-public:
-
-    // Public non-virtual methods
-
-    void hide();
-
-    void setColor(const QColor& _color);
-
+    void setBoundingRect(const QRectF& _boundingRect);
     void setBoundingRect(qreal x, qreal y, qreal w, qreal h);
-    void setBoundingRect(const QRectF& _rect);
 
-    void setLeftRight(qreal _left, qreal _right);
+    void clear();
+    void addPoint(uint32_t _maxFrameTime, uint32_t _avgFrameTime);
 
-    void setReverse(bool _reverse);
+}; // END of class EasyFPSGraphicsItem.
 
-    void setHoverIndicator(bool _hover);
+//////////////////////////////////////////////////////////////////////////
 
-    bool indicatorContains(const QPointF& _pos) const;
-
-    void setHoverLeft(bool _hover);
-    void setHoverRight(bool _hover);
-
-    bool hoverLeft(qreal _x) const;
-    bool hoverRight(qreal _x) const;
-
-    QPointF toItem(const QPointF& _pos) const;
-    qreal toItem(qreal _x) const;
-
-    inline bool hoverIndicator() const
-    {
-        return m_bHoverIndicator;
-    }
-
-    inline bool hoverLeft() const
-    {
-        return m_bHoverLeftBorder;
-    }
-
-    inline bool hoverRight() const
-    {
-        return m_bHoverRightBorder;
-    }
-
-    inline bool reverse() const
-    {
-        return m_bReverse;
-    }
-
-    inline qreal left() const
-    {
-        return m_left;
-    }
-
-    inline qreal right() const
-    {
-        return m_right;
-    }
-
-    inline qreal width() const
-    {
-        return m_right - m_left;
-    }
+class EasyFrameRateViewer : public QGraphicsView
+{
+    Q_OBJECT
 
 private:
 
-    ///< Returns pointer to the EasyGraphicsView widget.
-    const EasyGraphicsView* view() const;
-    EasyGraphicsView* view();
+    typedef QGraphicsView       Parent;
+    typedef EasyFrameRateViewer   This;
 
-}; // END of class EasyChronometerItem.
+    EasyFPSGraphicsItem* m_fpsItem;
+
+public:
+
+    explicit EasyFrameRateViewer(QWidget* _parent = nullptr);
+    virtual ~EasyFrameRateViewer();
+
+    void resizeEvent(QResizeEvent* _event) override;
+    void hideEvent(QHideEvent* _event) override;
+    void showEvent(QShowEvent* _event) override;
+    void contextMenuEvent(QContextMenuEvent* _event) override;
+
+public slots:
+
+    void clear();
+    void addPoint(uint32_t _maxFrameTime, uint32_t _avgFrameTime);
+
+}; // END of class EasyFrameRateViewer.
 
 //////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////
 
-#endif // EASY_CHRONOMETER_ITEM_H
+#endif // EASY__FRAME_RATE_VIEWER__H

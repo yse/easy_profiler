@@ -2,19 +2,25 @@
 
 [![Build Status](https://travis-ci.org/yse/easy_profiler.svg?branch=develop)](https://travis-ci.org/yse/easy_profiler)
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-[![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](http://www.gnu.org/licenses/gpl-3.0)
+
 
 1. [About](#about)
-2. [Usage](#usage)
+2. [Key features](#key-features)
+3. [Usage](#usage)
     - [Prepare build system](#prepare-build-system)
        - [General build system](#general)
        - [CMake](#build-with-cmake)
     - [Add profiling blocks](#add-profiling-blocks)
     - [Collect blocks](#collect-blocks)
-3. [Build](#build)
+        - [Collect via network](#collect-via-network)
+        - [Collect via file](#collect-via-file)
+        - [Note about context-switch](#note-about-context-switch)
+4. [Build](#build)
     - [Linux](#linux)
     - [Windows](#windows)
+5. [License](#license)
 
 # About
 Lightweight cross-platform profiler library for c++
@@ -34,7 +40,18 @@ duration, target thread id, thread owner process id, thread owner process name.
 
 You can see the results of measuring in simple GUI application which provides full statistics and renders beautiful time-line.
 
-![GUI screenshot](https://cloud.githubusercontent.com/assets/10530007/21056780/2383d472-be48-11e6-8b35-d1a32e64b910.png)
+![GUI screenshot](https://cloud.githubusercontent.com/assets/1775230/24852044/a0b1edd0-1dde-11e7-8736-7052b840ad06.png)
+
+# Key features
+
+- Extremely low overhead
+- Low additional memory usage
+- Cross-platform
+- Measuring over network
+- Capture thread context-switch events
+- Fully remove integration via defines
+- GUI could be connected to an application which is already profiling (so you can profile initialization of your application)
+- Monitor main thread fps at real-time in GUI even if profiling is disabled or draw your own HUD/fps-plot directly in your application using data provided by profiler 
 
 # Usage
 
@@ -115,7 +132,40 @@ void bar() {
 ```
 ## Collect blocks
 
-To collect blocks data you can either save them in file by `profiler::dumpBlocksToFile(const char*)`function or listen capturing signal from profiler_gui application. In the latter case you may control captruing blocks in GUI-based application after calling function `profiler::startListen()`.
+There are two ways to cature blocks
+
+### Collect via network
+
+It's most prefered and convenient approach in many case.
+
+1. Initialize listening by `profiler::startListen()`. It's start new thread to listen on `28077` port the start-capture-signal from gui-application.
+2. To stop listening you can call `profiler::stopListen()` function. 
+
+### Collect via file
+
+1. Enable profiler by `EASY_PROFILER_ENABLE` macro
+2. Dump blocks to file in any place you want by `profiler::dumpBlocksToFile("test_profile.prof")` function
+
+Example:
+```cpp
+int main()
+{
+    EASY_PROFILER_ENABLE;
+    /* do work*/
+    profiler::dumpBlocksToFile("test_profile.prof");
+}
+```
+
+### Note about context-switch
+
+To capture a thread context-switch event you need:
+
+- On Windows: run profiling application "as administrator"
+- On linux: you can run special `systemtap` script with root privileges as follow (example on Fedora):
+```bash
+#stap -o /tmp/cs_profiling_info.log scripts/context_switch_logger.stp name APPLICATION_NAME
+```
+APPLICATION_NAME - name of profiling application
 
 # Build
 
@@ -161,3 +211,11 @@ $ mkdir build
 $ cd build
 $ cmake .. -G "Visual Studio 12 2013 Win64"
 ```
+
+# License
+
+Licensed under either of
+- MIT license ([LICENSE.MIT](LICENSE.MIT) or http://opensource.org/licenses/MIT)
+- Apache License, Version 2.0, ([LICENSE.APACHE](LICENSE.APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+
+at your option.

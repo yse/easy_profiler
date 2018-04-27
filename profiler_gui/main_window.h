@@ -11,11 +11,35 @@
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
 *                   :
+*                   : Licensed under either of
+*                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
+*                   :     * Apache License, Version 2.0, (LICENSE.APACHE or http://www.apache.org/licenses/LICENSE-2.0)
+*                   : at your option.
 *                   :
-*                   : Licensed under the Apache License, Version 2.0 (the "License");
-*                   : you may not use this file except in compliance with the License.
+*                   : The MIT License
+*                   :
+*                   : Permission is hereby granted, free of charge, to any person obtaining a copy
+*                   : of this software and associated documentation files (the "Software"), to deal
+*                   : in the Software without restriction, including without limitation the rights 
+*                   : to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
+*                   : of the Software, and to permit persons to whom the Software is furnished 
+*                   : to do so, subject to the following conditions:
+*                   : 
+*                   : The above copyright notice and this permission notice shall be included in all 
+*                   : copies or substantial portions of the Software.
+*                   : 
+*                   : THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+*                   : INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR 
+*                   : PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE 
+*                   : LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+*                   : TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE 
+*                   : USE OR OTHER DEALINGS IN THE SOFTWARE.
+*                   : 
+*                   : The Apache License, Version 2.0 (the "License")
+*                   :
+*                   : You may not use this file except in compliance with the License.
 *                   : You may obtain a copy of the License at
 *                   :
 *                   : http://www.apache.org/licenses/LICENSE-2.0
@@ -25,20 +49,6 @@
 *                   : WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 *                   : See the License for the specific language governing permissions and
 *                   : limitations under the License.
-*                   :
-*                   :
-*                   : GNU General Public License Usage
-*                   : Alternatively, this file may be used under the terms of the GNU
-*                   : General Public License as published by the Free Software Foundation,
-*                   : either version 3 of the License, or (at your option) any later version.
-*                   :
-*                   : This program is distributed in the hope that it will be useful,
-*                   : but WITHOUT ANY WARRANTY; without even the implied warranty of
-*                   : MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
-*                   : GNU General Public License for more details.
-*                   :
-*                   : You should have received a copy of the GNU General Public License
-*                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
 #ifndef EASY_PROFILER_GUI__MAIN_WINDOW__H
@@ -53,8 +63,8 @@
 #include <QTimer>
 #include <QStringList>
 
-#include "easy/easy_socket.h"
-#include "easy/reader.h"
+#include <easy/easy_socket.h>
+#include <easy/reader.h>
 
 #ifdef max
 #undef max
@@ -119,6 +129,7 @@ enum EasyListenerRegime : uint8_t
 {
     LISTENER_IDLE = 0,
     LISTENER_CAPTURE,
+    LISTENER_CAPTURE_RECEIVE,
     LISTENER_DESCRIBE
 };
 
@@ -130,9 +141,13 @@ class EasySocketListener Q_DECL_FINAL
     ::std::thread             m_thread; ///< 
     uint64_t            m_receivedSize; ///< 
     uint16_t                    m_port; ///< 
+    ::std::atomic<uint32_t> m_frameMax; ///< 
+    ::std::atomic<uint32_t> m_frameAvg; ///< 
     ::std::atomic_bool    m_bInterrupt; ///< 
     ::std::atomic_bool    m_bConnected; ///< 
     ::std::atomic_bool  m_bStopReceive; ///< 
+    ::std::atomic_bool m_bCaptureReady; ///<
+    ::std::atomic_bool m_bFrameTimeReady; ///< 
     EasyListenerRegime        m_regime; ///< 
 
 public:
@@ -141,6 +156,7 @@ public:
     ~EasySocketListener();
 
     bool connected() const;
+    bool captured() const;
     EasyListenerRegime regime() const;
     uint64_t size() const;
     const ::std::string& address() const;
@@ -153,7 +169,11 @@ public:
 
     bool startCapture();
     void stopCapture();
+    void finalizeCapture();
     void requestBlocksDescription();
+
+    bool frameTime(uint32_t& _maxTime, uint32_t& _avgTime);
+    bool requestFrameTime();
 
     template <class T>
     inline void send(const T& _message) {
@@ -164,6 +184,7 @@ private:
 
     void listenCapture();
     void listenDescription();
+    void listenFrameTime();
 
 }; // END of class EasySocketListener.
 
@@ -182,6 +203,7 @@ protected:
     QString                              m_lastAddress;
     QDockWidget*                          m_treeWidget = nullptr;
     QDockWidget*                        m_graphicsView = nullptr;
+    QDockWidget*                           m_fpsViewer = nullptr;
 
 #if EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW != 0
     QDockWidget*                      m_descTreeWidget = nullptr;
@@ -193,6 +215,7 @@ protected:
     class QMessageBox*                m_listenerDialog = nullptr;
     QTimer                               m_readerTimer;
     QTimer                             m_listenerTimer;
+    QTimer                           m_fpsRequestTimer;
     ::profiler::SerializedData      m_serializedBlocks;
     ::profiler::SerializedData m_serializedDescriptors;
     EasyFileReader                            m_reader;
@@ -237,7 +260,6 @@ protected slots:
     void onEncodingChanged(bool);
     void onChronoTextPosChanged(bool);
     void onUnitsChanged(bool);
-    void onEventIndicatorsChange(bool);
     void onEnableDisableStatistics(bool);
     void onCollapseItemsAfterCloseChanged(bool);
     void onAllItemsExpandedByDefaultChange(bool);
@@ -248,7 +270,11 @@ protected slots:
     void onSpacingChange(int _value);
     void onMinSizeChange(int _value);
     void onNarrowSizeChange(int _value);
+    void onFpsIntervalChange(int _value);
+    void onFpsHistoryChange(int _value);
+    void onFpsMonitorLineWidthChange(int _value);
     void onFileReaderTimeout();
+    void onFrameTimeRequestTimeout();
     void onListenerTimerTimeout();
     void onFileReaderCancel();
     void onEditBlocksClicked(bool);
@@ -260,8 +286,11 @@ protected slots:
     void onEventTracingPriorityChange(bool _checked);
     void onEventTracingEnableChange(bool _checked);
     void onFrameTimeEditFinish();
+    void onFrameTimeChanged();
 
     void onBlockStatusChange(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status);
+
+    void checkFrameTimeReady();
 
 private:
 

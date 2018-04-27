@@ -21,11 +21,35 @@
 *                   : * 2016/08/18 Victor Zarubkin: Moved sources of TreeWidgetItem into tree_widget_item.h/.cpp
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
 *                   :
+*                   : Licensed under either of
+*                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
+*                   :     * Apache License, Version 2.0, (LICENSE.APACHE or http://www.apache.org/licenses/LICENSE-2.0)
+*                   : at your option.
 *                   :
-*                   : Licensed under the Apache License, Version 2.0 (the "License");
-*                   : you may not use this file except in compliance with the License.
+*                   : The MIT License
+*                   :
+*                   : Permission is hereby granted, free of charge, to any person obtaining a copy
+*                   : of this software and associated documentation files (the "Software"), to deal
+*                   : in the Software without restriction, including without limitation the rights
+*                   : to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+*                   : of the Software, and to permit persons to whom the Software is furnished
+*                   : to do so, subject to the following conditions:
+*                   :
+*                   : The above copyright notice and this permission notice shall be included in all
+*                   : copies or substantial portions of the Software.
+*                   :
+*                   : THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+*                   : INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+*                   : PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+*                   : LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+*                   : TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+*                   : USE OR OTHER DEALINGS IN THE SOFTWARE.
+*                   :
+*                   : The Apache License, Version 2.0 (the "License")
+*                   :
+*                   : You may not use this file except in compliance with the License.
 *                   : You may obtain a copy of the License at
 *                   :
 *                   : http://www.apache.org/licenses/LICENSE-2.0
@@ -35,20 +59,6 @@
 *                   : WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 *                   : See the License for the specific language governing permissions and
 *                   : limitations under the License.
-*                   :
-*                   :
-*                   : GNU General Public License Usage
-*                   : Alternatively, this file may be used under the terms of the GNU
-*                   : General Public License as published by the Free Software Foundation,
-*                   : either version 3 of the License, or (at your option) any later version.
-*                   :
-*                   : This program is distributed in the hope that it will be useful,
-*                   : but WITHOUT ANY WARRANTY; without even the implied warranty of
-*                   : MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
-*                   : GNU General Public License for more details.
-*                   :
-*                   : You should have received a copy of the GNU General Public License
-*                   : along with this program.If not, see <http://www.gnu.org/licenses/>.
 ************************************************************************/
 
 #include <QMenu>
@@ -149,11 +159,11 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
     header_item->setText(COL_BEGIN, "Begin, ms");
 
     header_item->setText(COL_DURATION, "Duration");
-    header_item->setText(COL_SELF_DURATION, "Self Dur.");
+    header_item->setText(COL_SELF_DURATION, "Self dur.");
     //header_item->setToolTip(COL_SELF_DURATION, "");
-    header_item->setText(COL_DURATION_SUM_PER_PARENT, "Sum Dur./Parent");
-    header_item->setText(COL_DURATION_SUM_PER_FRAME,  "Sum Dur./Frame");
-    header_item->setText(COL_DURATION_SUM_PER_THREAD, "Sum Dur./Thread");
+    header_item->setText(COL_DURATION_SUM_PER_PARENT, "Total / Parent");
+    header_item->setText(COL_DURATION_SUM_PER_FRAME,  "Total / Frame");
+    header_item->setText(COL_DURATION_SUM_PER_THREAD, "Total / Thread");
 
     header_item->setText(COL_SELF_DURATION_PERCENT, "Self %");
     header_item->setText(COL_PERCENT_PER_PARENT, "% / Parent");
@@ -164,20 +174,20 @@ EasyTreeWidget::EasyTreeWidget(QWidget* _parent)
 
     header_item->setText(COL_END, "End, ms");
 
-    header_item->setText(COL_MIN_PER_FRAME, "Min dur./Frame");
-    header_item->setText(COL_MAX_PER_FRAME, "Max dur./Frame");
-    header_item->setText(COL_AVERAGE_PER_FRAME, "Average dur./Frame");
-    header_item->setText(COL_NCALLS_PER_FRAME, "N Calls/Frame");
+    header_item->setText(COL_MIN_PER_FRAME, "Min / Frame");
+    header_item->setText(COL_MAX_PER_FRAME, "Max / Frame");
+    header_item->setText(COL_AVERAGE_PER_FRAME, "Avg / Frame");
+    header_item->setText(COL_NCALLS_PER_FRAME, "N Calls / Frame");
 
-    header_item->setText(COL_MIN_PER_PARENT, "Min dur./Parent");
-    header_item->setText(COL_MAX_PER_PARENT, "Max dur./Parent");
-    header_item->setText(COL_AVERAGE_PER_PARENT, "Average dur./Parent");
-    header_item->setText(COL_NCALLS_PER_PARENT, "N Calls/Parent");
+    header_item->setText(COL_MIN_PER_PARENT, "Min / Parent");
+    header_item->setText(COL_MAX_PER_PARENT, "Max / Parent");
+    header_item->setText(COL_AVERAGE_PER_PARENT, "Avg / Parent");
+    header_item->setText(COL_NCALLS_PER_PARENT, "N Calls / Parent");
 
-    header_item->setText(COL_MIN_PER_THREAD, "Min dur./Thread");
-    header_item->setText(COL_MAX_PER_THREAD, "Max dur./Thread");
-    header_item->setText(COL_AVERAGE_PER_THREAD, "Average dur./Thread");
-    header_item->setText(COL_NCALLS_PER_THREAD, "N Calls/Thread");
+    header_item->setText(COL_MIN_PER_THREAD, "Min / Thread");
+    header_item->setText(COL_MAX_PER_THREAD, "Max / Thread");
+    header_item->setText(COL_AVERAGE_PER_THREAD, "Avg / Thread");
+    header_item->setText(COL_NCALLS_PER_THREAD, "N Calls / Thread");
 
     header_item->setText(COL_ACTIVE_TIME, "Active time");
     header_item->setText(COL_ACTIVE_PERCENT, "Active %");
