@@ -6,29 +6,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
-# Status
-Branch `develop` contains all v2.0.0 features and new UI style.
-
-Please, note that .prof file header has changed in v2.0.0.
-Now it is:
-```cpp
-struct EasyFileHeader
-{
-    uint32_t signature = 0;
-    uint32_t version = 0;
-    profiler::processid_t pid = 0;
-    int64_t cpu_frequency = 0;
-    profiler::timestamp_t begin_time = 0;
-    profiler::timestamp_t end_time = 0;
-    
-    // Changed order of memory_size and blocks_number relative to v1.3.0
-    uint64_t memory_size = 0;
-    uint64_t descriptors_memory_size = 0;
-    uint32_t total_blocks_number = 0;
-    uint32_t total_descriptors_number = 0;
-};
-```
-
 1. [About](#about)
 2. [Key features](#key-features)
 3. [Usage](#usage)
@@ -44,7 +21,8 @@ struct EasyFileHeader
     - [Linux](#linux)
     - [MacOS](#macos)
     - [Windows](#windows)
-5. [License](#license)
+5. [Note about major release (v1 -> v2)](#status)
+6. [License](#license)
 
 # About
 Lightweight cross-platform profiler library for c++
@@ -250,6 +228,29 @@ And then run cmake generator as follows:
 $ mkdir build
 $ cd build
 $ cmake .. -G "Visual Studio 12 2013 Win64"
+```
+
+# Status
+Branch `develop` contains all v2.0.0 features and new UI style.
+
+Please, note that .prof file header has changed in v2.0.0.
+Now it is:
+```cpp
+struct EasyFileHeader
+{
+    uint32_t signature = 0;
+    uint32_t version = 0;
+    profiler::processid_t pid = 0;
+    int64_t cpu_frequency = 0;
+    profiler::timestamp_t begin_time = 0;
+    profiler::timestamp_t end_time = 0;
+    
+    // Changed order of memory_size and blocks_number relative to v1.3.0
+    uint64_t memory_size = 0;
+    uint64_t descriptors_memory_size = 0;
+    uint32_t total_blocks_number = 0;
+    uint32_t total_descriptors_number = 0;
+};
 ```
 
 # License
