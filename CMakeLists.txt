@@ -1,10 +1,12 @@
-cmake_minimum_required(VERSION 2.8.12.1)
+cmake_minimum_required(VERSION 3.0)
 project(easy_profiler CXX)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-set(EASY_PROGRAM_VERSION_MAJOR 1)
-set(EASY_PROGRAM_VERSION_MINOR 3)
+option(EASY_PROFILER_NO_GUI "Build easy_profiler without the GUI application (required Qt)" OFF)
+
+set(EASY_PROGRAM_VERSION_MAJOR 2)
+set(EASY_PROGRAM_VERSION_MINOR 0)
 set(EASY_PROGRAM_VERSION_PATCH 0)
 set(EASY_PRODUCT_VERSION_STRING "${EASY_PROGRAM_VERSION_MAJOR}.${EASY_PROGRAM_VERSION_MINOR}.${EASY_PROGRAM_VERSION_PATCH}")
 
@@ -26,7 +28,10 @@ endmacro()
 SET(CMAKE_INSTALL_RPATH "$ORIGIN")
 
 add_subdirectory(easy_profiler_core)
-add_subdirectory(profiler_gui)
+if (NOT EASY_PROFILER_NO_GUI)
+    add_subdirectory(profiler_gui)
+endif()
+add_subdirectory(easy_profiler_converter)
 
 if (NOT EASY_PROFILER_NO_SAMPLES)
     add_subdirectory(sample)

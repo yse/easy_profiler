@@ -13,7 +13,7 @@
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -75,12 +75,14 @@ namespace profiler {
 
     class EasyEventTracer EASY_FINAL
     {
-#ifndef EASY_MAGIC_STATIC_CPP11
+#ifndef EASY_MAGIC_STATIC_AVAILABLE
         friend class EasyEventTracerInstance;
 #endif
 
 #pragma pack(push, 1)
         struct Properties {
+            Properties();
+
             EVENT_TRACE_PROPERTIES base;
             char sessionName[sizeof(KERNEL_LOGGER_NAME)];
         };

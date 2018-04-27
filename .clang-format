@@ -1,0 +1,9 @@
+---
+Language:       Cpp
+BasedOnStyle:   Google
+ColumnLimit:    100
+IndentWidth:    4
+ReflowComments: false
+#IndentPPDirectives: PPDIS_AfterHash #since clang 6.0
+...
+

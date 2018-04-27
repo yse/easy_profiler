@@ -8,7 +8,7 @@
 * description       : Main file for EasyProfiler GUI.
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -52,6 +52,7 @@
 #include <QApplication>
 #include "main_window.h"
 #include "globals.h"
+#include "thread_pool.h"
 
 #if defined(_WIN32) && defined (_BUILD_RELEASE_)
 #pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
@@ -59,15 +60,18 @@
 
 int main(int argc, char **argv)
 {
-    QApplication app(argc, argv);
-
-    //Instanciate easy globals after QApplication to allow creation of global fonts, and on the main thread to avoid data races
-    EASY_GLOBALS;
-
     auto now = ::std::chrono::duration_cast<std::chrono::seconds>(::std::chrono::system_clock::now().time_since_epoch()).count() >> 1;
     srand((unsigned int)now);
 
-    EasyMainWindow window;
+    // Instanciate thread pool to avoid data races for compilers without C++11 thread-safe statics
+    ThreadPool::instance();
+
+    QApplication app(argc, argv);
+
+    // Instanciate easy globals after QApplication to allow creation of global fonts, and on the main thread to avoid data races
+    profiler_gui::Globals::instance();
+
+    MainWindow window;
     window.show();
 
     return app.exec();

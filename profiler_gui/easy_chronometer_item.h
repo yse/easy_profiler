@@ -5,7 +5,7 @@
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : The file contains declaration of EasyChronometerItem - an item
+* description       : The file contains declaration of GraphicsRulerItem - an item
 *                   : used to display selected interval on graphics scene.
 * ----------------- :
 * change log        : * 2016/09/15 Victor Zarubkin: moved sources from blocks_graphics_view.h
@@ -13,7 +13,7 @@
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -67,12 +67,12 @@
 class QWidget;
 class QPainter;
 class QStyleOptionGraphicsItem;
-class EasyGraphicsView;
+class BlocksGraphicsView;
 
-class EasyChronometerItem : public QGraphicsItem
+class GraphicsRulerItem : public QGraphicsItem
 {
     typedef QGraphicsItem Parent;
-    typedef EasyChronometerItem This;
+    typedef GraphicsRulerItem This;
 
     QPolygonF  m_indicator; ///< Indicator displayed when this chrono item is out of screen (displaying only for main item)
     QRectF  m_boundingRect; ///< boundingRect (see QGraphicsItem)
@@ -86,8 +86,8 @@ class EasyChronometerItem : public QGraphicsItem
 
 public:
 
-    explicit EasyChronometerItem(bool _main = true);
-    virtual ~EasyChronometerItem();
+    explicit GraphicsRulerItem(bool _main = true);
+    virtual ~GraphicsRulerItem();
 
     // Public virtual methods
 
@@ -159,11 +159,11 @@ public:
 
 private:
 
-    ///< Returns pointer to the EasyGraphicsView widget.
-    const EasyGraphicsView* view() const;
-    EasyGraphicsView* view();
+    ///< Returns pointer to the BlocksGraphicsView widget.
+    const BlocksGraphicsView* view() const;
+    BlocksGraphicsView* view();
 
-}; // END of class EasyChronometerItem.
+}; // END of class GraphicsRulerItem.
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////

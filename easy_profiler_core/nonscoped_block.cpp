@@ -1,6 +1,6 @@
 /**
 Lightweight profiler library for c++
-Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 
 Licensed under either of
     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -41,7 +41,8 @@ The Apache License, Version 2.0 (the "License");
 **/
 
 #include "nonscoped_block.h"
-#include <string.h>
+#include <cstring>
+#include <cstdlib>
 
 NonscopedBlock::NonscopedBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, bool)
     : profiler::Block(_desc, _runtimeName, false), m_runtimeName(nullptr)

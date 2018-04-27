@@ -13,7 +13,7 @@
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -56,86 +56,15 @@
 #ifndef EASY_PROFILER__GUI_COMMON_TYPES_H
 #define EASY_PROFILER__GUI_COMMON_TYPES_H
 
-#include <stdlib.h>
 #include <vector>
-#include <unordered_map>
-#include <QRgb>
-#include <QString>
-#include <QFont>
 #include <easy/reader.h>
+#include <QObject>
 
 //////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////
-
-#define PROF_MICROSECONDS(timestamp) ((timestamp) * 1e-3)
-//#define PROF_MICROSECONDS(timestamp) (timestamp)
-
-#define PROF_FROM_MICROSECONDS(to_timestamp) ((to_timestamp) * 1e3)
-//#define PROF_FROM_MICROSECONDS(to_timestamp) (to_timestamp)
-
-#define PROF_MILLISECONDS(timestamp) ((timestamp) * 1e-6)
-//#define PROF_MILLISECONDS(timestamp) ((timestamp) * 1e-3)
-
-#define PROF_FROM_MILLISECONDS(to_timestamp) ((to_timestamp) * 1e6)
-//#define PROF_FROM_MILLISECONDS(to_timestamp) ((to_timestamp) * 1e3)
-
-#define PROF_NANOSECONDS(timestamp) (timestamp)
-//#define PROF_NANOSECONDS(timestamp) ((timestamp) * 1000)
-
-//////////////////////////////////////////////////////////////////////////
-
-inline qreal units2microseconds(qreal _value)
-{
-    return _value;
-    //return _value * 1e3;
-}
-
-inline qreal microseconds2units(qreal _value)
-{
-    return _value;
-    //return _value * 1e-3;
-}
-
 //////////////////////////////////////////////////////////////////////////
 
 namespace profiler_gui {
     
-inline QRgb toRgb(uint32_t _red, uint32_t _green, uint32_t _blue)
-{
-    return (_red << 16) + (_green << 8) + _blue;
-}
-
-inline QRgb fromProfilerRgb(uint32_t _red, uint32_t _green, uint32_t _blue)
-{
-    if (_red == 0 && _green == 0 && _blue == 0)
-        return ::profiler::colors::Default;
-    return toRgb(_red, _green, _blue) | 0x00141414;
-}
-
-inline bool isLightColor(::profiler::color_t _color)
-{
-    const auto sum = 255. - (((_color & 0x00ff0000) >> 16) * 0.299 + ((_color & 0x0000ff00) >> 8) * 0.587 + (_color & 0x000000ff) * 0.114);
-    return sum < 76.5 || ((_color & 0xff000000) >> 24) < 0x80;
-}
-
-inline bool isLightColor(::profiler::color_t _color, qreal _maxSum)
-{
-    const auto sum = 255. - (((_color & 0x00ff0000) >> 16) * 0.299 + ((_color & 0x0000ff00) >> 8) * 0.587 + (_color & 0x000000ff) * 0.114);
-    return sum < _maxSum || ((_color & 0xff000000) >> 24) < 0x80;
-}
-
-inline ::profiler::color_t textColorForFlag(bool _is_light)
-{
-    return _is_light ? ::profiler::colors::Dark : ::profiler::colors::CreamWhite;
-}
-
-inline ::profiler::color_t textColorForRgb(::profiler::color_t _color)
-{
-    return isLightColor(_color) ? ::profiler::colors::Dark : ::profiler::colors::CreamWhite;
-}
-
-//////////////////////////////////////////////////////////////////////////
-
 #define EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
 //#undef  EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
 
@@ -193,8 +122,6 @@ struct EasyBlock Q_DECL_FINAL
     {
     }
 
-private:
-
     EasyBlock(const EasyBlock&) = delete;
 };
 #pragma pack(pop)
@@ -234,219 +161,55 @@ enum TimeUnits : int8_t
 
 }; // END of enum TimeUnits.
 
-inline qreal timeFactor(qreal _interval)
-{
-    if (_interval < 1) // interval in nanoseconds
-        return 1e3;
-
-    if (_interval < 1e3) // interval in microseconds
-        return 1;
-
-    if (_interval < 1e6) // interval in milliseconds
-        return 1e-3;
-
-    // interval in seconds
-    return 1e-6;
-}
-
-inline QString autoTimeStringReal(qreal _interval, int _precision = 1)
-{
-    if (_interval < 1) // interval in nanoseconds
-        return QString("%1 ns").arg(static_cast<quint64>(_interval * 1e3));
-
-    if (_interval < 1e3) // interval in microseconds
-        return QString("%1 us").arg(_interval, 0, 'f', _precision);
-
-    if (_interval < 1e6) // interval in milliseconds
-        return QString("%1 ms").arg(_interval * 1e-3, 0, 'f', _precision);
-
-    // interval in seconds
-    return QString("%1 s").arg(_interval * 1e-6, 0, 'f', _precision);
-}
-
-inline QString autoTimeStringInt(qreal _interval)
-{
-    if (_interval < 1) // interval in nanoseconds
-        return QString("%1 ns").arg(static_cast<quint64>(_interval * 1e3 + 0.5));
-
-    if (_interval < 1e3) // interval in microseconds
-        return QString("%1 us").arg(static_cast<quint32>(_interval + 0.5));
-
-    if (_interval < 1e6) // interval in milliseconds
-        return QString("%1 ms").arg(static_cast<quint32>(_interval * 1e-3 + 0.5));
-
-    // interval in seconds
-    return QString("%1 s").arg(static_cast<quint32>(_interval * 1e-6 + 0.5));
-}
-
-inline QString autoTimeStringRealNs(::profiler::timestamp_t _interval, int _precision = 1)
-{
-    if (_interval < 1000) // interval in nanoseconds
-        return QString("%1 ns").arg(_interval);
-
-    if (_interval < 1000000) // interval in microseconds
-        return QString("%1 us").arg(_interval * 1e-3, 0, 'f', _precision);
-
-    if (_interval < 1000000000U) // interval in milliseconds
-        return QString("%1 ms").arg(_interval * 1e-6, 0, 'f', _precision);
-
-    // interval in seconds
-    return QString("%1 s").arg(_interval * 1e-9, 0, 'f', _precision);
-}
-
-inline QString autoTimeStringIntNs(::profiler::timestamp_t _interval)
-{
-    if (_interval < 1000) // interval in nanoseconds
-        return QString("%1 ns").arg(_interval);
-
-    if (_interval < 1000000) // interval in microseconds
-        return QString("%1 us").arg(static_cast<quint32>(_interval * 1e-3 + 0.5));
-
-    if (_interval < 1000000000U) // interval in milliseconds
-        return QString("%1 ms").arg(static_cast<quint32>(_interval * 1e-6 + 0.5));
-
-    // interval in seconds
-    return QString("%1 s").arg(static_cast<quint32>(_interval * 1e-9 + 0.5));
-}
-
-inline QString timeStringReal(TimeUnits _units, qreal _interval, int _precision = 1)
-{
-    switch (_units)
-    {
-        case TimeUnits_ms:{
-            const char fmt = _interval <= 1 ? 'g' : 'f';
-            return QString("%1 ms").arg(_interval * 1e-3, 0, fmt, _precision);
-        }
-
-        case TimeUnits_us:
-            return QString("%1 us").arg(_interval, 0, 'f', _precision);
-
-        case TimeUnits_ns:
-            return QString("%1 ns").arg(static_cast<quint64>(_interval * 1e3 + 0.5));
-
-        case TimeUnits_auto:
-        default:
-            return autoTimeStringReal(_interval, _precision);
-    }
-
-    return QString();
-}
-
-inline QString timeStringRealNs(TimeUnits _units, ::profiler::timestamp_t _interval, int _precision = 1)
-{
-    switch (_units)
-    {
-        case TimeUnits_ms:{
-            const char fmt = _interval <= 1000 ? 'g' : 'f';
-            return QString("%1 ms").arg(_interval * 1e-6, 0, fmt, _precision);
-        }
-
-        case TimeUnits_us:
-            return QString("%1 us").arg(_interval * 1e-3, 0, 'f', _precision);
-
-        case TimeUnits_ns:
-            return QString("%1 ns").arg(_interval);
-
-        case TimeUnits_auto:
-        default:
-            return autoTimeStringRealNs(_interval, _precision);
-    }
-
-    return QString();
-}
-
-inline QString timeStringInt(TimeUnits _units, qreal _interval)
-{
-    switch (_units)
-    {
-        case TimeUnits_ms:
-            return QString("%1 ms").arg(static_cast<quint32>(_interval * 1e-3 + 0.5));
-
-        case TimeUnits_us:
-            return QString("%1 us").arg(static_cast<quint32>(_interval + 0.5));
-
-        case TimeUnits_ns:
-            return QString("%1 ns").arg(static_cast<quint64>(_interval * 1e3 + 0.5));
-
-        case TimeUnits_auto:
-        default:
-            return autoTimeStringInt(_interval);
-    }
-
-    return QString();
-}
-
-inline QString timeStringIntNs(TimeUnits _units, ::profiler::timestamp_t _interval)
-{
-    switch (_units)
-    {
-        case TimeUnits_ms:
-            return QString("%1 ms").arg(static_cast<quint32>(_interval * 1e-6 + 0.5));
-
-        case TimeUnits_us:
-            return QString("%1 us").arg(static_cast<quint32>(_interval * 1e-3 + 0.5));
-
-        case TimeUnits_ns:
-            return QString("%1 ns").arg(_interval);
-
-        case TimeUnits_auto:
-        default:
-            return autoTimeStringIntNs(_interval);
-    }
-
-    return QString();
-}
-
 //////////////////////////////////////////////////////////////////////////
 
-template <class T> inline T numeric_max() {
-    return ::std::numeric_limits<T>::max();
-}
-
-template <class T> inline T numeric_max(T) {
-    return ::std::numeric_limits<T>::max();
-}
-
-template <class T> inline void set_max(T& _value) {
-    _value = ::std::numeric_limits<T>::max();
-}
-
-template <class T> inline bool is_max(const T& _value) {
-    return _value == ::std::numeric_limits<T>::max();
-}
-
-//////////////////////////////////////////////////////////////////////////
-
-inline double percentReal(::profiler::timestamp_t _partial, ::profiler::timestamp_t _total)
+class BoolFlagGuard EASY_FINAL
 {
-    return _total ? 100. * static_cast<double>(_partial) / static_cast<double>(_total) : 0.;
-}
+    bool&    m_ref;
+    bool m_restore;
 
-inline int percent(::profiler::timestamp_t _partial, ::profiler::timestamp_t _total)
-{
-    return static_cast<int>(0.5 + percentReal(_partial, _total));
-}
+public:
 
-//////////////////////////////////////////////////////////////////////////
+    explicit BoolFlagGuard(bool& flag) : m_ref(flag), m_restore(!flag) {}
+    explicit BoolFlagGuard(bool& flag, bool value) : m_ref(flag), m_restore(!value) { m_ref = value; }
+    ~BoolFlagGuard() { restore(); }
 
-inline QFont EFont(QFont::StyleHint _hint, const char* _family, int _size, int _weight = -1)
-{
-    QFont f;
-    f.setStyleHint(_hint, QFont::PreferMatch);
-    f.setFamily(_family);
-    f.setPointSize(_size);
-    f.setWeight(_weight);
-    return f;
-}
-
-inline QFont EFont(const char* _family, int _size, int _weight = -1)
-{
-    return EFont(QFont::Helvetica, _family, _size, _weight);
-}
-
-//////////////////////////////////////////////////////////////////////////
+    void restore() { m_ref = m_restore; }
+};
 
 } // END of namespace profiler_gui.
+
+template <typename ... Args>
+struct Overload
+{
+    template <typename TClass, typename TReturn>
+    static EASY_CONSTEXPR_FCN auto of(TReturn (TClass::*method)(Args...)) -> decltype(method)
+    {
+        return method;
+    }
+
+    template <typename TReturn>
+    static EASY_CONSTEXPR_FCN auto of(TReturn (*func)(Args...)) -> decltype(func)
+    {
+        return func;
+    }
+};
+
+template <>
+struct Overload<void>
+{
+    template <typename TClass, typename TReturn>
+    static EASY_CONSTEXPR_FCN auto of(TReturn (TClass::*method)()) -> decltype(method)
+    {
+        return method;
+    }
+
+    template <typename TReturn>
+    static EASY_CONSTEXPR_FCN auto of(TReturn (*func)()) -> decltype(func)
+    {
+        return func;
+    }
+};
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////

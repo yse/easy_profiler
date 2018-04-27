@@ -12,7 +12,7 @@
 #include <sys/time.h>
 
 
-static inline uint64_t getCurrentTime()
+static inline uint64_t now()
 {
 #if defined(__i386__)
       int64_t ret;
@@ -34,10 +34,10 @@ int64_t calculate_cpu_frequency()//per sec
     struct timespec begints, endts;
     uint64_t begin = 0, end = 0;
     clock_gettime(CLOCK_MONOTONIC, &begints);
-    begin = getCurrentTime();
+    begin = now();
     volatile uint64_t i;
     for (i = 0; i < 100000000; i++); /* must be CPU intensive */
-    end = getCurrentTime();
+    end = now();
     clock_gettime(CLOCK_MONOTONIC, &endts);
     struct timespec tmpts;
     const int NANO_SECONDS_IN_SEC = 1000000000;
@@ -102,15 +102,15 @@ double calcDuration(int objects)
 
 uint64_t calcDeltaRdtsc(int magic=200000)
 {
-    auto start = getCurrentTime();
+    auto start = now();
     localSleep(magic);
-    auto end = getCurrentTime();
+    auto end = now();
     return end - start;
 }
 
 double calcDurationByRdtsc(int objects)
 {
-    auto start = getCurrentTime();
+    auto start = now();
 
     uint64_t summ = 0;
 
@@ -119,7 +119,7 @@ double calcDurationByRdtsc(int objects)
         summ += calcDeltaRdtsc();
     }
 
-    auto end = getCurrentTime();
+    auto end = now();
     return TICKS_TO_US((end - start - summ))/double(objects)/2.0;
 }
 

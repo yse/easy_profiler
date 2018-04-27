@@ -12,7 +12,7 @@
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -61,7 +61,7 @@
 #include <QTextCodec>
 #include <QSize>
 #include <QFont>
-#include "common_types.h"
+#include "common_functions.h"
 #include "globals_qobjects.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -74,24 +74,20 @@ namespace profiler_gui {
 
     const QColor CHRONOMETER_COLOR = QColor::fromRgba(0x40000000 | (::profiler::colors::RichBlue & 0x00ffffff));// 0x402020c0);
     const QColor CHRONOMETER_COLOR2 = QColor::fromRgba(0x40000000 | (::profiler::colors::Dark & 0x00ffffff));// 0x40408040);
-    const QRgb SELECTED_THREAD_BACKGROUND = 0x00e0e060;
-    const QRgb SELECTED_THREAD_FOREGROUND = 0x00ffffff - SELECTED_THREAD_BACKGROUND;
+    const QColor TEXT_COLOR = QColor::fromRgb(0xff504040);
+    const QColor SYSTEM_BORDER_COLOR = QColor::fromRgb(0xffcccccc);
+    EASY_CONSTEXPR QRgb SELECTED_THREAD_BACKGROUND = 0xffe0e060;
+    EASY_CONSTEXPR QRgb SELECTED_THREAD_FOREGROUND = 0xffffffff - (SELECTED_THREAD_BACKGROUND & 0x00ffffff);
 
-    const qreal SCALING_COEFFICIENT = 1.25;
-    const qreal SCALING_COEFFICIENT_INV = 1.0 / SCALING_COEFFICIENT;
+    EASY_CONSTEXPR qreal SCALING_COEFFICIENT = 1.25;
+    EASY_CONSTEXPR qreal SCALING_COEFFICIENT_INV = 1.0 / SCALING_COEFFICIENT;
 
-    const uint32_t V130 = 0x01030000;
-
-    const QSize ICONS_SIZE(28, 28);
-    const uint16_t GRAPHICS_ROW_SIZE = 18;
-    const uint16_t GRAPHICS_ROW_SPACING = 0;
-    const uint16_t GRAPHICS_ROW_SIZE_FULL = GRAPHICS_ROW_SIZE + GRAPHICS_ROW_SPACING;
-    const uint16_t THREADS_ROW_SPACING = 8;
+    EASY_CONSTEXPR uint32_t V130 = 0x01030000;
 
 #ifdef _WIN32
-    const qreal FONT_METRICS_FACTOR = 1.05;
+    EASY_CONSTEXPR qreal FONT_METRICS_FACTOR = 1.05;
 #else
-    const qreal FONT_METRICS_FACTOR = 1.;
+    EASY_CONSTEXPR qreal FONT_METRICS_FACTOR = 1.;
 #endif
 
     //////////////////////////////////////////////////////////////////////////
@@ -160,15 +156,56 @@ namespace profiler_gui {
 
     //////////////////////////////////////////////////////////////////////////
 
-    struct EasyGlobals Q_DECL_FINAL
+    class Globals Q_DECL_FINAL
     {
-        static EasyGlobals& instance();
+        struct SceneData
+        {
+            qreal left = 0;
+            qreal right = 100;
+            qreal window = 100;
+            qreal offset = 0;
+            bool empty = true;
+        };
 
-        EasyGlobalSignals                         events; ///< Global signals
+        struct Fonts
+        {
+            QFont  default_font; ///< Default font
+            QFont    background; ///< Font for blocks_graphics_view
+            QFont         ruler; ///< Font for diagram rulers
+            QFont          item; ///< Font for graphics items
+            QFont selected_item; ///< Font for selected graphics item
+
+            Fonts();
+        };
+
+        struct SizeGuide
+        {
+            qreal pixelRatio = 1;
+            int font_height = 17;
+            int font_line_spacing = 20;
+            int graphics_row_height = 20;
+            int graphics_row_spacing = 0;
+            int graphics_row_full = 20;
+            int threads_row_spacing = 10;
+            int timeline_height = 26;
+            int icon_size = 28;
+        };
+
+    public:
+
+        GlobalSignals                             events; ///< Global signals
         ::profiler::thread_blocks_tree_t profiler_blocks; ///< Profiler blocks tree loaded from file
         ::profiler::descriptors_list_t       descriptors; ///< Profiler block descriptors list
         EasyBlocks                            gui_blocks; ///< Profiler graphics blocks builded by GUI
-        ::profiler::timestamp_t               begin_time; ///< 
+
+        QString                                    theme; ///< Current UI theme name
+        QString                              lastFileDir;
+        Fonts                                       font; ///< Fonts
+
+        SceneData                                  scene; ///< Diagram scene sizes and visible area position
+        SizeGuide                                   size; ///< Various widgets and font sizes adapted to current device pixel ratio
+        ::profiler::processid_t                      pid; ///< Profiled process ID
+        ::profiler::timestamp_t               begin_time; ///< Timestamp of the most left diagram scene point (x=0)
         ::profiler::thread_id_t          selected_thread; ///< Current selected thread id
         ::profiler::block_index_t         selected_block; ///< Current selected profiler block index
         ::profiler::block_id_t         selected_block_id; ///< Current selected profiler block id
@@ -200,38 +237,74 @@ namespace profiler_gui {
         bool               highlight_blocks_with_same_id; ///< Highlight all blocks with same id on diagram
         bool              selecting_block_changes_thread; ///< If true then current selected thread will change every time you select block
         bool                auto_adjust_histogram_height; ///< Automatically adjust histogram height to the visible region
+        bool                    auto_adjust_chart_height; ///< Automatically adjust arbitrary value chart height to the visible region
         bool            display_only_frames_on_histogram; ///< Display only top-level blocks on histogram when drawing histogram by block id
         bool           bind_scene_and_tree_expand_status; /** \brief If true then items on graphics scene and in the tree (blocks hierarchy) are binded on each other
                                                                 so expanding/collapsing items on scene also expands/collapse items in the tree. */
-        QFont                                    bg_font; ///< Font for blocks_graphics_view
-        QFont                           chronometer_font; ///< Font for easy_chronometer_item
-        QFont                                 items_font; ///< Font for easy_graphics_item
-        QFont                         selected_item_font; ///< Font for easy_graphics_item
+
+        static Globals& instance();
+
     private:
 
-        EasyGlobals();
+        Globals();
 
-    }; // END of struct EasyGlobals.
+    }; // END of struct Globals.
 
     //////////////////////////////////////////////////////////////////////////
 
 } // END of namespace profiler_gui.
 
-#ifndef IGNORE_GLOBALS_DECLARATION
-#define EASY_GLOBALS ::profiler_gui::EasyGlobals::instance()
+#define EASY_GLOBALS profiler_gui::Globals::instance()
 
-inline ::profiler_gui::EasyBlock& easyBlock(::profiler::block_index_t i) {
+inline profiler_gui::EasyBlock& easyBlock(profiler::block_index_t i) {
     return EASY_GLOBALS.gui_blocks[i];
 }
 
-inline ::profiler::SerializedBlockDescriptor& easyDescriptor(::profiler::block_id_t i) {
+inline profiler::SerializedBlockDescriptor& easyDescriptor(profiler::block_id_t i) {
     return *EASY_GLOBALS.descriptors[i];
 }
 
-inline ::profiler::BlocksTree& blocksTree(::profiler::block_index_t i) {
+inline profiler::SerializedBlockDescriptor& easyDescriptor(const profiler::BlocksTree& _block) {
+    return easyDescriptor(_block.node->id());
+}
+
+EASY_FORCE_INLINE const profiler::BlocksTree& easyBlocksTree(profiler::block_index_t i) {
     return easyBlock(i).tree;
 }
-#endif
+
+EASY_FORCE_INLINE const char* easyBlockName(const profiler::BlocksTree& _block) {
+    const char* name = _block.node->name();
+    return *name != 0 ? name : easyDescriptor(_block.node->id()).name();
+}
+
+EASY_FORCE_INLINE const char* easyBlockName(const profiler::BlocksTree& _block, const profiler::SerializedBlockDescriptor& _desc) {
+    const char* name = _block.node->name();
+    return *name != 0 ? name : _desc.name();
+}
+
+EASY_FORCE_INLINE const char* easyBlockName(profiler::block_index_t i) {
+    return easyBlockName(easyBlock(i).tree);
+}
+
+inline qreal sceneX(profiler::timestamp_t _time) {
+    return PROF_MICROSECONDS(qreal(_time - EASY_GLOBALS.begin_time));
+}
+
+inline QString imagePath(const QString& _resource) {
+    return QString(":/images/%1/%2").arg(EASY_GLOBALS.theme).arg(_resource);
+}
+
+inline QString imagePath(const char* _resource) {
+    return QString(":/images/%1/%2").arg(EASY_GLOBALS.theme).arg(_resource);
+}
+
+inline QSize applicationIconsSize() {
+    return QSize(EASY_GLOBALS.size.icon_size, EASY_GLOBALS.size.icon_size);
+}
+
+inline int px(int pixels) {
+    return static_cast<int>(pixels * EASY_GLOBALS.size.pixelRatio + 0.5);
+}
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////

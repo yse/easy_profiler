@@ -1,6 +1,6 @@
 /**
 Lightweight profiler library for c++
-Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 
 Licensed under either of
     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -43,11 +43,10 @@ The Apache License, Version 2.0 (the "License");
 #ifndef EASY_PROFILER_CHUNK_ALLOCATOR_H
 #define EASY_PROFILER_CHUNK_ALLOCATOR_H
 
-#include <easy/easy_compiler_support.h>
+#include <easy/details/easy_compiler_support.h>
 #include <cstring>
-#include <cstddef>
-#include <stdint.h>
 #include "outstream.h"
+#include "alignment_helpers.h"
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -64,6 +63,8 @@ The Apache License, Version 2.0 (the "License");
 # define EASY_MALLOC(MEMSIZE, A) malloc(MEMSIZE)
 # define EASY_FREE(MEMPTR) free(MEMPTR)
 #else
+// MSVC and GNUC aligned versions of malloc are defined in malloc.h
+# include <malloc.h>
 # if defined(_MSC_VER)
 #  define EASY_ALIGNED(TYPE, VAR, A) __declspec(align(A)) TYPE VAR
 #  define EASY_MALLOC(MEMSIZE, A) _aligned_malloc(MEMSIZE, A)
@@ -81,234 +82,19 @@ The Apache License, Version 2.0 (the "License");
 
 //////////////////////////////////////////////////////////////////////////
 
-//! Checks if a pointer is aligned.
-//! \param ptr The pointer to check.
-//! \param alignment The alignement (must be a power of 2)
-//! \returns true if the memory is aligned.
-//!
-template <uint32_t ALIGNMENT>
-EASY_FORCE_INLINE bool is_aligned(void* ptr)
-{
-    static_assert(ALIGNMENT % 2 == 0, "Alignment must be a power of two.");
-    return ((uintptr_t)ptr & (ALIGNMENT-1)) == 0;
-}
-
-EASY_FORCE_INLINE void unaligned_zero16(void* ptr)
-{
-#ifndef EASY_ENABLE_STRICT_ALIGNMENT
-    *(uint16_t*)ptr = 0;
-#else
-    ((char*)ptr)[0] = 0;
-    ((char*)ptr)[1] = 0;
-#endif
-}
-
-EASY_FORCE_INLINE void unaligned_zero32(void* ptr)
-{
-#ifndef EASY_ENABLE_STRICT_ALIGNMENT
-    *(uint32_t*)ptr = 0;
-#else
-    ((char*)ptr)[0] = 0;
-    ((char*)ptr)[1] = 0;
-    ((char*)ptr)[2] = 0;
-    ((char*)ptr)[3] = 0;
-#endif
-}
-
-EASY_FORCE_INLINE void unaligned_zero64(void* ptr)
-{
-#ifndef EASY_ENABLE_STRICT_ALIGNMENT
-    *(uint64_t*)ptr = 0;
-#else
-    // Assume unaligned is more common.
-    if (!is_aligned<alignof(uint64_t)>(ptr)) {
-        ((char*)ptr)[0] = 0;
-        ((char*)ptr)[1] = 0;
-        ((char*)ptr)[2] = 0;
-        ((char*)ptr)[3] = 0;
-        ((char*)ptr)[4] = 0;
-        ((char*)ptr)[5] = 0;
-        ((char*)ptr)[6] = 0;
-        ((char*)ptr)[7] = 0;
-    }
-    else {
-        *(uint64_t*)ptr = 0;
-    }
-#endif
-}
-
-template <typename T>
-EASY_FORCE_INLINE void unaligned_store16(void* ptr, T val)
-{
-    static_assert(sizeof(T) == 2, "16 bit type required.");
-#ifndef EASY_ENABLE_STRICT_ALIGNMENT
-    *(T*)ptr = val;
-#else
-    const char* const temp = (char*)&val;
-    ((char*)ptr)[0] = temp[0];
-    ((char*)ptr)[1] = temp[1];
-#endif
-}
-
-template <typename T>
-EASY_FORCE_INLINE void unaligned_store32(void* ptr, T val)
-{
-    static_assert(sizeof(T) == 4, "32 bit type required.");
-#ifndef EASY_ENABLE_STRICT_ALIGNMENT
-    *(T*)ptr = val;
-#else
-    const char* const temp = (char*)&val;
-    ((char*)ptr)[0] = temp[0];
-    ((char*)ptr)[1] = temp[1];
-    ((char*)ptr)[2] = temp[2];
-    ((char*)ptr)[3] = temp[3];
-#endif
-}
-
-template <typename T>
-EASY_FORCE_INLINE void unaligned_store64(void* ptr, T val)
-{
-    static_assert(sizeof(T) == 8, "64 bit type required.");
-#ifndef EASY_ENABLE_STRICT_ALIGNMENT
-    *(T*)ptr = val;
-#else
-    const char* const temp = (char*)&val;
-    // Assume unaligned is more common.
-    if (!is_aligned<alignof(T)>(ptr)) {
-        ((char*)ptr)[0] = temp[0];
-        ((char*)ptr)[1] = temp[1];
-        ((char*)ptr)[2] = temp[2];
-        ((char*)ptr)[3] = temp[3];
-        ((char*)ptr)[4] = temp[4];
-        ((char*)ptr)[5] = temp[5];
-        ((char*)ptr)[6] = temp[6];
-        ((char*)ptr)[7] = temp[7];
-    }
-    else {
-        *(T*)ptr = val;
-    }
-#endif
-}
-
-template <typename T>
-EASY_FORCE_INLINE T unaligned_load16(const void* ptr)
-{
-    static_assert(sizeof(T) == 2, "16 bit type required.");
-#ifndef EASY_ENABLE_STRICT_ALIGNMENT
-    return *(T*)ptr;
-#else
-    T value;
-    ((char*)&value)[0] = ((char*)ptr)[0];
-    ((char*)&value)[1] = ((char*)ptr)[1];
-    return value;
-#endif
-}
-
-template <typename T>
-EASY_FORCE_INLINE T unaligned_load16(const void* ptr, T* val)
-{
-    static_assert(sizeof(T) == 2, "16 bit type required.");
-#ifndef EASY_ENABLE_STRICT_ALIGNMENT
-    *val = *(T*)ptr;
-    return *val;
-#else
-    ((char*)val)[0] = ((char*)ptr)[0];
-    ((char*)val)[1] = ((char*)ptr)[1];
-    return *val;
-#endif
-}
-
-template <typename T>
-EASY_FORCE_INLINE T unaligned_load32(const void* ptr)
-{
-    static_assert(sizeof(T) == 4, "32 bit type required.");
-#ifndef EASY_ENABLE_STRICT_ALIGNMENT
-    return *(T*)ptr;
-#else
-    T value;
-    ((char*)&value)[0] = ((char*)ptr)[0];
-    ((char*)&value)[1] = ((char*)ptr)[1];
-    ((char*)&value)[2] = ((char*)ptr)[2];
-    ((char*)&value)[3] = ((char*)ptr)[3];
-    return value;
-#endif
-}
-
-template <typename T>
-EASY_FORCE_INLINE T unaligned_load32(const void* ptr, T* val)
-{
-    static_assert(sizeof(T) == 4, "32 bit type required.");
-#ifndef EASY_ENABLE_STRICT_ALIGNMENT
-    *val = *(T*)ptr;
-#else
-    ((char*)&val)[0] = ((char*)ptr)[0];
-    ((char*)&val)[1] = ((char*)ptr)[1];
-    ((char*)&val)[2] = ((char*)ptr)[2];
-    ((char*)&val)[3] = ((char*)ptr)[3];
-    return *val;
-#endif
-}
-
-template <typename T>
-EASY_FORCE_INLINE T unaligned_load64(const void* ptr)
-{
-    static_assert(sizeof(T) == 8, "64 bit type required.");
-#ifndef EASY_ENABLE_STRICT_ALIGNMENT
-    return *(T*)ptr;
-#else
-    if (!is_aligned<alignof(T)>(ptr)) {
-        T value;
-        ((char*)&value)[0] = ((char*)ptr)[0];
-        ((char*)&value)[1] = ((char*)ptr)[1];
-        ((char*)&value)[2] = ((char*)ptr)[2];
-        ((char*)&value)[3] = ((char*)ptr)[3];
-        ((char*)&value)[4] = ((char*)ptr)[4];
-        ((char*)&value)[5] = ((char*)ptr)[5];
-        ((char*)&value)[6] = ((char*)ptr)[6];
-        ((char*)&value)[7] = ((char*)ptr)[7];
-        return value;
-    }
-    else {
-        return *(T*)ptr;
-    }
-#endif
-}
-
-template <typename T>
-EASY_FORCE_INLINE T unaligned_load64(const void* ptr, T* val)
-{
-    static_assert(sizeof(T) == 8, "64 bit type required.");
-#ifndef EASY_ENABLE_STRICT_ALIGNMENT
-    *val = *(T*)ptr;
-#else
-    if (!is_aligned<alignof(T)>(ptr)) {
-        ((char*)&val)[0] = ((char*)ptr)[0];
-        ((char*)&val)[1] = ((char*)ptr)[1];
-        ((char*)&val)[2] = ((char*)ptr)[2];
-        ((char*)&val)[3] = ((char*)ptr)[3];
-        ((char*)&val)[4] = ((char*)ptr)[4];
-        ((char*)&val)[5] = ((char*)ptr)[5];
-        ((char*)&val)[6] = ((char*)ptr)[6];
-        ((char*)&val)[7] = ((char*)ptr)[7];
-        return *val;
-    }
-    else {
-        *val = *(T*)ptr;
-        return *val;
-    }
-#endif
-}
-
-//////////////////////////////////////////////////////////////////////////
-
-template <uint16_t N>
+template <const uint16_t N>
 class chunk_allocator
 {
+    static_assert(N != 0, "chunk_allocator<N> N must be a positive value");
+
     struct chunk { EASY_ALIGNED(char, data[N], EASY_ALIGNMENT_SIZE); chunk* prev = nullptr; };
 
     struct chunk_list
     {
         chunk* last;
+
+        chunk_list(const chunk_list&) = delete;
+        chunk_list(chunk_list&&) = delete;
 
         chunk_list() : last(nullptr)
         {
@@ -356,9 +142,6 @@ class chunk_allocator
 
     private:
 
-        chunk_list(const chunk_list&) = delete;
-        chunk_list(chunk_list&&) = delete;
-
         void free_last()
         {
             auto p = last;
@@ -378,16 +161,22 @@ class chunk_allocator
     };
 
     // Used in serialize(): workaround for no constexpr support in MSVC 2013.
-    static const int_fast32_t MAX_CHUNK_OFFSET = N - sizeof(uint16_t);
-    static const uint16_t N_MINUS_ONE = N - 1;
+    EASY_STATIC_CONSTEXPR int_fast32_t MaxChunkOffset = N - sizeof(uint16_t);
+    EASY_STATIC_CONSTEXPR uint16_t OneBeforeN = static_cast<uint16_t>(N - 1);
 
-    chunk_list      m_chunks; ///< List of chunks.
-    uint32_t          m_size; ///< Number of elements stored(# of times allocate() has been called.)
-    uint16_t   m_chunkOffset; ///< Number of bytes used in the current chunk.
+    chunk_list          m_chunks; ///< List of chunks.
+    chunk*         m_markedChunk; ///< Chunk marked by last closed frame
+    uint32_t              m_size; ///< Number of elements stored(# of times allocate() has been called.)
+    uint32_t        m_markedSize; ///< Number of elements to the moment when put_mark() has been called.
+    uint16_t       m_chunkOffset; ///< Number of bytes used in the current chunk.
+    uint16_t m_markedChunkOffset; ///< Last byte in marked chunk for serializing.
 
 public:
 
-    chunk_allocator() : m_size(0), m_chunkOffset(0)
+    chunk_allocator(const chunk_allocator&) = delete;
+    chunk_allocator(chunk_allocator&&) = delete;
+
+    chunk_allocator() : m_markedChunk(nullptr), m_size(0), m_markedSize(0), m_chunkOffset(0), m_markedChunkOffset(0)
     {
     }
 
@@ -413,7 +202,7 @@ public:
 
             // If there is enough space for at least another payload size,
             // set it to zero.
-            if (chunkOffset < N_MINUS_ONE)
+            if (chunkOffset < OneBeforeN)
                 unaligned_zero16(data + n);
 
             return data;
@@ -449,10 +238,22 @@ public:
         return m_size == 0;
     }
 
+    uint32_t markedSize() const
+    {
+        return m_markedSize;
+    }
+
+    bool markedEmpty() const
+    {
+        return m_markedSize == 0;
+    }
+
     void clear()
     {
         m_size = 0;
+        m_markedSize = 0;
         m_chunkOffset = 0;
+        m_markedChunk = nullptr;
         m_chunks.clear_all_except_last(); // There is always at least one chunk
     }
 
@@ -477,11 +278,18 @@ public:
         // too small to cary more than a zero-sized element.
 
         chunk* current = m_chunks.last;
+        bool isMarked;
         do {
+
+            isMarked = (current == m_markedChunk);
             const char* data = current->data;
+
+            const int_fast32_t maxOffset = isMarked ? m_markedChunkOffset : MaxChunkOffset;
             int_fast32_t chunkOffset = 0; // signed int so overflow is not checked.
-            uint16_t payloadSize = unaligned_load16<uint16_t>(data);
-            while (chunkOffset < MAX_CHUNK_OFFSET && payloadSize != 0) {
+            auto payloadSize = unaligned_load16<uint16_t>(data);
+
+            while (chunkOffset < maxOffset && payloadSize != 0)
+            {
                 const uint16_t chunkSize = sizeof(uint16_t) + payloadSize;
                 _outputStream.write(data, chunkSize);
                 data += chunkSize;
@@ -490,15 +298,79 @@ public:
             }
 
             current = current->prev;
-        } while (current != nullptr);
+
+        } while (current != nullptr && !isMarked);
 
         clear();
     }
 
-private:
+    void put_mark()
+    {
+        m_markedChunk = m_chunks.last;
+        m_markedSize = m_size;
+        m_markedChunkOffset = m_chunkOffset;
+    }
 
-    chunk_allocator(const chunk_allocator&) = delete;
-    chunk_allocator(chunk_allocator&&) = delete;
+    void* marked_allocate(uint16_t n)
+    {
+        chunk* marked = m_markedChunk;
+        if (marked == nullptr || (marked == m_chunks.last && m_markedSize == m_size))
+        {
+            auto data = allocate(n);
+            put_mark();
+            return data;
+        }
+
+        ++m_markedSize;
+
+        uint16_t chunkOffset = m_markedChunkOffset;
+        if ((chunkOffset + n + sizeof(uint16_t)) <= N)
+        {
+            // Temp to avoid extra load due to this* aliasing.
+            char* data = marked->data + chunkOffset;
+            chunkOffset += n + sizeof(uint16_t);
+            m_markedChunkOffset = chunkOffset;
+
+            unaligned_store16(data, n);
+            data += sizeof(uint16_t);
+
+            // If there is enough space for at least another payload size,
+            // set it to zero.
+            if (chunkOffset < OneBeforeN)
+                unaligned_zero16(data + n);
+
+            if (marked == m_chunks.last && chunkOffset > m_chunkOffset)
+                m_chunkOffset = chunkOffset;
+
+            return data;
+        }
+
+        chunkOffset = n + sizeof(uint16_t);
+        m_markedChunkOffset = chunkOffset;
+
+        chunk* last = m_chunks.last;
+        if (marked == last)
+        {
+            m_chunks.emplace_back();
+            last = m_chunks.last;
+            m_chunkOffset = chunkOffset;
+            m_size = m_markedSize;
+        }
+        else
+        {
+            do last = last->prev; while (last->prev != m_markedChunk);
+        }
+
+        m_markedChunk = last;
+        char* data = last->data;
+        unaligned_store16(data, n);
+        data += sizeof(uint16_t);
+
+        // We assume here that it takes more than one element to fill a chunk.
+        unaligned_zero16(data + n);
+
+        return data;
+    }
 
 }; // END of class chunk_allocator.
 

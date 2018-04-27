@@ -5,14 +5,14 @@
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : This file contains declaration of EasyFrameRateViewer widget.
+* description       : This file contains declaration of FpsViewerWidget widget.
 * ----------------- :
 * change log        : * 2017/04/02 Victor Zarubkin: Initial commit.
 *                   :
 *                   : *
 * ----------------- : 
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -60,15 +60,16 @@
 #include <QTimer>
 #include <vector>
 #include <deque>
-#include <easy/profiler.h>
+#include <utility>
+#include <stdint.h>
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyFPSGraphicsItem : public QGraphicsItem
+class FpsGraphicsItem : public QGraphicsItem
 {
-    typedef QGraphicsItem                                  Parent;
-    typedef EasyFPSGraphicsItem                              This;
-    typedef std::deque<std::pair<uint32_t, uint32_t> > FrameTimes;
+    using Parent = QGraphicsItem;
+    using This = FpsGraphicsItem;
+    using FrameTimes = std::deque<std::pair<uint32_t, uint32_t> >;
 
     std::vector<QPointF> m_points1, m_points2;
     FrameTimes                       m_frames;
@@ -76,11 +77,11 @@ class EasyFPSGraphicsItem : public QGraphicsItem
 
 public:
 
-    explicit EasyFPSGraphicsItem();
-    virtual ~EasyFPSGraphicsItem();
+    explicit FpsGraphicsItem();
+    ~FpsGraphicsItem() override;
 
     QRectF boundingRect() const override;
-    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
+    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget) override;
 
     void setBoundingRect(const QRectF& _boundingRect);
     void setBoundingRect(qreal x, qreal y, qreal w, qreal h);
@@ -88,37 +89,38 @@ public:
     void clear();
     void addPoint(uint32_t _maxFrameTime, uint32_t _avgFrameTime);
 
-}; // END of class EasyFPSGraphicsItem.
+}; // END of class FpsGraphicsItem.
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyFrameRateViewer : public QGraphicsView
+class FpsViewerWidget : public QGraphicsView
 {
     Q_OBJECT
 
 private:
 
-    typedef QGraphicsView       Parent;
-    typedef EasyFrameRateViewer   This;
+    using Parent = QGraphicsView;
+    using This = FpsViewerWidget;
 
-    EasyFPSGraphicsItem* m_fpsItem;
+    FpsGraphicsItem* m_fpsItem;
 
 public:
 
-    explicit EasyFrameRateViewer(QWidget* _parent = nullptr);
-    virtual ~EasyFrameRateViewer();
+    explicit FpsViewerWidget(QWidget* _parent = nullptr);
+    ~FpsViewerWidget() override;
 
     void resizeEvent(QResizeEvent* _event) override;
     void hideEvent(QHideEvent* _event) override;
     void showEvent(QShowEvent* _event) override;
     void contextMenuEvent(QContextMenuEvent* _event) override;
+    void dragEnterEvent(QDragEnterEvent*) override {}
 
 public slots:
 
     void clear();
     void addPoint(uint32_t _maxFrameTime, uint32_t _avgFrameTime);
 
-}; // END of class EasyFrameRateViewer.
+}; // END of class FpsViewerWidget.
 
 //////////////////////////////////////////////////////////////////////////
 

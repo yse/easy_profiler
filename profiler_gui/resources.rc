@@ -1,4 +1,4 @@
-IDI_ICON1 ICON DISCARDABLE "icons/logo.ico"
+IDI_ICON1 ICON DISCARDABLE "images/logo.ico"
 1 VERSIONINFO
 FILEVERSION    EASY_PROFILER_VERSION_MAJOR, EASY_PROFILER_VERSION_MINOR, EASY_PROFILER_VERSION_PATCH
 PRODUCTVERSION EASY_PROFILER_VERSION_MAJOR, EASY_PROFILER_VERSION_MINOR, EASY_PROFILER_VERSION_PATCH
@@ -18,7 +18,7 @@ BEGIN
             VALUE "CompanyName", "EasySolutions"
             VALUE "FileDescription", "EasyProfiler"
             VALUE "InternalName", "profiler_gui"
-            VALUE "LegalCopyright", "Copyright (C) 2016-2017 Victor Zarubkin, Sergey Yagovtsev"
+            VALUE "LegalCopyright", "Copyright (C) 2016-2018 Victor Zarubkin, Sergey Yagovtsev"
             VALUE "LegalTrademarks1", "All Rights Reserved"
             VALUE "LegalTrademarks2", "All Rights Reserved"
             VALUE "OriginalFilename", "profiler_gui.exe"

@@ -5,7 +5,7 @@
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- : 
-* description       : The file contains declaration of EasyTreeWidget and it's auxiliary classes
+* description       : The file contains declaration of BlocksTreeWidget and it's auxiliary classes
 *                   : for displyaing EasyProfiler blocks tree.
 * ----------------- : 
 * change log        : * 2016/06/26 Victor Zarubkin: moved sources from tree_view.h
@@ -20,7 +20,7 @@
 *                   :       Moved sources of TreeWidgetItem into tree_widget_item.h/.cpp
 * ----------------- : 
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -73,37 +73,41 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyTreeWidget : public QTreeWidget
+class BlocksTreeWidget : public QTreeWidget
 {
     Q_OBJECT
 
-    typedef QTreeWidget    Parent;
-    typedef EasyTreeWidget   This;
+    using Parent = QTreeWidget;
+    using This = BlocksTreeWidget;
 
 protected:
 
-    EasyTreeWidgetLoader  m_hierarchyBuilder;
+    TreeWidgetLoader      m_hierarchyBuilder;
     Items                            m_items;
     RootsMap                         m_roots;
     ::profiler_gui::TreeBlocks m_inputBlocks;
     QTimer                       m_fillTimer;
+    QTimer                       m_idleTimer;
     QString                     m_lastSearch;
     QTreeWidgetItem*             m_lastFound;
     ::profiler::timestamp_t      m_beginTime;
     class QProgressDialog*        m_progress;
     class QLabel*                m_hintLabel;
-    EasyTreeMode                      m_mode;
-    bool                        m_bColorRows;
+    class ArbitraryValueToolTip* m_valueTooltip;
+    TreeMode                          m_mode;
     bool                           m_bLocked;
     bool             m_bSilentExpandCollapse;
     char m_columnsHiddenStatus[COL_COLUMNS_NUMBER];
 
 public:
 
-    explicit EasyTreeWidget(QWidget* _parent = nullptr);
-    virtual ~EasyTreeWidget();
+    explicit BlocksTreeWidget(QWidget* _parent = nullptr);
+    ~BlocksTreeWidget() override;
 
+    bool eventFilter(QObject* object, QEvent* event) override;
+    void mousePressEvent(QMouseEvent* _event) override;
     void contextMenuEvent(QContextMenuEvent* _event) override;
+    void dragEnterEvent(QDragEnterEvent*) override {}
 
     void clearSilent(bool _global = false);
     int findNext(const QString& _str, Qt::MatchFlags _flags);
@@ -136,8 +140,6 @@ private slots:
     void onItemCollapse(QTreeWidgetItem* _item);
     void onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidgetItem*);
 
-    void onColorizeRowsTriggered(bool _colorize);
-
     void onSelectedThreadChange(::profiler::thread_id_t _id);
 
     void onSelectedBlockChange(uint32_t _block_index);
@@ -150,6 +152,7 @@ private slots:
     void onModeChange(bool);
 
     void onFillTimerTimeout();
+    void onIdleTimeout();
 
 protected:
 
@@ -157,20 +160,25 @@ protected:
     void saveSettings();
     void alignProgressBar();
 
-}; // END of class EasyTreeWidget.
+private:
+
+    void destroyProgressDialog();
+    void createProgressDialog();
+
+}; // END of class BlocksTreeWidget.
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyHierarchyWidget : public QWidget
+class HierarchyWidget : public QWidget
 {
     Q_OBJECT
 
-    typedef QWidget           Parent;
-    typedef EasyHierarchyWidget This;
+    using Parent = QWidget;
+    using This = HierarchyWidget;
 
 private:
 
-    EasyTreeWidget*                 m_tree;
+    BlocksTreeWidget*               m_tree;
     class QLineEdit*           m_searchBox;
     class QLabel*            m_foundNumber;
     class QAction*          m_searchButton;
@@ -180,16 +188,18 @@ public:
 
     // Public virtual methods
 
-    explicit EasyHierarchyWidget(QWidget* _parent = nullptr);
-    virtual ~EasyHierarchyWidget();
+    explicit HierarchyWidget(QWidget* _parent = nullptr);
+    ~HierarchyWidget() override;
+
     void keyPressEvent(QKeyEvent* _event) override;
     void contextMenuEvent(QContextMenuEvent* _event) override;
+    void dragEnterEvent(QDragEnterEvent*) override {}
 
 public:
 
     // Public non-virtual methods
 
-    EasyTreeWidget* tree();
+    BlocksTreeWidget* tree();
     void clear(bool _global = false);
 
 private slots:
@@ -197,6 +207,7 @@ private slots:
     // Private slots
 
     void onSeachBoxReturnPressed();
+    void onSearchBoxTextChanged(const QString& _text);
     void findNext(bool);
     void findPrev(bool);
     void findNextFromMenu(bool);
@@ -209,7 +220,7 @@ private:
     void loadSettings();
     void saveSettings();
 
-}; // END of class EasyHierarchyWidget.
+}; // END of class HierarchyWidget.
 
 
 //////////////////////////////////////////////////////////////////////////

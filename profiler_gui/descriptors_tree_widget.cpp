@@ -5,7 +5,7 @@
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : The file contains implementation of EasyDescTreeWidget and it's auxiliary classes
+* description       : The file contains implementation of DescriptorsTreeWidget and it's auxiliary classes
 *                   : for displyaing EasyProfiler blocks descriptors tree.
 * ----------------- :
 * change log        : * 2016/09/17 Victor Zarubkin: initial commit.
@@ -13,7 +13,7 @@
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -67,19 +67,13 @@
 #include <QToolBar>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QSplitter>
+#include <QVariant>
 #include <QTimer>
-#include <thread>
 #include "descriptors_tree_widget.h"
+#include "arbitrary_value_inspector.h"
 #include "globals.h"
-
-#ifdef _WIN32
-#include <Windows.h>
-
-#ifdef __MINGW32__
-#include <processthreadsapi.h>
-#endif
-
-#endif
+#include "thread_pool.h"
 
 #ifdef max
 #undef max
@@ -183,17 +177,20 @@ const char* statusText(::profiler::EasyBlockStatus _status)
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyDescWidgetItem::EasyDescWidgetItem(::profiler::block_id_t _desc, Parent* _parent) : Parent(_parent), m_desc(_desc)
+DescriptorsTreeItem::DescriptorsTreeItem(::profiler::block_id_t _desc, Parent* _parent)
+    : Parent(_parent, QTreeWidgetItem::UserType)
+    , m_desc(_desc)
+    , m_type(DescriptorsTreeItem::Type::File)
 {
 
 }
 
-EasyDescWidgetItem::~EasyDescWidgetItem()
+DescriptorsTreeItem::~DescriptorsTreeItem()
 {
 
 }
 
-bool EasyDescWidgetItem::operator < (const Parent& _other) const
+bool DescriptorsTreeItem::operator < (const Parent& _other) const
 {
     const auto col = treeWidget()->sortColumn();
 
@@ -209,9 +206,38 @@ bool EasyDescWidgetItem::operator < (const Parent& _other) const
     return Parent::operator < (_other);
 }
 
+QVariant DescriptorsTreeItem::data(int _column, int _role) const
+{
+    if (_column == DESC_COL_TYPE)
+    {
+        if (_role == Qt::ToolTipRole)
+        {
+            switch (m_type)
+            {
+                case Type::File:  return QStringLiteral("File");
+                case Type::Event: return QStringLiteral("Event");
+                case Type::Block: return QStringLiteral("Block");
+                case Type::Value: return QStringLiteral("Arbitrary Value");
+            }
+        }
+        else if (_role == Qt::DisplayRole)
+        {
+            switch (m_type)
+            {
+                case Type::File:  return QStringLiteral("F");
+                case Type::Event: return QStringLiteral("E");
+                case Type::Block: return QStringLiteral("B");
+                case Type::Value: return QStringLiteral("V");
+            }
+        }
+    }
+
+    return QTreeWidgetItem::data(_column, _role);
+}
+
 //////////////////////////////////////////////////////////////////////////
 
-EasyDescTreeWidget::EasyDescTreeWidget(QWidget* _parent)
+DescriptorsTreeWidget::DescriptorsTreeWidget(QWidget* _parent)
     : Parent(_parent)
     , m_lastFound(nullptr)
     , m_lastSearchColumn(-1)
@@ -224,6 +250,7 @@ EasyDescTreeWidget::EasyDescTreeWidget(QWidget* _parent)
     setAnimated(true);
     setSortingEnabled(false);
     setColumnCount(DESC_COL_COLUMNS_NUMBER);
+    setSelectionBehavior(QAbstractItemView::SelectRows);
 
     auto header_item = new QTreeWidgetItem();
     header_item->setText(DESC_COL_FILE_LINE, "File/Line");
@@ -232,8 +259,8 @@ EasyDescTreeWidget::EasyDescTreeWidget(QWidget* _parent)
     header_item->setText(DESC_COL_STATUS, "Status");
     setHeaderItem(header_item);
 
-    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
-    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::blockStatusChanged, this, &This::onBlockStatusChange);
+    connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::selectedBlockChanged, this, &This::onSelectedBlockChange);
+    connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::blockStatusChanged, this, &This::onBlockStatusChange);
     connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
     connect(this, &Parent::itemDoubleClicked, this, &This::onDoubleClick);
     connect(this, &Parent::currentItemChanged, this, &This::onCurrentItemChange);
@@ -241,7 +268,7 @@ EasyDescTreeWidget::EasyDescTreeWidget(QWidget* _parent)
     loadSettings();
 }
 
-EasyDescTreeWidget::~EasyDescTreeWidget()
+DescriptorsTreeWidget::~DescriptorsTreeWidget()
 {
     if (::profiler_gui::is_max(EASY_GLOBALS.selected_block) && !::profiler_gui::is_max(EASY_GLOBALS.selected_block_id))
     {
@@ -254,40 +281,37 @@ EasyDescTreeWidget::~EasyDescTreeWidget()
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyDescTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
+void DescriptorsTreeWidget::setSearchColumn(int column)
+{
+    m_searchColumn = column;
+    emit searchColumnChanged(column);
+}
+
+int DescriptorsTreeWidget::searchColumn() const
+{
+    return m_searchColumn;
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void DescriptorsTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 {
     _event->accept();
 
     QMenu menu;
     menu.setToolTipsVisible(true);
     auto action = menu.addAction("Expand all");
-    action->setIcon(QIcon(":/Expand"));
+    action->setIcon(QIcon(imagePath("expand")));
     connect(action, &QAction::triggered, this, &This::expandAll);
 
     action = menu.addAction("Collapse all");
-    action->setIcon(QIcon(":/Collapse"));
+    action->setIcon(QIcon(imagePath("collapse")));
     connect(action, &QAction::triggered, this, &This::collapseAll);
-
-    menu.addSeparator();
-    auto submenu = menu.addMenu("Search by");
-    auto header_item = headerItem();
-    for (int i = 0; i < DESC_COL_STATUS; ++i)
-    {
-        if (i == DESC_COL_TYPE)
-            continue;
-
-        action = submenu->addAction(header_item->text(i));
-        action->setData(i);
-        action->setCheckable(true);
-        if (i == m_searchColumn)
-            action->setChecked(true);
-        connect(action, &QAction::triggered, this, &This::onSearchColumnChange);
-    }
 
     auto item = currentItem();
     if (item != nullptr && item->parent() != nullptr && currentColumn() >= DESC_COL_TYPE)
     {
-        const auto& desc = easyDescriptor(static_cast<EasyDescWidgetItem*>(item)->desc());
+        const auto& desc = easyDescriptor(static_cast<DescriptorsTreeItem*>(item)->desc());
 
         menu.addSeparator();
         auto submenu = menu.addMenu("Change status");
@@ -317,16 +341,9 @@ void EasyDescTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     menu.exec(QCursor::pos());
 }
 
-void EasyDescTreeWidget::onSearchColumnChange(bool)
-{
-    auto action = qobject_cast<QAction*>(sender());
-    if (action != nullptr)
-        m_searchColumn = action->data().toInt();
-}
-
 //////////////////////////////////////////////////////////////////////////
 
-void EasyDescTreeWidget::clearSilent(bool _global)
+void DescriptorsTreeWidget::clearSilent(bool _global)
 {
     const QSignalBlocker b(this);
 
@@ -337,29 +354,25 @@ void EasyDescTreeWidget::clearSilent(bool _global)
     m_highlightItems.clear();
     m_items.clear();
 
-    ::std::vector<QTreeWidgetItem*> topLevelItems;
-    topLevelItems.reserve(topLevelItemCount());
-    for (int i = topLevelItemCount() - 1; i >= 0; --i)
+    if (topLevelItemCount() != 0)
     {
-        const bool expanded = !_global && topLevelItem(i)->isExpanded();
-        auto item = takeTopLevelItem(i);
-        if (expanded)
-            m_expandedFilesTemp.insert(item->text(DESC_COL_FILE_LINE).toStdString());
-        topLevelItems.push_back(item);
+        ::std::vector<QTreeWidgetItem*> topLevelItems;
+        topLevelItems.reserve(static_cast<size_t>(topLevelItemCount()));
+
+        for (int i = topLevelItemCount() - 1; i >= 0; --i)
+        {
+            const bool expanded = !_global && topLevelItem(i)->isExpanded();
+            auto item = takeTopLevelItem(i);
+            if (expanded)
+                m_expandedFilesTemp.insert(item->text(DESC_COL_FILE_LINE).toStdString());
+            topLevelItems.push_back(item);
+        }
+
+        ThreadPool::instance().backgroundJob([=] {
+            for (auto item : topLevelItems)
+                delete item;
+        });
     }
-
-    auto deleter_thread = ::std::thread([](decltype(topLevelItems) _items)
-    {
-#ifdef _WIN32
-        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST);
-#endif
-
-        for (auto item : _items)
-            delete item;
-
-    }, ::std::move(topLevelItems));
-
-    deleter_thread.detach();
 
     //clear();
 }
@@ -368,12 +381,12 @@ void EasyDescTreeWidget::clearSilent(bool _global)
 
 struct FileItems
 {
-    typedef ::std::unordered_map<int, EasyDescWidgetItem*, ::profiler::passthrough_hash<int> > Items;
+    using Items = ::std::unordered_map<int, DescriptorsTreeItem*, ::estd::hash<int> >;
     Items children;
     QTreeWidgetItem* item = nullptr;
 };
 
-void EasyDescTreeWidget::build()
+void DescriptorsTreeWidget::build()
 {
     auto f = font();
     f.setBold(true);
@@ -393,29 +406,33 @@ void EasyDescTreeWidget::build()
             auto& p = fileItems[desc->file()];
             if (p.item == nullptr)
             {
-                p.item = new QTreeWidgetItem();
-                p.item->setText(DESC_COL_FILE_LINE, QString(desc->file()).remove(QRegExp("^(\\.{2}\\\\+|\\/+)+")));
-                p.item->setText(DESC_COL_TYPE, "F");
-                p.item->setToolTip(DESC_COL_TYPE, "File");
+                auto item = new DescriptorsTreeItem(0);
+                item->setText(DESC_COL_FILE_LINE, QString(desc->file()).remove(QRegExp("^(\\.{2}\\\\+|\\/+)+")));
+                item->setType(DescriptorsTreeItem::Type::File);
+                p.item = item;
             }
 
             auto it = p.children.find(desc->line());
             if (it == p.children.end())
             {
-                auto item = new EasyDescWidgetItem(desc->id(), p.item);
+                auto item = new DescriptorsTreeItem(desc->id(), p.item);
                 item->setText(DESC_COL_FILE_LINE, QString::number(desc->line()));
                 item->setData(DESC_COL_FILE_LINE, Qt::UserRole, desc->line());
                 item->setText(DESC_COL_NAME, desc->name());
 
-                if (desc->type() == ::profiler::BLOCK_TYPE_BLOCK)
+                switch (desc->type())
                 {
-                    item->setText(DESC_COL_TYPE, "B");
-                    item->setToolTip(DESC_COL_TYPE, "Block");
-                }
-                else
-                {
-                    item->setText(DESC_COL_TYPE, "E");
-                    item->setToolTip(DESC_COL_TYPE, "Event");
+                    case ::profiler::BlockType::Block:
+                        item->setType(DescriptorsTreeItem::Type::Block);
+                        break;
+
+                    case ::profiler::BlockType::Event:
+                        item->setType(DescriptorsTreeItem::Type::Event);
+                        break;
+
+                    case ::profiler::BlockType::Value:
+                        item->setType(DescriptorsTreeItem::Type::Value);
+                        break;
                 }
 
                 item->setFont(DESC_COL_STATUS, f);
@@ -450,21 +467,21 @@ void EasyDescTreeWidget::build()
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyDescTreeWidget::onItemExpand(QTreeWidgetItem*)
+void DescriptorsTreeWidget::onItemExpand(QTreeWidgetItem*)
 {
     resizeColumnsToContents();
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyDescTreeWidget::onDoubleClick(QTreeWidgetItem* _item, int _column)
+void DescriptorsTreeWidget::onDoubleClick(QTreeWidgetItem* _item, int _column)
 {
     if (!EASY_GLOBALS.connected)
         return;
 
     if (_column >= DESC_COL_TYPE && _item->parent() != nullptr)
     {
-        auto item = static_cast<EasyDescWidgetItem*>(_item);
+        auto item = static_cast<DescriptorsTreeItem*>(_item);
         auto& desc = easyDescriptor(item->desc());
         desc.setStatus(nextStatus(desc.status()));
 
@@ -479,7 +496,7 @@ void EasyDescTreeWidget::onDoubleClick(QTreeWidgetItem* _item, int _column)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyDescTreeWidget::onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidgetItem* _prev)
+void DescriptorsTreeWidget::onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidgetItem* _prev)
 {
     if (_prev != nullptr)
     {
@@ -497,7 +514,7 @@ void EasyDescTreeWidget::onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidget
 
         if (::profiler_gui::is_max(EASY_GLOBALS.selected_block) && _item->parent() != nullptr)
         {
-            const auto id = static_cast<EasyDescWidgetItem*>(_item)->desc();
+            const auto id = static_cast<DescriptorsTreeItem*>(_item)->desc();
             if (EASY_GLOBALS.selected_block_id != id)
             {
                 EASY_GLOBALS.selected_block_id = id;
@@ -514,7 +531,7 @@ void EasyDescTreeWidget::onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidget
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyDescTreeWidget::onBlockStatusChangeClicked(bool _checked)
+void DescriptorsTreeWidget::onBlockStatusChangeClicked(bool _checked)
 {
     if (!_checked || !EASY_GLOBALS.connected)
         return;
@@ -526,7 +543,7 @@ void EasyDescTreeWidget::onBlockStatusChangeClicked(bool _checked)
     auto action = qobject_cast<QAction*>(sender());
     if (action != nullptr)
     {
-        auto& desc = easyDescriptor(static_cast<EasyDescWidgetItem*>(item)->desc());
+        auto& desc = easyDescriptor(static_cast<DescriptorsTreeItem*>(item)->desc());
         desc.setStatus(static_cast<::profiler::EasyBlockStatus>(action->data().toUInt()));
         item->setText(DESC_COL_STATUS, statusText(desc.status()));
         item->setForeground(DESC_COL_STATUS, QColor::fromRgba(statusColor(desc.status())));
@@ -537,7 +554,7 @@ void EasyDescTreeWidget::onBlockStatusChangeClicked(bool _checked)
     }
 }
 
-void EasyDescTreeWidget::onBlockStatusChange(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status)
+void DescriptorsTreeWidget::onBlockStatusChange(::profiler::block_id_t _id, ::profiler::EasyBlockStatus _status)
 {
     if (m_bLocked)
         return;
@@ -553,7 +570,7 @@ void EasyDescTreeWidget::onBlockStatusChange(::profiler::block_id_t _id, ::profi
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyDescTreeWidget::resizeColumnsToContents()
+void DescriptorsTreeWidget::resizeColumnsToContents()
 {
     for (int i = 0; i < DESC_COL_COLUMNS_NUMBER; ++i)
         resizeColumnToContents(i);
@@ -561,12 +578,15 @@ void EasyDescTreeWidget::resizeColumnsToContents()
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyDescTreeWidget::onSelectedBlockChange(uint32_t _block_index)
+void DescriptorsTreeWidget::onSelectedBlockChange(uint32_t _block_index)
 {
     if (::profiler_gui::is_max(_block_index))
+    {
+        setCurrentItem(nullptr);
         return;
+    }
 
-    auto item = m_items[blocksTree(_block_index).node->id()];
+    auto item = m_items[easyBlocksTree(_block_index).node->id()];
     if (item == nullptr)
         return;
 
@@ -576,7 +596,7 @@ void EasyDescTreeWidget::onSelectedBlockChange(uint32_t _block_index)
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyDescTreeWidget::resetHighlight()
+void DescriptorsTreeWidget::resetHighlight()
 {
     for (auto item : m_highlightItems) {
         for (int i = 0; i < DESC_COL_COLUMNS_NUMBER; ++i)
@@ -585,7 +605,7 @@ void EasyDescTreeWidget::resetHighlight()
     m_highlightItems.clear();
 }
 
-void EasyDescTreeWidget::loadSettings()
+void DescriptorsTreeWidget::loadSettings()
 {
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
     settings.beginGroup("desc_tree_widget");
@@ -597,7 +617,7 @@ void EasyDescTreeWidget::loadSettings()
     settings.endGroup();
 }
 
-void EasyDescTreeWidget::saveSettings()
+void DescriptorsTreeWidget::saveSettings()
 {
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
     settings.beginGroup("desc_tree_widget");
@@ -609,7 +629,7 @@ void EasyDescTreeWidget::saveSettings()
 
 //////////////////////////////////////////////////////////////////////////
 
-int EasyDescTreeWidget::findNext(const QString& _str, Qt::MatchFlags _flags)
+int DescriptorsTreeWidget::findNext(const QString& _str, Qt::MatchFlags _flags)
 {
     if (_str.isEmpty())
     {
@@ -670,7 +690,7 @@ int EasyDescTreeWidget::findNext(const QString& _str, Qt::MatchFlags _flags)
     return itemsList.size();
 }
 
-int EasyDescTreeWidget::findPrev(const QString& _str, Qt::MatchFlags _flags)
+int DescriptorsTreeWidget::findPrev(const QString& _str, Qt::MatchFlags _flags)
 {
     if (_str.isEmpty())
     {
@@ -730,31 +750,40 @@ int EasyDescTreeWidget::findPrev(const QString& _str, Qt::MatchFlags _flags)
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
-    , m_tree(new EasyDescTreeWidget(this))
+BlockDescriptorsWidget::BlockDescriptorsWidget(QWidget* _parent) : Parent(_parent)
+    , m_splitter(new QSplitter(Qt::Vertical, this))
+    , m_tree(new DescriptorsTreeWidget(this))
+    , m_values(new ArbitraryValuesWidget(this))
     , m_searchBox(new QLineEdit(this))
-    , m_foundNumber(new QLabel("Found 0 matches", this))
+    , m_foundNumber(new QLabel("0 matches", this))
     , m_searchButton(nullptr)
     , m_bCaseSensitiveSearch(false)
 {
-    loadSettings();
+    m_splitter->setHandleWidth(1);
+    m_splitter->setContentsMargins(0, 0, 0, 0);
+    m_splitter->addWidget(m_tree);
+    m_splitter->addWidget(m_values);
+    m_splitter->setStretchFactor(0, 1);
+    m_splitter->setStretchFactor(1, 1);
 
-    m_searchBox->setFixedWidth(200);
+    m_searchBox->setFixedWidth(300);
     m_searchBox->setContentsMargins(5, 0, 0, 0);
+    m_searchBox->setClearButtonEnabled(true);
+    m_searchBox->setPlaceholderText("Search");
 
     auto tb = new QToolBar(this);
-    tb->setIconSize(::profiler_gui::ICONS_SIZE);
-    auto refreshButton = tb->addAction(QIcon(":/Reload"), tr("Refresh blocks list"));
+    tb->setIconSize(applicationIconsSize());
+    auto refreshButton = tb->addAction(QIcon(imagePath("reload")), tr("Refresh blocks list"));
     refreshButton->setEnabled(EASY_GLOBALS.connected);
     refreshButton->setToolTip(tr("Refresh blocks list.\nConnection needed."));
-    connect(refreshButton, &QAction::triggered, &EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::blocksRefreshRequired);
+    connect(refreshButton, &QAction::triggered, &EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::blocksRefreshRequired);
 
 
 
-    QMenu* menu = new QMenu(this);
+    auto menu = new QMenu(this);
     m_searchButton = menu->menuAction();
     m_searchButton->setText("Find next");
-    m_searchButton->setIcon(QIcon(":/Search-next"));
+    m_searchButton->setIcon(QIcon(imagePath("find-next")));
     m_searchButton->setData(true);
     connect(m_searchButton, &QAction::triggered, this, &This::findNext);
 
@@ -772,12 +801,31 @@ EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
     connect(a, &QAction::triggered, this, &This::findPrevFromMenu);
     menu->addAction(a);
 
-    menu->addSeparator();
     a = menu->addAction("Case sensitive");
     a->setCheckable(true);
     a->setChecked(m_bCaseSensitiveSearch);
     connect(a, &QAction::triggered, [this](bool _checked){ m_bCaseSensitiveSearch = _checked; });
     menu->addAction(a);
+    QAction* caseSensitiveSwitch = a;
+
+    menu->addSeparator();
+    auto headerItem = m_tree->headerItem();
+    actionGroup = new QActionGroup(this);
+    actionGroup->setExclusive(true);
+    for (int i = 0; i < DESC_COL_STATUS; ++i)
+    {
+        if (i == DESC_COL_TYPE)
+            continue;
+
+        a = new QAction(QStringLiteral("Search by ") + headerItem->text(i), actionGroup);
+        a->setData(i);
+        a->setCheckable(true);
+        if (i == m_tree->searchColumn())
+            a->setChecked(true);
+        connect(a, &QAction::triggered, this, &This::onSearchColumnChange);
+
+        menu->addAction(a);
+    }
 
     tb->addSeparator();
     tb->addAction(m_searchButton);
@@ -786,44 +834,67 @@ EasyDescWidget::EasyDescWidget(QWidget* _parent) : Parent(_parent)
     auto searchbox = new QHBoxLayout();
     searchbox->setContentsMargins(0, 0, 5, 0);
     searchbox->addWidget(tb);
+    searchbox->addSpacing(5);
+    searchbox->addWidget(m_foundNumber);
     searchbox->addStretch(100);
-    searchbox->addWidget(m_foundNumber, Qt::AlignRight);
 
     auto lay = new QVBoxLayout(this);
     lay->setContentsMargins(1, 1, 1, 1);
     lay->addLayout(searchbox);
-    lay->addWidget(m_tree);
+    lay->addWidget(m_splitter);
 
     connect(m_searchBox, &QLineEdit::returnPressed, this, &This::onSeachBoxReturnPressed);
-    connect(&EASY_GLOBALS.events, &::profiler_gui::EasyGlobalSignals::connectionChanged, refreshButton, &QAction::setEnabled);
+    connect(m_searchBox, &QLineEdit::textChanged, this, &This::onSearchBoxTextChanged);
+
+    connect(m_tree, &DescriptorsTreeWidget::searchColumnChanged, this, &This::onSearchColumnChanged);
+
+    connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::connectionChanged, refreshButton, &QAction::setEnabled);
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::allDataGoingToBeDeleted, this, &This::clear);
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::fileOpened, this, &This::build);
+
+    loadSettings();
+    caseSensitiveSwitch->setChecked(m_bCaseSensitiveSearch);
+
+    onSearchColumnChanged(m_tree->searchColumn());
+    m_foundNumber->hide();
 }
 
-EasyDescWidget::~EasyDescWidget()
+BlockDescriptorsWidget::~BlockDescriptorsWidget()
 {
     saveSettings();
 }
 
-void EasyDescWidget::loadSettings()
+void BlockDescriptorsWidget::loadSettings()
 {
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
-    settings.beginGroup("EasyDescWidget");
+    settings.beginGroup("BlockDescriptorsWidget");
 
     auto val = settings.value("case_sensitive");
     if (!val.isNull())
         m_bCaseSensitiveSearch = val.toBool();
 
+    auto geometry = settings.value("vsplitter/geometry").toByteArray();
+    if (!geometry.isEmpty())
+        m_splitter->restoreGeometry(geometry);
+
+    auto state = settings.value("vsplitter/state").toByteArray();
+    if (!state.isEmpty())
+        m_splitter->restoreState(state);
+
     settings.endGroup();
 }
 
-void EasyDescWidget::saveSettings()
+void BlockDescriptorsWidget::saveSettings()
 {
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
-    settings.beginGroup("EasyDescWidget");
+    settings.beginGroup("BlockDescriptorsWidget");
     settings.setValue("case_sensitive", m_bCaseSensitiveSearch);
+    settings.setValue("vsplitter/geometry", m_splitter->saveGeometry());
+    settings.setValue("vsplitter/state", m_splitter->saveState());
     settings.endGroup();
 }
 
-void EasyDescWidget::keyPressEvent(QKeyEvent* _event)
+void BlockDescriptorsWidget::keyPressEvent(QKeyEvent* _event)
 {
     if (_event->key() == Qt::Key_F3)
     {
@@ -836,25 +907,34 @@ void EasyDescWidget::keyPressEvent(QKeyEvent* _event)
     _event->accept();
 }
 
-void EasyDescWidget::contextMenuEvent(QContextMenuEvent* _event)
+void BlockDescriptorsWidget::contextMenuEvent(QContextMenuEvent* _event)
 {
     m_tree->contextMenuEvent(_event);
 }
 
-void EasyDescWidget::build()
+void BlockDescriptorsWidget::build()
 {
     m_tree->clearSilent(false);
-    m_foundNumber->setText(QString("Found 0 matches"));
+    m_foundNumber->setText(QString("0 matches"));
+    m_foundNumber->hide();
     m_tree->build();
+    m_values->rebuild();
 }
 
-void EasyDescWidget::clear()
+void BlockDescriptorsWidget::clear()
 {
     m_tree->clearSilent(true);
-    m_foundNumber->setText(QString("Found 0 matches"));
+    m_foundNumber->setText(QString("0 matches"));
+    m_foundNumber->hide();
+    m_values->clear();
 }
 
-void EasyDescWidget::onSeachBoxReturnPressed()
+ArbitraryValuesWidget* BlockDescriptorsWidget::dataViewer() const
+{
+    return m_values;
+}
+
+void BlockDescriptorsWidget::onSeachBoxReturnPressed()
 {
     if (m_searchButton->data().toBool() == true)
         findNext(true);
@@ -862,27 +942,82 @@ void EasyDescWidget::onSeachBoxReturnPressed()
         findPrev(true);
 }
 
-void EasyDescWidget::findNext(bool)
+void BlockDescriptorsWidget::onSearchBoxTextChanged(const QString& _text)
 {
-    auto matches = m_tree->findNext(m_searchBox->text(), m_bCaseSensitiveSearch ? Qt::MatchCaseSensitive : Qt::MatchFlags());
-
-    if (matches == 1)
-        m_foundNumber->setText(QString("Found 1 match"));
-    else
-        m_foundNumber->setText(QString("Found %1 matches").arg(matches));
+    if (_text.isEmpty())
+        m_foundNumber->hide();
 }
 
-void EasyDescWidget::findPrev(bool)
+void BlockDescriptorsWidget::onSearchColumnChanged(int column)
 {
-    auto matches = m_tree->findPrev(m_searchBox->text(), m_bCaseSensitiveSearch ? Qt::MatchCaseSensitive : Qt::MatchFlags());
+    switch (column)
+    {
+        case DESC_COL_NAME:
+            m_searchBox->setPlaceholderText("Search by name");
+            break;
 
-    if (matches == 1)
-        m_foundNumber->setText(QString("Found 1 match"));
-    else
-        m_foundNumber->setText(QString("Found %1 matches").arg(matches));
+        case DESC_COL_FILE_LINE:
+            m_searchBox->setPlaceholderText("Search by filename");
+            break;
+
+        default:
+            m_searchBox->setPlaceholderText("Search");
+            break;
+    }
+
+    onSeachBoxReturnPressed();
 }
 
-void EasyDescWidget::findNextFromMenu(bool _checked)
+void BlockDescriptorsWidget::onSearchColumnChange(bool)
+{
+    auto action = qobject_cast<QAction*>(sender());
+    if (action != nullptr)
+        m_tree->setSearchColumn(action->data().toInt());
+}
+
+void BlockDescriptorsWidget::findNext(bool)
+{
+    auto text = m_searchBox->text();
+    if (text.isEmpty())
+    {
+        if (m_foundNumber->isVisible())
+            m_foundNumber->hide();
+        return;
+    }
+
+    auto matches = m_tree->findNext(text, m_bCaseSensitiveSearch ? Qt::MatchCaseSensitive : Qt::MatchFlags());
+
+    if (matches == 1)
+        m_foundNumber->setText(QString("1 match"));
+    else
+        m_foundNumber->setText(QString("%1 matches").arg(matches));
+
+    if (!m_foundNumber->isVisible())
+        m_foundNumber->show();
+}
+
+void BlockDescriptorsWidget::findPrev(bool)
+{
+    auto text = m_searchBox->text();
+    if (text.isEmpty())
+    {
+        if (m_foundNumber->isVisible())
+            m_foundNumber->hide();
+        return;
+    }
+
+    auto matches = m_tree->findPrev(text, m_bCaseSensitiveSearch ? Qt::MatchCaseSensitive : Qt::MatchFlags());
+
+    if (matches == 1)
+        m_foundNumber->setText(QString("1 match"));
+    else
+        m_foundNumber->setText(QString("%1 matches").arg(matches));
+
+    if (!m_foundNumber->isVisible())
+        m_foundNumber->show();
+}
+
+void BlockDescriptorsWidget::findNextFromMenu(bool _checked)
 {
     if (!_checked)
         return;
@@ -891,7 +1026,7 @@ void EasyDescWidget::findNextFromMenu(bool _checked)
     {
         m_searchButton->setData(true);
         m_searchButton->setText(tr("Find next"));
-        m_searchButton->setIcon(QIcon(":/Search-next"));
+        m_searchButton->setIcon(QIcon(imagePath("find-next")));
         disconnect(m_searchButton, &QAction::triggered, this, &This::findPrev);
         connect(m_searchButton, &QAction::triggered, this, &This::findNext);
     }
@@ -899,7 +1034,7 @@ void EasyDescWidget::findNextFromMenu(bool _checked)
     findNext(true);
 }
 
-void EasyDescWidget::findPrevFromMenu(bool _checked)
+void BlockDescriptorsWidget::findPrevFromMenu(bool _checked)
 {
     if (!_checked)
         return;
@@ -908,7 +1043,7 @@ void EasyDescWidget::findPrevFromMenu(bool _checked)
     {
         m_searchButton->setData(false);
         m_searchButton->setText(tr("Find prev"));
-        m_searchButton->setIcon(QIcon(":/Search-prev"));
+        m_searchButton->setIcon(QIcon(imagePath("find-prev")));
         disconnect(m_searchButton, &QAction::triggered, this, &This::findNext);
         connect(m_searchButton, &QAction::triggered, this, &This::findPrev);
     }

@@ -8,7 +8,7 @@
 * description       : This file contains auxiliary profiler macros for different compiler support.
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -53,8 +53,6 @@
 
 #include <cstddef>
 
-//#define EASY_CODE_WRAP(Code) Code
-
 #if defined(_WIN32) && !defined(EASY_PROFILER_STATIC)
 // Visual Studio and MinGW
 # ifdef _BUILD_PROFILER
@@ -66,11 +64,15 @@
 
 
 
-#if defined (_MSC_VER)
+#if defined(_MSC_VER)
 //////////////////////////////////////////////////////////////////////////
 // Visual Studio
 
-# define __func__ __FUNCTION__
+# if defined(EASY_OPTION_PRETTY_PRINT_FUNCTIONS) && EASY_OPTION_PRETTY_PRINT_FUNCTIONS != 0
+#  define EASY_FUNC_NAME __FUNCSIG__
+# else
+#  define EASY_FUNC_NAME __FUNCTION__
+# endif
 
 # if _MSC_VER <= 1800
 // There is no support for C++11 thread_local keyword prior to Visual Studio 2015. Use __declspec(thread) instead.
@@ -80,42 +82,72 @@
                                             __declspec(thread) static VarType VarName = 0;\
                                             if (!VarName)\
                                                 VarName = VarInitializer
+
+// No constexpr support before Visual Studio 2015
+#  define EASY_CONSTEXPR const
+#  define EASY_STATIC_CONSTEXPR static const
+#  define EASY_CONSTEXPR_FCN
+
+// No noexcept support before Visual Studio 2015
+#  define EASY_NOEXCEPT throw()
 # endif
 
-#define EASY_FORCE_INLINE __forceinline
+# define EASY_FORCE_INLINE __forceinline
 
-#elif defined (__clang__)
+#elif defined(__clang__)
 //////////////////////////////////////////////////////////////////////////
 // Clang Compiler
 
-# if (__clang_major__ == 3 && __clang_minor__ < 3) || (__clang_major__ < 3)
-// There is no support for C++11 thread_local keyword prior to clang 3.3. Use __thread instead.
+# define EASY_COMPILER_VERSION (__clang_major__ * 10 + __clang_minor__)
+
+# if EASY_COMPILER_VERSION < 33 || (defined(__APPLE_CC__) && __APPLE_CC__ < 8000)
+// There is no support for C++11 thread_local keyword prior to Clang v3.3 and Apple LLVM clang 8.0. Use __thread instead.
 #  define EASY_THREAD_LOCAL __thread
 # endif
 
-# if (__clang_major__ == 2 && __clang_minor__ < 9) || (__clang_major__ < 2)
+# if EASY_COMPILER_VERSION < 31
+// No constexpr support before Clang v3.1
+#  define EASY_CONSTEXPR const
+#  define EASY_STATIC_CONSTEXPR static const
+#  define EASY_CONSTEXPR_FCN
+# endif
+
+# if EASY_COMPILER_VERSION < 29
 // There is no support for C++11 magic statics feature prior to clang 2.9. It becomes slightly harder to initialize static vars - additional "if" for each profiler block.
 #  define EASY_LOCAL_STATIC_PTR(VarType, VarName, VarInitializer)\
                                             EASY_THREAD_LOCAL static VarType VarName = 0;\
                                             if (!VarName)\
                                                 VarName = VarInitializer
 
-// There is no support for C++11 final keyword prior to clang 2.9
+// There is no support for C++11 final keyword prior to Clang v2.9
 #  define EASY_FINAL 
 # endif
 
-#define EASY_FORCE_INLINE inline __attribute__((always_inline))
+# define EASY_FORCE_INLINE inline __attribute__((always_inline))
+# undef EASY_COMPILER_VERSION
 
 #elif defined(__GNUC__)
 //////////////////////////////////////////////////////////////////////////
 // GNU Compiler
 
-# if (__GNUC__ == 4 && __GNUC_MINOR__ < 8) || (__GNUC__ < 4)
+# define EASY_COMPILER_VERSION (__GNUC__ * 10 + __GNUC_MINOR__)
+
+# if EASY_COMPILER_VERSION < 48
 // There is no support for C++11 thread_local keyword prior to gcc 4.8. Use __thread instead.
 #  define EASY_THREAD_LOCAL __thread
 # endif
 
-# if (__GNUC__ == 4 && __GNUC_MINOR__ < 3) || (__GNUC__ < 4)
+# if EASY_COMPILER_VERSION < 46
+// No constexpr support before GCC v4.6
+#  define EASY_CONSTEXPR const
+#  define EASY_STATIC_CONSTEXPR static const
+#  define EASY_CONSTEXPR_FCN
+
+// No noexcept support before GCC v4.6
+#  define EASY_NOEXCEPT throw()
+# endif
+
+# if EASY_COMPILER_VERSION < 43
 // There is no support for C++11 magic statics feature prior to gcc 4.3. It becomes slightly harder to initialize static vars - additional "if" for each profiler block.
 #  define EASY_LOCAL_STATIC_PTR(VarType, VarName, VarInitializer)\
                                             EASY_THREAD_LOCAL static VarType VarName = 0;\
@@ -123,15 +155,21 @@
                                                 VarName = VarInitializer
 # endif
 
-# if (__GNUC__ == 4 && __GNUC_MINOR__ < 7) || (__GNUC__ < 4)
+# if EASY_COMPILER_VERSION < 47
 // There is no support for C++11 final keyword prior to gcc 4.7
 #  define EASY_FINAL 
 # endif
 
-#define EASY_FORCE_INLINE inline __attribute__((always_inline))
+# define EASY_FORCE_INLINE inline __attribute__((always_inline))
+# undef EASY_COMPILER_VERSION
 
+#else
+//////////////////////////////////////////////////////////////////////////
+// TODO: Add other compilers support
+
+static_assert(false, "EasyProfiler is not configured for using your compiler type. Please, contact developers.");
 #endif
-// END // TODO: Add other compilers support
+// END
 //////////////////////////////////////////////////////////////////////////
 
 
@@ -139,14 +177,22 @@
 //////////////////////////////////////////////////////////////////////////
 // Default values
 
+#ifndef EASY_FUNC_NAME
+# if defined(EASY_OPTION_PRETTY_PRINT_FUNCTIONS) && EASY_OPTION_PRETTY_PRINT_FUNCTIONS != 0
+#  define EASY_FUNC_NAME __PRETTY_FUNCTION__
+# else
+#  define EASY_FUNC_NAME __func__
+# endif
+#endif
+
 #ifndef EASY_THREAD_LOCAL
 # define EASY_THREAD_LOCAL thread_local
-# define EASY_THREAD_LOCAL_CPP11
+# define EASY_CXX11_TLS_AVAILABLE
 #endif
 
 #ifndef EASY_LOCAL_STATIC_PTR
 # define EASY_LOCAL_STATIC_PTR(VarType, VarName, VarInitializer) static VarType VarName = VarInitializer
-# define EASY_MAGIC_STATIC_CPP11
+# define EASY_MAGIC_STATIC_AVAILABLE
 #endif
 
 #ifndef EASY_FINAL
@@ -155,6 +201,18 @@
 
 #ifndef EASY_FORCE_INLINE
 # define EASY_FORCE_INLINE inline
+#endif
+
+#ifndef EASY_CONSTEXPR
+# define EASY_CONSTEXPR constexpr
+# define EASY_STATIC_CONSTEXPR static constexpr
+# define EASY_CONSTEXPR_FCN constexpr
+# define EASY_CONSTEXPR_AVAILABLE
+#endif
+
+#ifndef EASY_NOEXCEPT
+# define EASY_NOEXCEPT noexcept
+# define EASY_NOEXCEPT_AVAILABLE
 #endif
 
 #ifndef PROFILER_API

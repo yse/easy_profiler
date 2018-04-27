@@ -5,14 +5,14 @@
 * authors           : Victor Zarubkin, Sergey Yagovtsev
 * email             : v.s.zarubkin@gmail.com, yse.sey@gmail.com
 * ----------------- :
-* description       : The file contains declaration of EasyGlobalSignals QObject class.
+* description       : The file contains declaration of GlobalSignals QObject class.
 * ----------------- :
 * change log        : * 2016/08/08 Sergey Yagovtsev: moved sources from globals.h
 *                   :
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -56,20 +56,26 @@
 #define EASY_GLOBALS_QOBJECTS_H
 
 #include <QObject>
-#include <easy/profiler.h>
+#include <easy/details/profiler_public_types.h>
+
+namespace profiler { class ArbitraryValue; }
 
 namespace profiler_gui {
 
-    class EasyGlobalSignals Q_DECL_FINAL : public QObject
+    class GlobalSignals Q_DECL_FINAL : public QObject
     {
         Q_OBJECT
 
     public:
 
-        EasyGlobalSignals();
-        virtual ~EasyGlobalSignals();
+        GlobalSignals();
+        ~GlobalSignals() Q_DECL_OVERRIDE;
 
     signals:
+
+        void closeEvent();
+        void allDataGoingToBeDeleted();
+        void fileOpened();
 
         void selectedThreadChanged(::profiler::thread_id_t _id);
         void selectedBlockChanged(uint32_t _block_index);
@@ -80,14 +86,28 @@ namespace profiler_gui {
         void blocksRefreshRequired(bool);
         void expectedFrameTimeChanged();
         void autoAdjustHistogramChanged();
+        void autoAdjustChartChanged();
         void displayOnlyFramesOnHistogramChanged();
         void hierarchyFlagChanged(bool);
         void threadNameDecorationChanged();
         void hexThreadIdChanged();
         void refreshRequired();
         void blocksTreeModeChanged();
+        void rulerVisible(bool);
 
-    }; // END of class EasyGlobalSignals.
+        void sceneCleared();
+        void sceneSizeChanged(qreal left, qreal right);
+        void sceneVisibleRegionSizeChanged(qreal width);
+        void sceneVisibleRegionPosChanged(qreal pos);
+        void lockCharts();
+        void unlockCharts();
+
+        void chartWheeled(qreal pos, int delta);
+        void chartSliderChanged(qreal pos);
+
+        void selectValue(::profiler::thread_id_t _thread_id, uint32_t _value_index, const ::profiler::ArbitraryValue& _value);
+
+    }; // END of class GlobalSignals.
 
 } // END of namespace profiler_gui.
 

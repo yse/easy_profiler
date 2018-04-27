@@ -5,7 +5,7 @@
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : The file contains declaration of EasyGraphicsItem - an item
+* description       : The file contains declaration of BlocksGraphicsItem - an item
 *                   : used to draw profiler blocks on graphics scene.
 * ----------------- :
 * change log        : * 2016/09/15 Victor Zarubkin: moved sources from blocks_graphics_view.h/.cpp
@@ -13,7 +13,7 @@
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -69,9 +69,9 @@
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-class EasyGraphicsView;
+class BlocksGraphicsView;
 
-class EasyGraphicsItem : public QGraphicsItem
+class BlocksGraphicsItem : public QGraphicsItem
 {
     typedef ::profiler_gui::EasyItems       Children;
     typedef ::std::vector<uint32_t>      DrawIndexes;
@@ -85,12 +85,12 @@ class EasyGraphicsItem : public QGraphicsItem
     QRectF                     m_boundingRect; ///< boundingRect (see QGraphicsItem)
     QString                      m_threadName; ///< 
     const ::profiler::BlocksTreeRoot* m_pRoot; ///< Pointer to the root profiler block (thread block). Used by ProfTreeWidget to restore hierarchy.
-    uint8_t                           m_index; ///< This item's index in the list of items of EasyGraphicsView
+    uint8_t                           m_index; ///< This item's index in the list of items of BlocksGraphicsView
 
 public:
 
-    explicit EasyGraphicsItem(uint8_t _index, const::profiler::BlocksTreeRoot& _root);
-    virtual ~EasyGraphicsItem();
+    explicit BlocksGraphicsItem(uint8_t _index, const::profiler::BlocksTreeRoot& _root);
+    virtual ~BlocksGraphicsItem();
 
     // Public virtual methods
 
@@ -170,8 +170,8 @@ public:
 
 private:
 
-    ///< Returns pointer to the EasyGraphicsView widget.
-    const EasyGraphicsView* view() const;
+    ///< Returns pointer to the BlocksGraphicsView widget.
+    const BlocksGraphicsView* view() const;
 
 #ifdef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
     void paintChildren(const float _minWidth, const int _narrowSizeHalf, const uint8_t _levelsNumber, QPainter* _painter, struct EasyPainterInformation& p, ::profiler_gui::EasyBlockItem& _item, const ::profiler_gui::EasyBlock& _itemBlock, RightBounds& _rightBounds, uint8_t _level, int8_t _mode);
@@ -181,13 +181,12 @@ public:
 
     // Public inline methods
 
-    ///< Returns this item's index in the list of graphics items of EasyGraphicsView
-    inline uint8_t index() const
-    {
+    ///< Returns this item's index in the list of graphics items of BlocksGraphicsView
+    uint8_t index() const {
         return m_index;
     }
 
-}; // END of class EasyGraphicsItem.
+}; // END of class BlocksGraphicsItem.
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////

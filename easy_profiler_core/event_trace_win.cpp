@@ -16,7 +16,7 @@
 *                   : * 2016/09/17 Victor Zarubkin: added log messages printing.
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -126,14 +126,42 @@
 //extern ProfileManager& MANAGER;
 #define MANAGER ProfileManager::instance()
 
-extern const ::profiler::color_t EASY_COLOR_INTERNAL_EVENT;
+extern const profiler::color_t EASY_COLOR_INTERNAL_EVENT;
 
 #ifdef __MINGW32__
-::std::atomic<uint64_t> TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
+std::atomic<uint64_t> TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
 char KERNEL_LOGGER[] = KERNEL_LOGGER_NAME;
 #else
-::std::atomic_uint64_t TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
+std::atomic_uint64_t TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
 #endif
+
+/**
+ * Retrieve the process name of the given process.
+ *
+ * This method is NOT thread-safe: the returned string has to be copied somewhere before this
+ * method can be used by another thread or call.
+ *
+ * getProcessName() owns the returned string.
+ *
+ * \param len the process name string length [output].
+ *
+ * \return the process name string.
+ */
+static const char* getProcessName(HANDLE hProcess, std::size_t& len)
+{
+    static TCHAR buf[MAX_PATH] = {};
+    len = static_cast<std::size_t>(GetModuleBaseName(hProcess, 0, buf, MAX_PATH));
+    if (len == 0)
+        return nullptr;
+
+#if UNICODE
+    static char charbuf[MAX_PATH] = {};
+    len = std::wcstombs(charbuf, buf, len);
+    return charbuf;
+#else
+    return buf;
+#endif
+}
 
 namespace profiler {
 
@@ -143,7 +171,7 @@ namespace profiler {
     //////////////////////////////////////////////////////////////////////////
 
     struct ProcessInfo {
-        std::string      name;
+        ::std::string    name;
         processid_t    id = 0;
         int8_t      valid = 0;
     };
@@ -177,12 +205,12 @@ namespace profiler {
         }
     };
 
-    typedef ::std::unordered_map<decltype(CSwitch::NewThreadId), ProcessInfo*, do_not_calc_hash> thread_process_info_map;
-    typedef ::std::unordered_map<processid_t, ProcessInfo, do_not_calc_hash> process_info_map;
+    using thread_process_info_map = ::std::unordered_map<decltype(CSwitch::NewThreadId), ProcessInfo*, do_not_calc_hash>;
+    using process_info_map = ::std::unordered_map<processid_t, ProcessInfo, do_not_calc_hash>;
 
     // Using static is safe because processTraceEvent() is called from one thread
     process_info_map PROCESS_INFO_TABLE;
-    thread_process_info_map THREAD_PROCESS_INFO_TABLE = ([](){ thread_process_info_map initial; initial[0U] = nullptr; return ::std::move(initial); })();
+    thread_process_info_map THREAD_PROCESS_INFO_TABLE = ([] { thread_process_info_map initial; initial[0U] = nullptr; return ::std::move(initial); })();
 
     //////////////////////////////////////////////////////////////////////////
 
@@ -237,14 +265,14 @@ namespace profiler {
                     auto hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, pid);
                     if (hProc != nullptr)
                     {
-                        static TCHAR buf[MAX_PATH] = {}; // Using static is safe because processTraceEvent() is called from one thread
-                        auto len = GetModuleBaseName(hProc, 0, buf, MAX_PATH);
+                        std::size_t len = 0;
+                        auto processName = getProcessName(hProc, len); // Using thread-unsafe method is safe because processTraceEvent() is called from one thread
 
                         if (len != 0)
                         {
                             pinfo->name.reserve(pinfo->name.size() + 2 + len);
                             pinfo->name.append(" ", 1);
-                            pinfo->name.append(buf, len);
+                            pinfo->name.append(processName, len);
                             pinfo->valid = 1;
                         }
 
@@ -289,9 +317,20 @@ namespace profiler {
         MANAGER.endContextSwitch(_contextSwitchEvent->NewThreadId, pid, time);
     }
 
+	//////////////////////////////////////////////////////////////////////////
+
+	EasyEventTracer::Properties::Properties()
+	{
+#if UNICODE
+		std::wcstombs(sessionName, KERNEL_LOGGER_NAME, sizeof(sessionName));
+#else
+		std::strncpy(sessionName, KERNEL_LOGGER_NAME, sizeof(sessionName));
+#endif
+	}
+
     //////////////////////////////////////////////////////////////////////////
 
-#ifndef EASY_MAGIC_STATIC_CPP11
+#ifndef EASY_MAGIC_STATIC_AVAILABLE
     class EasyEventTracerInstance {
         friend EasyEventTracer;
         EasyEventTracer instance;
@@ -300,7 +339,7 @@ namespace profiler {
 
     EasyEventTracer& EasyEventTracer::instance()
     {
-#ifndef EASY_MAGIC_STATIC_CPP11
+#ifndef EASY_MAGIC_STATIC_AVAILABLE
         return EASY_EVENT_TRACER.instance;
 #else
         static EasyEventTracer tracer;
@@ -328,7 +367,7 @@ namespace profiler {
         m_lowPriority.store(_value, ::std::memory_order_release);
     }
 
-    bool setPrivilege(HANDLE hToken, LPCSTR _privelegeName)
+    bool setPrivilege(HANDLE hToken, PTCHAR _privelegeName)
     {
         bool success = false;
 
@@ -409,7 +448,7 @@ namespace profiler {
                         */
 
                         // static is safe because we are guarded by spin-lock m_spin
-                        static Properties p = ([]{ Properties prp; strncpy(prp.sessionName, KERNEL_LOGGER_NAME, sizeof(prp.sessionName)); return prp; })();
+                        static Properties p;
                         p.base = m_properties.base; // Use copy of m_properties to make sure m_properties will not be changed
 
                         // Stop another session
@@ -521,7 +560,7 @@ namespace profiler {
 
         EASY_LOGMSG("Event tracing is stopping...\n");
 
-        TRACING_END_TIME.store(getCurrentTime(), ::std::memory_order_release);
+        TRACING_END_TIME.store(profiler::clock::now(), ::std::memory_order_release);
 
         ControlTrace(m_openedHandle, KERNEL_LOGGER_NAME, props(), EVENT_TRACE_CONTROL_STOP);
         CloseTrace(m_openedHandle);

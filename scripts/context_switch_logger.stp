@@ -14,7 +14,7 @@ probe scheduler.ctxswitch {
             next
             
     //printf("Switch from %d(%s) to %d(%s) at %d\n",prev_tid, prev_task_name,next_tid,next_task_name, gettimeofday_ns())
-    printf("%d %d %d %s %d\n",gettimeofday_ns(),prev_tid, next_tid, next_task_name,next_pid )
+    printf("%d %d %d %s %d\n", get_cycles(), prev_tid, next_tid, next_task_name, next_pid)
     //printf("%d %d %d\n",gettimeofday_ns(),prev_tid, next_tid )
 }
 

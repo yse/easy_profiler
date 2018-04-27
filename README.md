@@ -1,4 +1,4 @@
-# easy_profiler [![1.3.0](https://img.shields.io/badge/version-1.3.0-009688.svg)](https://github.com/yse/easy_profiler/releases)
+# easy_profiler [![2.0.0](https://img.shields.io/badge/version-2.0.0-009688.svg)](https://github.com/yse/easy_profiler/releases)
 
 [![Build Status](https://travis-ci.org/yse/easy_profiler.svg?branch=develop)](https://travis-ci.org/yse/easy_profiler)
 [![Build Status](https://ci.appveyor.com/api/projects/status/github/yse/easy_profiler?branch=develop&svg=true)](https://ci.appveyor.com/project/yse/easy-profiler/branch/develop)
@@ -6,6 +6,28 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
+# Status
+Branch `develop` contains all v2.0.0 features and new UI style.
+
+Please, note that .prof file header has changed in v2.0.0.
+Now it is:
+```cpp
+struct EasyFileHeader
+{
+    uint32_t signature = 0;
+    uint32_t version = 0;
+    profiler::processid_t pid = 0;
+    int64_t cpu_frequency = 0;
+    profiler::timestamp_t begin_time = 0;
+    profiler::timestamp_t end_time = 0;
+    
+    // Changed order of memory_size and blocks_number relative to v1.3.0
+    uint64_t memory_size = 0;
+    uint64_t descriptors_memory_size = 0;
+    uint32_t total_blocks_number = 0;
+    uint32_t total_descriptors_number = 0;
+};
+```
 
 1. [About](#about)
 2. [Key features](#key-features)
@@ -20,6 +42,7 @@
         - [Note about context-switch](#note-about-context-switch)
 4. [Build](#build)
     - [Linux](#linux)
+    - [MacOS](#macos)
     - [Windows](#windows)
 5. [License](#license)
 
@@ -43,6 +66,9 @@ You can see the results of measuring in simple GUI application which provides fu
 
 ![GUI screenshot](https://cloud.githubusercontent.com/assets/1775230/24852044/a0b1edd0-1dde-11e7-8736-7052b840ad06.png)
 _Profiling CryEngine SDK example_
+
+![New UI Style](https://user-images.githubusercontent.com/10530007/39360172-d8e007cc-4a25-11e8-904a-75a47e388401.png)
+_New UI style in version 2.0_
 
 # Key features
 
@@ -135,7 +161,7 @@ void bar() {
 ```
 ## Collect blocks
 
-There are two ways to cature blocks
+There are two ways to capture blocks
 
 ### Collect via network
 
@@ -170,6 +196,8 @@ To capture a thread context-switch event you need:
 ```
 APPLICATION_NAME - name of profiling application
 
+There are some known issues on a linux based systems (for more information see [wiki](https://github.com/yse/easy_profiler/wiki/Known-bugs-and-issues))
+
 # Build
 
 ## Prerequisites
@@ -187,6 +215,15 @@ Additional requirements for GUI:
 $ mkdir build
 $ cd build
 $ cmake -DCMAKE_BUILD_TYPE="Release" ..
+$ make
+```
+
+## MacOS
+
+```bash
+$ mkdir build
+$ cd build
+$ cmake -DCMAKE_CXX_COMPILER=g++-5 -DCMAKE_C_COMPILER=gcc-5 -DCMAKE_BUILD_TYPE="Release" ..
 $ make
 ```
 

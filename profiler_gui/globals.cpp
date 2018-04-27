@@ -12,7 +12,7 @@
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -52,25 +52,35 @@
 *                   : limitations under the License.
 ************************************************************************/
 
-#define IGNORE_GLOBALS_DECLARATION
 #include "globals.h"
-#undef IGNORE_GLOBALS_DECLARATION
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
 namespace profiler_gui {
 
-    EasyGlobals& EasyGlobals::instance()
+    Globals& Globals::instance()
     {
         // It's okay even without C++11 "magic statics" feature because first call happens
         // on application initialization - there is only one thread and no data races occur.
-        static EasyGlobals globals;
+        static Globals globals;
         return globals;
     }
 
-    EasyGlobals::EasyGlobals()
-        : begin_time(0)
+    Globals::Fonts::Fonts()
+        : default_font(::profiler_gui::EFont("DejaVu Sans", 13))
+        , background(::profiler_gui::EFont("DejaVu Sans", 13, QFont::Bold))
+        , ruler(::profiler_gui::EFont("DejaVu Sans", 16, QFont::Bold))
+        , item(::profiler_gui::EFont("DejaVu Sans", 13, QFont::Medium))
+        , selected_item(::profiler_gui::EFont("DejaVu Sans", 13, QFont::Medium))
+    {
+
+    }
+
+    Globals::Globals()
+        : theme("default")
+        , pid(0)
+        , begin_time(0)
         , selected_thread(0U)
         , selected_block(::profiler_gui::numeric_max<decltype(selected_block)>())
         , selected_block_id(::profiler_gui::numeric_max<decltype(selected_block_id)>())
@@ -102,12 +112,9 @@ namespace profiler_gui {
         , highlight_blocks_with_same_id(true)
         , selecting_block_changes_thread(true)
         , auto_adjust_histogram_height(true)
+        , auto_adjust_chart_height(false)
         , display_only_frames_on_histogram(false)
         , bind_scene_and_tree_expand_status(true)
-        , bg_font(::profiler_gui::EFont("Helvetica", 10, QFont::Bold))
-        , chronometer_font(::profiler_gui::EFont("Helvetica", 16, QFont::Bold))
-        , items_font(::profiler_gui::EFont("Helvetica", 10, QFont::Medium))
-        , selected_item_font(::profiler_gui::EFont("Helvetica", 10, QFont::Medium))
     {
 
     }

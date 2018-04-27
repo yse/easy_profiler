@@ -1,6 +1,6 @@
 /**
 Lightweight profiler library for c++
-Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 
 Licensed under either of
     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -45,49 +45,36 @@ The Apache License, Version 2.0 (the "License");
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include <unordered_map>
-#include <vector>
-#include <string>
 #include <atomic>
+#include <functional>
+#include <iostream>
+#include <unordered_map>
+#include <string>
+#include <vector>
 
-#include <easy/profiler.h>
 #include <easy/serialized_block.h>
+#include <easy/details/arbitrary_value_public_types.h>
+#include <easy/utility.h>
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 namespace profiler {
 
-    typedef uint32_t calls_number_t;
-    typedef uint32_t block_index_t;
-
-    template <class T, bool greater_than_size_t>
-    struct hash : public ::std::hash<T> {
-        using ::std::hash<T>::operator();
-    };
-
-    template <class T>
-    struct hash<T, false> {
-        inline size_t operator () (T _value) const {
-            return static_cast<size_t>(_value);
-        }
-    };
-
-    template <class T>
-    struct passthrough_hash : public hash<T, (sizeof(T) > sizeof(size_t))> {
-        using hash<T, (sizeof(T) > sizeof(size_t))>::operator();
-    };
+    using processid_t    = uint64_t;
+    using calls_number_t = uint32_t;
+    using block_index_t  = uint32_t;
 
 #pragma pack(push, 1)
     struct BlockStatistics EASY_FINAL
     {
-        ::profiler::timestamp_t          total_duration; ///< Total duration of all block calls
-        ::profiler::timestamp_t total_children_duration; ///< Total duration of all children of all block calls
-        ::profiler::block_index_t    min_duration_block; ///< Will be used in GUI to jump to the block with min duration
-        ::profiler::block_index_t    max_duration_block; ///< Will be used in GUI to jump to the block with max duration
-        ::profiler::block_index_t          parent_block; ///< Index of block which is "parent" for "per_parent_stats" or "frame" for "per_frame_stats" or thread-id for "per_thread_stats"
-        ::profiler::calls_number_t         calls_number; ///< Block calls number
+        profiler::timestamp_t          total_duration; ///< Total duration of all block calls
+        profiler::timestamp_t total_children_duration; ///< Total duration of all children of all block calls
+        profiler::block_index_t    min_duration_block; ///< Will be used in GUI to jump to the block with min duration
+        profiler::block_index_t    max_duration_block; ///< Will be used in GUI to jump to the block with max duration
+        profiler::block_index_t          parent_block; ///< Index of block which is "parent" for "per_parent_stats" or "frame" for "per_frame_stats" or thread-id for "per_thread_stats"
+        profiler::calls_number_t         calls_number; ///< Block calls number
 
-        explicit BlockStatistics(::profiler::timestamp_t _duration, ::profiler::block_index_t _block_index, ::profiler::block_index_t _parent_index)
+        explicit BlockStatistics(profiler::timestamp_t _duration, profiler::block_index_t _block_index, profiler::block_index_t _parent_index)
             : total_duration(_duration)
             , total_children_duration(0)
             , min_duration_block(_block_index)
@@ -99,7 +86,7 @@ namespace profiler {
 
         //BlockStatistics() = default;
 
-        inline ::profiler::timestamp_t average_duration() const
+        inline profiler::timestamp_t average_duration() const
         {
             return total_duration / calls_number;
         }
@@ -113,26 +100,30 @@ namespace profiler {
 
     class BlocksTree EASY_FINAL
     {
-        typedef BlocksTree This;
+        using This = BlocksTree;
 
     public:
 
-        typedef ::std::vector<This> blocks_t;
-        typedef ::std::vector<::profiler::block_index_t> children_t;
+        using blocks_t = std::vector<This>;
+        using children_t = std::vector<profiler::block_index_t>;
 
-        children_t                           children; ///< List of children blocks. May be empty.
+        children_t children; ///< List of children blocks. May be empty.
 
         union {
-            ::profiler::SerializedBlock*   node; ///< Pointer to serilized data for regular block (id, name, begin, end etc.)
-            ::profiler::SerializedCSwitch*   cs; ///< Pointer to serilized data for context switch (thread_id, name, begin, end etc.)
+            profiler::SerializedBlock*   node; ///< Pointer to serialized data for regular block (id, name, begin, end etc.)
+            profiler::SerializedCSwitch*   cs; ///< Pointer to serialized data for context switch (thread_id, name, begin, end etc.)
+            profiler::ArbitraryValue*   value; ///< Pointer to serialized data for arbitrary value
         };
 
-        ::profiler::BlockStatistics* per_parent_stats; ///< Pointer to statistics for this block within the parent (may be nullptr for top-level blocks)
-        ::profiler::BlockStatistics*  per_frame_stats; ///< Pointer to statistics for this block within the frame (may be nullptr for top-level blocks)
-        ::profiler::BlockStatistics* per_thread_stats; ///< Pointer to statistics for this block within the bounds of all frames per current thread
+        profiler::BlockStatistics* per_parent_stats; ///< Pointer to statistics for this block within the parent (may be nullptr for top-level blocks)
+        profiler::BlockStatistics*  per_frame_stats; ///< Pointer to statistics for this block within the frame (may be nullptr for top-level blocks)
+        profiler::BlockStatistics* per_thread_stats; ///< Pointer to statistics for this block within the bounds of all frames per current thread
         uint8_t                                 depth; ///< Maximum number of sublevels (maximum children depth)
 
-        BlocksTree()
+        BlocksTree(const This&) = delete;
+        This& operator = (const This&) = delete;
+
+        BlocksTree() EASY_NOEXCEPT
             : node(nullptr)
             , per_parent_stats(nullptr)
             , per_frame_stats(nullptr)
@@ -142,32 +133,33 @@ namespace profiler {
 
         }
 
-        BlocksTree(This&& that) : BlocksTree()
+        BlocksTree(This&& that) EASY_NOEXCEPT
+            : BlocksTree()
         {
-            make_move(::std::forward<This&&>(that));
+            make_move(std::forward<This&&>(that));
         }
 
-        This& operator = (This&& that)
+        This& operator = (This&& that) EASY_NOEXCEPT
         {
-            make_move(::std::forward<This&&>(that));
+            make_move(std::forward<This&&>(that));
             return *this;
         }
 
-        ~BlocksTree()
+        ~BlocksTree() EASY_NOEXCEPT
         {
             release_stats(per_thread_stats);
             release_stats(per_parent_stats);
             release_stats(per_frame_stats);
         }
 
-        bool operator < (const This& other) const
+        bool operator < (const This& other) const EASY_NOEXCEPT
         {
-            if (!node || !other.node)
+            if (node == nullptr || other.node == nullptr)
                 return false;
             return node->begin() < other.node->begin();
         }
 
-        void shrink_to_fit()
+        void shrink_to_fit() EASY_NOEXCEPT
         {
             //for (auto& child : children)
             //    child.shrink_to_fit();
@@ -178,16 +170,13 @@ namespace profiler {
             // shrink version 2:
             //children_t new_children;
             //new_children.reserve(children.size());
-            //::std::move(children.begin(), children.end(), ::std::back_inserter(new_children));
+            //std::move(children.begin(), children.end(), std::back_inserter(new_children));
             //new_children.swap(children);
         }
 
     private:
 
-        BlocksTree(const This&) = delete;
-        This& operator = (const This&) = delete;
-
-        void make_move(This&& that)
+        void make_move(This&& that) EASY_NOEXCEPT
         {
             if (per_thread_stats != that.per_thread_stats)
                 release_stats(per_thread_stats);
@@ -198,7 +187,7 @@ namespace profiler {
             if (per_frame_stats != that.per_frame_stats)
                 release_stats(per_frame_stats);
 
-            children = ::std::move(that.children);
+            children = std::move(that.children);
             node = that.node;
             per_parent_stats = that.per_parent_stats;
             per_frame_stats = that.per_frame_stats;
@@ -217,7 +206,7 @@ namespace profiler {
 
     class BlocksTreeRoot EASY_FINAL
     {
-        typedef BlocksTreeRoot This;
+        using This = BlocksTreeRoot;
 
     public:
 
@@ -225,22 +214,26 @@ namespace profiler {
         BlocksTree::children_t             sync; ///< List of context-switch events
         BlocksTree::children_t           events; ///< List of events indexes
         std::string                 thread_name; ///< Name of this thread
-        ::profiler::timestamp_t   profiled_time; ///< Profiled time of this thread (sum of all children duration)
-        ::profiler::timestamp_t       wait_time; ///< Wait time of this thread (sum of all context switches)
-        ::profiler::thread_id_t       thread_id; ///< System Id of this thread
-        ::profiler::block_index_t frames_number; ///< Total frames number (top-level blocks)
-        ::profiler::block_index_t blocks_number; ///< Total blocks number including their children
+        profiler::timestamp_t   profiled_time; ///< Profiled time of this thread (sum of all children duration)
+        profiler::timestamp_t       wait_time; ///< Wait time of this thread (sum of all context switches)
+        profiler::thread_id_t       thread_id; ///< System Id of this thread
+        profiler::block_index_t frames_number; ///< Total frames number (top-level blocks)
+        profiler::block_index_t blocks_number; ///< Total blocks number including their children
         uint8_t                           depth; ///< Maximum stack depth (number of levels)
 
-        BlocksTreeRoot() : profiled_time(0), wait_time(0), thread_id(0), frames_number(0), blocks_number(0), depth(0)
+        BlocksTreeRoot(const This&) = delete;
+        This& operator = (const This&) = delete;
+
+        BlocksTreeRoot() EASY_NOEXCEPT
+            : profiled_time(0), wait_time(0), thread_id(0), frames_number(0), blocks_number(0), depth(0)
         {
         }
 
-        BlocksTreeRoot(This&& that)
-            : children(::std::move(that.children))
-            , sync(::std::move(that.sync))
-            , events(::std::move(that.events))
-            , thread_name(::std::move(that.thread_name))
+        BlocksTreeRoot(This&& that) EASY_NOEXCEPT
+            : children(std::move(that.children))
+            , sync(std::move(that.sync))
+            , events(std::move(that.events))
+            , thread_name(std::move(that.thread_name))
             , profiled_time(that.profiled_time)
             , wait_time(that.wait_time)
             , thread_id(that.thread_id)
@@ -250,12 +243,12 @@ namespace profiler {
         {
         }
 
-        This& operator = (This&& that)
+        This& operator = (This&& that) EASY_NOEXCEPT
         {
-            children = ::std::move(that.children);
-            sync = ::std::move(that.sync);
-            events = ::std::move(that.events);
-            thread_name = ::std::move(that.thread_name);
+            children = std::move(that.children);
+            sync = std::move(that.sync);
+            events = std::move(that.events);
+            thread_name = std::move(that.thread_name);
             profiled_time = that.profiled_time;
             wait_time = that.wait_time;
             thread_id = that.thread_id;
@@ -265,178 +258,186 @@ namespace profiler {
             return *this;
         }
 
-        inline bool got_name() const
+        inline bool got_name() const EASY_NOEXCEPT
         {
             return !thread_name.empty();
         }
 
-        inline const char* name() const
+        inline const char* name() const EASY_NOEXCEPT
         {
             return thread_name.c_str();
         }
 
-        bool operator < (const This& other) const
+        bool operator < (const This& other) const EASY_NOEXCEPT
         {
             return thread_id < other.thread_id;
         }
 
-    private:
-
-        BlocksTreeRoot(const This&) = delete;
-        This& operator = (const This&) = delete;
-
     }; // END of class BlocksTreeRoot.
 
-    typedef ::profiler::BlocksTree::blocks_t blocks_t;
-
-    typedef ::std::unordered_map<::profiler::thread_id_t, ::profiler::BlocksTreeRoot, ::profiler::passthrough_hash<::profiler::thread_id_t> > thread_blocks_tree_t;
+    using blocks_t = profiler::BlocksTree::blocks_t;
+    using thread_blocks_tree_t = std::unordered_map<profiler::thread_id_t, profiler::BlocksTreeRoot, ::estd::hash<profiler::thread_id_t> >;
+    using block_getter_fn = std::function<const profiler::BlocksTree&(profiler::block_index_t)>;
 
     //////////////////////////////////////////////////////////////////////////
 
     class PROFILER_API SerializedData EASY_FINAL
     {
-        char*  m_data;
-        size_t m_size;
+        uint64_t m_size;
+        char*    m_data;
 
     public:
 
-        SerializedData() : m_data(nullptr), m_size(0)
-        {
-        }
+        SerializedData(const SerializedData&) = delete;
+        SerializedData& operator = (const SerializedData&) = delete;
 
-        SerializedData(SerializedData&& that) : m_data(that.m_data), m_size(that.m_size)
-        {
-            that.m_data = nullptr;
-            that.m_size = 0;
-        }
+        SerializedData();
 
-        ~SerializedData()
-        {
-            clear();
-        }
+        SerializedData(SerializedData&& that);
+
+        ~SerializedData();
 
         void set(uint64_t _size);
+
         void extend(uint64_t _size);
 
-        SerializedData& operator = (SerializedData&& that)
-        {
-            set(that.m_data, that.m_size);
-            that.m_data = nullptr;
-            that.m_size = 0;
-            return *this;
-        }
+        SerializedData& operator = (SerializedData&& that);
 
-        char* operator [] (uint64_t i)
-        {
-            return m_data + i;
-        }
+        char* operator [] (uint64_t i);
 
-        const char* operator [] (uint64_t i) const
-        {
-            return m_data + i;
-        }
+        const char* operator [] (uint64_t i) const;
 
-        bool empty() const
-        {
-            return m_size == 0;
-        }
+        bool empty() const;
 
-        uint64_t size() const
-        {
-            return m_size;
-        }
+        uint64_t size() const;
 
-        char* data()
-        {
-            return m_data;
-        }
+        char* data();
 
-        const char* data() const
-        {
-            return m_data;
-        }
+        const char* data() const;
 
-        void clear()
-        {
-            set(nullptr, 0);
-        }
+        void clear();
 
-        void swap(SerializedData& other)
-        {
-            char* d = other.m_data;
-            uint64_t sz = other.m_size;
-
-            other.m_data = m_data;
-            other.m_size = m_size;
-
-            m_data = d;
-            m_size = (size_t)sz;
-        }
+        void swap(SerializedData& other);
 
     private:
 
         void set(char* _data, uint64_t _size);
 
-        SerializedData(const SerializedData&) = delete;
-        SerializedData& operator = (const SerializedData&) = delete;
-
     }; // END of class SerializedData.
 
     //////////////////////////////////////////////////////////////////////////
 
-    typedef ::std::vector<SerializedBlockDescriptor*> descriptors_list_t;
+    using descriptors_list_t = std::vector<SerializedBlockDescriptor*>;
 
 } // END of namespace profiler.
 
 extern "C" {
 
-    PROFILER_API ::profiler::block_index_t fillTreesFromFile(::std::atomic<int>& progress, const char* filename,
-                                                             ::profiler::SerializedData& serialized_blocks,
-                                                             ::profiler::SerializedData& serialized_descriptors,
-                                                             ::profiler::descriptors_list_t& descriptors,
-                                                             ::profiler::blocks_t& _blocks,
-                                                             ::profiler::thread_blocks_tree_t& threaded_trees,
+    PROFILER_API profiler::block_index_t fillTreesFromFile(std::atomic<int>& progress, const char* filename,
+                                                           profiler::SerializedData& serialized_blocks,
+                                                           profiler::SerializedData& serialized_descriptors,
+                                                           profiler::descriptors_list_t& descriptors,
+                                                           profiler::blocks_t& _blocks,
+                                                           profiler::thread_blocks_tree_t& threaded_trees,
+                                                           uint32_t& total_descriptors_number,
+                                                           uint32_t& version,
+                                                           profiler::processid_t& pid,
+                                                           bool gather_statistics,
+                                                           std::ostream& _log);
+
+    PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<int>& progress, std::istream& str,
+                                                             profiler::SerializedData& serialized_blocks,
+                                                             profiler::SerializedData& serialized_descriptors,
+                                                             profiler::descriptors_list_t& descriptors,
+                                                             profiler::blocks_t& _blocks,
+                                                             profiler::thread_blocks_tree_t& threaded_trees,
                                                              uint32_t& total_descriptors_number,
                                                              uint32_t& version,
+                                                             profiler::processid_t& pid,
                                                              bool gather_statistics,
-                                                             ::std::stringstream& _log);
+                                                             std::ostream& _log);
 
-    PROFILER_API ::profiler::block_index_t fillTreesFromStream(::std::atomic<int>& progress, ::std::stringstream& str,
-                                                               ::profiler::SerializedData& serialized_blocks,
-                                                               ::profiler::SerializedData& serialized_descriptors,
-                                                               ::profiler::descriptors_list_t& descriptors,
-                                                               ::profiler::blocks_t& _blocks,
-                                                               ::profiler::thread_blocks_tree_t& threaded_trees,
-                                                               uint32_t& total_descriptors_number,
-                                                               uint32_t& version,
-                                                               bool gather_statistics,
-                                                               ::std::stringstream& _log);
+    PROFILER_API bool readDescriptionsFromStream(std::atomic<int>& progress, std::istream& str,
+                                                 profiler::SerializedData& serialized_descriptors,
+                                                 profiler::descriptors_list_t& descriptors,
+                                                 std::ostream& _log);
 
-    PROFILER_API bool readDescriptionsFromStream(::std::atomic<int>& progress, ::std::stringstream& str,
-                                                 ::profiler::SerializedData& serialized_descriptors,
-                                                 ::profiler::descriptors_list_t& descriptors,
-                                                 ::std::stringstream& _log);
+    PROFILER_API profiler::block_index_t writeTreesToFile(std::atomic<int>& progress, const char* filename,
+                                                          const profiler::SerializedData& serialized_descriptors,
+                                                          const profiler::descriptors_list_t& descriptors,
+                                                          profiler::block_id_t descriptors_count,
+                                                          const profiler::thread_blocks_tree_t& trees,
+                                                          profiler::block_getter_fn block_getter,
+                                                          profiler::timestamp_t begin_time,
+                                                          profiler::timestamp_t end_time,
+                                                          profiler::processid_t pid,
+                                                          std::ostream& log);
+
+    PROFILER_API profiler::block_index_t writeTreesToStream(std::atomic<int>& progress, std::ostream& str,
+                                                            const profiler::SerializedData& serialized_descriptors,
+                                                            const profiler::descriptors_list_t& descriptors,
+                                                            profiler::block_id_t descriptors_count,
+                                                            const profiler::thread_blocks_tree_t& trees,
+                                                            profiler::block_getter_fn block_getter,
+                                                            profiler::timestamp_t begin_time,
+                                                            profiler::timestamp_t end_time,
+                                                            profiler::processid_t pid,
+                                                            std::ostream& log);
 }
 
-inline ::profiler::block_index_t fillTreesFromFile(const char* filename, ::profiler::SerializedData& serialized_blocks,
-                                                   ::profiler::SerializedData& serialized_descriptors,
-                                                   ::profiler::descriptors_list_t& descriptors, ::profiler::blocks_t& _blocks,
-                                                   ::profiler::thread_blocks_tree_t& threaded_trees,
-                                                   uint32_t& total_descriptors_number,
-                                                   uint32_t& version,
-                                                   bool gather_statistics,
-                                                   ::std::stringstream& _log)
+inline profiler::block_index_t fillTreesFromFile(const char* filename, profiler::SerializedData& serialized_blocks,
+                                                 profiler::SerializedData& serialized_descriptors,
+                                                 profiler::descriptors_list_t& descriptors, profiler::blocks_t& _blocks,
+                                                 profiler::thread_blocks_tree_t& threaded_trees,
+                                                 uint32_t& total_descriptors_number,
+                                                 uint32_t& version,
+                                                 profiler::processid_t& pid,
+                                                 bool gather_statistics,
+                                                 std::ostream& _log)
 {
-    ::std::atomic<int> progress = ATOMIC_VAR_INIT(0);
-    return fillTreesFromFile(progress, filename, serialized_blocks, serialized_descriptors, descriptors, _blocks, threaded_trees, total_descriptors_number, version, gather_statistics, _log);
+    std::atomic<int> progress = ATOMIC_VAR_INIT(0);
+    return fillTreesFromFile(progress, filename, serialized_blocks, serialized_descriptors, descriptors, _blocks,
+                             threaded_trees, total_descriptors_number, version, pid, gather_statistics, _log);
 }
 
-inline bool readDescriptionsFromStream(::std::stringstream& str,
-                                       ::profiler::SerializedData& serialized_descriptors,
-                                       ::profiler::descriptors_list_t& descriptors,
-                                       ::std::stringstream& _log)
+inline profiler::block_index_t writeTreesToFile(const char* filename,
+                                                const profiler::SerializedData& serialized_descriptors,
+                                                const profiler::descriptors_list_t& descriptors,
+                                                profiler::block_id_t descriptors_count,
+                                                const profiler::thread_blocks_tree_t& trees,
+                                                profiler::block_getter_fn block_getter,
+                                                profiler::timestamp_t begin_time,
+                                                profiler::timestamp_t end_time,
+                                                profiler::processid_t pid,
+                                                std::ostream& log)
 {
-    ::std::atomic<int> progress = ATOMIC_VAR_INIT(0);
+    std::atomic<int> progress = ATOMIC_VAR_INIT(0);
+    return writeTreesToFile(progress, filename, serialized_descriptors, descriptors, descriptors_count, trees,
+                            std::move(block_getter), begin_time, end_time, pid, log);
+}
+
+inline profiler::block_index_t writeTreesToStream(std::ostream& str,
+                                                  const profiler::SerializedData& serialized_descriptors,
+                                                  const profiler::descriptors_list_t& descriptors,
+                                                  profiler::block_id_t descriptors_count,
+                                                  const profiler::thread_blocks_tree_t& trees,
+                                                  profiler::block_getter_fn block_getter,
+                                                  profiler::timestamp_t begin_time,
+                                                  profiler::timestamp_t end_time,
+                                                  profiler::processid_t pid,
+                                                  std::ostream& log)
+{
+    std::atomic<int> progress = ATOMIC_VAR_INIT(0);
+    return writeTreesToStream(progress, str, serialized_descriptors, descriptors, descriptors_count, trees,
+                              std::move(block_getter), begin_time, end_time, pid, log);
+}
+
+inline bool readDescriptionsFromStream(std::istream& str,
+                                       profiler::SerializedData& serialized_descriptors,
+                                       profiler::descriptors_list_t& descriptors,
+                                       std::ostream& _log)
+{
+    std::atomic<int> progress = ATOMIC_VAR_INIT(0);
     return readDescriptionsFromStream(progress, str, serialized_descriptors, descriptors, _log);
 }
 

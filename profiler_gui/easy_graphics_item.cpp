@@ -5,14 +5,14 @@
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : The file contains implementation of EasyGraphicsItem.
+* description       : The file contains implementation of BlocksGraphicsItem.
 * ----------------- :
 * change log        : * 2016/09/15 Victor Zarubkin: Moved sources from blocks_graphics_view.cpp
 *                   :
 *                   : * 
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -72,15 +72,30 @@ enum BlockItemState : int8_t
 
 //////////////////////////////////////////////////////////////////////////
 
-const int MIN_SYNC_SPACING = 1;
-const int MIN_SYNC_SIZE = 3;
-const QRgb BORDERS_COLOR = ::profiler::colors::Grey600 & 0x00ffffff;// 0x00686868;
+EASY_CONSTEXPR int MIN_SYNC_SPACING = 1;
+EASY_CONSTEXPR int MIN_SYNC_SIZE = 3;
+EASY_CONSTEXPR int EVENT_HEIGHT = 4;
+EASY_CONSTEXPR QRgb BORDERS_COLOR = profiler::colors::Grey600 & 0x00ffffff;// 0x00686868;
 
-inline QRgb selectedItemBorderColor(::profiler::color_t _color) {
-    return ::profiler_gui::isLightColor(_color, 192) ? ::profiler::colors::Black : ::profiler::colors::RichRed;
+inline QRgb selectedItemBorderColor(profiler::color_t _color) {
+    return ::profiler_gui::isLightColor(_color, 192) ? profiler::colors::Black : profiler::colors::RichRed;
 }
 
-const QPen HIGHLIGHTER_PEN = ([]() -> QPen { QPen p(::profiler::colors::Black); p.setStyle(Qt::DotLine); p.setWidth(2); return p; })();
+EASY_FORCE_INLINE void setSelectedFont(QPainter* /*painter*/)
+{
+    // Currently font.selected_item is similar to font.item
+    // so there is no need to change font at all
+    //painter->setFont(EASY_GLOBALS.font.selected_item);
+}
+
+EASY_FORCE_INLINE void restoreItemFont(QPainter* /*painter*/)
+{
+    // Currently font.selected_item is similar to font.item
+    // so there is no need to change font at all
+    //painter->setFont(EASY_GLOBALS.font.item);
+}
+
+const QPen HIGHLIGHTER_PEN = ([]() -> QPen { QPen p(profiler::colors::Black); p.setStyle(Qt::DotLine); p.setWidth(2); return p; })();
 
 #ifdef max
 #undef max
@@ -92,7 +107,7 @@ const QPen HIGHLIGHTER_PEN = ([]() -> QPen { QPen p(::profiler::colors::Black); 
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyGraphicsItem::EasyGraphicsItem(uint8_t _index, const::profiler::BlocksTreeRoot& _root)
+BlocksGraphicsItem::BlocksGraphicsItem(uint8_t _index, const profiler::BlocksTreeRoot& _root)
     : QGraphicsItem(nullptr)
     , m_threadName(::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, _root, EASY_GLOBALS.hex_thread_id))
     , m_pRoot(&_root)
@@ -100,23 +115,23 @@ EasyGraphicsItem::EasyGraphicsItem(uint8_t _index, const::profiler::BlocksTreeRo
 {
 }
 
-EasyGraphicsItem::~EasyGraphicsItem()
+BlocksGraphicsItem::~BlocksGraphicsItem()
 {
 }
 
-void EasyGraphicsItem::validateName()
+void BlocksGraphicsItem::validateName()
 {
     m_threadName = ::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, *m_pRoot, EASY_GLOBALS.hex_thread_id);
 }
 
-const EasyGraphicsView* EasyGraphicsItem::view() const
+const BlocksGraphicsView* BlocksGraphicsItem::view() const
 {
-    return static_cast<const EasyGraphicsView*>(scene()->parent());
+    return static_cast<const BlocksGraphicsView*>(scene()->parent());
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-QRectF EasyGraphicsItem::boundingRect() const
+QRectF BlocksGraphicsItem::boundingRect() const
 {
     return m_boundingRect;
 }
@@ -140,7 +155,7 @@ struct EasyPainterInformation EASY_FINAL
     bool is_light;
     bool selectedItemsWasPainted;
 
-    explicit EasyPainterInformation(const EasyGraphicsView* sceneView)
+    explicit EasyPainterInformation(const BlocksGraphicsView* sceneView)
         : visibleSceneRect(sceneView->visibleSceneRect())
         , visibleBottom(visibleSceneRect.bottom() - 1)
         , currentScale(sceneView->scale())
@@ -161,7 +176,10 @@ struct EasyPainterInformation EASY_FINAL
 };
 
 #ifdef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
-void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSizeHalf, const uint8_t _levelsNumber, QPainter* _painter, struct EasyPainterInformation& p, ::profiler_gui::EasyBlockItem& _item, const ::profiler_gui::EasyBlock& _itemBlock, RightBounds& _rightBounds, uint8_t _level, int8_t _mode)
+void BlocksGraphicsItem::paintChildren(const float _minWidth, const int _narrowSizeHalf, const uint8_t _levelsNumber,
+                                       QPainter* _painter, struct EasyPainterInformation& p, profiler_gui::EasyBlockItem& _item,
+                                       const profiler_gui::EasyBlock& _itemBlock, RightBounds& _rightBounds, uint8_t _level,
+                                       int8_t _mode)
 {
     if (_level >= _levelsNumber || _itemBlock.tree.children.empty())
         return;
@@ -172,7 +190,7 @@ void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSiz
 
     qreal& prevRight = _rightBounds[_level];
     auto& level = m_levels[_level];
-    const short next_level = _level + 1;
+    const auto next_level = (short)(_level + 1);
 
     uint32_t neighbours = (uint32_t)_itemBlock.tree.children.size();
     uint32_t last = neighbours - 1;
@@ -195,7 +213,7 @@ void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSiz
             continue; // This item is not visible
 
         const auto& itemBlock = easyBlock(item.block);
-        const uint16_t totalHeight = itemBlock.tree.depth * ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + ::profiler_gui::GRAPHICS_ROW_SIZE;
+        const auto totalHeight = itemBlock.tree.depth * EASY_GLOBALS.size.graphics_row_full + EASY_GLOBALS.size.graphics_row_height;
         if ((top + totalHeight) < p.visibleSceneRect.top())
             continue; // This item is not visible
 
@@ -207,7 +225,8 @@ void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSiz
         {
             // This item is not visible
             if (!(EASY_GLOBALS.hide_narrow_children && w < EASY_GLOBALS.blocks_narrow_size))
-                paintChildren(_minWidth, _narrowSizeHalf, _levelsNumber, _painter, p, item, itemBlock, _rightBounds, next_level, BLOCK_ITEM_DO_PAINT_FIRST);
+                paintChildren(_minWidth, _narrowSizeHalf, _levelsNumber, _painter, p, item, itemBlock, _rightBounds,
+                              (uint8_t)next_level, BLOCK_ITEM_DO_PAINT_FIRST);
             continue;
         }
 
@@ -222,7 +241,7 @@ void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSiz
 
         const auto& itemDesc = easyDescriptor(itemBlock.tree.node->id());
 
-        int h = 0, flags = 0;
+        int h = 0;
         bool do_paint_children = false;
         if ((EASY_GLOBALS.hide_narrow_children && w < EASY_GLOBALS.blocks_narrow_size) || !itemBlock.expanded)
         {
@@ -245,7 +264,7 @@ void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSiz
                 //p.inverseColor = 0xffffffff - p.previousColor;
                 p.is_light = ::profiler_gui::isLightColor(p.previousColor);
                 p.textColor = ::profiler_gui::textColorForFlag(p.is_light);
-                p.brush.setColor(p.previousColor);
+                p.brush.setColor(QColor::fromRgba(p.previousColor));
                 _painter->setBrush(p.brush);
             }
 
@@ -304,11 +323,6 @@ void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSiz
             if (wprev < EASY_GLOBALS.blocks_narrow_size)
                 continue;
 
-            if (totalHeight > ::profiler_gui::GRAPHICS_ROW_SIZE)
-                flags = Qt::AlignCenter;
-            else if (!(item.width() < 1))
-                flags = Qt::AlignHCenter;
-
             if (dw > 1)
             {
                 w -= dw;
@@ -328,7 +342,7 @@ void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSiz
                 //p.inverseColor = 0xffffffff - p.previousColor;
                 p.is_light = ::profiler_gui::isLightColor(p.previousColor);
                 p.textColor = ::profiler_gui::textColorForFlag(p.is_light);
-                p.brush.setColor(p.previousColor);
+                p.brush.setColor(QColor::fromRgba(p.previousColor));
                 _painter->setBrush(p.brush);
             }
 
@@ -358,7 +372,7 @@ void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSiz
 
             // Draw rectangle
             //x = item.left() * currentScale - p.dx;
-            h = ::profiler_gui::GRAPHICS_ROW_SIZE;
+            h = EASY_GLOBALS.size.graphics_row_height;
             const auto dh = top + h - p.visibleBottom;
             if (dh > 0)
                 h -= dh;
@@ -395,9 +409,6 @@ void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSiz
                 continue;
             }
 
-            if (!(item.width() < 1))
-                flags = Qt::AlignHCenter;
-
             if (dw > 1)
             {
                 w -= dw;
@@ -416,11 +427,11 @@ void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSiz
         _painter->setPen(p.textColor);
 
         if (item.block == EASY_GLOBALS.selected_block)
-            _painter->setFont(EASY_GLOBALS.selected_item_font);
+            setSelectedFont(_painter);
 
         // drawing text
-        auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : itemDesc.name();
-        _painter->drawText(p.rect, flags, ::profiler_gui::toUnicode(name));
+        auto name = easyBlockName(itemBlock.tree, itemDesc);
+        _painter->drawText(p.rect, Qt::AlignCenter, ::profiler_gui::toUnicode(name));
 
         // restore previous pen color
         if (p.previousPenStyle == Qt::NoPen)
@@ -434,7 +445,7 @@ void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSiz
 
         // restore font
         if (item.block == EASY_GLOBALS.selected_block)
-            _painter->setFont(EASY_GLOBALS.items_font);
+            restoreItemFont(_painter);
         // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         if (do_paint_children)
@@ -443,7 +454,7 @@ void EasyGraphicsItem::paintChildren(const float _minWidth, const int _narrowSiz
 }
 #endif
 
-void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
+void BlocksGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
 {
     const bool gotItems = !m_levels.empty() && !m_levels.front().empty();
     const bool gotSync = !m_pRoot->sync.empty();
@@ -456,7 +467,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
     EasyPainterInformation p(view());
 
     _painter->save();
-    _painter->setFont(EASY_GLOBALS.items_font);
+    _painter->setFont(EASY_GLOBALS.font.item);
     
     // Reset indices of first visible item for each layer
     const auto levelsNumber = levels();
@@ -546,7 +557,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 #endif
         {
             auto& level = m_levels[l];
-            const short next_level = l + 1;
+            const auto next_level = (short)(l + 1);
 
             const auto top = levelY(l);
             if (top > p.visibleBottom)
@@ -592,7 +603,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 #endif
 
                 const auto& itemBlock = easyBlock(item.block);
-                const uint16_t totalHeight = itemBlock.tree.depth * ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + ::profiler_gui::GRAPHICS_ROW_SIZE;
+                const auto totalHeight = itemBlock.tree.depth * EASY_GLOBALS.size.graphics_row_full + EASY_GLOBALS.size.graphics_row_height;
                 if ((top + totalHeight) < p.visibleSceneRect.top())
                     continue; // This item is not visible
 
@@ -604,7 +615,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     // This item is not visible
 #ifdef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
                     if (!EASY_GLOBALS.hide_narrow_children || w >= EASY_GLOBALS.blocks_narrow_size)
-                        paintChildren(MIN_WIDTH, narrow_size_half, levelsNumber, _painter, p, item, itemBlock, m_rightBounds, next_level, BLOCK_ITEM_DO_PAINT_FIRST);
+                        paintChildren(MIN_WIDTH, narrow_size_half, levelsNumber, _painter, p, item, itemBlock,
+                                      m_rightBounds, (uint8_t)next_level, BLOCK_ITEM_DO_PAINT_FIRST);
 #else
                     if (!(EASY_GLOBALS.hide_narrow_children && w < EASY_GLOBALS.blocks_narrow_size) && l > 0)
                         dont_skip_children(next_level, item.children_begin, BLOCK_ITEM_DO_PAINT_FIRST);
@@ -630,7 +642,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 #endif
 
                 const auto& itemDesc = easyDescriptor(itemBlock.tree.node->id());
-                int h = 0, flags = 0;
+                int h = 0;
 
 #ifdef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
                 bool do_paint_children = false;
@@ -657,7 +669,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         //p.inverseColor = 0xffffffff - p.previousColor;
                         p.is_light = ::profiler_gui::isLightColor(p.previousColor);
                         p.textColor = ::profiler_gui::textColorForFlag(p.is_light);
-                        p.brush.setColor(p.previousColor);
+                        p.brush.setColor(QColor::fromRgba(p.previousColor));
                         _painter->setBrush(p.brush);
                     }
 
@@ -716,11 +728,6 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     if (wprev < EASY_GLOBALS.blocks_narrow_size)
                         continue;
 
-                    if (totalHeight > ::profiler_gui::GRAPHICS_ROW_SIZE)
-                        flags = Qt::AlignCenter;
-                    else if (!(item.width() < 1))
-                        flags = Qt::AlignHCenter;
-
                     if (dw > 1) {
                         w -= dw;
                         x += 2;
@@ -739,7 +746,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                         //p.inverseColor = 0xffffffff - p.previousColor;
                         p.is_light = ::profiler_gui::isLightColor(p.previousColor);
                         p.textColor = ::profiler_gui::textColorForFlag(p.is_light);
-                        p.brush.setColor(p.previousColor);
+                        p.brush.setColor(QColor::fromRgba(p.previousColor));
                         _painter->setBrush(p.brush);
                     }
 
@@ -769,7 +776,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
                     // Draw rectangle
                     //x = item.left() * currentScale - p.dx;
-                    h = ::profiler_gui::GRAPHICS_ROW_SIZE;
+                    h = EASY_GLOBALS.size.graphics_row_height;
                     const auto dh = top + h - p.visibleBottom;
                     if (dh > 0)
                         h -= dh;
@@ -813,8 +820,6 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 #ifndef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
                     dont_skip_children(next_level, item.children_begin, BLOCK_ITEM_DO_PAINT);
 #endif
-                    if (!(item.width() < 1))
-                        flags = Qt::AlignHCenter;
 
                     if (dw > 1) {
                         w -= dw;
@@ -835,11 +840,11 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 _painter->setPen(p.textColor);
 
                 if (item.block == EASY_GLOBALS.selected_block)
-                    _painter->setFont(EASY_GLOBALS.selected_item_font);
+                    setSelectedFont(_painter);
 
                 // drawing text
-                auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : itemDesc.name();
-                _painter->drawText(p.rect, flags, ::profiler_gui::toUnicode(name));
+                auto name = easyBlockName(itemBlock.tree, itemDesc);
+                _painter->drawText(p.rect, Qt::AlignCenter, ::profiler_gui::toUnicode(name));
 
                 // restore previous pen color
                 if (p.previousPenStyle == Qt::NoPen)
@@ -853,7 +858,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
                 // restore font
                 if (item.block == EASY_GLOBALS.selected_block)
-                    _painter->setFont(EASY_GLOBALS.items_font);
+                    restoreItemFont(_painter);
                 // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #ifdef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
@@ -877,8 +882,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     auto w = ::std::max(item_width * p.currentScale, 1.0);
                     decltype(top) h = (!itemBlock.expanded ||
                                        (w < EASY_GLOBALS.blocks_narrow_size && EASY_GLOBALS.hide_narrow_children))
-                                       ? (itemBlock.tree.depth * ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + ::profiler_gui::GRAPHICS_ROW_SIZE)
-                                       : ::profiler_gui::GRAPHICS_ROW_SIZE;
+                                       ? (itemBlock.tree.depth * EASY_GLOBALS.size.graphics_row_full + EASY_GLOBALS.size.graphics_row_height)
+                                       : EASY_GLOBALS.size.graphics_row_height;
 
                     auto dh = top + h - p.visibleBottom;
                     if (dh < h)
@@ -896,7 +901,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
                         if (!p.selectedItemsWasPainted)
                         {
-                            p.brush.setColor(itemDesc.color());// SELECTED_ITEM_COLOR);
+                            p.brush.setColor(QColor::fromRgba(itemDesc.color()));// SELECTED_ITEM_COLOR);
                             _painter->setBrush(p.brush);
                         }
                         else
@@ -942,11 +947,11 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                             p.textColor = ::profiler_gui::textColorForRgb(itemDesc.color());// SELECTED_ITEM_COLOR);
                             _painter->setPen(p.textColor);
 
-                            _painter->setFont(EASY_GLOBALS.selected_item_font);
-
                             // drawing text
-                            auto name = *itemBlock.tree.node->name() != 0 ? itemBlock.tree.node->name() : itemDesc.name();
+                            setSelectedFont(_painter);
+                            auto name = easyBlockName(itemBlock.tree, itemDesc);
                             _painter->drawText(p.rect, Qt::AlignCenter, ::profiler_gui::toUnicode(name));
+                            restoreItemFont(_painter);
                             // END Draw text~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                         }
                     }
@@ -964,7 +969,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         const auto sceneView = view();
         auto firstSync = ::std::lower_bound(m_pRoot->sync.begin(), m_pRoot->sync.end(), p.sceneLeft, [&sceneView](::profiler::block_index_t _index, qreal _value)
         {
-            return sceneView->time2position(blocksTree(_index).node->begin()) < _value;
+            return sceneView->time2position(easyBlocksTree(_index).node->begin()) < _value;
         });
 
         if (firstSync != m_pRoot->sync.end())
@@ -979,14 +984,15 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         //firstSync = m_pRoot->sync.begin();
 
         p.previousColor = 0;
-        qreal prevRight = -1e100, top = y() - 4, h = 3;
-        if (top + h < p.visibleBottom)
+        qreal prevRight = -1e100;
+        const qreal top = y() + 1 - EVENT_HEIGHT;
+        if (top + EVENT_HEIGHT < p.visibleBottom)
         {
             _painter->setPen(BORDERS_COLOR);
 
             for (auto it = firstSync, end = m_pRoot->sync.end(); it != end; ++it)
             {
-                const auto& item = blocksTree(*it);
+                const auto& item = easyBlocksTree(*it);
                 auto left = sceneView->time2position(item.node->begin());
 
                 if (left > p.sceneRight)
@@ -1028,7 +1034,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     _painter->setBrush(QColor::fromRgb(color));
                 }
 
-                p.rect.setRect(left, top, width, h);
+                p.rect.setRect(left, top, width, EVENT_HEIGHT);
                 _painter->drawRect(p.rect);
                 prevRight = left + width + MIN_SYNC_SPACING;
             }
@@ -1042,7 +1048,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         const auto sceneView = view();
         auto first = ::std::lower_bound(m_pRoot->events.begin(), m_pRoot->events.end(), p.offset, [&sceneView](::profiler::block_index_t _index, qreal _value)
         {
-            return sceneView->time2position(blocksTree(_index).node->begin()) < _value;
+            return sceneView->time2position(easyBlocksTree(_index).node->begin()) < _value;
         });
 
         if (first != m_pRoot->events.end())
@@ -1056,14 +1062,15 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
         }
 
         p.previousColor = 0;
-        qreal prevRight = -1e100, top = y() + boundingRect().height() - 1, h = 3;
-        if (top + h < p.visibleBottom)
+        qreal prevRight = -1e100;
+        const qreal top = y() + boundingRect().height() - 1;
+        if (top + EVENT_HEIGHT < p.visibleBottom)
         {
             _painter->setPen(BORDERS_COLOR);
 
             for (auto it = first, end = m_pRoot->events.end(); it != end; ++it)
             {
-                const auto& item = blocksTree(*it);
+                const auto& item = easyBlocksTree(*it);
                 auto left = sceneView->time2position(item.node->begin());
 
                 if (left > p.sceneRight)
@@ -1076,7 +1083,8 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                 left *= p.currentScale;
                 left -= p.dx;
                 width *= p.currentScale;
-                if (width < 2) width = 2;
+                if (width < 2)
+                    width = 2;
 
                 if (left + width <= prevRight) // This item is not visible
                     continue;
@@ -1097,7 +1105,7 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
                     _painter->setBrush(QColor::fromRgb(color));
                 }
 
-                p.rect.setRect(left, top, width, h);
+                p.rect.setRect(left, top, width, EVENT_HEIGHT);
                 _painter->drawRect(p.rect);
                 prevRight = left + width + 2;
             }
@@ -1111,26 +1119,26 @@ void EasyGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*
 
 //////////////////////////////////////////////////////////////////////////
 
-const ::profiler::BlocksTreeRoot* EasyGraphicsItem::root() const
+const ::profiler::BlocksTreeRoot* BlocksGraphicsItem::root() const
 {
     return m_pRoot;
 }
 
-const QString& EasyGraphicsItem::threadName() const
+const QString& BlocksGraphicsItem::threadName() const
 {
     return m_threadName;
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-QRect EasyGraphicsItem::getRect() const
+QRect BlocksGraphicsItem::getRect() const
 {
     return view()->mapFromScene(m_boundingRect).boundingRect();
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsItem::getBlocks(qreal _left, qreal _right, ::profiler_gui::TreeBlocks& _blocks) const
+void BlocksGraphicsItem::getBlocks(qreal _left, qreal _right, ::profiler_gui::TreeBlocks& _blocks) const
 {
     // Search for first visible top-level item
     auto& level0 = m_levels.front();
@@ -1175,7 +1183,7 @@ void EasyGraphicsItem::getBlocks(qreal _left, qreal _right, ::profiler_gui::Tree
 
 //////////////////////////////////////////////////////////////////////////
 
-const ::profiler_gui::EasyBlock* EasyGraphicsItem::intersect(const QPointF& _pos, ::profiler::block_index_t& _blockIndex) const
+const ::profiler_gui::EasyBlock* BlocksGraphicsItem::intersect(const QPointF& _pos, ::profiler::block_index_t& _blockIndex) const
 {
     if (m_levels.empty() || m_levels.front().empty())
     {
@@ -1190,14 +1198,14 @@ const ::profiler_gui::EasyBlock* EasyGraphicsItem::intersect(const QPointF& _pos
         return nullptr;
     }
 
-    static const auto OVERLAP = ::profiler_gui::THREADS_ROW_SPACING >> 1;
-    const auto bottom = top + m_levels.size() * ::profiler_gui::GRAPHICS_ROW_SIZE_FULL + OVERLAP;
+    const auto overlap = (EASY_GLOBALS.size.threads_row_spacing >> 1) + 2;
+    const auto bottom = top + m_levels.size() * EASY_GLOBALS.size.graphics_row_full + overlap;
     if (bottom < _pos.y())
     {
         return nullptr;
     }
 
-    const unsigned int levelIndex = static_cast<unsigned int>(_pos.y() - top) / ::profiler_gui::GRAPHICS_ROW_SIZE_FULL;
+    const unsigned int levelIndex = static_cast<unsigned int>(_pos.y() - top) / EASY_GLOBALS.size.graphics_row_full;
     if (levelIndex >= m_levels.size())
     {
         // The Y position is out of blocks range
@@ -1209,7 +1217,7 @@ const ::profiler_gui::EasyBlock* EasyGraphicsItem::intersect(const QPointF& _pos
             const auto& sceneView = view();
             auto first = ::std::lower_bound(m_pRoot->events.begin(), m_pRoot->events.end(), _pos.x(), [&sceneView](::profiler::block_index_t _index, qreal _value)
             {
-                return sceneView->time2position(blocksTree(_index).node->begin()) < _value;
+                return sceneView->time2position(easyBlocksTree(_index).node->begin()) < _value;
             });
 
             if (first != m_pRoot->events.end())
@@ -1348,21 +1356,20 @@ const ::profiler_gui::EasyBlock* EasyGraphicsItem::intersect(const QPointF& _pos
     return nullptr;
 }
 
-const ::profiler_gui::EasyBlock* EasyGraphicsItem::intersectEvent(const QPointF& _pos) const
+const ::profiler_gui::EasyBlock* BlocksGraphicsItem::intersectEvent(const QPointF& _pos) const
 {
     if (m_pRoot->sync.empty())
     {
         return nullptr;
     }
 
-    const auto top = y() - 6;
-
+    const auto top = y() - EVENT_HEIGHT;
     if (top > _pos.y())
     {
         return nullptr;
     }
 
-    const auto bottom = top + 5;
+    const auto bottom = top + EVENT_HEIGHT + 2;
     if (bottom < _pos.y())
     {
         return nullptr;
@@ -1371,7 +1378,7 @@ const ::profiler_gui::EasyBlock* EasyGraphicsItem::intersectEvent(const QPointF&
     const auto sceneView = view();
     auto firstSync = ::std::lower_bound(m_pRoot->sync.begin(), m_pRoot->sync.end(), _pos.x(), [&sceneView](::profiler::block_index_t _index, qreal _value)
     {
-        return sceneView->time2position(blocksTree(_index).node->begin()) < _value;
+        return sceneView->time2position(easyBlocksTree(_index).node->begin()) < _value;
     });
 
     if (firstSync == m_pRoot->sync.end())
@@ -1400,36 +1407,36 @@ const ::profiler_gui::EasyBlock* EasyGraphicsItem::intersectEvent(const QPointF&
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyGraphicsItem::setBoundingRect(qreal x, qreal y, qreal w, qreal h)
+void BlocksGraphicsItem::setBoundingRect(qreal x, qreal y, qreal w, qreal h)
 {
     m_boundingRect.setRect(x, y, w, h);
 }
 
-void EasyGraphicsItem::setBoundingRect(const QRectF& _rect)
+void BlocksGraphicsItem::setBoundingRect(const QRectF& _rect)
 {
     m_boundingRect = _rect;
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-::profiler::thread_id_t EasyGraphicsItem::threadId() const
+::profiler::thread_id_t BlocksGraphicsItem::threadId() const
 {
     return m_pRoot->thread_id;
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-uint8_t EasyGraphicsItem::levels() const
+uint8_t BlocksGraphicsItem::levels() const
 {
     return static_cast<uint8_t>(m_levels.size());
 }
 
-float EasyGraphicsItem::levelY(uint8_t _level) const
+float BlocksGraphicsItem::levelY(uint8_t _level) const
 {
-    return y() + static_cast<int>(_level) * static_cast<int>(::profiler_gui::GRAPHICS_ROW_SIZE_FULL);
+    return static_cast<float>(y() + static_cast<int>(_level) * EASY_GLOBALS.size.graphics_row_full);
 }
 
-void EasyGraphicsItem::setLevels(uint8_t _levels)
+void BlocksGraphicsItem::setLevels(uint8_t _levels)
 {
     typedef decltype(m_levelsIndexes) IndexesT;
     static const auto MAX_CHILD_INDEX = ::profiler_gui::numeric_max<IndexesT::value_type>();
@@ -1439,29 +1446,29 @@ void EasyGraphicsItem::setLevels(uint8_t _levels)
     m_rightBounds.resize(_levels, -1e100);
 }
 
-void EasyGraphicsItem::reserve(uint8_t _level, unsigned int _items)
+void BlocksGraphicsItem::reserve(uint8_t _level, unsigned int _items)
 {
     m_levels[_level].reserve(_items);
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-const EasyGraphicsItem::Children& EasyGraphicsItem::items(uint8_t _level) const
+const BlocksGraphicsItem::Children& BlocksGraphicsItem::items(uint8_t _level) const
 {
     return m_levels[_level];
 }
 
-const ::profiler_gui::EasyBlockItem& EasyGraphicsItem::getItem(uint8_t _level, unsigned int _index) const
+const ::profiler_gui::EasyBlockItem& BlocksGraphicsItem::getItem(uint8_t _level, unsigned int _index) const
 {
     return m_levels[_level][_index];
 }
 
-::profiler_gui::EasyBlockItem& EasyGraphicsItem::getItem(uint8_t _level, unsigned int _index)
+::profiler_gui::EasyBlockItem& BlocksGraphicsItem::getItem(uint8_t _level, unsigned int _index)
 {
     return m_levels[_level][_index];
 }
 
-unsigned int EasyGraphicsItem::addItem(uint8_t _level)
+unsigned int BlocksGraphicsItem::addItem(uint8_t _level)
 {
     m_levels[_level].emplace_back();
     return static_cast<unsigned int>(m_levels[_level].size() - 1);

@@ -1,6 +1,6 @@
 /**
 Lightweight profiler library for c++
-Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 
 Licensed under either of
     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -43,19 +43,19 @@ The Apache License, Version 2.0 (the "License");
 #ifndef EASY_PROFILER_NONSCOPED_BLOCK_H
 #define EASY_PROFILER_NONSCOPED_BLOCK_H
 
-#include <easy/profiler.h>
+#include <easy/details/profiler_public_types.h>
 
 class NonscopedBlock : public profiler::Block
 {
     char* m_runtimeName; ///< A copy of _runtimeName to make it safe to begin block in one function and end it in another
 
-    NonscopedBlock() = delete;
-    NonscopedBlock(const NonscopedBlock&) = delete;
-    NonscopedBlock(NonscopedBlock&&) = delete;
-    NonscopedBlock& operator = (const NonscopedBlock&) = delete;
-    NonscopedBlock& operator = (NonscopedBlock&&) = delete;
-
 public:
+
+    NonscopedBlock()                                   = delete;
+    NonscopedBlock(const NonscopedBlock&)              = delete;
+    NonscopedBlock(NonscopedBlock&&)                   = delete;
+    NonscopedBlock& operator = (const NonscopedBlock&) = delete;
+    NonscopedBlock& operator = (NonscopedBlock&&)      = delete;
 
     NonscopedBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName, bool = false);
     ~NonscopedBlock();

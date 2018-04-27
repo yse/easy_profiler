@@ -5,7 +5,7 @@
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : This file contains implementation of EasyQTimer class used to
+* description       : This file contains implementation of Timer class used to
 *                   : connect QTimer to non-QObject classes.
 * ----------------- :
 * change log        : * 2016/12/05 Victor Zarubkin: Initial commit.
@@ -13,7 +13,7 @@
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -57,28 +57,71 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyQTimer::EasyQTimer()
+Timer::Timer()
     : QObject()
 {
-    connect(&m_timer, &QTimer::timeout, [this](){ m_handler(); });
+    connect(&m_timer, &QTimer::timeout, this, &Timer::onTimeout);
 }
 
-EasyQTimer::EasyQTimer(::std::function<void()>&& _handler, bool _isSignleShot)
+Timer::Timer(std::function<void()>&& handler, bool signleShot)
     : QObject()
-    , m_handler(::std::forward<::std::function<void()>&&>(_handler))
+    , m_handler(std::forward<std::function<void()>&&>(handler))
 {
-    m_timer.setSingleShot(_isSignleShot);
-    connect(&m_timer, &QTimer::timeout, [this](){ m_handler(); });
+    m_timer.setSingleShot(signleShot);
+    connect(&m_timer, &QTimer::timeout, this, &Timer::onTimeout);
 }
 
-EasyQTimer::~EasyQTimer()
+Timer::~Timer()
 {
 
 }
 
-void EasyQTimer::setHandler(::std::function<void()>&& _handler)
+void Timer::onTimeout()
 {
-    m_handler = _handler;
+    m_handler();
+}
+
+void Timer::setHandler(std::function<void()>&& handler)
+{
+    m_handler = handler;
+}
+
+void Timer::setSignleShot(bool singleShot)
+{
+    m_timer.setSingleShot(singleShot);
+}
+
+bool Timer::isSingleShot() const
+{
+    return m_timer.isSingleShot();
+}
+
+void Timer::setInterval(int msec)
+{
+    m_timer.setInterval(msec);
+}
+
+void Timer::start(int msec)
+{
+    stop();
+    m_timer.start(msec);
+}
+
+void Timer::start()
+{
+    stop();
+    m_timer.start();
+}
+
+void Timer::stop()
+{
+    if (m_timer.isActive())
+        m_timer.stop();
+}
+
+bool Timer::isActive() const
+{
+    return m_timer.isActive();
 }
 
 //////////////////////////////////////////////////////////////////////////

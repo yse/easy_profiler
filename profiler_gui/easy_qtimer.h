@@ -5,7 +5,7 @@
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- : 
-* description       : This file contains declaration of EasyQTimer class used to
+* description       : This file contains declaration of Timer class used to
 *                   : connect QTimer to non-QObject classes.
 * ----------------- : 
 * change log        : * 2016/12/05 Victor Zarubkin: Initial commit.
@@ -13,7 +13,7 @@
 *                   : * 
 * ----------------- : 
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -61,7 +61,7 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-class EasyQTimer : public QObject
+class Timer : public QObject
 {
     Q_OBJECT
 
@@ -72,17 +72,26 @@ private:
 
 public:
 
-    EasyQTimer();
-    EasyQTimer(::std::function<void()>&& _handler, bool _isSignleShot = false);
-    virtual ~EasyQTimer();
+    explicit Timer();
+    explicit Timer(std::function<void()>&& handler, bool signleShot = false);
+    ~Timer() override;
 
-    void setHandler(::std::function<void()>&& _handler);
+    void setHandler(std::function<void()>&& handler);
 
-    inline void start(int msec) { m_timer.start(msec); }
-    inline void stop() { if (m_timer.isActive()) m_timer.stop(); }
-    inline bool isActive() const { return m_timer.isActive(); }
+    void setSignleShot(bool singleShot);
+    bool isSingleShot() const;
 
-}; // END of class EasyQTimer.
+    void setInterval(int msec);
+    void start(int msec);
+    void start();
+    void stop();
+    bool isActive() const;
+
+private slots:
+
+    void onTimeout();
+
+}; // END of class Timer.
 
 //////////////////////////////////////////////////////////////////////////
 

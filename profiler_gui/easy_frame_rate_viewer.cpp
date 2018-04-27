@@ -5,14 +5,14 @@
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : This file contains implementation of EasyFrameRateViewer widget.
+* description       : This file contains implementation of FpsViewerWidget widget.
 * ----------------- :
 * change log        : * 2017/04/02 Victor Zarubkin: Initial commit.
 *                   :
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2017  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -64,36 +64,36 @@ const int INTERVAL_WIDTH = 20;
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyFPSGraphicsItem::EasyFPSGraphicsItem() : Parent(nullptr)
+FpsGraphicsItem::FpsGraphicsItem() : Parent(nullptr)
 {
 
 }
 
-EasyFPSGraphicsItem::~EasyFPSGraphicsItem()
+FpsGraphicsItem::~FpsGraphicsItem()
 {
 
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-QRectF EasyFPSGraphicsItem::boundingRect() const
+QRectF FpsGraphicsItem::boundingRect() const
 {
     return m_boundingRect;
 }
 
-void EasyFPSGraphicsItem::setBoundingRect(const QRectF& _boundingRect)
+void FpsGraphicsItem::setBoundingRect(const QRectF& _boundingRect)
 {
     m_boundingRect = _boundingRect;
 }
 
-void EasyFPSGraphicsItem::setBoundingRect(qreal x, qreal y, qreal w, qreal h)
+void FpsGraphicsItem::setBoundingRect(qreal x, qreal y, qreal w, qreal h)
 {
     m_boundingRect.setRect(x, y, w, h);
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyFPSGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
+void FpsGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
 {
     if (m_frames.empty())
         return;
@@ -232,12 +232,12 @@ void EasyFPSGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsIt
 
 //////////////////////////////////////////////////////////////////////////
 
-void EasyFPSGraphicsItem::clear()
+void FpsGraphicsItem::clear()
 {
     m_frames.clear();
 }
 
-void EasyFPSGraphicsItem::addPoint(uint32_t _maxFrameTime, uint32_t _avgFrameTime)
+void FpsGraphicsItem::addPoint(uint32_t _maxFrameTime, uint32_t _avgFrameTime)
 {
     m_frames.emplace_back(_maxFrameTime, _avgFrameTime);
     if (static_cast<int>(m_frames.size()) > EASY_GLOBALS.max_fps_history)
@@ -246,7 +246,7 @@ void EasyFPSGraphicsItem::addPoint(uint32_t _maxFrameTime, uint32_t _avgFrameTim
 
 //////////////////////////////////////////////////////////////////////////
 
-EasyFrameRateViewer::EasyFrameRateViewer(QWidget* _parent) : Parent(_parent), m_fpsItem(nullptr)
+FpsViewerWidget::FpsViewerWidget(QWidget* _parent) : Parent(_parent), m_fpsItem(nullptr)
 {
     setCacheMode(QGraphicsView::CacheNone);
     //setViewportUpdateMode(QGraphicsView::BoundingRectViewportUpdate);
@@ -260,7 +260,7 @@ EasyFrameRateViewer::EasyFrameRateViewer(QWidget* _parent) : Parent(_parent), m_
     setScene(new QGraphicsScene(this));
     scene()->setSceneRect(0, 0, 50, 50);
 
-    m_fpsItem = new EasyFPSGraphicsItem();
+    m_fpsItem = new FpsGraphicsItem();
     m_fpsItem->setPos(0, 0);
     m_fpsItem->setBoundingRect(0, 0, 50, 50);
     scene()->addItem(m_fpsItem);
@@ -269,7 +269,7 @@ EasyFrameRateViewer::EasyFrameRateViewer(QWidget* _parent) : Parent(_parent), m_
 
     // Dirty hack for QDockWidget stupid initial size policy :(
     setFixedHeight(10); // Set very small height to enable appropriate minimum height on the application startup
-    QTimer::singleShot(100, [this]()
+    QTimer::singleShot(100, [this]
     {
         // Now set appropriate minimum height
         setMinimumHeight((QFontMetrics(scene()->font()).height() + 3) * 6);
@@ -277,24 +277,24 @@ EasyFrameRateViewer::EasyFrameRateViewer(QWidget* _parent) : Parent(_parent), m_
     });
 }
 
-EasyFrameRateViewer::~EasyFrameRateViewer()
+FpsViewerWidget::~FpsViewerWidget()
 {
 
 }
 
-void EasyFrameRateViewer::clear()
+void FpsViewerWidget::clear()
 {
     m_fpsItem->clear();
     scene()->update();
 }
 
-void EasyFrameRateViewer::addPoint(uint32_t _maxFrameTime, uint32_t _avgFrameTime)
+void FpsViewerWidget::addPoint(uint32_t _maxFrameTime, uint32_t _avgFrameTime)
 {
     m_fpsItem->addPoint(_maxFrameTime, _avgFrameTime);
     scene()->update();
 }
 
-void EasyFrameRateViewer::resizeEvent(QResizeEvent* _event)
+void FpsViewerWidget::resizeEvent(QResizeEvent* _event)
 {
     Parent::resizeEvent(_event);
 
@@ -305,26 +305,26 @@ void EasyFrameRateViewer::resizeEvent(QResizeEvent* _event)
     scene()->update();
 }
 
-void EasyFrameRateViewer::hideEvent(QHideEvent* _event)
+void FpsViewerWidget::hideEvent(QHideEvent* _event)
 {
     Parent::hideEvent(_event);
     EASY_GLOBALS.fps_enabled = isVisible();
     clear();
 }
 
-void EasyFrameRateViewer::showEvent(QShowEvent* _event)
+void FpsViewerWidget::showEvent(QShowEvent* _event)
 {
     Parent::showEvent(_event);
     EASY_GLOBALS.fps_enabled = isVisible();
     clear();
 }
 
-void EasyFrameRateViewer::contextMenuEvent(QContextMenuEvent* _event)
+void FpsViewerWidget::contextMenuEvent(QContextMenuEvent* _event)
 {
     QMenu menu;
     QAction* action = nullptr;
 
-    action = menu.addAction(QIcon(":/Delete"), "Clear");
+    action = menu.addAction(QIcon(imagePath("delete")), "Clear");
     connect(action, &QAction::triggered, [this](bool){ clear(); });
 
     action = menu.addAction("Close");
