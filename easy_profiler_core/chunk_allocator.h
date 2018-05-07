@@ -45,7 +45,7 @@ The Apache License, Version 2.0 (the "License");
 
 #include <easy/details/easy_compiler_support.h>
 #include <cstring>
-#include "outstream.h"
+#include <ostream>
 #include "alignment_helpers.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -261,7 +261,7 @@ public:
 
     \warning Data will be cleared after serialization.
     */
-    void serialize(profiler::OStream& _outputStream)
+    void serialize(std::ostream& _outputStream)
     {
         // Chunks are stored in reversed order (stack).
         // To be able to iterate them in direct order we have to invert the chunks list.

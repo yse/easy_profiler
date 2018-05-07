@@ -80,14 +80,18 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-extern const uint32_t PROFILER_SIGNATURE;
-extern const uint32_t EASY_CURRENT_VERSION;
+extern const uint32_t EASY_PROFILER_SIGNATURE;
+extern const uint32_t EASY_PROFILER_VERSION;
 
-# define EASY_VERSION_INT(v_major, v_minor, v_patch) ((static_cast<uint32_t>(v_major) << 24) | (static_cast<uint32_t>(v_minor) << 16) | static_cast<uint32_t>(v_patch))
-const uint32_t MIN_COMPATIBLE_VERSION = EASY_VERSION_INT(0, 1, 0); ///< minimal compatible version (.prof file format was not changed seriously since this version)
-const uint32_t EASY_V_100 = EASY_VERSION_INT(1, 0, 0); ///< in v1.0.0 some additional data were added into .prof file
-const uint32_t EASY_V_130 = EASY_VERSION_INT(1, 3, 0); ///< in v1.3.0 changed sizeof(thread_id_t) uint32_t -> uint64_t
-const uint32_t EASY_V_200 = EASY_VERSION_INT(2, 0, 0); ///< in v2.0.0 file header was slightly rearranged
+# define EASY_VERSION_INT(v_major, v_minor, v_patch) ((static_cast<uint32_t>(v_major) << 24) | \
+                                                      (static_cast<uint32_t>(v_minor) << 16) | \
+                                                       static_cast<uint32_t>(v_patch))
+
+EASY_CONSTEXPR uint32_t MIN_COMPATIBLE_VERSION = EASY_VERSION_INT(0, 1, 0); ///< minimal compatible version (.prof file format was not changed seriously since this version)
+EASY_CONSTEXPR uint32_t EASY_V_100 = EASY_VERSION_INT(1, 0, 0); ///< in v1.0.0 some additional data were added into .prof file
+EASY_CONSTEXPR uint32_t EASY_V_130 = EASY_VERSION_INT(1, 3, 0); ///< in v1.3.0 changed sizeof(thread_id_t) uint32_t -> uint64_t
+EASY_CONSTEXPR uint32_t EASY_V_200 = EASY_VERSION_INT(2, 0, 0); ///< in v2.0.0 file header was slightly rearranged
+
 # undef EASY_VERSION_INT
 
 const uint64_t TIME_FACTOR = 1000000000ULL;
@@ -120,7 +124,7 @@ const uint64_t TIME_FACTOR = 1000000000ULL;
 
 //////////////////////////////////////////////////////////////////////////
 
-inline bool isCompatibleVersion(uint32_t _version)
+static bool isCompatibleVersion(uint32_t _version)
 {
     return _version >= MIN_COMPATIBLE_VERSION;
 }
@@ -243,24 +247,9 @@ namespace profiler {
 
 //////////////////////////////////////////////////////////////////////////
 
-#ifdef EASY_PROFILER_HASHED_CSTR_DEFINED
-
-using StatsMap = std::unordered_map<profiler::block_id_t, profiler::BlockStatistics*, estd::hash<profiler::block_id_t> >;
-
-/** \note It is absolutely safe to use hashed_cstr (which simply stores pointer) because std::unordered_map,
-which uses it as a key, exists only inside fillTreesFromFile function. */
-using IdMap = std::unordered_map<profiler::hashed_cstr, profiler::block_id_t>;
-
-using CsStatsMap = std::unordered_map<profiler::hashed_cstr, profiler::BlockStatistics*>;
-
-#else
-
-// TODO: Create optimized version of profiler::hashed_cstr for Linux too.
 using StatsMap = std::unordered_map<profiler::block_id_t, profiler::BlockStatistics*, estd::hash<profiler::block_id_t> >;
 using IdMap = std::unordered_map<profiler::hashed_stdstring, profiler::block_id_t>;
-using CsStatsMap = std::unordered_map<profiler::hashed_stdstring, profiler::BlockStatistics*>;
-
-#endif
+using CsStatsMap = std::unordered_map<profiler::string_with_hash, profiler::BlockStatistics*>;
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -438,7 +427,7 @@ struct EasyFileHeader
     uint32_t total_descriptors_number = 0;
 };
 
-bool readHeader_v1(EasyFileHeader& _header, std::istream& inFile, std::ostream& _log)
+static bool readHeader_v1(EasyFileHeader& _header, std::istream& inFile, std::ostream& _log)
 {
     // File header before v2.0.0
 
@@ -491,7 +480,7 @@ bool readHeader_v1(EasyFileHeader& _header, std::istream& inFile, std::ostream& 
     return true;
 }
 
-bool readHeader_v2(EasyFileHeader& _header, std::istream& inFile, std::ostream& _log)
+static bool readHeader_v2(EasyFileHeader& _header, std::istream& inFile, std::ostream& _log)
 {
     // File header after v2.0.0
 
@@ -587,7 +576,7 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
 
     uint32_t signature = 0;
     inFile.read((char*)&signature, sizeof(uint32_t));
-    if (signature != PROFILER_SIGNATURE)
+    if (signature != EASY_PROFILER_SIGNATURE)
     {
         _log << "Wrong signature " << signature << "\nThis is not EasyProfiler file/stream.";
         return 0;
@@ -1064,7 +1053,7 @@ extern "C" PROFILER_API bool readDescriptionsFromStream(std::atomic<int>& progre
 
     uint32_t signature = 0;
     inFile.read((char*)&signature, sizeof(uint32_t));
-    if (signature != PROFILER_SIGNATURE)
+    if (signature != EASY_PROFILER_SIGNATURE)
     {
         _log << "Wrong file signature.\nThis is not EasyProfiler file/stream.";
         return false;
@@ -1174,19 +1163,19 @@ struct BlocksAndCSwitchesRange
 };
 
 template <typename T>
-inline void write(std::ostream& _stream, const char* _data, T _size)
+static void write(std::ostream& _stream, const char* _data, T _size)
 {
     _stream.write(_data, _size);
 }
 
 template <class T>
-inline void write(std::ostream& _stream, const T& _data)
+static void write(std::ostream& _stream, const T& _data)
 {
     _stream.write((const char*)&_data, sizeof(T));
 }
 
-BlocksRange findRange(const profiler::BlocksTree::children_t& children, profiler::timestamp_t beginTime, profiler::timestamp_t endTime,
-                      const profiler::block_getter_fn& getter)
+static BlocksRange findRange(const profiler::BlocksTree::children_t& children, profiler::timestamp_t beginTime,
+                             profiler::timestamp_t endTime, const profiler::block_getter_fn& getter)
 {
     const auto size = static_cast<profiler::block_index_t>(children.size());
     BlocksRange range(size);
@@ -1226,11 +1215,11 @@ BlocksRange findRange(const profiler::BlocksTree::children_t& children, profiler
     return range;
 }
 
-BlocksMemoryAndCount calculateUsedMemoryAndBlocksCount(const profiler::BlocksTree::children_t& children,
-                                                       const BlocksRange& range,
-                                                       const profiler::block_getter_fn& getter,
-                                                       const profiler::descriptors_list_t& descriptors,
-                                                       bool contextSwitches)
+static BlocksMemoryAndCount calculateUsedMemoryAndBlocksCount(const profiler::BlocksTree::children_t& children,
+                                                              const BlocksRange& range,
+                                                              const profiler::block_getter_fn& getter,
+                                                              const profiler::descriptors_list_t& descriptors,
+                                                              bool contextSwitches)
 {
     BlocksMemoryAndCount memoryAndCount;
 
@@ -1275,9 +1264,9 @@ BlocksMemoryAndCount calculateUsedMemoryAndBlocksCount(const profiler::BlocksTre
     return memoryAndCount;
 }
 
-void serializeBlocks(std::ostream& output, std::vector<char>& buffer, const profiler::BlocksTree::children_t& children,
-                     const BlocksRange& range, const profiler::block_getter_fn& getter,
-                     const profiler::descriptors_list_t& descriptors)
+static void serializeBlocks(std::ostream& output, std::vector<char>& buffer,
+                            const profiler::BlocksTree::children_t& children, const BlocksRange& range,
+                            const profiler::block_getter_fn& getter, const profiler::descriptors_list_t& descriptors)
 {
     for (auto i = range.begin; i < range.end; ++i)
     {
@@ -1319,8 +1308,9 @@ void serializeBlocks(std::ostream& output, std::vector<char>& buffer, const prof
     }
 }
 
-void serializeContextSwitches(std::ostream& output, std::vector<char>& buffer, const profiler::BlocksTree::children_t& children,
-                              const BlocksRange& range, const profiler::block_getter_fn& getter)
+static void serializeContextSwitches(std::ostream& output, std::vector<char>& buffer,
+                                     const profiler::BlocksTree::children_t& children, const BlocksRange& range,
+                                     const profiler::block_getter_fn& getter)
 {
     for (auto i = range.begin; i < range.end; ++i)
     {
@@ -1337,9 +1327,9 @@ void serializeContextSwitches(std::ostream& output, std::vector<char>& buffer, c
     }
 }
 
-void serializeDescriptors(std::ostream& output, std::vector<char>& buffer,
-                          const profiler::descriptors_list_t& descriptors,
-                          profiler::block_id_t descriptors_count)
+static void serializeDescriptors(std::ostream& output, std::vector<char>& buffer,
+                                 const profiler::descriptors_list_t& descriptors,
+                                 profiler::block_id_t descriptors_count)
 {
     const size_t size = std::min(descriptors.size(), static_cast<size_t>(descriptors_count));
     for (size_t i = 0; i < size; ++i)
@@ -1461,8 +1451,8 @@ extern "C" PROFILER_API profiler::block_index_t writeTreesToStream(std::atomic<i
     const uint64_t usedMemorySizeDescriptors = serialized_descriptors.size() + descriptors_count * sizeof(uint16_t);
 
     // Write data to stream
-    write(str, PROFILER_SIGNATURE);
-    write(str, EASY_CURRENT_VERSION);
+    write(str, EASY_PROFILER_SIGNATURE);
+    write(str, EASY_PROFILER_VERSION);
     write(str, pid);
 
     // write 0 because we do not need to convert time from ticks to nanoseconds (it's already converted)
