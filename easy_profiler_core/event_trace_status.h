@@ -7,19 +7,15 @@
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-namespace profiler {
-
-    enum EventTracingEnableStatus : unsigned char
-    {
-        EVENT_TRACING_LAUNCHED_SUCCESSFULLY = 0,
-        EVENT_TRACING_NOT_ENOUGH_ACCESS_RIGHTS,
-        EVENT_TRACING_WAS_LAUNCHED_BY_SOMEBODY_ELSE,
-        EVENT_TRACING_BAD_PROPERTIES_SIZE,
-        EVENT_TRACING_OPEN_TRACE_ERROR,
-        EVENT_TRACING_MISTERIOUS_ERROR,
-    };
-
-} // END of namespace profiler.
+enum class EventTracingEnableStatus : unsigned char
+{
+    LaunchedSuccessfully = 0,
+    PermissionDenied,
+    AlreadyLaunched,
+    BadPropertiesSize,
+    OpenTraceFailed,
+    UnknownError,
+};
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////

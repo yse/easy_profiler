@@ -66,6 +66,7 @@
 #endif
 
 #include "block_descriptor.h"
+#include "current_time.h"
 #include "current_thread.h"
 
 #ifdef __APPLE__
@@ -1054,7 +1055,7 @@ uint32_t ProfileManager::dumpBlocksToStream(std::ostream& _outputStream, bool _l
 
     // Write CPU frequency to let GUI calculate real time value from CPU clocks
 #if defined(EASY_CHRONO_CLOCK) || defined(_WIN32)
-    _outputStream.write(CPU_FREQUENCY);
+    write(_outputStream, m_cpuFrequency);
 #else
     EASY_LOGMSG("Calculating CPU frequency\n");
     const int64_t cpu_frequency = calculate_cpu_frequency();

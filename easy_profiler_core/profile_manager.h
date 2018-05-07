@@ -54,7 +54,6 @@ The Apache License, Version 2.0 (the "License");
 #include "spin_lock.h"
 #include "hashed_cstr.h"
 #include "thread_storage.h"
-#include "current_time.h"
 
 #include <atomic>
 #include <map>
