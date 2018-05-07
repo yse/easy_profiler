@@ -19,7 +19,7 @@
 *                   :
 *                   : * 2016/06/30 Victor Zarubkin: Replaced doubles with floats (in ProfBlockItem) for less memory consumption.
 *                   :
-*                   : * 2016/09/15 Victor Zarubkin: Moved sources of BlocksGraphicsItem and GraphicsRulerItem to separate files.
+*                   : * 2016/09/15 Victor Zarubkin: Moved sources of GraphicsBlockItem and GraphicsRulerItem to separate files.
 *                   :
 *                   : * 
 * ----------------- :
@@ -79,9 +79,9 @@
 #include <QGraphicsDropShadowEffect>
 #include <QSettings>
 #include "blocks_graphics_view.h"
-#include "easy_graphics_item.h"
-#include "easy_chronometer_item.h"
-#include "easy_graphics_scrollbar.h"
+#include "graphics_block_item.h"
+#include "graphics_ruler_item.h"
+#include "graphics_scrollbar.h"
 #include "arbitrary_value_tooltip.h"
 #include "globals.h"
 
@@ -349,15 +349,16 @@ qreal BlocksGraphicsView::chronoTimeAux() const
 
 //////////////////////////////////////////////////////////////////////////
 
-GraphicsRulerItem* BlocksGraphicsView::createChronometer(bool _main)
+GraphicsRulerItem* BlocksGraphicsView::createRuler(bool _main)
 {
-    auto chronoItem = new GraphicsRulerItem(_main);
-    chronoItem->setColor(_main ? ::profiler_gui::CHRONOMETER_COLOR : ::profiler_gui::CHRONOMETER_COLOR2);
-    chronoItem->setBoundingRect(sceneRect());
-    chronoItem->hide();
-    scene()->addItem(chronoItem);
+    auto ruler = new GraphicsRulerItem(_main);
 
-    return chronoItem;
+    ruler->setColor(_main ? ::profiler_gui::CHRONOMETER_COLOR : ::profiler_gui::CHRONOMETER_COLOR2);
+    ruler->setBoundingRect(sceneRect());
+    ruler->hide();
+    scene()->addItem(ruler);
+
+    return ruler;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -517,7 +518,7 @@ void BlocksGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocks
     // Filling scene with items
     m_items.reserve(_blocksTree.size());
     qreal y = EASY_GLOBALS.size.timeline_height;
-    const BlocksGraphicsItem *longestItem = nullptr, *mainThreadItem = nullptr;
+    const GraphicsBlockItem *longestItem = nullptr, *mainThreadItem = nullptr;
     for (const ::profiler::BlocksTreeRoot& t : sorted_roots)
     {
         if (m_items.size() == 0xff)
@@ -534,7 +535,7 @@ void BlocksGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocks
         else if (!t.sync.empty())
             x = time2position(easyBlocksTree(t.sync.front()).node->begin());
 
-        auto item = new BlocksGraphicsItem(static_cast<uint8_t>(m_items.size()), t);
+        auto item = new GraphicsBlockItem(static_cast<uint8_t>(m_items.size()), t);
         if (t.depth)
             item->setLevels(t.depth);
         item->setPos(0, y);
@@ -580,8 +581,8 @@ void BlocksGraphicsView::setTree(const ::profiler::thread_blocks_tree_t& _blocks
 
     // Create new chronometer item (previous item was destroyed by scene on scene()->clear()).
     // It will be shown on mouse right button click.
-    m_rulerItem = createChronometer(false);
-    m_selectionItem = createChronometer(true);
+    m_rulerItem = createRuler(false);
+    m_selectionItem = createRuler(true);
 
     bgItem->setBoundingRect(0, 0, m_sceneWidth, y);
     auto indicator = new TimelineIndicatorItem();
@@ -634,7 +635,7 @@ bool BlocksGraphicsView::getSelectionRegionForSaving(profiler::timestamp_t& _beg
     return true;
 }
 
-qreal BlocksGraphicsView::setTree(BlocksGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, uint32_t& _maxDepthChild, qreal _y, short _level)
+qreal BlocksGraphicsView::setTree(GraphicsBlockItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, uint32_t& _maxDepthChild, qreal _y, short _level)
 {
     if (_children.empty())
     {
@@ -747,7 +748,7 @@ qreal BlocksGraphicsView::setTree(BlocksGraphicsItem* _item, const ::profiler::B
 
 //////////////////////////////////////////////////////////////////////////
 
-void BlocksGraphicsView::setScrollbar(BlocksGraphicsScrollbar* _scrollbar)
+void BlocksGraphicsView::setScrollbar(GraphicsScrollbar* _scrollbar)
 {
     disconnect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::chartSliderChanged, this, &This::onGraphicsScrollbarValueChange);
     disconnect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::chartWheeled, this, &This::onGraphicsScrollbarWheel);
@@ -885,7 +886,7 @@ void BlocksGraphicsView::onGraphicsScrollbarWheel(qreal _scenePos, int _wheelDel
     onWheel(_scenePos, _wheelDelta);
 }
 
-void BlocksGraphicsView::scrollTo(const BlocksGraphicsItem* _item)
+void BlocksGraphicsView::scrollTo(const GraphicsBlockItem* _item)
 {
     m_bUpdatingRect = true;
     auto vbar = verticalScrollBar();
@@ -2225,7 +2226,7 @@ void BlocksGraphicsView::onRefreshRequired()
 DiagramWidget::DiagramWidget(QWidget* _parent)
     : QWidget(_parent)
     , m_splitter(new QSplitter(Qt::Vertical, this))
-    , m_scrollbar(new BlocksGraphicsScrollbar(px(85) + 2 + (EASY_GLOBALS.size.font_height << 1), this))
+    , m_scrollbar(new GraphicsScrollbar(px(85) + 2 + (EASY_GLOBALS.size.font_height << 1), this))
     , m_view(new BlocksGraphicsView(this))
     , m_threadNamesWidget(new ThreadNamesWidget(m_view, m_scrollbar->height(), this))
 {
@@ -2545,7 +2546,7 @@ void ThreadNamesWidget::onIdleTimeout()
 
     const auto overlap = EASY_GLOBALS.size.threads_row_spacing >> 1;
 
-    BlocksGraphicsItem* intersectingItem = nullptr;
+    GraphicsBlockItem* intersectingItem = nullptr;
     for (auto item : items)
     {
         auto br = item->boundingRect();

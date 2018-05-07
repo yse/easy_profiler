@@ -1,16 +1,12 @@
 /************************************************************************
-* file name         : easy_graphics_item.h
+* file name         : graphics_block_item.h
 * ----------------- :
 * creation time     : 2016/09/15
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : The file contains declaration of BlocksGraphicsItem - an item
+* description       : The file contains declaration of GraphicsBlockItem - an item
 *                   : used to draw profiler blocks on graphics scene.
-* ----------------- :
-* change log        : * 2016/09/15 Victor Zarubkin: moved sources from blocks_graphics_view.h/.cpp
-*                   :
-*                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
 *                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
@@ -53,8 +49,8 @@
 *                   : limitations under the License.
 ************************************************************************/
 
-#ifndef EASY_GRAPHICS_ITEM_H
-#define EASY_GRAPHICS_ITEM_H
+#ifndef GRAPHICS_BLOCK_ITEM_H
+#define GRAPHICS_BLOCK_ITEM_H
 
 #include <stdlib.h>
 
@@ -71,12 +67,12 @@
 
 class BlocksGraphicsView;
 
-class BlocksGraphicsItem : public QGraphicsItem
+class GraphicsBlockItem : public QGraphicsItem
 {
-    typedef ::profiler_gui::EasyItems       Children;
-    typedef ::std::vector<uint32_t>      DrawIndexes;
-    typedef ::std::vector<qreal>         RightBounds;
-    typedef ::std::vector<Children>        Sublevels;
+    using Children    = profiler_gui::EasyItems;
+    using DrawIndexes = std::vector<uint32_t>;
+    using RightBounds = std::vector<qreal>;
+    using Sublevels   = std::vector<Children>;
 
     DrawIndexes               m_levelsIndexes; ///< Indexes of first item on each level from which we must start painting
     RightBounds                 m_rightBounds; ///< 
@@ -89,8 +85,8 @@ class BlocksGraphicsItem : public QGraphicsItem
 
 public:
 
-    explicit BlocksGraphicsItem(uint8_t _index, const::profiler::BlocksTreeRoot& _root);
-    virtual ~BlocksGraphicsItem();
+    explicit GraphicsBlockItem(uint8_t _index, const::profiler::BlocksTreeRoot& _root);
+    virtual ~GraphicsBlockItem();
 
     // Public virtual methods
 
@@ -186,9 +182,9 @@ public:
         return m_index;
     }
 
-}; // END of class BlocksGraphicsItem.
+}; // END of class GraphicsBlockItem.
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-#endif // EASY_GRAPHICS_ITEM_H
+#endif // GRAPHICS_BLOCK_ITEM_H

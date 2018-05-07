@@ -5,7 +5,7 @@
 
 #include <QGraphicsItem>
 #include <atomic>
-#include "easy_qtimer.h"
+#include "timer.h"
 #include "thread_pool_task.h"
 
 class GraphicsImageItem : public QGraphicsItem

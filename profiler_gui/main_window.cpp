@@ -101,7 +101,7 @@
 #include "blocks_tree_widget.h"
 #include "blocks_graphics_view.h"
 #include "descriptors_tree_widget.h"
-#include "easy_frame_rate_viewer.h"
+#include "fps_widget.h"
 #include "globals.h"
 
 #include <easy/easy_net.h>
@@ -284,7 +284,7 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
 
     m_fpsViewer = new DockWidget("FPS Monitor", this);
     m_fpsViewer->setObjectName("ProfilerGUI_FPS");
-    m_fpsViewer->setWidget(new FpsViewerWidget(this));
+    m_fpsViewer->setWidget(new FpsWidget(this));
     m_fpsViewer->setAllowedAreas(Qt::TopDockWidgetArea | Qt::BottomDockWidgetArea);
 
     addDockWidget(Qt::TopDockWidgetArea, m_graphicsView);
@@ -1687,7 +1687,7 @@ void MainWindow::checkFrameTimeReady()
         uint32_t maxTime = 0, avgTime = 0;
         if (m_listener.frameTime(maxTime, avgTime))
         {
-            static_cast<FpsViewerWidget*>(m_fpsViewer->widget())->addPoint(maxTime, avgTime);
+            static_cast<FpsWidget*>(m_fpsViewer->widget())->addPoint(maxTime, avgTime);
         }
         else if (m_fpsRequestTimer.isActive())
         {
@@ -2339,7 +2339,7 @@ void MainWindow::onConnectClicked(bool)
     m_connectAction->setText(tr("Disconnect"));
 
     if (m_fpsViewer->isVisible())
-        static_cast<FpsViewerWidget*>(m_fpsViewer->widget())->clear();
+        static_cast<FpsWidget*>(m_fpsViewer->widget())->clear();
 
     if (!m_fpsRequestTimer.isActive())
         m_fpsRequestTimer.start(EASY_GLOBALS.fps_timer_interval);

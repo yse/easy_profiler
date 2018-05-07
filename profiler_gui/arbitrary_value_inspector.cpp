@@ -78,7 +78,7 @@
 #include <cmath>
 #include "arbitrary_value_inspector.h"
 #include "globals.h"
-#include "easy_complexity_calculator.h"
+#include "complexity_calculator.h"
 
 //////////////////////////////////////////////////////////////////////////
 

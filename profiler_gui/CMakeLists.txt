@@ -25,25 +25,25 @@ if (Qt5Widgets_FOUND)
         common_types.h
         descriptors_tree_widget.h
         descriptors_tree_widget.cpp
-        easy_chronometer_item.h
-        easy_chronometer_item.cpp
-        easy_frame_rate_viewer.h
-        easy_frame_rate_viewer.cpp
-        easy_graphics_item.h
-        easy_graphics_item.cpp
-        easy_graphics_scrollbar.h
-        easy_graphics_scrollbar.cpp
-        easy_qtimer.h
-        easy_qtimer.cpp
+        fps_widget.h
+        fps_widget.cpp
         globals.h
         globals.cpp
         globals_qobjects.cpp
+        graphics_block_item.h
+        graphics_block_item.cpp
         graphics_image_item.h
         graphics_image_item.cpp
+        graphics_ruler_item.h
+        graphics_ruler_item.cpp
+        graphics_scrollbar.h
+        graphics_scrollbar.cpp
         graphics_slider_area.h
         graphics_slider_area.cpp
         main_window.h
         main_window.cpp
+        timer.h
+        timer.cpp
         thread_pool.h
         thread_pool.cpp
         thread_pool_task.h

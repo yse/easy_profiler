@@ -1,17 +1,17 @@
 /************************************************************************
-* file name         : easy_qtimer.h
-* ----------------- :
+* file name         : timer.h
+* ----------------- : 
 * creation time     : 2016/12/05
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
-* ----------------- :
-* description       : This file contains implementation of Timer class used to
+* ----------------- : 
+* description       : This file contains declaration of Timer class used to
 *                   : connect QTimer to non-QObject classes.
-* ----------------- :
+* ----------------- : 
 * change log        : * 2016/12/05 Victor Zarubkin: Initial commit.
 *                   :
-*                   : *
-* ----------------- :
+*                   : * 
+* ----------------- : 
 * license           : Lightweight profiler library for c++
 *                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
@@ -24,21 +24,21 @@
 *                   :
 *                   : Permission is hereby granted, free of charge, to any person obtaining a copy
 *                   : of this software and associated documentation files (the "Software"), to deal
-*                   : in the Software without restriction, including without limitation the rights
-*                   : to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-*                   : of the Software, and to permit persons to whom the Software is furnished
+*                   : in the Software without restriction, including without limitation the rights 
+*                   : to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
+*                   : of the Software, and to permit persons to whom the Software is furnished 
 *                   : to do so, subject to the following conditions:
-*                   :
-*                   : The above copyright notice and this permission notice shall be included in all
+*                   : 
+*                   : The above copyright notice and this permission notice shall be included in all 
 *                   : copies or substantial portions of the Software.
-*                   :
-*                   : THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-*                   : INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-*                   : PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-*                   : LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-*                   : TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+*                   : 
+*                   : THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+*                   : INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR 
+*                   : PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE 
+*                   : LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+*                   : TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE 
 *                   : USE OR OTHER DEALINGS IN THE SOFTWARE.
-*                   :
+*                   : 
 *                   : The Apache License, Version 2.0 (the "License")
 *                   :
 *                   : You may not use this file except in compliance with the License.
@@ -53,76 +53,46 @@
 *                   : limitations under the License.
 ************************************************************************/
 
-#include "easy_qtimer.h"
+#ifndef TIMER_H
+#define TIMER_H
+
+#include <functional>
+#include <QTimer>
 
 //////////////////////////////////////////////////////////////////////////
 
-Timer::Timer()
-    : QObject()
+class Timer : public QObject
 {
-    connect(&m_timer, &QTimer::timeout, this, &Timer::onTimeout);
-}
+    Q_OBJECT
 
-Timer::Timer(std::function<void()>&& handler, bool signleShot)
-    : QObject()
-    , m_handler(std::forward<std::function<void()>&&>(handler))
-{
-    m_timer.setSingleShot(signleShot);
-    connect(&m_timer, &QTimer::timeout, this, &Timer::onTimeout);
-}
+private:
 
-Timer::~Timer()
-{
+    QTimer                    m_timer;
+    ::std::function<void()> m_handler;
 
-}
+public:
 
-void Timer::onTimeout()
-{
-    m_handler();
-}
+    explicit Timer();
+    explicit Timer(std::function<void()>&& handler, bool signleShot = false);
+    ~Timer() override;
 
-void Timer::setHandler(std::function<void()>&& handler)
-{
-    m_handler = handler;
-}
+    void setHandler(std::function<void()>&& handler);
 
-void Timer::setSignleShot(bool singleShot)
-{
-    m_timer.setSingleShot(singleShot);
-}
+    void setSignleShot(bool singleShot);
+    bool isSingleShot() const;
 
-bool Timer::isSingleShot() const
-{
-    return m_timer.isSingleShot();
-}
+    void setInterval(int msec);
+    void start(int msec);
+    void start();
+    void stop();
+    bool isActive() const;
 
-void Timer::setInterval(int msec)
-{
-    m_timer.setInterval(msec);
-}
+private slots:
 
-void Timer::start(int msec)
-{
-    stop();
-    m_timer.start(msec);
-}
+    void onTimeout();
 
-void Timer::start()
-{
-    stop();
-    m_timer.start();
-}
-
-void Timer::stop()
-{
-    if (m_timer.isActive())
-        m_timer.stop();
-}
-
-bool Timer::isActive() const
-{
-    return m_timer.isActive();
-}
+}; // END of class Timer.
 
 //////////////////////////////////////////////////////////////////////////
 
+#endif // TIMER_H

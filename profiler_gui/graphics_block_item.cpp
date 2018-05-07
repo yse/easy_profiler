@@ -1,15 +1,11 @@
 /************************************************************************
-* file name         : easy_graphics_item.cpp
+* file name         : graphics_block_item.cpp
 * ----------------- :
 * creation time     : 2016/09/15
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : The file contains implementation of BlocksGraphicsItem.
-* ----------------- :
-* change log        : * 2016/09/15 Victor Zarubkin: Moved sources from blocks_graphics_view.cpp
-*                   :
-*                   : * 
+* description       : The file contains implementation of GraphicsBlockItem.
 * ----------------- :
 * license           : Lightweight profiler library for c++
 *                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
@@ -55,7 +51,7 @@
 #include <QGraphicsScene>
 #include <QDebug>
 #include <algorithm>
-#include "easy_graphics_item.h"
+#include "graphics_block_item.h"
 #include "blocks_graphics_view.h"
 #include "globals.h"
 
@@ -107,7 +103,7 @@ const QPen HIGHLIGHTER_PEN = ([]() -> QPen { QPen p(profiler::colors::Black); p.
 
 //////////////////////////////////////////////////////////////////////////
 
-BlocksGraphicsItem::BlocksGraphicsItem(uint8_t _index, const profiler::BlocksTreeRoot& _root)
+GraphicsBlockItem::GraphicsBlockItem(uint8_t _index, const profiler::BlocksTreeRoot& _root)
     : QGraphicsItem(nullptr)
     , m_threadName(::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, _root, EASY_GLOBALS.hex_thread_id))
     , m_pRoot(&_root)
@@ -115,23 +111,23 @@ BlocksGraphicsItem::BlocksGraphicsItem(uint8_t _index, const profiler::BlocksTre
 {
 }
 
-BlocksGraphicsItem::~BlocksGraphicsItem()
+GraphicsBlockItem::~GraphicsBlockItem()
 {
 }
 
-void BlocksGraphicsItem::validateName()
+void GraphicsBlockItem::validateName()
 {
     m_threadName = ::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, *m_pRoot, EASY_GLOBALS.hex_thread_id);
 }
 
-const BlocksGraphicsView* BlocksGraphicsItem::view() const
+const BlocksGraphicsView* GraphicsBlockItem::view() const
 {
     return static_cast<const BlocksGraphicsView*>(scene()->parent());
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-QRectF BlocksGraphicsItem::boundingRect() const
+QRectF GraphicsBlockItem::boundingRect() const
 {
     return m_boundingRect;
 }
@@ -176,7 +172,7 @@ struct EasyPainterInformation EASY_FINAL
 };
 
 #ifdef EASY_GRAPHICS_ITEM_RECURSIVE_PAINT
-void BlocksGraphicsItem::paintChildren(const float _minWidth, const int _narrowSizeHalf, const uint8_t _levelsNumber,
+void GraphicsBlockItem::paintChildren(const float _minWidth, const int _narrowSizeHalf, const uint8_t _levelsNumber,
                                        QPainter* _painter, struct EasyPainterInformation& p, profiler_gui::EasyBlockItem& _item,
                                        const profiler_gui::EasyBlock& _itemBlock, RightBounds& _rightBounds, uint8_t _level,
                                        int8_t _mode)
@@ -454,7 +450,7 @@ void BlocksGraphicsItem::paintChildren(const float _minWidth, const int _narrowS
 }
 #endif
 
-void BlocksGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
+void GraphicsBlockItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
 {
     const bool gotItems = !m_levels.empty() && !m_levels.front().empty();
     const bool gotSync = !m_pRoot->sync.empty();
@@ -1119,26 +1115,26 @@ void BlocksGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsIte
 
 //////////////////////////////////////////////////////////////////////////
 
-const ::profiler::BlocksTreeRoot* BlocksGraphicsItem::root() const
+const ::profiler::BlocksTreeRoot* GraphicsBlockItem::root() const
 {
     return m_pRoot;
 }
 
-const QString& BlocksGraphicsItem::threadName() const
+const QString& GraphicsBlockItem::threadName() const
 {
     return m_threadName;
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-QRect BlocksGraphicsItem::getRect() const
+QRect GraphicsBlockItem::getRect() const
 {
     return view()->mapFromScene(m_boundingRect).boundingRect();
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void BlocksGraphicsItem::getBlocks(qreal _left, qreal _right, ::profiler_gui::TreeBlocks& _blocks) const
+void GraphicsBlockItem::getBlocks(qreal _left, qreal _right, ::profiler_gui::TreeBlocks& _blocks) const
 {
     // Search for first visible top-level item
     auto& level0 = m_levels.front();
@@ -1183,7 +1179,7 @@ void BlocksGraphicsItem::getBlocks(qreal _left, qreal _right, ::profiler_gui::Tr
 
 //////////////////////////////////////////////////////////////////////////
 
-const ::profiler_gui::EasyBlock* BlocksGraphicsItem::intersect(const QPointF& _pos, ::profiler::block_index_t& _blockIndex) const
+const ::profiler_gui::EasyBlock* GraphicsBlockItem::intersect(const QPointF& _pos, ::profiler::block_index_t& _blockIndex) const
 {
     if (m_levels.empty() || m_levels.front().empty())
     {
@@ -1356,7 +1352,7 @@ const ::profiler_gui::EasyBlock* BlocksGraphicsItem::intersect(const QPointF& _p
     return nullptr;
 }
 
-const ::profiler_gui::EasyBlock* BlocksGraphicsItem::intersectEvent(const QPointF& _pos) const
+const ::profiler_gui::EasyBlock* GraphicsBlockItem::intersectEvent(const QPointF& _pos) const
 {
     if (m_pRoot->sync.empty())
     {
@@ -1407,36 +1403,36 @@ const ::profiler_gui::EasyBlock* BlocksGraphicsItem::intersectEvent(const QPoint
 
 //////////////////////////////////////////////////////////////////////////
 
-void BlocksGraphicsItem::setBoundingRect(qreal x, qreal y, qreal w, qreal h)
+void GraphicsBlockItem::setBoundingRect(qreal x, qreal y, qreal w, qreal h)
 {
     m_boundingRect.setRect(x, y, w, h);
 }
 
-void BlocksGraphicsItem::setBoundingRect(const QRectF& _rect)
+void GraphicsBlockItem::setBoundingRect(const QRectF& _rect)
 {
     m_boundingRect = _rect;
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-::profiler::thread_id_t BlocksGraphicsItem::threadId() const
+::profiler::thread_id_t GraphicsBlockItem::threadId() const
 {
     return m_pRoot->thread_id;
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-uint8_t BlocksGraphicsItem::levels() const
+uint8_t GraphicsBlockItem::levels() const
 {
     return static_cast<uint8_t>(m_levels.size());
 }
 
-float BlocksGraphicsItem::levelY(uint8_t _level) const
+float GraphicsBlockItem::levelY(uint8_t _level) const
 {
     return static_cast<float>(y() + static_cast<int>(_level) * EASY_GLOBALS.size.graphics_row_full);
 }
 
-void BlocksGraphicsItem::setLevels(uint8_t _levels)
+void GraphicsBlockItem::setLevels(uint8_t _levels)
 {
     typedef decltype(m_levelsIndexes) IndexesT;
     static const auto MAX_CHILD_INDEX = ::profiler_gui::numeric_max<IndexesT::value_type>();
@@ -1446,29 +1442,29 @@ void BlocksGraphicsItem::setLevels(uint8_t _levels)
     m_rightBounds.resize(_levels, -1e100);
 }
 
-void BlocksGraphicsItem::reserve(uint8_t _level, unsigned int _items)
+void GraphicsBlockItem::reserve(uint8_t _level, unsigned int _items)
 {
     m_levels[_level].reserve(_items);
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-const BlocksGraphicsItem::Children& BlocksGraphicsItem::items(uint8_t _level) const
+const GraphicsBlockItem::Children& GraphicsBlockItem::items(uint8_t _level) const
 {
     return m_levels[_level];
 }
 
-const ::profiler_gui::EasyBlockItem& BlocksGraphicsItem::getItem(uint8_t _level, unsigned int _index) const
+const ::profiler_gui::EasyBlockItem& GraphicsBlockItem::getItem(uint8_t _level, unsigned int _index) const
 {
     return m_levels[_level][_index];
 }
 
-::profiler_gui::EasyBlockItem& BlocksGraphicsItem::getItem(uint8_t _level, unsigned int _index)
+::profiler_gui::EasyBlockItem& GraphicsBlockItem::getItem(uint8_t _level, unsigned int _index)
 {
     return m_levels[_level][_index];
 }
 
-unsigned int BlocksGraphicsItem::addItem(uint8_t _level)
+unsigned int GraphicsBlockItem::addItem(uint8_t _level)
 {
     m_levels[_level].emplace_back();
     return static_cast<unsigned int>(m_levels[_level].size() - 1);

@@ -1,16 +1,17 @@
 /************************************************************************
-* file name         : easy_frame_rate_viewer.cpp
+* file name         : graphics_ruler_item.h
 * ----------------- :
-* creation time     : 2017/04/02
+* creation time     : 2016/09/15
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : This file contains declaration of FpsViewerWidget widget.
+* description       : The file contains declaration of GraphicsRulerItem - an item
+*                   : used to display selected interval on graphics scene.
 * ----------------- :
-* change log        : * 2017/04/02 Victor Zarubkin: Initial commit.
+* change log        : * 2016/09/15 Victor Zarubkin: moved sources from blocks_graphics_view.h
 *                   :
 *                   : *
-* ----------------- : 
+* ----------------- :
 * license           : Lightweight profiler library for c++
 *                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
 *                   :
@@ -52,76 +53,119 @@
 *                   : limitations under the License.
 ************************************************************************/
 
-#ifndef EASY__FRAME_RATE_VIEWER__H
-#define EASY__FRAME_RATE_VIEWER__H
+#ifndef GRAPHICS_RULER_ITEM_H
+#define GRAPHICS_RULER_ITEM_H
 
-#include <QGraphicsView>
 #include <QGraphicsItem>
-#include <QTimer>
-#include <vector>
-#include <deque>
-#include <utility>
-#include <stdint.h>
+#include <QRectF>
+#include <QPolygonF>
+#include <QColor>
 
 //////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
 
-class FpsGraphicsItem : public QGraphicsItem
+class QWidget;
+class QPainter;
+class QStyleOptionGraphicsItem;
+class BlocksGraphicsView;
+
+class GraphicsRulerItem : public QGraphicsItem
 {
-    using Parent = QGraphicsItem;
-    using This = FpsGraphicsItem;
-    using FrameTimes = std::deque<std::pair<uint32_t, uint32_t> >;
+    typedef QGraphicsItem Parent;
+    typedef GraphicsRulerItem This;
 
-    std::vector<QPointF> m_points1, m_points2;
-    FrameTimes                       m_frames;
-    QRectF                     m_boundingRect;
+    QPolygonF  m_indicator; ///< Indicator displayed when this chrono item is out of screen (displaying only for main item)
+    QRectF  m_boundingRect; ///< boundingRect (see QGraphicsItem)
+    QColor         m_color; ///< Color of the item
+    qreal  m_left, m_right; ///< Left and right bounds of the selection zone
+    bool           m_bMain; ///< Is this chronometer main (true, by default)
+    bool        m_bReverse; ///< 
+    bool m_bHoverIndicator; ///< Mouse hover above indicator
+    bool  m_bHoverLeftBorder;
+    bool m_bHoverRightBorder;
 
 public:
 
-    explicit FpsGraphicsItem();
-    ~FpsGraphicsItem() override;
+    explicit GraphicsRulerItem(bool _main = true);
+    virtual ~GraphicsRulerItem();
+
+    // Public virtual methods
 
     QRectF boundingRect() const override;
-    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget) override;
+    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
 
-    void setBoundingRect(const QRectF& _boundingRect);
+public:
+
+    // Public non-virtual methods
+
+    void hide();
+
+    void setColor(const QColor& _color);
+
     void setBoundingRect(qreal x, qreal y, qreal w, qreal h);
+    void setBoundingRect(const QRectF& _rect);
 
-    void clear();
-    void addPoint(uint32_t _maxFrameTime, uint32_t _avgFrameTime);
+    void setLeftRight(qreal _left, qreal _right);
 
-}; // END of class FpsGraphicsItem.
+    void setReverse(bool _reverse);
 
-//////////////////////////////////////////////////////////////////////////
+    void setHoverIndicator(bool _hover);
 
-class FpsViewerWidget : public QGraphicsView
-{
-    Q_OBJECT
+    bool indicatorContains(const QPointF& _pos) const;
+
+    void setHoverLeft(bool _hover);
+    void setHoverRight(bool _hover);
+
+    bool hoverLeft(qreal _x) const;
+    bool hoverRight(qreal _x) const;
+
+    QPointF toItem(const QPointF& _pos) const;
+    qreal toItem(qreal _x) const;
+
+    inline bool hoverIndicator() const
+    {
+        return m_bHoverIndicator;
+    }
+
+    inline bool hoverLeft() const
+    {
+        return m_bHoverLeftBorder;
+    }
+
+    inline bool hoverRight() const
+    {
+        return m_bHoverRightBorder;
+    }
+
+    inline bool reverse() const
+    {
+        return m_bReverse;
+    }
+
+    inline qreal left() const
+    {
+        return m_left;
+    }
+
+    inline qreal right() const
+    {
+        return m_right;
+    }
+
+    inline qreal width() const
+    {
+        return m_right - m_left;
+    }
 
 private:
 
-    using Parent = QGraphicsView;
-    using This = FpsViewerWidget;
+    ///< Returns pointer to the BlocksGraphicsView widget.
+    const BlocksGraphicsView* view() const;
+    BlocksGraphicsView* view();
 
-    FpsGraphicsItem* m_fpsItem;
-
-public:
-
-    explicit FpsViewerWidget(QWidget* _parent = nullptr);
-    ~FpsViewerWidget() override;
-
-    void resizeEvent(QResizeEvent* _event) override;
-    void hideEvent(QHideEvent* _event) override;
-    void showEvent(QShowEvent* _event) override;
-    void contextMenuEvent(QContextMenuEvent* _event) override;
-    void dragEnterEvent(QDragEnterEvent*) override {}
-
-public slots:
-
-    void clear();
-    void addPoint(uint32_t _maxFrameTime, uint32_t _avgFrameTime);
-
-}; // END of class FpsViewerWidget.
+}; // END of class GraphicsRulerItem.
 
 //////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
 
-#endif // EASY__FRAME_RATE_VIEWER__H
+#endif // GRAPHICS_RULER_ITEM_H

@@ -15,7 +15,7 @@
 *                   :
 *                   : * 2016/06/30 Victor Zarubkin: Replaced doubles with floats (in ProfBlockItem) for less memory consumption.
 *                   :
-*                   : * 2016/09/15 Victor Zarubkin: Moved sources of BlocksGraphicsItem and GraphicsRulerItem to separate files.
+*                   : * 2016/09/15 Victor Zarubkin: Moved sources of GraphicsBlockItem and GraphicsRulerItem to separate files.
 *                   :
 *                   : *
 * ----------------- :
@@ -82,8 +82,8 @@
 
 class QGraphicsProxyWidget;
 class BlocksGraphicsView;
-class BlocksGraphicsItem;
-class BlocksGraphicsScrollbar;
+class GraphicsBlockItem;
+class GraphicsScrollbar;
 class GraphicsRulerItem;
 
 //////////////////////////////////////////////////////////////////////////
@@ -123,10 +123,10 @@ private:
 
     using Parent = QGraphicsView;
     using This = BlocksGraphicsView;
-    using Items = ::std::vector<BlocksGraphicsItem*>;
+    using Items = ::std::vector<GraphicsBlockItem*>;
     //using Keys = ::std::unordered_set<int, ::estd::hash<int> >;
 
-    Items                               m_items; ///< Array of all BlocksGraphicsItem items
+    Items                               m_items; ///< Array of all GraphicsBlockItem items
     //Keys                                 m_keys; ///< Pressed keyboard keys
     ::profiler_gui::TreeBlocks m_selectedBlocks; ///< Array of items which were selected by selection zone (GraphicsRulerItem)
     QTimer                       m_flickerTimer; ///< Timer for flicking behavior
@@ -142,7 +142,7 @@ private:
     QPoint                      m_mousePressPos; ///< Last mouse global position (used by mousePressEvent and mouseMoveEvent)
     QPoint                      m_mouseMovePath; ///< Mouse move path between press and release of any button
     Qt::MouseButtons             m_mouseButtons; ///< Pressed mouse buttons
-    BlocksGraphicsScrollbar*       m_pScrollbar; ///< Pointer to the graphics scrollbar widget
+    GraphicsScrollbar*       m_pScrollbar; ///< Pointer to the graphics scrollbar widget
     GraphicsRulerItem*          m_selectionItem; ///< Pointer to the GraphicsRulerItem which is displayed when you press right mouse button and move mouse left or right. This item is used to select blocks to display in tree widget.
     GraphicsRulerItem*              m_rulerItem; ///< Pointer to the GraphicsRulerItem which is displayed when you double click left mouse button and move mouse left or right. This item is used only to measure time.
     QWidget*                      m_popupWidget; ///<
@@ -183,7 +183,7 @@ public:
     qreal chronoTime() const;
     qreal chronoTimeAux() const;
 
-    void setScrollbar(BlocksGraphicsScrollbar* _scrollbar);
+    void setScrollbar(GraphicsScrollbar* _scrollbar);
     void clear();
 
     void setTree(const ::profiler::thread_blocks_tree_t& _blocksTree);
@@ -217,16 +217,16 @@ private:
     void removePopup();
     bool needToIgnoreMouseEvent() const;
 
-    GraphicsRulerItem* createChronometer(bool _main = true);
+    GraphicsRulerItem* createRuler(bool _main = true);
     bool moveChrono(GraphicsRulerItem* _chronometerItem, qreal _mouseX);
     void initMode();
     int updateVisibleSceneRect();
     void updateTimelineStep(qreal _windowWidth);
     void scaleTo(qreal _scale);
-    void scrollTo(const BlocksGraphicsItem* _item);
+    void scrollTo(const GraphicsBlockItem* _item);
     qreal mapToDiagram(qreal x) const;
     void onWheel(qreal _scenePos, int _wheelDelta);
-    qreal setTree(BlocksGraphicsItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, uint32_t& _maxDepthChild, qreal _y, short _level);
+    qreal setTree(GraphicsBlockItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, uint32_t& _maxDepthChild, qreal _y, short _level);
 
     void addSelectionToHierarchy();
 
@@ -348,7 +348,7 @@ class DiagramWidget : public QWidget
 private:
 
     class QSplitter*            m_splitter;
-    BlocksGraphicsScrollbar*   m_scrollbar;
+    GraphicsScrollbar*   m_scrollbar;
     BlocksGraphicsView*             m_view;
     ThreadNamesWidget* m_threadNamesWidget;
 

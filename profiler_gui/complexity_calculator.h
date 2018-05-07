@@ -40,14 +40,14 @@ The Apache License, Version 2.0 (the "License");
 
 **/
 
-#ifndef EASY_COMPLEXITY_CALCULATOR_H
-#define EASY_COMPLEXITY_CALCULATOR_H
+#ifndef COMPLEXITY_CALCULATOR_H
+#define COMPLEXITY_CALCULATOR_H
 
-#include <map>
-#include <vector>
-#include <functional>
 #include <cmath>
+#include <functional>
+#include <map>
 #include <numeric>
+#include <vector>
 
 enum class ComplexityType : uint8_t
 {
@@ -63,64 +63,78 @@ enum class ComplexityType : uint8_t
 };
 
 template<class TValue>
-TValue getAverage(const std::vector<TValue>& derivatives) {
-    TValue result = std::accumulate(derivatives.begin(), derivatives.end(), TValue(0.0), [](TValue a, TValue b){
-        if(std::isnormal(b)) {
+TValue getAverage(const std::vector<TValue>& derivatives)
+{
+    TValue result = std::accumulate(derivatives.begin(), derivatives.end(), TValue(0.0), [](TValue a, TValue b)
+    {
+        if (std::isnormal(b))
             return a + b;
-        }
         return a;
     });
+
     return result / TValue(derivatives.size());
 }
 
 template<class TKey, class TValue>
-std::vector<TValue> calculateDerivatives(const std::map<TKey, TValue>& input_array) {
+std::vector<TValue> calculateDerivatives(const std::map<TKey, TValue>& input_array)
+{
     std::vector<TValue> result;
-    for(auto it = input_array.cbegin(), next_it = input_array.cbegin()++; next_it != input_array.cend();it = next_it, ++next_it) {
-        auto x0 = it->first;
-        auto x1 = next_it->first;
 
-        auto y0 = it->second;
-        auto y1 = next_it->second;
+    for (auto it = input_array.cbegin(), next_it = input_array.cbegin()++; next_it != input_array.cend(); it = next_it, ++next_it)
+    {
+        const auto x0 = it->first;
+        const auto x1 = next_it->first;
 
-        result.push_back((y1-y0)/(x1-x0));
+        const auto y0 = it->second;
+        const auto y1 = next_it->second;
+
+        result.push_back((y1 - y0) / (x1 - x0));
     }
+
     return result;
 }
 
 template<class TKey, class TValue>
-std::map<TValue, TValue> getLogarithmicChart(const std::map<TKey, std::vector<TValue> >& input) {
+std::map<TValue, TValue> getLogarithmicChart(const std::map<TKey, std::vector<TValue> >& input)
+{
     std::map<TValue, TValue> result;
-    for(auto it: input) {
+
+    for (auto it : input)
+    {
         result[static_cast<TValue>(std::log2(it.first))] = std::log2(getAverage(it.second));
     }
+
     return result;
 }
 
 template <class TKey, class TValue>
-ComplexityType estimateComplexity(const std::map<TKey, std::vector<TValue> >& input) {
-    auto average = getAverage(calculateDerivatives(getLogarithmicChart(input)));
+ComplexityType estimateComplexity(const std::map<TKey, std::vector<TValue> >& input)
+{
+    const auto average = getAverage(calculateDerivatives(getLogarithmicChart(input)));
+    const double estimate_angle = std::atan(double(average)) * 57.3;
 
-    double estimate_angle = std::atan(double(average))*57.3;
-    if(estimate_angle < 1.0) {
+    if (estimate_angle < 1)
         return ComplexityType::Constant;
-    }else if (estimate_angle < 10.0) {
-        return ComplexityType::Logarithmic;
-    }else if (estimate_angle < 30.0) {
-        return ComplexityType::Linear;
-    }else if (estimate_angle < 50.0) {
-        return ComplexityType::Quasilinear;
-    }else if (estimate_angle < 65.0) {
-        return ComplexityType::Quadratic;
-    }else if (estimate_angle < 70.0) {
-        return ComplexityType::Cubic;
-    }else if (estimate_angle < 85.0) {
-        return ComplexityType::Exponential;
-    }else{
-        return ComplexityType::Factorial;
-    }
 
-    return ComplexityType::Unknown;
+    if (estimate_angle < 10)
+        return ComplexityType::Logarithmic;
+
+    if (estimate_angle < 30)
+        return ComplexityType::Linear;
+
+    if (estimate_angle < 50)
+        return ComplexityType::Quasilinear;
+
+    if (estimate_angle < 65)
+        return ComplexityType::Quadratic;
+
+    if (estimate_angle < 70)
+        return ComplexityType::Cubic;
+
+    if (estimate_angle < 85)
+        return ComplexityType::Exponential;
+
+    return ComplexityType::Factorial;
 }
 
-#endif
+#endif // COMPLEXITY_CALCULATOR_H

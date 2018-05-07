@@ -1,5 +1,5 @@
 /************************************************************************
-* file name         : easy_chronometer_item.cpp
+* file name         : graphics_ruler_item.cpp
 * ----------------- :
 * creation time     : 2016/09/15
 * author            : Victor Zarubkin
@@ -52,11 +52,11 @@
 *                   : limitations under the License.
 ************************************************************************/
 
+#include <math.h>
 #include <QGraphicsScene>
 #include <QFontMetricsF>
-#include <math.h>
 #include "blocks_graphics_view.h"
-#include "easy_chronometer_item.h"
+#include "graphics_ruler_item.h"
 #include "globals.h"
 
 //////////////////////////////////////////////////////////////////////////
