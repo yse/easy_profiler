@@ -106,6 +106,7 @@
 
 #include <easy/easy_net.h>
 #include <easy/profiler.h>
+#include <easy/writer.h>
 
 #ifdef max
 #undef max

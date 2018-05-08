@@ -40,8 +40,8 @@ The Apache License, Version 2.0 (the "License");
 
 **/
 
-#ifndef PROFILER_READER____H
-#define PROFILER_READER____H
+#ifndef EASY_PROFILER_READER_H
+#define EASY_PROFILER_READER_H
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -362,27 +362,6 @@ extern "C" {
                                                  profiler::descriptors_list_t& descriptors,
                                                  std::ostream& _log);
 
-    PROFILER_API profiler::block_index_t writeTreesToFile(std::atomic<int>& progress, const char* filename,
-                                                          const profiler::SerializedData& serialized_descriptors,
-                                                          const profiler::descriptors_list_t& descriptors,
-                                                          profiler::block_id_t descriptors_count,
-                                                          const profiler::thread_blocks_tree_t& trees,
-                                                          profiler::block_getter_fn block_getter,
-                                                          profiler::timestamp_t begin_time,
-                                                          profiler::timestamp_t end_time,
-                                                          profiler::processid_t pid,
-                                                          std::ostream& log);
-
-    PROFILER_API profiler::block_index_t writeTreesToStream(std::atomic<int>& progress, std::ostream& str,
-                                                            const profiler::SerializedData& serialized_descriptors,
-                                                            const profiler::descriptors_list_t& descriptors,
-                                                            profiler::block_id_t descriptors_count,
-                                                            const profiler::thread_blocks_tree_t& trees,
-                                                            profiler::block_getter_fn block_getter,
-                                                            profiler::timestamp_t begin_time,
-                                                            profiler::timestamp_t end_time,
-                                                            profiler::processid_t pid,
-                                                            std::ostream& log);
 }
 
 inline profiler::block_index_t fillTreesFromFile(const char* filename, profiler::SerializedData& serialized_blocks,
@@ -400,38 +379,6 @@ inline profiler::block_index_t fillTreesFromFile(const char* filename, profiler:
                              threaded_trees, total_descriptors_number, version, pid, gather_statistics, _log);
 }
 
-inline profiler::block_index_t writeTreesToFile(const char* filename,
-                                                const profiler::SerializedData& serialized_descriptors,
-                                                const profiler::descriptors_list_t& descriptors,
-                                                profiler::block_id_t descriptors_count,
-                                                const profiler::thread_blocks_tree_t& trees,
-                                                profiler::block_getter_fn block_getter,
-                                                profiler::timestamp_t begin_time,
-                                                profiler::timestamp_t end_time,
-                                                profiler::processid_t pid,
-                                                std::ostream& log)
-{
-    std::atomic<int> progress = ATOMIC_VAR_INIT(0);
-    return writeTreesToFile(progress, filename, serialized_descriptors, descriptors, descriptors_count, trees,
-                            std::move(block_getter), begin_time, end_time, pid, log);
-}
-
-inline profiler::block_index_t writeTreesToStream(std::ostream& str,
-                                                  const profiler::SerializedData& serialized_descriptors,
-                                                  const profiler::descriptors_list_t& descriptors,
-                                                  profiler::block_id_t descriptors_count,
-                                                  const profiler::thread_blocks_tree_t& trees,
-                                                  profiler::block_getter_fn block_getter,
-                                                  profiler::timestamp_t begin_time,
-                                                  profiler::timestamp_t end_time,
-                                                  profiler::processid_t pid,
-                                                  std::ostream& log)
-{
-    std::atomic<int> progress = ATOMIC_VAR_INIT(0);
-    return writeTreesToStream(progress, str, serialized_descriptors, descriptors, descriptors_count, trees,
-                              std::move(block_getter), begin_time, end_time, pid, log);
-}
-
 inline bool readDescriptionsFromStream(std::istream& str,
                                        profiler::SerializedData& serialized_descriptors,
                                        profiler::descriptors_list_t& descriptors,
@@ -443,4 +390,4 @@ inline bool readDescriptionsFromStream(std::istream& str,
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#endif // PROFILER_READER____H
+#endif // EASY_PROFILER_READER_H

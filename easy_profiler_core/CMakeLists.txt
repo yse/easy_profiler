@@ -123,6 +123,7 @@ set(CPP_FILES
     reader.cpp
     serialized_block.cpp
     thread_storage.cpp
+    writer.cpp
 )
 
 set(H_FILES
@@ -148,6 +149,7 @@ set(INCLUDE_FILES
     ${EASY_INCLUDE_DIR}/reader.h
     ${EASY_INCLUDE_DIR}/utility.h
     ${EASY_INCLUDE_DIR}/serialized_block.h
+    ${EASY_INCLUDE_DIR}/writer.h
     ${EASY_INCLUDE_DIR}/details/arbitrary_value_aux.h
     ${EASY_INCLUDE_DIR}/details/arbitrary_value_public_types.h
     ${EASY_INCLUDE_DIR}/details/easy_compiler_support.h
