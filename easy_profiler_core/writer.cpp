@@ -138,21 +138,29 @@ static BlocksRange findRange(const profiler::BlocksTree::children_t& children, p
     const auto size = static_cast<profiler::block_index_t>(children.size());
     BlocksRange range(size);
 
-    auto first_it = std::lower_bound(children.begin(), children.end(), beginTime, [&](profiler::block_index_t element, profiler::timestamp_t value)
+    if (size == 0)
+        return range;
+
+    if (beginTime <= getter(children.front()).node->begin() && getter(children.back()).node->end() <= endTime)
+        return range; // All blocks inside range
+
+    auto first_it = std::lower_bound(children.begin(), children.end(), beginTime,
+                                     [&](profiler::block_index_t element, profiler::timestamp_t value)
     {
         return getter(element).node->end() < value;
     });
 
-    for (auto it = first_it; it != children.end(); ++it)
+    for (; first_it != children.end(); ++first_it)
     {
-        const auto& child = getter(*it);
+        const auto& child = getter(*first_it);
         if (child.node->begin() >= beginTime || child.node->end() > beginTime)
             break;
     }
 
     if (first_it != children.end() && getter(*first_it).node->begin() <= endTime)
     {
-        auto last_it = std::lower_bound(children.begin(), children.end(), endTime, [&](profiler::block_index_t element, profiler::timestamp_t value)
+        auto last_it = std::lower_bound(children.begin(), children.end(), endTime,
+                                        [&](profiler::block_index_t element, profiler::timestamp_t value)
         {
             return getter(element).node->begin() <= value;
         });
