@@ -252,7 +252,7 @@ profiler::ThreadGuard::~ThreadGuard()
 //////////////////////////////////////////////////////////////////////////
 
 #if defined(EASY_CHRONO_CLOCK)
-static EASY_CONSTEXPR_FUN int64_t calculate_cpu_frequency()
+static EASY_CONSTEXPR_FCN int64_t calculate_cpu_frequency()
 {
     return EASY_CHRONO_CLOCK::period::den / EASY_CHRONO_CLOCK::period::num
 }
