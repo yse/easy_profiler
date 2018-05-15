@@ -44,6 +44,17 @@ The Apache License, Version 2.0 (the "License");
 #include "current_thread.h"
 #include "current_time.h"
 
+static profiler::vin_t ptr2vin(const void* ptr)
+{
+    static_assert(sizeof(uintptr_t) == sizeof(void*),
+                  "Can not cast void* to uintptr_t. Different sizes.");
+
+    static_assert(sizeof(profiler::vin_t) >= sizeof(uintptr_t),
+                  "Can not cast uintptr_t to vin_t. Possible truncation.");
+
+    return static_cast<profiler::vin_t>(reinterpret_cast<uintptr_t>(ptr));
+}
+
 ThreadStorage::ThreadStorage()
     : nonscopedBlocks(16)
     , frameStartTime(0)
@@ -62,7 +73,7 @@ void ThreadStorage::storeValue(profiler::timestamp_t _timestamp, profiler::block
     const uint16_t serializedDataSize = _size + static_cast<uint16_t>(sizeof(profiler::ArbitraryValue));
     void* data = blocks.closedList.allocate(serializedDataSize);
 
-    ::new (data) profiler::ArbitraryValue(_timestamp, _vin.m_id, _id, _size, _type, _isArray);
+    ::new (data) profiler::ArbitraryValue(_timestamp, ptr2vin(_vin.m_id), _id, _size, _type, _isArray);
 
     char* cdata = reinterpret_cast<char*>(data);
     memcpy(cdata + sizeof(profiler::ArbitraryValue), _data, _size);
