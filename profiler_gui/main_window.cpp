@@ -63,38 +63,41 @@
 
 #include <QApplication>
 #include <QCoreApplication>
-#include <QStatusBar>
-#include <QFileDialog>
-#include <QAction>
-#include <QMenu>
-#include <QMenuBar>
-#include <QPushButton>
-#include <QCloseEvent>
-#include <QSettings>
-#include <QTextCodec>
-#include <QFont>
-#include <QFontMetricsF>
-#include <QProgressDialog>
-#include <QSignalBlocker>
 #include <QDebug>
-#include <QToolBar>
-#include <QToolButton>
-#include <QWidgetAction>
-#include <QSpinBox>
-#include <QMessageBox>
-#include <QLineEdit>
-#include <QLabel>
+
+#include <QAction>
+#include <QCloseEvent>
+#include <QDateTime>
 #include <QDialog>
-#include <QVBoxLayout>
-#include <QFile>
-#include <QFileInfo>
-#include <QTextStream>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDragLeaveEvent>
 #include <QDropEvent>
+#include <QFile>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QFont>
+#include <QFontMetrics>
+#include <QFontMetricsF>
+#include <QMenu>
+#include <QMenuBar>
+#include <QMessageBox>
 #include <QMimeData>
-#include <QDateTime>
+#include <QLabel>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QProgressDialog>
+#include <QTextCodec>
+#include <QTextStream>
+#include <QToolBar>
+#include <QToolButton>
+#include <QSet>
+#include <QSettings>
+#include <QSignalBlocker>
+#include <QSpinBox>
+#include <QStatusBar>
+#include <QVBoxLayout>
+#include <QWidgetAction>
 
 #include "main_window.h"
 #include "arbitrary_value_inspector.h"
@@ -156,6 +159,42 @@ inline void loadTheme(const QString& _theme)
         QString style = in.readAll();
         if (!style.isEmpty())
         {
+            // Find font family
+            const auto fontFamilyString = QRegularExpression("font-family:.*;").match(style).captured();
+
+            // Calculate point size using current font
+            auto dummy = new QWidget();
+            dummy->setStyleSheet(QString("QWidget { %1\nfont-size: 100pt; }").arg(fontFamilyString));
+            dummy->show(); // actual font become valid only after widget showEvent
+            const auto pointSizeF = QFontMetricsF(dummy->font()).height() * 1e-2;
+            delete dummy;
+
+            //QMessageBox::information(nullptr, "asfdasf", QString("100pt = %1 = %2").arg(pointSizeF * 1e2).arg((int)(pointSizeF * 1e2 + 0.5)));
+
+            // Find and convert all sizes from points to pixels
+            QRegularExpression re("(\\d+\\.?\\d*)ex");
+            auto it = re.globalMatch(style);
+
+            QSet<QString> matchedTexts;
+            std::vector<QStringList> all;
+            while (it.hasNext())
+            {
+                const auto match = it.next();
+                if (!matchedTexts.contains(match.captured()))
+                {
+                    matchedTexts.insert(match.captured());
+                    all.emplace_back(match.capturedTexts());
+                }
+            }
+
+            for (const auto& match : all)
+            {
+                const auto pt = match.back().toDouble();
+                const int pixels = static_cast<int>(pointSizeF * pt + 0.5);
+                //QMessageBox::information(nullptr, "bbb", QString("Replacing %1\nwith\n%2\n\npt = %3").arg(match.front()).arg(QString("%1px").arg(pixels)).arg(pt));
+                style.replace(match.front(), QString("%1px").arg(pixels));
+            }
+
             qApp->setStyleSheet(style);
         }
     }
@@ -228,10 +267,12 @@ void MainWindow::configureSizes()
 
     const auto fontFamily = w.font().family();
     const auto pixelSize = w.font().pixelSize();
-    const auto updateFont = [&fontFamily, pixelSize] (QFont& font)
+    const auto pointSize = w.font().pointSize();
+    const auto updateFont = [&] (QFont& font)
     {
         font.setFamily(fontFamily);
         font.setPixelSize(pixelSize);
+        font.setPointSize(pointSize);
     };
 
     auto& fonts = EASY_GLOBALS.font;
@@ -892,7 +933,12 @@ void MainWindow::onThemeChange(bool)
     if (m_theme != newTheme)
     {
         m_theme = std::move(newTheme);
-        QMessageBox::information(this, "Theme", "You should restart the application to apply the theme.");
+
+        QMessageBox::information(this, "UI theme changed", "You may need to restart the application\nto apply the theme correctly.");
+
+        loadTheme(m_theme);
+        validateLineEdits();
+        configureSizes();
     }
 }
 
@@ -1357,6 +1403,22 @@ void MainWindow::onDescTreeDialogClose(int)
 }
 
 //////////////////////////////////////////////////////////////////////////
+
+void MainWindow::validateLineEdits()
+{
+    m_addressEdit->setFixedWidth((m_addressEdit->fontMetrics().width(QString("255.255.255.255")) * 3) / 2);
+    m_portEdit->setFixedWidth(m_portEdit->fontMetrics().width(QString("000000")) + 10);
+    m_frameTimeEdit->setFixedWidth(m_frameTimeEdit->fontMetrics().width(QString("000000")));
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void MainWindow::showEvent(QShowEvent* show_event)
+{
+    Parent::showEvent(show_event);
+    validateLineEdits();
+    configureSizes();
+}
 
 void MainWindow::closeEvent(QCloseEvent* close_event)
 {

@@ -303,6 +303,7 @@ public:
 
     // Public virtual methods
 
+    void showEvent(QShowEvent* event) override;
     void closeEvent(QCloseEvent* close_event) override;
     void dragEnterEvent(QDragEnterEvent* drag_event) override;
     void dragMoveEvent(QDragMoveEvent* drag_event) override;
@@ -383,6 +384,8 @@ private:
 
     void destroyProgressDialog();
     void createProgressDialog(const QString& text);
+
+    void validateLineEdits();
 
 }; // END of class MainWindow.
 
