@@ -61,7 +61,7 @@
 
 ArbitraryValueToolTip::ArbitraryValueToolTip(const QString& _name
     , const profiler::BlocksTree& _block, QWidget* _parent)
-    : QWidget(_parent, Qt::ToolTip | Qt::WindowStaysOnTopHint)
+    : QWidget(_parent, Qt::Tool | Qt::WindowStaysOnTopHint | Qt::FramelessWindowHint)
 {
     auto content = new QWidget();
     content->setObjectName("cnt");
@@ -73,6 +73,7 @@ ArbitraryValueToolTip::ArbitraryValueToolTip(const QString& _name
     auto pane = new QTextEdit();
     pane->setWordWrapMode(QTextOption::NoWrap);
     pane->setReadOnly(true);
+    pane->setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
 
     auto label = new QLabel(QStringLiteral("Arbitrary Value"));
     QFont font = EASY_GLOBALS.font.default_font;
