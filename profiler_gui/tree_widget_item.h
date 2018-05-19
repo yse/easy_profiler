@@ -118,7 +118,6 @@ class TreeWidgetItem : public QTreeWidgetItem
     using Parent = QTreeWidgetItem;
     using This = TreeWidgetItem;
 
-    QFont                                    m_font;
     const profiler::block_index_t           m_block;
     QRgb                            m_customBGColor;
     std::bitset<17>                   m_bHasToolTip;
@@ -126,7 +125,9 @@ class TreeWidgetItem : public QTreeWidgetItem
 
 public:
 
-    explicit TreeWidgetItem(const profiler::block_index_t _treeBlock = profiler_gui::numeric_max<decltype(m_block)>(), Parent* _parent = nullptr);
+    explicit TreeWidgetItem(const profiler::block_index_t _treeBlock = profiler_gui::numeric_max<decltype(m_block)>()
+        , Parent* _parent = nullptr);
+
     ~TreeWidgetItem() override;
 
     bool operator < (const Parent& _other) const override;
@@ -155,8 +156,6 @@ public:
     void collapseAll();
 
     void expandAll();
-
-    void setBold(bool _bold);
 
 private:
 

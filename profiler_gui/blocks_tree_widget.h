@@ -91,12 +91,13 @@ protected:
     QString                     m_lastSearch;
     QTreeWidgetItem*             m_lastFound;
     ::profiler::timestamp_t      m_beginTime;
-    class QProgressDialog*        m_progress;
+    class RoundProgressDialog*    m_progress;
     class QLabel*                m_hintLabel;
     class ArbitraryValueToolTip* m_valueTooltip;
     TreeMode                          m_mode;
     bool                           m_bLocked;
     bool             m_bSilentExpandCollapse;
+    bool                      m_bInitialized;
     char m_columnsHiddenStatus[COL_COLUMNS_NUMBER];
 
 public:

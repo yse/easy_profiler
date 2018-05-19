@@ -64,23 +64,25 @@
 #include <QMenu>
 #include <QAction>
 #include <QActionGroup>
-#include <QHeaderView>
+#include <QApplication>
+#include <QByteArray>
 #include <QContextMenuEvent>
-#include <QSignalBlocker>
-#include <QSettings>
+#include <QDebug>
+#include <QHBoxLayout>
+#include <QHeaderView>
+#include <QLabel>
+#include <QLineEdit>
+#include <QMoveEvent>
 #include <QProgressDialog>
 #include <QResizeEvent>
-#include <QMoveEvent>
-#include <QLineEdit>
-#include <QLabel>
+#include <QScrollBar>
+#include <QSettings>
+#include <QSignalBlocker>
 #include <QToolBar>
-#include <QHBoxLayout>
 #include <QVBoxLayout>
-#include <QByteArray>
-#include <QDebug>
-#include <QApplication>
 #include "blocks_tree_widget.h"
 #include "arbitrary_value_tooltip.h"
+#include "round_progress_widget.h"
 #include "globals.h"
 #include "thread_pool.h"
 
@@ -139,6 +141,7 @@ BlocksTreeWidget::BlocksTreeWidget(QWidget* _parent)
     , m_mode(TreeMode::Plain)
     , m_bLocked(false)
     , m_bSilentExpandCollapse(false)
+    , m_bInitialized(false)
 {
     installEventFilter(this);
     memset(m_columnsHiddenStatus, 0, sizeof(m_columnsHiddenStatus));
@@ -254,9 +257,10 @@ BlocksTreeWidget::BlocksTreeWidget(QWidget* _parent)
         }
     }
 
-    m_hintLabel = new QLabel("Use Right Mouse Button on the Diagram to build a hierarchy...\nPress and hold, move, release", this);
+    m_hintLabel = new QLabel("Use Right Mouse Button on the Diagram to build a hierarchy...\n"
+                             "Press and hold the button >> Move mouse >> Release the button", this);
+    m_hintLabel->setObjectName(QStringLiteral("BlocksTreeWidget_HintLabel"));
     m_hintLabel->setAlignment(Qt::AlignCenter);
-    m_hintLabel->setStyleSheet("QLabel { color: gray; font: 12pt; }");
 
     QTimer::singleShot(1500, this, &This::alignProgressBar);
 
@@ -273,9 +277,14 @@ BlocksTreeWidget::~BlocksTreeWidget()
 
 bool BlocksTreeWidget::eventFilter(QObject* _object, QEvent* _event)
 {
-    if (_object == this)
+    if (_object != this)
+        return false;
+
+    const auto eventType = _event->type();
+    switch (eventType)
     {
-        if (_event->type() == QEvent::MouseMove || _event->type() == QEvent::HoverMove)
+        case QEvent::MouseMove:
+        case QEvent::HoverMove:
         {
             if (m_idleTimer.isActive())
                 m_idleTimer.stop();
@@ -298,7 +307,23 @@ bool BlocksTreeWidget::eventFilter(QObject* _object, QEvent* _event)
             }
 
             m_idleTimer.start();
+
+            break;
         }
+
+        case QEvent::Show:
+        {
+            if (!m_bInitialized)
+            {
+                EASY_CONSTEXPR int Margins = 20;
+                setMinimumSize(m_hintLabel->width() + Margins, m_hintLabel->height() + header()->height() + Margins);
+                m_bInitialized = true;
+            }
+
+            break;
+        }
+
+        default: break;
     }
 
     return false;
@@ -801,13 +826,18 @@ void BlocksTreeWidget::moveEvent(QMoveEvent* _event)
 
 void BlocksTreeWidget::alignProgressBar()
 {
-    auto center = rect().center();
-    auto pos = mapToGlobal(center);
+    const auto scrollbarHeight = verticalScrollBar()->isVisible() ? verticalScrollBar()->height() : 0;
+    const auto center = rect().adjusted(0, header()->height(), 0, -scrollbarHeight - 6).center();
 
     if (m_progress != nullptr)
-        m_progress->move(pos.x() - (m_progress->width() >> 1), pos.y() - (m_progress->height() >> 1));
+    {
+        const auto pos = center;//mapToGlobal(center);
+        m_progress->move(pos.x() - (m_progress->width() >> 1),
+                         std::max(pos.y() - (m_progress->height() >> 1), header()->height()));
+    }
 
-    m_hintLabel->move(center.x() - (m_hintLabel->width() >> 1), std::max(center.y() - (m_hintLabel->height() >> 1), header()->height()));
+    m_hintLabel->move(center.x() - (m_hintLabel->width() >> 1),
+                      std::max(center.y() - (m_hintLabel->height() >> 1), header()->height()));
 }
 
 void BlocksTreeWidget::destroyProgressDialog()
@@ -824,9 +854,9 @@ void BlocksTreeWidget::createProgressDialog()
 {
     destroyProgressDialog();
 
-    m_progress = new QProgressDialog("Building blocks hierarchy...", "", 0, 100, this, Qt::FramelessWindowHint);
+    m_progress = new RoundProgressDialog("Building blocks hierarchy...", this);
+    m_progress->setWindowFlags(Qt::FramelessWindowHint);
     m_progress->setAttribute(Qt::WA_TranslucentBackground);
-    m_progress->setCancelButton(nullptr);
     m_progress->setValue(0);
     m_progress->show();
 
@@ -981,8 +1011,7 @@ void BlocksTreeWidget::onItemCollapse(QTreeWidgetItem* _item)
 
 void BlocksTreeWidget::onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidgetItem* _previous)
 {
-    if (_previous != nullptr)
-        static_cast<TreeWidgetItem*>(_previous)->setBold(false);
+    (void)_previous;
 
     if (_item == nullptr)
     {
@@ -992,7 +1021,6 @@ void BlocksTreeWidget::onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidgetIt
     else
     {
         auto item = static_cast<TreeWidgetItem*>(_item);
-        item->setBold(true);
 
         EASY_GLOBALS.selected_block = item->block_index();
         if (EASY_GLOBALS.selected_block < EASY_GLOBALS.gui_blocks.size())
@@ -1044,10 +1072,6 @@ void BlocksTreeWidget::onSelectedBlockChange(uint32_t _block_index)
 #endif
     }
 
-    auto previous = static_cast<TreeWidgetItem*>(currentItem());
-    if (previous != nullptr)
-        previous->setBold(false);
-
     if (item != nullptr)
     {
         //const QSignalBlocker b(this);
@@ -1074,8 +1098,6 @@ void BlocksTreeWidget::onSelectedBlockChange(uint32_t _block_index)
             resizeColumnsToContents();
             connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
         }
-
-        item->setBold(true);
     }
     else
     {

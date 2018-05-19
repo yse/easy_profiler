@@ -105,8 +105,8 @@ const QPen HIGHLIGHTER_PEN = ([]() -> QPen { QPen p(profiler::colors::Black); p.
 
 GraphicsBlockItem::GraphicsBlockItem(uint8_t _index, const profiler::BlocksTreeRoot& _root)
     : QGraphicsItem(nullptr)
+    , m_thread(_root)
     , m_threadName(::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, _root, EASY_GLOBALS.hex_thread_id))
-    , m_pRoot(&_root)
     , m_index(_index)
 {
 }
@@ -117,7 +117,7 @@ GraphicsBlockItem::~GraphicsBlockItem()
 
 void GraphicsBlockItem::validateName()
 {
-    m_threadName = ::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, *m_pRoot, EASY_GLOBALS.hex_thread_id);
+    m_threadName = ::profiler_gui::decoratedThreadName(EASY_GLOBALS.use_decorated_thread_name, m_thread, EASY_GLOBALS.hex_thread_id);
 }
 
 const BlocksGraphicsView* GraphicsBlockItem::view() const
@@ -453,7 +453,7 @@ void GraphicsBlockItem::paintChildren(const float _minWidth, const int _narrowSi
 void GraphicsBlockItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
 {
     const bool gotItems = !m_levels.empty() && !m_levels.front().empty();
-    const bool gotSync = !m_pRoot->sync.empty();
+    const bool gotSync = !m_thread.sync.empty();
 
     if (!gotItems && !gotSync)
     {
@@ -963,21 +963,21 @@ void GraphicsBlockItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem
     if (gotSync)
     {
         const auto sceneView = view();
-        auto firstSync = ::std::lower_bound(m_pRoot->sync.begin(), m_pRoot->sync.end(), p.sceneLeft, [&sceneView](::profiler::block_index_t _index, qreal _value)
+        auto firstSync = ::std::lower_bound(m_thread.sync.begin(), m_thread.sync.end(), p.sceneLeft, [&sceneView](::profiler::block_index_t _index, qreal _value)
         {
             return sceneView->time2position(easyBlocksTree(_index).node->begin()) < _value;
         });
 
-        if (firstSync != m_pRoot->sync.end())
+        if (firstSync != m_thread.sync.end())
         {
-            if (firstSync != m_pRoot->sync.begin())
+            if (firstSync != m_thread.sync.begin())
                 --firstSync;
         }
-        else if (!m_pRoot->sync.empty())
+        else if (!m_thread.sync.empty())
         {
-            firstSync = m_pRoot->sync.begin() + m_pRoot->sync.size() - 1;
+            firstSync = m_thread.sync.begin() + m_thread.sync.size() - 1;
         }
-        //firstSync = m_pRoot->sync.begin();
+        //firstSync = m_thread.sync.begin();
 
         p.previousColor = 0;
         qreal prevRight = -1e100;
@@ -986,7 +986,7 @@ void GraphicsBlockItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem
         {
             _painter->setPen(BORDERS_COLOR);
 
-            for (auto it = firstSync, end = m_pRoot->sync.end(); it != end; ++it)
+            for (auto it = firstSync, end = m_thread.sync.end(); it != end; ++it)
             {
                 const auto& item = easyBlocksTree(*it);
                 auto left = sceneView->time2position(item.node->begin());
@@ -1039,22 +1039,22 @@ void GraphicsBlockItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem
 
 
 
-    if (EASY_GLOBALS.enable_event_markers && !m_pRoot->events.empty())
+    if (EASY_GLOBALS.enable_event_markers && !m_thread.events.empty())
     {
         const auto sceneView = view();
-        auto first = ::std::lower_bound(m_pRoot->events.begin(), m_pRoot->events.end(), p.offset, [&sceneView](::profiler::block_index_t _index, qreal _value)
+        auto first = ::std::lower_bound(m_thread.events.begin(), m_thread.events.end(), p.offset, [&sceneView](::profiler::block_index_t _index, qreal _value)
         {
             return sceneView->time2position(easyBlocksTree(_index).node->begin()) < _value;
         });
 
-        if (first != m_pRoot->events.end())
+        if (first != m_thread.events.end())
         {
-            if (first != m_pRoot->events.begin())
+            if (first != m_thread.events.begin())
                 --first;
         }
-        else if (!m_pRoot->events.empty())
+        else if (!m_thread.events.empty())
         {
-            first = m_pRoot->events.begin() + m_pRoot->events.size() - 1;
+            first = m_thread.events.begin() + m_thread.events.size() - 1;
         }
 
         p.previousColor = 0;
@@ -1064,7 +1064,7 @@ void GraphicsBlockItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem
         {
             _painter->setPen(BORDERS_COLOR);
 
-            for (auto it = first, end = m_pRoot->events.end(); it != end; ++it)
+            for (auto it = first, end = m_thread.events.end(); it != end; ++it)
             {
                 const auto& item = easyBlocksTree(*it);
                 auto left = sceneView->time2position(item.node->begin());
@@ -1115,9 +1115,9 @@ void GraphicsBlockItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem
 
 //////////////////////////////////////////////////////////////////////////
 
-const ::profiler::BlocksTreeRoot* GraphicsBlockItem::root() const
+const profiler::BlocksTreeRoot& GraphicsBlockItem::root() const
 {
-    return m_pRoot;
+    return m_thread;
 }
 
 const QString& GraphicsBlockItem::threadName() const
@@ -1173,7 +1173,7 @@ void GraphicsBlockItem::getBlocks(qreal _left, qreal _right, ::profiler_gui::Tre
             continue;
         }
 
-        _blocks.emplace_back(m_pRoot, item.block);
+        _blocks.emplace_back(&m_thread, item.block);
     }
 }
 
@@ -1206,31 +1206,31 @@ const ::profiler_gui::EasyBlock* GraphicsBlockItem::intersect(const QPointF& _po
     {
         // The Y position is out of blocks range
 
-        if (EASY_GLOBALS.enable_event_markers && !m_pRoot->events.empty())
+        if (EASY_GLOBALS.enable_event_markers && !m_thread.events.empty())
         {
             // If event indicators are enabled then try to intersect with one of event indicators
 
             const auto& sceneView = view();
-            auto first = ::std::lower_bound(m_pRoot->events.begin(), m_pRoot->events.end(), _pos.x(), [&sceneView](::profiler::block_index_t _index, qreal _value)
+            auto first = ::std::lower_bound(m_thread.events.begin(), m_thread.events.end(), _pos.x(), [&sceneView](::profiler::block_index_t _index, qreal _value)
             {
                 return sceneView->time2position(easyBlocksTree(_index).node->begin()) < _value;
             });
 
-            if (first != m_pRoot->events.end())
+            if (first != m_thread.events.end())
             {
-                if (first != m_pRoot->events.begin())
+                if (first != m_thread.events.begin())
                     --first;
             }
-            else if (!m_pRoot->events.empty())
+            else if (!m_thread.events.empty())
             {
-                first = m_pRoot->events.begin() + m_pRoot->events.size() - 1;
+                first = m_thread.events.begin() + m_thread.events.size() - 1;
             }
 
             const auto MIN_WIDTH = EASY_GLOBALS.enable_zero_length ? 0.f : 0.25f;
             const auto currentScale = sceneView->scale();
             const auto dw = 5. / currentScale;
 
-            for (auto it = first, end = m_pRoot->events.end(); it != end; ++it)
+            for (auto it = first, end = m_thread.events.end(); it != end; ++it)
             {
                 _blockIndex = *it;
                 const auto& item = easyBlock(_blockIndex);
@@ -1354,7 +1354,7 @@ const ::profiler_gui::EasyBlock* GraphicsBlockItem::intersect(const QPointF& _po
 
 const ::profiler_gui::EasyBlock* GraphicsBlockItem::intersectEvent(const QPointF& _pos) const
 {
-    if (m_pRoot->sync.empty())
+    if (m_thread.sync.empty())
     {
         return nullptr;
     }
@@ -1372,18 +1372,18 @@ const ::profiler_gui::EasyBlock* GraphicsBlockItem::intersectEvent(const QPointF
     }
 
     const auto sceneView = view();
-    auto firstSync = ::std::lower_bound(m_pRoot->sync.begin(), m_pRoot->sync.end(), _pos.x(), [&sceneView](::profiler::block_index_t _index, qreal _value)
+    auto firstSync = ::std::lower_bound(m_thread.sync.begin(), m_thread.sync.end(), _pos.x(), [&sceneView](::profiler::block_index_t _index, qreal _value)
     {
         return sceneView->time2position(easyBlocksTree(_index).node->begin()) < _value;
     });
 
-    if (firstSync == m_pRoot->sync.end())
-        firstSync = m_pRoot->sync.begin() + m_pRoot->sync.size() - 1;
-    else if (firstSync != m_pRoot->sync.begin())
+    if (firstSync == m_thread.sync.end())
+        firstSync = m_thread.sync.begin() + m_thread.sync.size() - 1;
+    else if (firstSync != m_thread.sync.begin())
         --firstSync;
 
     const auto dw = 4. / view()->scale();
-    for (auto it = firstSync, end = m_pRoot->sync.end(); it != end; ++it)
+    for (auto it = firstSync, end = m_thread.sync.end(); it != end; ++it)
     {
         const auto& item = easyBlock(*it);
 
@@ -1417,7 +1417,7 @@ void GraphicsBlockItem::setBoundingRect(const QRectF& _rect)
 
 ::profiler::thread_id_t GraphicsBlockItem::threadId() const
 {
-    return m_pRoot->thread_id;
+    return m_thread.thread_id;
 }
 
 //////////////////////////////////////////////////////////////////////////

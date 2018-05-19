@@ -74,19 +74,20 @@ class GraphicsBlockItem : public QGraphicsItem
     using RightBounds = std::vector<qreal>;
     using Sublevels   = std::vector<Children>;
 
+    const profiler::BlocksTreeRoot&  m_thread; ///< Reference to the root profiler block (thread block). Used by ProfTreeWidget to restore hierarchy.
+
     DrawIndexes               m_levelsIndexes; ///< Indexes of first item on each level from which we must start painting
-    RightBounds                 m_rightBounds; ///< 
+    RightBounds                 m_rightBounds; ///<
     Sublevels                        m_levels; ///< Arrays of items for each level
 
     QRectF                     m_boundingRect; ///< boundingRect (see QGraphicsItem)
-    QString                      m_threadName; ///< 
-    const ::profiler::BlocksTreeRoot* m_pRoot; ///< Pointer to the root profiler block (thread block). Used by ProfTreeWidget to restore hierarchy.
+    QString                      m_threadName; ///<
     uint8_t                           m_index; ///< This item's index in the list of items of BlocksGraphicsView
 
 public:
 
-    explicit GraphicsBlockItem(uint8_t _index, const::profiler::BlocksTreeRoot& _root);
-    virtual ~GraphicsBlockItem();
+    explicit GraphicsBlockItem(uint8_t _index, const profiler::BlocksTreeRoot& _root);
+    ~GraphicsBlockItem() override;
 
     // Public virtual methods
 
@@ -100,7 +101,7 @@ public:
 
     void validateName();
 
-    const ::profiler::BlocksTreeRoot* root() const;
+    const profiler::BlocksTreeRoot& root() const;
     const QString& threadName() const;
 
     QRect getRect() const;

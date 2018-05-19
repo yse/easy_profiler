@@ -42,6 +42,8 @@ if (Qt5Widgets_FOUND)
         graphics_slider_area.cpp
         main_window.h
         main_window.cpp
+        round_progress_widget.h
+        round_progress_widget.cpp
         timer.h
         timer.cpp
         thread_pool.h

@@ -110,7 +110,7 @@ struct EasyBlock Q_DECL_FINAL
 
     EasyBlock() = default;
 
-    EasyBlock(EasyBlock&& that)
+    EasyBlock(EasyBlock&& that) EASY_NOEXCEPT
         : tree(::std::move(that.tree))
 #ifdef EASY_TREE_WIDGET__USE_VECTOR
         , tree_item(that.tree_item)
@@ -126,21 +126,19 @@ struct EasyBlock Q_DECL_FINAL
 };
 #pragma pack(pop)
 
-typedef ::std::vector<EasyBlockItem> EasyItems;
-typedef ::std::vector<EasyBlock> EasyBlocks;
+using EasyItems = ::std::vector<EasyBlockItem>;
+using EasyBlocks = ::std::vector<EasyBlock>;
 
 //////////////////////////////////////////////////////////////////////////
 
 struct EasySelectedBlock Q_DECL_FINAL
 {
-    const ::profiler::BlocksTreeRoot* root;
-    ::profiler::block_index_t         tree;
+    const ::profiler::BlocksTreeRoot* root = nullptr;
+    ::profiler::block_index_t         tree = 0xffffffff;
 
-    EasySelectedBlock() : root(nullptr), tree(0xffffffff)
-    {
-    }
+    EasySelectedBlock() = default;
 
-    EasySelectedBlock(const ::profiler::BlocksTreeRoot* _root, const ::profiler::block_index_t _tree)
+    EasySelectedBlock(const ::profiler::BlocksTreeRoot* _root, const ::profiler::block_index_t _tree) EASY_NOEXCEPT
         : root(_root)
         , tree(_tree)
     {

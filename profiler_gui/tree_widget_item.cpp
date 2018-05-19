@@ -183,16 +183,6 @@ QVariant TreeWidgetItem::data(int _column, int _role) const
 {
     if (_column == COL_NAME)
     {
-        if (_role == Qt::SizeHintRole)
-        {
-#ifdef _WIN32
-            const float k = m_font.bold() ? 1.2f : 1.f;
-#else
-            const float k = m_font.bold() ? 1.15f : 1.f;
-#endif
-            return QSize(static_cast<int>(QFontMetrics(m_font).width(text(COL_NAME)) * k) + 20, 26);
-        }
-
         if (_role == BlockColorRole)
         {
             if (parent() != nullptr || m_bMain)
@@ -203,9 +193,6 @@ QVariant TreeWidgetItem::data(int _column, int _role) const
 
     switch (_role)
     {
-        case Qt::FontRole:
-            return m_font;
-
         case Qt::ForegroundRole:
             return m_bMain ? QVariant::fromValue(QColor::fromRgb(profiler_gui::SELECTED_THREAD_FOREGROUND)) : QVariant();
         
@@ -331,11 +318,6 @@ void TreeWidgetItem::expandAll()
         guiBlock().expanded = true;
 }
 
-void TreeWidgetItem::setBold(bool _bold)
-{
-    m_font.setBold(_bold);
-}
-
 //////////////////////////////////////////////////////////////////////////
 
 TreeWidgetItemDelegate::TreeWidgetItemDelegate(QTreeWidget* parent) : QStyledItemDelegate(parent), m_treeWidget(parent)
@@ -350,7 +332,7 @@ TreeWidgetItemDelegate::~TreeWidgetItemDelegate()
 
 void TreeWidgetItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
-    auto brushData = m_treeWidget->model()->data(index, BlockColorRole);
+    const auto brushData = m_treeWidget->model()->data(index, BlockColorRole);
     if (brushData.isNull())
     {
         // Draw item as usual
@@ -364,7 +346,7 @@ void TreeWidgetItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem
     {
         // Draw selection background for selected row
         painter->save();
-        painter->setBrush(QColor::fromRgba(0xCC98DE98));
+        painter->setBrush(m_treeWidget->palette().highlight());
         painter->setPen(Qt::NoPen);
         painter->drawRect(QRect(option.rect.left(), option.rect.top(), colorBlockSize, option.rect.height()));
         painter->restore();
@@ -382,15 +364,16 @@ void TreeWidgetItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem
     painter->save();
 
     // Draw color marker with block color
-    const auto brush = m_treeWidget->model()->data(index, Qt::UserRole + 1).value<QBrush>();
+    const auto brush = brushData.value<QBrush>();
     painter->setBrush(brush);
-    painter->setPen(profiler_gui::SYSTEM_BORDER_COLOR);
+    painter->setPen(QColor::fromRgb(profiler::colors::Grey600));
     painter->drawRect(QRect(option.rect.left(), option.rect.top() + (colorBlockRest >> 1),
                             colorBlockSize, option.rect.height() - colorBlockRest));
 
     // Draw line under tree indicator
     const auto bottomLeft = opt.rect.bottomLeft();
     painter->setBrush(Qt::NoBrush);
+    painter->setPen(profiler_gui::SYSTEM_BORDER_COLOR);
     painter->drawLine(QPoint(bottomLeft.x() - colorBlockSize, bottomLeft.y()), bottomLeft);
 
     painter->restore();

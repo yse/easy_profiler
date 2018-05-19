@@ -122,6 +122,7 @@ private:
 
     void setTreeInternal1(profiler::timestamp_t& _beginTime, const unsigned int _blocksNumber, const profiler::thread_blocks_tree_t& _blocksTree, bool _addZeroBlocks, bool _decoratedThreadNames, bool _hexThreadId, ::profiler_gui::TimeUnits _units);
     void setTreeInternal2(const profiler::timestamp_t& _beginTime, const ::profiler_gui::TreeBlocks& _blocks, profiler::timestamp_t _left, profiler::timestamp_t _right, bool _strict, bool _addZeroBlocks, bool _decoratedThreadNames, bool _hexThreadId, ::profiler_gui::TimeUnits _units);
+
     size_t setTreeInternal(const profiler::BlocksTreeRoot& _threadRoot, profiler::block_index_t _firstCswitch, const profiler::timestamp_t& _beginTime, const profiler::BlocksTree::children_t& _children, TreeWidgetItem* _parent, TreeWidgetItem* _frame, profiler::timestamp_t _left, profiler::timestamp_t _right, bool _strict, profiler::timestamp_t& _duration, bool _addZeroBlocks, ::profiler_gui::TimeUnits _units);
     size_t setTreeInternalPlain(const profiler::BlocksTreeRoot& _threadRoot, profiler::block_index_t _firstCswitch, const profiler::timestamp_t& _beginTime, const profiler::BlocksTree::children_t& _children, TreeWidgetItem* _parent, TreeWidgetItem* _frame, profiler::timestamp_t _left, profiler::timestamp_t _right, bool _strict, profiler::timestamp_t& _duration, bool _addZeroBlocks, ::profiler_gui::TimeUnits _units);
 
