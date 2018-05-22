@@ -34,6 +34,12 @@ $TreeViewSelectionTextColor: $TextColor;
 $BackgroundColor: white;
 $DisabledBackgroundColor: #f0f0f0;
 
+$IndicatorBackgroundColor: $DarkSelectionColor;
+$IndicatorBorderColor: darken($DarkSelectionColor, 5%);
+
+$DisabledIndicatorBackgroundColor: $SelectionColor;
+$DisabledIndicatorBorderColor: darken($SelectionColor, 5%);
+
 $ButtonHoverColor: $DarkSelectionColor;//#922c2c;
 $ButtonPressedColor: darken($DarkSelectionColor, 20%);//#370400;
 
@@ -220,9 +226,11 @@ QSpinBox::down-arrow:disabled {
 /* ****************************************************************************************************************** */
 QPushButton {
     height: $InputHeight;
-    min-width: 30ex;
+    min-width: 35ex;
     border: 1px solid $BorderColor;
     background-color: $BackgroundColor;
+    padding-left: 5ex;
+    padding-right: 5ex;
 }
 
 QPushButton:disabled {
@@ -291,24 +299,32 @@ QTreeView::indicator {
     margin: 0;
 }
 
-QTreeView::indicator:hover, QTreeView::indicator:checked, QTreeView::indicator:indeterminate {
+QTreeView::indicator:hover {
     background-color: $BackgroundColor;
     border: 1px solid $BorderColor;
 }
 
 QTreeView::indicator:checked {
+    background-color: $IndicatorBackgroundColor;
+    border: 1px solid $IndicatorBorderColor;
     image: url(":/images/default/check");
 }
 
 QTreeView::indicator:checked:disabled {
+    background-color: $DisabledIndicatorBackgroundColor;
+    border: 1px solid $DisabledIndicatorBorderColor;
     image: url(":/images/default/check-disabled");
 }
 
 QTreeView::indicator:indeterminate {
+    background-color: $IndicatorBackgroundColor;
+    border: 1px solid $IndicatorBorderColor;
     image: url(":/images/default/partial-check");
 }
 
 QTreeView::indicator:indeterminate:disabled {
+    background-color: $DisabledIndicatorBackgroundColor;
+    border: 1px solid $DisabledIndicatorBorderColor;
     image: url(":/images/default/partial-check-disabled");
 }
 
@@ -337,8 +353,8 @@ QMenu::icon {
     height: 8ex;
     background: none;
     border: 1px inset transparent;
-    padding: 1px;
-    margin: 0 0 0 2ex;
+    padding: 0;
+    margin: 0 1ex 0 2ex;
 }
 
 QMenu::icon:checked { /* appearance of a 'checked' icon */
@@ -363,10 +379,14 @@ QMenu::indicator {
 }
 
 QMenu::indicator:non-exclusive:checked {
+    background-color: $IndicatorBackgroundColor;
+    border: 1px solid $IndicatorBorderColor;
     image: url(":/images/default/check");
 }
 
 QMenu::indicator:non-exclusive:checked:disabled {
+    background-color: $DisabledIndicatorBackgroundColor;
+    border: 1px solid $DisabledIndicatorBorderColor;
     image: url(":/images/default/check-disabled");
 }
 

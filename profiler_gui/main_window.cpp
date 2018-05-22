@@ -160,39 +160,38 @@ inline void loadTheme(const QString& _theme)
         if (!style.isEmpty())
         {
             // Find font family
-            const auto fontFamilyString = QRegularExpression("font-family:.*;").match(style).captured();
+            const auto fontMatch = QRegularExpression("font-family:\\s*\\\"(.*)\\\"\\s*;").match(style);
+            const auto fontFamily = fontMatch.hasMatch() ? fontMatch.captured(fontMatch.lastCapturedIndex()) : QString("DejaVu Sans");
+            //QMessageBox::information(nullptr, "Found font family", fontFamily);
 
             // Calculate point size using current font
-            auto dummy = new QWidget();
-            dummy->setStyleSheet(QString("QWidget { %1\nfont-size: 100pt; }").arg(fontFamilyString));
-            dummy->show(); // actual font become valid only after widget showEvent
-            const auto pointSizeF = QFontMetricsF(dummy->font()).height() * 1e-2;
-            delete dummy;
-
-            //QMessageBox::information(nullptr, "asfdasf", QString("100pt = %1 = %2").arg(pointSizeF * 1e2).arg((int)(pointSizeF * 1e2 + 0.5)));
+            const auto pointSizeF = QFontMetricsF(QFont(fontFamily, 100)).height() * 1e-2;
+            //QMessageBox::information(nullptr, "Point size", QString("100pt = %1\n1pt = %2").arg(pointSizeF * 1e2).arg(pointSizeF));
 
             // Find and convert all sizes from points to pixels
             QRegularExpression re("(\\d+\\.?\\d*)ex");
             auto it = re.globalMatch(style);
 
-            QSet<QString> matchedTexts;
-            std::vector<QStringList> all;
-            while (it.hasNext())
+            std::vector<QStringList> matches;
             {
-                const auto match = it.next();
-                if (!matchedTexts.contains(match.captured()))
+                QSet<QString> uniqueMatches;
+                while (it.hasNext())
                 {
-                    matchedTexts.insert(match.captured());
-                    all.emplace_back(match.capturedTexts());
+                    const auto match = it.next();
+                    if (!uniqueMatches.contains(match.captured()))
+                    {
+                        uniqueMatches.insert(match.captured());
+                        matches.emplace_back(match.capturedTexts());
+                    }
                 }
             }
 
-            for (const auto& match : all)
+            for (const auto& capturedTexts : matches)
             {
-                const auto pt = match.back().toDouble();
+                const auto pt = capturedTexts.back().toDouble();
                 const int pixels = static_cast<int>(pointSizeF * pt + 0.5);
-                //QMessageBox::information(nullptr, "bbb", QString("Replacing %1\nwith\n%2\n\npt = %3").arg(match.front()).arg(QString("%1px").arg(pixels)).arg(pt));
-                style.replace(match.front(), QString("%1px").arg(pixels));
+                //QMessageBox::information(nullptr, "Style-sheet modification", QString("Replacing '%1'\nwith\n'%2px'\n\npt count: %3").arg(capturedTexts.front()).arg(pixels).arg(pt));
+                style.replace(capturedTexts.front(), QString("%1px").arg(pixels));
             }
 
             qApp->setStyleSheet(style);
@@ -271,8 +270,10 @@ void MainWindow::configureSizes()
     const auto updateFont = [&] (QFont& font)
     {
         font.setFamily(fontFamily);
-        font.setPixelSize(pixelSize);
-        font.setPointSize(pointSize);
+        if (pixelSize >= 0)
+            font.setPixelSize(pixelSize);
+        if (pointSize >= 0)
+            font.setPointSize(pointSize);
     };
 
     auto& fonts = EASY_GLOBALS.font;
