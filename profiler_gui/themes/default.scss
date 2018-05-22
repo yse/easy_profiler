@@ -40,9 +40,6 @@ $IndicatorBorderColor: darken($DarkSelectionColor, 5%);
 $DisabledIndicatorBackgroundColor: $SelectionColor;
 $DisabledIndicatorBorderColor: darken($SelectionColor, 5%);
 
-$ButtonHoverColor: $DarkSelectionColor;//#922c2c;
-$ButtonPressedColor: darken($DarkSelectionColor, 20%);//#370400;
-
 $FocusBorderColor: $DarkSelectionColor;//#ffbcbc;
 $TooltipColor: #ffeccc;
 
@@ -239,13 +236,13 @@ QPushButton:disabled {
 }
 
 QPushButton:hover {
-    border: 1px solid $FocusBorderColor;
-    color: $ButtonHoverColor;
+    border-color: $FocusBorderColor;
 }
 
 QPushButton:pressed {
-    border: 1px solid $ButtonHoverColor;
-    color: $ButtonPressedColor;
+    border-color: $FocusBorderColor;
+    background-color: $FocusBorderColor;
+    color: white;
 }
 
 /* ****************************************************************************************************************** */

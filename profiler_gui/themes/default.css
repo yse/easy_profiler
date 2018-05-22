@@ -161,12 +161,12 @@ QPushButton:disabled {
   color: #c4c4c4; }
 
 QPushButton:hover {
-  border: 1px solid #3297FD;
-  color: #3297FD; }
+  border-color: #3297FD; }
 
 QPushButton:pressed {
-  border: 1px solid #3297FD;
-  color: #0264c7; }
+  border-color: #3297FD;
+  background-color: #3297FD;
+  color: white; }
 
 /* ****************************************************************************************************************** */
 QListView {
