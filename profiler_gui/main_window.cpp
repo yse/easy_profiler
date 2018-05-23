@@ -469,8 +469,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     menu->addSeparator();
     auto submenu = menu->addMenu("View");
     submenu->setToolTipsVisible(true);
-    action = submenu->addAction("Draw items' borders");
-    action->setToolTip("Draw borders for blocks on diagram.\nThis reduces performance.");
+    action = submenu->addAction("Draw borders");
+    action->setToolTip("Draw borders for blocks on diagram.\nThis slightly reduces performance.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.draw_graphics_items_borders);
     connect(action, &QAction::triggered, [this](bool _checked){ EASY_GLOBALS.draw_graphics_items_borders = _checked; refreshDiagram(); });
@@ -593,32 +593,32 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     auto actionGroup = new QActionGroup(this);
     actionGroup->setExclusive(true);
 
-    action = new QAction("Chrono text at top", actionGroup);
-    action->setToolTip("Draw duration of selected interval\nat the top of the screen.");
+    action = new QAction("Ruler text at top", actionGroup);
+    action->setToolTip("Draw duration of selected interval\nat the top of the diagram.");
     action->setCheckable(true);
-    action->setData(static_cast<int>(profiler_gui::ChronoTextPosition_Top));
-    if (EASY_GLOBALS.chrono_text_position == profiler_gui::ChronoTextPosition_Top)
+    action->setData(static_cast<int>(profiler_gui::RulerTextPosition_Top));
+    if (EASY_GLOBALS.chrono_text_position == profiler_gui::RulerTextPosition_Top)
         action->setChecked(true);
     submenu->addAction(action);
-    connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
+    connect(action, &QAction::triggered, this, &This::onRulerTextPosChanged);
 
-    action = new QAction("Chrono text at center", actionGroup);
-    action->setToolTip("Draw duration of selected interval\nat the center of the screen.");
+    action = new QAction("Ruler text at center", actionGroup);
+    action->setToolTip("Draw duration of selected interval\nat the center of the diagram.");
     action->setCheckable(true);
-    action->setData(static_cast<int>(profiler_gui::ChronoTextPosition_Center));
-    if (EASY_GLOBALS.chrono_text_position == profiler_gui::ChronoTextPosition_Center)
+    action->setData(static_cast<int>(profiler_gui::RulerTextPosition_Center));
+    if (EASY_GLOBALS.chrono_text_position == profiler_gui::RulerTextPosition_Center)
         action->setChecked(true);
     submenu->addAction(action);
-    connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
+    connect(action, &QAction::triggered, this, &This::onRulerTextPosChanged);
 
-    action = new QAction("Chrono text at bottom", actionGroup);
-    action->setToolTip("Draw duration of selected interval\nat the bottom of the screen.");
+    action = new QAction("Ruler text at bottom", actionGroup);
+    action->setToolTip("Draw duration of selected interval\nat the bottom of the diagram.");
     action->setCheckable(true);
-    action->setData(static_cast<int>(profiler_gui::ChronoTextPosition_Bottom));
-    if (EASY_GLOBALS.chrono_text_position == profiler_gui::ChronoTextPosition_Bottom)
+    action->setData(static_cast<int>(profiler_gui::RulerTextPosition_Bottom));
+    if (EASY_GLOBALS.chrono_text_position == profiler_gui::RulerTextPosition_Bottom)
         action->setChecked(true);
     submenu->addAction(action);
-    connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
+    connect(action, &QAction::triggered, this, &This::onRulerTextPosChanged);
 
     submenu->addSeparator();
     auto w = new QWidget(submenu);
@@ -1233,10 +1233,10 @@ void MainWindow::onEncodingChanged(bool)
         QTextCodec::setCodecForLocale(codec);
 }
 
-void MainWindow::onChronoTextPosChanged(bool)
+void MainWindow::onRulerTextPosChanged(bool)
 {
     auto _sender = qobject_cast<QAction*>(sender());
-    EASY_GLOBALS.chrono_text_position = static_cast<profiler_gui::ChronometerTextPosition>(_sender->data().toInt());
+    EASY_GLOBALS.chrono_text_position = static_cast<profiler_gui::RulerTextPosition>(_sender->data().toInt());
     refreshDiagram();
 }
 
@@ -1471,7 +1471,7 @@ void MainWindow::loadSettings()
 
     auto val = settings.value("chrono_text_position");
     if (!val.isNull())
-        EASY_GLOBALS.chrono_text_position = static_cast<profiler_gui::ChronometerTextPosition>(val.toInt());
+        EASY_GLOBALS.chrono_text_position = static_cast<profiler_gui::RulerTextPosition>(val.toInt());
 
     val = settings.value("time_units");
     if (!val.isNull())

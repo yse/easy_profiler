@@ -74,7 +74,7 @@
 
 GraphicsRulerItem::GraphicsRulerItem(bool _main)
     : Parent()
-    , m_color(::profiler_gui::CHRONOMETER_COLOR)
+    , m_color(profiler_gui::RULER_COLOR)
     , m_left(0)
     , m_right(0)
     , m_bMain(_main)
@@ -149,7 +149,7 @@ void GraphicsRulerItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem
     QRectF rect((m_left - offset) * currentScale, visibleSceneRect.top(), ::std::max(selectedInterval * currentScale, 1.0), visibleSceneRect.height());
     selectedInterval = units2microseconds(selectedInterval);
 
-    const QString text = ::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, selectedInterval); // Displayed text
+    const QString text = profiler_gui::timeStringReal(EASY_GLOBALS.time_units, selectedInterval); // Displayed text
     const auto textRect = QFontMetricsF(EASY_GLOBALS.font.ruler, sceneView).boundingRect(text); // Calculate displayed text boundingRect
     const auto rgb = m_color.rgb() & 0x00ffffff;
 
@@ -242,23 +242,23 @@ void GraphicsRulerItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem
     int textFlags = 0;
     switch (EASY_GLOBALS.chrono_text_position)
     {
-        case ::profiler_gui::ChronoTextPosition_Top:
+        case profiler_gui::RulerTextPosition_Top:
             textFlags = Qt::AlignTop | Qt::AlignHCenter;
             if (!m_bMain) rect.setTop(rect.top() + textRect.height() * 0.75);
             break;
 
-        case ::profiler_gui::ChronoTextPosition_Center:
+        case profiler_gui::RulerTextPosition_Center:
             textFlags = Qt::AlignCenter;
             if (!m_bMain) rect.setTop(rect.top() + textRect.height() * 1.5);
             break;
 
-        case ::profiler_gui::ChronoTextPosition_Bottom:
+        case profiler_gui::RulerTextPosition_Bottom:
             textFlags = Qt::AlignBottom | Qt::AlignHCenter;
             if (!m_bMain) rect.setHeight(rect.height() - textRect.height() * 0.75);
             break;
     }
 
-    const auto textRect_width = textRect.width() * ::profiler_gui::FONT_METRICS_FACTOR;
+    const auto textRect_width = textRect.width() * profiler_gui::FONT_METRICS_FACTOR;
     if (textRect_width < rect.width())
     {
         // Text will be drawed inside rectangle

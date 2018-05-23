@@ -353,7 +353,7 @@ GraphicsRulerItem* BlocksGraphicsView::createRuler(bool _main)
 {
     auto ruler = new GraphicsRulerItem(_main);
 
-    ruler->setColor(_main ? ::profiler_gui::CHRONOMETER_COLOR : ::profiler_gui::CHRONOMETER_COLOR2);
+    ruler->setColor(_main ? ::profiler_gui::RULER_COLOR : ::profiler_gui::RULER_COLOR2);
     ruler->setBoundingRect(sceneRect());
     ruler->hide();
     scene()->addItem(ruler);
@@ -2391,8 +2391,8 @@ void ThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
         }
     };
 
-    drawTimeText(time1, th, ::profiler_gui::CHRONOMETER_COLOR.rgb() & 0x00ffffff);
-    drawTimeText(time2, th, ::profiler_gui::CHRONOMETER_COLOR2.rgb() & 0x00ffffff);
+    drawTimeText(time1, th, ::profiler_gui::RULER_COLOR.rgb() & 0x00ffffff);
+    drawTimeText(time2, th, ::profiler_gui::RULER_COLOR2.rgb() & 0x00ffffff);
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -318,7 +318,7 @@ protected slots:
     void onDeleteClicked(bool);
     void onExitClicked(bool);
     void onEncodingChanged(bool);
-    void onChronoTextPosChanged(bool);
+    void onRulerTextPosChanged(bool);
     void onUnitsChanged(bool);
     void onEnableDisableStatistics(bool);
     void onCollapseItemsAfterCloseChanged(bool);

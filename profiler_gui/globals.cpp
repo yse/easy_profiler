@@ -92,7 +92,7 @@ namespace profiler_gui {
         , max_fps_history(90)
         , fps_timer_interval(500)
         , fps_widget_line_width(2)
-        , chrono_text_position(ChronoTextPosition_Top)
+        , chrono_text_position(RulerTextPosition_Top)
         , time_units(TimeUnits_ms)
         , connected(false)
         , fps_enabled(true)

@@ -204,7 +204,7 @@ GraphicsSliderArea::GraphicsSliderArea(QWidget* _parent)
     scene()->addItem(m_selectionIndicator);
 
     m_selectionIndicator->setPos(0, 0);
-    m_selectionIndicator->setColor(0x40000000 | profiler_gui::CHRONOMETER_COLOR.rgba());
+    m_selectionIndicator->setColor(0x40000000 | profiler_gui::RULER_COLOR.rgba());
     m_selectionIndicator->hide();
 
     m_slider = new GraphicsSliderItem(6, true);
