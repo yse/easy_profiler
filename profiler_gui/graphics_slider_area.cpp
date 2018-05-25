@@ -539,12 +539,12 @@ void GraphicsSliderArea::wheelEvent(QWheelEvent* _event)
     {
         const auto w = m_slider->halfwidth() * (_event->delta() < 0 ? profiler_gui::SCALING_COEFFICIENT : profiler_gui::SCALING_COEFFICIENT_INV);
         setValue(mapToScene(_event->pos()).x() - m_minimumValue - w);
-        emit EASY_GLOBALS.events.chartWheeled(w * m_windowScale, _event->delta());
+        emit EASY_GLOBALS.events.chartWheeled(m_value + w * m_windowScale, _event->delta());
     }
     else
     {
         auto x = static_cast<qreal>(_event->pos().x()) / m_windowScale;
-        if (m_bBindMode)
+        if (m_bBindMode) // check m_bBindMode because it may differ from bindMode() for arbitrary value complexity chart
             x *= sliderWidth() / range();
         emit EASY_GLOBALS.events.chartWheeled(m_value + x, _event->delta());
     }
