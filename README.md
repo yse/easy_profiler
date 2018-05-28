@@ -1,4 +1,4 @@
-# easy_profiler [![2.0.0](https://img.shields.io/badge/version-2.0.0-009688.svg)](https://github.com/yse/easy_profiler/releases)
+# easy_profiler [![2.0.1](https://img.shields.io/badge/version-2.0.1-009688.svg)](https://github.com/yse/easy_profiler/releases)
 
 [![Build Status](https://travis-ci.org/yse/easy_profiler.svg?branch=develop)](https://travis-ci.org/yse/easy_profiler)
 [![Build Status](https://ci.appveyor.com/api/projects/status/github/yse/easy_profiler?branch=develop&svg=true)](https://ci.appveyor.com/project/yse/easy-profiler/branch/develop)
@@ -9,19 +9,21 @@
 1. [About](#about)
 2. [Key features](#key-features)
 3. [Usage](#usage)
-    - [Prepare build system](#prepare-build-system)
+    - [Integration](#integration)
        - [General build system](#general)
-       - [CMake](#build-with-cmake)
-    - [Add profiling blocks](#add-profiling-blocks)
-    - [Collect blocks](#collect-blocks)
-        - [Collect via network](#collect-via-network)
-        - [Collect via file](#collect-via-file)
-        - [Note about context-switch](#note-about-context-switch)
+       - [CMake](#if-using-cmake)
+    - [Inserting blocks](#inserting-blocks)
+    - [Storing variables](#storing-variables)
+    - [Collect profiling data](#collect-profiling-data)
+        - [Streaming over network](#streaming-over-network)
+        - [Dump to file](#dump-to-file)
+        - [Note about thread context-switch events](#note-about-thread-context-switch-events)
+        - [Profiling application startup](#profiling-application-startup)
 4. [Build](#build)
     - [Linux](#linux)
     - [MacOS](#macos)
     - [Windows](#windows)
-5. [Note about major release (v1 -> v2)](#status)
+5. [Notes about major release (1.0 -> 2.0)](#status)
 6. [License](#license)
 
 # About
@@ -53,71 +55,59 @@ _New UI style in version 2.0_
 - Extremely low overhead
 - Low additional memory usage
 - Cross-platform
-- Measuring over network
+- Profiling over network
 - Capture thread context-switch events
-- Fully remove integration via defines
+- Store user variables (both single values and arrays)
 - GUI could be connected to an application which is already profiling (so you can profile initialization of your application)
-- Monitor main thread fps at real-time in GUI even if profiling is disabled or draw your own HUD/fps-plot directly in your application using data provided by profiler 
-- Configurable timer type with CMakeLists or defines 
+- Monitor main thread fps at real-time in GUI even if profiling is disabled or draw your own HUD/fps-plot directly in your application using data provided by profiler
+- Configurable timer type with CMakeLists or preprocessor macros 
 
 # Usage
 
-## Prepare build system
+## Integration
 
 ### General
 
 First of all you can specify path to include directory which contains `include/profiler` directory and define macro `BUILD_WITH_EASY_PROFILER`.
 For linking with easy_profiler you can specify path to library.
 
-### Build with cmake
+### If using CMake
 
-If you are using `cmake` set `CMAKE_PREFIX_PATH` to `lib/cmake/easy_profiler` directory (from [release](https://github.com/yse/easy_profiler/releases) package) and use function `find_package(easy_profiler)` with `target_link_libraries(... easy_profiler)`. Example:
+If you are using `cmake` set `CMAKE_PREFIX_PATH` to `lib/cmake/easy_profiler` directory (from [release](https://github.com/yse/easy_profiler/releases) package) and use function `find_package(easy_profiler)` with `target_link_libraries(... easy_profiler)`. 
 
+Example:
 ``` cmake
-project(app_for_profiling)
+project(my_application)
 
 set(SOURCES
     main.cpp
 )
 
-#CMAKE_PREFIX_PATH should be set to <easy_profiler-release_dir>/lib/cmake/easy_profiler
-find_package(easy_profiler REQUIRED)
+# CMAKE_PREFIX_PATH should be set to <easy_profiler-release_dir>/lib/cmake/easy_profiler
+find_package(easy_profiler REQUIRED)  # STEP 1 #########################
 
-add_executable(app_for_profiling ${SOURCES})
+add_executable(my_application ${SOURCES})
 
-target_link_libraries(app_for_profiling easy_profiler)
+target_link_libraries(my_application easy_profiler)  # STEP 2 ##########
 ```
 
-## Add profiling blocks
+## Inserting blocks
 
 Example of usage.
 
-This code snippet will generate block with function name and Magenta color:
-```cpp
-#include <easy/profiler.h>
-
-void frame() {
-    EASY_FUNCTION(profiler::colors::Magenta); // Magenta block with name "frame"
-    prepareRender();
-    calculatePhysics();
-}
-```
-
-To profile any block you may do this as following.
-You can specify these blocks also with Google material design colors or just set name of the block
-(in this case it will have default color which is `Amber100`):
 ```cpp
 #include <easy/profiler.h>
 
 void foo() {
-    // some code
-    EASY_BLOCK("Calculating sum"); // Block with default color
+    EASY_FUNCTION(profiler::colors::Magenta); // Magenta block with name "foo"
+
+    EASY_BLOCK("Calculating sum"); // Begin block with default color == Amber100
     int sum = 0;
     for (int i = 0; i < 10; ++i) {
         EASY_BLOCK("Addition", profiler::colors::Red); // Scoped red block (no EASY_END_BLOCK needed)
         sum += i;
     }
-    EASY_END_BLOCK; // This ends "Calculating sum" block
+    EASY_END_BLOCK; // End of "Calculating sum" block
 
     EASY_BLOCK("Calculating multiplication", profiler::colors::Blue500); // Blue block
     int mul = 1;
@@ -125,56 +115,117 @@ void foo() {
         mul *= i;
     //EASY_END_BLOCK; // This is not needed because all blocks are ended on destructor when closing braces met
 }
-```
-
-You can also use your own colors. easy_profiler is using standard 32-bit ARGB color format.
-Example:
-```cpp
-#include <easy/profiler.h>
 
 void bar() {
-    EASY_FUNCTION(0xfff080aa); // Function block with custom color
-    // some code
+    EASY_FUNCTION(0xfff080aa); // Function block with custom ARGB color
+}
+
+void baz() {
+    EASY_FUNCTION(); // Function block with default color == Amber100
 }
 ```
-## Collect blocks
 
-There are two ways to capture blocks
+EasyProfiler is using Google Material-Design colors palette, but you can use custom colors in ARGB format (like shown in example above).  
+The default color is `Amber100` (it is used when you do not specify color explicitly). 
 
-### Collect via network
+## Storing variables
 
-It's most prefered and convenient approach in many case.
+Example of storing variables:
+```cpp
+#include <easy/profiler.h>
+#include <easy/arbitrary_value.h> // EASY_VALUE, EASY_ARRAY are defined here
 
-1. Initialize listening by `profiler::startListen()`. It's start new thread to listen on `28077` port the start-capture-signal from gui-application.
-2. To stop listening you can call `profiler::stopListen()` function. 
+class Object {
+    Vector3 m_position; // Let's suppose Vector3 is a struct { float x, y, z; };
+    unsigned int  m_id;
+public:
+    void act() {
+        EASY_FUNCTION(profiler::colors::Cyan);
 
-### Collect via file
+        // Dump variables values
+        constexpr auto Size = sizeof(Vector3) / sizeof(float);
+        EASY_VALUE("id", m_id);
+        EASY_ARRAY("position", &m_position.x, Size, profiler::color::Red);
 
-1. Enable profiler by `EASY_PROFILER_ENABLE` macro
-2. Dump blocks to file in any place you want by `profiler::dumpBlocksToFile("test_profile.prof")` function
+        // Do something ...
+    }
+
+    void loop(uint32_t N) {
+        EASY_FUNCTION();
+        EASY_VALUE("N", N, EASY_VIN("N")); /* EASY_VIN is used here to ensure
+                                            that this value id will always be
+                                            the same, because the address of N
+                                            can change */
+        for (uint32_t i = 0; i < N; ++i) {
+            // Do something
+        }
+    }
+};
+```
+
+## Collect profiling data
+
+There are two ways to collect profiling data: streaming over network and dumping data to file.
+
+### Streaming over network
+
+This is the most preferred and convenient method in many cases.
+
+1. (In profiled app) Invoke `profiler::startListen()`. This will start new thread to listen `28077` port for the start-capture-signal from profiler_gui.
+2. (In UI) Connect profiler_gui to your application using `hostname` or `IP-address`.
+3. (In UI) Press `Start capture` button in profiler_gui.
+4. (In UI) Press `Stop capture` button in profiler_gui to stop capturing and wait until profiled data will be passed over network.
+5. (Optional step)(In profiled app) Invoke `profiler::stopListen()` to stop listening. 
 
 Example:
 ```cpp
-int main()
-{
+void main() {
+    profiler::startListen();
+    /* do work */
+}
+```
+
+### Dump to file
+
+1. (Profiled application) Start capturing by putting `EASY_PROFILER_ENABLE` macro somewhere into the code.
+2. (Profiled application) Dump profiled data to file in any place you want by `profiler::dumpBlocksToFile("test_profile.prof")` function.
+
+Example:
+```cpp
+void main() {
     EASY_PROFILER_ENABLE;
-    /* do work*/
+    /* do work */
     profiler::dumpBlocksToFile("test_profile.prof");
 }
 ```
 
-### Note about context-switch
+### Note about thread context-switch events
 
-To capture a thread context-switch event you need:
+To capture a thread context-switch events you need:
 
-- On Windows: run profiling application "as administrator"
-- On linux: you can run special `systemtap` script with root privileges as follow (example on Fedora):
+- On Windows: launch your application "as Administrator"
+- On Linux: you can launch special `systemtap` script with root privileges as follow (example on Fedora):
 ```bash
 #stap -o /tmp/cs_profiling_info.log scripts/context_switch_logger.stp name APPLICATION_NAME
 ```
-APPLICATION_NAME - name of profiling application
+APPLICATION_NAME - name of your application
 
 There are some known issues on a linux based systems (for more information see [wiki](https://github.com/yse/easy_profiler/wiki/Known-bugs-and-issues))
+
+### Profiling application startup
+
+To profile your application startup (when using [network](#streaming-over-network) method) add `EASY_PROFILER_ENABLE` macro into the code together with `profiler::startListen()`. 
+
+Example:
+```cpp
+void main() {
+    EASY_PROFILER_ENABLE;
+    profiler::startListen();
+    /* do work */
+}
+```
+
+This will allow you to collect profiling data before profiler_gui connection. profiler_gui will automatically display capturing dialog window after successful connection to the profiled application. 
 
 # Build
 
@@ -231,13 +282,10 @@ $ cmake .. -G "Visual Studio 12 2013 Win64"
 ```
 
 # Status
-Branch `develop` contains all v2.0.0 features and new UI style.
-
-Please, note that .prof file header has changed in v2.0.0.
-Now it is:
+Branch `develop` contains all v2.0.0 features and new UI style.  
+Please, note that .prof file header has changed in v2.0.0:
 ```cpp
-struct EasyFileHeader
-{
+struct EasyFileHeader {
     uint32_t signature = 0;
     uint32_t version = 0;
     profiler::processid_t pid = 0;
