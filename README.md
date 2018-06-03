@@ -47,7 +47,7 @@ You can see the results of measuring in simple GUI application which provides fu
 ![GUI screenshot](https://cloud.githubusercontent.com/assets/1775230/24852044/a0b1edd0-1dde-11e7-8736-7052b840ad06.png)
 _Profiling CryEngine SDK example_
 
-![New UI Style](https://user-images.githubusercontent.com/10530007/39360172-d8e007cc-4a25-11e8-904a-75a47e388401.png)
+![New UI Style](https://user-images.githubusercontent.com/10530007/40890463-0ab378f8-677f-11e8-9b10-9c62ffb7d5b8.png)
 _New UI style in version 2.0_
 
 # Key features
