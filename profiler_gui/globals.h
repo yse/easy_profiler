@@ -196,6 +196,7 @@ namespace profiler_gui {
         GlobalSignals                             events; ///< Global signals
         ::profiler::thread_blocks_tree_t profiler_blocks; ///< Profiler blocks tree loaded from file
         ::profiler::descriptors_list_t       descriptors; ///< Profiler block descriptors list
+        ::profiler::bookmarks_t                bookmarks; ///< User bookmarks
         EasyBlocks                            gui_blocks; ///< Profiler graphics blocks builded by GUI
 
         QString                                    theme; ///< Current UI theme name
@@ -210,6 +211,7 @@ namespace profiler_gui {
         ::profiler::block_index_t         selected_block; ///< Current selected profiler block index
         ::profiler::block_id_t         selected_block_id; ///< Current selected profiler block id
         uint32_t                                 version; ///< Opened file version (files may have different format)
+
         float                                 frame_time; ///< Expected frame time value in microseconds to be displayed at minimap on graphics scrollbar
         int                               blocks_spacing; ///< Minimum blocks spacing on diagram
         int                              blocks_size_min; ///< Minimum blocks size on diagram
@@ -217,9 +219,16 @@ namespace profiler_gui {
         int                              max_fps_history; ///< Max frames history displayed in FPS Monitor
         int                           fps_timer_interval; ///< Interval in milliseconds for sending network requests to the profiled application (used by FPS Monitor)
         int                        fps_widget_line_width; ///< Line width in pixels of FPS lines for FPS Monitor
-        RulerTextPosition     chrono_text_position; ///< Selected interval text position
+        ::profiler::color_t       bookmark_default_color; ///<
+
+        RulerTextPosition           chrono_text_position; ///< Selected interval text position
         TimeUnits                             time_units; ///< Units type for time (milliseconds, microseconds, nanoseconds or auto-definition)
+
         bool                                   connected; ///< Is connected to source (to be able to capture profiling information)
+        bool                           has_local_changes; ///<
+
+        bool                    use_custom_window_header; ///<
+        bool             is_right_window_header_controls; ///<
         bool                                 fps_enabled; ///< Is FPS Monitor enabled
         bool                   use_decorated_thread_name; ///< Add "Thread" to the name of each thread (if there is no one)
         bool                               hex_thread_id; ///< Use hex view for thread-id instead of decimal
@@ -302,8 +311,12 @@ inline QSize applicationIconsSize() {
     return QSize(EASY_GLOBALS.size.icon_size, EASY_GLOBALS.size.icon_size);
 }
 
+inline qreal pxf(int pixels) {
+    return pixels * EASY_GLOBALS.size.pixelRatio;
+}
+
 inline int px(int pixels) {
-    return static_cast<int>(pixels * EASY_GLOBALS.size.pixelRatio + 0.5);
+    return static_cast<int>(pxf(pixels) + 0.5);
 }
 
 //////////////////////////////////////////////////////////////////////////

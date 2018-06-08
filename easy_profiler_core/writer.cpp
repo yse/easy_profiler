@@ -63,6 +63,8 @@
 extern const uint32_t EASY_PROFILER_SIGNATURE;
 extern const uint32_t EASY_PROFILER_VERSION;
 
+EASY_CONSTEXPR auto BaseCSwitchSize = sizeof(profiler::SerializedCSwitch) + 1;
+
 //////////////////////////////////////////////////////////////////////////
 
 struct BlocksRange
@@ -71,7 +73,7 @@ struct BlocksRange
     profiler::block_index_t   end;
 
     BlocksRange(profiler::block_index_t size = 0)
-        : begin(size), end(size)
+        : begin(0), end(size)
     {
     }
 
@@ -181,6 +183,54 @@ static BlocksRange findRange(const profiler::BlocksTree::children_t& children, p
     return range;
 }
 
+static BlocksRange findRange(const profiler::bookmarks_t& bookmarks, profiler::timestamp_t beginTime, profiler::timestamp_t endTime)
+{
+    const auto size = static_cast<profiler::block_index_t>(bookmarks.size());
+    BlocksRange range(size);
+
+    if (size == 0)
+        return range;
+
+    if (beginTime <= bookmarks.front().pos && bookmarks.back().pos <= endTime)
+        return range; // All blocks inside range
+
+    auto first_it = std::lower_bound(bookmarks.begin(), bookmarks.end(), beginTime,
+                                     [](const profiler::Bookmark& element, profiler::timestamp_t value)
+    {
+        return element.pos < value;
+    });
+
+    for (; first_it != bookmarks.end(); ++first_it)
+    {
+        const auto& bookmark = *first_it;
+        if (bookmark.pos >= beginTime)
+            break;
+    }
+
+    if (first_it != bookmarks.end() && first_it->pos <= endTime)
+    {
+        auto last_it = std::lower_bound(bookmarks.begin(), bookmarks.end(), endTime,
+                                        [](const profiler::Bookmark& element, profiler::timestamp_t value)
+        {
+            return element.pos <= value;
+        });
+
+        if (last_it != bookmarks.end() && last_it->pos >= beginTime)
+        {
+            const auto begin = static_cast<profiler::block_index_t>(std::distance(bookmarks.begin(), first_it));
+            const auto end = static_cast<profiler::block_index_t>(std::distance(bookmarks.begin(), last_it));
+
+            if (begin <= end)
+            {
+                range.begin = begin;
+                range.end = end;
+            }
+        }
+    }
+
+    return range;
+}
+
 static BlocksMemoryAndCount calculateUsedMemoryAndBlocksCount(const profiler::BlocksTree::children_t& children,
                                                               const BlocksRange& range,
                                                               const profiler::block_getter_fn& getter,
@@ -221,7 +271,7 @@ static BlocksMemoryAndCount calculateUsedMemoryAndBlocksCount(const profiler::Bl
         for (auto i = range.begin; i < range.end; ++i)
         {
             const auto& child = getter(children[i]);
-            const uint64_t usedMemorySize = sizeof(profiler::SerializedCSwitch) + strlen(child.cs->name()) + 1;
+            const uint64_t usedMemorySize = BaseCSwitchSize + strlen(child.cs->name());
             memoryAndCount.usedMemorySize += usedMemorySize;
             ++memoryAndCount.blocksCount;
         }
@@ -284,8 +334,7 @@ static void serializeContextSwitches(std::ostream& output, std::vector<char>& bu
     {
         const auto& child = getter(children[i]);
 
-        const auto usedMemorySize = static_cast<uint16_t>(
-            sizeof(profiler::SerializedCSwitch) + strlen(child.cs->name()) + 1);
+        const auto usedMemorySize = static_cast<uint16_t>(BaseCSwitchSize + strlen(child.cs->name()));
 
         buffer.resize(usedMemorySize + sizeof(uint16_t));
         unaligned_store16(buffer.data(), usedMemorySize);
@@ -317,6 +366,20 @@ static void serializeDescriptors(std::ostream& output, std::vector<char>& buffer
     }
 }
 
+static void serializeBookmarks(std::ostream& output, const profiler::bookmarks_t& bookmarks, const BlocksRange& range)
+{
+    for (auto i = range.begin; i < range.end; ++i)
+    {
+        const auto& bookmark = bookmarks[i];
+
+        const auto usedMemorySize = static_cast<uint16_t>(profiler::Bookmark::BaseSize + bookmark.text.size());
+        write(output, usedMemorySize);
+        write(output, bookmark.pos);
+        write(output, bookmark.color);
+        write(output, bookmark.text.c_str(), bookmark.text.size() + 1);
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 extern "C" PROFILER_API profiler::block_index_t writeTreesToFile(std::atomic<int>& progress, const char* filename,
@@ -324,6 +387,7 @@ extern "C" PROFILER_API profiler::block_index_t writeTreesToFile(std::atomic<int
                                                                  const profiler::descriptors_list_t& descriptors,
                                                                  profiler::block_id_t descriptors_count,
                                                                  const profiler::thread_blocks_tree_t& trees,
+                                                                 const profiler::bookmarks_t& bookmarks,
                                                                  profiler::block_getter_fn block_getter,
                                                                  profiler::timestamp_t begin_time,
                                                                  profiler::timestamp_t end_time,
@@ -342,7 +406,7 @@ extern "C" PROFILER_API profiler::block_index_t writeTreesToFile(std::atomic<int
 
     // Write data to file
     auto result = writeTreesToStream(progress, outFile, serialized_descriptors, descriptors, descriptors_count, trees,
-                                     std::move(block_getter), begin_time, end_time, pid, log);
+                                     bookmarks, std::move(block_getter), begin_time, end_time, pid, log);
 
     return result;
 }
@@ -354,6 +418,7 @@ extern "C" PROFILER_API profiler::block_index_t writeTreesToStream(std::atomic<i
                                                                    const profiler::descriptors_list_t& descriptors,
                                                                    profiler::block_id_t descriptors_count,
                                                                    const profiler::thread_blocks_tree_t& trees,
+                                                                   const profiler::bookmarks_t& bookmarks,
                                                                    profiler::block_getter_fn block_getter,
                                                                    profiler::timestamp_t begin_time,
                                                                    profiler::timestamp_t end_time,
@@ -412,6 +477,19 @@ extern "C" PROFILER_API profiler::block_index_t writeTreesToStream(std::atomic<i
         ++i;
     }
 
+    BlocksRange bookmarksRange;
+    uint16_t bookmarksCount = 0;
+    if (!bookmarks.empty())
+    {
+        bookmarksRange = findRange(bookmarks, begin_time, end_time);
+        bookmarksCount = static_cast<uint16_t>(bookmarksRange.end - bookmarksRange.begin);
+        if (bookmarksCount != 0)
+        {
+            beginTime = std::min(beginTime, bookmarks[bookmarksRange.begin].pos);
+            endTime = std::max(endTime, bookmarks[bookmarksRange.end - 1].pos);
+        }
+    }
+
     if (total.blocksCount == 0)
     {
         log << "Nothing to save";
@@ -435,6 +513,9 @@ extern "C" PROFILER_API profiler::block_index_t writeTreesToStream(std::atomic<i
     write(str, usedMemorySizeDescriptors);
     write(str, total.blocksCount);
     write(str, descriptors_count);
+    write(str, static_cast<uint32_t>(trees.size()));
+    write(str, bookmarksCount);
+    write(str, static_cast<uint16_t>(0)); // padding
 
     std::vector<char> buffer;
 
@@ -464,8 +545,17 @@ extern "C" PROFILER_API profiler::block_index_t writeTreesToStream(std::atomic<i
         if (range.blocksMemoryAndCount.blocksCount != 0)
             serializeBlocks(str, buffer, tree.children, range.blocks, block_getter, descriptors);
 
-        if (!update_progress_write(progress, 40 + 60 / static_cast<int>(trees.size() - i), log))
+        if (!update_progress_write(progress, 40 + 57 / static_cast<int>(trees.size() - i), log))
             return 0;
+    }
+
+    write(str, EASY_PROFILER_SIGNATURE);
+
+    // Serialize bookmarks
+    if (bookmarksCount != 0)
+    {
+        serializeBookmarks(str, bookmarks, bookmarksRange);
+        write(str, EASY_PROFILER_SIGNATURE);
     }
 
     return total.blocksCount;

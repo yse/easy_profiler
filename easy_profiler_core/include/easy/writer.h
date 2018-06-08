@@ -52,6 +52,7 @@ extern "C" {
                                                           const profiler::descriptors_list_t& descriptors,
                                                           profiler::block_id_t descriptors_count,
                                                           const profiler::thread_blocks_tree_t& trees,
+                                                          const profiler::bookmarks_t& bookmarks,
                                                           profiler::block_getter_fn block_getter,
                                                           profiler::timestamp_t begin_time,
                                                           profiler::timestamp_t end_time,
@@ -63,6 +64,7 @@ extern "C" {
                                                             const profiler::descriptors_list_t& descriptors,
                                                             profiler::block_id_t descriptors_count,
                                                             const profiler::thread_blocks_tree_t& trees,
+                                                            const profiler::bookmarks_t& bookmarks,
                                                             profiler::block_getter_fn block_getter,
                                                             profiler::timestamp_t begin_time,
                                                             profiler::timestamp_t end_time,
@@ -75,6 +77,7 @@ inline profiler::block_index_t writeTreesToFile(const char* filename,
                                                 const profiler::descriptors_list_t& descriptors,
                                                 profiler::block_id_t descriptors_count,
                                                 const profiler::thread_blocks_tree_t& trees,
+                                                const profiler::bookmarks_t& bookmarks,
                                                 profiler::block_getter_fn block_getter,
                                                 profiler::timestamp_t begin_time,
                                                 profiler::timestamp_t end_time,
@@ -83,7 +86,7 @@ inline profiler::block_index_t writeTreesToFile(const char* filename,
 {
     std::atomic<int> progress = ATOMIC_VAR_INIT(0);
     return writeTreesToFile(progress, filename, serialized_descriptors, descriptors, descriptors_count, trees,
-                            std::move(block_getter), begin_time, end_time, pid, log);
+                            bookmarks, std::move(block_getter), begin_time, end_time, pid, log);
 }
 
 inline profiler::block_index_t writeTreesToStream(std::ostream& str,
@@ -91,6 +94,7 @@ inline profiler::block_index_t writeTreesToStream(std::ostream& str,
                                                   const profiler::descriptors_list_t& descriptors,
                                                   profiler::block_id_t descriptors_count,
                                                   const profiler::thread_blocks_tree_t& trees,
+                                                  const profiler::bookmarks_t& bookmarks,
                                                   profiler::block_getter_fn block_getter,
                                                   profiler::timestamp_t begin_time,
                                                   profiler::timestamp_t end_time,
@@ -99,7 +103,7 @@ inline profiler::block_index_t writeTreesToStream(std::ostream& str,
 {
     std::atomic<int> progress = ATOMIC_VAR_INIT(0);
     return writeTreesToStream(progress, str, serialized_descriptors, descriptors, descriptors_count, trees,
-                              std::move(block_getter), begin_time, end_time, pid, log);
+                              bookmarks, std::move(block_getter), begin_time, end_time, pid, log);
 }
 
 #endif //EASY_PROFILER_WRITER_H

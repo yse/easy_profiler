@@ -68,6 +68,7 @@
 
 #include <QGraphicsView>
 #include <QGraphicsItem>
+#include <QPainterPath>
 #include <QPoint>
 #include <QRectF>
 #include <QTimer>
@@ -88,23 +89,84 @@ class GraphicsRulerItem;
 
 //////////////////////////////////////////////////////////////////////////
 
-#define EASY_QGRAPHICSITEM(ClassName) \
-class ClassName : public QGraphicsItem { \
-    QRectF m_boundingRect; \
-public: \
-    ClassName() : QGraphicsItem() {} \
-    virtual ~ClassName() {} \
-    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override; \
-    QRectF boundingRect() const override { return m_boundingRect; } \
-    void setBoundingRect(qreal x, qreal y, qreal w, qreal h) { m_boundingRect.setRect(x, y, w, h); } \
-    void setBoundingRect(const QRectF& _rect) { m_boundingRect = _rect; } \
-}
+class AuxItem : public QObject, public QGraphicsItem
+{
+    Q_OBJECT;
+    Q_INTERFACES(QGraphicsItem);
 
-EASY_QGRAPHICSITEM(BackgroundItem);
-EASY_QGRAPHICSITEM(TimelineIndicatorItem);
-EASY_QGRAPHICSITEM(ThreadNameItem);
+protected:
 
-#undef EASY_QGRAPHICSITEM
+    QRectF m_boundingRect;
+
+public:
+
+    explicit AuxItem() : QObject(nullptr), QGraphicsItem() {}
+    ~AuxItem() override {}
+
+    QRectF boundingRect() const override { return m_boundingRect; }
+    void setBoundingRect(qreal x, qreal y, qreal w, qreal h) { m_boundingRect.setRect(x, y, w, h); }
+    void setBoundingRect(const QRectF& _rect) { m_boundingRect = _rect; }
+};
+
+class ThreadNameItem : public AuxItem
+{
+public:
+    explicit ThreadNameItem() : AuxItem() {}
+    ~ThreadNameItem() override {}
+    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
+};
+
+class BackgroundItem : public AuxItem
+{
+    Q_OBJECT;
+
+    QTimer          m_idleTimer;
+    QPainterPath m_bookmarkSign;
+    size_t           m_bookmark;
+    bool       m_bButtonPressed;
+
+public:
+
+    explicit BackgroundItem();
+    ~BackgroundItem() override {}
+
+    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
+
+    bool mouseMove(const QPointF& scenePos);
+    bool mousePress(const QPointF& scenePos);
+    bool mouseRelease(const QPointF& scenePos);
+    bool mouseDoubleClick(const QPointF& scenePos);
+
+    bool contains(const QPointF& scenePos) const;
+
+signals:
+
+    void bookmarkChanged(size_t index);
+    void moved();
+
+private slots:
+
+    void onIdleTimeout();
+};
+
+class ForegroundItem : public AuxItem
+{
+    Q_OBJECT;
+
+    size_t m_bookmark;
+
+public:
+
+    explicit ForegroundItem();
+    ~ForegroundItem() override {}
+
+    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
+
+public slots:
+
+    void onBookmarkChanged(size_t index);
+    void onMoved();
+};
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -142,9 +204,10 @@ private:
     QPoint                      m_mousePressPos; ///< Last mouse global position (used by mousePressEvent and mouseMoveEvent)
     QPoint                      m_mouseMovePath; ///< Mouse move path between press and release of any button
     Qt::MouseButtons             m_mouseButtons; ///< Pressed mouse buttons
-    GraphicsScrollbar*       m_pScrollbar; ///< Pointer to the graphics scrollbar widget
+    GraphicsScrollbar*             m_pScrollbar; ///< Pointer to the graphics scrollbar widget
     GraphicsRulerItem*          m_selectionItem; ///< Pointer to the GraphicsRulerItem which is displayed when you press right mouse button and move mouse left or right. This item is used to select blocks to display in tree widget.
     GraphicsRulerItem*              m_rulerItem; ///< Pointer to the GraphicsRulerItem which is displayed when you double click left mouse button and move mouse left or right. This item is used only to measure time.
+    BackgroundItem*            m_backgroundItem; ///<
     QWidget*                      m_popupWidget; ///<
     int                         m_flickerSpeedX; ///< Current flicking speed x
     int                         m_flickerSpeedY; ///< Current flicking speed y
@@ -300,15 +363,19 @@ private:
     QTimer                  m_idleTimer; ///< 
     uint64_t                 m_idleTime; ///< 
     BlocksGraphicsView*          m_view; ///<
-    QGraphicsProxyWidget* m_popupWidget; ///< 
-    int                     m_maxLength; ///< 
-    const int        m_additionalHeight; ///< 
+    QWidget*              m_popupWidget; ///<
+    int                     m_maxLength; ///<
+    bool                     m_bHovered; ///<
+    char                   m_padding[3]; ///<
+    const int        m_additionalHeight; ///<
 
 public:
 
     explicit ThreadNamesWidget(BlocksGraphicsView* _view, int _additionalHeight, QWidget* _parent = nullptr);
     ~ThreadNamesWidget() override;
 
+    void enterEvent(QEvent* _event) override;
+    void leaveEvent(QEvent* _event) override;
     void mousePressEvent(QMouseEvent* _event) override;
     void mouseDoubleClickEvent(QMouseEvent* _event) override;
     void mouseReleaseEvent(QMouseEvent* _event) override;
@@ -328,7 +395,7 @@ public:
 
 private:
 
-    void removePopup(bool _removeFromScene = false);
+    void removePopup();
 
 private slots:
 

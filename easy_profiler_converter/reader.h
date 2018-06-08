@@ -108,6 +108,8 @@ public:
 
     const descriptors_list_t& getBlockDescriptors() const;
 
+    const profiler::bookmarks_t& getBookmarks() const;
+
     /*! get thread name by Id
     \param threadId thread Id
     \return Name of thread
@@ -132,6 +134,7 @@ private:
     thread_names_t            m_threadNames; ///< [thread_id, thread_name]
     context_switches_t    m_contextSwitches; ///< context switches info
     descriptors_list_t   m_blockDescriptors; ///< block descriptors
+    profiler::bookmarks_t       m_bookmarks; ///< User bookmarks
     uint32_t                      m_version; ///< .prof file version
 
 }; // end of class FileReader.

@@ -1074,6 +1074,9 @@ uint32_t ProfileManager::dumpBlocksToStream(std::ostream& _outputStream, bool _l
     write(_outputStream, m_descriptorsMemorySize);
     write(_outputStream, blocks_number);
     write(_outputStream, static_cast<uint32_t>(m_descriptors.size()));
+    write(_outputStream, static_cast<uint32_t>(m_threads.size()));
+    write(_outputStream, static_cast<uint16_t>(0)); // Bookmarks count (they can be created by user in the UI)
+    write(_outputStream, static_cast<uint16_t>(0)); // padding
 
     // Write block descriptors
     for (const auto descriptor : m_descriptors)
@@ -1134,6 +1137,9 @@ uint32_t ProfileManager::dumpBlocksToStream(std::ostream& _outputStream, bool _l
             ++thread_it;
         }
     }
+
+    // End of threads section
+    write(_outputStream, EASY_PROFILER_SIGNATURE);
 
     m_storedSpin.unlock();
     m_spin.unlock();

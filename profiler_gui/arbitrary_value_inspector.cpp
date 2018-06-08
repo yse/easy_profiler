@@ -56,7 +56,6 @@
 #include <QActionGroup>
 #include <QColor>
 #include <QComboBox>
-#include <QDialog>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QGraphicsScene>
@@ -77,6 +76,7 @@
 #include <set>
 #include <cmath>
 #include "arbitrary_value_inspector.h"
+#include "dialog.h"
 #include "globals.h"
 #include "complexity_calculator.h"
 
@@ -2581,17 +2581,18 @@ void ArbitraryValuesWidget::onOpenInNewWindowClicked(bool)
 {
     saveSettings();
 
-    auto dialog = new QDialog(nullptr);
+    auto viewer = new ArbitraryValuesWidget(m_checkedItems, m_treeWidget->currentItem(), m_threadId, m_blockIndex, m_blockId);
+
+#ifdef WIN32
+    const WindowHeader::Buttons buttons = WindowHeader::AllButtons;
+#else
+    const WindowHeader::Buttons buttons {WindowHeader::MaximizeButton | WindowHeader::CloseButton};
+#endif
+    auto dialog = new Dialog(nullptr, "EasyProfiler", viewer, buttons, QMessageBox::NoButton);
+    dialog->setProperty("stayVisible", true);
     dialog->setAttribute(Qt::WA_DeleteOnClose, true);
-    dialog->setWindowTitle("EasyProfiler");
     connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::allDataGoingToBeDeleted, dialog, &QDialog::reject);
     connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::closeEvent, dialog, &QDialog::reject);
-
-    auto viewer = new ArbitraryValuesWidget(m_checkedItems, m_treeWidget->currentItem(), m_threadId, m_blockIndex, m_blockId, dialog);
-
-    auto layout = new QHBoxLayout(dialog);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->addWidget(viewer);
 
     // Load last dialog geometry
     {

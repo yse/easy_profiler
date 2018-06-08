@@ -7,12 +7,17 @@
     </qresource>
     <qresource prefix="/images/default">
         <file alias="binoculars">images/default/binoculars.svg</file>
+        <file alias="close">images/default/close.svg</file>
+        <file alias="close-hover">images/default/close-hover.svg</file>
         <file alias="crop">images/default/crop.svg</file>
         <file alias="exit">images/default/off.svg</file>
         <file alias="open">images/default/open-folder2.svg</file>
         <file alias="reload">images/default/reload.svg</file>
         <file alias="expand">images/default/expand.svg</file>
         <file alias="collapse">images/default/collapse.svg</file>
+        <file alias="to-fullscreen">images/default/to-fullscreen.svg</file>
+        <file alias="to-window">images/default/to-window.svg</file>
+        <file alias="minimize">images/default/minimize.svg</file>
         <file alias="save">images/default/save.svg</file>
         <file alias="stats">images/default/statistics.svg</file>
         <file alias="stats-off">images/default/statistics2.svg</file>

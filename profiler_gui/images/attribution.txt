@@ -29,9 +29,12 @@ default/binoculars.svg           - Icon made by Gregor Cresnar from www.flaticon
 default/close-white.svg            - Icon made by Cole Bemis from www.flaticon.com
 default/close-white-hover.svg      - Icon made by Cole Bemis from www.flaticon.com
 default/close-white-pressed.svg    - Icon made by Cole Bemis from www.flaticon.com
+default/close.svg                  - Icon made by Freepik from www.flaticon.com
+default/close-hover.svg            - Icon made by Freepik from www.flaticon.com
 default/maximize-white.svg         - Icon made by Freepik from www.flaticon.com
 default/maximize-white-hover.svg   - Icon made by Freepik from www.flaticon.com
 default/maximize-white-pressed.svg - Icon made by Freepik from www.flaticon.com
+default/minimize.svg               - Icon made by Freepik from www.flaticon.com
 default/minimize-white.svg         - Icon made by Freepik from www.flaticon.com
 default/minimize-white-pressed.svg - Icon made by Freepik from www.flaticon.com
 default/arrow-down.svg             - Icon made by Freepik from www.flaticon.com
@@ -48,4 +51,6 @@ default/crop.svg                   - Icon made by Freepik from www.flaticon.com
 default/yx.svg                     - Icon made by Freepik from www.flaticon.com
 default/svg2.svg                   - Icon made by Freepik from www.flaticon.com
 default/svg3.svg                   - Icon made by Freepik from www.flaticon.com
+default/to-fullscreen.svg          - Icon made by Freepik from www.flaticon.com
+default/to-window.svg              - Icon made by Freepik from www.flaticon.com
 default/window.svg                 - Icon made by Freepik from www.flaticon.com

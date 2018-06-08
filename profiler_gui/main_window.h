@@ -96,7 +96,9 @@ class FileReader Q_DECL_FINAL
     profiler::SerializedData m_serializedDescriptors; ///< 
     profiler::descriptors_list_t       m_descriptors; ///< 
     profiler::blocks_t                      m_blocks; ///< 
-    profiler::thread_blocks_tree_t      m_blocksTree; ///< 
+    profiler::thread_blocks_tree_t      m_blocksTree; ///<
+    profiler::bookmarks_t                m_bookmarks; ///<
+    profiler::BeginEndTime            m_beginEndTime; ///<
     std::stringstream                       m_stream; ///< 
     std::stringstream                 m_errorMessage; ///< 
     QString                               m_filename; ///<
@@ -109,6 +111,7 @@ class FileReader Q_DECL_FINAL
     std::atomic<unsigned int>                 m_size; ///<
     JobType                m_jobType = JobType::Idle; ///<
     bool                            m_isFile = false; ///<
+    bool                        m_isSnapshot = false; ///< 
 
 public:
 
@@ -118,6 +121,7 @@ public:
     const bool isFile() const;
     const bool isSaving() const;
     const bool isLoading() const;
+    const bool isSnapshot() const;
 
     bool done() const;
     int progress() const;
@@ -132,12 +136,14 @@ public:
     void save(const QString& _filename, profiler::timestamp_t _beginTime, profiler::timestamp_t _endTime,
               const profiler::SerializedData& _serializedDescriptors, const profiler::descriptors_list_t& _descriptors,
               profiler::block_id_t descriptors_count, const profiler::thread_blocks_tree_t& _trees,
-              profiler::block_getter_fn block_getter, profiler::processid_t _pid);
+              const profiler::bookmarks_t& bookmarks, profiler::block_getter_fn block_getter,
+              profiler::processid_t _pid, bool snapshotMode);
 
     void interrupt();
     void get(profiler::SerializedData& _serializedBlocks, profiler::SerializedData& _serializedDescriptors,
              profiler::descriptors_list_t& _descriptors, profiler::blocks_t& _blocks, profiler::thread_blocks_tree_t& _trees,
-             uint32_t& _descriptorsNumberInFile, uint32_t& _version, profiler::processid_t& _pid, QString& _filename);
+             profiler::bookmarks_t& bookmarks, profiler::BeginEndTime& beginEndTime, uint32_t& _descriptorsNumberInFile,
+             uint32_t& _version, profiler::processid_t& _pid, QString& _filename);
 
     void join();
 
@@ -236,9 +242,9 @@ private slots:
 struct DialogWithGeometry EASY_FINAL
 {
     QByteArray geometry;
-    class QDialog* ptr = nullptr;
+    class Dialog* ptr = nullptr;
 
-    void create();
+    void create(QWidget* content, QWidget* parent = nullptr);
     void saveGeometry();
     void restoreGeometry();
 
@@ -269,12 +275,13 @@ protected:
 
     class QProgressDialog*        m_progress = nullptr;
     class BlockDescriptorsWidget* m_dialogDescTree = nullptr;
-    class QMessageBox*      m_listenerDialog = nullptr;
+    class Dialog*                 m_listenerDialog = nullptr;
     QTimer                               m_readerTimer;
     QTimer                             m_listenerTimer;
     QTimer                           m_fpsRequestTimer;
     profiler::SerializedData        m_serializedBlocks;
     profiler::SerializedData   m_serializedDescriptors;
+    profiler::BeginEndTime              m_beginEndTime;
     FileReader                                m_reader;
     SocketListener                          m_listener;
 
@@ -349,6 +356,9 @@ protected slots:
     void onFrameTimeEditFinish();
     void onFrameTimeChanged();
     void onSnapshotClicked(bool);
+    void onCustomWindowHeaderTriggered(bool _checked);
+    void onRightWindowHeaderPosition(bool _checked);
+    void onLeftWindowHeaderPosition(bool _checked);
 
     void onBlockStatusChange(profiler::block_id_t _id, profiler::EasyBlockStatus _status);
 
@@ -372,7 +382,7 @@ private:
 
     void refreshDiagram();
 
-    void addFileToList(const QString& filename);
+    void addFileToList(const QString& filename, bool changeWindowTitle = true);
     void loadFile(const QString& filename);
     void readStream(std::stringstream& data);
 

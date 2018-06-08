@@ -415,6 +415,13 @@ void BlocksTreeWidget::onIdleTimeout()
     if (item->hasToolTip(column))
         return;
 
+    auto focusWidget = qApp->focusWidget();
+    while (focusWidget != nullptr && !focusWidget->property("stayVisible").toBool())
+        focusWidget = focusWidget->parentWidget();
+
+    if (focusWidget != nullptr)
+        return;
+
     m_valueTooltip = new ArbitraryValueToolTip(itemUnderCursor->text(COL_NAME), block, this);
     m_valueTooltip->move(QCursor::pos());
     m_valueTooltip->show();

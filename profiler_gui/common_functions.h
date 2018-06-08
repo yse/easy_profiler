@@ -58,16 +58,17 @@
 #include <QRgb>
 #include <QString>
 #include <QFont>
+#include <stdlib.h>
 #include <type_traits>
 #include "common_types.h"
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-#define PROF_MICROSECONDS(timestamp) ((timestamp) * 1e-3)
+#define PROF_MICROSECONDS(timestamp) (qreal(timestamp) * 1e-3)
 //#define PROF_MICROSECONDS(timestamp) (timestamp)
 
-#define PROF_FROM_MICROSECONDS(to_timestamp) ((to_timestamp) * 1e3)
+#define PROF_FROM_MICROSECONDS(to_timestamp) static_cast<profiler::timestamp_t>((to_timestamp) * 1e3)
 //#define PROF_FROM_MICROSECONDS(to_timestamp) (to_timestamp)
 
 #define PROF_MILLISECONDS(timestamp) ((timestamp) * 1e-6)
@@ -76,7 +77,7 @@
 #define PROF_FROM_MILLISECONDS(to_timestamp) ((to_timestamp) * 1e6)
 //#define PROF_FROM_MILLISECONDS(to_timestamp) ((to_timestamp) * 1e3)
 
-#define PROF_NANOSECONDS(timestamp) (timestamp)
+#define PROF_NANOSECONDS(timestamp) static_cast<profiler::timestamp_t>(timestamp)
 //#define PROF_NANOSECONDS(timestamp) ((timestamp) * 1000)
 
 //////////////////////////////////////////////////////////////////////////
@@ -165,6 +166,14 @@ inline EASY_CONSTEXPR_FCN ::profiler::color_t textColorForFlag(bool _is_light) {
 
 inline EASY_CONSTEXPR_FCN ::profiler::color_t textColorForRgb(::profiler::color_t _color) {
     return isLightColor(_color) ? ::profiler::colors::Dark : ::profiler::colors::CreamWhite;
+}
+
+inline uint32_t rand255() {
+    return static_cast<uint32_t>(rand() % 255);
+}
+
+inline ::profiler::color_t randomColor() {
+    return toRgb(rand255(), rand255(), rand255());
 }
 
 //////////////////////////////////////////////////////////////////////////
