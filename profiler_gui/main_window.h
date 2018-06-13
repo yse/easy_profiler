@@ -302,6 +302,7 @@ protected:
     uint16_t                m_lastPort = 0;
     bool      m_bNetworkFileRegime = false;
     bool        m_bOpenedCacheFile = false;
+    bool         m_bCloseAfterSave = false;
 
 public:
 

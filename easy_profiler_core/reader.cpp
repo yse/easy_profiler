@@ -1016,12 +1016,25 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
                 }
 
                 usedMemorySize -= static_cast<uint16_t>(profiler::Bookmark::BaseSize) - 1;
-                if (usedMemorySize > 1)
+                if (usedMemorySize > 0)
                 {
                     stringBuffer.resize(usedMemorySize);
+                    read(inStream, stringBuffer.data(), usedMemorySize);
 
-                    inStream.read(stringBuffer.data(), usedMemorySize);
-                    bookmark.text = stringBuffer.data();
+                    if (stringBuffer.back() != 0)
+                    {
+                        stringBuffer.resize(stringBuffer.size() + 1);
+                        stringBuffer.back() = 0;
+
+                        _log << "Bad bookmark description:\n\"" << const_cast<const char*>(stringBuffer.data())
+                            << "\"\nWhich is not zero terminated string.\nLast symbol is: '"
+                            << const_cast<const char*>(stringBuffer.data() + stringBuffer.size() - 2) << "'";
+
+                        return 0;
+                    }
+
+                    if (usedMemorySize != 1)
+                        bookmark.text = stringBuffer.data();
                 }
                 else
                 {

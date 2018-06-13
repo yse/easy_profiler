@@ -1509,7 +1509,7 @@ void MainWindow::showEvent(QShowEvent* show_event)
 
 void MainWindow::closeEvent(QCloseEvent* close_event)
 {
-    if (m_bNetworkFileRegime || EASY_GLOBALS.has_local_changes)
+    if (!m_bCloseAfterSave && (m_bNetworkFileRegime || EASY_GLOBALS.has_local_changes))
     {
         // Warn user about unsaved network information and suggest to save
         const auto result = Dialog::question(this, "Unsaved session"
@@ -1518,6 +1518,13 @@ void MainWindow::closeEvent(QCloseEvent* close_event)
         if (result == QMessageBox::Yes)
         {
             onSaveFileClicked(true);
+            if (m_reader.isSaving() && m_progress != nullptr)
+            {
+                // Wait until finish and close
+                m_bCloseAfterSave = true;
+                close_event->ignore();
+                return;
+            }
         }
         else if (result == QMessageBox::Cancel)
         {
@@ -2156,6 +2163,11 @@ void MainWindow::onFileReaderTimeout()
         {
             onSavingFinish();
             closeProgressDialogAndClearReader();
+            if (m_bCloseAfterSave)
+            {
+                setEnabled(false);
+                QTimer::singleShot(1500, this, &This::close);
+            }
         }
         else
         {

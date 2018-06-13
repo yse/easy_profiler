@@ -413,15 +413,20 @@ bool BackgroundItem::mouseMove(const QPointF& scenePos)
 
         if (prev != m_bookmark)
         {
-            if (m_bookmark < bookmarks.size())
-                qApp->setOverrideCursor(QCursor(Qt::PointingHandCursor));
+            if (!profiler_gui::is_max(m_bookmark))
+            {
+                if (qApp->overrideCursor() == nullptr || qApp->overrideCursor()->shape() != Qt::PointingHandCursor)
+                    qApp->setOverrideCursor(QCursor(Qt::PointingHandCursor));
+            }
             else
+            {
                 qApp->restoreOverrideCursor();
+            }
             emit bookmarkChanged(m_bookmark);
             update();
         }
 
-        if (m_bookmark < bookmarks.size())
+        if (!profiler_gui::is_max(m_bookmark))
         {
             if (!m_idleTimer.isActive())
                 m_idleTimer.start();
@@ -455,7 +460,7 @@ bool BackgroundItem::mouseMove(const QPointF& scenePos)
 
 bool BackgroundItem::mousePress(const QPointF& scenePos)
 {
-    m_bButtonPressed = m_bookmark < EASY_GLOBALS.bookmarks.size() && contains(scenePos);
+    m_bButtonPressed = !profiler_gui::is_max(m_bookmark) && contains(scenePos);
 
     delete m_tooltip;
     m_tooltip = nullptr;
@@ -470,7 +475,7 @@ bool BackgroundItem::mouseRelease(const QPointF& scenePos)
 
     m_bButtonPressed = false;
 
-    if (m_bookmark < EASY_GLOBALS.bookmarks.size())
+    if (!profiler_gui::is_max(m_bookmark))
     {
         auto& bookmarks = EASY_GLOBALS.bookmarks;
         std::sort(bookmarks.begin(), bookmarks.end(),
@@ -492,7 +497,7 @@ bool BackgroundItem::mouseDoubleClick(const QPointF& scenePos)
     if (!contains(scenePos))
         return false;
 
-    if (m_bookmark < EASY_GLOBALS.bookmarks.size())
+    if (!profiler_gui::is_max(m_bookmark))
     {
         qApp->restoreOverrideCursor();
         auto editor = new BookmarkEditor(m_bookmark, false, sceneView->parentWidget());
@@ -515,7 +520,7 @@ bool BackgroundItem::mouseDoubleClick(const QPointF& scenePos)
 
         mouseMove(scenePos);
 
-        if (m_bookmark < bookmarks.size())
+        if (!profiler_gui::is_max(m_bookmark))
         {
             qApp->restoreOverrideCursor();
             auto editor = new BookmarkEditor(m_bookmark, true, sceneView->parentWidget());
@@ -534,7 +539,7 @@ void BackgroundItem::mouseLeave()
     if (m_idleTimer.isActive())
         m_idleTimer.stop();
 
-    if (m_bookmark < EASY_GLOBALS.bookmarks.size())
+    if (!profiler_gui::is_max(m_bookmark))
     {
         profiler_gui::set_max(m_bookmark);
         qApp->restoreOverrideCursor();
