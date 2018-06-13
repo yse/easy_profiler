@@ -137,7 +137,8 @@ BoldLabel::~BoldLabel()
 //////////////////////////////////////////////////////////////////////////
 
 BackgroundItem::BackgroundItem() : AuxItem()
-    , m_bookmark(std::numeric_limits<size_t>::max())
+    , m_tooltip(nullptr)
+    , m_bookmark(profiler_gui::numeric_max<decltype(m_bookmark)>())
     , m_bButtonPressed(false)
 {
     m_bookmarkSign.lineTo(px(BOOKMARK_WIDTH), 0);
@@ -149,6 +150,11 @@ BackgroundItem::BackgroundItem() : AuxItem()
     m_idleTimer.setInterval(IDLE_TIMER_INTERVAL);
     m_idleTimer.setSingleShot(true);
     connect(&m_idleTimer, &QTimer::timeout, this, &BackgroundItem::onIdleTimeout);
+}
+
+BackgroundItem::~BackgroundItem()
+{
+    delete m_tooltip;
 }
 
 void BackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
@@ -295,27 +301,32 @@ void BackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
         pen.setColor(Qt::black);
         pen.setWidth(px(1));
 
+        _painter->setPen(borderColor);
+        _painter->setBrush(Qt::transparent);
         _painter->setRenderHint(QPainter::Antialiasing);
 
-        const int minWidth = px(BOOKMARK_WIDTH);
-        const int half = minWidth >> 1;
-        QBrush brush(Qt::transparent);
-        qreal prevPos = -offset * currentScale;
+        const int half = px(BOOKMARK_WIDTH) >> 1;
+        auto color = QColor(Qt::transparent).rgb();
+        qreal prevPos = -1e300;
         for (auto it = first_it; it != bookmarks.cend() && it->pos <= endTime; ++it)
         {
             const qreal pos =
                 (PROF_MICROSECONDS(it->pos - EASY_GLOBALS.begin_time) - offset) * currentScale - half;
 
+            const bool isSelectedBookmark = m_bookmark == static_cast<size_t>(std::distance(bookmarks.cbegin(), it));
+
             const auto delta = fabs(pos - prevPos);
-            if (delta < minWidth)
+            if (delta < half && !isSelectedBookmark)
                 continue;
 
-            if (brush.color().rgb() != it->color)
-                brush.setColor(QColor::fromRgb(it->color));
+            if (color != it->color)
+                _painter->setBrush(QColor::fromRgb(it->color));
 
-            _painter->fillPath(m_bookmarkSign.translated(pos, h), brush);
-            if (m_bookmark == static_cast<size_t>(std::distance(bookmarks.cbegin(), it)))
-                _painter->strokePath(m_bookmarkSign.translated(pos, h), pen);
+            const auto path = m_bookmarkSign.translated(pos, h);
+            _painter->drawPath(path);
+
+            if (isSelectedBookmark)
+                _painter->strokePath(path, pen);
 
             prevPos = pos;
         }
@@ -330,13 +341,16 @@ bool BackgroundItem::mouseMove(const QPointF& scenePos)
 {
     const auto prev = m_bookmark;
 
+    delete m_tooltip;
+    m_tooltip = nullptr;
+
     auto& bookmarks = EASY_GLOBALS.bookmarks;
     if (bookmarks.empty())
     {
         if (m_idleTimer.isActive())
             m_idleTimer.stop();
 
-        m_bookmark = std::numeric_limits<size_t>::max();
+        profiler_gui::set_max(m_bookmark);
         if (prev != m_bookmark)
         {
             qApp->restoreOverrideCursor();
@@ -357,7 +371,7 @@ bool BackgroundItem::mouseMove(const QPointF& scenePos)
             if (m_idleTimer.isActive())
                 m_idleTimer.stop();
 
-            m_bookmark = std::numeric_limits<size_t>::max();
+            profiler_gui::set_max(m_bookmark);
             if (prev != m_bookmark)
             {
                 qApp->restoreOverrideCursor();
@@ -374,7 +388,7 @@ bool BackgroundItem::mouseMove(const QPointF& scenePos)
 
     if (!m_bButtonPressed)
     {
-        m_bookmark = std::numeric_limits<size_t>::max();
+        profiler_gui::set_max(m_bookmark);
 
         auto first_it = std::lower_bound(bookmarks.cbegin(), bookmarks.cend(), timestamp,
                                          [](const profiler::Bookmark& bookmark, profiler::timestamp_t value)
@@ -442,6 +456,10 @@ bool BackgroundItem::mouseMove(const QPointF& scenePos)
 bool BackgroundItem::mousePress(const QPointF& scenePos)
 {
     m_bButtonPressed = m_bookmark < EASY_GLOBALS.bookmarks.size() && contains(scenePos);
+
+    delete m_tooltip;
+    m_tooltip = nullptr;
+
     return false;
 }
 
@@ -508,6 +526,23 @@ bool BackgroundItem::mouseDoubleClick(const QPointF& scenePos)
     return true;
 }
 
+void BackgroundItem::mouseLeave()
+{
+    delete m_tooltip;
+    m_tooltip = nullptr;
+
+    if (m_idleTimer.isActive())
+        m_idleTimer.stop();
+
+    if (m_bookmark < EASY_GLOBALS.bookmarks.size())
+    {
+        profiler_gui::set_max(m_bookmark);
+        qApp->restoreOverrideCursor();
+        emit bookmarkChanged(m_bookmark);
+        update();
+    }
+}
+
 bool BackgroundItem::contains(const QPointF& scenePos) const
 {
     auto const sceneView = static_cast<BlocksGraphicsView*>(scene()->parent());
@@ -520,14 +555,40 @@ void BackgroundItem::onIdleTimeout()
 {
     if (m_bookmark < EASY_GLOBALS.bookmarks.size())
     {
-        /// TODO: show tooltip
+        delete m_tooltip;
+        m_tooltip = nullptr;
+
+        const auto& text = EASY_GLOBALS.bookmarks[m_bookmark].text;
+        if (text.empty())
+            return;
+
+        auto parent = static_cast<QWidget*>(scene()->parent());
+        m_tooltip = new QLabel(QString::fromStdString(text),
+                               parent, Qt::ToolTip | Qt::WindowTransparentForInput);
+
+        if (m_tooltip == nullptr)
+            return;
+
+        const auto delta = px(10);
+
+        m_tooltip->setObjectName(QStringLiteral("BookmarkPopup"));
+        m_tooltip->setAttribute(Qt::WA_ShowWithoutActivating, true);
+        m_tooltip->setFocusPolicy(Qt::NoFocus);
+        m_tooltip->setWordWrap(true);
+        m_tooltip->move(QCursor::pos() + QPoint(delta >> 1, delta));
+        m_tooltip->show();
+
+        const int bottom = m_tooltip->mapToParent(m_tooltip->pos()).y() + m_tooltip->height();
+        const int parentBottom = parent->y() + parent->height();
+        if (bottom > parentBottom)
+            m_tooltip->move(m_tooltip->pos() - QPoint(delta >> 1, m_tooltip->height() + delta));
     }
 }
 
 //////////////////////////////////////////////////////////////////////////
 
 ForegroundItem::ForegroundItem() : AuxItem()
-    , m_bookmark(std::numeric_limits<size_t>::max())
+    , m_bookmark(profiler_gui::numeric_max<decltype(m_bookmark)>())
 {
 
 }
@@ -592,7 +653,7 @@ void ForegroundItem::onMoved()
 
 BlocksGraphicsView::BlocksGraphicsView(QWidget* _parent)
     : Parent(_parent)
-    , m_beginTime(std::numeric_limits<decltype(m_beginTime)>::max())
+    , m_beginTime(profiler_gui::numeric_max<decltype(m_beginTime)>())
     , m_sceneWidth(0)
     , m_scale(1)
     , m_offset(0)
@@ -696,7 +757,7 @@ void BlocksGraphicsView::clear()
     m_selectedBlocks.clear();
     m_backgroundItem = nullptr;
 
-    m_beginTime = std::numeric_limits<decltype(m_beginTime)>::max(); // reset begin time
+    profiler_gui::set_max(m_beginTime); // reset begin time
     m_scale = 1; // scale back to initial 100% scale
     m_timelineStep = 1;
     m_offset = 0; // scroll back to the beginning of the scene
@@ -757,7 +818,7 @@ void BlocksGraphicsView::notifyVisibleRegionPosChange()
 
 void BlocksGraphicsView::notifyVisibleRegionPosChange(qreal _pos)
 {
-    if (m_sceneWidth < m_visibleRegionWidth)
+    if (m_sceneWidth <= m_visibleRegionWidth)
         m_offset = 0;
     else
         m_offset = estd::clamp(0., _pos, m_sceneWidth - m_visibleRegionWidth);
@@ -889,11 +950,11 @@ void BlocksGraphicsView::setTree(const profiler::thread_blocks_tree_t& _blocksTr
     EASY_GLOBALS.scene.empty = false;
 
     // Center view on the beginning of the scene
-    updateVisibleSceneRect();
-    //setScrollbar(m_pScrollbar);
+    const int vbar_width = updateVisibleSceneRect();
+    const auto windowWidth = (m_visibleSceneRect.width() + vbar_width) / m_scale;
 
     notifySceneSizeChange();
-    notifyVisibleRegionSizeChange();
+    notifyVisibleRegionSizeChange(windowWidth);
 
     // Create new chronometer item (previous item was destroyed by scene on scene()->clear()).
     // It will be shown on mouse right button click.
@@ -925,12 +986,38 @@ void BlocksGraphicsView::setTree(const profiler::thread_blocks_tree_t& _blocksTr
 
         scrollTo(longestItem);
         m_pScrollbar->setHistogramSource(longestItem->threadId(), longestItem->items(0));
+
         if (!longestItem->items(0).empty())
+        {
             notifyVisibleRegionPosChange(longestItem->items(0).front().left() - m_visibleRegionWidth * 0.25);
+
+            // Scale to fit all items
+            const auto right = longestItem->items(0).back().right() - m_offset;
+            const auto currentScale = m_scale + std::numeric_limits<decltype(m_scale)>::epsilon();
+
+            auto scale = m_scale;
+            while (scale < MAX_SCALE && right < (m_visibleSceneRect.width() + vbar_width) / scale)
+            {
+                m_scale = scale;
+                scale *= profiler_gui::SCALING_COEFFICIENT;
+            }
+
+            if (currentScale < m_scale)
+                scaleTo(m_scale);
+        }
     }
 
     if (m_bHovered && !m_idleTimer.isActive())
         m_idleTimer.start();
+
+    // Workaround for valid scene painting after setting a new tree
+    QTimer::singleShot(0, this, &This::revalidateOffset);
+}
+
+void BlocksGraphicsView::revalidateOffset()
+{
+    notifyVisibleRegionPosChange(m_offset);
+    repaintScene();
 }
 
 const BlocksGraphicsView::Items &BlocksGraphicsView::getItems() const
@@ -1150,7 +1237,6 @@ void BlocksGraphicsView::scaleTo(qreal _scale)
     notifyVisibleRegionSizeChange(windowWidth);
 
     updateTimelineStep(windowWidth);
-    repaintScene();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1175,6 +1261,9 @@ void BlocksGraphicsView::leaveEvent(QEvent* _event)
 
     if (!needToIgnoreMouseEvent())
         removePopup();
+
+    if (m_backgroundItem != nullptr)
+        m_backgroundItem->mouseLeave();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1241,7 +1330,7 @@ void BlocksGraphicsView::onWheel(qreal _scenePos, int _wheelDelta)
     notifyVisibleRegionSizeChange();
 
     // Calculate new offset to simulate QGraphicsView::AnchorUnderMouse scaling behavior
-    if (m_sceneWidth < m_visibleRegionWidth)
+    if (m_sceneWidth <= m_visibleRegionWidth)
         m_offset = 0;
     else
         m_offset = clamp(0., initialPosition - _scenePos / m_scale, m_sceneWidth - m_visibleRegionWidth);

@@ -61,8 +61,8 @@ class Dialog : public QDialog
 {
     Q_OBJECT;
 
-    QWidget* m_buttonBox;
-    WindowHeader* m_header;
+    QWidget*                           m_buttonBox;
+    WindowHeader*                         m_header;
     QMessageBox::StandardButton m_rejectRoleButton;
     QMessageBox::StandardButton m_acceptRoleButton;
 

@@ -122,13 +122,14 @@ class BackgroundItem : public AuxItem
 
     QTimer          m_idleTimer;
     QPainterPath m_bookmarkSign;
+    QLabel*           m_tooltip;
     size_t           m_bookmark;
     bool       m_bButtonPressed;
 
 public:
 
     explicit BackgroundItem();
-    ~BackgroundItem() override {}
+    ~BackgroundItem() override;
 
     void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
 
@@ -136,6 +137,7 @@ public:
     bool mousePress(const QPointF& scenePos);
     bool mouseRelease(const QPointF& scenePos);
     bool mouseDoubleClick(const QPointF& scenePos);
+    void mouseLeave();
 
     bool contains(const QPointF& scenePos) const;
 
@@ -290,6 +292,8 @@ private:
     qreal mapToDiagram(qreal x) const;
     void onWheel(qreal _scenePos, int _wheelDelta);
     qreal setTree(GraphicsBlockItem* _item, const ::profiler::BlocksTree::children_t& _children, qreal& _height, uint32_t& _maxDepthChild, qreal _y, short _level);
+
+    void revalidateOffset();
 
     void addSelectionToHierarchy();
 

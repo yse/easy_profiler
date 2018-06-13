@@ -81,6 +81,11 @@ private slots:
     void onColorButtonClicked(bool);
     void onReject();
 
+private:
+
+    void loadSettings();
+    void saveSettings();
+
 }; // class BookmarkEditor.
 
 #endif // EASY_PROFILER_BOOKMARKS_EDITOR_H

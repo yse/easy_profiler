@@ -267,7 +267,7 @@ void MainWindow::configureSizes()
     size.graphics_row_spacing = 0;
     size.graphics_row_full = size.graphics_row_height;
     size.threads_row_spacing = size.graphics_row_full >> 1;
-    size.timeline_height = size.font_height + px(9);
+    size.timeline_height = size.font_height + px(10);
     size.icon_size = size.font_height + px(11);
 
     const auto fontFamily = w.font().family();
@@ -288,6 +288,7 @@ void MainWindow::configureSizes()
     updateFont(fonts.selected_item);
     fonts.ruler.setFamily(fontFamily);
 
+    /*
     printf("Viewport info:\n");
     printf("- device pixel ratio = %f\n", size.pixelRatio);
     printf("- font height = %dpx\n", size.font_height);
@@ -295,6 +296,7 @@ void MainWindow::configureSizes()
     printf("- diagram row = %dpx\n", size.graphics_row_height);
     printf("- diagram spacing = %dpx\n", size.threads_row_spacing);
     printf("- icon size = %dx%d px\n", size.icon_size, size.icon_size);
+    */
 
     w.hide();
 }
@@ -634,8 +636,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     auto spinbox = new QSpinBox(w);
     spinbox->setRange(0, 400);
     spinbox->setValue(EASY_GLOBALS.blocks_spacing);
-    spinbox->setFixedWidth(70);
-    connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onSpacingChange(int)));
+    spinbox->setFixedWidth(px(70));
+    connect(spinbox, Overload<int>::of(&QSpinBox::valueChanged), this, &This::onSpacingChange);
     l->addWidget(spinbox);
     w->setLayout(l);
     auto waction = new QWidgetAction(submenu);
@@ -649,8 +651,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     spinbox = new QSpinBox(w);
     spinbox->setRange(1, 400);
     spinbox->setValue(EASY_GLOBALS.blocks_size_min);
-    spinbox->setFixedWidth(70);
-    connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onMinSizeChange(int)));
+    spinbox->setFixedWidth(px(70));
+    connect(spinbox, Overload<int>::of(&QSpinBox::valueChanged), this, &This::onMinSizeChange);
     l->addWidget(spinbox);
     w->setLayout(l);
     waction = new QWidgetAction(submenu);
@@ -664,8 +666,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     spinbox = new QSpinBox(w);
     spinbox->setRange(1, 400);
     spinbox->setValue(EASY_GLOBALS.blocks_narrow_size);
-    spinbox->setFixedWidth(70);
-    connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onNarrowSizeChange(int)));
+    spinbox->setFixedWidth(px(70));
+    connect(spinbox, Overload<int>::of(&QSpinBox::valueChanged), this, &This::onNarrowSizeChange);
     l->addWidget(spinbox);
     w->setLayout(l);
     waction = new QWidgetAction(submenu);
@@ -683,8 +685,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     spinbox = new QSpinBox(w);
     spinbox->setRange(1, 600000);
     spinbox->setValue(EASY_GLOBALS.fps_timer_interval);
-    spinbox->setFixedWidth(70);
-    connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onFpsIntervalChange(int)));
+    spinbox->setFixedWidth(px(70));
+    connect(spinbox, Overload<int>::of(&QSpinBox::valueChanged), this, &This::onFpsIntervalChange);
     l->addWidget(spinbox);
     w->setLayout(l);
     waction = new QWidgetAction(submenu);
@@ -698,8 +700,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     spinbox = new QSpinBox(w);
     spinbox->setRange(2, 200);
     spinbox->setValue(EASY_GLOBALS.max_fps_history);
-    spinbox->setFixedWidth(70);
-    connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onFpsHistoryChange(int)));
+    spinbox->setFixedWidth(px(70));
+    connect(spinbox, Overload<int>::of(&QSpinBox::valueChanged), this, &This::onFpsHistoryChange);
     l->addWidget(spinbox);
     w->setLayout(l);
     waction = new QWidgetAction(submenu);
@@ -713,8 +715,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     spinbox = new QSpinBox(w);
     spinbox->setRange(1, 6);
     spinbox->setValue(EASY_GLOBALS.fps_widget_line_width);
-    spinbox->setFixedWidth(70);
-    connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onFpsMonitorLineWidthChange(int)));
+    spinbox->setFixedWidth(px(70));
+    connect(spinbox, Overload<int>::of(&QSpinBox::valueChanged), this, &This::onFpsMonitorLineWidthChange);
     l->addWidget(spinbox);
     w->setLayout(l);
     waction = new QWidgetAction(submenu);
@@ -864,7 +866,7 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     toolbar->addWidget(lbl);
 
     m_frameTimeEdit = new QLineEdit();
-    m_frameTimeEdit->setFixedWidth(70);
+    m_frameTimeEdit->setFixedWidth(px(70));
     auto val = new QDoubleValidator(m_frameTimeEdit);
     val->setLocale(QLocale::c());
     val->setBottom(0);
@@ -1796,7 +1798,7 @@ void MainWindow::createProgressDialog(const QString& text)
     m_progress = new QProgressDialog(text, QStringLiteral("Cancel"), 0, 100, this);
     connect(m_progress, &QProgressDialog::canceled, this, &This::onFileReaderCancel);
 
-    m_progress->setFixedWidth(300);
+    m_progress->setFixedWidth(px(300));
     m_progress->setWindowTitle(EASY_DEFAULT_WINDOW_TITLE);
     m_progress->setModal(true);
     m_progress->setValue(0);
@@ -2126,7 +2128,8 @@ void MainWindow::onSavingFinish()
     }
     else
     {
-        EASY_GLOBALS.has_local_changes = false;
+        if (!m_reader.isSnapshot())
+            EASY_GLOBALS.has_local_changes = false;
         addFileToList(m_reader.filename(), !m_reader.isSnapshot());
     }
 }

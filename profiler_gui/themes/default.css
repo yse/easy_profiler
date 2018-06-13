@@ -46,9 +46,12 @@ ArbitraryValueToolTip {
     selection-color: white;
     selection-background-color: #3297FD; }
 
-QWidget#DiagramPopup, QWidget#ThreadsPopup {
+QWidget#DiagramPopup, QWidget#ThreadsPopup, QLabel#BookmarkPopup {
   background-color: #ffeccc;
   border: 1px solid #c4c4c4; }
+
+QLabel#BookmarkPopup {
+  padding: 4ex; }
 
 QGraphicsView {
   border: 1px solid #c4c4c4; }
@@ -241,7 +244,7 @@ QMenu {
 
 QMenu::item {
   height: 15ex;
-  padding-left: 15ex;
+  padding-left: 17ex;
   padding-right: 5ex;
   border: 1px solid transparent;
   /* reserve space for selection border */ }

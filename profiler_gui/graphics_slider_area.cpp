@@ -219,8 +219,8 @@ GraphicsSliderArea::GraphicsSliderArea(QWidget* _parent)
 
     auto globalEvents = &EASY_GLOBALS.events;
     connect(globalEvents, &profiler_gui::GlobalSignals::sceneCleared, this, &This::clear);
-    connect(globalEvents, &profiler_gui::GlobalSignals::sceneVisibleRegionSizeChanged, this, &This::setSliderWidth);
-    connect(globalEvents, &profiler_gui::GlobalSignals::sceneVisibleRegionPosChanged, this, &This::setValue);
+    connect(globalEvents, &profiler_gui::GlobalSignals::sceneVisibleRegionSizeChanged, this, &This::onExternalSliderWidthChanged);
+    connect(globalEvents, &profiler_gui::GlobalSignals::sceneVisibleRegionPosChanged, this, &This::onExternalChartSliderChanged);
     connect(globalEvents, &profiler_gui::GlobalSignals::chartSliderChanged, this, &This::onExternalChartSliderChanged);
     connect(globalEvents, &profiler_gui::GlobalSignals::sceneSizeChanged, this, &This::onSceneSizeChanged);
     connect(globalEvents, &profiler_gui::GlobalSignals::lockCharts, this, &This::lock);
@@ -260,6 +260,15 @@ void GraphicsSliderArea::validateScene()
             m_slider->show();
             scene()->update();
         }
+    }
+}
+
+void GraphicsSliderArea::onExternalSliderWidthChanged(qreal _width)
+{
+    if (!m_bUpdatingPos)
+    {
+        const profiler_gui::BoolFlagGuard guard(m_bEmitChange, false);
+        setSliderWidth(_width);
     }
 }
 
@@ -360,7 +369,10 @@ void GraphicsSliderArea::setValue(qreal _value)
 
     const auto newValue = estd::clamp(m_minimumValue, _value, std::max(m_minimumValue, m_maximumValue - m_slider->width()));
     if (fabs(m_value - newValue) < 2 * std::numeric_limits<decltype(m_value)>::epsilon())
+    {
+        m_slider->setX(m_value + m_slider->halfwidth());
         return;
+    }
 
     m_value = newValue;
     m_slider->setX(m_value + m_slider->halfwidth());

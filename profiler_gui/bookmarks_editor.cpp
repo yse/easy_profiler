@@ -57,6 +57,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QSettings>
 #include <QStyle>
 #include <QTextEdit>
 
@@ -68,6 +69,7 @@ BookmarkEditor::BookmarkEditor(size_t bookmarkIndex, bool isNew, QWidget* parent
     , m_isNewBookmark(isNew)
 {
     setAttribute(Qt::WA_DeleteOnClose, true);
+    setSizeGripEnabled(EASY_GLOBALS.use_custom_window_header);
     setModal(true);
 
     const auto& bookmark = EASY_GLOBALS.bookmarks[m_bookmarkIndex];
@@ -94,6 +96,7 @@ BookmarkEditor::BookmarkEditor(size_t bookmarkIndex, bool isNew, QWidget* parent
 
     m_textEdit = new QTextEdit();
     m_textEdit->setWordWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+    m_textEdit->setPlaceholderText(QStringLiteral("Add a description for the bookmark..."));
     m_textEdit->setText(QString::fromStdString(bookmark.text));
 
     m_colorButton = new QPushButton();
@@ -135,18 +138,20 @@ BookmarkEditor::BookmarkEditor(size_t bookmarkIndex, bool isNew, QWidget* parent
     mainLayout->addWidget(buttonBox, 0, Qt::AlignBottom);
 
     connect(this, &QDialog::rejected, this, &This::onReject);
+
+    loadSettings();
 }
 
 BookmarkEditor::~BookmarkEditor()
 {
-
+    saveSettings();
 }
 
 void BookmarkEditor::onSaveClicked(bool)
 {
     auto& bookmark = EASY_GLOBALS.bookmarks[m_bookmarkIndex];
 
-    bookmark.text = m_textEdit->toPlainText().toStdString();
+    bookmark.text = m_textEdit->toPlainText().trimmed().toStdString();
     bookmark.color = m_colorButton->palette().brush(QPalette::Background).color().rgb();
     EASY_GLOBALS.bookmark_default_color = bookmark.color;
     EASY_GLOBALS.has_local_changes = true;
@@ -185,4 +190,24 @@ void BookmarkEditor::onReject()
         EASY_GLOBALS.bookmarks.erase(EASY_GLOBALS.bookmarks.begin() + m_bookmarkIndex);
         emit bookmarkRemoved(m_bookmarkIndex);
     }
+}
+
+void BookmarkEditor::loadSettings()
+{
+    QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
+    settings.beginGroup("BookmarkEditor");
+
+    auto geometry = settings.value("geometry").toByteArray();
+    if (!geometry.isEmpty())
+        restoreGeometry(geometry);
+
+    settings.endGroup();
+}
+
+void BookmarkEditor::saveSettings()
+{
+    QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
+    settings.beginGroup("BookmarkEditor");
+    settings.setValue("geometry", saveGeometry());
+    settings.endGroup();
 }

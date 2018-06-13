@@ -49,15 +49,21 @@
 ************************************************************************/
 
 #include "dialog.h"
+#include "globals.h"
 #include "window_header.h"
+
 #include <QApplication>
+#include <QDebug>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QMouseEvent>
 #include <QPixmap>
 #include <QPushButton>
 #include <QSizePolicy>
 #include <QStyle>
 #include <QVBoxLayout>
+
+#include <easy/utility.h>
 
 Dialog::Dialog(QWidget* parent, const QString& title, QWidget* content, WindowHeader::Buttons headerButtons,
                QMessageBox::StandardButtons buttons)
@@ -67,7 +73,7 @@ Dialog::Dialog(QWidget* parent, const QString& title, QWidget* content, WindowHe
     , m_rejectRoleButton(QMessageBox::NoButton)
     , m_acceptRoleButton(QMessageBox::NoButton)
 {
-    setSizeGripEnabled(true);
+    setSizeGripEnabled(EASY_GLOBALS.use_custom_window_header);
 
     m_header = new WindowHeader(title, headerButtons, this);
 
@@ -99,6 +105,7 @@ Dialog::Dialog(QWidget* parent, QMessageBox::Icon icon, const QString& title, co
     setSizeGripEnabled(false);
     setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     setFixedSize(sizeHint());
+    setMouseTracking(false);
 }
 
 Dialog::~Dialog()
