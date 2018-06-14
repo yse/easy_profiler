@@ -1,4 +1,4 @@
-# easy_profiler [![2.0.1](https://img.shields.io/badge/version-2.0.1-009688.svg)](https://github.com/yse/easy_profiler/releases)
+# easy_profiler [![2.0.1](https://img.shields.io/badge/stable-2.0.1-009688.svg)](https://github.com/yse/easy_profiler/releases) [![2.1.0](https://img.shields.io/badge/develop-2.1.0-f57f17.svg)](https://github.com/yse/easy_profiler)
 
 [![Build Status](https://travis-ci.org/yse/easy_profiler.svg?branch=develop)](https://travis-ci.org/yse/easy_profiler)
 [![Build Status](https://ci.appveyor.com/api/projects/status/github/yse/easy_profiler?branch=develop&svg=true)](https://ci.appveyor.com/project/yse/easy-profiler/branch/develop)
@@ -60,6 +60,8 @@ _New UI style in version 2.0_
 - Store user variables (both single values and arrays)
 - GUI could be connected to an application which is already profiling (so you can profile initialization of your application)
 - Monitor main thread fps at real-time in GUI even if profiling is disabled or draw your own HUD/fps-plot directly in your application using data provided by profiler
+- Save a snapshot (selected area) of profiled data from file
+- Add bookmarks at any place on the timeline
 - Configurable timer type with CMakeLists or preprocessor macros 
 
 # Usage
