@@ -63,49 +63,53 @@
 
 #include <QApplication>
 #include <QCoreApplication>
-#include <QStatusBar>
-#include <QFileDialog>
-#include <QAction>
-#include <QMenu>
-#include <QMenuBar>
-#include <QPushButton>
-#include <QCloseEvent>
-#include <QSettings>
-#include <QTextCodec>
-#include <QFont>
-#include <QFontMetricsF>
-#include <QProgressDialog>
-#include <QSignalBlocker>
 #include <QDebug>
-#include <QToolBar>
-#include <QToolButton>
-#include <QWidgetAction>
-#include <QSpinBox>
-#include <QMessageBox>
-#include <QLineEdit>
-#include <QLabel>
+
+#include <QAction>
+#include <QCloseEvent>
+#include <QDateTime>
 #include <QDialog>
-#include <QVBoxLayout>
-#include <QFile>
-#include <QFileInfo>
-#include <QTextStream>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDragLeaveEvent>
 #include <QDropEvent>
+#include <QFile>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QFont>
+#include <QFontMetrics>
+#include <QFontMetricsF>
+#include <QMenu>
+#include <QMenuBar>
+#include <QMessageBox>
 #include <QMimeData>
-#include <QDateTime>
+#include <QLabel>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QProgressDialog>
+#include <QTextCodec>
+#include <QTextStream>
+#include <QToolBar>
+#include <QToolButton>
+#include <QSet>
+#include <QSettings>
+#include <QSignalBlocker>
+#include <QSpinBox>
+#include <QStatusBar>
+#include <QVBoxLayout>
+#include <QWidgetAction>
 
 #include "main_window.h"
 #include "arbitrary_value_inspector.h"
 #include "blocks_tree_widget.h"
 #include "blocks_graphics_view.h"
 #include "descriptors_tree_widget.h"
-#include "easy_frame_rate_viewer.h"
+#include "fps_widget.h"
 #include "globals.h"
 
 #include <easy/easy_net.h>
 #include <easy/profiler.h>
+#include <easy/writer.h>
 
 #ifdef max
 #undef max
@@ -155,6 +159,41 @@ inline void loadTheme(const QString& _theme)
         QString style = in.readAll();
         if (!style.isEmpty())
         {
+            // Find font family
+            const auto fontMatch = QRegularExpression("font-family:\\s*\\\"(.*)\\\"\\s*;").match(style);
+            const auto fontFamily = fontMatch.hasMatch() ? fontMatch.captured(fontMatch.lastCapturedIndex()) : QString("DejaVu Sans");
+            //QMessageBox::information(nullptr, "Found font family", fontFamily);
+
+            // Calculate point size using current font
+            const auto pointSizeF = QFontMetricsF(QFont(fontFamily, 100)).height() * 1e-2;
+            //QMessageBox::information(nullptr, "Point size", QString("100pt = %1\n1pt = %2").arg(pointSizeF * 1e2).arg(pointSizeF));
+
+            // Find and convert all sizes from points to pixels
+            QRegularExpression re("(\\d+\\.?\\d*)ex");
+            auto it = re.globalMatch(style);
+
+            std::vector<QStringList> matches;
+            {
+                QSet<QString> uniqueMatches;
+                while (it.hasNext())
+                {
+                    const auto match = it.next();
+                    if (!uniqueMatches.contains(match.captured()))
+                    {
+                        uniqueMatches.insert(match.captured());
+                        matches.emplace_back(match.capturedTexts());
+                    }
+                }
+            }
+
+            for (const auto& capturedTexts : matches)
+            {
+                const auto pt = capturedTexts.back().toDouble();
+                const int pixels = static_cast<int>(pointSizeF * pt + 0.5);
+                //QMessageBox::information(nullptr, "Style-sheet modification", QString("Replacing '%1'\nwith\n'%2px'\n\npt count: %3").arg(capturedTexts.front()).arg(pixels).arg(pt));
+                style.replace(capturedTexts.front(), QString("%1px").arg(pixels));
+            }
+
             qApp->setStyleSheet(style);
         }
     }
@@ -227,10 +266,14 @@ void MainWindow::configureSizes()
 
     const auto fontFamily = w.font().family();
     const auto pixelSize = w.font().pixelSize();
-    const auto updateFont = [&fontFamily, pixelSize] (QFont& font)
+    const auto pointSize = w.font().pointSize();
+    const auto updateFont = [&] (QFont& font)
     {
         font.setFamily(fontFamily);
-        font.setPixelSize(pixelSize);
+        if (pixelSize >= 0)
+            font.setPixelSize(pixelSize);
+        if (pointSize >= 0)
+            font.setPointSize(pointSize);
     };
 
     auto& fonts = EASY_GLOBALS.font;
@@ -284,7 +327,7 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
 
     m_fpsViewer = new DockWidget("FPS Monitor", this);
     m_fpsViewer->setObjectName("ProfilerGUI_FPS");
-    m_fpsViewer->setWidget(new FpsViewerWidget(this));
+    m_fpsViewer->setWidget(new FpsWidget(this));
     m_fpsViewer->setAllowedAreas(Qt::TopDockWidgetArea | Qt::BottomDockWidgetArea);
 
     addDockWidget(Qt::TopDockWidgetArea, m_graphicsView);
@@ -426,8 +469,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     menu->addSeparator();
     auto submenu = menu->addMenu("View");
     submenu->setToolTipsVisible(true);
-    action = submenu->addAction("Draw items' borders");
-    action->setToolTip("Draw borders for blocks on diagram.\nThis reduces performance.");
+    action = submenu->addAction("Draw borders");
+    action->setToolTip("Draw borders for blocks on diagram.\nThis slightly reduces performance.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.draw_graphics_items_borders);
     connect(action, &QAction::triggered, [this](bool _checked){ EASY_GLOBALS.draw_graphics_items_borders = _checked; refreshDiagram(); });
@@ -550,32 +593,32 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     auto actionGroup = new QActionGroup(this);
     actionGroup->setExclusive(true);
 
-    action = new QAction("Chrono text at top", actionGroup);
-    action->setToolTip("Draw duration of selected interval\nat the top of the screen.");
+    action = new QAction("Ruler text at top", actionGroup);
+    action->setToolTip("Draw duration of selected interval\nat the top of the diagram.");
     action->setCheckable(true);
-    action->setData(static_cast<int>(profiler_gui::ChronoTextPosition_Top));
-    if (EASY_GLOBALS.chrono_text_position == profiler_gui::ChronoTextPosition_Top)
+    action->setData(static_cast<int>(profiler_gui::RulerTextPosition_Top));
+    if (EASY_GLOBALS.chrono_text_position == profiler_gui::RulerTextPosition_Top)
         action->setChecked(true);
     submenu->addAction(action);
-    connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
+    connect(action, &QAction::triggered, this, &This::onRulerTextPosChanged);
 
-    action = new QAction("Chrono text at center", actionGroup);
-    action->setToolTip("Draw duration of selected interval\nat the center of the screen.");
+    action = new QAction("Ruler text at center", actionGroup);
+    action->setToolTip("Draw duration of selected interval\nat the center of the diagram.");
     action->setCheckable(true);
-    action->setData(static_cast<int>(profiler_gui::ChronoTextPosition_Center));
-    if (EASY_GLOBALS.chrono_text_position == profiler_gui::ChronoTextPosition_Center)
+    action->setData(static_cast<int>(profiler_gui::RulerTextPosition_Center));
+    if (EASY_GLOBALS.chrono_text_position == profiler_gui::RulerTextPosition_Center)
         action->setChecked(true);
     submenu->addAction(action);
-    connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
+    connect(action, &QAction::triggered, this, &This::onRulerTextPosChanged);
 
-    action = new QAction("Chrono text at bottom", actionGroup);
-    action->setToolTip("Draw duration of selected interval\nat the bottom of the screen.");
+    action = new QAction("Ruler text at bottom", actionGroup);
+    action->setToolTip("Draw duration of selected interval\nat the bottom of the diagram.");
     action->setCheckable(true);
-    action->setData(static_cast<int>(profiler_gui::ChronoTextPosition_Bottom));
-    if (EASY_GLOBALS.chrono_text_position == profiler_gui::ChronoTextPosition_Bottom)
+    action->setData(static_cast<int>(profiler_gui::RulerTextPosition_Bottom));
+    if (EASY_GLOBALS.chrono_text_position == profiler_gui::RulerTextPosition_Bottom)
         action->setChecked(true);
     submenu->addAction(action);
-    connect(action, &QAction::triggered, this, &This::onChronoTextPosChanged);
+    connect(action, &QAction::triggered, this, &This::onRulerTextPosChanged);
 
     submenu->addSeparator();
     auto w = new QWidget(submenu);
@@ -891,7 +934,12 @@ void MainWindow::onThemeChange(bool)
     if (m_theme != newTheme)
     {
         m_theme = std::move(newTheme);
-        QMessageBox::information(this, "Theme", "You should restart the application to apply the theme.");
+
+        QMessageBox::information(this, "UI theme changed", "You may need to restart the application\nto apply the theme correctly.");
+
+        loadTheme(m_theme);
+        validateLineEdits();
+        configureSizes();
     }
 }
 
@@ -1185,10 +1233,10 @@ void MainWindow::onEncodingChanged(bool)
         QTextCodec::setCodecForLocale(codec);
 }
 
-void MainWindow::onChronoTextPosChanged(bool)
+void MainWindow::onRulerTextPosChanged(bool)
 {
     auto _sender = qobject_cast<QAction*>(sender());
-    EASY_GLOBALS.chrono_text_position = static_cast<profiler_gui::ChronometerTextPosition>(_sender->data().toInt());
+    EASY_GLOBALS.chrono_text_position = static_cast<profiler_gui::RulerTextPosition>(_sender->data().toInt());
     refreshDiagram();
 }
 
@@ -1357,6 +1405,22 @@ void MainWindow::onDescTreeDialogClose(int)
 
 //////////////////////////////////////////////////////////////////////////
 
+void MainWindow::validateLineEdits()
+{
+    m_addressEdit->setFixedWidth((m_addressEdit->fontMetrics().width(QString("255.255.255.255")) * 3) / 2);
+    m_portEdit->setFixedWidth(m_portEdit->fontMetrics().width(QString("000000")) + 10);
+    m_frameTimeEdit->setFixedWidth(m_frameTimeEdit->fontMetrics().width(QString("000000")));
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void MainWindow::showEvent(QShowEvent* show_event)
+{
+    Parent::showEvent(show_event);
+    validateLineEdits();
+    configureSizes();
+}
+
 void MainWindow::closeEvent(QCloseEvent* close_event)
 {
     if (m_bNetworkFileRegime)
@@ -1407,7 +1471,7 @@ void MainWindow::loadSettings()
 
     auto val = settings.value("chrono_text_position");
     if (!val.isNull())
-        EASY_GLOBALS.chrono_text_position = static_cast<profiler_gui::ChronometerTextPosition>(val.toInt());
+        EASY_GLOBALS.chrono_text_position = static_cast<profiler_gui::RulerTextPosition>(val.toInt());
 
     val = settings.value("time_units");
     if (!val.isNull())
@@ -1687,7 +1751,7 @@ void MainWindow::checkFrameTimeReady()
         uint32_t maxTime = 0, avgTime = 0;
         if (m_listener.frameTime(maxTime, avgTime))
         {
-            static_cast<FpsViewerWidget*>(m_fpsViewer->widget())->addPoint(maxTime, avgTime);
+            static_cast<FpsWidget*>(m_fpsViewer->widget())->addPoint(maxTime, avgTime);
         }
         else if (m_fpsRequestTimer.isActive())
         {
@@ -2339,7 +2403,7 @@ void MainWindow::onConnectClicked(bool)
     m_connectAction->setText(tr("Disconnect"));
 
     if (m_fpsViewer->isVisible())
-        static_cast<FpsViewerWidget*>(m_fpsViewer->widget())->clear();
+        static_cast<FpsWidget*>(m_fpsViewer->widget())->clear();
 
     if (!m_fpsRequestTimer.isActive())
         m_fpsRequestTimer.start(EASY_GLOBALS.fps_timer_interval);

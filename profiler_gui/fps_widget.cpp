@@ -1,11 +1,11 @@
 /************************************************************************
-* file name         : easy_frame_rate_viewer.cpp
+* file name         : fps_widget.cpp
 * ----------------- :
 * creation time     : 2017/04/02
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : This file contains implementation of FpsViewerWidget widget.
+* description       : This file contains implementation of FpsWidget widget.
 * ----------------- :
 * change log        : * 2017/04/02 Victor Zarubkin: Initial commit.
 *                   :
@@ -57,7 +57,7 @@
 #include <QContextMenuEvent>
 #include <QMenu>
 #include <QAction>
-#include "easy_frame_rate_viewer.h"
+#include "fps_widget.h"
 #include "globals.h"
 
 const int INTERVAL_WIDTH = 20;
@@ -246,7 +246,7 @@ void FpsGraphicsItem::addPoint(uint32_t _maxFrameTime, uint32_t _avgFrameTime)
 
 //////////////////////////////////////////////////////////////////////////
 
-FpsViewerWidget::FpsViewerWidget(QWidget* _parent) : Parent(_parent), m_fpsItem(nullptr)
+FpsWidget::FpsWidget(QWidget* _parent) : Parent(_parent), m_fpsItem(nullptr)
 {
     setCacheMode(QGraphicsView::CacheNone);
     //setViewportUpdateMode(QGraphicsView::BoundingRectViewportUpdate);
@@ -277,24 +277,24 @@ FpsViewerWidget::FpsViewerWidget(QWidget* _parent) : Parent(_parent), m_fpsItem(
     });
 }
 
-FpsViewerWidget::~FpsViewerWidget()
+FpsWidget::~FpsWidget()
 {
 
 }
 
-void FpsViewerWidget::clear()
+void FpsWidget::clear()
 {
     m_fpsItem->clear();
     scene()->update();
 }
 
-void FpsViewerWidget::addPoint(uint32_t _maxFrameTime, uint32_t _avgFrameTime)
+void FpsWidget::addPoint(uint32_t _maxFrameTime, uint32_t _avgFrameTime)
 {
     m_fpsItem->addPoint(_maxFrameTime, _avgFrameTime);
     scene()->update();
 }
 
-void FpsViewerWidget::resizeEvent(QResizeEvent* _event)
+void FpsWidget::resizeEvent(QResizeEvent* _event)
 {
     Parent::resizeEvent(_event);
 
@@ -305,21 +305,21 @@ void FpsViewerWidget::resizeEvent(QResizeEvent* _event)
     scene()->update();
 }
 
-void FpsViewerWidget::hideEvent(QHideEvent* _event)
+void FpsWidget::hideEvent(QHideEvent* _event)
 {
     Parent::hideEvent(_event);
     EASY_GLOBALS.fps_enabled = isVisible();
     clear();
 }
 
-void FpsViewerWidget::showEvent(QShowEvent* _event)
+void FpsWidget::showEvent(QShowEvent* _event)
 {
     Parent::showEvent(_event);
     EASY_GLOBALS.fps_enabled = isVisible();
     clear();
 }
 
-void FpsViewerWidget::contextMenuEvent(QContextMenuEvent* _event)
+void FpsWidget::contextMenuEvent(QContextMenuEvent* _event)
 {
     QMenu menu;
     QAction* action = nullptr;

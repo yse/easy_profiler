@@ -112,16 +112,22 @@ message(STATUS "")
 #################################################
 # Add source files:
 set(CPP_FILES
+    base_block_descriptor.cpp
     block.cpp
+    block_descriptor.cpp
     easy_socket.cpp
     event_trace_win.cpp
     nonscoped_block.cpp
     profile_manager.cpp
+    profiler.cpp
     reader.cpp
+    serialized_block.cpp
     thread_storage.cpp
+    writer.cpp
 )
 
 set(H_FILES
+    block_descriptor.h
     chunk_allocator.h
     current_time.h
     current_thread.h
@@ -143,6 +149,7 @@ set(INCLUDE_FILES
     ${EASY_INCLUDE_DIR}/reader.h
     ${EASY_INCLUDE_DIR}/utility.h
     ${EASY_INCLUDE_DIR}/serialized_block.h
+    ${EASY_INCLUDE_DIR}/writer.h
     ${EASY_INCLUDE_DIR}/details/arbitrary_value_aux.h
     ${EASY_INCLUDE_DIR}/details/arbitrary_value_public_types.h
     ${EASY_INCLUDE_DIR}/details/easy_compiler_support.h

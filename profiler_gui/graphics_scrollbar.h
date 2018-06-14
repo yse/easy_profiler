@@ -1,5 +1,5 @@
 /************************************************************************
-* file name         : easy_graphics_scrollbar.h
+* file name         : graphics_scrollbar.h
 * ----------------- : 
 * creation time     : 2016/07/04
 * author            : Victor Zarubkin
@@ -52,14 +52,14 @@
 *                   : limitations under the License.
 ************************************************************************/
 
-#ifndef EASY__GRAPHICS_SCROLLBAR__H
-#define EASY__GRAPHICS_SCROLLBAR__H
+#ifndef GRAPHICS_SCROLLBAR_H
+#define GRAPHICS_SCROLLBAR_H
 
 #include <stdlib.h>
 #include <thread>
 #include <atomic>
 #include <QImage>
-#include "easy_qtimer.h"
+#include "timer.h"
 #include "graphics_slider_area.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -142,21 +142,21 @@ private:
 
 //////////////////////////////////////////////////////////////////////////
 
-class BlocksGraphicsScrollbar : public GraphicsSliderArea
+class GraphicsScrollbar : public GraphicsSliderArea
 {
     Q_OBJECT
 
 private:
 
     using Parent = GraphicsSliderArea;
-    using This = BlocksGraphicsScrollbar;
+    using This = GraphicsScrollbar;
 
     GraphicsHistogramItem* m_histogramItem = nullptr;
 
 public:
 
-    explicit BlocksGraphicsScrollbar(int _initialHeight, QWidget* _parent = nullptr);
-    ~BlocksGraphicsScrollbar() override;
+    explicit GraphicsScrollbar(int _initialHeight, QWidget* _parent = nullptr);
+    ~GraphicsScrollbar() override;
 
     void clear() override;
     void mousePressEvent(QMouseEvent* _event) override;
@@ -180,8 +180,8 @@ private slots:
     void onAutoAdjustHistogramChanged();
     void onDisplayOnlyFramesOnHistogramChanged();
 
-}; // END of class BlocksGraphicsScrollbar.
+}; // END of class GraphicsScrollbar.
 
 //////////////////////////////////////////////////////////////////////////
 
-#endif // EASY__GRAPHICS_SCROLLBAR__H
+#endif // GRAPHICS_SCROLLBAR_H

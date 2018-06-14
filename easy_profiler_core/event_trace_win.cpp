@@ -77,11 +77,11 @@
 # include <iostream>
 
 # ifndef EASY_ERRORLOG
-#  define EASY_ERRORLOG ::std::cerr
+#  define EASY_ERRORLOG std::cerr
 # endif
 
 # ifndef EASY_LOG
-#  define EASY_LOG ::std::cerr
+#  define EASY_LOG std::cerr
 # endif
 
 # ifndef EASY_ERROR
@@ -123,16 +123,13 @@
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-//extern ProfileManager& MANAGER;
-#define MANAGER ProfileManager::instance()
-
 extern const profiler::color_t EASY_COLOR_INTERNAL_EVENT;
 
 #ifdef __MINGW32__
-std::atomic<uint64_t> TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
-char KERNEL_LOGGER[] = KERNEL_LOGGER_NAME;
+static std::atomic<uint64_t> TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
+static char KERNEL_LOGGER[] = KERNEL_LOGGER_NAME;
 #else
-std::atomic_uint64_t TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
+static std::atomic_uint64_t TRACING_END_TIME = ATOMIC_VAR_INIT(~0ULL);
 #endif
 
 /**
@@ -163,425 +160,426 @@ static const char* getProcessName(HANDLE hProcess, std::size_t& len)
 #endif
 }
 
-namespace profiler {
+EASY_CONSTEXPR decltype(EVENT_DESCRIPTOR::Opcode) SWITCH_CONTEXT_OPCODE = 36;
+EASY_CONSTEXPR int RAW_TIMESTAMP_TIME_TYPE = 1;
 
-    const decltype(EVENT_DESCRIPTOR::Opcode) SWITCH_CONTEXT_OPCODE = 36;
-    const int RAW_TIMESTAMP_TIME_TYPE = 1;
+//////////////////////////////////////////////////////////////////////////
 
-    //////////////////////////////////////////////////////////////////////////
+struct ProcessInfo {
+    std::string    name;
+    processid_t    id = 0;
+    int8_t      valid = 0;
+};
 
-    struct ProcessInfo {
-        ::std::string    name;
-        processid_t    id = 0;
-        int8_t      valid = 0;
-    };
+//////////////////////////////////////////////////////////////////////////
 
-    //////////////////////////////////////////////////////////////////////////
+// CSwitch class
+// See https://msdn.microsoft.com/en-us/library/windows/desktop/aa964744(v=vs.85).aspx
+// EventType = 36
+struct CSwitch
+{
+    uint32_t                 NewThreadId;
+    uint32_t                 OldThreadId;
+    int8_t             NewThreadPriority;
+    int8_t             OldThreadPriority;
+    uint8_t               PreviousCState;
+    int8_t                     SpareByte;
+    int8_t           OldThreadWaitReason;
+    int8_t             OldThreadWaitMode;
+    int8_t                OldThreadState;
+    int8_t   OldThreadWaitIdealProcessor;
+    uint32_t           NewThreadWaitTime;
+    uint32_t                    Reserved;
+};
 
-    // CSwitch class
-    // See https://msdn.microsoft.com/en-us/library/windows/desktop/aa964744(v=vs.85).aspx
-    // EventType = 36
-    struct CSwitch
+//////////////////////////////////////////////////////////////////////////
+
+struct do_not_calc_hash {
+    template <class T> inline size_t operator()(T _value) const {
+        return static_cast<size_t>(_value);
+    }
+};
+
+using thread_process_info_map = std::unordered_map<decltype(CSwitch::NewThreadId), ProcessInfo*, do_not_calc_hash>;
+using process_info_map = std::unordered_map<processid_t, ProcessInfo, do_not_calc_hash>;
+
+// Using static is safe because easyProcessTraceEvent() is called from one thread
+static process_info_map PROCESS_INFO_TABLE;
+static thread_process_info_map THREAD_PROCESS_INFO_TABLE;
+
+//////////////////////////////////////////////////////////////////////////
+
+void WINAPI easyProcessTraceEvent(PEVENT_RECORD _traceEvent)
+{
+    if (_traceEvent->EventHeader.EventDescriptor.Opcode != SWITCH_CONTEXT_OPCODE)
+        return;
+
+    if (sizeof(CSwitch) != _traceEvent->UserDataLength)
+        return;
+
+    EASY_FUNCTION(EASY_COLOR_INTERNAL_EVENT, profiler::OFF);
+
+    auto _contextSwitchEvent = reinterpret_cast<CSwitch*>(_traceEvent->UserData);
+    const auto time = static_cast<profiler::timestamp_t>(_traceEvent->EventHeader.TimeStamp.QuadPart);
+    if (time > TRACING_END_TIME.load(std::memory_order_acquire))
+        return;
+
+    DWORD pid = 0;
+    const char* process_name = "";
+
+    // Trying to get target process name and id
+    auto it = THREAD_PROCESS_INFO_TABLE.find(_contextSwitchEvent->NewThreadId);
+    if (it == THREAD_PROCESS_INFO_TABLE.end())
     {
-        uint32_t                 NewThreadId;
-        uint32_t                 OldThreadId;
-        int8_t             NewThreadPriority;
-        int8_t             OldThreadPriority;
-        uint8_t               PreviousCState;
-        int8_t                     SpareByte;
-        int8_t           OldThreadWaitReason;
-        int8_t             OldThreadWaitMode;
-        int8_t                OldThreadState;
-        int8_t   OldThreadWaitIdealProcessor;
-        uint32_t           NewThreadWaitTime;
-        uint32_t                    Reserved;
-    };
-
-    //////////////////////////////////////////////////////////////////////////
-
-    struct do_not_calc_hash {
-        template <class T> inline size_t operator()(T _value) const {
-            return static_cast<size_t>(_value);
-        }
-    };
-
-    using thread_process_info_map = ::std::unordered_map<decltype(CSwitch::NewThreadId), ProcessInfo*, do_not_calc_hash>;
-    using process_info_map = ::std::unordered_map<processid_t, ProcessInfo, do_not_calc_hash>;
-
-    // Using static is safe because processTraceEvent() is called from one thread
-    process_info_map PROCESS_INFO_TABLE;
-    thread_process_info_map THREAD_PROCESS_INFO_TABLE = ([] { thread_process_info_map initial; initial[0U] = nullptr; return ::std::move(initial); })();
-
-    //////////////////////////////////////////////////////////////////////////
-
-    void WINAPI processTraceEvent(PEVENT_RECORD _traceEvent)
-    {
-        if (_traceEvent->EventHeader.EventDescriptor.Opcode != SWITCH_CONTEXT_OPCODE)
-            return;
-
-        if (sizeof(CSwitch) != _traceEvent->UserDataLength)
-            return;
-
-        EASY_FUNCTION(EASY_COLOR_INTERNAL_EVENT, ::profiler::OFF);
-
-        auto _contextSwitchEvent = reinterpret_cast<CSwitch*>(_traceEvent->UserData);
-        const auto time = static_cast<::profiler::timestamp_t>(_traceEvent->EventHeader.TimeStamp.QuadPart);
-        if (time > TRACING_END_TIME.load(::std::memory_order_acquire))
-            return;
-
-        DWORD pid = 0;
-        const char* process_name = "";
-
-        // Trying to get target process name and id
-        auto it = THREAD_PROCESS_INFO_TABLE.find(_contextSwitchEvent->NewThreadId);
-        if (it == THREAD_PROCESS_INFO_TABLE.end())
+        auto hThread = OpenThread(THREAD_QUERY_LIMITED_INFORMATION, FALSE, _contextSwitchEvent->NewThreadId);
+        if (hThread != nullptr)
         {
-            auto hThread = OpenThread(THREAD_QUERY_LIMITED_INFORMATION, FALSE, _contextSwitchEvent->NewThreadId);
-            if (hThread != nullptr)
+            pid = GetProcessIdOfThread(hThread);
+            auto pinfo = &PROCESS_INFO_TABLE[pid];
+
+            if (pinfo->valid == 0)
             {
-                pid = GetProcessIdOfThread(hThread);
-                auto pinfo = &PROCESS_INFO_TABLE[pid];
-
-                if (pinfo->valid == 0)
+                if (pinfo->name.empty())
                 {
-                    if (pinfo->name.empty())
-                    {
-                        static char numbuf[128] = {};
-                        sprintf(numbuf, "%u", pid);
-                        pinfo->name = numbuf;
-                        pinfo->id = pid;
-                    }
-
-                    /*
-                    According to documentation, using GetModuleBaseName() requires
-                    PROCESS_QUERY_INFORMATION | PROCESS_VM_READ access rights.
-                    But it works fine with PROCESS_QUERY_LIMITED_INFORMATION instead of PROCESS_QUERY_INFORMATION.
-                    
-                    See https://msdn.microsoft.com/en-us/library/windows/desktop/ms683196(v=vs.85).aspx
-                    */
-
-                    //auto hProc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
-                    //if (hProc == nullptr)
-                    auto hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, pid);
-                    if (hProc != nullptr)
-                    {
-                        std::size_t len = 0;
-                        auto processName = getProcessName(hProc, len); // Using thread-unsafe method is safe because processTraceEvent() is called from one thread
-
-                        if (len != 0)
-                        {
-                            pinfo->name.reserve(pinfo->name.size() + 2 + len);
-                            pinfo->name.append(" ", 1);
-                            pinfo->name.append(processName, len);
-                            pinfo->valid = 1;
-                        }
-
-                        CloseHandle(hProc);
-                    }
-                    else
-                    {
-                        //auto err = GetLastError();
-                        //printf("OpenProcess(%u) fail: GetLastError() == %u\n", pid, err);
-                        pinfo->valid = -1;
-
-                        if (pid == 4) {
-                            pinfo->name.reserve(pinfo->name.size() + 8);
-                            pinfo->name.append(" System", 7);
-                        }
-                    }
+                    static char numbuf[128] = {};
+                    sprintf(numbuf, "%u", pid);
+                    pinfo->name = numbuf;
+                    pinfo->id = pid;
                 }
 
-                process_name = pinfo->name.c_str();
-                THREAD_PROCESS_INFO_TABLE[_contextSwitchEvent->NewThreadId] = pinfo;
+                /*
+                According to documentation, using GetModuleBaseName() requires
+                PROCESS_QUERY_INFORMATION | PROCESS_VM_READ access rights.
+                But it works fine with PROCESS_QUERY_LIMITED_INFORMATION instead of PROCESS_QUERY_INFORMATION.
+                    
+                See https://msdn.microsoft.com/en-us/library/windows/desktop/ms683196(v=vs.85).aspx
+                */
 
-                CloseHandle(hThread);
+                //auto hProc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+                //if (hProc == nullptr)
+                auto hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+                if (hProc != nullptr)
+                {
+                    std::size_t len = 0;
+                    auto processName = getProcessName(hProc, len); // Using thread-unsafe method is safe because processTraceEvent() is called from one thread
+
+                    if (len != 0)
+                    {
+                        pinfo->name.reserve(pinfo->name.size() + 2 + len);
+                        pinfo->name.append(" ", 1);
+                        pinfo->name.append(processName, len);
+                        pinfo->valid = 1;
+                    }
+
+                    CloseHandle(hProc);
+                }
+                else
+                {
+                    //auto err = GetLastError();
+                    //printf("OpenProcess(%u) fail: GetLastError() == %u\n", pid, err);
+                    pinfo->valid = -1;
+
+                    if (pid == 4) {
+                        pinfo->name.reserve(pinfo->name.size() + 8);
+                        pinfo->name.append(" System", 7);
+                    }
+                }
             }
-            else
-            {
-                //printf("Can not OpenThread(%u);\n", _contextSwitchEvent->NewThreadId);
-                THREAD_PROCESS_INFO_TABLE[_contextSwitchEvent->NewThreadId] = nullptr;
-            }
+
+            process_name = pinfo->name.c_str();
+            THREAD_PROCESS_INFO_TABLE[_contextSwitchEvent->NewThreadId] = pinfo;
+
+            CloseHandle(hThread);
         }
         else
         {
-            auto pinfo = it->second;
-            if (pinfo != nullptr)
-                process_name = pinfo->name.c_str();
-            else if (it->first == 0)
-                process_name = "System Idle";
-            else if (it->first == 4)
-                process_name = "System";
+            //printf("Can not OpenThread(%u);\n", _contextSwitchEvent->NewThreadId);
+            THREAD_PROCESS_INFO_TABLE[_contextSwitchEvent->NewThreadId] = nullptr;
         }
-
-        MANAGER.beginContextSwitch(_contextSwitchEvent->OldThreadId, time, _contextSwitchEvent->NewThreadId, process_name);
-        MANAGER.endContextSwitch(_contextSwitchEvent->NewThreadId, pid, time);
+    }
+    else
+    {
+        auto pinfo = it->second;
+        if (pinfo != nullptr)
+            process_name = pinfo->name.c_str();
+        else if (it->first == 0)
+            process_name = "System Idle";
+        else if (it->first == 4)
+            process_name = "System";
     }
 
-	//////////////////////////////////////////////////////////////////////////
+    ProfileManager::instance().beginContextSwitch(_contextSwitchEvent->OldThreadId, time, _contextSwitchEvent->NewThreadId, process_name);
+    ProfileManager::instance().endContextSwitch(_contextSwitchEvent->NewThreadId, pid, time);
+}
 
-	EasyEventTracer::Properties::Properties()
-	{
+//////////////////////////////////////////////////////////////////////////
+
+EasyEventTracer::Properties::Properties()
+{
 #if UNICODE
-		std::wcstombs(sessionName, KERNEL_LOGGER_NAME, sizeof(sessionName));
+	std::wcstombs(sessionName, KERNEL_LOGGER_NAME, sizeof(sessionName));
 #else
-		std::strncpy(sessionName, KERNEL_LOGGER_NAME, sizeof(sessionName));
+	std::strncpy(sessionName, KERNEL_LOGGER_NAME, sizeof(sessionName));
 #endif
-	}
+}
 
-    //////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
 
 #ifndef EASY_MAGIC_STATIC_AVAILABLE
-    class EasyEventTracerInstance {
-        friend EasyEventTracer;
-        EasyEventTracer instance;
-    } EASY_EVENT_TRACER;
+class EasyEventTracerInstance {
+    friend EasyEventTracer;
+    EasyEventTracer instance;
+} EASY_EVENT_TRACER;
 #endif
 
-    EasyEventTracer& EasyEventTracer::instance()
-    {
+EasyEventTracer& EasyEventTracer::instance()
+{
 #ifndef EASY_MAGIC_STATIC_AVAILABLE
-        return EASY_EVENT_TRACER.instance;
+    return EASY_EVENT_TRACER.instance;
 #else
-        static EasyEventTracer tracer;
-        return tracer;
+    static EasyEventTracer tracer;
+    return tracer;
 #endif
-    }
+}
 
-    EasyEventTracer::EasyEventTracer()
+EasyEventTracer::EasyEventTracer()
+{
+    m_lowPriority = ATOMIC_VAR_INIT(EASY_OPTION_LOW_PRIORITY_EVENT_TRACING);
+    THREAD_PROCESS_INFO_TABLE[0U] = nullptr;
+}
+
+EasyEventTracer::~EasyEventTracer()
+{
+    disable();
+}
+
+bool EasyEventTracer::isLowPriority() const
+{
+    return m_lowPriority.load(std::memory_order_acquire);
+}
+
+void EasyEventTracer::setLowPriority(bool _value)
+{
+    m_lowPriority.store(_value, std::memory_order_release);
+}
+
+bool setPrivilege(HANDLE hToken, PTCHAR _privelegeName)
+{
+    bool success = false;
+
+    if (hToken)
     {
-        m_lowPriority = ATOMIC_VAR_INIT(EASY_OPTION_LOW_PRIORITY_EVENT_TRACING);
-    }
-
-    EasyEventTracer::~EasyEventTracer()
-    {
-        disable();
-    }
-
-    bool EasyEventTracer::isLowPriority() const
-    {
-        return m_lowPriority.load(::std::memory_order_acquire);
-    }
-
-    void EasyEventTracer::setLowPriority(bool _value)
-    {
-        m_lowPriority.store(_value, ::std::memory_order_release);
-    }
-
-    bool setPrivilege(HANDLE hToken, PTCHAR _privelegeName)
-    {
-        bool success = false;
-
-        if (hToken)
+        LUID privilegyId;
+        if (LookupPrivilegeValue(NULL, _privelegeName, &privilegyId))
         {
-            LUID privilegyId;
-            if (LookupPrivilegeValue(NULL, _privelegeName, &privilegyId))
-            {
-                TOKEN_PRIVILEGES tokenPrivilege;
-                tokenPrivilege.PrivilegeCount = 1;
-                tokenPrivilege.Privileges[0].Luid = privilegyId;
-                tokenPrivilege.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-                success = AdjustTokenPrivileges(hToken, FALSE, &tokenPrivilege, sizeof(TOKEN_PRIVILEGES), NULL, NULL) != FALSE;
-            }
+            TOKEN_PRIVILEGES tokenPrivilege;
+            tokenPrivilege.PrivilegeCount = 1;
+            tokenPrivilege.Privileges[0].Luid = privilegyId;
+            tokenPrivilege.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+            success = AdjustTokenPrivileges(hToken, FALSE, &tokenPrivilege, sizeof(TOKEN_PRIVILEGES), NULL, NULL) != FALSE;
         }
-
-        EASY_LOG_ONLY(
-            if (!success)
-                EASY_WARNING("Failed to set " << _privelegeName << " privelege for the application.\n");
-        )
-
-        return success;
     }
 
-    void EasyEventTracer::setProcessPrivileges()
+    EASY_LOG_ONLY(
+        if (!success)
+            EASY_WARNING("Failed to set " << _privelegeName << " privelege for the application.\n");
+    )
+
+    return success;
+}
+
+void EasyEventTracer::setProcessPrivileges()
+{
+    static bool alreadySet = false;
+    if (alreadySet)
+        return;
+
+    alreadySet = true;
+
+    HANDLE hToken = nullptr;
+    if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
     {
-        static bool alreadySet = false;
-        if (alreadySet)
-            return;
-
-        alreadySet = true;
-
-        HANDLE hToken = nullptr;
-        if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
-        {
 #if EASY_OPTION_LOG_ENABLED != 0
-            const bool success = setPrivilege(hToken, SE_DEBUG_NAME);
-            if (!success)
-                EASY_WARNING("Some context switch events could not get process name.\n");
+        const bool success = setPrivilege(hToken, SE_DEBUG_NAME);
+        if (!success)
+            EASY_WARNING("Some context switch events could not get process name.\n");
 #else
-            setPrivilege(hToken, SE_DEBUG_NAME);
+        setPrivilege(hToken, SE_DEBUG_NAME);
 #endif
             
-            CloseHandle(hToken);
-        }
-        EASY_LOG_ONLY(
-            else {
-                EASY_WARNING("Failed to open process to adjust priveleges.\n");
-            }
-        )
+        CloseHandle(hToken);
     }
+    EASY_LOG_ONLY(
+        else {
+            EASY_WARNING("Failed to open process to adjust priveleges.\n");
+        }
+    )
+}
 
-    ::profiler::EventTracingEnableStatus EasyEventTracer::startTrace(bool _force, int _step)
+EventTracingEnableStatus EasyEventTracer::startTrace(bool _force, int _step)
+{
+    using Status = EventTracingEnableStatus;
+
+    auto startTraceResult = StartTrace(&m_sessionHandle, KERNEL_LOGGER_NAME, props());
+    switch (startTraceResult)
     {
-        auto startTraceResult = StartTrace(&m_sessionHandle, KERNEL_LOGGER_NAME, props());
-        switch (startTraceResult)
+        case ERROR_SUCCESS:
+            return Status::LaunchedSuccessfully;
+
+        case ERROR_ALREADY_EXISTS:
         {
-            case ERROR_SUCCESS:
-                return EVENT_TRACING_LAUNCHED_SUCCESSFULLY;
-
-            case ERROR_ALREADY_EXISTS:
+            if (_force)
             {
-                if (_force)
+                // Try to stop another event tracing session to force launch self session.
+
+                if (_step == 0)
                 {
-                    // Try to stop another event tracing session to force launch self session.
+                    /*
+                    According to https://msdn.microsoft.com/en-us/library/windows/desktop/aa363696(v=vs.85).aspx
+                    SessionHandle is ignored (and could be NULL) if SessionName is not NULL,
+                    and you only need to set the Wnode.BufferSize, Wnode.Guid, LoggerNameOffset, and LogFileNameOffset
+                    in EVENT_TRACE_PROPERTIES structure if ControlCode is EVENT_TRACE_CONTROL_STOP.
+                    All data is already set for m_properties to the moment. Simply copy m_properties and use the copy.
 
-                    if (_step == 0)
-                    {
-                        /*
-                        According to https://msdn.microsoft.com/en-us/library/windows/desktop/aa363696(v=vs.85).aspx
-                        SessionHandle is ignored (and could be NULL) if SessionName is not NULL,
-                        and you only need to set the Wnode.BufferSize, Wnode.Guid, LoggerNameOffset, and LogFileNameOffset
-                        in EVENT_TRACE_PROPERTIES structure if ControlCode is EVENT_TRACE_CONTROL_STOP.
-                        All data is already set for m_properties to the moment. Simply copy m_properties and use the copy.
+                    This method supposed to be faster than launching console window and executing shell command,
+                    but if that would not work, return to using shell command "logman stop".
+                    */
 
-                        This method supposed to be faster than launching console window and executing shell command,
-                        but if that would not work, return to using shell command "logman stop".
-                        */
+                    // static is safe because we are guarded by spin-lock m_spin
+                    static Properties p;
+                    p.base = m_properties.base; // Use copy of m_properties to make sure m_properties will not be changed
 
-                        // static is safe because we are guarded by spin-lock m_spin
-                        static Properties p;
-                        p.base = m_properties.base; // Use copy of m_properties to make sure m_properties will not be changed
+                    // Stop another session
+                    ControlTrace((TRACEHANDLE)NULL, KERNEL_LOGGER_NAME, reinterpret_cast<EVENT_TRACE_PROPERTIES*>(&p), EVENT_TRACE_CONTROL_STOP);
 
-                        // Stop another session
-                        ControlTrace((TRACEHANDLE)NULL, KERNEL_LOGGER_NAME, reinterpret_cast<EVENT_TRACE_PROPERTIES*>(&p), EVENT_TRACE_CONTROL_STOP);
-
-                        // Console window variant:
-                        //if (32 >= (int)ShellExecute(NULL, NULL, "logman", "stop \"" KERNEL_LOGGER_NAME "\" -ets", NULL, SW_HIDE))
-                        //    return EVENT_TRACING_WAS_LAUNCHED_BY_SOMEBODY_ELSE;
-                    }
-
-                    if (_step < 4)
-                    {
-                        // Command executed successfully. Wait for a few time until tracing session finish.
-                        ::std::this_thread::sleep_for(::std::chrono::milliseconds(500));
-                        return startTrace(true, ++_step);
-                    }
+                    // Console window variant:
+                    //if (32 >= (int)ShellExecute(NULL, NULL, "logman", "stop \"" KERNEL_LOGGER_NAME "\" -ets", NULL, SW_HIDE))
+                    //    return Status::AlreadyLaunched;
                 }
 
-                EASY_ERROR("Event tracing not launched: ERROR_ALREADY_EXISTS. To stop another session execute cmd: logman stop \"" << KERNEL_LOGGER_NAME << "\" -ets\n");
-                return EVENT_TRACING_WAS_LAUNCHED_BY_SOMEBODY_ELSE;
+                if (_step < 4)
+                {
+                    // Command executed successfully. Wait for a few time until tracing session finish.
+                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                    return startTrace(true, ++_step);
+                }
             }
 
-            case ERROR_ACCESS_DENIED:
-                EASY_ERROR("Event tracing not launched: ERROR_ACCESS_DENIED. Try to launch your application as Administrator.\n");
-                return EVENT_TRACING_NOT_ENOUGH_ACCESS_RIGHTS;
-
-            case ERROR_BAD_LENGTH:
-                EASY_ERROR("Event tracing not launched: ERROR_BAD_LENGTH. It seems that your KERNEL_LOGGER_NAME differs from \"" << m_properties.sessionName << "\". Try to re-compile easy_profiler or contact EasyProfiler developers.\n");
-                return EVENT_TRACING_BAD_PROPERTIES_SIZE;
+            EASY_ERROR("Event tracing not launched: ERROR_ALREADY_EXISTS. To stop another session execute cmd: logman stop \"" << KERNEL_LOGGER_NAME << "\" -ets\n");
+            return Status::AlreadyLaunched;
         }
 
-        EASY_ERROR("Event tracing not launched: StartTrace() returned " << startTraceResult << ::std::endl);
+        case ERROR_ACCESS_DENIED:
+            EASY_ERROR("Event tracing not launched: ERROR_ACCESS_DENIED. Try to launch your application as Administrator.\n");
+            return Status::PermissionDenied;
 
-        return EVENT_TRACING_MISTERIOUS_ERROR;
+        case ERROR_BAD_LENGTH:
+            EASY_ERROR("Event tracing not launched: ERROR_BAD_LENGTH. It seems that your KERNEL_LOGGER_NAME differs from \"" << m_properties.sessionName << "\". Try to re-compile easy_profiler or contact EasyProfiler developers.\n");
+            return Status::BadPropertiesSize;
     }
 
-    ::profiler::EventTracingEnableStatus EasyEventTracer::enable(bool _force)
-    {
-        ::profiler::guard_lock<::profiler::spin_lock> lock(m_spin);
-        if (m_bEnabled)
-            return EVENT_TRACING_LAUNCHED_SUCCESSFULLY;
+    EASY_ERROR("Event tracing not launched: StartTrace() returned " << startTraceResult << std::endl);
 
-        /*
-        Trying to set debug privilege for current process
-        to be able to get other process information (process name).
-        */
-        EasyEventTracer::setProcessPrivileges();
+    return Status::UnknownError;
+}
 
-        // Clear properties
-        memset(&m_properties, 0, sizeof(m_properties));
-        m_properties.base.Wnode.BufferSize = sizeof(m_properties);
-        m_properties.base.Wnode.Flags = WNODE_FLAG_TRACED_GUID;
-        m_properties.base.Wnode.ClientContext = RAW_TIMESTAMP_TIME_TYPE;
-        m_properties.base.Wnode.Guid = SystemTraceControlGuid;
-        m_properties.base.LoggerNameOffset = sizeof(m_properties.base);
-        m_properties.base.EnableFlags = EVENT_TRACE_FLAG_CSWITCH;
-        m_properties.base.LogFileMode = EVENT_TRACE_REAL_TIME_MODE;
+EventTracingEnableStatus EasyEventTracer::enable(bool _force)
+{
+    using Status = EventTracingEnableStatus;
 
-        // Start event tracing
-        auto res = startTrace(_force);
-        if (res != EVENT_TRACING_LAUNCHED_SUCCESSFULLY)
-            return res;
+    profiler::guard_lock<profiler::spin_lock> lock(m_spin);
+    if (m_bEnabled)
+        return Status::LaunchedSuccessfully;
 
-        memset(&m_trace, 0, sizeof(m_trace));
+    /*
+    Trying to set debug privilege for current process
+    to be able to get other process information (process name).
+    */
+    EasyEventTracer::setProcessPrivileges();
+
+    // Clear properties
+    memset(&m_properties, 0, sizeof(m_properties));
+    m_properties.base.Wnode.BufferSize = sizeof(m_properties);
+    m_properties.base.Wnode.Flags = WNODE_FLAG_TRACED_GUID;
+    m_properties.base.Wnode.ClientContext = RAW_TIMESTAMP_TIME_TYPE;
+    m_properties.base.Wnode.Guid = SystemTraceControlGuid;
+    m_properties.base.LoggerNameOffset = sizeof(m_properties.base);
+    m_properties.base.EnableFlags = EVENT_TRACE_FLAG_CSWITCH;
+    m_properties.base.LogFileMode = EVENT_TRACE_REAL_TIME_MODE;
+
+    // Start event tracing
+    const auto res = startTrace(_force);
+    if (res != Status::LaunchedSuccessfully)
+        return res;
+
+    memset(&m_trace, 0, sizeof(m_trace));
 #ifdef __MINGW32__
-        m_trace.LoggerName = KERNEL_LOGGER;
+    m_trace.LoggerName = KERNEL_LOGGER;
 #else
-        m_trace.LoggerName = KERNEL_LOGGER_NAME;
+    m_trace.LoggerName = KERNEL_LOGGER_NAME;
 #endif
-        m_trace.ProcessTraceMode = PROCESS_TRACE_MODE_REAL_TIME | PROCESS_TRACE_MODE_EVENT_RECORD | PROCESS_TRACE_MODE_RAW_TIMESTAMP;
-        m_trace.EventRecordCallback = ::profiler::processTraceEvent;
+    m_trace.ProcessTraceMode = PROCESS_TRACE_MODE_REAL_TIME | PROCESS_TRACE_MODE_EVENT_RECORD | PROCESS_TRACE_MODE_RAW_TIMESTAMP;
+    m_trace.EventRecordCallback = easyProcessTraceEvent;
 
-        m_openedHandle = OpenTrace(&m_trace);
-        if (m_openedHandle == INVALID_PROCESSTRACE_HANDLE)
-        {
-            EASY_ERROR("Event tracing not launched: OpenTrace() returned invalid handle.\n");
-            return EVENT_TRACING_OPEN_TRACE_ERROR;
-        }
-
-        /*
-        Have to launch a thread to process events because according to MSDN documentation:
-        
-        The ProcessTrace function blocks the thread until it delivers all events, the BufferCallback function returns FALSE,
-        or you call CloseTrace. If the consumer is consuming events in real time, the ProcessTrace function returns after
-        the controller stops the trace session. (Note that there may be a several-second delay before the function returns.)
-        
-        https://msdn.microsoft.com/en-us/library/windows/desktop/aa364093(v=vs.85).aspx
-        */
-        m_processThread = ::std::thread([this](bool _lowPriority)
-        {
-            if (_lowPriority) // Set low priority for event tracing thread
-                SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST);
-            EASY_THREAD_SCOPE("EasyProfiler.ETW");
-            ProcessTrace(&m_openedHandle, 1, 0, 0);
-
-        }, m_lowPriority.load(::std::memory_order_acquire));
-
-        m_bEnabled = true;
-
-        EASY_LOGMSG("Event tracing launched\n");
-        return EVENT_TRACING_LAUNCHED_SUCCESSFULLY;
-    }
-
-    void EasyEventTracer::disable()
+    m_openedHandle = OpenTrace(&m_trace);
+    if (m_openedHandle == INVALID_PROCESSTRACE_HANDLE)
     {
-        ::profiler::guard_lock<::profiler::spin_lock> lock(m_spin);
-        if (!m_bEnabled)
-            return;
-
-        EASY_LOGMSG("Event tracing is stopping...\n");
-
-        TRACING_END_TIME.store(profiler::clock::now(), ::std::memory_order_release);
-
-        ControlTrace(m_openedHandle, KERNEL_LOGGER_NAME, props(), EVENT_TRACE_CONTROL_STOP);
-        CloseTrace(m_openedHandle);
-
-        // Wait for ProcessTrace to finish to make sure no processTraceEvent() will be called later.
-        if (m_processThread.joinable())
-            m_processThread.join();
-
-        m_bEnabled = false;
-
-        // processTraceEvent() is not called anymore. Clean static maps is safe.
-        PROCESS_INFO_TABLE.clear();
-        THREAD_PROCESS_INFO_TABLE.clear();
-        THREAD_PROCESS_INFO_TABLE[0U] = nullptr;
-
-        TRACING_END_TIME.store(~0ULL, ::std::memory_order_release);
-
-        EASY_LOGMSG("Event tracing stopped\n");
+        EASY_ERROR("Event tracing not launched: OpenTrace() returned invalid handle.\n");
+        return Status::OpenTraceFailed;
     }
 
-} // END of namespace profiler.
+    /*
+    Have to launch a thread to process events because according to MSDN documentation:
+        
+    The ProcessTrace function blocks the thread until it delivers all events, the BufferCallback function returns FALSE,
+    or you call CloseTrace. If the consumer is consuming events in real time, the ProcessTrace function returns after
+    the controller stops the trace session. (Note that there may be a several-second delay before the function returns.)
+        
+    https://msdn.microsoft.com/en-us/library/windows/desktop/aa364093(v=vs.85).aspx
+    */
+    m_processThread = std::thread([this](bool _lowPriority)
+    {
+        if (_lowPriority) // Set low priority for event tracing thread
+            SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST);
+        EASY_THREAD_SCOPE("EasyProfiler.ETW");
+        ProcessTrace(&m_openedHandle, 1, 0, 0);
+
+    }, m_lowPriority.load(std::memory_order_acquire));
+
+    m_bEnabled = true;
+
+    EASY_LOGMSG("Event tracing launched\n");
+    return Status::LaunchedSuccessfully;
+}
+
+void EasyEventTracer::disable()
+{
+    profiler::guard_lock<profiler::spin_lock> lock(m_spin);
+    if (!m_bEnabled)
+        return;
+
+    EASY_LOGMSG("Event tracing is stopping...\n");
+
+    TRACING_END_TIME.store(profiler::clock::now(), std::memory_order_release);
+
+    ControlTrace(m_openedHandle, KERNEL_LOGGER_NAME, props(), EVENT_TRACE_CONTROL_STOP);
+    CloseTrace(m_openedHandle);
+
+    // Wait for ProcessTrace to finish to make sure no processTraceEvent() will be called later.
+    if (m_processThread.joinable())
+        m_processThread.join();
+
+    m_bEnabled = false;
+
+    // processTraceEvent() is not called anymore. Clean static maps is safe.
+    PROCESS_INFO_TABLE.clear();
+    THREAD_PROCESS_INFO_TABLE.clear();
+    THREAD_PROCESS_INFO_TABLE[0U] = nullptr;
+
+    TRACING_END_TIME.store(~0ULL, std::memory_order_release);
+
+    EASY_LOGMSG("Event tracing stopped\n");
+}
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////

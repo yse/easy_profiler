@@ -72,10 +72,10 @@ namespace profiler_gui {
     const QString ORGANAZATION_NAME = "EasyProfiler";
     const QString APPLICATION_NAME = "Easy profiler gui application";
 
-    const QColor CHRONOMETER_COLOR = QColor::fromRgba(0x40000000 | (::profiler::colors::RichBlue & 0x00ffffff));// 0x402020c0);
-    const QColor CHRONOMETER_COLOR2 = QColor::fromRgba(0x40000000 | (::profiler::colors::Dark & 0x00ffffff));// 0x40408040);
+    const QColor RULER_COLOR = QColor::fromRgba(0x40000000 | (::profiler::colors::RichBlue & 0x00ffffff));// 0x402020c0);
+    const QColor RULER_COLOR2 = QColor::fromRgba(0x40000000 | (::profiler::colors::Dark & 0x00ffffff));// 0x40408040);
     const QColor TEXT_COLOR = QColor::fromRgb(0xff504040);
-    const QColor SYSTEM_BORDER_COLOR = QColor::fromRgb(0xffcccccc);
+    const QColor SYSTEM_BORDER_COLOR = QColor::fromRgb(0xffc4c4c4);
     EASY_CONSTEXPR QRgb SELECTED_THREAD_BACKGROUND = 0xffe0e060;
     EASY_CONSTEXPR QRgb SELECTED_THREAD_FOREGROUND = 0xffffffff - (SELECTED_THREAD_BACKGROUND & 0x00ffffff);
 
@@ -146,13 +146,13 @@ namespace profiler_gui {
 
     //////////////////////////////////////////////////////////////////////////
 
-    enum ChronometerTextPosition : int8_t
+    enum RulerTextPosition : int8_t
     {
-        ChronoTextPosition_Center = 0,
-        ChronoTextPosition_Top,
-        ChronoTextPosition_Bottom,
+        RulerTextPosition_Center = 0,
+        RulerTextPosition_Top,
+        RulerTextPosition_Bottom,
 
-    }; // END of enum ChronometerTextPosition.
+    }; // END of enum RulerTextPosition.
 
     //////////////////////////////////////////////////////////////////////////
 
@@ -217,7 +217,7 @@ namespace profiler_gui {
         int                              max_fps_history; ///< Max frames history displayed in FPS Monitor
         int                           fps_timer_interval; ///< Interval in milliseconds for sending network requests to the profiled application (used by FPS Monitor)
         int                        fps_widget_line_width; ///< Line width in pixels of FPS lines for FPS Monitor
-        ChronometerTextPosition     chrono_text_position; ///< Selected interval text position
+        RulerTextPosition     chrono_text_position; ///< Selected interval text position
         TimeUnits                             time_units; ///< Units type for time (milliseconds, microseconds, nanoseconds or auto-definition)
         bool                                   connected; ///< Is connected to source (to be able to capture profiling information)
         bool                                 fps_enabled; ///< Is FPS Monitor enabled

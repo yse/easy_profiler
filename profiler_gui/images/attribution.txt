@@ -36,9 +36,11 @@ default/minimize-white.svg         - Icon made by Freepik from www.flaticon.com
 default/minimize-white-pressed.svg - Icon made by Freepik from www.flaticon.com
 default/arrow-down.svg             - Icon made by Freepik from www.flaticon.com
 default/arrow-down-hover.svg       - Icon made by Freepik from www.flaticon.com
+default/arrow-down-pressed.svg     - Icon made by Freepik from www.flaticon.com
 default/arrow-down-disabled.svg    - Icon made by Freepik from www.flaticon.com
 default/arrow-up.svg               - Icon made by Freepik from www.flaticon.com
 default/arrow-up-hover.svg         - Icon made by Freepik from www.flaticon.com
+default/arrow-up-pressed.svg       - Icon made by Freepik from www.flaticon.com
 default/arrow-up-disabled.svg      - Icon made by Freepik from www.flaticon.com
 default/arrow-left.svg             - Icon made by Freepik from www.flaticon.com
 default/arrow-right.svg            - Icon made by Freepik from www.flaticon.com

@@ -204,7 +204,7 @@ GraphicsSliderArea::GraphicsSliderArea(QWidget* _parent)
     scene()->addItem(m_selectionIndicator);
 
     m_selectionIndicator->setPos(0, 0);
-    m_selectionIndicator->setColor(0x40000000 | profiler_gui::CHRONOMETER_COLOR.rgba());
+    m_selectionIndicator->setColor(0x40000000 | profiler_gui::RULER_COLOR.rgba());
     m_selectionIndicator->hide();
 
     m_slider = new GraphicsSliderItem(6, true);
@@ -539,12 +539,12 @@ void GraphicsSliderArea::wheelEvent(QWheelEvent* _event)
     {
         const auto w = m_slider->halfwidth() * (_event->delta() < 0 ? profiler_gui::SCALING_COEFFICIENT : profiler_gui::SCALING_COEFFICIENT_INV);
         setValue(mapToScene(_event->pos()).x() - m_minimumValue - w);
-        emit EASY_GLOBALS.events.chartWheeled(w * m_windowScale, _event->delta());
+        emit EASY_GLOBALS.events.chartWheeled(m_value + w * m_windowScale, _event->delta());
     }
     else
     {
         auto x = static_cast<qreal>(_event->pos().x()) / m_windowScale;
-        if (m_bBindMode)
+        if (m_bBindMode) // check m_bBindMode because it may differ from bindMode() for arbitrary value complexity chart
             x *= sliderWidth() / range();
         emit EASY_GLOBALS.events.chartWheeled(m_value + x, _event->delta());
     }

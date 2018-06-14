@@ -1,15 +1,11 @@
 /************************************************************************
-* file name         : globals.cpp
+* file name         : round_progress_widget.h
 * ----------------- :
-* creation time     : 2016/08/03
+* creation time     : 2018/05/17
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : The file contains implementation of global constants and variables for profiler gui.
-* ----------------- :
-* change log        : * 2016/08/03 Victor Zarubkin: initial commit.
-*                   :
-*                   : *
+* description       : The file contains declaration of RoundProgressWidget.
 * ----------------- :
 * license           : Lightweight profiler library for c++
 *                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
@@ -52,75 +48,127 @@
 *                   : limitations under the License.
 ************************************************************************/
 
-#include "globals.h"
+#ifndef ROUND_PROGRESS_WIDGET_H
+#define ROUND_PROGRESS_WIDGET_H
 
-//////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////
+#include <stdint.h>
+#include <QColor>
+#include <QWidget>
+#include <QDialog>
 
-namespace profiler_gui {
+class RoundProgressIndicator : public QWidget
+{
+Q_OBJECT
 
-    Globals& Globals::instance()
+    using Parent = QWidget;
+    using This = RoundProgressIndicator;
+
+    QString       m_text;
+    QColor  m_background;
+    QColor       m_color;
+    int8_t       m_value;
+
+public:
+
+    Q_PROPERTY(QColor color READ color WRITE setColor);
+    Q_PROPERTY(QColor background READ background WRITE setBackground);
+
+    explicit RoundProgressIndicator(QWidget* parent = nullptr);
+    ~RoundProgressIndicator() override;
+
+    int value() const;
+    void setValue(int value);
+    void reset();
+
+    QColor background() const;
+    QColor color() const;
+
+public slots:
+
+    void setBackground(QColor color);
+    void setBackground(QString color);
+    void setColor(QColor color);
+    void setColor(QString color);
+
+protected:
+
+    void showEvent(QShowEvent* event) override;
+    void paintEvent(QPaintEvent* event) override;
+
+}; // end of class RoundProgressIndicator.
+
+class RoundProgressWidget : public QWidget
+{
+    Q_OBJECT
+
+    using Parent = QWidget;
+    using This = RoundProgressWidget;
+
+public:
+
+    Q_PROPERTY(bool topTitlePosition READ isTopTitlePosition WRITE setTopTitlePosition NOTIFY titlePositionChanged);
+
+    enum TitlePosition : int8_t
     {
-        // It's okay even without C++11 "magic statics" feature because first call happens
-        // on application initialization - there is only one thread and no data races occur.
-        static Globals globals;
-        return globals;
-    }
+        Top = 0,
+        Bottom,
+    };
 
-    Globals::Fonts::Fonts()
-        : default_font(::profiler_gui::EFont("DejaVu Sans", 13))
-        , background(::profiler_gui::EFont("DejaVu Sans", 13, QFont::Bold))
-        , ruler(::profiler_gui::EFont("DejaVu Sans", 16, QFont::Bold))
-        , item(::profiler_gui::EFont("DejaVu Sans", 13, QFont::Medium))
-        , selected_item(::profiler_gui::EFont("DejaVu Sans", 13, QFont::Medium))
-    {
+private:
 
-    }
+    class QLabel*                   m_title;
+    QWidget*             m_indicatorWrapper;
+    RoundProgressIndicator*     m_indicator;
+    TitlePosition           m_titlePosition;
 
-    Globals::Globals()
-        : theme("default")
-        , pid(0)
-        , begin_time(0)
-        , selected_thread(0U)
-        , selected_block(::profiler_gui::numeric_max<decltype(selected_block)>())
-        , selected_block_id(::profiler_gui::numeric_max<decltype(selected_block_id)>())
-        , version(0)
-        , frame_time(16700)
-        , blocks_spacing(0)
-        , blocks_size_min(2)
-        , blocks_narrow_size(20)
-        , max_fps_history(90)
-        , fps_timer_interval(500)
-        , fps_widget_line_width(2)
-        , chrono_text_position(RulerTextPosition_Top)
-        , time_units(TimeUnits_ms)
-        , connected(false)
-        , fps_enabled(true)
-        , use_decorated_thread_name(false)
-        , hex_thread_id(false)
-        , enable_event_markers(true)
-        , enable_statistics(true)
-        , enable_zero_length(true)
-        , add_zero_blocks_to_hierarchy(false)
-        , draw_graphics_items_borders(true)
-        , hide_narrow_children(false)
-        , hide_minsize_blocks(false)
-        , display_only_relevant_stats(true)
-        , collapse_items_on_tree_close(false)
-        , all_items_expanded_by_default(true)
-        , only_current_thread_hierarchy(false)
-        , highlight_blocks_with_same_id(true)
-        , selecting_block_changes_thread(true)
-        , auto_adjust_histogram_height(true)
-        , auto_adjust_chart_height(false)
-        , display_only_frames_on_histogram(false)
-        , bind_scene_and_tree_expand_status(true)
-    {
+public:
 
-    }
+    explicit RoundProgressWidget(QWidget* parent = nullptr);
+    explicit RoundProgressWidget(const QString& title, QWidget* parent = nullptr);
+    ~RoundProgressWidget() override;
 
-} // END of namespace profiler_gui.
+    void setTitle(const QString& title);
+    int value() const;
+    TitlePosition titlePosition() const;
+    bool isTopTitlePosition() const;
 
-//////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////
+public slots:
 
+    void setValue(int value);
+    void reset();
+    void setTitlePosition(TitlePosition pos);
+    void setTopTitlePosition(bool isTop);
+
+signals:
+
+    void valueChanged(int value);
+    void finished();
+    void titlePositionChanged();
+
+}; // end of class RoundProgressWidget.
+
+class RoundProgressDialog : public QDialog
+{
+    Q_OBJECT
+
+    using Parent = QDialog;
+    using This = RoundProgressDialog;
+
+    RoundProgressWidget* m_progress;
+
+public:
+
+    explicit RoundProgressDialog(const QString& title, QWidget* parent = nullptr);
+    ~RoundProgressDialog() override;
+
+protected:
+
+    void showEvent(QShowEvent* event) override;
+
+public slots:
+
+    void setValue(int value);
+
+}; // end of RoundProgressDialog.
+
+#endif // ROUND_PROGRESS_WIDGET_H
