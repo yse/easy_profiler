@@ -306,9 +306,12 @@ install(
     easy_profiler
     EXPORT
     ${targets_export_name}
-    DESTINATION
-    bin
-    INCLUDES DESTINATION "${include_install_dir}"
+    LIBRARY DESTINATION lib COMPONENT Runtime
+    ARCHIVE DESTINATION lib COMPONENT Development
+    RUNTIME DESTINATION bin COMPONENT Runtime
+    BUNDLE DESTINATION bin COMPONENT Runtime
+    PUBLIC_HEADER DESTINATION include COMPONENT Development
+    BUNDLE DESTINATION bin COMPONENT Runtime
 )
 
 install(
