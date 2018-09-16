@@ -20,9 +20,9 @@ if (NOT WIN32)
             set(NO_CXX11_THREAD_LOCAL_SUPPORT TRUE)
         endif ()
     endif ()
-    
+
     # TODO: Check thread_local keyword support for other compilers for Unix
-    
+
     if (NO_CXX11_THREAD_LOCAL_SUPPORT)
         message(WARNING "  Your compiler does not support C++11 thread_local feature.")
         message(WARNING "  Without C++11 thread_local feature you may face to possible memory leak or application crash if using implicit thread registration and using EASY_THREAD instead of EASY_THREAD_SCOPE.")
@@ -233,20 +233,6 @@ if (MSVC)
     target_compile_options(easy_profiler PRIVATE /WX)
 endif ()
 
-if (APPLE)
-    target_compile_options(easy_profiler PUBLIC -std=gnu++11)
-else ()
-    if (CMAKE_VERSION VERSION_LESS "3.1")
-        if (NOT MSVC)
-            target_compile_options(easy_profiler PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=gnu++11>)
-        endif ()
-    else ()
-        if (NOT MSVC)
-            target_compile_options(easy_profiler PUBLIC -std=gnu++11)
-        endif ()
-        set_target_properties(easy_profiler PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
-    endif ()
-endif ()
 # End adding platform specific compile options.
 ###############################################################################
 
