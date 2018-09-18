@@ -331,21 +331,21 @@ ProfileManager::ProfileManager() :
     , m_beginTime(0)
     , m_endTime(0)
 {
-    m_profilerStatus = ATOMIC_VAR_INIT(false);
-    m_isEventTracingEnabled = ATOMIC_VAR_INIT(EASY_OPTION_EVENT_TRACING_ENABLED);
-    m_isAlreadyListening = ATOMIC_VAR_INIT(false);
-    m_stopDumping = ATOMIC_VAR_INIT(false);
-    m_stopListen = ATOMIC_VAR_INIT(false);
+    m_profilerStatus = false;
+    m_isEventTracingEnabled = EASY_OPTION_EVENT_TRACING_ENABLED;
+    m_isAlreadyListening = false;
+    m_stopDumping = false;
+    m_stopListen = false;
 
-    m_mainThreadId = ATOMIC_VAR_INIT(0);
-    m_frameMax = ATOMIC_VAR_INIT(0);
-    m_frameAvg = ATOMIC_VAR_INIT(0);
-    m_frameCur = ATOMIC_VAR_INIT(0);
-    m_frameMaxReset = ATOMIC_VAR_INIT(false);
-    m_frameAvgReset = ATOMIC_VAR_INIT(false);
+    m_mainThreadId = 0;
+    m_frameMax = 0;
+    m_frameAvg = 0;
+    m_frameCur = 0;
+    m_frameMaxReset = false;
+    m_frameAvgReset = false;
 
 #if !defined(EASY_CHRONO_CLOCK) && !defined(_WIN32)
-    m_cpuFrequency = ATOMIC_VAR_INIT(1);
+    m_cpuFrequency = 1;
 
 # if !defined(EASY_PROFILER_API_DISABLED)
     const auto cpu_frequency = calculate_cpu_frequency();

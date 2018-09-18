@@ -2835,13 +2835,13 @@ void DialogWithGeometry::restoreGeometry()
 
 SocketListener::SocketListener() : m_receivedSize(0), m_port(0), m_regime(ListenerRegime::Idle)
 {
-    m_bInterrupt = ATOMIC_VAR_INIT(false);
-    m_bConnected = ATOMIC_VAR_INIT(false);
-    m_bStopReceive = ATOMIC_VAR_INIT(false);
-    m_bFrameTimeReady = ATOMIC_VAR_INIT(false);
-    m_bCaptureReady = ATOMIC_VAR_INIT(false);
-    m_frameMax = ATOMIC_VAR_INIT(0);
-    m_frameAvg = ATOMIC_VAR_INIT(0);
+    m_bInterrupt = false;
+    m_bConnected = false;
+    m_bStopReceive = false;
+    m_bFrameTimeReady = false;
+    m_bCaptureReady = false;
+    m_frameMax = 0;
+    m_frameAvg = 0;
 }
 
 SocketListener::~SocketListener()

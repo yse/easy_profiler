@@ -70,9 +70,9 @@
 //////////////////////////////////////////////////////////////////////////
 
 TreeWidgetLoader::TreeWidgetLoader()
-    : m_bDone(ATOMIC_VAR_INIT(false))
-    , m_bInterrupt(ATOMIC_VAR_INIT(false))
-    , m_progress(ATOMIC_VAR_INIT(0))
+    : m_bDone(false)
+    , m_bInterrupt(false)
+    , m_progress(0)
     , m_mode(TreeMode::Full)
 {
 }

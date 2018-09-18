@@ -84,7 +84,7 @@ inline profiler::block_index_t writeTreesToFile(const char* filename,
                                                 profiler::processid_t pid,
                                                 std::ostream& log)
 {
-    std::atomic<int> progress = ATOMIC_VAR_INIT(0);
+    std::atomic<int> progress(0);
     return writeTreesToFile(progress, filename, serialized_descriptors, descriptors, descriptors_count, trees,
                             bookmarks, std::move(block_getter), begin_time, end_time, pid, log);
 }
@@ -101,7 +101,7 @@ inline profiler::block_index_t writeTreesToStream(std::ostream& str,
                                                   profiler::processid_t pid,
                                                   std::ostream& log)
 {
-    std::atomic<int> progress = ATOMIC_VAR_INIT(0);
+    std::atomic<int> progress(0);
     return writeTreesToStream(progress, str, serialized_descriptors, descriptors, descriptors_count, trees,
                               bookmarks, std::move(block_getter), begin_time, end_time, pid, log);
 }

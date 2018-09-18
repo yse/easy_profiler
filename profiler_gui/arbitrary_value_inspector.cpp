@@ -193,8 +193,8 @@ ArbitraryValuesCollection::ArbitraryValuesCollection()
     , m_chartType(ChartType::Regular)
     , m_jobType(0)
 {
-    m_status = ATOMIC_VAR_INIT(Idle);
-    m_bInterrupt = ATOMIC_VAR_INIT(false);
+    m_status = Idle;
+    m_bInterrupt = false;
 }
 
 ArbitraryValuesCollection::~ArbitraryValuesCollection()

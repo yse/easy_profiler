@@ -400,7 +400,7 @@ inline profiler::block_index_t fillTreesFromFile(const char* filename, profiler:
                                                  bool gather_statistics,
                                                  std::ostream& _log)
 {
-    std::atomic<int> progress = ATOMIC_VAR_INIT(0);
+    std::atomic<int> progress(0);
     return fillTreesFromFile(progress, filename, begin_end_time, serialized_blocks, serialized_descriptors,
                              descriptors, _blocks, threaded_trees, bookmarks, descriptors_count, version, pid,
                              gather_statistics, _log);
@@ -411,7 +411,7 @@ inline bool readDescriptionsFromStream(std::istream& str,
                                        profiler::descriptors_list_t& descriptors,
                                        std::ostream& _log)
 {
-    std::atomic<int> progress = ATOMIC_VAR_INIT(0);
+    std::atomic<int> progress(0);
     return readDescriptionsFromStream(progress, str, serialized_descriptors, descriptors, _log);
 }
 

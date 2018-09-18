@@ -53,7 +53,7 @@
 
 ThreadPoolTask::ThreadPoolTask() : m_func([]{}), m_interrupt(nullptr)
 {
-    m_status = ATOMIC_VAR_INIT(static_cast<int8_t>(TaskStatus::Finished));
+    m_status = static_cast<int8_t>(TaskStatus::Finished);
 }
 
 ThreadPoolTask::~ThreadPoolTask()

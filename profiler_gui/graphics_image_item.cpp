@@ -72,7 +72,7 @@ GraphicsImageItem::GraphicsImageItem() : Parent(nullptr)
     , m_timer(::std::bind(&This::onTimeout, this))
     , m_bPermitImageUpdate(true)
 {
-    m_bReady = ATOMIC_VAR_INIT(false);
+    m_bReady = false;
     m_boundaryTimer.setInterval(BoundaryTimerInterval);
     m_timer.setInterval(TimerInterval);
 }
