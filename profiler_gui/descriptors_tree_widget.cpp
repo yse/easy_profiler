@@ -433,6 +433,8 @@ void DescriptorsTreeWidget::build()
                     case ::profiler::BlockType::Value:
                         item->setType(DescriptorsTreeItem::Type::Value);
                         break;
+
+                    case ::profiler::BlockType::TypesCount: break;
                 }
 
                 item->setFont(DESC_COL_STATUS, f);

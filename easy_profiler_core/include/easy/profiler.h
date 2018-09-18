@@ -252,7 +252,7 @@ and creates "ThreadFinished" profiler event.
 \ingroup profiler
 */
 # define EASY_THREAD_SCOPE(name)\
-    EASY_THREAD_LOCAL static const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = 0;\
+    static EASY_THREAD_LOCAL const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = 0;\
     ::profiler::ThreadGuard EASY_TOKEN_CONCATENATE(unique_profiler_thread_guard, __LINE__);\
     if (!EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__))\
         EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = ::profiler::registerThreadScoped(name,\

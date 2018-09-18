@@ -139,7 +139,7 @@ public:
     bool mouseDoubleClick(const QPointF& scenePos);
     void mouseLeave();
 
-    bool contains(const QPointF& scenePos) const;
+    bool contains(const QPointF& scenePos) const override;
 
 signals:
 

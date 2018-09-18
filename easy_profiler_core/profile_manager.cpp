@@ -156,15 +156,15 @@ EASY_CONSTEXPR uint8_t FORCE_ON_FLAG = profiler::FORCE_ON & ~profiler::ON;
 
 //////////////////////////////////////////////////////////////////////////
 
-EASY_THREAD_LOCAL static ::ThreadStorage* THIS_THREAD = nullptr;
-EASY_THREAD_LOCAL static bool THIS_THREAD_IS_MAIN = false;
+static EASY_THREAD_LOCAL ::ThreadStorage* THIS_THREAD = nullptr;
+static EASY_THREAD_LOCAL bool THIS_THREAD_IS_MAIN = false;
 
-EASY_THREAD_LOCAL static profiler::timestamp_t THIS_THREAD_FRAME_T_MAX = 0ULL;
-EASY_THREAD_LOCAL static profiler::timestamp_t THIS_THREAD_FRAME_T_CUR = 0ULL;
-EASY_THREAD_LOCAL static profiler::timestamp_t THIS_THREAD_FRAME_T_ACC = 0ULL;
-EASY_THREAD_LOCAL static uint32_t THIS_THREAD_N_FRAMES = 0;
-EASY_THREAD_LOCAL static bool THIS_THREAD_FRAME_T_RESET_MAX = false;
-EASY_THREAD_LOCAL static bool THIS_THREAD_FRAME_T_RESET_AVG = false;
+static EASY_THREAD_LOCAL profiler::timestamp_t THIS_THREAD_FRAME_T_MAX = 0ULL;
+static EASY_THREAD_LOCAL profiler::timestamp_t THIS_THREAD_FRAME_T_CUR = 0ULL;
+static EASY_THREAD_LOCAL profiler::timestamp_t THIS_THREAD_FRAME_T_ACC = 0ULL;
+static EASY_THREAD_LOCAL uint32_t THIS_THREAD_N_FRAMES = 0;
+static EASY_THREAD_LOCAL bool THIS_THREAD_FRAME_T_RESET_MAX = false;
+static EASY_THREAD_LOCAL bool THIS_THREAD_FRAME_T_RESET_AVG = false;
 
 #ifdef EASY_CXX11_TLS_AVAILABLE
 thread_local static profiler::ThreadGuard THIS_THREAD_GUARD; // thread guard for monitoring thread life time

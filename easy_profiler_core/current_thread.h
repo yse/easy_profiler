@@ -63,7 +63,7 @@ inline profiler::thread_id_t getCurrentThreadId()
 #elif defined(__APPLE__)
 #   if (defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED >= __MAC_10_6) || \
        (defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_8_0)
-    EASY_THREAD_LOCAL static uint64_t _id = 0;
+    static EASY_THREAD_LOCAL uint64_t _id = 0;
     if (!_id)
         pthread_threadid_np(NULL, &_id);
     return (profiler::thread_id_t)_id;

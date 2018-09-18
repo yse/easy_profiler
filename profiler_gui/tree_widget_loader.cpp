@@ -68,11 +68,17 @@
 #endif
 
 //////////////////////////////////////////////////////////////////////////
+#define EASY_INIT_ATOMIC(v) v
+
+#if defined (_WIN32)
+#undef EASY_INIT_ATOMIC
+#define EASY_INIT_ATOMIC(v) {v}
+#endif
 
 TreeWidgetLoader::TreeWidgetLoader()
-    : m_bDone(false)
-    , m_bInterrupt(false)
-    , m_progress(0)
+    : m_bDone(EASY_INIT_ATOMIC(false))
+    , m_bInterrupt(EASY_INIT_ATOMIC(false))
+    , m_progress(EASY_INIT_ATOMIC(0))
     , m_mode(TreeMode::Full)
 {
 }
