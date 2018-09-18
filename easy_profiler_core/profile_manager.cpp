@@ -254,7 +254,7 @@ profiler::ThreadGuard::~ThreadGuard()
 #if defined(EASY_CHRONO_CLOCK)
 static EASY_CONSTEXPR_FCN int64_t calculate_cpu_frequency()
 {
-    return EASY_CHRONO_CLOCK::period::den / EASY_CHRONO_CLOCK::period::num
+    return EASY_CHRONO_CLOCK::period::den / EASY_CHRONO_CLOCK::period::num;
 }
 #elif defined(_WIN32)
 static int64_t calculate_cpu_frequency()
