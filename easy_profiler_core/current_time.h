@@ -71,6 +71,9 @@ The Apache License, Version 2.0 (the "License");
 #  include <sys/time.h>
 # endif//__ARM_ARCH
 #endif
+# ifdef __mips__
+#  include <sys/time.h>
+# endif//__mips__
 
 namespace profiler { namespace clock {
 
