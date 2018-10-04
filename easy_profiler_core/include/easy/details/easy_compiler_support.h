@@ -191,7 +191,7 @@ static_assert(false, "EasyProfiler is not configured for using your compiler typ
 #endif
 
 #ifndef EASY_LOCAL_STATIC_PTR
-# define EASY_LOCAL_STATIC_PTR(VarType, VarName, VarInitializer) thread_local VarType VarName = VarInitializer
+# define EASY_LOCAL_STATIC_PTR(VarType, VarName, VarInitializer) static VarType VarName = VarInitializer
 # define EASY_MAGIC_STATIC_AVAILABLE
 #endif
 
