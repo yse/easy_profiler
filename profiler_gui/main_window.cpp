@@ -3221,7 +3221,7 @@ void SocketListener::listenCapture()
 
                     const auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - timeBegin);
                     const auto bytesNumber = m_receivedData.str().size();
-                    qInfo() << "recieved " << bytesNumber << " bytes, " << dt.count() << " ms, average speed = " << double(bytesNumber) * 1e3 / double(dt.count()) / 1024. << " kBytes/sec";
+                    qInfo() << "received " << bytesNumber << " bytes, " << dt.count() << " ms, average speed = " << double(bytesNumber) * 1e3 / double(dt.count()) / 1024. << " kBytes/sec";
 
                     seek = 0;
                     bytes = 0;

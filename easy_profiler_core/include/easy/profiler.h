@@ -207,7 +207,7 @@ int foo()
 
 Event marker is a block with zero duration and special type.
 
-\warning Event marker ends immidiately and calling EASY_END_BLOCK after EASY_EVENT
+\warning Event marker ends immediately and calling EASY_END_BLOCK after EASY_EVENT
 will end previously opened EASY_BLOCK or EASY_FUNCTION.
 
 \ingroup profiler
@@ -370,7 +370,7 @@ Otherwise, no log messages will be printed.
 #  define EASY_OPTION_LOG_ENABLED 0
 # endif
 
-/** If != 0 then EasyProfiler will start listening thread immidiately on ProfileManager initialization.
+/** If != 0 then EasyProfiler will start listening thread immediately on ProfileManager initialization.
 
 \sa startListen
 
@@ -576,7 +576,7 @@ namespace profiler {
 
         \note This also disables profiler.
 
-        \retval Number of saved blocks. If 0 then nothing was profiled or an error occured.
+        \retval Number of saved blocks. If 0 then nothing was profiled or an error occurred.
 
         \ingroup profiler
         */
