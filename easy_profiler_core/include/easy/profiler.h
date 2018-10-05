@@ -360,6 +360,17 @@ You don't need to rebuild or restart your application for that.
 #  define EASY_OPTION_LOW_PRIORITY_EVENT_TRACING true
 # endif
 
+/** If false then static .
+
+
+\note It takes effect only on MS Visual Studio.
+
+\ingroup profiler
+*/
+# ifndef EASY_OPTION_THREAD_SAFE_INIT
+#  define EASY_OPTION_THREAD_SAFE_INIT 1
+# endif
+
 
 /** If != 0 then EasyProfiler will print error messages into stderr.
 Otherwise, no log messages will be printed.
@@ -410,6 +421,10 @@ Otherwise, no log messages will be printed.
 
 # ifndef EASY_OPTION_LOW_PRIORITY_EVENT_TRACING
 #  define EASY_OPTION_LOW_PRIORITY_EVENT_TRACING true
+# endif
+
+# ifndef EASY_OPTION_THREAD_SAFE_INIT
+#  define EASY_OPTION_THREAD_SAFE_INIT 1
 # endif
 
 # ifndef EASY_OPTION_LOG_ENABLED
