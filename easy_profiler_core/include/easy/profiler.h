@@ -51,6 +51,11 @@ The Apache License, Version 2.0 (the "License");
 #endif
 
 //
+// USING_EASY_PROFILER is defined in details/profiler_in_use.h
+//                     if defined BUILD_WITH_EASY_PROFILER and not defined DISABLE_EASY_PROFILER
+//
+
+//
 // BUILD_WITH_EASY_PROFILER is defined in CMakeLists.txt if your project is linked to easy_profiler.
 //
 
@@ -59,19 +64,7 @@ The Apache License, Version 2.0 (the "License");
 //                       to disable profiler for certain source-file or project.
 //
 
-#if defined(BUILD_WITH_EASY_PROFILER) && !defined(DISABLE_EASY_PROFILER)
-
-/**
-\defgroup profiler EasyProfiler
-*/
-
-
-/** Indicates that EasyProfiler is used.
-
-\ingroup profiler
-*/
-#define USING_EASY_PROFILER
-
+#ifdef USING_EASY_PROFILER
 
 // EasyProfiler core API:
 

@@ -155,6 +155,7 @@ set(INCLUDE_FILES
     ${EASY_INCLUDE_DIR}/details/easy_compiler_support.h
     ${EASY_INCLUDE_DIR}/details/profiler_aux.h
     ${EASY_INCLUDE_DIR}/details/profiler_colors.h
+    ${EASY_INCLUDE_DIR}/details/profiler_in_use.h
     ${EASY_INCLUDE_DIR}/details/profiler_public_types.h
 )
 
