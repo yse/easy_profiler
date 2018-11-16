@@ -220,7 +220,7 @@ easy_define_target_option(easy_profiler EASY_OPTION_PREDEFINED_COLORS EASY_OPTIO
 # Add platform specific compile options:
 if (UNIX)
     target_compile_options(easy_profiler PRIVATE -Wall -Wno-long-long -Wno-reorder -Wno-braced-scalar-init -pedantic)
-    if (!ANDROID)
+    if (NOT ANDROID)
         target_link_libraries(easy_profiler pthread)
     endif()
 elseif (WIN32)
