@@ -43,6 +43,9 @@ limitations under the License.
 #include <string.h>
 #include <thread>
 #include <limits>
+#if defined(__QNX__)
+# include <sys/time.h>
+#endif
 
 #if defined(_WIN32)
 # pragma comment (lib, "Ws2_32.lib")
