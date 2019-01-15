@@ -23,6 +23,7 @@
     - [Linux](#linux)
     - [MacOS](#macos)
     - [Windows](#windows)
+    - [QNX](#qnx)
 5. [Notes about major release (1.0 -> 2.0)](#status)
 6. [License](#license)
 
@@ -282,6 +283,15 @@ $ mkdir build
 $ cd build
 $ cmake .. -G "Visual Studio 12 2013 Win64"
 ```
+
+## QNX
+```bash
+$ souce $QNX_ENVIRONMENT
+$ mkdir build
+$ cd build
+$ cmake -DCMAKE_TOOLCHAIN_FILE=/path/to/QNXToolchain.cmake ..
+```
+For more information and example for QNXToolchain see [this PR](https://github.com/yse/easy_profiler/pull/145) 
 
 # Status
 Branch `develop` contains all v2.0.0 features and new UI style.  
