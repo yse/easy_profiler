@@ -220,8 +220,11 @@ easy_define_target_option(easy_profiler EASY_OPTION_PREDEFINED_COLORS EASY_OPTIO
 # Add platform specific compile options:
 if (UNIX)
     target_compile_options(easy_profiler PRIVATE -Wall -Wno-long-long -Wno-reorder -Wno-braced-scalar-init -pedantic)
-    if (NOT ANDROID)
+    if (NOT ANDROID AND NOT QNX)
         target_link_libraries(easy_profiler pthread)
+    endif()
+    if (QNX)
+        target_link_libraries(easy_profiler socket)
     endif()
 elseif (WIN32)
     target_compile_definitions(easy_profiler PRIVATE -D_WIN32_WINNT=0x0600 -D_CRT_SECURE_NO_WARNINGS -D_WINSOCK_DEPRECATED_NO_WARNINGS)
