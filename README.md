@@ -291,7 +291,7 @@ $ mkdir build
 $ cd build
 $ cmake -DCMAKE_TOOLCHAIN_FILE=/path/to/QNXToolchain.cmake ..
 ```
-For more information and example for QNXToolchain see [this PR](https://github.com/yse/easy_profiler/pull/145) 
+For more information and example for `QNXToolchain.cmake` see [this PR](https://github.com/yse/easy_profiler/pull/145) 
 
 # Status
 Branch `develop` contains all v2.0.0 features and new UI style.  
