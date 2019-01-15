@@ -24,6 +24,7 @@
     - [MacOS](#macos)
     - [Windows](#windows)
     - [QNX](#qnx)
+    - [Android](#android)
 5. [Notes about major release (1.0 -> 2.0)](#status)
 6. [License](#license)
 
@@ -292,6 +293,10 @@ $ cd build
 $ cmake -DCMAKE_TOOLCHAIN_FILE=/path/to/QNXToolchain.cmake ..
 ```
 For more information and example for `QNXToolchain.cmake` see [this PR](https://github.com/yse/easy_profiler/pull/145) 
+
+## Android
+
+You can build native library for android by using NDK and standalone toolchain. See [comment for this PR](https://github.com/yse/easy_profiler/pull/137#issuecomment-436167127) to get a more detailed instruction.
 
 # Status
 Branch `develop` contains all v2.0.0 features and new UI style.  
