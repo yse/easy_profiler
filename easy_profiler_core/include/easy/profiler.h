@@ -231,7 +231,7 @@ will end previously opened EASY_BLOCK or EASY_FUNCTION.
 \ingroup profiler
 */
 # define EASY_THREAD(name)\
-    EASY_THREAD_LOCAL static const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = 0;\
+    EASY_THREAD_LOCAL static const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = nullptr;\
     if (!EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__))\
         EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = ::profiler::registerThread(name);
 
@@ -245,7 +245,7 @@ and creates "ThreadFinished" profiler event.
 \ingroup profiler
 */
 # define EASY_THREAD_SCOPE(name)\
-    static EASY_THREAD_LOCAL const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = 0;\
+    static EASY_THREAD_LOCAL const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = nullptr;\
     ::profiler::ThreadGuard EASY_TOKEN_CONCATENATE(unique_profiler_thread_guard, __LINE__);\
     if (!EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__))\
         EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = ::profiler::registerThreadScoped(name,\
