@@ -313,10 +313,14 @@ public:
 
     void showEvent(QShowEvent* event) override;
     void closeEvent(QCloseEvent* close_event) override;
+    void changeEvent(QEvent* event) override;
     void dragEnterEvent(QDragEnterEvent* drag_event) override;
     void dragMoveEvent(QDragMoveEvent* drag_event) override;
     void dragLeaveEvent(QDragLeaveEvent* drag_event) override;
     void dropEvent(QDropEvent* drop_event) override;
+
+signals:
+    void activationChanged();
 
 protected slots:
 

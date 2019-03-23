@@ -323,6 +323,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
 
     auto graphicsView = new DiagramWidget(this);
     graphicsView->setObjectName("ProfilerGUI_Diagram_GraphicsView");
+    connect(this, &MainWindow::activationChanged, graphicsView->view(), &BlocksGraphicsView::onWindowActivationChanged);
+    connect(this, &MainWindow::activationChanged, graphicsView->threadsView(), &ThreadNamesWidget::onWindowActivationChanged);
     m_graphicsView->setWidget(graphicsView);
 
     m_treeWidget = new DockWidget("Hierarchy", this);
@@ -1545,6 +1547,14 @@ void MainWindow::closeEvent(QCloseEvent* close_event)
     saveSettingsAndGeometry();
 
     Parent::closeEvent(close_event);
+}
+
+void MainWindow::changeEvent(QEvent* event)
+{
+    if (event->type() == QEvent::ActivationChange)
+    {
+        emit activationChanged();
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -70,7 +70,6 @@
 #include <QDebug>
 #include <QGraphicsDropShadowEffect>
 #include <QGraphicsScene>
-#include <QGraphicsProxyWidget>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QKeyEvent>
@@ -556,18 +555,28 @@ bool BackgroundItem::contains(const QPointF& scenePos) const
     return y >= visibleSceneRect.height();
 }
 
-void BackgroundItem::onIdleTimeout()
+void BackgroundItem::onWindowActivationChanged(bool isActiveWindow)
 {
-    if (m_bookmark < EASY_GLOBALS.bookmarks.size())
+    if (!isActiveWindow)
     {
         delete m_tooltip;
         m_tooltip = nullptr;
+    }
+}
 
+void BackgroundItem::onIdleTimeout()
+{
+    auto parent = static_cast<QWidget*>(scene()->parent());
+
+    delete m_tooltip;
+    m_tooltip = nullptr;
+
+    if (m_bookmark < EASY_GLOBALS.bookmarks.size() && parent->window()->isActiveWindow())
+    {
         const auto& text = EASY_GLOBALS.bookmarks[m_bookmark].text;
         if (text.empty())
             return;
 
-        auto parent = static_cast<QWidget*>(scene()->parent());
         m_tooltip = new QLabel(QString::fromStdString(text),
                                parent, Qt::ToolTip | Qt::WindowTransparentForInput);
 
@@ -692,6 +701,15 @@ BlocksGraphicsView::~BlocksGraphicsView()
 }
 
 //////////////////////////////////////////////////////////////////////////
+
+void BlocksGraphicsView::onWindowActivationChanged()
+{
+    const bool isActive = window()->isActiveWindow();
+    if (!isActive)
+        removePopup();
+    if (m_backgroundItem != nullptr)
+        m_backgroundItem->onWindowActivationChanged(isActive);
+}
 
 void BlocksGraphicsView::removePopup()
 {
@@ -2160,6 +2178,9 @@ void BlocksGraphicsView::onIdleTimeout()
     if (m_popupWidget != nullptr)
         return;
 
+    if (!window()->isActiveWindow())
+        return;
+
     auto focusWidget = qApp->focusWidget();
     while (focusWidget != nullptr && !focusWidget->property("stayVisible").toBool())
         focusWidget = focusWidget->parentWidget();
@@ -2721,6 +2742,11 @@ BlocksGraphicsView* DiagramWidget::view()
     return m_view;
 }
 
+ThreadNamesWidget* DiagramWidget::threadsView()
+{
+    return m_threadNamesWidget;
+}
+
 void DiagramWidget::clear()
 {
     m_scrollbar->clear();
@@ -2890,7 +2916,13 @@ ThreadNamesWidget::ThreadNamesWidget(BlocksGraphicsView* _view, int _additionalH
 
 ThreadNamesWidget::~ThreadNamesWidget()
 {
+    removePopup();
+}
 
+void ThreadNamesWidget::onWindowActivationChanged()
+{
+    if (!window()->isActiveWindow())
+        removePopup();
 }
 
 void ThreadNamesWidget::removePopup()
@@ -2965,6 +2997,9 @@ void ThreadNamesWidget::onIdleTimeout()
     }
 
     if (m_popupWidget != nullptr)
+        return;
+
+    if (!window()->isActiveWindow())
         return;
 
     auto focusWidget = qApp->focusWidget();

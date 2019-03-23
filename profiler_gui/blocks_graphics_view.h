@@ -81,7 +81,6 @@
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-class QGraphicsProxyWidget;
 class BlocksGraphicsView;
 class GraphicsBlockItem;
 class GraphicsScrollbar;
@@ -145,6 +144,9 @@ signals:
 
     void bookmarkChanged(size_t index);
     void moved();
+
+public slots:
+    void onWindowActivationChanged(bool isActiveWindow);
 
 private slots:
 
@@ -260,6 +262,9 @@ public:
     void inspectCurrentView(bool _strict) {
         onInspectCurrentView(_strict);
     }
+
+public slots:
+    void onWindowActivationChanged();
 
 signals:
 
@@ -397,6 +402,9 @@ public:
         return m_view;
     }
 
+public slots:
+    void onWindowActivationChanged();
+
 private:
 
     void removePopup();
@@ -429,6 +437,7 @@ public:
     ~DiagramWidget() override;
 
     BlocksGraphicsView* view();
+    ThreadNamesWidget* threadsView();
     void clear();
 
     void save(class QSettings& settings);
