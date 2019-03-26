@@ -2536,11 +2536,9 @@ void MainWindow::onConnectClicked(bool)
     if (!m_listener.connect(address.toStdString().c_str(), port, reply))
     {
         Dialog::warning(this, "Warning", QString("Cannot connect to %1").arg(address), QMessageBox::Close);
-        if (EASY_GLOBALS.connected)
-        {
-            m_listener.closeSocket();
-            setDisconnected(false);
-        }
+        // we need to close socket everytime on failed connection
+        m_listener.closeSocket();
+        setDisconnected(false);
 
         if (!isSameAddress)
         {
