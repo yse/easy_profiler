@@ -107,6 +107,9 @@ namespace profiler_gui {
 
         void selectValue(::profiler::thread_id_t _thread_id, uint32_t _value_index, const ::profiler::ArbitraryValue& _value);
 
+        void customWindowHeaderChanged();
+        void windowHeaderPositionChanged();
+
     }; // END of class GlobalSignals.
 
 } // END of namespace profiler_gui.

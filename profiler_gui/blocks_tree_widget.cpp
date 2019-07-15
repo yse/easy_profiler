@@ -415,6 +415,13 @@ void BlocksTreeWidget::onIdleTimeout()
     if (item->hasToolTip(column))
         return;
 
+    auto focusWidget = qApp->focusWidget();
+    while (focusWidget != nullptr && !focusWidget->property("stayVisible").toBool())
+        focusWidget = focusWidget->parentWidget();
+
+    if (focusWidget != nullptr)
+        return;
+
     m_valueTooltip = new ArbitraryValueToolTip(itemUnderCursor->text(COL_NAME), block, this);
     m_valueTooltip->move(QCursor::pos());
     m_valueTooltip->show();
@@ -1204,7 +1211,6 @@ HierarchyWidget::HierarchyWidget(QWidget* _parent) : Parent(_parent)
 {
     loadSettings();
 
-    m_searchBox->setFixedWidth(300);
     m_searchBox->setContentsMargins(5, 0, 0, 0);
     m_searchBox->setClearButtonEnabled(true);
     m_searchBox->setPlaceholderText("Search by name");
@@ -1307,6 +1313,12 @@ void HierarchyWidget::keyPressEvent(QKeyEvent* _event)
 void HierarchyWidget::contextMenuEvent(QContextMenuEvent* _event)
 {
     m_tree->contextMenuEvent(_event);
+}
+
+void HierarchyWidget::showEvent(QShowEvent* event)
+{
+    Parent::showEvent(event);
+    m_searchBox->setFixedWidth(px(300));
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

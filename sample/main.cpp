@@ -269,7 +269,8 @@ int main(int argc, char* argv[])
     cv.notify_all();
 
 #ifndef SAMPLE_NETWORK_TEST
-    std::atomic_bool stop = ATOMIC_VAR_INIT(false);
+    std::atomic_bool stop;
+    stop = false;
     auto frame_time_printer_thread = std::thread([&stop]()
     {
         while (!stop.load(std::memory_order_acquire))

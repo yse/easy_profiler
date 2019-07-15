@@ -209,6 +209,12 @@ public:
     void keyPressEvent(QKeyEvent* _event) override;
     void contextMenuEvent(QContextMenuEvent* _event) override;
 
+protected:
+
+    // Protected virtual methods
+
+    void showEvent(QShowEvent* event) override;
+
 public:
 
     // Public non-virtual methods

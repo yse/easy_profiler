@@ -45,10 +45,19 @@ The Apache License, Version 2.0 (the "License");
 
 #include <easy/details/arbitrary_value_public_types.h>
 
-#if defined(__clang__)
-# pragma clang diagnostic push
-# pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
-#endif
+//
+// USING_EASY_PROFILER is defined in details/profiler_in_use.h
+//                     if defined BUILD_WITH_EASY_PROFILER and not defined DISABLE_EASY_PROFILER
+//
+
+//
+// BUILD_WITH_EASY_PROFILER is defined in CMakeLists.txt if your project is linked to easy_profiler.
+//
+
+//
+// DISABLE_EASY_PROFILER may be defined manually in source-file before #include <easy/profiler.h>
+//                       to disable profiler for certain source-file or project.
+//
 
 #ifdef USING_EASY_PROFILER
 
@@ -276,6 +285,11 @@ namespace profiler
 
 #else
 
+# if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+# endif
+
 # define EASY_GLOBAL_VIN
 # define EASY_UNIQUE_VIN
 # define EASY_VIN(member)
@@ -309,10 +323,10 @@ namespace profiler
 
 } // end of namespace profiler.
 
-#endif // USING_EASY_PROFILER
+# if defined(__clang__)
+#  pragma clang diagnostic pop
+# endif
 
-#if defined(__clang__)
-# pragma clang diagnostic pop
-#endif
+#endif // USING_EASY_PROFILER
 
 #endif // EASY_PROFILER_ARBITRARY_VALUE_H

@@ -20,9 +20,9 @@ if (NOT WIN32)
             set(NO_CXX11_THREAD_LOCAL_SUPPORT TRUE)
         endif ()
     endif ()
-    
+
     # TODO: Check thread_local keyword support for other compilers for Unix
-    
+
     if (NO_CXX11_THREAD_LOCAL_SUPPORT)
         message(WARNING "  Your compiler does not support C++11 thread_local feature.")
         message(WARNING "  Without C++11 thread_local feature you may face to possible memory leak or application crash if using implicit thread registration and using EASY_THREAD instead of EASY_THREAD_SCOPE.")
@@ -155,6 +155,7 @@ set(INCLUDE_FILES
     ${EASY_INCLUDE_DIR}/details/easy_compiler_support.h
     ${EASY_INCLUDE_DIR}/details/profiler_aux.h
     ${EASY_INCLUDE_DIR}/details/profiler_colors.h
+    ${EASY_INCLUDE_DIR}/details/profiler_in_use.h
     ${EASY_INCLUDE_DIR}/details/profiler_public_types.h
 )
 
@@ -219,7 +220,12 @@ easy_define_target_option(easy_profiler EASY_OPTION_PREDEFINED_COLORS EASY_OPTIO
 # Add platform specific compile options:
 if (UNIX)
     target_compile_options(easy_profiler PRIVATE -Wall -Wno-long-long -Wno-reorder -Wno-braced-scalar-init -pedantic)
-    target_link_libraries(easy_profiler pthread)
+    if (NOT ANDROID AND NOT QNX)
+        target_link_libraries(easy_profiler pthread)
+    endif()
+    if (QNX)
+        target_link_libraries(easy_profiler socket)
+    endif()
 elseif (WIN32)
     target_compile_definitions(easy_profiler PRIVATE -D_WIN32_WINNT=0x0600 -D_CRT_SECURE_NO_WARNINGS -D_WINSOCK_DEPRECATED_NO_WARNINGS)
     target_link_libraries(easy_profiler ws2_32 psapi)
@@ -233,20 +239,6 @@ if (MSVC)
     target_compile_options(easy_profiler PRIVATE /WX)
 endif ()
 
-if (APPLE)
-    target_compile_options(easy_profiler PUBLIC -std=gnu++11)
-else ()
-    if (CMAKE_VERSION VERSION_LESS "3.1")
-        if (NOT MSVC)
-            target_compile_options(easy_profiler PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-std=gnu++11>)
-        endif ()
-    else ()
-        if (NOT MSVC)
-            target_compile_options(easy_profiler PUBLIC -std=gnu++11)
-        endif ()
-        set_target_properties(easy_profiler PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
-    endif ()
-endif ()
 # End adding platform specific compile options.
 ###############################################################################
 
@@ -306,9 +298,12 @@ install(
     easy_profiler
     EXPORT
     ${targets_export_name}
-    DESTINATION
-    bin
-    INCLUDES DESTINATION "${include_install_dir}"
+    LIBRARY DESTINATION lib COMPONENT Runtime
+    ARCHIVE DESTINATION lib COMPONENT Development
+    RUNTIME DESTINATION bin COMPONENT Runtime
+    BUNDLE DESTINATION bin COMPONENT Runtime
+    PUBLIC_HEADER DESTINATION include COMPONENT Development
+    BUNDLE DESTINATION bin COMPONENT Runtime
 )
 
 install(

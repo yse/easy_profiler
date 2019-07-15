@@ -50,6 +50,10 @@ The Apache License, Version 2.0 (the "License");
 #elif defined(__APPLE__)
 # include <pthread.h>
 # include <Availability.h>
+#elif defined(__QNX__)
+# include <sys/mman.h>
+# include <process.h>
+# define __NR_gettid SYS_gettid
 #else
 # include <sys/types.h>
 # include <unistd.h>
@@ -63,13 +67,16 @@ inline profiler::thread_id_t getCurrentThreadId()
 #elif defined(__APPLE__)
 #   if (defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED >= __MAC_10_6) || \
        (defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_8_0)
-    EASY_THREAD_LOCAL static uint64_t _id = 0;
+    static EASY_THREAD_LOCAL uint64_t _id = 0;
     if (!_id)
         pthread_threadid_np(NULL, &_id);
     return (profiler::thread_id_t)_id;
 #   else
     return (profiler::thread_id_t)pthread_self();
 #   endif
+#elif defined(__QNX__)
+    EASY_THREAD_LOCAL static const profiler::thread_id_t _id = (profiler::thread_id_t)gettid();
+    return _id;
 #else
     EASY_THREAD_LOCAL static const profiler::thread_id_t _id = (profiler::thread_id_t)syscall(__NR_gettid);
     return _id;

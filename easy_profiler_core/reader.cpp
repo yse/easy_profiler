@@ -49,9 +49,10 @@
 *                   : limitations under the License.
 ************************************************************************/
 
+#include <algorithm>
 #include <fstream>
 #include <iterator>
-#include <algorithm>
+#include <limits>
 #include <unordered_map>
 #include <thread>
 
@@ -73,10 +74,11 @@ EASY_CONSTEXPR uint32_t MIN_COMPATIBLE_VERSION = EASY_VERSION_INT(0, 1, 0); ///<
 EASY_CONSTEXPR uint32_t EASY_V_100 = EASY_VERSION_INT(1, 0, 0); ///< in v1.0.0 some additional data were added into .prof file
 EASY_CONSTEXPR uint32_t EASY_V_130 = EASY_VERSION_INT(1, 3, 0); ///< in v1.3.0 changed sizeof(thread_id_t) uint32_t -> uint64_t
 EASY_CONSTEXPR uint32_t EASY_V_200 = EASY_VERSION_INT(2, 0, 0); ///< in v2.0.0 file header was slightly rearranged
+EASY_CONSTEXPR uint32_t EASY_V_210 = EASY_VERSION_INT(2, 1, 0); ///< in v2.1.0 user bookmarks were added
 
 # undef EASY_VERSION_INT
 
-const uint64_t TIME_FACTOR = 1000000000ULL;
+EASY_CONSTEXPR uint64_t TIME_FACTOR = 1000000000ULL;
 
 // TODO: use 128 bit integer operations for better accuracy
 #define EASY_USE_FLOATING_POINT_CONVERSION
@@ -383,6 +385,31 @@ static bool update_progress(std::atomic<int>& progress, int new_value, std::ostr
 
 //////////////////////////////////////////////////////////////////////////
 
+static void read(std::istream& inStream, char* value, size_t size)
+{
+    inStream.read(value, size);
+}
+
+template <class T>
+static void read(std::istream& inStream, T& value)
+{
+    read(inStream, (char*)&value, sizeof(T));
+}
+
+static bool tryReadMarker(std::istream& inStream, uint32_t& marker)
+{
+    read(inStream, marker);
+    return marker == EASY_PROFILER_SIGNATURE;
+}
+
+static bool tryReadMarker(std::istream& inStream)
+{
+    uint32_t marker = 0;
+    return tryReadMarker(inStream, marker);
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 struct EasyFileHeader
 {
     uint32_t signature = 0;
@@ -393,11 +420,14 @@ struct EasyFileHeader
     profiler::timestamp_t end_time = 0;
     uint64_t memory_size = 0;
     uint64_t descriptors_memory_size = 0;
-    uint32_t total_blocks_number = 0;
-    uint32_t total_descriptors_number = 0;
+    uint32_t blocks_count = 0;
+    uint32_t descriptors_count = 0;
+    uint32_t threads_count = 0;
+    uint16_t bookmarks_count = 0;
+    uint16_t padding = 0;
 };
 
-static bool readHeader_v1(EasyFileHeader& _header, std::istream& inFile, std::ostream& _log)
+static bool readHeader_v1(EasyFileHeader& _header, std::istream& inStream, std::ostream& _log)
 {
     // File header before v2.0.0
 
@@ -406,84 +436,108 @@ static bool readHeader_v1(EasyFileHeader& _header, std::istream& inFile, std::os
         if (_header.version < EASY_V_130)
         {
             uint32_t old_pid = 0;
-            inFile.read((char*)&old_pid, sizeof(uint32_t));
+            read(inStream, old_pid);
             _header.pid = old_pid;
         }
         else
         {
-            inFile.read((char*)&_header.pid, sizeof(decltype(_header.pid)));
+            read(inStream, _header.pid);
         }
     }
 
-    inFile.read((char*)&_header.cpu_frequency, sizeof(int64_t));
-    inFile.read((char*)&_header.begin_time, sizeof(profiler::timestamp_t));
-    inFile.read((char*)&_header.end_time, sizeof(profiler::timestamp_t));
+    read(inStream, _header.cpu_frequency);
+    read(inStream, _header.begin_time);
+    read(inStream, _header.end_time);
 
-    inFile.read((char*)&_header.total_blocks_number, sizeof(uint32_t));
-    if (_header.total_blocks_number == 0)
+    read(inStream, _header.blocks_count);
+    if (_header.blocks_count == 0)
     {
         _log << "Profiled blocks number == 0";
         return false;
     }
 
-    inFile.read((char*)&_header.memory_size, sizeof(decltype(_header.memory_size)));
+    read(inStream, _header.memory_size);
     if (_header.memory_size == 0)
     {
-        _log << "Wrong memory size == 0 for " << _header.total_blocks_number << " blocks";
+        _log << "Wrong memory size == 0 for " << _header.blocks_count << " blocks";
         return false;
     }
 
-    inFile.read((char*)&_header.total_descriptors_number, sizeof(uint32_t));
-    if (_header.total_descriptors_number == 0)
+    read(inStream, _header.descriptors_count);
+    if (_header.descriptors_count == 0)
     {
         _log << "Blocks description number == 0";
         return false;
     }
 
-    inFile.read((char*)&_header.descriptors_memory_size, sizeof(decltype(_header.descriptors_memory_size)));
+    read(inStream, _header.descriptors_memory_size);
     if (_header.descriptors_memory_size == 0)
     {
-        _log << "Wrong memory size == 0 for " << _header.total_descriptors_number << " blocks descriptions";
+        _log << "Wrong memory size == 0 for " << _header.descriptors_count << " blocks descriptions";
         return false;
     }
 
     return true;
 }
 
-static bool readHeader_v2(EasyFileHeader& _header, std::istream& inFile, std::ostream& _log)
+static bool readHeader_v2(EasyFileHeader& _header, std::istream& inStream, std::ostream& _log)
 {
     // File header after v2.0.0
 
-    inFile.read((char*)&_header.pid, sizeof(decltype(_header.pid)));
-    inFile.read((char*)&_header.cpu_frequency, sizeof(int64_t));
-    inFile.read((char*)&_header.begin_time, sizeof(profiler::timestamp_t));
-    inFile.read((char*)&_header.end_time, sizeof(profiler::timestamp_t));
+    read(inStream, _header.pid);
+    read(inStream, _header.cpu_frequency);
+    read(inStream, _header.begin_time);
+    read(inStream, _header.end_time);
 
-    inFile.read((char*)&_header.memory_size, sizeof(decltype(_header.memory_size)));
+    read(inStream, _header.memory_size);
     if (_header.memory_size == 0)
     {
-        _log << "Wrong memory size == 0 for " << _header.total_blocks_number << " blocks";
+        _log << "Wrong memory size == 0 for " << _header.blocks_count << " blocks";
         return false;
     }
 
-    inFile.read((char*)&_header.descriptors_memory_size, sizeof(decltype(_header.descriptors_memory_size)));
+    read(inStream, _header.descriptors_memory_size);
     if (_header.descriptors_memory_size == 0)
     {
-        _log << "Wrong memory size == 0 for " << _header.total_descriptors_number << " blocks descriptions";
+        _log << "Wrong memory size == 0 for " << _header.descriptors_count << " blocks descriptions";
         return false;
     }
 
-    inFile.read((char*)&_header.total_blocks_number, sizeof(uint32_t));
-    if (_header.total_blocks_number == 0)
+    read(inStream, _header.blocks_count);
+    if (_header.blocks_count == 0)
     {
         _log << "Profiled blocks number == 0";
         return false;
     }
 
-    inFile.read((char*)&_header.total_descriptors_number, sizeof(uint32_t));
-    if (_header.total_descriptors_number == 0)
+    read(inStream, _header.descriptors_count);
+    if (_header.descriptors_count == 0)
     {
         _log << "Blocks description number == 0";
+        return false;
+    }
+
+    return true;
+}
+
+static bool readHeader_v2_1(EasyFileHeader& _header, std::istream& inStream, std::ostream& _log)
+{
+    if (!readHeader_v2(_header, inStream, _log))
+        return false;
+
+    read(inStream, _header.threads_count);
+    if (_header.threads_count == 0)
+    {
+        _log << "Threads count == 0.\nNothing to read.";
+        return false;
+    }
+
+    read(inStream, _header.bookmarks_count);
+    read(inStream, _header.padding);
+
+    if (_header.padding != 0)
+    {
+        _log << "Header padding != 0.\nFile corrupted.";
         return false;
     }
 
@@ -493,12 +547,14 @@ static bool readHeader_v2(EasyFileHeader& _header, std::istream& inFile, std::os
 //////////////////////////////////////////////////////////////////////////
 
 extern "C" PROFILER_API profiler::block_index_t fillTreesFromFile(std::atomic<int>& progress, const char* filename,
+                                                                  profiler::BeginEndTime& begin_end_time,
                                                                   profiler::SerializedData& serialized_blocks,
                                                                   profiler::SerializedData& serialized_descriptors,
                                                                   profiler::descriptors_list_t& descriptors,
                                                                   profiler::blocks_t& blocks,
                                                                   profiler::thread_blocks_tree_t& threaded_trees,
-                                                                  uint32_t& total_descriptors_number,
+                                                                  profiler::bookmarks_t& bookmarks,
+                                                                  uint32_t& descriptors_count,
                                                                   uint32_t& version,
                                                                   profiler::processid_t& pid,
                                                                   bool gather_statistics,
@@ -517,21 +573,24 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromFile(std::atomic<in
     }
 
     // Read data from file
-    auto result = fillTreesFromStream(progress, inFile, serialized_blocks, serialized_descriptors, descriptors, blocks,
-                                        threaded_trees, total_descriptors_number, version, pid, gather_statistics, _log);
+    auto result = fillTreesFromStream(progress, inFile, begin_end_time, serialized_blocks, serialized_descriptors,
+                                      descriptors, blocks, threaded_trees, bookmarks, descriptors_count, version, pid,
+                                      gather_statistics, _log);
 
     return result;
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<int>& progress, std::istream& inFile,
+extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<int>& progress, std::istream& inStream,
+                                                                    profiler::BeginEndTime& begin_end_time,
                                                                     profiler::SerializedData& serialized_blocks,
                                                                     profiler::SerializedData& serialized_descriptors,
                                                                     profiler::descriptors_list_t& descriptors,
                                                                     profiler::blocks_t& blocks,
                                                                     profiler::thread_blocks_tree_t& threaded_trees,
-                                                                    uint32_t& total_descriptors_number,
+                                                                    profiler::bookmarks_t& bookmarks,
+                                                                    uint32_t& descriptors_count,
                                                                     uint32_t& version,
                                                                     profiler::processid_t& pid,
                                                                     bool gather_statistics,
@@ -545,18 +604,18 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
     }
 
     uint32_t signature = 0;
-    inFile.read((char*)&signature, sizeof(uint32_t));
-    if (signature != EASY_PROFILER_SIGNATURE)
+    if (!tryReadMarker(inStream, signature))
     {
-        _log << "Wrong signature " << signature << "\nThis is not EasyProfiler file/stream.";
+        _log << "Wrong signature " << signature << ".\nThis is not EasyProfiler file/stream.";
         return 0;
     }
 
     version = 0;
-    inFile.read((char*)&version, sizeof(uint32_t));
+    read(inStream, version);
     if (!isCompatibleVersion(version))
     {
-        _log << "Incompatible version: v" << (version >> 24) << "." << ((version & 0x00ff0000) >> 16) << "." << (version & 0x0000ffff);
+        _log << "Incompatible version: v"
+             << (version >> 24) << "." << ((version & 0x00ff0000) >> 16) << "." << (version & 0x0000ffff);
         return 0;
     }
 
@@ -566,12 +625,19 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
 
     if (version < EASY_V_200)
     {
-        if (!readHeader_v1(header, inFile, _log))
+        if (!readHeader_v1(header, inStream, _log))
             return 0;
+        header.threads_count = std::numeric_limits<decltype(header.threads_count)>::max();
+    }
+    else if (version < EASY_V_210)
+    {
+        if (!readHeader_v2(header, inStream, _log))
+            return 0;
+        header.threads_count = std::numeric_limits<decltype(header.threads_count)>::max();
     }
     else
     {
-        if (!readHeader_v2(header, inFile, _log))
+        if (!readHeader_v2_1(header, inStream, _log))
             return 0;
     }
 
@@ -585,8 +651,8 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
 
     const auto memory_size = header.memory_size;
     const auto descriptors_memory_size = header.descriptors_memory_size;
-    const auto total_blocks_number = header.total_blocks_number;
-    total_descriptors_number = header.total_descriptors_number;
+    const auto total_blocks_count = header.blocks_count;
+    descriptors_count = header.descriptors_count;
 
     if (cpu_frequency != 0)
     {
@@ -594,16 +660,19 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
         EASY_CONVERT_TO_NANO(end_time, cpu_frequency, conversion_factor);
     }
 
-    descriptors.reserve(total_descriptors_number);
+    begin_end_time.beginTime = begin_time;
+    begin_end_time.endTime = end_time;
+
+    descriptors.reserve(descriptors_count);
     //const char* olddata = append_regime ? serialized_descriptors.data() : nullptr;
     serialized_descriptors.set(descriptors_memory_size);
     //validate_pointers(progress, olddata, serialized_descriptors, descriptors, descriptors.size());
 
     uint64_t i = 0;
-    while (!inFile.eof() && descriptors.size() < total_descriptors_number)
+    while (!inStream.eof() && descriptors.size() < descriptors_count)
     {
         uint16_t sz = 0;
-        inFile.read((char*)&sz, sizeof(sz));
+        read(inStream, sz);
         if (sz == 0)
         {
             descriptors.push_back(nullptr);
@@ -616,7 +685,7 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
         //}
 
         char* data = serialized_descriptors[i];
-        inFile.read(data, sz);
+        read(inStream, data, sz);
         auto descriptor = reinterpret_cast<profiler::SerializedBlockDescriptor*>(data);
         descriptors.push_back(descriptor);
 
@@ -631,51 +700,59 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
     PerThreadStats parent_statistics, frame_statistics;
     IdMap identification_table;
 
-    blocks.reserve(total_blocks_number);
+    blocks.reserve(total_blocks_count);
     //olddata = append_regime ? serialized_blocks.data() : nullptr;
     serialized_blocks.set(memory_size);
     //validate_pointers(progress, olddata, serialized_blocks, blocks, blocks.size());
 
     i = 0;
-    uint32_t read_number = 0;
+    uint32_t read_number = 0, threads_read_number = 0;
     profiler::block_index_t blocks_counter = 0;
     std::vector<char> name;
 
-    const size_t thread_id_t_size = version < EASY_V_130 ? sizeof(uint32_t) : sizeof(profiler::thread_id_t);
-
-    while (!inFile.eof())
+    while (!inStream.eof() && threads_read_number++ < header.threads_count)
     {
         EASY_BLOCK("Read thread data", profiler::colors::DarkGreen);
 
         profiler::thread_id_t thread_id = 0;
-        inFile.read((char*)&thread_id, thread_id_t_size);
-        if (inFile.eof())
+        if (version < EASY_V_130)
+        {
+            uint32_t thread_id32 = 0;
+            read(inStream, thread_id32);
+            thread_id = thread_id32;
+        }
+        else
+        {
+            read(inStream, thread_id);
+        }
+
+        if (inStream.eof())
             break;
 
         auto& root = threaded_trees[thread_id];
 
         uint16_t name_size = 0;
-        inFile.read((char*)&name_size, sizeof(uint16_t));
+        read(inStream, name_size);
         if (name_size != 0)
         {
             name.resize(name_size);
-            inFile.read(name.data(), name_size);
+            read(inStream, name.data(), name_size);
             root.thread_name = name.data();
         }
 
         CsStatsMap per_thread_statistics_cs;
 
         uint32_t blocks_number_in_thread = 0;
-        inFile.read((char*)&blocks_number_in_thread, sizeof(decltype(blocks_number_in_thread)));
+        read(inStream, blocks_number_in_thread);
         auto threshold = read_number + blocks_number_in_thread;
-        while (!inFile.eof() && read_number < threshold)
+        while (!inStream.eof() && read_number < threshold)
         {
             EASY_BLOCK("Read context switch", profiler::colors::Green);
 
             ++read_number;
 
             uint16_t sz = 0;
-            inFile.read((char*)&sz, sizeof(sz));
+            read(inStream, sz);
             if (sz == 0)
             {
                 _log << "Bad CSwitch block size == 0";
@@ -689,8 +766,9 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
             }
 
             char* data = serialized_blocks[i];
-            inFile.read(data, sz);
+            read(inStream, data, sz);
             i += sz;
+
             auto baseData = reinterpret_cast<profiler::SerializedCSwitch*>(data);
             auto t_begin = reinterpret_cast<profiler::timestamp_t*>(data);
             auto t_end = t_begin + 1;
@@ -721,28 +799,28 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
                 }
             }
 
-            if (!update_progress(progress, 20 + static_cast<int>(70 * i / memory_size), _log))
+            if (!update_progress(progress, 20 + static_cast<int>(67 * i / memory_size), _log))
             {
                 return 0; // Loading interrupted
             }
         }
 
-        if (inFile.eof())
+        if (inStream.eof())
             break;
 
         StatsMap per_thread_statistics;
 
         blocks_number_in_thread = 0;
-        inFile.read((char*)&blocks_number_in_thread, sizeof(decltype(blocks_number_in_thread)));
+        read(inStream, blocks_number_in_thread);
         threshold = read_number + blocks_number_in_thread;
-        while (!inFile.eof() && read_number < threshold)
+        while (!inStream.eof() && read_number < threshold)
         {
             EASY_BLOCK("Read block", profiler::colors::Green);
 
             ++read_number;
 
             uint16_t sz = 0;
-            inFile.read((char*)&sz, sizeof(sz));
+            read(inStream, sz);
             if (sz == 0)
             {
                 _log << "Bad block size == 0";
@@ -756,10 +834,10 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
             }
 
             char* data = serialized_blocks[i];
-            inFile.read(data, sz);
+            read(inStream, data, sz);
             i += sz;
             auto baseData = reinterpret_cast<profiler::SerializedBlock*>(data);
-            if (baseData->id() >= total_descriptors_number)
+            if (baseData->id() >= descriptors_count)
             {
                 _log << "Bad block id == " << baseData->id();
                 return 0;
@@ -891,17 +969,96 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
                 }
             }
 
-            if (!update_progress(progress, 20 + static_cast<int>(70 * i / memory_size), _log))
-            {
+            if (!update_progress(progress, 20 + static_cast<int>(67 * i / memory_size), _log))
                 return 0; // Loading interrupted
+        }
+    }
+
+    if (total_blocks_count != blocks_counter)
+    {
+        _log << "Read blocks count: " << blocks_counter
+             << "\ndoes not match blocks count\nstored in header: " << total_blocks_count
+             << ".\nFile corrupted.";
+        return 0;
+    }
+
+    if (!inStream.eof() && version >= EASY_V_210)
+    {
+        if (!tryReadMarker(inStream))
+        {
+            _log << "Bad threads section end mark.\nFile corrupted.";
+            return 0;
+        }
+
+        if (!inStream.eof() && header.bookmarks_count != 0)
+        {
+            // Read bookmarks
+            bookmarks.reserve(header.bookmarks_count);
+
+            std::vector<char> stringBuffer;
+            read_number = 0;
+
+            while (!inStream.eof() && read_number < header.bookmarks_count)
+            {
+                profiler::Bookmark bookmark;
+
+                uint16_t usedMemorySize = 0;
+                read(inStream, usedMemorySize);
+                read(inStream, bookmark.pos);
+                read(inStream, bookmark.color);
+
+                if (usedMemorySize < profiler::Bookmark::BaseSize)
+                {
+                    _log << "Bad bookmark size: " << usedMemorySize
+                         << ", which is less than Bookmark::BaseSize: "
+                         << profiler::Bookmark::BaseSize;
+                    return 0;
+                }
+
+                usedMemorySize -= static_cast<uint16_t>(profiler::Bookmark::BaseSize) - 1;
+                if (usedMemorySize > 0)
+                {
+                    stringBuffer.resize(usedMemorySize);
+                    read(inStream, stringBuffer.data(), usedMemorySize);
+
+                    if (stringBuffer.back() != 0)
+                    {
+                        stringBuffer.resize(stringBuffer.size() + 1);
+                        stringBuffer.back() = 0;
+
+                        _log << "Bad bookmark description:\n\"" << const_cast<const char*>(stringBuffer.data())
+                            << "\"\nWhich is not zero terminated string.\nLast symbol is: '"
+                            << const_cast<const char*>(stringBuffer.data() + stringBuffer.size() - 2) << "'";
+
+                        return 0;
+                    }
+
+                    if (usedMemorySize != 1)
+                        bookmark.text = stringBuffer.data();
+                }
+                else
+                {
+                    bookmark.text.clear();
+                }
+
+                bookmarks.push_back(bookmark);
+
+                ++read_number;
+
+                if (!update_progress(progress, 87 + static_cast<int>(3 * read_number / header.bookmarks_count), _log))
+                    return 0; // Loading interrupted
+            }
+
+            if (!inStream.eof() && !tryReadMarker(inStream))
+            {
+                _log << "Bad bookmarks section end mark.\nFile corrupted.";
+                return 0;
             }
         }
     }
 
     if (!update_progress(progress, 90, _log))
-    {
         return 0; // Loading interrupted
-    }
 
     EASY_BLOCK("Gather statistics for roots", profiler::colors::Purple);
     if (gather_statistics)
@@ -1012,7 +1169,7 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
 
 //////////////////////////////////////////////////////////////////////////
 
-extern "C" PROFILER_API bool readDescriptionsFromStream(std::atomic<int>& progress, std::istream& inFile,
+extern "C" PROFILER_API bool readDescriptionsFromStream(std::atomic<int>& progress, std::istream& inStream,
                                                         profiler::SerializedData& serialized_descriptors,
                                                         profiler::descriptors_list_t& descriptors,
                                                         std::ostream& _log)
@@ -1022,7 +1179,7 @@ extern "C" PROFILER_API bool readDescriptionsFromStream(std::atomic<int>& progre
     progress.store(0);
 
     uint32_t signature = 0;
-    inFile.read((char*)&signature, sizeof(uint32_t));
+    read(inStream, signature);
     if (signature != EASY_PROFILER_SIGNATURE)
     {
         _log << "Wrong file signature.\nThis is not EasyProfiler file/stream.";
@@ -1030,60 +1187,64 @@ extern "C" PROFILER_API bool readDescriptionsFromStream(std::atomic<int>& progre
     }
 
     uint32_t version = 0;
-    inFile.read((char*)&version, sizeof(uint32_t));
+    read(inStream, version);
     if (!isCompatibleVersion(version))
     {
-        _log << "Incompatible version: v" << (version >> 24) << "." << ((version & 0x00ff0000) >> 16) << "." << (version & 0x0000ffff);
+        _log << "Incompatible version: v"
+             << (version >> 24) << "." << ((version & 0x00ff0000) >> 16) << "." << (version & 0x0000ffff);
         return false;
     }
 
-    uint32_t total_descriptors_number = 0;
-    inFile.read((char*)&total_descriptors_number, sizeof(decltype(total_descriptors_number)));
-    if (total_descriptors_number == 0)
+    uint32_t descriptors_count = 0;
+    read(inStream, descriptors_count);
+    if (descriptors_count == 0)
     {
         _log << "Blocks description number == 0";
         return false;
     }
 
     uint64_t descriptors_memory_size = 0;
-    inFile.read((char*)&descriptors_memory_size, sizeof(decltype(descriptors_memory_size)));
+    read(inStream, descriptors_memory_size);
     if (descriptors_memory_size == 0)
     {
-        _log << "Wrong memory size == 0 for " << total_descriptors_number << " blocks descriptions";
+        _log << "Wrong memory size == 0 for " << descriptors_count << " blocks descriptions";
         return false;
     }
 
-    descriptors.reserve(total_descriptors_number);
+    descriptors.reserve(descriptors_count);
     //const char* olddata = append_regime ? serialized_descriptors.data() : nullptr;
     serialized_descriptors.set(descriptors_memory_size);
     //validate_pointers(progress, olddata, serialized_descriptors, descriptors, descriptors.size());
 
     uint64_t i = 0;
-    while (!inFile.eof() && descriptors.size() < total_descriptors_number)
+    while (!inStream.eof() && descriptors.size() < descriptors_count)
     {
         uint16_t sz = 0;
-        inFile.read((char*)&sz, sizeof(sz));
+        read(inStream, sz);
         if (sz == 0)
         {
-            descriptors.push_back(nullptr);
-            continue;
+            //descriptors.push_back(nullptr);
+            _log << "Zero descriptor size.\nFile/Stream corrupted.";
+            return false;
         }
 
-        //if (i + sz > descriptors_memory_size) {
-        //    printf("FILE CORRUPTED\n");
-        //    return 0;
-        //}
+        if (i + sz > descriptors_memory_size)
+        {
+            _log << "Exceeded memory size.\npos: " << i << "\nsize: " << sz
+                 << "\nnext pos: " << i + sz
+                 << "\nmax pos: " << descriptors_memory_size
+                 << "\nFile/Stream corrupted.";
+            return false;
+        }
 
         char* data = serialized_descriptors[i];
-        inFile.read(data, sz);
+        read(inStream, data, sz);
         auto descriptor = reinterpret_cast<profiler::SerializedBlockDescriptor*>(data);
         descriptors.push_back(descriptor);
 
         i += sz;
         if (!update_progress(progress, static_cast<int>(100 * i / descriptors_memory_size), _log))
-        {
             return false; // Loading interrupted
-        }
     }
 
     return !descriptors.empty();

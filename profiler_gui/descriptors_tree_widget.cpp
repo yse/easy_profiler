@@ -433,6 +433,8 @@ void DescriptorsTreeWidget::build()
                     case ::profiler::BlockType::Value:
                         item->setType(DescriptorsTreeItem::Type::Value);
                         break;
+
+                    case ::profiler::BlockType::TypesCount: break;
                 }
 
                 item->setFont(DESC_COL_STATUS, f);
@@ -766,7 +768,6 @@ BlockDescriptorsWidget::BlockDescriptorsWidget(QWidget* _parent) : Parent(_paren
     m_splitter->setStretchFactor(0, 1);
     m_splitter->setStretchFactor(1, 1);
 
-    m_searchBox->setFixedWidth(300);
     m_searchBox->setContentsMargins(5, 0, 0, 0);
     m_searchBox->setClearButtonEnabled(true);
     m_searchBox->setPlaceholderText("Search");
@@ -910,6 +911,12 @@ void BlockDescriptorsWidget::keyPressEvent(QKeyEvent* _event)
 void BlockDescriptorsWidget::contextMenuEvent(QContextMenuEvent* _event)
 {
     m_tree->contextMenuEvent(_event);
+}
+
+void BlockDescriptorsWidget::showEvent(QShowEvent* event)
+{
+    Parent::showEvent(event);
+    m_searchBox->setFixedWidth(px(300));
 }
 
 void BlockDescriptorsWidget::build()

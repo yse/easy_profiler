@@ -20,11 +20,15 @@ if (Qt5Widgets_FOUND)
         blocks_graphics_view.cpp
         blocks_tree_widget.h
         blocks_tree_widget.cpp
+        bookmarks_editor.h
+        bookmarks_editor.cpp
         common_functions.h
         common_functions.cpp
         common_types.h
         descriptors_tree_widget.h
         descriptors_tree_widget.cpp
+        dialog.h
+        dialog.cpp
         fps_widget.h
         fps_widget.cpp
         globals.h
@@ -54,6 +58,8 @@ if (Qt5Widgets_FOUND)
         tree_widget_item.cpp
         tree_widget_loader.h
         tree_widget_loader.cpp
+        window_header.h
+        window_header.cpp
         resources.qrc
         resources.rc
     )

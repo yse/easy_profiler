@@ -44,6 +44,7 @@ $FocusBorderColor: $DarkSelectionColor;//#ffbcbc;
 $TooltipColor: #ffeccc;
 
 $InputHeight: 15ex;
+$WindowHeaderSize: 24ex;
 
 // STYLES -------------------------------------------------
 * {
@@ -63,7 +64,7 @@ RoundProgressIndicator {
 }
 
 MainWindow, QToolBar, QDialog {
-    background-color: #f8f2f2;
+    background-color: $BackgroundColor;
 }
 
 QToolTip {
@@ -98,9 +99,13 @@ ArbitraryValueToolTip {
     }
 }
 
-QWidget#DiagramPopup, QWidget#ThreadsPopup {
+QWidget#DiagramPopup, QWidget#ThreadsPopup, QLabel#BookmarkPopup {
     background-color: $TooltipColor;
     border: 1px solid $BorderColor;
+}
+
+QLabel#BookmarkPopup {
+    padding: 4ex;
 }
 
 QGraphicsView {
@@ -334,7 +339,7 @@ QMenu {
 
 QMenu::item {
     height: $InputHeight;
-    padding-left: $InputHeight;
+    padding-left: 17ex;
     padding-right: 5ex;
     border: 1px solid transparent; /* reserve space for selection border */
 }
@@ -499,4 +504,107 @@ QScrollBar::handle:horizontal:hover, QScrollBar::handle:horizontal:pressed { mar
 QScrollBar::add-line, QScrollBar::sub-line {
     background: none;
     border: none;
+}
+
+WindowHeader {
+    background-color: white;
+    height: $WindowHeaderSize;
+    min-height: $WindowHeaderSize;
+    max-height: $WindowHeaderSize;
+    margin: 0;
+    padding: 0 0 0 6ex;
+    border: none;
+
+    QPushButton {
+        margin: 0;
+        padding: 0;
+        border: none;
+        border-bottom: 1px solid transparent;
+    }
+
+    QPushButton:hover {
+        border: none;
+    }
+
+    QPushButton#WindowHeader_CloseButton {
+        image: url(":/images/default/close");
+        padding: 1ex;
+    }
+
+    QPushButton#WindowHeader_CloseButton:hover {
+        image: url(":/images/default/close-hover");
+        background-color: $MainColor;
+        border-bottom: 1px solid $MainColor;
+    }
+
+    QPushButton#WindowHeader_CloseButton:pressed {
+        background-color: darken($MainColor, 10%);
+        border-bottom: 1px solid darken($MainColor, 10%);
+    }
+
+    QPushButton#WindowHeader_MinButton {
+        image: url(":/images/default/minimize");
+        padding: 2ex;
+    }
+
+    QPushButton#WindowHeader_MinButton:hover {
+        background-color: lighten($BorderColor, 5%);
+        border-bottom: 1px solid lighten($BorderColor, 5%);
+    }
+
+    QPushButton#WindowHeader_MinButton:pressed {
+        background-color: $BorderColor;
+        border-bottom: 1px solid $BorderColor;
+    }
+
+    QPushButton#WindowHeader_MaxButton {
+        image: url(":/images/default/to-fullscreen");
+        padding: 1ex;
+    }
+
+    QPushButton#WindowHeader_MaxButton[max=true] {
+        image: url(":/images/default/to-window");
+        padding: 1ex;
+    }
+
+    QPushButton#WindowHeader_MaxButton:hover {
+        background-color: lighten($BorderColor, 5%);
+        border-bottom: 1px solid lighten($BorderColor, 5%);
+    }
+
+    QPushButton#WindowHeader_MaxButton:pressed {
+        background-color: $BorderColor;
+        border-bottom: 1px solid $BorderColor;
+    }
+}
+
+WindowHeader[left=true] {
+    padding: 0;
+}
+
+BookmarkEditor {
+    background-color: white;
+    border: 1px solid $BorderColor;
+
+    QWidget#BookmarkEditor_ColorBox {
+        margin: 0;
+        padding: 0;
+
+        QPushButton#BookmarkEditor_ColorButton {
+            min-width: $InputHeight;
+            max-width: $InputHeight;
+            width: $InputHeight;
+            margin: 0;
+            padding: 0;
+        }
+    }
+
+    QWidget#BookmarkEditor_ButtonBox {
+        border: none;
+    }
+}
+
+Dialog {
+    border: 1px solid $BorderColor;
+    background-color: white;
 }

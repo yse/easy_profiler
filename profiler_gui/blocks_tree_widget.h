@@ -196,6 +196,12 @@ public:
     void contextMenuEvent(QContextMenuEvent* _event) override;
     void dragEnterEvent(QDragEnterEvent*) override {}
 
+protected:
+
+    // Protected virtual methods
+
+    void showEvent(QShowEvent* event) override;
+
 public:
 
     // Public non-virtual methods

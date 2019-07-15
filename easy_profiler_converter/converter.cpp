@@ -80,44 +80,70 @@ void JsonExporter::convert(const ::std::string& inputFile, const ::std::string& 
 
     nlohmann::json json = {{"version", fr.getVersionString()}, {"timeUnits", "ns"}};
 
-    auto descriptors = nlohmann::json::array();
-    const auto& block_descriptors = fr.getBlockDescriptors();
-    for (const auto& descriptor : block_descriptors)
+    // convert descriptors
     {
-        descriptors.emplace_back();
+        auto descriptors = nlohmann::json::array();
+        const auto& block_descriptors = fr.getBlockDescriptors();
+        for (const auto& descriptor : block_descriptors)
+        {
+            descriptors.emplace_back();
 
-        std::stringstream stream;
-        stream << "0x" << std::hex << descriptor.argbColor;
+            std::stringstream stream;
+            stream << "0x" << std::hex << descriptor.argbColor;
 
-        auto& desc = descriptors.back();
+            auto& desc = descriptors.back();
 
-        desc["id"] = descriptor.id;
-        if (descriptor.parentId != descriptor.id)
-            desc["parentId"] = descriptor.parentId;
+            desc["id"] = descriptor.id;
+            if (descriptor.parentId != descriptor.id)
+                desc["parentId"] = descriptor.parentId;
 
-        desc["name"] = descriptor.blockName;
-        desc["type"] = descriptor.blockType;
-        desc["color"] = stream.str();
-        desc["sourceFile"] = descriptor.fileName;
-        desc["sourceLine"] = descriptor.lineNumber;
+            desc["name"] = descriptor.blockName;
+            desc["type"] = descriptor.blockType;
+            desc["color"] = stream.str();
+            desc["sourceFile"] = descriptor.fileName;
+            desc["sourceLine"] = descriptor.lineNumber;
+        }
+
+        json["blockDescriptors"] = descriptors;
     }
 
-    json["blockDescriptors"] = descriptors;
-
-    auto threads = nlohmann::json::array();
-    const auto& blocks_tree = fr.getBlocksTree();
-    for (const auto& kv : blocks_tree)
+    // convert threads and blocks
     {
-        threads.emplace_back();
+        auto threads = nlohmann::json::array();
+        const auto& blocks_tree = fr.getBlocksTree();
+        for (const auto& kv : blocks_tree)
+        {
+            threads.emplace_back();
 
-        auto& thread = threads.back();
-        thread["threadId"] = kv.first;
-        thread["threadName"] = fr.getThreadName(kv.first);
+            auto& thread = threads.back();
+            thread["threadId"] = kv.first;
+            thread["threadName"] = fr.getThreadName(kv.first);
 
-        convertChildren(kv.second, thread);
+            convertChildren(kv.second, thread);
+        }
+
+        json["threads"] = threads;
     }
 
-    json["threads"] = threads;
+    // convert bookmarks
+    {
+        auto bookmarks = nlohmann::json::array();
+        const auto& bmarks = fr.getBookmarks();
+        for (const auto& mark : bmarks)
+        {
+            std::stringstream stream;
+            stream << "0x" << std::hex << mark.color;
+
+            bookmarks.emplace_back();
+
+            auto& bookmark = bookmarks.back();
+            bookmark["timestamp"] = mark.pos;
+            bookmark["color"] = stream.str();
+            bookmark["text"] = mark.text;
+        }
+
+        json["bookmarks"] = bookmarks;
+    }
 
     try
     {

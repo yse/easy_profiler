@@ -1,12 +1,12 @@
 /************************************************************************
-* file name         : graphics_image_item.h
+* file name         : dialog.h
 * ----------------- :
-* creation time     : 2018/01/20
+* creation time     : 2018/06/03
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : The file contains declaration of GraphicsImageItem - an item
-*                   : used to display, scroll and zoom QImage on graphics scene.
+* description       : The file contains declaration of Dialog - a preferred base class
+*                   : for all dialogs in the application.
 * ----------------- :
 * license           : Lightweight profiler library for c++
 *                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
@@ -49,97 +49,71 @@
 *                   : limitations under the License.
 ************************************************************************/
 
-#ifndef EASY_PROFILER_GRAPHICS_IMAGE_ITEM_H
-#define EASY_PROFILER_GRAPHICS_IMAGE_ITEM_H
+#ifndef EASY_PROFILER_DIALOG_H
+#define EASY_PROFILER_DIALOG_H
 
-#include <QGraphicsItem>
-#include <atomic>
-#include "timer.h"
-#include "thread_pool_task.h"
+#include "window_header.h"
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QMessageBox>
 
-class GraphicsImageItem : public QGraphicsItem
+class Dialog : public QDialog
 {
-protected:
+    Q_OBJECT;
 
-    using Parent = QGraphicsItem;
-    using This = GraphicsImageItem;
-
-    QRectF      m_boundingRect;
-    QImage             m_image;
-    Timer      m_boundaryTimer;
-    ThreadPoolTask    m_worker;
-    QPointF         m_mousePos;
-    QImage*      m_workerImage;
-    qreal        m_imageOrigin;
-    qreal         m_imageScale;
-    qreal  m_imageOriginUpdate;
-    qreal   m_imageScaleUpdate;
-    qreal  m_workerImageOrigin;
-    qreal   m_workerImageScale;
-    qreal           m_topValue;
-    qreal        m_bottomValue;
-    qreal           m_maxValue;
-    qreal           m_minValue;
-    std::atomic_bool  m_bReady;
-
-private:
-
-    Timer         m_timer;
-    bool  m_bPermitImageUpdate; ///< Is false when m_workerThread is parsing input dataset (when setSource(_block_id) is called)
+    QWidget*                           m_buttonBox;
+    WindowHeader*                         m_header;
+    QMessageBox::StandardButton m_rejectRoleButton;
+    QMessageBox::StandardButton m_acceptRoleButton;
 
 public:
 
-    explicit GraphicsImageItem();
-    ~GraphicsImageItem() override;
+    explicit Dialog(QWidget* parent,
+        const QString& title,
+        QWidget* content,
+        QMessageBox::StandardButtons buttons = QMessageBox::Close);
 
-    QRectF boundingRect() const override;
+    explicit Dialog(QWidget* parent,
+        const QString& title,
+        QWidget* content,
+        WindowHeader::Buttons headerButtons,
+        QMessageBox::StandardButtons buttons = QMessageBox::Close);
 
-    virtual bool pickTopValue();
-    virtual bool increaseTopValue();
-    virtual bool decreaseTopValue();
+    explicit Dialog(QWidget* parent,
+        QMessageBox::Icon icon,
+        const QString& title,
+        const QString& text,
+        QMessageBox::StandardButtons buttons = QMessageBox::Ok);
 
-    virtual bool pickBottomValue();
-    virtual bool increaseBottomValue();
-    virtual bool decreaseBottomValue();
+    ~Dialog() override;
 
-    virtual bool updateImage();
-    virtual void onModeChanged();
+    static QMessageBox::StandardButton question(QWidget* parent, const QString& title, const QString& text, QMessageBox::StandardButtons buttons = QMessageBox::Yes | QMessageBox::No);
+    static QMessageBox::StandardButton information(QWidget* parent, const QString& title, const QString& text, QMessageBox::StandardButtons buttons = QMessageBox::Ok);
+    static QMessageBox::StandardButton warning(QWidget* parent, const QString& title, const QString& text, QMessageBox::StandardButtons buttons = QMessageBox::Close);
+    static QMessageBox::StandardButton critical(QWidget* parent, const QString& title, const QString& text, QMessageBox::StandardButtons buttons = QMessageBox::Close);
 
-protected:
+    void addButton(class QAbstractButton* button, QDialogButtonBox::ButtonRole role);
+    void addButton(class QAbstractButton* button, QMessageBox::ButtonRole role);
 
-    virtual void onImageUpdated();
+    void setWindowTitle(const QString& title);
+    void setWindowIcon(const QIcon& icon);
 
-public:
+    void done(int result) override;
 
-    void onValueChanged();
-    void setMousePos(const QPointF& pos);
-    void setMousePos(qreal x, qreal y);
-    void setBoundingRect(const QRectF& _rect);
-    void setBoundingRect(qreal x, qreal y, qreal w, qreal h);
-    bool cancelImageUpdate();
+private slots:
 
-protected:
-
-    void paintImage(QPainter* _painter);
-    void paintImage(QPainter* _painter, qreal _scale, qreal _sceneLeft, qreal _sceneRight,
-                    qreal _visibleRegionLeft, qreal _visibleRegionWidth);
-
-    void setImageUpdatePermitted(bool _permit);
-    bool isImageUpdatePermitted() const;
-
-    void cancelAnyJob();
-    void resetTopBottomValues();
-
-    bool isReady() const;
-    void setReady(bool _ready);
-
-    void startTimer();
-    void stopTimer();
+    void onButtonClicked(bool);
 
 private:
 
-    void onTimeout();
+    bool isPositiveRole(QDialogButtonBox::ButtonRole role) const;
+    bool isNegativeRole(QDialogButtonBox::ButtonRole role) const;
 
-}; // end of class GraphicsImageItem.
+    void createButtons(class QHBoxLayout* buttonBoxLayout, QMessageBox::StandardButtons buttons);
+    class QPushButton* createStandardButton(QMessageBox::StandardButton id);
 
-#endif //EASY_PROFILER_GRAPHICS_IMAGE_ITEM_H
+    static QWidget* messageBoxContent(QMessageBox::Icon icon, const QString& text);
+
+}; // end of class Dialog.
+
+#endif // EASY_PROFILER_DIALOG_H

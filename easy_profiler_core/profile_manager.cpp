@@ -156,15 +156,15 @@ EASY_CONSTEXPR uint8_t FORCE_ON_FLAG = profiler::FORCE_ON & ~profiler::ON;
 
 //////////////////////////////////////////////////////////////////////////
 
-EASY_THREAD_LOCAL static ::ThreadStorage* THIS_THREAD = nullptr;
-EASY_THREAD_LOCAL static bool THIS_THREAD_IS_MAIN = false;
+static EASY_THREAD_LOCAL ::ThreadStorage* THIS_THREAD = nullptr;
+static EASY_THREAD_LOCAL bool THIS_THREAD_IS_MAIN = false;
 
-EASY_THREAD_LOCAL static profiler::timestamp_t THIS_THREAD_FRAME_T_MAX = 0ULL;
-EASY_THREAD_LOCAL static profiler::timestamp_t THIS_THREAD_FRAME_T_CUR = 0ULL;
-EASY_THREAD_LOCAL static profiler::timestamp_t THIS_THREAD_FRAME_T_ACC = 0ULL;
-EASY_THREAD_LOCAL static uint32_t THIS_THREAD_N_FRAMES = 0;
-EASY_THREAD_LOCAL static bool THIS_THREAD_FRAME_T_RESET_MAX = false;
-EASY_THREAD_LOCAL static bool THIS_THREAD_FRAME_T_RESET_AVG = false;
+static EASY_THREAD_LOCAL profiler::timestamp_t THIS_THREAD_FRAME_T_MAX = 0ULL;
+static EASY_THREAD_LOCAL profiler::timestamp_t THIS_THREAD_FRAME_T_CUR = 0ULL;
+static EASY_THREAD_LOCAL profiler::timestamp_t THIS_THREAD_FRAME_T_ACC = 0ULL;
+static EASY_THREAD_LOCAL uint32_t THIS_THREAD_N_FRAMES = 0;
+static EASY_THREAD_LOCAL bool THIS_THREAD_FRAME_T_RESET_MAX = false;
+static EASY_THREAD_LOCAL bool THIS_THREAD_FRAME_T_RESET_AVG = false;
 
 #ifdef EASY_CXX11_TLS_AVAILABLE
 thread_local static profiler::ThreadGuard THIS_THREAD_GUARD; // thread guard for monitoring thread life time
@@ -254,7 +254,7 @@ profiler::ThreadGuard::~ThreadGuard()
 #if defined(EASY_CHRONO_CLOCK)
 static EASY_CONSTEXPR_FCN int64_t calculate_cpu_frequency()
 {
-    return EASY_CHRONO_CLOCK::period::den / EASY_CHRONO_CLOCK::period::num
+    return EASY_CHRONO_CLOCK::period::den / EASY_CHRONO_CLOCK::period::num;
 }
 #elif defined(_WIN32)
 static int64_t calculate_cpu_frequency()
@@ -331,21 +331,21 @@ ProfileManager::ProfileManager() :
     , m_beginTime(0)
     , m_endTime(0)
 {
-    m_profilerStatus = ATOMIC_VAR_INIT(false);
-    m_isEventTracingEnabled = ATOMIC_VAR_INIT(EASY_OPTION_EVENT_TRACING_ENABLED);
-    m_isAlreadyListening = ATOMIC_VAR_INIT(false);
-    m_stopDumping = ATOMIC_VAR_INIT(false);
-    m_stopListen = ATOMIC_VAR_INIT(false);
+    m_profilerStatus = false;
+    m_isEventTracingEnabled = EASY_OPTION_EVENT_TRACING_ENABLED;
+    m_isAlreadyListening = false;
+    m_stopDumping = false;
+    m_stopListen = false;
 
-    m_mainThreadId = ATOMIC_VAR_INIT(0);
-    m_frameMax = ATOMIC_VAR_INIT(0);
-    m_frameAvg = ATOMIC_VAR_INIT(0);
-    m_frameCur = ATOMIC_VAR_INIT(0);
-    m_frameMaxReset = ATOMIC_VAR_INIT(false);
-    m_frameAvgReset = ATOMIC_VAR_INIT(false);
+    m_mainThreadId = 0;
+    m_frameMax = 0;
+    m_frameAvg = 0;
+    m_frameCur = 0;
+    m_frameMaxReset = false;
+    m_frameAvgReset = false;
 
 #if !defined(EASY_CHRONO_CLOCK) && !defined(_WIN32)
-    m_cpuFrequency = ATOMIC_VAR_INIT(1);
+    m_cpuFrequency = 1;
 
 # if !defined(EASY_PROFILER_API_DISABLED)
     const auto cpu_frequency = calculate_cpu_frequency();
@@ -1074,6 +1074,9 @@ uint32_t ProfileManager::dumpBlocksToStream(std::ostream& _outputStream, bool _l
     write(_outputStream, m_descriptorsMemorySize);
     write(_outputStream, blocks_number);
     write(_outputStream, static_cast<uint32_t>(m_descriptors.size()));
+    write(_outputStream, static_cast<uint32_t>(m_threads.size()));
+    write(_outputStream, static_cast<uint16_t>(0)); // Bookmarks count (they can be created by user in the UI)
+    write(_outputStream, static_cast<uint16_t>(0)); // padding
 
     // Write block descriptors
     for (const auto descriptor : m_descriptors)
@@ -1134,6 +1137,9 @@ uint32_t ProfileManager::dumpBlocksToStream(std::ostream& _outputStream, bool _l
             ++thread_it;
         }
     }
+
+    // End of threads section
+    write(_outputStream, EASY_PROFILER_SIGNATURE);
 
     m_storedSpin.unlock();
     m_spin.unlock();

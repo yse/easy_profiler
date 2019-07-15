@@ -293,11 +293,8 @@ namespace profiler_gui {
 
     QFont EFont(QFont::StyleHint _hint, const char* _family, int _size, int _weight)
     {
-        QFont f;
+        QFont f(_family, _size, _weight);
         f.setStyleHint(_hint, QFont::PreferMatch);
-        f.setFamily(_family);
-        f.setPointSize(_size);
-        f.setWeight(_weight);
         return f;
     }
 

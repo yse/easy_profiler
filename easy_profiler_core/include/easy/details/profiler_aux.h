@@ -59,6 +59,7 @@
 
 #include <easy/details/easy_compiler_support.h>
 #include <easy/details/profiler_colors.h>
+#include <easy/details/profiler_in_use.h>
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -77,9 +78,6 @@ namespace profiler {
 
 //////////////////////////////////////////////////////////////////////////
 
-#include <type_traits>
-#include <string>
-
 # define EASY_STRINGIFY(a) #a
 # define EASY_STRINGIFICATION(a) EASY_STRINGIFY(a)
 # define EASY_TOKEN_JOIN(x, y) x ## y
@@ -88,13 +86,17 @@ namespace profiler {
 # define EASY_UNIQUE_FRAME_COUNTER(x) EASY_TOKEN_CONCATENATE(unique_profiler_frame_mark_name_, x)
 # define EASY_UNIQUE_DESC(x) EASY_TOKEN_CONCATENATE(unique_profiler_descriptor_, x)
 
-#ifdef BUILD_WITH_EASY_PROFILER
+#ifdef USING_EASY_PROFILER
 
-namespace profiler {
+#include <string>
+#include <type_traits>
 
+namespace profiler
+{
     template <const bool> struct NameSwitch;
 
-    class ForceConstStr EASY_FINAL {
+    class ForceConstStr EASY_FINAL
+    {
         friend NameSwitch<true>;
         friend NameSwitch<false>;
 
@@ -112,7 +114,8 @@ namespace profiler {
         explicit ForceConstStr(const ::std::string& _str) : c_str(_str.c_str()) {}
     };
 
-    template <const bool IS_REF> struct NameSwitch EASY_FINAL {
+    template <const bool IS_REF> struct NameSwitch EASY_FINAL
+    {
         static const char* runtime_name(const char* name) { return name; }
         static const char* runtime_name(const ::std::string& name) { return name.c_str(); }
         static EASY_CONSTEXPR_FCN const char* runtime_name(const ForceConstStr&) { return ""; }
@@ -123,7 +126,8 @@ namespace profiler {
         static EASY_CONSTEXPR_FCN const char* compiletime_name(const ForceConstStr& name, const char*) { return name.c_str; }
     };
 
-    template <> struct NameSwitch<true> EASY_FINAL {
+    template <> struct NameSwitch<true> EASY_FINAL
+    {
         static EASY_CONSTEXPR_FCN const char* runtime_name(const char*) { return ""; }
         static EASY_CONSTEXPR_FCN const char* runtime_name(const ForceConstStr&) { return ""; }
         static const char* runtime_name(const ::std::string& name) { return name.c_str(); }
@@ -207,7 +211,7 @@ namespace profiler {
 
 # define EASY_CONST_NAME(name) 
 
-#endif // BUILD_WITH_EASY_PROFILER
+#endif // USING_EASY_PROFILER
 
 //////////////////////////////////////////////////////////////////////////
 

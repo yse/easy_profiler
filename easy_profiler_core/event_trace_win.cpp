@@ -382,7 +382,7 @@ bool setPrivilege(HANDLE hToken, PTCHAR _privelegeName)
 
     EASY_LOG_ONLY(
         if (!success)
-            EASY_WARNING("Failed to set " << _privelegeName << " privelege for the application.\n");
+            EASY_WARNING("Failed to set " << _privelegeName << " privilege for the application.\n");
     )
 
     return success;
@@ -411,7 +411,7 @@ void EasyEventTracer::setProcessPrivileges()
     }
     EASY_LOG_ONLY(
         else {
-            EASY_WARNING("Failed to open process to adjust priveleges.\n");
+            EASY_WARNING("Failed to open process to adjust privileges.\n");
         }
     )
 }

@@ -1,4 +1,4 @@
-# easy_profiler [![2.0.1](https://img.shields.io/badge/version-2.0.1-009688.svg)](https://github.com/yse/easy_profiler/releases)
+# easy_profiler [![2.0.1](https://img.shields.io/badge/stable-2.0.1-009688.svg)](https://github.com/yse/easy_profiler/releases) [![2.1.0](https://img.shields.io/badge/latest-2.1.0-f57f17.svg)](https://github.com/yse/easy_profiler)
 
 [![Build Status](https://travis-ci.org/yse/easy_profiler.svg?branch=develop)](https://travis-ci.org/yse/easy_profiler)
 [![Build Status](https://ci.appveyor.com/api/projects/status/github/yse/easy_profiler?branch=develop&svg=true)](https://ci.appveyor.com/project/yse/easy-profiler/branch/develop)
@@ -23,6 +23,8 @@
     - [Linux](#linux)
     - [MacOS](#macos)
     - [Windows](#windows)
+    - [QNX](#qnx)
+    - [Android](#android)
 5. [Notes about major release (1.0 -> 2.0)](#status)
 6. [License](#license)
 
@@ -60,6 +62,8 @@ _New UI style in version 2.0_
 - Store user variables (both single values and arrays)
 - GUI could be connected to an application which is already profiling (so you can profile initialization of your application)
 - Monitor main thread fps at real-time in GUI even if profiling is disabled or draw your own HUD/fps-plot directly in your application using data provided by profiler
+- Save a snapshot (selected area) of profiled data from file
+- Add bookmarks at any place on the timeline
 - Configurable timer type with CMakeLists or preprocessor macros 
 
 # Usage
@@ -280,6 +284,19 @@ $ mkdir build
 $ cd build
 $ cmake .. -G "Visual Studio 12 2013 Win64"
 ```
+
+## QNX
+```bash
+$ souce $QNX_ENVIRONMENT
+$ mkdir build
+$ cd build
+$ cmake -DCMAKE_TOOLCHAIN_FILE=/path/to/QNXToolchain.cmake ..
+```
+For more information and example for `QNXToolchain.cmake` see [this PR](https://github.com/yse/easy_profiler/pull/145) 
+
+## Android
+
+You can build native library for android by using NDK and standalone toolchain. See [comment for this PR](https://github.com/yse/easy_profiler/pull/137#issuecomment-436167127) to get a more detailed instruction.
 
 # Status
 Branch `develop` contains all v2.0.0 features and new UI style.  

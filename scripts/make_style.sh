@@ -1,5 +1,5 @@
 if [ "$#" -ne 1 ]; then
-    echo -e "Usage: \n$0 DIRECTORY\n\twhere DIRECTORY is a derectory with sources for styling"
+    echo -e "Usage: \n$0 DIRECTORY\n\twhere DIRECTORY is a directory with sources for styling"
     exit 1
 fi
 

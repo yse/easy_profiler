@@ -57,17 +57,20 @@ namespace reader
 
 profiler::block_index_t FileReader::readFile(const std::string& filename)
 {
-    ::profiler::SerializedData serialized_blocks, serialized_descriptors;
+    profiler::SerializedData serialized_blocks, serialized_descriptors;
     profiler::descriptors_list_t descriptors;
     profiler::blocks_t blocks;
     profiler::thread_blocks_tree_t threaded_trees;
+    profiler::bookmarks_t bookmarks;
+    profiler::BeginEndTime beginEndTime;
 
     profiler::processid_t pid = 0;
     uint32_t total_descriptors_number = 0;
 
     EASY_CONSTEXPR bool DoNotGatherStats = false;
-    const auto blocks_number = ::fillTreesFromFile(filename.c_str(), serialized_blocks, serialized_descriptors,
-        descriptors, blocks, threaded_trees, total_descriptors_number, m_version, pid, DoNotGatherStats, m_errorMessage);
+    const auto blocks_number = ::fillTreesFromFile(filename.c_str(), beginEndTime, serialized_blocks, serialized_descriptors,
+        descriptors, blocks, threaded_trees, bookmarks, total_descriptors_number, m_version, pid, DoNotGatherStats,
+        m_errorMessage);
 
     if (blocks_number == 0)
         return 0;
@@ -156,6 +159,8 @@ profiler::block_index_t FileReader::readFile(const std::string& filename)
         }
     }
 
+    m_bookmarks.swap(bookmarks);
+
     return blocks_number;
 }
 
@@ -167,6 +172,11 @@ const thread_blocks_tree_t& FileReader::getBlocksTree() const
 const descriptors_list_t& FileReader::getBlockDescriptors() const
 {
     return m_blockDescriptors;
+}
+
+const profiler::bookmarks_t& FileReader::getBookmarks() const
+{
+    return m_bookmarks;
 }
 
 const std::string& FileReader::getThreadName(uint64_t threadId) const

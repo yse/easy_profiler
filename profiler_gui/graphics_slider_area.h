@@ -164,6 +164,7 @@ public slots:
 
 protected slots:
 
+    void onExternalSliderWidthChanged(qreal _width);
     void onExternalChartSliderChanged(qreal _pos);
     void onSceneSizeChanged(qreal _left, qreal _right);
     void onWindowWidthChange(qreal _width);

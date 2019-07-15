@@ -65,32 +65,35 @@
 ************************************************************************/
 
 #include <math.h>
+
+#include <QApplication>
+#include <QDebug>
+#include <QGraphicsDropShadowEffect>
 #include <QGraphicsScene>
-#include <QGraphicsProxyWidget>
-#include <QWheelEvent>
-#include <QMouseEvent>
-#include <QKeyEvent>
-#include <QScrollBar>
 #include <QGridLayout>
 #include <QHBoxLayout>
-#include <QSplitter>
-#include <QDebug>
-#include <QSignalBlocker>
-#include <QGraphicsDropShadowEffect>
+#include <QKeyEvent>
+#include <QMouseEvent>
+#include <QScrollBar>
 #include <QSettings>
+#include <QSignalBlocker>
+#include <QSplitter>
+#include <QWheelEvent>
+
+#include "arbitrary_value_tooltip.h"
 #include "blocks_graphics_view.h"
+#include "bookmarks_editor.h"
 #include "graphics_block_item.h"
 #include "graphics_ruler_item.h"
 #include "graphics_scrollbar.h"
-#include "arbitrary_value_tooltip.h"
 #include "globals.h"
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-const qreal MIN_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT_INV, 70); // Up to 1000 sec scale
-const qreal MAX_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT, 45); // ~23000 --- Up to 10 ns scale
-const qreal BASE_SCALE = pow(::profiler_gui::SCALING_COEFFICIENT_INV, 25); // ~0.003
+const qreal MIN_SCALE = pow(profiler_gui::SCALING_COEFFICIENT_INV, 70); // Up to 1000 sec scale
+const qreal MAX_SCALE = pow(profiler_gui::SCALING_COEFFICIENT, 45); // ~23000 --- Up to 10 ns scale
+const qreal BASE_SCALE = pow(profiler_gui::SCALING_COEFFICIENT_INV, 25); // ~0.003
 
 EASY_CONSTEXPR QRgb BACKGROUND_1 = 0xffe4e4ec;
 EASY_CONSTEXPR QRgb BACKGROUND_2 = profiler::colors::White;
@@ -102,6 +105,9 @@ EASY_CONSTEXPR uint64_t IDLE_TIME = 400;
 
 EASY_CONSTEXPR int FLICKER_INTERVAL = 10; // 100Hz
 EASY_CONSTEXPR qreal FLICKER_FACTOR = 16.0 / FLICKER_INTERVAL;
+
+EASY_CONSTEXPR int BOOKMARK_WIDTH = 8;
+EASY_CONSTEXPR int BOOKMARK_HEIGHT = 11;
 
 #ifdef max
 #undef max
@@ -129,6 +135,27 @@ BoldLabel::~BoldLabel()
 
 //////////////////////////////////////////////////////////////////////////
 
+BackgroundItem::BackgroundItem() : AuxItem()
+    , m_tooltip(nullptr)
+    , m_bookmark(profiler_gui::numeric_max<decltype(m_bookmark)>())
+    , m_bButtonPressed(false)
+{
+    m_bookmarkSign.lineTo(px(BOOKMARK_WIDTH), 0);
+    m_bookmarkSign.lineTo(px(BOOKMARK_WIDTH), px(BOOKMARK_HEIGHT) + 1);
+    m_bookmarkSign.lineTo(px(BOOKMARK_WIDTH >> 1), px((BOOKMARK_HEIGHT >> 1) + 1) + 1);
+    m_bookmarkSign.lineTo(0, px(BOOKMARK_HEIGHT) + 1);
+    m_bookmarkSign.lineTo(0, 0);
+
+    m_idleTimer.setInterval(IDLE_TIMER_INTERVAL);
+    m_idleTimer.setSingleShot(true);
+    connect(&m_idleTimer, &QTimer::timeout, this, &BackgroundItem::onIdleTimeout);
+}
+
+BackgroundItem::~BackgroundItem()
+{
+    delete m_tooltip;
+}
+
 void BackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
 {
     auto const sceneView = static_cast<BlocksGraphicsView*>(scene()->parent());
@@ -154,7 +181,7 @@ void BackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
         int i = -1;
 
         // Draw background
-        _painter->setPen(::profiler_gui::SYSTEM_BORDER_COLOR);
+        _painter->setPen(profiler_gui::SYSTEM_BORDER_COLOR);
         for (auto item : items)
         {
             ++i;
@@ -167,7 +194,7 @@ void BackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
                 continue;
 
             if (item->threadId() == EASY_GLOBALS.selected_thread)
-                _painter->setBrush(QBrush(QColor::fromRgb(::profiler_gui::SELECTED_THREAD_BACKGROUND)));
+                _painter->setBrush(QBrush(QColor::fromRgb(profiler_gui::SELECTED_THREAD_BACKGROUND)));
             else
                 _painter->setBrush(brushes[i & 1]);
 
@@ -187,7 +214,7 @@ void BackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
     _painter->setBrush(QColor::fromRgba(TIMELINE_BACKGROUND));
 
     const auto sceneStep = sceneView->timelineStep();
-    const auto factor = ::profiler_gui::timeFactor(sceneStep);
+    const auto factor = profiler_gui::timeFactor(sceneStep);
     const auto step = sceneStep * currentScale;
     auto first = static_cast<quint64>(offset / sceneStep);
     const int odd = first & 1;
@@ -195,18 +222,24 @@ void BackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
     first -= odd;
 
     QPen pen(borderColor);
-    pen.setWidth(2);
+    pen.setWidth(px(2));
     _painter->setPen(pen);
     _painter->drawLine(QPointF(0, h), QPointF(visibleSceneRect.width(), h));
     _painter->setPen(borderColor);
 
     QLineF marks[20];
     qreal first_x = first * sceneStep;
-    const auto textWidth = QFontMetricsF(_painter->font(), sceneView).width(QString::number(static_cast<quint64>(0.5 + first_x * factor))) * ::profiler_gui::FONT_METRICS_FACTOR + 10;
+
+    const auto textWidth = QFontMetricsF(_painter->font(), sceneView).
+        width(QString::number(static_cast<quint64>(0.5 + first_x * factor))) * profiler_gui::FONT_METRICS_FACTOR + px(10);
+
     const int n = 1 + static_cast<int>(textWidth / step);
     int next = first % n;
     if (next != 0)
         next = n - next;
+
+    const int smallStroke = px(4);
+    const int bigStroke = px(8);
 
     first_x *= currentScale;
     for (int i = 0; i < nsteps; ++i, --next)
@@ -221,7 +254,7 @@ void BackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
             for (int j = 0; j < 20; ++j)
             {
                 auto xmark = current + j * step * 0.1;
-                marks[j].setLine(xmark, h, xmark, h + ((j % 5) ? 4 : 8));
+                marks[j].setLine(xmark, h, xmark, h + ((j % 5) ? smallStroke : bigStroke));
             }
 
             _painter->drawLines(marks, 20);
@@ -230,7 +263,7 @@ void BackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
         if (next <= 0)
         {
             next = n;
-            _painter->setPen(::profiler_gui::TEXT_COLOR);
+            _painter->setPen(profiler_gui::TEXT_COLOR);
             _painter->drawText(QPointF(current + 1, textShiftY),
                                QString::number(static_cast<quint64>(0.5 + (current + left) * factor / currentScale)));
             _painter->setPen(borderColor);
@@ -245,17 +278,345 @@ void BackgroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
     }
     // END Draw timeline scale marks ~~~~~~~~~~~~
 
+    // Draw bookmarks
+    const auto& bookmarks = EASY_GLOBALS.bookmarks;
+    const auto beginTime = PROF_FROM_MICROSECONDS(offset) + EASY_GLOBALS.begin_time;
+    const auto endTime = PROF_FROM_MICROSECONDS(0.5 + offset + visibleSceneRect.width() / currentScale) + EASY_GLOBALS.begin_time;
+    auto first_it = std::lower_bound(bookmarks.cbegin(), bookmarks.cend(), beginTime,
+                                     [](const profiler::Bookmark& bookmark, profiler::timestamp_t value)
+    {
+        return bookmark.pos < value;
+    });
+
+    for (; first_it != bookmarks.cend(); ++first_it)
+    {
+        const auto& bookmark = *first_it;
+        if (bookmark.pos >= beginTime)
+            break;
+    }
+
+    if (first_it != bookmarks.cend())
+    {
+        pen.setColor(Qt::black);
+        pen.setWidth(px(1));
+
+        _painter->setPen(borderColor);
+        _painter->setBrush(Qt::transparent);
+        _painter->setRenderHint(QPainter::Antialiasing);
+
+        const int half = px(BOOKMARK_WIDTH) >> 1;
+        auto color = QColor(Qt::transparent).rgb();
+        qreal prevPos = -1e300;
+        for (auto it = first_it; it != bookmarks.cend() && it->pos <= endTime; ++it)
+        {
+            const qreal pos =
+                (PROF_MICROSECONDS(it->pos - EASY_GLOBALS.begin_time) - offset) * currentScale - half;
+
+            const bool isSelectedBookmark = m_bookmark == static_cast<size_t>(std::distance(bookmarks.cbegin(), it));
+
+            const auto delta = fabs(pos - prevPos);
+            if (delta < half && !isSelectedBookmark)
+                continue;
+
+            if (color != it->color)
+                _painter->setBrush(QColor::fromRgb(it->color));
+
+            const auto path = m_bookmarkSign.translated(pos, h);
+            _painter->drawPath(path);
+
+            if (isSelectedBookmark)
+                _painter->strokePath(path, pen);
+
+            prevPos = pos;
+        }
+    }
+
     _painter->restore();
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void TimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
+bool BackgroundItem::mouseMove(const QPointF& scenePos)
+{
+    const auto prev = m_bookmark;
+
+    delete m_tooltip;
+    m_tooltip = nullptr;
+
+    auto& bookmarks = EASY_GLOBALS.bookmarks;
+    if (bookmarks.empty())
+    {
+        if (m_idleTimer.isActive())
+            m_idleTimer.stop();
+
+        profiler_gui::set_max(m_bookmark);
+        if (prev != m_bookmark)
+        {
+            qApp->restoreOverrideCursor();
+            emit bookmarkChanged(m_bookmark);
+            update();
+        }
+
+        return false;
+    }
+
+    const auto scene = static_cast<BlocksGraphicsView*>(this->scene()->parent());
+
+    const auto y = scenePos.y() - this->y() - scene->visibleSceneRect().y();
+    if (y < scene->visibleSceneRect().height())
+    {
+        if (!m_bButtonPressed || m_bookmark >= EASY_GLOBALS.bookmarks.size())
+        {
+            if (m_idleTimer.isActive())
+                m_idleTimer.stop();
+
+            profiler_gui::set_max(m_bookmark);
+            if (prev != m_bookmark)
+            {
+                qApp->restoreOverrideCursor();
+                emit bookmarkChanged(m_bookmark);
+                update();
+            }
+
+            return false;
+        }
+    }
+
+    const auto scale = scene->scale();
+    const auto timestamp = PROF_FROM_MICROSECONDS(scenePos.x()) + EASY_GLOBALS.begin_time;
+
+    if (!m_bButtonPressed)
+    {
+        profiler_gui::set_max(m_bookmark);
+
+        auto first_it = std::lower_bound(bookmarks.cbegin(), bookmarks.cend(), timestamp,
+                                         [](const profiler::Bookmark& bookmark, profiler::timestamp_t value)
+        {
+            return bookmark.pos < value;
+        });
+
+        if (first_it != bookmarks.cbegin())
+            --first_it;
+
+        const auto width = px(8);
+        for (auto it = first_it; it != bookmarks.cend(); ++it)
+        {
+            const qreal pos = PROF_MICROSECONDS(it->pos - EASY_GLOBALS.begin_time);
+            const auto dx = fabs(scenePos.x() - pos) * scale;
+            if (dx < width)
+            {
+                m_bookmark = static_cast<size_t>(std::distance(bookmarks.cbegin(), it));
+                break;
+            }
+        }
+
+        if (prev != m_bookmark)
+        {
+            if (!profiler_gui::is_max(m_bookmark))
+            {
+                if (qApp->overrideCursor() == nullptr || qApp->overrideCursor()->shape() != Qt::PointingHandCursor)
+                    qApp->setOverrideCursor(QCursor(Qt::PointingHandCursor));
+            }
+            else
+            {
+                qApp->restoreOverrideCursor();
+            }
+            emit bookmarkChanged(m_bookmark);
+            update();
+        }
+
+        if (!profiler_gui::is_max(m_bookmark))
+        {
+            if (!m_idleTimer.isActive())
+                m_idleTimer.start();
+        }
+        else
+        {
+            if (m_idleTimer.isActive())
+                m_idleTimer.stop();
+        }
+    }
+    else if (m_bookmark < bookmarks.size())
+    {
+        if (m_idleTimer.isActive())
+            m_idleTimer.stop();
+
+        auto& bookmark = bookmarks[m_bookmark];
+
+        if (bookmark.pos != timestamp)
+        {
+            EASY_GLOBALS.has_local_changes = true;
+            bookmark.pos = timestamp;
+            update();
+            emit moved();
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+bool BackgroundItem::mousePress(const QPointF& scenePos)
+{
+    m_bButtonPressed = !profiler_gui::is_max(m_bookmark) && contains(scenePos);
+
+    delete m_tooltip;
+    m_tooltip = nullptr;
+
+    return false;
+}
+
+bool BackgroundItem::mouseRelease(const QPointF& scenePos)
+{
+    if (!m_bButtonPressed)
+        return false;
+
+    m_bButtonPressed = false;
+
+    if (!profiler_gui::is_max(m_bookmark))
+    {
+        auto& bookmarks = EASY_GLOBALS.bookmarks;
+        std::sort(bookmarks.begin(), bookmarks.end(),
+                  [] (const profiler::Bookmark& lhs, const profiler::Bookmark& rhs)
+        {
+            return lhs.pos < rhs.pos;
+        });
+
+        mouseMove(scenePos);
+        emit bookmarkChanged(m_bookmark);
+    }
+
+    return false;
+}
+
+bool BackgroundItem::mouseDoubleClick(const QPointF& scenePos)
+{
+    auto const sceneView = static_cast<BlocksGraphicsView*>(scene()->parent());
+    if (!contains(scenePos))
+        return false;
+
+    if (!profiler_gui::is_max(m_bookmark))
+    {
+        qApp->restoreOverrideCursor();
+        auto editor = new BookmarkEditor(m_bookmark, false, sceneView->parentWidget());
+        editor->show();
+    }
+    else
+    {
+        auto& bookmarks = EASY_GLOBALS.bookmarks;
+
+        profiler::Bookmark mark;
+        mark.pos = PROF_FROM_MICROSECONDS(scenePos.x()) + EASY_GLOBALS.begin_time;
+        mark.color = EASY_GLOBALS.bookmark_default_color == 0 ? profiler_gui::randomColor() : EASY_GLOBALS.bookmark_default_color;
+        bookmarks.push_back(mark);
+
+        std::sort(bookmarks.begin(), bookmarks.end(),
+                  [] (const profiler::Bookmark& lhs, const profiler::Bookmark& rhs)
+        {
+            return lhs.pos < rhs.pos;
+        });
+
+        mouseMove(scenePos);
+
+        if (!profiler_gui::is_max(m_bookmark))
+        {
+            qApp->restoreOverrideCursor();
+            auto editor = new BookmarkEditor(m_bookmark, true, sceneView->parentWidget());
+            editor->show();
+        }
+    }
+
+    return true;
+}
+
+void BackgroundItem::mouseLeave()
+{
+    delete m_tooltip;
+    m_tooltip = nullptr;
+
+    if (m_idleTimer.isActive())
+        m_idleTimer.stop();
+
+    if (!profiler_gui::is_max(m_bookmark))
+    {
+        profiler_gui::set_max(m_bookmark);
+        qApp->restoreOverrideCursor();
+        emit bookmarkChanged(m_bookmark);
+        update();
+    }
+}
+
+bool BackgroundItem::contains(const QPointF& scenePos) const
+{
+    auto const sceneView = static_cast<BlocksGraphicsView*>(scene()->parent());
+    const auto visibleSceneRect = sceneView->visibleSceneRect();
+    const auto y = scenePos.y() - this->y() - visibleSceneRect.y();
+    return y >= visibleSceneRect.height();
+}
+
+void BackgroundItem::onWindowActivationChanged(bool isActiveWindow)
+{
+    if (!isActiveWindow)
+    {
+        delete m_tooltip;
+        m_tooltip = nullptr;
+    }
+}
+
+void BackgroundItem::onIdleTimeout()
+{
+    auto parent = static_cast<QWidget*>(scene()->parent());
+
+    delete m_tooltip;
+    m_tooltip = nullptr;
+
+    if (m_bookmark < EASY_GLOBALS.bookmarks.size() && parent->window()->isActiveWindow())
+    {
+        const auto& text = EASY_GLOBALS.bookmarks[m_bookmark].text;
+        if (text.empty())
+            return;
+
+        m_tooltip = new QLabel(QString::fromStdString(text),
+                               parent, Qt::ToolTip | Qt::WindowTransparentForInput);
+
+        if (m_tooltip == nullptr)
+            return;
+
+        const auto delta = px(10);
+
+        m_tooltip->setObjectName(QStringLiteral("BookmarkPopup"));
+        m_tooltip->setAttribute(Qt::WA_ShowWithoutActivating, true);
+        m_tooltip->setFocusPolicy(Qt::NoFocus);
+        m_tooltip->setWordWrap(true);
+        m_tooltip->move(QCursor::pos() + QPoint(delta >> 1, delta));
+        m_tooltip->show();
+
+        const int bottom = m_tooltip->mapToParent(m_tooltip->pos()).y() + m_tooltip->height();
+        const int parentBottom = parent->y() + parent->height();
+        if (bottom > parentBottom)
+            m_tooltip->move(m_tooltip->pos() - QPoint(delta >> 1, m_tooltip->height() + delta));
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+ForegroundItem::ForegroundItem() : AuxItem()
+    , m_bookmark(profiler_gui::numeric_max<decltype(m_bookmark)>())
+{
+
+}
+
+void ForegroundItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
 {
     const auto sceneView = static_cast<const BlocksGraphicsView*>(scene()->parent());
     const auto visibleSceneRect = sceneView->visibleSceneRect();
     const auto step = sceneView->timelineStep() * sceneView->scale();
-    const QString text = ::profiler_gui::autoTimeStringInt(units2microseconds(sceneView->timelineStep())); // Displayed text
+    const QString text = profiler_gui::autoTimeStringInt(units2microseconds(sceneView->timelineStep())); // Displayed text
+
+    const auto px6  = px(6);
+    const auto px10 = px(10);
+    const auto px14 = px(14);
 
     // Draw scale indicator
     _painter->save();
@@ -264,27 +625,49 @@ void TimelineIndicatorItem::paint(QPainter* _painter, const QStyleOptionGraphics
     _painter->setBrush(Qt::NoBrush);
 
     QPen pen(Qt::black);
-    pen.setWidth(3);
+    pen.setWidth(px(3));
     _painter->setPen(pen);
 
-    _painter->drawLine(QLineF(visibleSceneRect.width() - 9 - step, visibleSceneRect.height() - 10, visibleSceneRect.width() - 11, visibleSceneRect.height() - 10));
+    _painter->drawLine(QLineF(visibleSceneRect.width() - px(9) - step, visibleSceneRect.height() - px10, visibleSceneRect.width() - px(11), visibleSceneRect.height() - px10));
 
     _painter->setPen(Qt::black);
-    _painter->drawLine(QLineF(visibleSceneRect.width() - 10 - step, visibleSceneRect.height() - 6, visibleSceneRect.width() - 10 - step, visibleSceneRect.height() - 14));
-    _painter->drawLine(QLineF(visibleSceneRect.width() - 10, visibleSceneRect.height() - 6, visibleSceneRect.width() - 10, visibleSceneRect.height() - 14));
+    _painter->drawLine(QLineF(visibleSceneRect.width() - px10 - step, visibleSceneRect.height() - px6, visibleSceneRect.width() - px10 - step, visibleSceneRect.height() - px14));
+    _painter->drawLine(QLineF(visibleSceneRect.width() - px10, visibleSceneRect.height() - px6, visibleSceneRect.width() - px10, visibleSceneRect.height() - px14));
 
-    _painter->setPen(Qt::black);
     _painter->setFont(EASY_GLOBALS.font.background);
-    _painter->drawText(QRectF(visibleSceneRect.width() - 10 - step, visibleSceneRect.height() - 63, step, 50), Qt::AlignRight | Qt::AlignBottom | Qt::TextDontClip, text);
+    _painter->drawText(QRectF(visibleSceneRect.width() - px10 - step, visibleSceneRect.height() - px(63), step, px(50)),
+                       Qt::AlignRight | Qt::AlignBottom | Qt::TextDontClip, text);
+
+    if (m_bookmark < EASY_GLOBALS.bookmarks.size())
+    {
+        const auto& bookmark = EASY_GLOBALS.bookmarks[m_bookmark];
+        const qreal pos =
+            (PROF_MICROSECONDS(bookmark.pos - EASY_GLOBALS.begin_time) - sceneView->offset()) * sceneView->scale();
+
+        pen.setWidth(px(1));
+        _painter->setPen(pen);
+        _painter->drawLine(QPointF(pos, 0), QPointF(pos, visibleSceneRect.height()));
+    }
 
     _painter->restore();
+}
+
+void ForegroundItem::onBookmarkChanged(size_t index)
+{
+    m_bookmark = index;
+    update();
+}
+
+void ForegroundItem::onMoved()
+{
+    update();
 }
 
 //////////////////////////////////////////////////////////////////////////
 
 BlocksGraphicsView::BlocksGraphicsView(QWidget* _parent)
     : Parent(_parent)
-    , m_beginTime(std::numeric_limits<decltype(m_beginTime)>::max())
+    , m_beginTime(profiler_gui::numeric_max<decltype(m_beginTime)>())
     , m_sceneWidth(0)
     , m_scale(1)
     , m_offset(0)
@@ -295,6 +678,7 @@ BlocksGraphicsView::BlocksGraphicsView(QWidget* _parent)
     , m_pScrollbar(nullptr)
     , m_selectionItem(nullptr)
     , m_rulerItem(nullptr)
+    , m_backgroundItem(nullptr)
     , m_popupWidget(nullptr)
     , m_flickerSpeedX(0)
     , m_flickerSpeedY(0)
@@ -318,6 +702,15 @@ BlocksGraphicsView::~BlocksGraphicsView()
 
 //////////////////////////////////////////////////////////////////////////
 
+void BlocksGraphicsView::onWindowActivationChanged()
+{
+    const bool isActive = window()->isActiveWindow();
+    if (!isActive)
+        removePopup();
+    if (m_backgroundItem != nullptr)
+        m_backgroundItem->onWindowActivationChanged(isActive);
+}
+
 void BlocksGraphicsView::removePopup()
 {
     delete m_popupWidget;
@@ -327,7 +720,13 @@ void BlocksGraphicsView::removePopup()
 
 bool BlocksGraphicsView::needToIgnoreMouseEvent() const
 {
-    return m_isArbitraryValueTooltip && m_popupWidget->rect().contains(m_popupWidget->mapFromGlobal(QCursor::pos()));
+    if (!m_isArbitraryValueTooltip)
+        return false;
+
+    const int size = std::min(m_popupWidget->width(), m_popupWidget->height()) >> 2;
+    const auto rect = m_popupWidget->rect().adjusted(-size, -size, size, size);
+
+    return rect.contains(m_popupWidget->mapFromGlobal(QCursor::pos()));
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -353,7 +752,7 @@ GraphicsRulerItem* BlocksGraphicsView::createRuler(bool _main)
 {
     auto ruler = new GraphicsRulerItem(_main);
 
-    ruler->setColor(_main ? ::profiler_gui::RULER_COLOR : ::profiler_gui::RULER_COLOR2);
+    ruler->setColor(_main ? profiler_gui::RULER_COLOR : profiler_gui::RULER_COLOR2);
     ruler->setBoundingRect(sceneRect());
     ruler->hide();
     scene()->addItem(ruler);
@@ -379,8 +778,9 @@ void BlocksGraphicsView::clear()
     scene()->clear();
     m_items.clear();
     m_selectedBlocks.clear();
+    m_backgroundItem = nullptr;
 
-    m_beginTime = std::numeric_limits<decltype(m_beginTime)>::max(); // reset begin time
+    profiler_gui::set_max(m_beginTime); // reset begin time
     m_scale = 1; // scale back to initial 100% scale
     m_timelineStep = 1;
     m_offset = 0; // scroll back to the beginning of the scene
@@ -441,7 +841,7 @@ void BlocksGraphicsView::notifyVisibleRegionPosChange()
 
 void BlocksGraphicsView::notifyVisibleRegionPosChange(qreal _pos)
 {
-    if (m_sceneWidth < m_visibleRegionWidth)
+    if (m_sceneWidth <= m_visibleRegionWidth)
         m_offset = 0;
     else
         m_offset = estd::clamp(0., _pos, m_sceneWidth - m_visibleRegionWidth);
@@ -457,8 +857,8 @@ void BlocksGraphicsView::setTree(const profiler::thread_blocks_tree_t& _blocksTr
     if (_blocksTree.empty())
         return;
 
-    auto bgItem = new BackgroundItem();
-    scene()->addItem(bgItem);
+    m_backgroundItem = new BackgroundItem();
+    scene()->addItem(m_backgroundItem);
 
     // set new blocks tree
     // calculate scene size and fill it with items
@@ -573,20 +973,22 @@ void BlocksGraphicsView::setTree(const profiler::thread_blocks_tree_t& _blocksTr
     EASY_GLOBALS.scene.empty = false;
 
     // Center view on the beginning of the scene
-    updateVisibleSceneRect();
-    //setScrollbar(m_pScrollbar);
+    const int vbar_width = updateVisibleSceneRect();
+    const auto windowWidth = (m_visibleSceneRect.width() + vbar_width) / m_scale;
 
     notifySceneSizeChange();
-    notifyVisibleRegionSizeChange();
+    notifyVisibleRegionSizeChange(windowWidth);
 
     // Create new chronometer item (previous item was destroyed by scene on scene()->clear()).
     // It will be shown on mouse right button click.
     m_rulerItem = createRuler(false);
     m_selectionItem = createRuler(true);
 
-    bgItem->setBoundingRect(0, 0, m_sceneWidth, y);
-    auto indicator = new TimelineIndicatorItem();
+    m_backgroundItem->setBoundingRect(0, 0, m_sceneWidth, y + EASY_GLOBALS.size.timeline_height);
+    auto indicator = new ForegroundItem();
     indicator->setBoundingRect(0, 0, m_sceneWidth, y);
+    connect(m_backgroundItem, &BackgroundItem::bookmarkChanged, indicator, &ForegroundItem::onBookmarkChanged);
+    connect(m_backgroundItem, &BackgroundItem::moved, indicator, &ForegroundItem::onMoved);
     scene()->addItem(indicator);
 
     // Setting flags
@@ -607,12 +1009,38 @@ void BlocksGraphicsView::setTree(const profiler::thread_blocks_tree_t& _blocksTr
 
         scrollTo(longestItem);
         m_pScrollbar->setHistogramSource(longestItem->threadId(), longestItem->items(0));
+
         if (!longestItem->items(0).empty())
+        {
             notifyVisibleRegionPosChange(longestItem->items(0).front().left() - m_visibleRegionWidth * 0.25);
+
+            // Scale to fit all items
+            const auto right = longestItem->items(0).back().right() - m_offset;
+            const auto currentScale = m_scale + std::numeric_limits<decltype(m_scale)>::epsilon();
+
+            auto scale = m_scale;
+            while (scale < MAX_SCALE && right < (m_visibleSceneRect.width() + vbar_width) / scale)
+            {
+                m_scale = scale;
+                scale *= profiler_gui::SCALING_COEFFICIENT;
+            }
+
+            if (currentScale < m_scale)
+                scaleTo(m_scale);
+        }
     }
 
     if (m_bHovered && !m_idleTimer.isActive())
         m_idleTimer.start();
+
+    // Workaround for valid scene painting after setting a new tree
+    QTimer::singleShot(0, this, &This::revalidateOffset);
+}
+
+void BlocksGraphicsView::revalidateOffset()
+{
+    notifyVisibleRegionPosChange(m_offset);
+    repaintScene();
 }
 
 const BlocksGraphicsView::Items &BlocksGraphicsView::getItems() const
@@ -695,7 +1123,7 @@ qreal BlocksGraphicsView::setTree(GraphicsBlockItem* _item, const profiler::Bloc
         }
         else
         {
-            ::profiler_gui::set_max(b.children_begin);
+            profiler_gui::set_max(b.children_begin);
         }
 
         qreal h = 0;
@@ -733,7 +1161,7 @@ qreal BlocksGraphicsView::setTree(GraphicsBlockItem* _item, const profiler::Bloc
 #endif
 
         b.setPos(xbegin, duration);
-        //b.totalHeight = ::profiler_gui::GRAPHICS_ROW_SIZE + h;
+        //b.totalHeight = profiler_gui::GRAPHICS_ROW_SIZE + h;
 
         prev_end = xbegin + duration;
         total_duration = prev_end - start_time;
@@ -832,7 +1260,6 @@ void BlocksGraphicsView::scaleTo(qreal _scale)
     notifyVisibleRegionSizeChange(windowWidth);
 
     updateTimelineStep(windowWidth);
-    repaintScene();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -849,10 +1276,17 @@ void BlocksGraphicsView::enterEvent(QEvent* _event)
 void BlocksGraphicsView::leaveEvent(QEvent* _event)
 {
     Parent::leaveEvent(_event);
+
     m_bHovered = false;
     if (m_idleTimer.isActive())
         m_idleTimer.stop();
     m_idleTime = 0;
+
+    if (!needToIgnoreMouseEvent())
+        removePopup();
+
+    if (m_backgroundItem != nullptr)
+        m_backgroundItem->mouseLeave();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -919,7 +1353,7 @@ void BlocksGraphicsView::onWheel(qreal _scenePos, int _wheelDelta)
     notifyVisibleRegionSizeChange();
 
     // Calculate new offset to simulate QGraphicsView::AnchorUnderMouse scaling behavior
-    if (m_sceneWidth < m_visibleRegionWidth)
+    if (m_sceneWidth <= m_visibleRegionWidth)
         m_offset = 0;
     else
         m_offset = clamp(0., initialPosition - _scenePos / m_scale, m_sceneWidth - m_visibleRegionWidth);
@@ -944,6 +1378,14 @@ void BlocksGraphicsView::mousePressEvent(QMouseEvent* _event)
     m_idleTime = 0;
 
     if (m_bEmpty)
+    {
+        _event->accept();
+        return;
+    }
+
+    auto scenePos = mapToScene(_event->pos());
+    scenePos.setX(m_offset + scenePos.x() / m_scale);
+    if (m_backgroundItem->mousePress(scenePos))
     {
         _event->accept();
         return;
@@ -975,7 +1417,7 @@ void BlocksGraphicsView::mousePressEvent(QMouseEvent* _event)
         }
         else
         {
-            const auto mouseX = m_offset + mapToScene(m_mousePressPos).x() / m_scale;
+            const auto mouseX = scenePos.x();
             m_selectionItem->setLeftRight(mouseX, mouseX);
             m_selectionItem->hide();
             m_pScrollbar->hideSelectionIndicator();
@@ -999,13 +1441,21 @@ void BlocksGraphicsView::mouseDoubleClickEvent(QMouseEvent* _event)
         return;
     }
 
+    auto scenePos = mapToScene(_event->pos());
+    scenePos.setX(m_offset + scenePos.x() / m_scale);
+    if (m_backgroundItem->mouseDoubleClick(scenePos))
+    {
+        _event->accept();
+        return;
+    }
+
     m_mouseButtons = _event->buttons();
     m_mousePressPos = _event->pos();
     m_bDoubleClick = true;
 
     if (m_mouseButtons & Qt::LeftButton)
     {
-        const auto mouseX = m_offset + mapToScene(m_mousePressPos).x() / m_scale;
+        const auto mouseX = scenePos.x();
         m_rulerItem->setLeftRight(mouseX, mouseX);
         m_rulerItem->hide();
         emit sceneUpdated();
@@ -1023,6 +1473,14 @@ void BlocksGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
         return;
 
     if (m_bEmpty)
+    {
+        _event->accept();
+        return;
+    }
+
+    auto scenePos = mapToScene(_event->pos());
+    scenePos.setX(m_offset + scenePos.x() / m_scale);
+    if (m_backgroundItem->mouseRelease(scenePos))
     {
         _event->accept();
         return;
@@ -1062,7 +1520,7 @@ void BlocksGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
         }
     }
 
-    const ::profiler_gui::EasyBlock* selectedBlock = nullptr;
+    const profiler_gui::EasyBlock* selectedBlock = nullptr;
     profiler::thread_id_t selectedBlockThread = 0;
     const auto previouslySelectedBlock = EASY_GLOBALS.selected_block;
     if (m_mouseButtons & Qt::LeftButton)
@@ -1083,7 +1541,7 @@ void BlocksGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
             notifyVisibleRegionPosChange(m_selectionItem->left() + (m_selectionItem->width() - m_visibleRegionWidth) * 0.5);
         }
 
-        if (!clicked && m_mouseMovePath.manhattanLength() < 5)
+        if (!clicked && m_mouseMovePath.manhattanLength() < 5 && !m_backgroundItem->contains(scenePos))
         {
             // Handle Click
 
@@ -1109,11 +1567,11 @@ void BlocksGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
                     }
                 }
 
-                if (!changedSelectedItem && !::profiler_gui::is_max(EASY_GLOBALS.selected_block))
+                if (!changedSelectedItem && !profiler_gui::is_max(EASY_GLOBALS.selected_block))
                 {
                     changedSelectedItem = true;
-                    ::profiler_gui::set_max(EASY_GLOBALS.selected_block);
-                    ::profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
+                    profiler_gui::set_max(EASY_GLOBALS.selected_block);
+                    profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
                 }
             }
         }
@@ -1324,17 +1782,26 @@ bool BlocksGraphicsView::moveChrono(GraphicsRulerItem* _chronometerItem, qreal _
 
 void BlocksGraphicsView::mouseMoveEvent(QMouseEvent* _event)
 {
-    if (m_isArbitraryValueTooltip)
-    {
-        const int size = std::min(m_popupWidget->width(), m_popupWidget->height()) >> 1;
-        const auto rect = m_popupWidget->rect().adjusted(-size, -size, size, size);
-        if (rect.contains(m_popupWidget->mapFromGlobal(QCursor::pos())))
-            return;
-    }
+    if (needToIgnoreMouseEvent())
+        return;
 
     m_idleTime = 0;
 
-    if (m_bEmpty || (m_mouseButtons == 0 && !m_selectionItem->isVisible() && !m_rulerItem->isVisible()))
+    if (m_bEmpty)
+    {
+        _event->accept();
+        return;
+    }
+
+    auto scenePos = mapToScene(_event->pos());
+    scenePos.setX(m_offset + scenePos.x() / m_scale);
+    if (m_backgroundItem->mouseMove(scenePos))
+    {
+        _event->accept();
+        return;
+    }
+
+    if (m_mouseButtons == 0 && !m_selectionItem->isVisible() && !m_rulerItem->isVisible())
     {
         _event->accept();
         return;
@@ -1583,10 +2050,10 @@ void BlocksGraphicsView::initMode()
         onRefreshRequired();
     });
 
-    connect(globalSignals, &::profiler_gui::GlobalSignals::threadNameDecorationChanged, this, &This::onThreadViewChanged);
-    connect(globalSignals, &::profiler_gui::GlobalSignals::hexThreadIdChanged, this, &This::onThreadViewChanged);
+    connect(globalSignals, &profiler_gui::GlobalSignals::threadNameDecorationChanged, this, &This::onThreadViewChanged);
+    connect(globalSignals, &profiler_gui::GlobalSignals::hexThreadIdChanged, this, &This::onThreadViewChanged);
 
-    connect(globalSignals, &::profiler_gui::GlobalSignals::blocksTreeModeChanged, [this]()
+    connect(globalSignals, &profiler_gui::GlobalSignals::blocksTreeModeChanged, [this]()
     {
         if (!m_selectedBlocks.empty())
             emit intervalChanged(m_selectedBlocks, m_beginTime, position2time(m_selectionItem->left()), position2time(m_selectionItem->right()), m_selectionItem->reverse());
@@ -1711,6 +2178,16 @@ void BlocksGraphicsView::onIdleTimeout()
     if (m_popupWidget != nullptr)
         return;
 
+    if (!window()->isActiveWindow())
+        return;
+
+    auto focusWidget = qApp->focusWidget();
+    while (focusWidget != nullptr && !focusWidget->property("stayVisible").toBool())
+        focusWidget = focusWidget->parentWidget();
+
+    if (focusWidget != nullptr)
+        return;
+
     m_isArbitraryValueTooltip = false;
     auto scenePos = mapToScene(mapFromGlobal(QCursor::pos()));
 
@@ -1730,11 +2207,13 @@ void BlocksGraphicsView::onIdleTimeout()
         {
             const auto& itemBlock = cse->tree;
 
-            auto widget = new QWidget(this, Qt::ToolTip | Qt::WindowStaysOnTopHint | Qt::WindowTransparentForInput);
+            auto widget = new QWidget(this, Qt::ToolTip | Qt::WindowTransparentForInput);
             if (widget == nullptr)
                 return;
 
             widget->setObjectName(QStringLiteral("DiagramPopup"));
+            widget->setAttribute(Qt::WA_ShowWithoutActivating, true);
+            widget->setFocusPolicy(Qt::NoFocus);
 
             auto lay = new QGridLayout(widget);
             if (lay == nullptr)
@@ -1748,7 +2227,7 @@ void BlocksGraphicsView::onIdleTimeout()
 
             const char* process_name = "";
             profiler::thread_id_t tid = 0;
-            if (EASY_GLOBALS.version < ::profiler_gui::V130)
+            if (EASY_GLOBALS.version < profiler_gui::V130)
             {
                 tid = cse->tree.node->id();
                 process_name = cse->tree.node->name();
@@ -1780,13 +2259,13 @@ void BlocksGraphicsView::onIdleTimeout()
 
             const auto duration = itemBlock.node->duration();
             lay->addWidget(new QLabel("Duration:", widget), row, 0, Qt::AlignRight);
-            lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, duration, 3), widget), row, 1, 1, 2, Qt::AlignLeft);
+            lay->addWidget(new QLabel(profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, duration, 3), widget), row, 1, 1, 2, Qt::AlignLeft);
             ++row;
 
             if (itemBlock.per_thread_stats)
             {
                 lay->addWidget(new QLabel("Sum:", widget), row, 0, Qt::AlignRight);
-                lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, itemBlock.per_thread_stats->total_duration, 3), widget), row, 1, 1, 2, Qt::AlignLeft);
+                lay->addWidget(new QLabel(profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, itemBlock.per_thread_stats->total_duration, 3), widget), row, 1, 1, 2, Qt::AlignLeft);
                 ++row;
 
                 lay->addWidget(new BoldLabel("-------- Statistics --------", widget), row, 0, 1, 3, Qt::AlignHCenter);
@@ -1797,24 +2276,24 @@ void BlocksGraphicsView::onIdleTimeout()
 
                 lay->addWidget(new QLabel("Thread", widget), row + 1, 1, Qt::AlignHCenter);
 
-                auto percent = ::profiler_gui::percentReal(duration, item->root().profiled_time);
+                auto percent = profiler_gui::percentReal(duration, item->root().profiled_time);
                 lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 2, 1, Qt::AlignHCenter);
 
-                lay->addWidget(new QLabel(QString::number(::profiler_gui::percent(itemBlock.per_thread_stats->total_duration, item->root().profiled_time)), widget), row + 3, 1, Qt::AlignHCenter);
+                lay->addWidget(new QLabel(QString::number(profiler_gui::percent(itemBlock.per_thread_stats->total_duration, item->root().profiled_time)), widget), row + 3, 1, Qt::AlignHCenter);
 
                 lay->addWidget(new QLabel(QString::number(itemBlock.per_thread_stats->calls_number), widget), row + 4, 1, Qt::AlignHCenter);
 
-                if (itemBlock.per_frame_stats && !::profiler_gui::is_max(itemBlock.per_frame_stats->parent_block))
+                if (itemBlock.per_frame_stats && !profiler_gui::is_max(itemBlock.per_frame_stats->parent_block))
                 {
                     int col = 2;
                     auto frame_duration = easyBlocksTree(itemBlock.per_frame_stats->parent_block).node->duration();
 
                     lay->addWidget(new QLabel("Frame", widget), row + 1, col, Qt::AlignHCenter);
 
-                    percent = ::profiler_gui::percentReal(duration, frame_duration);
+                    percent = profiler_gui::percentReal(duration, frame_duration);
                     lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 2, col, Qt::AlignHCenter);
 
-                    percent = ::profiler_gui::percentReal(itemBlock.per_frame_stats->total_duration, frame_duration);
+                    percent = profiler_gui::percentReal(itemBlock.per_frame_stats->total_duration, frame_duration);
                     lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 3, col, Qt::AlignHCenter);
 
                     lay->addWidget(new QLabel(QString::number(itemBlock.per_frame_stats->calls_number), widget), row + 4, col, Qt::AlignHCenter);
@@ -1840,11 +2319,13 @@ void BlocksGraphicsView::onIdleTimeout()
                 break;
             }
 
-            auto widget = new QWidget(this, Qt::ToolTip | Qt::WindowStaysOnTopHint | Qt::WindowTransparentForInput);
+            auto widget = new QWidget(this, Qt::ToolTip | Qt::WindowTransparentForInput);
             if (widget == nullptr)
                 return;
 
             widget->setObjectName(QStringLiteral("DiagramPopup"));
+            widget->setAttribute(Qt::WA_ShowWithoutActivating, true);
+            widget->setFocusPolicy(Qt::NoFocus);
 
             auto lay = new QGridLayout(widget);
             if (lay == nullptr)
@@ -1860,13 +2341,13 @@ void BlocksGraphicsView::onIdleTimeout()
                     const auto name = *itemBlock.node->name() != 0 ? itemBlock.node->name() : itemDesc.name();
 
                     //lay->addWidget(new QLabel("Name:", widget), row, 0, Qt::AlignRight);
-                    lay->addWidget(new BoldLabel(::profiler_gui::toUnicode(name), widget), row, 0, 1, 5,
+                    lay->addWidget(new BoldLabel(profiler_gui::toUnicode(name), widget), row, 0, 1, 5,
                                    Qt::AlignHCenter);
                     ++row;
 
                     const auto duration = itemBlock.node->duration();
                     lay->addWidget(new QLabel("Duration:", widget), row, 0, Qt::AlignRight);
-                    lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, duration, 3),
+                    lay->addWidget(new QLabel(profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, duration, 3),
                                               widget), row, 1, 1, 3, Qt::AlignLeft);
                     ++row;
 
@@ -1876,10 +2357,10 @@ void BlocksGraphicsView::onIdleTimeout()
 
                     const auto self_duration = duration - children_duration;
                     const auto self_percent =
-                        duration == 0 ? 100. : ::profiler_gui::percentReal(self_duration, duration);
+                        duration == 0 ? 100. : profiler_gui::percentReal(self_duration, duration);
                     lay->addWidget(new QLabel("Self:", widget), row, 0, Qt::AlignRight);
                     lay->addWidget(new QLabel(QString("%1 (%2%)")
-                                                  .arg(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units,
+                                                  .arg(profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units,
                                                                                     self_duration, 3))
                                                   .arg(QString::number(self_percent, 'g', 3)), widget),
                                    row, 1, 1, 3, Qt::AlignLeft);
@@ -1896,7 +2377,7 @@ void BlocksGraphicsView::onIdleTimeout()
                     ++row;
 
                     lay->addWidget(new QLabel("Name:", widget), row, 0, Qt::AlignRight);
-                    lay->addWidget(new QLabel(::profiler_gui::toUnicode(name), widget), row, 1, Qt::AlignLeft);
+                    lay->addWidget(new QLabel(profiler_gui::toUnicode(name), widget), row, 1, Qt::AlignLeft);
                     ++row;
 
                     break;
@@ -1908,11 +2389,11 @@ void BlocksGraphicsView::onIdleTimeout()
                     ++row;
 
                     lay->addWidget(new QLabel("Name:", widget), row, 0, Qt::AlignRight);
-                    lay->addWidget(new QLabel(::profiler_gui::toUnicode(itemDesc.name()), widget), row, 1, Qt::AlignLeft);
+                    lay->addWidget(new QLabel(profiler_gui::toUnicode(itemDesc.name()), widget), row, 1, Qt::AlignLeft);
                     ++row;
 
                     lay->addWidget(new QLabel("Value:", widget), row, 0, Qt::AlignRight);
-                    lay->addWidget(new QLabel(::profiler_gui::shortValueString(*itemBlock.value), widget), row, 1, Qt::AlignLeft);
+                    lay->addWidget(new QLabel(profiler_gui::shortValueString(*itemBlock.value), widget), row, 1, Qt::AlignLeft);
                     ++row;
 
                     lay->addWidget(new QLabel("VIN:", widget), row, 0, Qt::AlignRight);
@@ -1936,7 +2417,7 @@ void BlocksGraphicsView::onIdleTimeout()
                     const auto duration = itemBlock.node->duration();
 
                     lay->addWidget(new QLabel("Average:", widget), row, 0, Qt::AlignRight);
-                    lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, itemBlock.per_thread_stats->average_duration(), 3), widget), row, 1, 1, 3, Qt::AlignLeft);
+                    lay->addWidget(new QLabel(profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, itemBlock.per_thread_stats->average_duration(), 3), widget), row, 1, 1, 3, Qt::AlignLeft);
                     ++row;
 
                     // Calculate idle/active time
@@ -1975,9 +2456,9 @@ void BlocksGraphicsView::onIdleTimeout()
                         }
 
                         const auto active_time = duration - idleTime;
-                        const auto active_percent = duration == 0 ? 100. : ::profiler_gui::percentReal(active_time, duration);
+                        const auto active_percent = duration == 0 ? 100. : profiler_gui::percentReal(active_time, duration);
                         lay->addWidget(new QLabel("Active time:", widget), row, 0, Qt::AlignRight);
-                        lay->addWidget(new QLabel(QString("%1 (%2%)").arg(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, active_time, 3)).arg(QString::number(active_percent, 'g', 3)), widget), row, 1, 1, 3, Qt::AlignLeft);
+                        lay->addWidget(new QLabel(QString("%1 (%2%)").arg(profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, active_time, 3)).arg(QString::number(active_percent, 'g', 3)), widget), row, 1, 1, 3, Qt::AlignLeft);
                         ++row;
                     }
 
@@ -1990,50 +2471,50 @@ void BlocksGraphicsView::onIdleTimeout()
 
                     lay->addWidget(new QLabel("Thread", widget), row + 1, 1, Qt::AlignHCenter);
 
-                    auto percent = ::profiler_gui::percentReal(duration, item->root().profiled_time);
+                    auto percent = profiler_gui::percentReal(duration, item->root().profiled_time);
                     lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 2, 1, Qt::AlignHCenter);
 
-                    lay->addWidget(new QLabel(QString::number(::profiler_gui::percent(itemBlock.per_thread_stats->total_duration, item->root().profiled_time)), widget), row + 3, 1, Qt::AlignHCenter);
+                    lay->addWidget(new QLabel(QString::number(profiler_gui::percent(itemBlock.per_thread_stats->total_duration, item->root().profiled_time)), widget), row + 3, 1, Qt::AlignHCenter);
 
-                    lay->addWidget(new QLabel(QString::number(::profiler_gui::percent(itemBlock.per_thread_stats->total_duration - itemBlock.per_thread_stats->total_children_duration, item->root().profiled_time)), widget), row + 4, 1, Qt::AlignHCenter);
+                    lay->addWidget(new QLabel(QString::number(profiler_gui::percent(itemBlock.per_thread_stats->total_duration - itemBlock.per_thread_stats->total_children_duration, item->root().profiled_time)), widget), row + 4, 1, Qt::AlignHCenter);
 
                     lay->addWidget(new QLabel(QString::number(itemBlock.per_thread_stats->calls_number), widget), row + 5, 1, Qt::AlignHCenter);
 
                     int col = 1;
 
-                    if (itemBlock.per_frame_stats->parent_block != i && !::profiler_gui::is_max(itemBlock.per_frame_stats->parent_block))
+                    if (itemBlock.per_frame_stats->parent_block != i && !profiler_gui::is_max(itemBlock.per_frame_stats->parent_block))
                     {
                         ++col;
                         auto frame_duration = easyBlocksTree(itemBlock.per_frame_stats->parent_block).node->duration();
 
                         lay->addWidget(new QLabel("Frame", widget), row + 1, col, Qt::AlignHCenter);
 
-                        percent = ::profiler_gui::percentReal(duration, frame_duration);
+                        percent = profiler_gui::percentReal(duration, frame_duration);
                         lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 2, col, Qt::AlignHCenter);
 
-                        percent = ::profiler_gui::percentReal(itemBlock.per_frame_stats->total_duration, frame_duration);
+                        percent = profiler_gui::percentReal(itemBlock.per_frame_stats->total_duration, frame_duration);
                         lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 3, col, Qt::AlignHCenter);
 
-                        percent = ::profiler_gui::percentReal(itemBlock.per_frame_stats->total_duration - itemBlock.per_frame_stats->total_children_duration, frame_duration);
+                        percent = profiler_gui::percentReal(itemBlock.per_frame_stats->total_duration - itemBlock.per_frame_stats->total_children_duration, frame_duration);
                         lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 4, col, Qt::AlignHCenter);
 
                         lay->addWidget(new QLabel(QString::number(itemBlock.per_frame_stats->calls_number), widget), row + 5, col, Qt::AlignHCenter);
                     }
 
-                    if (!::profiler_gui::is_max(itemBlock.per_parent_stats->parent_block))// != item->threadId())
+                    if (!profiler_gui::is_max(itemBlock.per_parent_stats->parent_block))// != item->threadId())
                     {
                         ++col;
                         auto parent_duration = easyBlocksTree(itemBlock.per_parent_stats->parent_block).node->duration();
 
                         lay->addWidget(new QLabel("Parent", widget), row + 1, col, Qt::AlignHCenter);
 
-                        percent = ::profiler_gui::percentReal(duration, parent_duration);
+                        percent = profiler_gui::percentReal(duration, parent_duration);
                         lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 2, col, Qt::AlignHCenter);
 
-                        percent = ::profiler_gui::percentReal(itemBlock.per_parent_stats->total_duration, parent_duration);
+                        percent = profiler_gui::percentReal(itemBlock.per_parent_stats->total_duration, parent_duration);
                         lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 3, col, Qt::AlignHCenter);
 
-                        percent = ::profiler_gui::percentReal(itemBlock.per_parent_stats->total_duration - itemBlock.per_parent_stats->total_children_duration, parent_duration);
+                        percent = profiler_gui::percentReal(itemBlock.per_parent_stats->total_duration - itemBlock.per_parent_stats->total_children_duration, parent_duration);
                         lay->addWidget(new QLabel(0.005 < percent && percent < 0.5001 ? QString::number(percent, 'f', 2) : QString::number(static_cast<int>(0.5 + percent)), widget), row + 4, col, Qt::AlignHCenter);
 
                         lay->addWidget(new QLabel(QString::number(itemBlock.per_parent_stats->calls_number), widget), row + 5, col, Qt::AlignHCenter);
@@ -2058,7 +2539,6 @@ void BlocksGraphicsView::onIdleTimeout()
     {
         m_popupWidget->move(QCursor::pos());
         m_popupWidget->show();
-        m_popupWidget->raise();
 
         const auto w = std::min(m_popupWidget->width(), (int)m_visibleSceneRect.width());
         const auto h = std::min(m_popupWidget->height(), (int)m_visibleSceneRect.height());
@@ -2068,7 +2548,7 @@ void BlocksGraphicsView::onIdleTimeout()
 
         auto br = m_popupWidget->rect();
         if (scenePos.y() + br.height() > m_visibleSceneRect.bottom())
-            scenePos.setY(std::max(scenePos.y() - br.height(), m_visibleSceneRect.top()));
+            scenePos.setY(std::max(scenePos.y() - br.height() + 1, m_visibleSceneRect.top()));
 
         if (scenePos.x() + br.width() > m_visibleSceneRect.right())
             scenePos.setX(std::max(scenePos.x() - br.width(), m_visibleSceneRect.left()));
@@ -2262,6 +2742,11 @@ BlocksGraphicsView* DiagramWidget::view()
     return m_view;
 }
 
+ThreadNamesWidget* DiagramWidget::threadsView()
+{
+    return m_threadNamesWidget;
+}
+
 void DiagramWidget::clear()
 {
     m_scrollbar->clear();
@@ -2325,7 +2810,7 @@ void ThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
             continue;
 
         if (item->threadId() == EASY_GLOBALS.selected_thread)
-            _painter->setBrush(QBrush(QColor::fromRgb(::profiler_gui::SELECTED_THREAD_BACKGROUND)));
+            _painter->setBrush(QBrush(QColor::fromRgb(profiler_gui::SELECTED_THREAD_BACKGROUND)));
         else
             _painter->setBrush(brushes[i & 1]);
 
@@ -2341,11 +2826,11 @@ void ThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
 
         rect.setRect(0, top, w, hgt);
 
-        _painter->setPen(::profiler_gui::SYSTEM_BORDER_COLOR);
+        _painter->setPen(profiler_gui::SYSTEM_BORDER_COLOR);
         _painter->drawRect(rect);
 
         rect.translate(-5, 0);
-        _painter->setPen(::profiler_gui::TEXT_COLOR);
+        _painter->setPen(profiler_gui::TEXT_COLOR);
         _painter->drawText(rect, Qt::AlignRight | Qt::AlignVCenter, item->threadName());
     }
 
@@ -2356,7 +2841,7 @@ void ThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
         rect.translate(5, rect.height());
         rect.setHeight(h - rect_bottom);
         _painter->setBrush(brushes[i & 1]);
-        _painter->setPen(::profiler_gui::SYSTEM_BORDER_COLOR);
+        _painter->setPen(profiler_gui::SYSTEM_BORDER_COLOR);
         _painter->drawRect(rect);
     }
 
@@ -2364,7 +2849,7 @@ void ThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
         return;
 
     // Draw separator between thread names area and information area
-    _painter->setPen(::profiler_gui::SYSTEM_BORDER_COLOR);
+    _painter->setPen(profiler_gui::SYSTEM_BORDER_COLOR);
     _painter->drawLine(QLineF(0, h, w, h));
     _painter->drawLine(QLineF(0, h + 2, w, h + 2));
 
@@ -2381,7 +2866,7 @@ void ThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
     {
         if (time > 0)
         {
-            const QString text = ::profiler_gui::autoTimeStringReal(time); // Displayed text
+            const QString text = profiler_gui::autoTimeStringReal(time); // Displayed text
             rect.setRect(0, y, w, th);
 
             _painter->setPen(color);
@@ -2391,8 +2876,8 @@ void ThreadNameItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, 
         }
     };
 
-    drawTimeText(time1, th, ::profiler_gui::RULER_COLOR.rgb() & 0x00ffffff);
-    drawTimeText(time2, th, ::profiler_gui::RULER_COLOR2.rgb() & 0x00ffffff);
+    drawTimeText(time1, th, profiler_gui::RULER_COLOR.rgb() & 0x00ffffff);
+    drawTimeText(time2, th, profiler_gui::RULER_COLOR2.rgb() & 0x00ffffff);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -2403,48 +2888,47 @@ ThreadNamesWidget::ThreadNamesWidget(BlocksGraphicsView* _view, int _additionalH
     , m_view(_view)
     , m_popupWidget(nullptr)
     , m_maxLength(100)
+    , m_bHovered(false)
     , m_additionalHeight(_additionalHeight + 1)
 {
     setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Ignored);
 
     setScene(new QGraphicsScene(this));
 
+    setMouseTracking(true);
     setCacheMode(QGraphicsView::CacheNone);
     setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setFixedWidth(m_maxLength);
 
-    connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::selectedThreadChanged, [this](profiler::thread_id_t){ repaintScene(); });
-    connect(&EASY_GLOBALS.events, &::profiler_gui::GlobalSignals::allDataGoingToBeDeleted, this, &This::clear);
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::selectedThreadChanged, [this](profiler::thread_id_t){ repaintScene(); });
+    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::allDataGoingToBeDeleted, this, &This::clear);
 
     connect(m_view, &BlocksGraphicsView::treeChanged, this, &This::onTreeChange);
     connect(m_view, &BlocksGraphicsView::sceneUpdated, this, &This::repaintScene);
     connect(m_view->verticalScrollBar(), &QScrollBar::valueChanged, verticalScrollBar(), &QScrollBar::setValue, Qt::QueuedConnection);
     connect(m_view->verticalScrollBar(), &QScrollBar::rangeChanged, this, &This::setVerticalScrollbarRange, Qt::QueuedConnection);
 
+    m_idleTimer.setInterval(IDLE_TIMER_INTERVAL);
     connect(&m_idleTimer, &QTimer::timeout, this, &This::onIdleTimeout);
 }
 
 ThreadNamesWidget::~ThreadNamesWidget()
 {
-
+    removePopup();
 }
 
-void ThreadNamesWidget::removePopup(bool _removeFromScene)
+void ThreadNamesWidget::onWindowActivationChanged()
 {
-    if (m_popupWidget != nullptr)
-    {
-        auto widget = m_popupWidget->widget();
-        widget->setParent(nullptr);
-        m_popupWidget->setWidget(nullptr);
-        delete widget;
+    if (!window()->isActiveWindow())
+        removePopup();
+}
 
-        if (_removeFromScene)
-            scene()->removeItem(m_popupWidget);
-
-        m_popupWidget = nullptr;
-    }
+void ThreadNamesWidget::removePopup()
+{
+    delete m_popupWidget;
+    m_popupWidget = nullptr;
 }
 
 void ThreadNamesWidget::clear()
@@ -2478,7 +2962,7 @@ void ThreadNamesWidget::onTreeChange()
     qreal maxLength = 100;
     const auto& graphicsItems = m_view->getItems();
     for (auto graphicsItem : graphicsItems)
-        maxLength = std::max(maxLength, (10 + fm.width(graphicsItem->threadName())) * ::profiler_gui::FONT_METRICS_FACTOR);
+        maxLength = std::max(maxLength, (10 + fm.width(graphicsItem->threadName())) * profiler_gui::FONT_METRICS_FACTOR);
 
     auto vbar = verticalScrollBar();
     auto viewBar = m_view->verticalScrollBar();
@@ -2499,7 +2983,7 @@ void ThreadNamesWidget::onTreeChange()
     m_maxLength = static_cast<int>(maxLength);
     setFixedWidth(m_maxLength);
 
-    m_idleTimer.start(IDLE_TIMER_INTERVAL);
+    m_idleTimer.start();
 }
 
 void ThreadNamesWidget::onIdleTimeout()
@@ -2508,11 +2992,21 @@ void ThreadNamesWidget::onIdleTimeout()
 
     if (m_idleTime < IDLE_TIME)
     {
-        removePopup(true);
+        removePopup();
         return;
     }
 
     if (m_popupWidget != nullptr)
+        return;
+
+    if (!window()->isActiveWindow())
+        return;
+
+    auto focusWidget = qApp->focusWidget();
+    while (focusWidget != nullptr && !focusWidget->property("stayVisible").toBool())
+        focusWidget = focusWidget->parentWidget();
+
+    if (focusWidget != nullptr)
         return;
 
     const auto localPos = mapFromGlobal(QCursor::pos());
@@ -2522,28 +3016,16 @@ void ThreadNamesWidget::onIdleTimeout()
     auto scenePos = QPointF(mapToScene(localPos).x(), m_view->mapToScene(localPos).y());
 
     if (scenePos.x() < visibleSceneRect.left() || scenePos.x() > visibleSceneRect.right())
-    {
-        if (m_idleTime > 3000)
-            setFixedWidth(m_maxLength);
         return;
-    }
 
     if (scenePos.y() < visibleSceneRect.top() || scenePos.y() > visibleSceneRect.bottom())
-    {
-        if (m_idleTime > 3000)
-            setFixedWidth(m_maxLength);
         return;
-    }
 
     const qreal y = scenePos.y() - visibleSceneRect.top();
 
     const auto& items = m_view->getItems();
     if (items.empty())
-    {
-        if (m_idleTime > 3000)
-            setFixedWidth(m_maxLength);
         return;
-    }
 
     const auto overlap = EASY_GLOBALS.size.threads_row_spacing >> 1;
 
@@ -2565,7 +3047,7 @@ void ThreadNamesWidget::onIdleTimeout()
 
     if (intersectingItem != nullptr)
     {
-        auto widget = new QWidget(this, Qt::ToolTip | Qt::WindowStaysOnTopHint | Qt::WindowTransparentForInput);
+        auto widget = new QWidget(this, Qt::ToolTip | Qt::WindowTransparentForInput);
         if (widget == nullptr)
             return;
 
@@ -2589,30 +3071,30 @@ void ThreadNamesWidget::onIdleTimeout()
             duration = easyBlock(root.children.back()).tree.node->end() - easyBlock(root.children.front()).tree.node->begin();
 
         lay->addWidget(new QLabel("Duration:", widget), row, 0, Qt::AlignRight);
-        lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, duration, 3), widget), row, 1, Qt::AlignLeft);
+        lay->addWidget(new QLabel(profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, duration, 3), widget), row, 1, Qt::AlignLeft);
         ++row;
 
         lay->addWidget(new QLabel("Profiled:", widget), row, 0, Qt::AlignRight);
         if (duration != 0)
         {
-            lay->addWidget(new QLabel(QString("%1 (%2%)").arg(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, root.profiled_time, 3))
+            lay->addWidget(new QLabel(QString("%1 (%2%)").arg(profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, root.profiled_time, 3))
                 .arg(QString::number(100. * (double)root.profiled_time / (double)duration, 'f', 2)), widget), row, 1, Qt::AlignLeft);
         }
         else
         {
-            lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, root.profiled_time, 3), widget), row, 1, Qt::AlignLeft);
+            lay->addWidget(new QLabel(profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, root.profiled_time, 3), widget), row, 1, Qt::AlignLeft);
         }
         ++row;
 
         lay->addWidget(new QLabel("Wait:", widget), row, 0, Qt::AlignRight);
         if (duration != 0)
         {
-            lay->addWidget(new QLabel(QString("%1 (%2%)").arg(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, root.wait_time, 3))
+            lay->addWidget(new QLabel(QString("%1 (%2%)").arg(profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, root.wait_time, 3))
                 .arg(QString::number(100. * (double)root.wait_time / (double)duration, 'f', 2)), widget), row, 1, Qt::AlignLeft);
         }
         else
         {
-            lay->addWidget(new QLabel(::profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, root.wait_time, 3), widget), row, 1, Qt::AlignLeft);
+            lay->addWidget(new QLabel(profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, root.wait_time, 3), widget), row, 1, Qt::AlignLeft);
         }
         ++row;
 
@@ -2630,32 +3112,16 @@ void ThreadNamesWidget::onIdleTimeout()
         lay->addWidget(new QLabel(QString::number(eventsSize), widget), row, 1, Qt::AlignLeft);
         ++row;
 
-        m_popupWidget = new QGraphicsProxyWidget();
+        m_popupWidget = widget;
         if (m_popupWidget != nullptr)
         {
-            auto effect = new QGraphicsDropShadowEffect();
-            effect->setBlurRadius(5);
-            effect->setOffset(3, 3);
-            m_popupWidget->setGraphicsEffect(effect);
+            auto focusWidget = qApp->focusWidget();
 
-            m_popupWidget->setWidget(widget);
-            scene()->addItem(m_popupWidget);
+            m_popupWidget->move(QCursor::pos());
+            m_popupWidget->show();
 
-            auto br = m_popupWidget->boundingRect();
-
-            if (maximumWidth() < br.width())
-            {
-                setFixedWidth(static_cast<int>(br.width()));
-                visibleSceneRect.setWidth(br.width());
-            }
-
-            if (scenePos.y() + br.height() > visibleSceneRect.bottom())
-                scenePos.setY(std::max(scenePos.y() - br.height(), visibleSceneRect.top()));
-
-            if (scenePos.x() + br.width() > visibleSceneRect.right())
-                scenePos.setX(std::max(scenePos.x() - br.width(), visibleSceneRect.left()));
-
-            m_popupWidget->setPos(scenePos.x(), scenePos.y() - visibleSceneRect.top());
+            if (focusWidget != nullptr && focusWidget->property("stayVisible").toBool())
+                focusWidget->raise();
         }
     }
 }
@@ -2663,6 +3129,22 @@ void ThreadNamesWidget::onIdleTimeout()
 void ThreadNamesWidget::repaintScene()
 {
     scene()->update();
+}
+
+void ThreadNamesWidget::enterEvent(QEvent* _event)
+{
+    Parent::enterEvent(_event);
+    m_bHovered = true;
+    if (!m_idleTimer.isActive())
+        m_idleTimer.start();
+    m_idleTime = 0;
+}
+
+void ThreadNamesWidget::leaveEvent(QEvent* _event)
+{
+    Parent::leaveEvent(_event);
+    m_bHovered = false;
+    m_idleTime = 0;
 }
 
 void ThreadNamesWidget::mousePressEvent(QMouseEvent* _event)

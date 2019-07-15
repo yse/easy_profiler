@@ -113,12 +113,16 @@ int main(int argc, char* argv[])
     profiler::SerializedData serialized_blocks, serialized_descriptors;
     profiler::descriptors_list_t descriptors;
     profiler::blocks_t blocks;
+    profiler::bookmarks_t bookmarks;
+    profiler::BeginEndTime beginEndTime;
     std::stringstream errorMessage;
     uint32_t descriptorsNumberInFile = 0;
     uint32_t version = 0;
     profiler::processid_t pid = 0;
-    auto blocks_counter = fillTreesFromFile(filename.c_str(), serialized_blocks, serialized_descriptors, descriptors, blocks,
-                                            threaded_trees, descriptorsNumberInFile, version, pid, true, errorMessage);
+
+    auto blocks_counter = fillTreesFromFile(filename.c_str(), beginEndTime, serialized_blocks, serialized_descriptors,
+                                            descriptors, blocks, threaded_trees, bookmarks, descriptorsNumberInFile,
+                                            version, pid, true, errorMessage);
     if (blocks_counter == 0)
         std::cout << "Can not read blocks from file " << filename.c_str() << "\nReason: " << errorMessage.str();
 

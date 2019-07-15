@@ -68,7 +68,6 @@
 #include <QAction>
 #include <QCloseEvent>
 #include <QDateTime>
-#include <QDialog>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDragLeaveEvent>
@@ -106,6 +105,7 @@
 #include "descriptors_tree_widget.h"
 #include "fps_widget.h"
 #include "globals.h"
+#include "dialog.h"
 
 #include <easy/easy_net.h>
 #include <easy/profiler.h>
@@ -253,15 +253,21 @@ void MainWindow::configureSizes()
     EASY_GLOBALS.font.default_font = w.font();
     const QFontMetricsF fm(w.font());
 
+#ifdef WIN32
+    EASY_CONSTEXPR qreal DefaultHeight = 16;
+#else
+    EASY_CONSTEXPR qreal DefaultHeight = 17;
+#endif
+
     auto& size = EASY_GLOBALS.size;
-    size.pixelRatio = qApp->devicePixelRatio();
     size.font_height = static_cast<int>(fm.height() + 0.5);
+    size.pixelRatio = std::max(fm.height() / DefaultHeight, 1.0);
     size.font_line_spacing = static_cast<int>(fm.lineSpacing() + 0.5);
     size.graphics_row_height = size.font_height + px(4);
     size.graphics_row_spacing = 0;
     size.graphics_row_full = size.graphics_row_height;
     size.threads_row_spacing = size.graphics_row_full >> 1;
-    size.timeline_height = size.font_height + px(9);
+    size.timeline_height = size.font_height + px(10);
     size.icon_size = size.font_height + px(11);
 
     const auto fontFamily = w.font().family();
@@ -282,6 +288,7 @@ void MainWindow::configureSizes()
     updateFont(fonts.selected_item);
     fonts.ruler.setFamily(fontFamily);
 
+    /*
     printf("Viewport info:\n");
     printf("- device pixel ratio = %f\n", size.pixelRatio);
     printf("- font height = %dpx\n", size.font_height);
@@ -289,6 +296,7 @@ void MainWindow::configureSizes()
     printf("- diagram row = %dpx\n", size.graphics_row_height);
     printf("- diagram spacing = %dpx\n", size.threads_row_spacing);
     printf("- icon size = %dx%d px\n", size.icon_size, size.icon_size);
+    */
 
     w.hide();
 }
@@ -315,6 +323,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
 
     auto graphicsView = new DiagramWidget(this);
     graphicsView->setObjectName("ProfilerGUI_Diagram_GraphicsView");
+    connect(this, &MainWindow::activationChanged, graphicsView->view(), &BlocksGraphicsView::onWindowActivationChanged);
+    connect(this, &MainWindow::activationChanged, graphicsView->threadsView(), &ThreadNamesWidget::onWindowActivationChanged);
     m_graphicsView->setWidget(graphicsView);
 
     m_treeWidget = new DockWidget("Hierarchy", this);
@@ -628,8 +638,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     auto spinbox = new QSpinBox(w);
     spinbox->setRange(0, 400);
     spinbox->setValue(EASY_GLOBALS.blocks_spacing);
-    spinbox->setFixedWidth(70);
-    connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onSpacingChange(int)));
+    spinbox->setFixedWidth(px(70));
+    connect(spinbox, Overload<int>::of(&QSpinBox::valueChanged), this, &This::onSpacingChange);
     l->addWidget(spinbox);
     w->setLayout(l);
     auto waction = new QWidgetAction(submenu);
@@ -643,8 +653,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     spinbox = new QSpinBox(w);
     spinbox->setRange(1, 400);
     spinbox->setValue(EASY_GLOBALS.blocks_size_min);
-    spinbox->setFixedWidth(70);
-    connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onMinSizeChange(int)));
+    spinbox->setFixedWidth(px(70));
+    connect(spinbox, Overload<int>::of(&QSpinBox::valueChanged), this, &This::onMinSizeChange);
     l->addWidget(spinbox);
     w->setLayout(l);
     waction = new QWidgetAction(submenu);
@@ -658,8 +668,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     spinbox = new QSpinBox(w);
     spinbox->setRange(1, 400);
     spinbox->setValue(EASY_GLOBALS.blocks_narrow_size);
-    spinbox->setFixedWidth(70);
-    connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onNarrowSizeChange(int)));
+    spinbox->setFixedWidth(px(70));
+    connect(spinbox, Overload<int>::of(&QSpinBox::valueChanged), this, &This::onNarrowSizeChange);
     l->addWidget(spinbox);
     w->setLayout(l);
     waction = new QWidgetAction(submenu);
@@ -677,8 +687,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     spinbox = new QSpinBox(w);
     spinbox->setRange(1, 600000);
     spinbox->setValue(EASY_GLOBALS.fps_timer_interval);
-    spinbox->setFixedWidth(70);
-    connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onFpsIntervalChange(int)));
+    spinbox->setFixedWidth(px(70));
+    connect(spinbox, Overload<int>::of(&QSpinBox::valueChanged), this, &This::onFpsIntervalChange);
     l->addWidget(spinbox);
     w->setLayout(l);
     waction = new QWidgetAction(submenu);
@@ -692,8 +702,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     spinbox = new QSpinBox(w);
     spinbox->setRange(2, 200);
     spinbox->setValue(EASY_GLOBALS.max_fps_history);
-    spinbox->setFixedWidth(70);
-    connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onFpsHistoryChange(int)));
+    spinbox->setFixedWidth(px(70));
+    connect(spinbox, Overload<int>::of(&QSpinBox::valueChanged), this, &This::onFpsHistoryChange);
     l->addWidget(spinbox);
     w->setLayout(l);
     waction = new QWidgetAction(submenu);
@@ -707,8 +717,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     spinbox = new QSpinBox(w);
     spinbox->setRange(1, 6);
     spinbox->setValue(EASY_GLOBALS.fps_widget_line_width);
-    spinbox->setFixedWidth(70);
-    connect(spinbox, SIGNAL(valueChanged(int)), this, SLOT(onFpsMonitorLineWidthChange(int)));
+    spinbox->setFixedWidth(px(70));
+    connect(spinbox, Overload<int>::of(&QSpinBox::valueChanged), this, &This::onFpsMonitorLineWidthChange);
     l->addWidget(spinbox);
     w->setLayout(l);
     waction = new QWidgetAction(submenu);
@@ -798,8 +808,40 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
 
 
 
-    menu->addSeparator();
-    submenu = menu->addMenu("Theme");
+    submenu = menu->addMenu("Appearance");
+
+    actionGroup = new QActionGroup(this);
+    actionGroup->setExclusive(true);
+
+    action = submenu->addAction("Custom window headers");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.use_custom_window_header);
+    connect(action, &QAction::triggered, [=] (bool checked)
+    {
+        actionGroup->setEnabled(checked);
+        onCustomWindowHeaderTriggered(checked);
+    });
+
+    action = new QAction("Position: right", actionGroup);
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.is_right_window_header_controls);
+    connect(action, &QAction::triggered, this, &This::onRightWindowHeaderPosition);
+    submenu->addAction(action);
+
+    action = new QAction("Position: left", actionGroup);
+    action->setCheckable(true);
+    action->setChecked(!EASY_GLOBALS.is_right_window_header_controls);
+    connect(action, &QAction::triggered, this, &This::onLeftWindowHeaderPosition);
+    submenu->addAction(action);
+
+    actionGroup->setEnabled(EASY_GLOBALS.use_custom_window_header);
+
+    submenu->addSeparator();
+
+    action = submenu->addAction("See viewport info");
+    connect(action, &QAction::triggered, this, &This::onViewportInfoClicked);
+
+    auto submenu2 = submenu->addMenu("Theme");
     actionGroup = new QActionGroup(this);
     actionGroup->setExclusive(true);
 
@@ -809,14 +851,9 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
         action->setCheckable(true);
         action->setChecked(action->text() == EASY_GLOBALS.theme);
         connect(action, &QAction::triggered, this, &MainWindow::onThemeChange);
-        submenu->addAction(action);
+        submenu2->addAction(action);
     }
 
-
-
-    menu->addSeparator();
-    action = menu->addAction("See viewport info");
-    connect(action, &QAction::triggered, this, &This::onViewportInfoClicked);
 
 
     auto tb_height = toolbar->height() + 4;
@@ -831,7 +868,7 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     toolbar->addWidget(lbl);
 
     m_frameTimeEdit = new QLineEdit();
-    m_frameTimeEdit->setFixedWidth(70);
+    m_frameTimeEdit->setFixedWidth(px(70));
     auto val = new QDoubleValidator(m_frameTimeEdit);
     val->setLocale(QLocale::c());
     val->setBottom(0);
@@ -906,7 +943,10 @@ void MainWindow::dropEvent(QDropEvent* drop_event)
         if (m_bNetworkFileRegime)
         {
             // Warn user about unsaved network information and suggest to save
-            auto result = QMessageBox::question(this, "Unsaved session", "You have unsaved data!\nSave before opening new file?", QMessageBox::Yes, QMessageBox::No, QMessageBox::Cancel);
+            auto result = Dialog::question(this, "Unsaved session"
+                , "You have unsaved data!\nSave before opening new file?"
+                , QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+
             if (result == QMessageBox::Yes)
             {
                 onSaveFileClicked(true);
@@ -935,7 +975,8 @@ void MainWindow::onThemeChange(bool)
     {
         m_theme = std::move(newTheme);
 
-        QMessageBox::information(this, "UI theme changed", "You may need to restart the application\nto apply the theme correctly.");
+        Dialog::information(this, "UI theme changed"
+            , "You may need to restart the application\nto apply the theme correctly.");
 
         loadTheme(m_theme);
         validateLineEdits();
@@ -963,7 +1004,10 @@ void MainWindow::onOpenFileClicked(bool)
         if (m_bNetworkFileRegime)
         {
             // Warn user about unsaved network information and suggest to save
-            auto result = QMessageBox::question(this, "Unsaved session", "You have unsaved data!\nSave before opening new file?", QMessageBox::Yes, QMessageBox::No, QMessageBox::Cancel);
+            auto result = Dialog::question(this, "Unsaved session"
+                , "You have unsaved data!\nSave before opening new file?"
+                , QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+
             if (result == QMessageBox::Yes)
             {
                 onSaveFileClicked(true);
@@ -981,8 +1025,35 @@ void MainWindow::onOpenFileClicked(bool)
 
 //////////////////////////////////////////////////////////////////////////
 
-void MainWindow::addFileToList(const QString& filename)
+void MainWindow::addFileToList(const QString& filename, bool changeWindowTitle)
 {
+    auto index = m_lastFiles.indexOf(filename, 0);
+    if (index >= 0)
+    {
+        if (index != 0)
+        {
+            // This file has been already loaded. Move it to the front.
+            m_lastFiles.move(index, 0);
+            auto fileActions = m_loadActionMenu->actions();
+            auto action = fileActions.at(index);
+            m_loadActionMenu->removeAction(action);
+            m_loadActionMenu->insertAction(fileActions.front(), action);
+            validateLastDir();
+        }
+
+        m_bOpenedCacheFile = filename.contains(NETWORK_CACHE_FILE);
+
+        if (changeWindowTitle)
+        {
+            if (m_bOpenedCacheFile)
+                setWindowTitle(QString(EASY_DEFAULT_WINDOW_TITLE " - [%1] - UNSAVED network cache file").arg(filename));
+            else
+                setWindowTitle(QString(EASY_DEFAULT_WINDOW_TITLE " - [%1]").arg(filename));
+        }
+
+        return;
+    }
+
     m_lastFiles.push_front(filename);
     validateLastDir();
 
@@ -1004,10 +1075,13 @@ void MainWindow::addFileToList(const QString& filename)
 
     m_bOpenedCacheFile = filename.contains(NETWORK_CACHE_FILE);
 
-    if (m_bOpenedCacheFile)
-        setWindowTitle(QString(EASY_DEFAULT_WINDOW_TITLE " - [%1] - UNSAVED network cache file").arg(m_lastFiles.front()));
-    else
-        setWindowTitle(QString(EASY_DEFAULT_WINDOW_TITLE " - [%1]").arg(m_lastFiles.front()));
+    if (changeWindowTitle)
+    {
+        if (m_bOpenedCacheFile)
+            setWindowTitle(QString(EASY_DEFAULT_WINDOW_TITLE " - [%1] - UNSAVED network cache file").arg(m_lastFiles.front()));
+        else
+            setWindowTitle(QString(EASY_DEFAULT_WINDOW_TITLE " - [%1]").arg(m_lastFiles.front()));
+    }
 }
 
 void MainWindow::loadFile(const QString& filename)
@@ -1063,7 +1137,8 @@ void MainWindow::onSaveFileClicked(bool)
         {
             // Can not open the file!
 
-            QMessageBox::warning(this, "Warning", "Cannot open source file.\nSaving incomplete.", QMessageBox::Close);
+            Dialog::warning(this, "Warning"
+                , "Cannot open source file.\nSaving incomplete.", QMessageBox::Close);
 
             m_lastFiles.pop_front();
             auto action = m_loadActionMenu->actions().front();
@@ -1084,84 +1159,97 @@ void MainWindow::onSaveFileClicked(bool)
     }
 
     auto filename = QFileDialog::getSaveFileName(this, "Save EasyProfiler File", dir, "EasyProfiler File (*.prof);;All Files (*.*)");
-    if (!filename.isEmpty())
+    if (filename.isEmpty())
+        return;
+
+    if (EASY_GLOBALS.has_local_changes)
     {
-        // Check if the same file has been selected
+        createProgressDialog(tr("Saving file..."));
+        m_readerTimer.start();
+        m_reader.save(filename, m_beginEndTime.beginTime, m_beginEndTime.endTime, m_serializedDescriptors,
+                      EASY_GLOBALS.descriptors, m_descriptorsNumberInFile, EASY_GLOBALS.profiler_blocks,
+                      EASY_GLOBALS.bookmarks, easyBlocksTree, EASY_GLOBALS.pid, false);
+        return;
+    }
+
+    // Check if the same file has been selected
+    {
+        QFileInfo fileInfo1(m_bNetworkFileRegime ? QString(NETWORK_CACHE_FILE) : lastFile), fileInfo2(filename);
+        if (fileInfo1.exists() && fileInfo2.exists() && fileInfo1 == fileInfo2)
         {
-            QFileInfo fileInfo1(m_bNetworkFileRegime ? QString(NETWORK_CACHE_FILE) : lastFile), fileInfo2(filename);
-            if (fileInfo1.exists() && fileInfo2.exists() && fileInfo1 == fileInfo2)
-            {
-                // Selected the same file - do nothing
-                return;
-            }
+            // Selected the same file - do nothing
+            return;
+        }
+    }
+
+    bool inOk = false, outOk = false;
+    int8_t retry1 = -1;
+    while (++retry1 < 4)
+    {
+        std::ifstream inFile(m_bNetworkFileRegime ? NETWORK_CACHE_FILE : lastFile.toStdString().c_str(), std::fstream::binary);
+        if (!inFile.is_open())
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            continue;
         }
 
-        bool inOk = false, outOk = false;
-        int8_t retry1 = -1;
-        while (++retry1 < 4)
+        inOk = true;
+
+        int8_t retry2 = -1;
+        while (++retry2 < 4)
         {
-            std::ifstream inFile(m_bNetworkFileRegime ? NETWORK_CACHE_FILE : lastFile.toStdString().c_str(), std::fstream::binary);
-            if (!inFile.is_open())
+            std::ofstream outFile(filename.toStdString(), std::fstream::binary);
+            if (!outFile.is_open())
             {
                 std::this_thread::sleep_for(std::chrono::milliseconds(500));
                 continue;
             }
 
-            inOk = true;
-
-            int8_t retry2 = -1;
-            while (++retry2 < 4)
-            {
-                std::ofstream outFile(filename.toStdString(), std::fstream::binary);
-                if (!outFile.is_open())
-                {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-                    continue;
-                }
-
-                outFile << inFile.rdbuf();
-                outOk = true;
-                break;
-            }
-
+            outFile << inFile.rdbuf();
+            outOk = true;
             break;
         }
 
-        if (outOk)
+        break;
+    }
+
+    if (outOk)
+    {
+        if (m_bNetworkFileRegime)
         {
-            if (m_bNetworkFileRegime)
-            {
-                // Remove temporary network cahche file
-                QFile::remove(QString(NETWORK_CACHE_FILE));
-            }
-            else if (m_bOpenedCacheFile)
-            {
-                // Remove old temporary network cahche file
-
-                QFile::remove(lastFile.toStdString().c_str());
-
-                m_lastFiles.pop_front();
-                auto action = m_loadActionMenu->actions().front();
-                m_loadActionMenu->removeAction(action);
-                delete action;
-                validateLastDir();
-            }
-
-            addFileToList(filename);
-
-            m_bNetworkFileRegime = false;
+            // Remove temporary network cahche file
+            QFile::remove(QString(NETWORK_CACHE_FILE));
         }
-        else if (inOk)
+        else if (m_bOpenedCacheFile)
         {
-            QMessageBox::warning(this, "Warning", "Cannot open destination file.\nSaving incomplete.", QMessageBox::Close);
+            // Remove old temporary network cahche file
+
+            QFile::remove(lastFile.toStdString().c_str());
+
+            m_lastFiles.pop_front();
+            auto action = m_loadActionMenu->actions().front();
+            m_loadActionMenu->removeAction(action);
+            delete action;
+            validateLastDir();
         }
+
+        addFileToList(filename);
+
+        m_bNetworkFileRegime = false;
+    }
+    else if (inOk)
+    {
+        Dialog::warning(this, "Warning"
+            , "Cannot open destination file.\nSaving incomplete.", QMessageBox::Close);
+    }
+    else
+    {
+        if (m_bNetworkFileRegime)
+            Dialog::warning(this, "Warning"
+                , "Cannot open network cache file.\nSaving incomplete.", QMessageBox::Close);
         else
-        {
-            if (m_bNetworkFileRegime)
-                QMessageBox::warning(this, "Warning", "Cannot open network cache file.\nSaving incomplete.", QMessageBox::Close);
-            else
-                QMessageBox::warning(this, "Warning", "Cannot open source file.\nSaving incomplete.", QMessageBox::Close);
-        }
+            Dialog::warning(this, "Warning"
+                , "Cannot open source file.\nSaving incomplete.", QMessageBox::Close);
     }
 }
 
@@ -1206,7 +1294,9 @@ void MainWindow::onDeleteClicked(bool)
 {
     int button = QMessageBox::Yes;
     if (m_bNetworkFileRegime)
-        button = QMessageBox::question(this, "Clear all profiled data", "All profiled data and network cache file\nare going to be deleted!\nContinue?", QMessageBox::Yes, QMessageBox::No);
+        button = Dialog::question(this, "Clear all profiled data"
+            , "All profiled data and network cache file\nare going to be deleted!\nContinue?"
+            , QMessageBox::Yes | QMessageBox::No);
 
     if (button == QMessageBox::Yes)
         clear();
@@ -1325,7 +1415,7 @@ void MainWindow::onViewportInfoClicked(bool)
         .arg(size.pixelRatio).arg(size.font_height).arg(size.font_line_spacing)
         .arg(size.graphics_row_height).arg(size.threads_row_spacing).arg(size.icon_size);
 
-    QMessageBox::information(this, "Viewport info", contents);
+    Dialog::information(this, "Viewport info", contents);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1378,21 +1468,19 @@ void MainWindow::onEditBlocksClicked(bool)
     if (m_descTreeDialog.ptr != nullptr)
     {
         m_descTreeDialog.ptr->raise();
+        m_descTreeDialog.ptr->setFocus();
         return;
     }
 
-    m_descTreeDialog.create();
+    m_dialogDescTree = new BlockDescriptorsWidget();
+    m_descTreeDialog.create(m_dialogDescTree);
     connect(m_descTreeDialog.ptr, &QDialog::finished, this, &This::onDescTreeDialogClose);
-
-    m_dialogDescTree = new BlockDescriptorsWidget(m_descTreeDialog.ptr);
-
-    auto lay = new QVBoxLayout(m_descTreeDialog.ptr);
-    lay->addWidget(m_dialogDescTree);
 
     m_dialogDescTree->build();
 
     m_descTreeDialog.restoreGeometry();
     m_descTreeDialog.ptr->show();
+    m_descTreeDialog.ptr->setFocus();
 }
 
 void MainWindow::onDescTreeDialogClose(int)
@@ -1423,12 +1511,27 @@ void MainWindow::showEvent(QShowEvent* show_event)
 
 void MainWindow::closeEvent(QCloseEvent* close_event)
 {
-    if (m_bNetworkFileRegime)
+    if (!m_bCloseAfterSave && (m_bNetworkFileRegime || EASY_GLOBALS.has_local_changes))
     {
         // Warn user about unsaved network information and suggest to save
-        if (QMessageBox::Yes == QMessageBox::question(this, "Unsaved session", "You have unsaved data!\nSave before exit?", QMessageBox::Yes, QMessageBox::No))
+        const auto result = Dialog::question(this, "Unsaved session"
+            , "You have unsaved data!\nSave before exit?", QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+        
+        if (result == QMessageBox::Yes)
         {
             onSaveFileClicked(true);
+            if (m_reader.isSaving() && m_progress != nullptr)
+            {
+                // Wait until finish and close
+                m_bCloseAfterSave = true;
+                close_event->ignore();
+                return;
+            }
+        }
+        else if (result == QMessageBox::Cancel)
+        {
+            close_event->ignore();
+            return;
         }
     }
 
@@ -1444,6 +1547,14 @@ void MainWindow::closeEvent(QCloseEvent* close_event)
     saveSettingsAndGeometry();
 
     Parent::closeEvent(close_event);
+}
+
+void MainWindow::changeEvent(QEvent* event)
+{
+    if (event->type() == QEvent::ActivationChange)
+    {
+        emit activationChanged();
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1595,6 +1706,14 @@ void MainWindow::loadSettings()
         m_theme = EASY_GLOBALS.theme;
     }
 
+    flag = settings.value("use_custom_window_header");
+    if (!flag.isNull())
+        EASY_GLOBALS.use_custom_window_header = flag.toBool();
+
+    flag = settings.value("is_right_window_header_controls");
+    if (!flag.isNull())
+        EASY_GLOBALS.is_right_window_header_controls = flag.toBool();
+
     settings.endGroup();
 }
 
@@ -1671,6 +1790,8 @@ void MainWindow::saveSettingsAndGeometry()
     settings.setValue("fps_timer_interval", EASY_GLOBALS.fps_timer_interval);
     settings.setValue("max_fps_history", EASY_GLOBALS.max_fps_history);
     settings.setValue("fps_widget_line_width", EASY_GLOBALS.fps_widget_line_width);
+    settings.setValue("use_custom_window_header", EASY_GLOBALS.use_custom_window_header);
+    settings.setValue("is_right_window_header_controls", EASY_GLOBALS.is_right_window_header_controls);
     settings.setValue("encoding", QTextCodec::codecForLocale()->name());
     settings.setValue("theme", m_theme);
 
@@ -1694,7 +1815,7 @@ void MainWindow::createProgressDialog(const QString& text)
     m_progress = new QProgressDialog(text, QStringLiteral("Cancel"), 0, 100, this);
     connect(m_progress, &QProgressDialog::canceled, this, &This::onFileReaderCancel);
 
-    m_progress->setFixedWidth(300);
+    m_progress->setFixedWidth(px(300));
     m_progress->setWindowTitle(EASY_DEFAULT_WINDOW_TITLE);
     m_progress->setModal(true);
     m_progress->setValue(0);
@@ -1707,7 +1828,7 @@ void MainWindow::setDisconnected(bool _showMessage)
         m_fpsRequestTimer.stop();
 
     if (_showMessage)
-        QMessageBox::warning(this, "Warning", "Connection was lost", QMessageBox::Close);
+        Dialog::warning(this, "Warning", "Connection was lost", QMessageBox::Close);
 
     EASY_GLOBALS.connected = false;
     m_captureAction->setEnabled(false);
@@ -1807,8 +1928,8 @@ void MainWindow::onListenerDialogClose(int _result)
     {
         case ListenerRegime::Capture:
         {
-            m_listenerDialog = new QMessageBox(QMessageBox::Information, "Receiving data...",
-                                               "This process may take some time.", QMessageBox::Cancel, this);
+            m_listenerDialog = new Dialog(this, QMessageBox::Information, "Receiving data...",
+                                          "This process may take some time.", QMessageBox::Cancel);
             m_listenerDialog->setAttribute(Qt::WA_DeleteOnClose, true);
             m_listenerDialog->show();
 
@@ -1834,8 +1955,8 @@ void MainWindow::onListenerDialogClose(int _result)
             {
                 if (_result == QDialog::Accepted)
                 {
-                    m_listenerDialog = new QMessageBox(QMessageBox::Information, "Receiving data...",
-                                                       "This process may take some time.", QMessageBox::Cancel, this);
+                    m_listenerDialog = new Dialog(this, QMessageBox::Information, "Receiving data...",
+                                                  "This process may take some time.", QMessageBox::Cancel);
                     connect(m_listenerDialog, &QDialog::finished, this, &This::onListenerDialogClose);
                     m_listenerDialog->setAttribute(Qt::WA_DeleteOnClose, true);
                     m_listenerDialog->show();
@@ -1922,58 +2043,41 @@ void MainWindow::onLoadingFinish(profiler::block_index_t& _nblocks)
     if (_nblocks != 0)
     {
         emit EASY_GLOBALS.events.allDataGoingToBeDeleted();
+        EASY_GLOBALS.has_local_changes = false;
 
         profiler::SerializedData serialized_blocks;
         profiler::SerializedData serialized_descriptors;
         profiler::descriptors_list_t descriptors;
         profiler::blocks_t blocks;
         profiler::thread_blocks_tree_t threads_map;
+        profiler::bookmarks_t bookmarks;
+        profiler::BeginEndTime beginEndTime;
         QString filename;
         uint32_t descriptorsNumberInFile = 0;
         uint32_t version = 0;
         profiler::processid_t pid = 0;
 
         m_reader.get(serialized_blocks, serialized_descriptors, descriptors, blocks, threads_map,
-                     descriptorsNumberInFile, version, pid, filename);
+                     bookmarks, beginEndTime, descriptorsNumberInFile, version, pid, filename);
 
         if (threads_map.size() > 0xff)
         {
+            QString message;
+
             if (m_reader.isFile())
-                qWarning() << "Warning: file " << filename << " contains " << threads_map.size() << " threads!";
+                message = QString("File %1 contains %2 threads!").arg(filename).arg(threads_map.size());
             else
-                qWarning() << "Warning: input stream contains " << threads_map.size() << " threads!";
-            qWarning() << "Warning:    Currently, maximum number of displayed threads is 255! Some threads will not be displayed.";
+                message = QString("Input stream contains %1 threads!").arg(threads_map.size());
+
+            Dialog::warning(this, "Warning",
+                            QString("%1\nCurrently, maximum number of displayed threads is 255!"
+                                    "\nSome threads will not be displayed.").arg(message), QMessageBox::Close);
         }
 
         m_bNetworkFileRegime = !m_reader.isFile();
         if (!m_bNetworkFileRegime)
         {
-            auto index = m_lastFiles.indexOf(filename, 0);
-            if (index == -1)
-            {
-                // This file is totally new. Add it to the list.
-                addFileToList(filename);
-            }
-            else
-            {
-                if (index != 0)
-                {
-                    // This file has been already loaded. Move it to the front.
-                    m_lastFiles.move(index, 0);
-                    auto fileActions = m_loadActionMenu->actions();
-                    auto action = fileActions.at(index);
-                    m_loadActionMenu->removeAction(action);
-                    m_loadActionMenu->insertAction(fileActions.front(), action);
-                    validateLastDir();
-                }
-
-                m_bOpenedCacheFile = filename.contains(NETWORK_CACHE_FILE);
-
-                if (m_bOpenedCacheFile)
-                    setWindowTitle(QString(EASY_DEFAULT_WINDOW_TITLE " - [%1] - UNSAVED network cache file").arg(filename));
-                else
-                    setWindowTitle(QString(EASY_DEFAULT_WINDOW_TITLE " - [%1]").arg(filename));
-            }
+            addFileToList(filename);
         }
         else
         {
@@ -1984,6 +2088,7 @@ void MainWindow::onLoadingFinish(profiler::block_index_t& _nblocks)
         m_serializedBlocks = std::move(serialized_blocks);
         m_serializedDescriptors = std::move(serialized_descriptors);
         m_descriptorsNumberInFile = descriptorsNumberInFile;
+        m_beginEndTime = beginEndTime;
         EASY_GLOBALS.selected_thread = 0;
         EASY_GLOBALS.version = version;
         EASY_GLOBALS.pid = pid;
@@ -1991,6 +2096,7 @@ void MainWindow::onLoadingFinish(profiler::block_index_t& _nblocks)
         profiler_gui::set_max(EASY_GLOBALS.selected_block_id);
         EASY_GLOBALS.profiler_blocks.swap(threads_map);
         EASY_GLOBALS.descriptors.swap(descriptors);
+        EASY_GLOBALS.bookmarks.swap(bookmarks);
 
         EASY_GLOBALS.gui_blocks.clear();
         EASY_GLOBALS.gui_blocks.resize(_nblocks);
@@ -2010,7 +2116,7 @@ void MainWindow::onLoadingFinish(profiler::block_index_t& _nblocks)
     }
     else
     {
-        QMessageBox::warning(this, "Warning", QString("Cannot read profiled blocks.\n\nReason:\n%1")
+        Dialog::warning(this, "Warning", QString("Cannot read profiled blocks.\n\nReason:\n%1")
             .arg(m_reader.getError()), QMessageBox::Close);
 
         if (m_reader.isFile())
@@ -2034,8 +2140,14 @@ void MainWindow::onSavingFinish()
     const auto errorMessage = m_reader.getError();
     if (!errorMessage.isEmpty())
     {
-        QMessageBox::warning(this, "Warning", QString("Cannot save profiled blocks.\n\nReason:\n%1")
+        Dialog::warning(this, "Warning", QString("Cannot save profiled blocks.\n\nReason:\n%1")
             .arg(errorMessage), QMessageBox::Close);
+    }
+    else
+    {
+        if (!m_reader.isSnapshot())
+            EASY_GLOBALS.has_local_changes = false;
+        addFileToList(m_reader.filename(), !m_reader.isSnapshot());
     }
 }
 
@@ -2061,6 +2173,11 @@ void MainWindow::onFileReaderTimeout()
         {
             onSavingFinish();
             closeProgressDialogAndClearReader();
+            if (m_bCloseAfterSave)
+            {
+                setEnabled(false);
+                QTimer::singleShot(1500, this, &This::close);
+            }
         }
         else
         {
@@ -2107,6 +2224,11 @@ const bool FileReader::isLoading() const
     return m_jobType == JobType::Loading;
 }
 
+const bool FileReader::isSnapshot() const
+{
+    return m_isSnapshot;
+}
+
 bool FileReader::done() const
 {
     return m_bDone.load(std::memory_order_acquire);
@@ -2133,14 +2255,15 @@ void FileReader::load(const QString& _filename)
 
     m_jobType = JobType::Loading;
     m_isFile = true;
+    m_isSnapshot = false;
     m_filename = _filename;
 
     m_thread = std::thread([this](bool _enableStatistics)
     {
-        m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_serializedBlocks,
+        m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_beginEndTime, m_serializedBlocks,
                                        m_serializedDescriptors, m_descriptors, m_blocks, m_blocksTree,
-                                       m_descriptorsNumberInFile, m_version, m_pid, _enableStatistics,
-                                       m_errorMessage), std::memory_order_release);
+                                       m_bookmarks, m_descriptorsNumberInFile, m_version, m_pid,
+                                       _enableStatistics, m_errorMessage), std::memory_order_release);
 
         m_progress.store(100, std::memory_order_release);
         m_bDone.store(true, std::memory_order_release);
@@ -2154,6 +2277,7 @@ void FileReader::load(std::stringstream& _stream)
 
     m_jobType = JobType::Loading;
     m_isFile = false;
+    m_isSnapshot = false;
     m_filename.clear();
 
 #if defined(__GNUC__) && __GNUC__ < 5 && !defined(__llvm__)
@@ -2175,8 +2299,8 @@ void FileReader::load(std::stringstream& _stream)
             cache_file.close();
         }
 
-        m_size.store(fillTreesFromStream(m_progress, m_stream, m_serializedBlocks, m_serializedDescriptors,
-                                         m_descriptors, m_blocks, m_blocksTree, m_descriptorsNumberInFile,
+        m_size.store(fillTreesFromStream(m_progress, m_stream, m_beginEndTime, m_serializedBlocks, m_serializedDescriptors,
+                                         m_descriptors, m_blocks, m_blocksTree, m_bookmarks, m_descriptorsNumberInFile,
                                          m_version, m_pid, _enableStatistics, m_errorMessage), std::memory_order_release);
 
         m_progress.store(100, std::memory_order_release);
@@ -2188,26 +2312,28 @@ void FileReader::load(std::stringstream& _stream)
 void FileReader::save(const QString& _filename, profiler::timestamp_t _beginTime, profiler::timestamp_t _endTime,
                       const profiler::SerializedData& _serializedDescriptors,
                       const profiler::descriptors_list_t& _descriptors, profiler::block_id_t descriptors_count,
-                      const profiler::thread_blocks_tree_t& _trees, profiler::block_getter_fn block_getter,
-                      profiler::processid_t _pid)
+                      const profiler::thread_blocks_tree_t& _trees, const profiler::bookmarks_t& bookmarks,
+                      profiler::block_getter_fn block_getter, profiler::processid_t _pid, bool snapshotMode)
 {
     interrupt();
 
     m_jobType = JobType::Saving;
     m_isFile = true;
+    m_isSnapshot = snapshotMode;
     m_filename = _filename;
 
     auto serializedDescriptors = std::ref(_serializedDescriptors);
     auto descriptors = std::ref(_descriptors);
     auto trees = std::ref(_trees);
+    auto bookmarksRef = std::ref(bookmarks);
 
     m_thread = std::thread([=] (profiler::block_getter_fn getter)
     {
         const QString tmpFile = m_filename + ".tmp";
 
         const auto result = writeTreesToFile(m_progress, tmpFile.toStdString().c_str(), serializedDescriptors,
-                                             descriptors, descriptors_count, trees, getter, _beginTime, _endTime,
-                                             _pid, m_errorMessage);
+                                             descriptors, descriptors_count, trees, bookmarksRef, getter,
+                                             _beginTime, _endTime, _pid, m_errorMessage);
 
         if (result == 0 || !m_errorMessage.str().empty())
         {
@@ -2243,10 +2369,12 @@ void FileReader::interrupt()
     m_descriptors.clear();
     m_blocks.clear();
     m_blocksTree.clear();
+    m_bookmarks.clear();
     m_descriptorsNumberInFile = 0;
     m_version = 0;
     m_pid = 0;
     m_jobType = JobType::Idle;
+    m_isSnapshot = false;
 
     clear_stream(m_stream);
     clear_stream(m_errorMessage);
@@ -2254,7 +2382,8 @@ void FileReader::interrupt()
 
 void FileReader::get(profiler::SerializedData& _serializedBlocks, profiler::SerializedData& _serializedDescriptors,
                      profiler::descriptors_list_t& _descriptors, profiler::blocks_t& _blocks,
-                     profiler::thread_blocks_tree_t& _trees, uint32_t& _descriptorsNumberInFile, uint32_t& _version,
+                     profiler::thread_blocks_tree_t& _trees, profiler::bookmarks_t& bookmarks,
+                     profiler::BeginEndTime& beginEndTime, uint32_t& _descriptorsNumberInFile, uint32_t& _version,
                      profiler::processid_t& _pid, QString& _filename)
 {
     if (done())
@@ -2264,7 +2393,9 @@ void FileReader::get(profiler::SerializedData& _serializedBlocks, profiler::Seri
         profiler::descriptors_list_t(std::move(m_descriptors)).swap(_descriptors);
         m_blocks.swap(_blocks);
         m_blocksTree.swap(_trees);
+        m_bookmarks.swap(bookmarks);
         m_filename.swap(_filename);
+        beginEndTime = m_beginEndTime;
         _descriptorsNumberInFile = m_descriptorsNumberInFile;
         _version = m_version;
         _pid = m_pid;
@@ -2353,7 +2484,34 @@ void MainWindow::onSnapshotClicked(bool)
     m_readerTimer.start();
 
     m_reader.save(filename, beginTime, endTime, m_serializedDescriptors, EASY_GLOBALS.descriptors,
-                  m_descriptorsNumberInFile, EASY_GLOBALS.profiler_blocks, easyBlocksTree, EASY_GLOBALS.pid);
+                  m_descriptorsNumberInFile, EASY_GLOBALS.profiler_blocks, EASY_GLOBALS.bookmarks,
+                  easyBlocksTree, EASY_GLOBALS.pid, true);
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void MainWindow::onCustomWindowHeaderTriggered(bool _checked)
+{
+    EASY_GLOBALS.use_custom_window_header = _checked;
+    emit EASY_GLOBALS.events.customWindowHeaderChanged();
+}
+
+void MainWindow::onRightWindowHeaderPosition(bool _checked)
+{
+    if (!_checked)
+        return;
+
+    EASY_GLOBALS.is_right_window_header_controls = true;
+    emit EASY_GLOBALS.events.windowHeaderPositionChanged();
+}
+
+void MainWindow::onLeftWindowHeaderPosition(bool _checked)
+{
+    if (!_checked)
+        return;
+
+    EASY_GLOBALS.is_right_window_header_controls = false;
+    emit EASY_GLOBALS.events.windowHeaderPositionChanged();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -2377,12 +2535,10 @@ void MainWindow::onConnectClicked(bool)
     profiler::net::EasyProfilerStatus reply(false, false, false);
     if (!m_listener.connect(address.toStdString().c_str(), port, reply))
     {
-        QMessageBox::warning(this, "Warning", QString("Cannot connect to %1").arg(address), QMessageBox::Close);
-        if (EASY_GLOBALS.connected)
-        {
-            m_listener.closeSocket();
-            setDisconnected(false);
-        }
+        Dialog::warning(this, "Warning", QString("Cannot connect to %1").arg(address), QMessageBox::Close);
+        // we need to close socket everytime on failed connection
+        m_listener.closeSocket();
+        setDisconnected(false);
 
         if (!isSameAddress)
         {
@@ -2437,7 +2593,7 @@ void MainWindow::onCaptureClicked(bool)
 {
     if (!EASY_GLOBALS.connected)
     {
-        QMessageBox::warning(this, "Warning", "No connection with profiling app", QMessageBox::Close);
+        Dialog::warning(this, "Warning", "No connection with profiling app", QMessageBox::Close);
         return;
     }
 
@@ -2445,12 +2601,12 @@ void MainWindow::onCaptureClicked(bool)
     {
         if (m_listener.regime() == ListenerRegime::Capture || m_listener.regime() == ListenerRegime::Capture_Receive)
         {
-            QMessageBox::warning(this, "Warning",
+            Dialog::warning(this, "Warning",
                 "Already capturing frames.\nFinish old capturing session first.", QMessageBox::Close);
         }
         else
         {
-            QMessageBox::warning(this, "Warning",
+            Dialog::warning(this, "Warning",
                 "Capturing blocks description.\nFinish old capturing session first.", QMessageBox::Close);
         }
 
@@ -2479,7 +2635,8 @@ void MainWindow::onCaptureClicked(bool)
 
     m_listenerTimer.start(250);
 
-    m_listenerDialog = new QMessageBox(QMessageBox::Information, "Capturing frames...", "Close this dialog to stop capturing.", QMessageBox::NoButton, this);
+    m_listenerDialog = new Dialog(this, QMessageBox::Information, "Capturing frames..."
+        , "Close this dialog to stop capturing.", QMessageBox::NoButton);
 
     auto button = new QToolButton(m_listenerDialog);
     button->setAutoRaise(true);
@@ -2498,7 +2655,7 @@ void MainWindow::onGetBlockDescriptionsClicked(bool)
 {
     if (!EASY_GLOBALS.connected)
     {
-        QMessageBox::warning(this, "Warning", "No connection with profiling app", QMessageBox::Close);
+        Dialog::warning(this, "Warning", "No connection with profiling app", QMessageBox::Close);
         return;
     }
 
@@ -2506,20 +2663,20 @@ void MainWindow::onGetBlockDescriptionsClicked(bool)
     {
         if (m_listener.regime() == ListenerRegime::Descriptors)
         {
-            QMessageBox::warning(this, "Warning",
+            Dialog::warning(this, "Warning",
                 "Already capturing blocks description.\nFinish old capturing session first.", QMessageBox::Close);
         }
         else
         {
-            QMessageBox::warning(this, "Warning",
+            Dialog::warning(this, "Warning",
                 "Already capturing frames.\nFinish old capturing session first.", QMessageBox::Close);
         }
 
         return;
     }
 
-    m_listenerDialog = new QMessageBox(QMessageBox::Information, "Waiting for blocks...",
-                                       "This may take some time.", QMessageBox::NoButton, this);
+    m_listenerDialog = new Dialog(this, QMessageBox::Information, "Waiting for blocks...",
+                                       "This may take some time.", QMessageBox::NoButton);
     m_listenerDialog->setAttribute(Qt::WA_DeleteOnClose, true);
     m_listenerDialog->show();
 
@@ -2543,11 +2700,11 @@ void MainWindow::onGetBlockDescriptionsClicked(bool)
             const bool doFlush = m_descriptorsNumberInFile > descriptors.size();
             if (doFlush && !m_serializedBlocks.empty())
             {
-                auto button = QMessageBox::question(this, "Information",
+                auto button = Dialog::question(this, "Information",
                     QString("New blocks description number = %1\nis less than the old one = %2.\nTo avoid possible conflicts\nall profiled data will be deleted.\nContinue?")
                     .arg(descriptors.size())
                     .arg(m_descriptorsNumberInFile),
-                    QMessageBox::Yes, QMessageBox::No);
+                    QMessageBox::Yes | QMessageBox::No);
 
                 if (button == QMessageBox::Yes)
                     clear(); // Clear all contents because new descriptors list conflicts with old one
@@ -2584,9 +2741,9 @@ void MainWindow::onGetBlockDescriptionsClicked(bool)
                         descriptors.resize(newnumber);
 
                         // clear all profiled data to avoid conflicts
-                        auto button = QMessageBox::question(this, "Information",
+                        auto button = Dialog::question(this, "Information",
                             "There are errors while merging block descriptions lists.\nTo avoid possible conflicts\nall profiled data will be deleted.\nContinue?",
-                            QMessageBox::Yes, QMessageBox::No);
+                            QMessageBox::Yes | QMessageBox::No);
 
                         if (button == QMessageBox::Yes)
                             clear(); // Clear all contents because new descriptors list conflicts with old one
@@ -2619,6 +2776,7 @@ void MainWindow::onGetBlockDescriptionsClicked(bool)
 #endif
                         m_dialogDescTree->build();
                         m_descTreeDialog.ptr->raise();
+                        m_descTreeDialog.ptr->setFocus();
                     }
                     else
                     {
@@ -2629,7 +2787,9 @@ void MainWindow::onGetBlockDescriptionsClicked(bool)
         }
         else
         {
-            QMessageBox::warning(this, "Warning", QString("Cannot read blocks description from stream.\n\nReason:\n%1").arg(errorMessage.str().c_str()), QMessageBox::Close);
+            Dialog::warning(this, "Warning",
+                            QString("Cannot read blocks description from stream.\n\nReason:\n%1")
+                                .arg(errorMessage.str().c_str()), QMessageBox::Close);
         }
 
         m_listener.clearData();
@@ -2656,11 +2816,16 @@ void MainWindow::onSelectValue(profiler::thread_id_t _thread_id, uint32_t _value
     m_dialogDescTree->dataViewer()->rebuild(_thread_id, _value_index, _value.id());
 }
 
-void DialogWithGeometry::create()
+void DialogWithGeometry::create(QWidget* content, QWidget* parent)
 {
-    ptr = new QDialog();
+#ifdef WIN32
+    const WindowHeader::Buttons buttons = WindowHeader::AllButtons;
+#else
+    const WindowHeader::Buttons buttons {WindowHeader::MaximizeButton | WindowHeader::CloseButton};
+#endif
+    ptr = new Dialog(parent, EASY_DEFAULT_WINDOW_TITLE, content, buttons, QMessageBox::NoButton);
+    ptr->setProperty("stayVisible", true);
     ptr->setAttribute(Qt::WA_DeleteOnClose, true);
-    ptr->setWindowTitle(EASY_DEFAULT_WINDOW_TITLE);
 }
 
 void DialogWithGeometry::saveGeometry()
@@ -2678,13 +2843,13 @@ void DialogWithGeometry::restoreGeometry()
 
 SocketListener::SocketListener() : m_receivedSize(0), m_port(0), m_regime(ListenerRegime::Idle)
 {
-    m_bInterrupt = ATOMIC_VAR_INIT(false);
-    m_bConnected = ATOMIC_VAR_INIT(false);
-    m_bStopReceive = ATOMIC_VAR_INIT(false);
-    m_bFrameTimeReady = ATOMIC_VAR_INIT(false);
-    m_bCaptureReady = ATOMIC_VAR_INIT(false);
-    m_frameMax = ATOMIC_VAR_INIT(0);
-    m_frameAvg = ATOMIC_VAR_INIT(0);
+    m_bInterrupt = false;
+    m_bConnected = false;
+    m_bStopReceive = false;
+    m_bFrameTimeReady = false;
+    m_bCaptureReady = false;
+    m_frameMax = 0;
+    m_frameAvg = 0;
 }
 
 SocketListener::~SocketListener()
@@ -3064,7 +3229,7 @@ void SocketListener::listenCapture()
 
                     const auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - timeBegin);
                     const auto bytesNumber = m_receivedData.str().size();
-                    qInfo() << "recieved " << bytesNumber << " bytes, " << dt.count() << " ms, average speed = " << double(bytesNumber) * 1e3 / double(dt.count()) / 1024. << " kBytes/sec";
+                    qInfo() << "received " << bytesNumber << " bytes, " << dt.count() << " ms, average speed = " << double(bytesNumber) * 1e3 / double(dt.count()) / 1024. << " kBytes/sec";
 
                     seek = 0;
                     bytes = 0;

@@ -51,6 +51,11 @@ The Apache License, Version 2.0 (the "License");
 #endif
 
 //
+// USING_EASY_PROFILER is defined in details/profiler_in_use.h
+//                     if defined BUILD_WITH_EASY_PROFILER and not defined DISABLE_EASY_PROFILER
+//
+
+//
 // BUILD_WITH_EASY_PROFILER is defined in CMakeLists.txt if your project is linked to easy_profiler.
 //
 
@@ -59,19 +64,7 @@ The Apache License, Version 2.0 (the "License");
 //                       to disable profiler for certain source-file or project.
 //
 
-#if defined(BUILD_WITH_EASY_PROFILER) && !defined(DISABLE_EASY_PROFILER)
-
-/**
-\defgroup profiler EasyProfiler
-*/
-
-
-/** Indicates that EasyProfiler is used.
-
-\ingroup profiler
-*/
-#define USING_EASY_PROFILER
-
+#ifdef USING_EASY_PROFILER
 
 // EasyProfiler core API:
 
@@ -207,7 +200,7 @@ int foo()
 
 Event marker is a block with zero duration and special type.
 
-\warning Event marker ends immidiately and calling EASY_END_BLOCK after EASY_EVENT
+\warning Event marker ends immediately and calling EASY_END_BLOCK after EASY_EVENT
 will end previously opened EASY_BLOCK or EASY_FUNCTION.
 
 \ingroup profiler
@@ -238,7 +231,7 @@ will end previously opened EASY_BLOCK or EASY_FUNCTION.
 \ingroup profiler
 */
 # define EASY_THREAD(name)\
-    EASY_THREAD_LOCAL static const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = 0;\
+    EASY_THREAD_LOCAL static const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = nullptr;\
     if (!EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__))\
         EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = ::profiler::registerThread(name);
 
@@ -252,7 +245,7 @@ and creates "ThreadFinished" profiler event.
 \ingroup profiler
 */
 # define EASY_THREAD_SCOPE(name)\
-    EASY_THREAD_LOCAL static const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = 0;\
+    static EASY_THREAD_LOCAL const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = nullptr;\
     ::profiler::ThreadGuard EASY_TOKEN_CONCATENATE(unique_profiler_thread_guard, __LINE__);\
     if (!EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__))\
         EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = ::profiler::registerThreadScoped(name,\
@@ -370,7 +363,7 @@ Otherwise, no log messages will be printed.
 #  define EASY_OPTION_LOG_ENABLED 0
 # endif
 
-/** If != 0 then EasyProfiler will start listening thread immidiately on ProfileManager initialization.
+/** If != 0 then EasyProfiler will start listening thread immediately on ProfileManager initialization.
 
 \sa startListen
 
@@ -576,7 +569,7 @@ namespace profiler {
 
         \note This also disables profiler.
 
-        \retval Number of saved blocks. If 0 then nothing was profiled or an error occured.
+        \retval Number of saved blocks. If 0 then nothing was profiled or an error occurred.
 
         \ingroup profiler
         */

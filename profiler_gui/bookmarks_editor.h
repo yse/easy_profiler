@@ -1,12 +1,11 @@
 /************************************************************************
-* file name         : graphics_image_item.h
+* file name         : bookmarks_editor.h
 * ----------------- :
-* creation time     : 2018/01/20
+* creation time     : 2018/06/03
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : The file contains declaration of GraphicsImageItem - an item
-*                   : used to display, scroll and zoom QImage on graphics scene.
+* description       : The file contains declaration of BookmarkEditor.
 * ----------------- :
 * license           : Lightweight profiler library for c++
 *                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
@@ -49,97 +48,44 @@
 *                   : limitations under the License.
 ************************************************************************/
 
-#ifndef EASY_PROFILER_GRAPHICS_IMAGE_ITEM_H
-#define EASY_PROFILER_GRAPHICS_IMAGE_ITEM_H
+#ifndef EASY_PROFILER_BOOKMARKS_EDITOR_H
+#define EASY_PROFILER_BOOKMARKS_EDITOR_H
 
-#include <QGraphicsItem>
-#include <atomic>
-#include "timer.h"
-#include "thread_pool_task.h"
+#include <QDialog>
 
-class GraphicsImageItem : public QGraphicsItem
+class BookmarkEditor : public QDialog
 {
-protected:
+    Q_OBJECT;
 
-    using Parent = QGraphicsItem;
-    using This = GraphicsImageItem;
+    using This = BookmarkEditor;
+    using Parent = QDialog;
 
-    QRectF      m_boundingRect;
-    QImage             m_image;
-    Timer      m_boundaryTimer;
-    ThreadPoolTask    m_worker;
-    QPointF         m_mousePos;
-    QImage*      m_workerImage;
-    qreal        m_imageOrigin;
-    qreal         m_imageScale;
-    qreal  m_imageOriginUpdate;
-    qreal   m_imageScaleUpdate;
-    qreal  m_workerImageOrigin;
-    qreal   m_workerImageScale;
-    qreal           m_topValue;
-    qreal        m_bottomValue;
-    qreal           m_maxValue;
-    qreal           m_minValue;
-    std::atomic_bool  m_bReady;
-
-private:
-
-    Timer         m_timer;
-    bool  m_bPermitImageUpdate; ///< Is false when m_workerThread is parsing input dataset (when setSource(_block_id) is called)
+    class QTextEdit*      m_textEdit;
+    class QPushButton* m_colorButton;
+    const size_t     m_bookmarkIndex;
+    const bool       m_isNewBookmark;
 
 public:
 
-    explicit GraphicsImageItem();
-    ~GraphicsImageItem() override;
+    explicit BookmarkEditor(size_t bookmarkIndex, bool isNew, QWidget* parent = nullptr);
+    ~BookmarkEditor() override;
 
-    QRectF boundingRect() const override;
+signals:
 
-    virtual bool pickTopValue();
-    virtual bool increaseTopValue();
-    virtual bool decreaseTopValue();
+    void bookmarkRemoved(size_t index);
 
-    virtual bool pickBottomValue();
-    virtual bool increaseBottomValue();
-    virtual bool decreaseBottomValue();
+private slots:
 
-    virtual bool updateImage();
-    virtual void onModeChanged();
-
-protected:
-
-    virtual void onImageUpdated();
-
-public:
-
-    void onValueChanged();
-    void setMousePos(const QPointF& pos);
-    void setMousePos(qreal x, qreal y);
-    void setBoundingRect(const QRectF& _rect);
-    void setBoundingRect(qreal x, qreal y, qreal w, qreal h);
-    bool cancelImageUpdate();
-
-protected:
-
-    void paintImage(QPainter* _painter);
-    void paintImage(QPainter* _painter, qreal _scale, qreal _sceneLeft, qreal _sceneRight,
-                    qreal _visibleRegionLeft, qreal _visibleRegionWidth);
-
-    void setImageUpdatePermitted(bool _permit);
-    bool isImageUpdatePermitted() const;
-
-    void cancelAnyJob();
-    void resetTopBottomValues();
-
-    bool isReady() const;
-    void setReady(bool _ready);
-
-    void startTimer();
-    void stopTimer();
+    void onSaveClicked(bool);
+    void onDeleteClicked(bool);
+    void onColorButtonClicked(bool);
+    void onReject();
 
 private:
 
-    void onTimeout();
+    void loadSettings();
+    void saveSettings();
 
-}; // end of class GraphicsImageItem.
+}; // class BookmarkEditor.
 
-#endif //EASY_PROFILER_GRAPHICS_IMAGE_ITEM_H
+#endif // EASY_PROFILER_BOOKMARKS_EDITOR_H
