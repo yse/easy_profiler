@@ -1,4 +1,4 @@
-# easy_profiler [![2.0.1](https://img.shields.io/badge/stable-2.0.1-009688.svg)](https://github.com/yse/easy_profiler/releases) [![2.1.0](https://img.shields.io/badge/latest-2.1.0-f57f17.svg)](https://github.com/yse/easy_profiler)
+# easy_profiler [![Financial Contributors on Open Collective](https://opencollective.com/easy_profiler/all/badge.svg?label=financial+contributors)](https://opencollective.com/easy_profiler) [![2.0.1](https://img.shields.io/badge/stable-2.0.1-009688.svg)](https://github.com/yse/easy_profiler/releases) [![2.1.0](https://img.shields.io/badge/latest-2.1.0-f57f17.svg)](https://github.com/yse/easy_profiler)
 
 [![Build Status](https://travis-ci.org/yse/easy_profiler.svg?branch=develop)](https://travis-ci.org/yse/easy_profiler)
 [![Build Status](https://ci.appveyor.com/api/projects/status/github/yse/easy_profiler?branch=develop&svg=true)](https://ci.appveyor.com/project/yse/easy-profiler/branch/develop)
@@ -317,6 +317,36 @@ struct EasyFileHeader {
     uint32_t total_descriptors_number = 0;
 };
 ```
+
+## Contributors
+
+### Code Contributors
+
+This project exists thanks to all the people who contribute. [[Contribute](CONTRIBUTING.md)].
+<a href="https://github.com/yse/easy_profiler/graphs/contributors"><img src="https://opencollective.com/easy_profiler/contributors.svg?width=890&button=false" /></a>
+
+### Financial Contributors
+
+Become a financial contributor and help us sustain our community. [[Contribute](https://opencollective.com/easy_profiler/contribute)]
+
+#### Individuals
+
+<a href="https://opencollective.com/easy_profiler"><img src="https://opencollective.com/easy_profiler/individuals.svg?width=890"></a>
+
+#### Organizations
+
+Support this project with your organization. Your logo will show up here with a link to your website. [[Contribute](https://opencollective.com/easy_profiler/contribute)]
+
+<a href="https://opencollective.com/easy_profiler/organization/0/website"><img src="https://opencollective.com/easy_profiler/organization/0/avatar.svg"></a>
+<a href="https://opencollective.com/easy_profiler/organization/1/website"><img src="https://opencollective.com/easy_profiler/organization/1/avatar.svg"></a>
+<a href="https://opencollective.com/easy_profiler/organization/2/website"><img src="https://opencollective.com/easy_profiler/organization/2/avatar.svg"></a>
+<a href="https://opencollective.com/easy_profiler/organization/3/website"><img src="https://opencollective.com/easy_profiler/organization/3/avatar.svg"></a>
+<a href="https://opencollective.com/easy_profiler/organization/4/website"><img src="https://opencollective.com/easy_profiler/organization/4/avatar.svg"></a>
+<a href="https://opencollective.com/easy_profiler/organization/5/website"><img src="https://opencollective.com/easy_profiler/organization/5/avatar.svg"></a>
+<a href="https://opencollective.com/easy_profiler/organization/6/website"><img src="https://opencollective.com/easy_profiler/organization/6/avatar.svg"></a>
+<a href="https://opencollective.com/easy_profiler/organization/7/website"><img src="https://opencollective.com/easy_profiler/organization/7/avatar.svg"></a>
+<a href="https://opencollective.com/easy_profiler/organization/8/website"><img src="https://opencollective.com/easy_profiler/organization/8/avatar.svg"></a>
+<a href="https://opencollective.com/easy_profiler/organization/9/website"><img src="https://opencollective.com/easy_profiler/organization/9/avatar.svg"></a>
 
 # License
 
