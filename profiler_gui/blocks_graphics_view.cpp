@@ -557,7 +557,7 @@ bool BackgroundItem::contains(const QPointF& scenePos) const
 
 void BackgroundItem::onWindowActivationChanged(bool isActiveWindow)
 {
-    if (!isActiveWindow)
+    if (!isActiveWindow && qApp->activeWindow() != m_tooltip)
     {
         delete m_tooltip;
         m_tooltip = nullptr;
@@ -705,10 +705,16 @@ BlocksGraphicsView::~BlocksGraphicsView()
 void BlocksGraphicsView::onWindowActivationChanged()
 {
     const bool isActive = window()->isActiveWindow();
-    if (!isActive)
+
+    if (!isActive && qApp->activeWindow() != m_popupWidget)
+    {
         removePopup();
+    }
+
     if (m_backgroundItem != nullptr)
+    {
         m_backgroundItem->onWindowActivationChanged(isActive);
+    }
 }
 
 void BlocksGraphicsView::removePopup()
@@ -2921,8 +2927,10 @@ ThreadNamesWidget::~ThreadNamesWidget()
 
 void ThreadNamesWidget::onWindowActivationChanged()
 {
-    if (!window()->isActiveWindow())
+    if (!window()->isActiveWindow() && qApp->activeWindow() != m_popupWidget)
+    {
         removePopup();
+    }
 }
 
 void ThreadNamesWidget::removePopup()
