@@ -49,6 +49,8 @@ if (Qt5Widgets_FOUND)
         main_window.cpp
         round_progress_widget.h
         round_progress_widget.cpp
+        text_highlighter.h
+        text_highlighter.cpp
         timer.h
         timer.cpp
         thread_pool.h

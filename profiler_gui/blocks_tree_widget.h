@@ -20,7 +20,7 @@
 *                   :       Moved sources of TreeWidgetItem into tree_widget_item.h/.cpp
 * ----------------- : 
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -95,12 +95,17 @@ protected:
     class QLabel*                m_hintLabel;
     class ArbitraryValueToolTip* m_valueTooltip;
     TreeMode                          m_mode;
+    int                     m_lastFoundIndex;
     bool                           m_bLocked;
     bool             m_bSilentExpandCollapse;
+    bool              m_bCaseSensitiveSearch;
     bool                      m_bInitialized;
     char m_columnsHiddenStatus[COL_COLUMNS_NUMBER];
+    int  m_columnsMinimumWidth[COL_COLUMNS_NUMBER];
 
 public:
+
+    using Parent::indexFromItem;
 
     explicit BlocksTreeWidget(QWidget* _parent = nullptr);
     ~BlocksTreeWidget() override;
@@ -114,11 +119,22 @@ public:
     int findNext(const QString& _str, Qt::MatchFlags _flags);
     int findPrev(const QString& _str, Qt::MatchFlags _flags);
 
+    void resetSearch(bool repaint = true);
+
+    TreeMode mode() const
+    {
+        return m_mode;
+    }
+
+    QTreeWidgetItem* lastFoundItem() const;
+    const QString& searchString() const;
+    bool caseSensitiveSearch() const;
+    int lastFoundIndex() const;
+
 public slots:
 
-    void setTree(const unsigned int _blocksNumber, const ::profiler::thread_blocks_tree_t& _blocksTree);
-
     void setTreeBlocks(const ::profiler_gui::TreeBlocks& _blocks, ::profiler::timestamp_t _session_begin_time, ::profiler::timestamp_t _left, ::profiler::timestamp_t _right, bool _strict);
+    void updateHintLabelOnHover(bool hover);
 
 protected:
 
@@ -126,6 +142,8 @@ protected:
     void moveEvent(QMoveEvent* _event) override;
 
 private slots:
+
+    void onHeaderSectionResized(int logicalIndex, int oldSize, int newSize);
 
     void onJumpToItemClicked(bool);
 
@@ -140,6 +158,7 @@ private slots:
     void onItemExpand(QTreeWidgetItem* _item);
     void onItemCollapse(QTreeWidgetItem* _item);
     void onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidgetItem*);
+    void onItemDoubleClicked(QTreeWidgetItem* _item, int _column);
 
     void onSelectedThreadChange(::profiler::thread_id_t _id);
 
@@ -192,6 +211,8 @@ public:
     explicit HierarchyWidget(QWidget* _parent = nullptr);
     ~HierarchyWidget() override;
 
+    void enterEvent(QEvent* event) override;
+    void leaveEvent(QEvent* event) override;
     void keyPressEvent(QKeyEvent* _event) override;
     void contextMenuEvent(QContextMenuEvent* _event) override;
     void dragEnterEvent(QDragEnterEvent*) override {}

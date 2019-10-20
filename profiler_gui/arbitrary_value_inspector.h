@@ -12,7 +12,7 @@
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -341,6 +341,7 @@ class ArbitraryValuesWidget : public QWidget
 
     QTimer                      m_collectionsTimer;
     QList<ArbitraryTreeWidgetItem*> m_checkedItems;
+    std::vector<int>         m_columnsMinimumWidth;
     class QSplitter*                    m_splitter;
     QTreeWidget*                      m_treeWidget;
     GraphicsChart*                         m_chart;
@@ -353,6 +354,7 @@ class ArbitraryValuesWidget : public QWidget
     profiler::thread_id_t               m_threadId;
     profiler::block_index_t           m_blockIndex;
     profiler::block_id_t                 m_blockId;
+    bool                            m_bInitialized;
     const bool                       m_bMainWidget;
 
     explicit ArbitraryValuesWidget(bool _isMainWidget, profiler::thread_id_t _threadId
@@ -366,6 +368,7 @@ public:
     explicit ArbitraryValuesWidget(QWidget* _parent = nullptr);
     ~ArbitraryValuesWidget() override;
 
+    void showEvent(class QShowEvent* event) override;
     void contextMenuEvent(QContextMenuEvent*) override { /* ignore context menu event */ }
 
 public slots:
@@ -377,6 +380,7 @@ public slots:
 
 private slots:
 
+    void onHeaderSectionResized(int logicalIndex, int oldSize, int newSize);
     void onSelectedThreadChanged(profiler::thread_id_t);
     void onSelectedBlockChanged(uint32_t _block_index);
     void onSelectedBlockIdChanged(profiler::block_id_t _id);

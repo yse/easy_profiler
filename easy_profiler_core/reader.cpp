@@ -9,7 +9,7 @@
 *                   : which reads profiler file and fill profiler blocks tree.
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -231,7 +231,6 @@ namespace profiler {
 
 //////////////////////////////////////////////////////////////////////////
 
-using StatsMap = std::unordered_map<profiler::block_id_t, profiler::BlockStatistics*, estd::hash<profiler::block_id_t> >;
 using IdMap = std::unordered_map<profiler::hashed_stdstring, profiler::block_id_t>;
 using CsStatsMap = std::unordered_map<profiler::string_with_hash, profiler::BlockStatistics*>;
 
@@ -249,8 +248,14 @@ using CsStatsMap = std::unordered_map<profiler::string_with_hash, profiler::Bloc
 automatically receive statistics update.
 
 */
-static profiler::BlockStatistics* update_statistics(StatsMap& _stats_map, const profiler::BlocksTree& _current, profiler::block_index_t _current_index, profiler::block_index_t _parent_index, const profiler::blocks_t& _blocks, bool _calculate_children = true)
-{
+static profiler::BlockStatistics* update_statistics(
+    profiler::stats_map_t& _stats_map,
+    const profiler::BlocksTree& _current,
+    profiler::block_index_t _current_index,
+    profiler::block_index_t _parent_index,
+    const profiler::blocks_t& _blocks,
+    bool _calculate_children = true
+) {
     auto duration = _current.node->duration();
     //StatsMap::key_type key(_current.node->name());
     //auto it = _stats_map.find(key);
@@ -359,7 +364,7 @@ static profiler::BlockStatistics* update_statistics(CsStatsMap& _stats_map, cons
 
 //////////////////////////////////////////////////////////////////////////
 
-static void update_statistics_recursive(StatsMap& _stats_map, profiler::BlocksTree& _current, profiler::block_index_t _current_index, profiler::block_index_t _parent_index, profiler::blocks_t& _blocks)
+static void update_statistics_recursive(profiler::stats_map_t& _stats_map, profiler::BlocksTree& _current, profiler::block_index_t _current_index, profiler::block_index_t _parent_index, profiler::blocks_t& _blocks)
 {
     _current.per_frame_stats = update_statistics(_stats_map, _current, _current_index, _parent_index, _blocks, false);
     for (auto i : _current.children)
@@ -696,7 +701,7 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
         }
     }
 
-    using PerThreadStats = std::unordered_map<profiler::thread_id_t, StatsMap, estd::hash<profiler::thread_id_t> >;
+    using PerThreadStats = std::unordered_map<profiler::thread_id_t, profiler::stats_map_t, estd::hash<profiler::thread_id_t> >;
     PerThreadStats parent_statistics, frame_statistics;
     IdMap identification_table;
 
@@ -808,7 +813,7 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
         if (inStream.eof())
             break;
 
-        StatsMap per_thread_statistics;
+        profiler::stats_map_t per_thread_statistics;
 
         blocks_number_in_thread = 0;
         read(inStream, blocks_number_in_thread);

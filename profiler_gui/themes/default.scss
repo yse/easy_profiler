@@ -40,11 +40,12 @@ $IndicatorBorderColor: darken($DarkSelectionColor, 5%);
 $DisabledIndicatorBackgroundColor: $SelectionColor;
 $DisabledIndicatorBorderColor: darken($SelectionColor, 5%);
 
-$FocusBorderColor: $DarkSelectionColor;//#ffbcbc;
+$FocusBorderColor: $DarkSelectionColor; // #ffbcbc;
 $TooltipColor: #ffeccc;
 
 $InputHeight: 15ex;
-$WindowHeaderSize: 24ex;
+$WindowHeaderSize: 15.6ex;
+$WindowHeaderHoverColor: lighten($BorderColor, 14%); // #e8e8e8
 
 // STYLES -------------------------------------------------
 * {
@@ -122,7 +123,11 @@ QSplitter::handle:pressed {
 
 QLabel#BlocksTreeWidget_HintLabel {
     color: gray;
-    font-size: 13pt;
+    font-size: 12pt;
+}
+
+QLabel#BlocksTreeWidget_HintLabel[hovered=true] {
+    color: black;
 }
 
 /* ****************************************************************************************************************** */
@@ -407,9 +412,10 @@ QMenu::indicator:exclusive:checked:disabled {
 /* ****************************************************************************************************************** */
 QHeaderView::section {
     height: 15.3ex;
-    width: 60ex;
-    min-width: 40ex;
+    min-height: 15.3ex;
+    max-height: 15.3ex;
     background: #eeeeee;
+    /*{lin}font-weight: bold;*/
 }
 
 /* ****************************************************************************************************************** */
@@ -548,8 +554,8 @@ WindowHeader {
     }
 
     QPushButton#WindowHeader_MinButton:hover {
-        background-color: lighten($BorderColor, 5%);
-        border-bottom: 1px solid lighten($BorderColor, 5%);
+        background-color: $WindowHeaderHoverColor;
+        border-bottom: 1px solid $WindowHeaderHoverColor;
     }
 
     QPushButton#WindowHeader_MinButton:pressed {
@@ -568,8 +574,8 @@ WindowHeader {
     }
 
     QPushButton#WindowHeader_MaxButton:hover {
-        background-color: lighten($BorderColor, 5%);
-        border-bottom: 1px solid lighten($BorderColor, 5%);
+        background-color: $WindowHeaderHoverColor;
+        border-bottom: 1px solid $WindowHeaderHoverColor;
     }
 
     QPushButton#WindowHeader_MaxButton:pressed {

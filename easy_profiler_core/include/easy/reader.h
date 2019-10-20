@@ -1,6 +1,6 @@
 /**
 Lightweight profiler library for c++
-Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 
 Licensed under either of
     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -298,6 +298,7 @@ namespace profiler {
     using blocks_t = profiler::BlocksTree::blocks_t;
     using thread_blocks_tree_t = std::unordered_map<profiler::thread_id_t, profiler::BlocksTreeRoot, ::estd::hash<profiler::thread_id_t> >;
     using block_getter_fn = std::function<const profiler::BlocksTree&(profiler::block_index_t)>;
+    using stats_map_t = std::unordered_map<profiler::block_id_t, profiler::BlockStatistics*, estd::hash<profiler::block_id_t> >;
 
     //////////////////////////////////////////////////////////////////////////
 

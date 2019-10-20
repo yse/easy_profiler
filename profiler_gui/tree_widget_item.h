@@ -14,7 +14,7 @@
 *                   : * 
 * ----------------- : 
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -65,6 +65,8 @@
 
 #include "common_functions.h"
 
+class BlocksTreeWidget;
+
 //////////////////////////////////////////////////////////////////////////
 
 enum EasyColumnsIndexes
@@ -75,13 +77,13 @@ enum EasyColumnsIndexes
 
     COL_BEGIN,
 
-    COL_DURATION,
-    COL_SELF_DURATION,
-    COL_DURATION_SUM_PER_PARENT,
-    COL_DURATION_SUM_PER_FRAME,
-    COL_DURATION_SUM_PER_THREAD,
+    COL_TIME,
+    COL_SELF_TIME,
+    COL_TOTAL_TIME_PER_PARENT,
+    COL_TOTAL_TIME_PER_FRAME,
+    COL_TOTAL_TIME_PER_THREAD,
 
-    COL_SELF_DURATION_PERCENT,
+    COL_SELF_TIME_PERCENT,
     COL_PERCENT_PER_PARENT,
     COL_PERCENT_PER_FRAME,
     COL_PERCENT_SUM_PER_PARENT,
@@ -92,21 +94,29 @@ enum EasyColumnsIndexes
 
     COL_MIN_PER_FRAME,
     COL_MAX_PER_FRAME,
-    COL_AVERAGE_PER_FRAME,
+    COL_AVG_PER_FRAME,
     COL_NCALLS_PER_FRAME,
 
     COL_MIN_PER_THREAD,
     COL_MAX_PER_THREAD,
-    COL_AVERAGE_PER_THREAD,
+    COL_AVG_PER_THREAD,
     COL_NCALLS_PER_THREAD,
 
     COL_MIN_PER_PARENT,
     COL_MAX_PER_PARENT,
-    COL_AVERAGE_PER_PARENT,
+    COL_AVG_PER_PARENT,
     COL_NCALLS_PER_PARENT,
 
     COL_ACTIVE_TIME,
     COL_ACTIVE_PERCENT,
+
+    COL_PERCENT_PER_AREA,
+    COL_TOTAL_TIME_PER_AREA,
+    COL_PERCENT_SUM_PER_AREA,
+    COL_MIN_PER_AREA,
+    COL_MAX_PER_AREA,
+    COL_AVG_PER_AREA,
+    COL_NCALLS_PER_AREA,
 
     COL_COLUMNS_NUMBER
 };
@@ -120,12 +130,13 @@ class TreeWidgetItem : public QTreeWidgetItem
 
     const profiler::block_index_t           m_block;
     QRgb                            m_customBGColor;
-    std::bitset<17>                   m_bHasToolTip;
+    std::bitset<21>                   m_bHasToolTip;
     bool                                    m_bMain;
+    bool                                  m_partial;
 
 public:
 
-    explicit TreeWidgetItem(const profiler::block_index_t _treeBlock = profiler_gui::numeric_max<decltype(m_block)>()
+    explicit TreeWidgetItem(profiler::block_index_t _treeBlock = profiler_gui::numeric_max<decltype(m_block)>()
         , Parent* _parent = nullptr);
 
     ~TreeWidgetItem() override;
@@ -135,6 +146,7 @@ public:
 
 public:
 
+    bool isPartial() const;
     bool hasToolTip(int _column) const;
     profiler::block_index_t block_index() const;
     profiler_gui::EasyBlock& guiBlock();
@@ -142,6 +154,8 @@ public:
 
     profiler::timestamp_t duration() const;
     profiler::timestamp_t selfDuration() const;
+
+    profiler::thread_id_t threadId() const;
 
     void setTimeSmart(int _column, profiler_gui::TimeUnits _units, const profiler::timestamp_t& _time, const QString& _prefix);
     void setTimeSmart(int _column, profiler_gui::TimeUnits _units, const profiler::timestamp_t& _time);
@@ -152,6 +166,7 @@ public:
     void setBackgroundColor(QRgb _color);
 
     void setMain(bool _main);
+    void setPartial(bool partial);
 
     void collapseAll();
 
@@ -160,6 +175,8 @@ public:
 private:
 
     void setHasToolTip(int _column);
+    QVariant relevantData(int _column, int _role) const;
+    QVariant partialForeground() const;
 
 }; // END of class TreeWidgetItem.
 
@@ -168,13 +185,27 @@ private:
 class TreeWidgetItemDelegate : public QStyledItemDelegate
 {
     Q_OBJECT
-    QTreeWidget* m_treeWidget;
+    BlocksTreeWidget* m_treeWidget;
 
 public:
 
-    explicit TreeWidgetItemDelegate(QTreeWidget* parent = nullptr);
+    explicit TreeWidgetItemDelegate(BlocksTreeWidget* parent = nullptr);
     ~TreeWidgetItemDelegate() override;
     void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override;
+    QSize sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const override;
+
+private:
+
+    void highlightMatchingText(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const;
+
+    void highlightMatchingText(
+        QPainter* painter,
+        const QStyleOptionViewItem& option,
+        const QString& text,
+        const QString& pattern,
+        Qt::CaseSensitivity caseSensitivity,
+        bool current
+    ) const;
 
 }; // END of class TreeWidgetItemDelegate.
 

@@ -8,7 +8,7 @@
 * description       : The file contains implementation of WindowHeader.
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -60,11 +60,11 @@
 static void setButtonSize(QPushButton* button, int size)
 {
     if (button != nullptr)
-        button->setFixedSize(size * 5 / 4, size);
+        button->setFixedSize(size * 191 / 100, size);
 }
 
-WindowHeader::WindowHeader(const QString& title, Buttons buttons, QWidget* parent)
-    : Parent(parent)
+WindowHeader::WindowHeader(const QString& title, Buttons buttons, QWidget& parentRef)
+    : Parent(&parentRef)
     , m_minimizeButton(nullptr)
     , m_maximizeButton(nullptr)
     , m_closeButton(nullptr)
@@ -72,6 +72,8 @@ WindowHeader::WindowHeader(const QString& title, Buttons buttons, QWidget* paren
     , m_title(new QLabel(title))
     , m_isDragging(false)
 {
+    auto parent = &parentRef;
+
     m_title->installEventFilter(this);
     m_pixmap->installEventFilter(this);
 
@@ -85,7 +87,7 @@ WindowHeader::WindowHeader(const QString& title, Buttons buttons, QWidget* paren
     {
         m_minimizeButton = new QPushButton();
         m_minimizeButton->setObjectName("WindowHeader_MinButton");
-        connect(m_minimizeButton, &QPushButton::clicked, this, &This::onMinimizeClicked);
+        connect(m_minimizeButton, &QPushButton::clicked, this, &This::onMinimizeClicked, Qt::QueuedConnection);
     }
 
     if (buttons.testFlag(WindowHeader::MaximizeButton))
@@ -93,15 +95,22 @@ WindowHeader::WindowHeader(const QString& title, Buttons buttons, QWidget* paren
         m_maximizeButton = new QPushButton();
         m_maximizeButton->setProperty("max", parent->isMaximized());
         m_maximizeButton->setObjectName("WindowHeader_MaxButton");
-        connect(m_maximizeButton, &QPushButton::clicked, this, &This::onMaximizeClicked);
+        connect(m_maximizeButton, &QPushButton::clicked, this, &This::onMaximizeClicked, Qt::QueuedConnection);
     }
 
     if (buttons.testFlag(WindowHeader::CloseButton))
     {
         m_closeButton = new QPushButton();
         m_closeButton->setObjectName("WindowHeader_CloseButton");
-        connect(m_closeButton, &QPushButton::clicked, parent, &QWidget::close);
+        connect(m_closeButton, &QPushButton::clicked, parent, &QWidget::close, Qt::QueuedConnection);
     }
+
+#if !defined(_WIN32)
+    if (m_maximizeButton != nullptr || m_minimizeButton != nullptr)
+    {
+        parent->setWindowFlag(Qt::SubWindow, true);
+    }
+#endif
 
     auto layout = new QHBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -157,9 +166,9 @@ WindowHeader::WindowHeader(const QString& title, Buttons buttons, QWidget* paren
             this, &This::onWindowHeaderPositionChanged);
 
     if (EASY_GLOBALS.use_custom_window_header)
-        parentWidget()->setWindowFlags(parentWidget()->windowFlags() | Qt::FramelessWindowHint);
+        parent->setWindowFlags(parentWidget()->windowFlags() | Qt::FramelessWindowHint);
     else
-        parentWidget()->setWindowFlags(parentWidget()->windowFlags() & ~Qt::FramelessWindowHint);
+        parent->setWindowFlags(parentWidget()->windowFlags() & ~Qt::FramelessWindowHint);
 
     setVisible(EASY_GLOBALS.use_custom_window_header);
 }
@@ -332,9 +341,13 @@ void WindowHeader::onMaximizeClicked(bool)
 {
     auto parent = parentWidget();
     if (parent->isMaximized())
+    {
         parent->showNormal();
+    }
     else
+    {
         parent->showMaximized();
+    }
 }
 
 void WindowHeader::onMinimizeClicked(bool)

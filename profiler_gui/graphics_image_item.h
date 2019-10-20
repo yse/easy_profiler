@@ -9,7 +9,7 @@
 *                   : used to display, scroll and zoom QImage on graphics scene.
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -80,11 +80,12 @@ protected:
     qreal        m_bottomValue;
     qreal           m_maxValue;
     qreal           m_minValue;
+    bool              m_bEmpty;
     std::atomic_bool  m_bReady;
 
 private:
 
-    Timer         m_timer;
+    Timer              m_timer;
     bool  m_bPermitImageUpdate; ///< Is false when m_workerThread is parsing input dataset (when setSource(_block_id) is called)
 
 public:
@@ -111,6 +112,7 @@ protected:
 
 public:
 
+    bool isEmpty() const;
     void onValueChanged();
     void setMousePos(const QPointF& pos);
     void setMousePos(qreal x, qreal y);
@@ -120,6 +122,7 @@ public:
 
 protected:
 
+    void setEmpty(bool empty);
     void paintImage(QPainter* _painter);
     void paintImage(QPainter* _painter, qreal _scale, qreal _sceneLeft, qreal _sceneRight,
                     qreal _visibleRegionLeft, qreal _visibleRegionWidth);

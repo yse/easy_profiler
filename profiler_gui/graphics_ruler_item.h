@@ -13,7 +13,7 @@
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -74,25 +74,26 @@ class GraphicsRulerItem : public QGraphicsItem
     typedef QGraphicsItem Parent;
     typedef GraphicsRulerItem This;
 
-    QPolygonF  m_indicator; ///< Indicator displayed when this chrono item is out of screen (displaying only for main item)
-    QRectF  m_boundingRect; ///< boundingRect (see QGraphicsItem)
-    QColor         m_color; ///< Color of the item
-    qreal  m_left, m_right; ///< Left and right bounds of the selection zone
-    bool           m_bMain; ///< Is this chronometer main (true, by default)
-    bool        m_bReverse; ///< 
-    bool m_bHoverIndicator; ///< Mouse hover above indicator
-    bool  m_bHoverLeftBorder;
-    bool m_bHoverRightBorder;
+    QPolygonF        m_indicator; ///< Indicator displayed when this chrono item is out of screen (displaying only for main item)
+    QRectF       m_bounding_rect; ///< boundingRect (see QGraphicsItem)
+    QColor               m_color; ///< Color of the item
+    qreal        m_left, m_right; ///< Left and right bounds of the selection zone
+    bool                  m_main; ///< Is this ruler item main (true, by default)
+    bool               m_reverse; ///<
+    bool                m_strict; ///<
+    bool    m_hover_on_indicator; ///< Mouse hover above indicator
+    bool  m_hover_on_left_border;
+    bool m_hover_on_right_border;
 
 public:
 
-    explicit GraphicsRulerItem(bool _main = true);
+    explicit GraphicsRulerItem(bool main = true);
     virtual ~GraphicsRulerItem();
 
     // Public virtual methods
 
     QRectF boundingRect() const override;
-    void paint(QPainter* _painter, const QStyleOptionGraphicsItem* _option, QWidget* _widget = nullptr) override;
+    void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
 
 public:
 
@@ -100,46 +101,57 @@ public:
 
     void hide();
 
-    void setColor(const QColor& _color);
+    void setColor(const QColor& color);
 
     void setBoundingRect(qreal x, qreal y, qreal w, qreal h);
-    void setBoundingRect(const QRectF& _rect);
+    void setBoundingRect(const QRectF& rect);
 
-    void setLeftRight(qreal _left, qreal _right);
+    void setLeftRight(qreal left, qreal right);
 
-    void setReverse(bool _reverse);
+    void setReverse(bool reverse);
+    void setStrict(bool strict);
 
-    void setHoverIndicator(bool _hover);
+    void setHoverIndicator(bool hover);
 
-    bool indicatorContains(const QPointF& _pos) const;
+    bool indicatorContains(const QPointF& pos) const;
 
-    void setHoverLeft(bool _hover);
-    void setHoverRight(bool _hover);
+    void setHoverLeft(bool hover);
+    void setHoverRight(bool hover);
 
-    bool hoverLeft(qreal _x) const;
-    bool hoverRight(qreal _x) const;
+    bool hoverLeft(qreal x) const;
+    bool hoverRight(qreal x) const;
 
-    QPointF toItem(const QPointF& _pos) const;
-    qreal toItem(qreal _x) const;
+    QPointF toItem(const QPointF& pos) const;
+    qreal toItem(qreal x) const;
 
     inline bool hoverIndicator() const
     {
-        return m_bHoverIndicator;
+        return m_hover_on_indicator;
     }
 
     inline bool hoverLeft() const
     {
-        return m_bHoverLeftBorder;
+        return m_hover_on_left_border;
     }
 
     inline bool hoverRight() const
     {
-        return m_bHoverRightBorder;
+        return m_hover_on_right_border;
+    }
+
+    inline bool hoverAnyBorder() const
+    {
+      return m_hover_on_left_border || m_hover_on_right_border;
     }
 
     inline bool reverse() const
     {
-        return m_bReverse;
+        return m_reverse;
+    }
+
+    inline bool strict() const
+    {
+        return m_strict;
     }
 
     inline qreal left() const

@@ -8,7 +8,7 @@
 * description       : The file contains implementation of Dialog.
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -75,7 +75,7 @@ Dialog::Dialog(QWidget* parent, const QString& title, QWidget* content, WindowHe
 {
     setSizeGripEnabled(EASY_GLOBALS.use_custom_window_header);
 
-    m_header = new WindowHeader(title, headerButtons, this);
+    m_header = new WindowHeader(title, headerButtons, *this);
 
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(1, 1, 1, 1);

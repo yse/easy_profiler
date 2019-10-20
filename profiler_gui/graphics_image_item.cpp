@@ -8,7 +8,7 @@
 * description       : The file contains implementation of GraphicsImageItem.
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -70,6 +70,7 @@ GraphicsImageItem::GraphicsImageItem() : Parent(nullptr)
     , m_maxValue(0)
     , m_minValue(0)
     , m_timer(::std::bind(&This::onTimeout, this))
+    , m_bEmpty(true)
     , m_bPermitImageUpdate(true)
 {
     m_bReady = false;
@@ -95,6 +96,16 @@ void GraphicsImageItem::setBoundingRect(const QRectF& _rect)
 void GraphicsImageItem::setBoundingRect(qreal x, qreal y, qreal w, qreal h)
 {
     m_boundingRect.setRect(x, y, w, h);
+}
+
+bool GraphicsImageItem::isEmpty() const
+{
+    return m_bEmpty;
+}
+
+void GraphicsImageItem::setEmpty(bool empty)
+{
+    m_bEmpty = empty;
 }
 
 void GraphicsImageItem::setMousePos(const QPointF& pos)
@@ -173,6 +184,11 @@ bool GraphicsImageItem::cancelImageUpdate()
 
 bool GraphicsImageItem::pickTopValue()
 {
+    if (isEmpty())
+    {
+        return false;
+    }
+
     const auto y = m_mousePos.y();
     if (isImageUpdatePermitted() && m_boundingRect.top() < y && y < m_boundingRect.bottom())
     {
@@ -187,6 +203,11 @@ bool GraphicsImageItem::pickTopValue()
 
 bool GraphicsImageItem::increaseTopValue()
 {
+    if (isEmpty())
+    {
+        return false;
+    }
+
     if (isImageUpdatePermitted() && m_topValue < m_maxValue)
     {
         auto step = 0.05 * (m_maxValue - m_bottomValue);
@@ -202,6 +223,11 @@ bool GraphicsImageItem::increaseTopValue()
 
 bool GraphicsImageItem::decreaseTopValue()
 {
+    if (isEmpty())
+    {
+        return false;
+    }
+
     if (isImageUpdatePermitted() && m_topValue > m_bottomValue)
     {
         auto step = 0.05 * (m_maxValue - m_bottomValue);
@@ -221,6 +247,11 @@ bool GraphicsImageItem::decreaseTopValue()
 
 bool GraphicsImageItem::pickBottomValue()
 {
+    if (isEmpty())
+    {
+        return false;
+    }
+
     const auto y = m_mousePos.y();
     if (isImageUpdatePermitted() && m_boundingRect.top() < y && y < m_boundingRect.bottom())
     {
@@ -235,6 +266,11 @@ bool GraphicsImageItem::pickBottomValue()
 
 bool GraphicsImageItem::increaseBottomValue()
 {
+    if (isEmpty())
+    {
+        return false;
+    }
+
     if (isImageUpdatePermitted() && m_bottomValue < m_topValue)
     {
         auto step = 0.05 * (m_topValue - m_minValue);
@@ -254,6 +290,11 @@ bool GraphicsImageItem::increaseBottomValue()
 
 bool GraphicsImageItem::decreaseBottomValue()
 {
+    if (isEmpty())
+    {
+        return false;
+    }
+
     if (isImageUpdatePermitted() && m_bottomValue > m_minValue)
     {
         auto step = 0.05 * (m_topValue - m_minValue);
@@ -270,7 +311,7 @@ bool GraphicsImageItem::decreaseBottomValue()
 void GraphicsImageItem::paintImage(QPainter* _painter)
 {
     _painter->setPen(Qt::NoPen);
-    _painter->drawImage(0, m_boundingRect.top(), m_image);
+    _painter->drawImage(0, static_cast<int>(m_boundingRect.top()), m_image);
 }
 
 void GraphicsImageItem::paintImage(QPainter* _painter, qreal _scale, qreal _sceneLeft, qreal _sceneRight,

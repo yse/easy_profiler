@@ -8,7 +8,7 @@
 * description       : The file contains declaration of ThreadPoolTask.
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -56,6 +56,8 @@
 #include <atomic>
 #include <mutex>
 
+#include <QObject>
+
 enum class TaskStatus : int8_t
 {
     Enqueued,
@@ -63,14 +65,34 @@ enum class TaskStatus : int8_t
     Finished,
 };
 
+class ThreadPoolTaskSignals : public QObject
+{
+    Q_OBJECT;
+
+public:
+
+    ThreadPoolTaskSignals() : QObject() {}
+
+signals:
+
+    void finished();
+};
+
 class ThreadPoolTask EASY_FINAL
 {
+public:
+
+    using Func = std::function<void()>;
+
+private:
+
     friend class ThreadPool;
 
-    std::function<void()>   m_func;
-    std::mutex             m_mutex;
-    std::atomic<int8_t>   m_status;
-    std::atomic_bool*  m_interrupt;
+    ThreadPoolTaskSignals m_signals;
+    Func                     m_func;
+    std::atomic_bool*   m_interrupt;
+    std::mutex              m_mutex;
+    std::atomic<int8_t>    m_status;
 
 public:
 
@@ -80,8 +102,10 @@ public:
     ThreadPoolTask();
     ~ThreadPoolTask();
 
-    void enqueue(std::function<void()>&& func, std::atomic_bool& interruptFlag);
+    void enqueue(Func&& func, std::atomic_bool& interruptFlag);
     void dequeue();
+
+    ThreadPoolTaskSignals& events();
 
 private:
 
