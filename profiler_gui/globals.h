@@ -12,7 +12,7 @@
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -273,38 +273,38 @@ inline profiler::SerializedBlockDescriptor& easyDescriptor(profiler::block_id_t 
     return *EASY_GLOBALS.descriptors[i];
 }
 
-inline profiler::SerializedBlockDescriptor& easyDescriptor(const profiler::BlocksTree& _block) {
-    return easyDescriptor(_block.node->id());
+inline profiler::SerializedBlockDescriptor& easyDescriptor(const profiler::BlocksTree& block) {
+    return easyDescriptor(block.node->id());
 }
 
 EASY_FORCE_INLINE const profiler::BlocksTree& easyBlocksTree(profiler::block_index_t i) {
     return easyBlock(i).tree;
 }
 
-EASY_FORCE_INLINE const char* easyBlockName(const profiler::BlocksTree& _block) {
-    const char* name = _block.node->name();
-    return *name != 0 ? name : easyDescriptor(_block.node->id()).name();
+EASY_FORCE_INLINE const char* easyBlockName(const profiler::BlocksTree& block) {
+    const char* name = block.node->name();
+    return *name != 0 ? name : easyDescriptor(block.node->id()).name();
 }
 
-EASY_FORCE_INLINE const char* easyBlockName(const profiler::BlocksTree& _block, const profiler::SerializedBlockDescriptor& _desc) {
-    const char* name = _block.node->name();
-    return *name != 0 ? name : _desc.name();
+EASY_FORCE_INLINE const char* easyBlockName(const profiler::BlocksTree& block, const profiler::SerializedBlockDescriptor& desc) {
+    const char* name = block.node->name();
+    return *name != 0 ? name : desc.name();
 }
 
 EASY_FORCE_INLINE const char* easyBlockName(profiler::block_index_t i) {
     return easyBlockName(easyBlock(i).tree);
 }
 
-inline qreal sceneX(profiler::timestamp_t _time) {
-    return PROF_MICROSECONDS(qreal(_time - EASY_GLOBALS.begin_time));
+inline qreal sceneX(profiler::timestamp_t time) {
+    return PROF_MICROSECONDS(qreal(time - EASY_GLOBALS.begin_time));
 }
 
-inline QString imagePath(const QString& _resource) {
-    return QString(":/images/%1/%2").arg(EASY_GLOBALS.theme).arg(_resource);
+inline QString imagePath(const QString& resource_name) {
+    return QString(":/images/%1/%2").arg(EASY_GLOBALS.theme).arg(resource_name);
 }
 
-inline QString imagePath(const char* _resource) {
-    return QString(":/images/%1/%2").arg(EASY_GLOBALS.theme).arg(_resource);
+inline QString imagePath(const char* resource_name) {
+    return QString(":/images/%1/%2").arg(EASY_GLOBALS.theme).arg(resource_name);
 }
 
 inline QSize applicationIconsSize() {

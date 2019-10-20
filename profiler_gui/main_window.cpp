@@ -18,7 +18,7 @@
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -87,6 +87,7 @@
 #include <QPushButton>
 #include <QProgressDialog>
 #include <QTextCodec>
+#include <QPlainTextEdit>
 #include <QTextStream>
 #include <QToolBar>
 #include <QToolButton>
@@ -128,7 +129,7 @@ const auto NETWORK_CACHE_FILE = "easy_profiler_stream.cache";
 
 //////////////////////////////////////////////////////////////////////////
 
-inline const QStringList& UI_themes()
+static const QStringList& UI_themes()
 {
     static const QStringList themes {
         "default"
@@ -150,7 +151,80 @@ inline void clear_stream(std::stringstream& _stream)
 #endif
 }
 
-inline void loadTheme(const QString& _theme)
+static void convertPointSizes(QString& style)
+{
+    // Find font family
+    const auto fontMatch = QRegularExpression("font-family:\\s*\\\"(.*)\\\"\\s*;").match(style);
+    const auto fontFamily = fontMatch.hasMatch() ? fontMatch.captured(fontMatch.lastCapturedIndex()) : QString("DejaVu Sans");
+    //QMessageBox::information(nullptr, "Found font family", fontFamily);
+
+    // Calculate point size using current font
+    const auto pointSizeF = QFontMetricsF(QFont(fontFamily, 100)).height() * 1e-2;
+    //QMessageBox::information(nullptr, "Point size", QString("100pt = %1\n1pt = %2").arg(pointSizeF * 1e2).arg(pointSizeF));
+
+    // Find and convert all sizes from points to pixels
+    QRegularExpression re("(\\d+\\.?\\d*)ex");
+    auto it = re.globalMatch(style);
+
+    std::vector<QStringList> matches;
+    {
+        QSet<QString> uniqueMatches;
+        while (it.hasNext())
+        {
+            const auto match = it.next();
+            if (!uniqueMatches.contains(match.captured()))
+            {
+                uniqueMatches.insert(match.captured());
+                matches.emplace_back(match.capturedTexts());
+            }
+        }
+    }
+
+    for (const auto& capturedTexts : matches)
+    {
+        const auto pt = capturedTexts.back().toDouble();
+        const int pixels = static_cast<int>(lround(pointSizeF * pt));
+        style.replace(QString(" %1").arg(capturedTexts.front()), QString(" %1px").arg(pixels));
+        style.replace(QString(":%1").arg(capturedTexts.front()), QString(":%1px").arg(pixels));
+    }
+}
+
+static void replaceOsDependentSettings(QString& style)
+{
+    // Find and convert all OS dependent options
+    // Example: "/*{lin}font-weight: bold;*/" -> "font-weight: bold;"
+
+#if defined(_WIN32)
+    QRegularExpression re("/\\*\\{win\\}(.*)\\*/");
+#elif defined(__APPLE__)
+    QRegularExpression re("/\\*\\{mac\\}(.*)\\*/");
+#else
+    QRegularExpression re("/\\*\\{lin\\}(.*)\\*/");
+#endif
+
+    auto it = re.globalMatch(style);
+
+    std::vector<QStringList> matches;
+    {
+        QSet<QString> uniqueMatches;
+        while (it.hasNext())
+        {
+            const auto match = it.next();
+            if (!uniqueMatches.contains(match.captured()))
+            {
+                uniqueMatches.insert(match.captured());
+                matches.emplace_back(match.capturedTexts());
+            }
+        }
+    }
+
+    for (const auto& capturedTexts : matches)
+    {
+        style.replace(capturedTexts.front(), capturedTexts.back());
+    }
+}
+
+static void loadTheme(const QString& _theme)
 {
     QFile file(QStringLiteral(":/themes/") + _theme);
     if (file.open(QFile::ReadOnly | QFile::Text))
@@ -159,41 +233,8 @@ inline void loadTheme(const QString& _theme)
         QString style = in.readAll();
         if (!style.isEmpty())
         {
-            // Find font family
-            const auto fontMatch = QRegularExpression("font-family:\\s*\\\"(.*)\\\"\\s*;").match(style);
-            const auto fontFamily = fontMatch.hasMatch() ? fontMatch.captured(fontMatch.lastCapturedIndex()) : QString("DejaVu Sans");
-            //QMessageBox::information(nullptr, "Found font family", fontFamily);
-
-            // Calculate point size using current font
-            const auto pointSizeF = QFontMetricsF(QFont(fontFamily, 100)).height() * 1e-2;
-            //QMessageBox::information(nullptr, "Point size", QString("100pt = %1\n1pt = %2").arg(pointSizeF * 1e2).arg(pointSizeF));
-
-            // Find and convert all sizes from points to pixels
-            QRegularExpression re("(\\d+\\.?\\d*)ex");
-            auto it = re.globalMatch(style);
-
-            std::vector<QStringList> matches;
-            {
-                QSet<QString> uniqueMatches;
-                while (it.hasNext())
-                {
-                    const auto match = it.next();
-                    if (!uniqueMatches.contains(match.captured()))
-                    {
-                        uniqueMatches.insert(match.captured());
-                        matches.emplace_back(match.capturedTexts());
-                    }
-                }
-            }
-
-            for (const auto& capturedTexts : matches)
-            {
-                const auto pt = capturedTexts.back().toDouble();
-                const int pixels = static_cast<int>(pointSizeF * pt + 0.5);
-                //QMessageBox::information(nullptr, "Style-sheet modification", QString("Replacing '%1'\nwith\n'%2px'\n\npt count: %3").arg(capturedTexts.front()).arg(pixels).arg(pt));
-                style.replace(capturedTexts.front(), QString("%1px").arg(pixels));
-            }
-
+            convertPointSizes(style);
+            replaceOsDependentSettings(style);
             qApp->setStyleSheet(style);
         }
     }
@@ -253,7 +294,7 @@ void MainWindow::configureSizes()
     EASY_GLOBALS.font.default_font = w.font();
     const QFontMetricsF fm(w.font());
 
-#ifdef WIN32
+#ifdef _WIN32
     EASY_CONSTEXPR qreal DefaultHeight = 16;
 #else
     EASY_CONSTEXPR qreal DefaultHeight = 17;
@@ -268,7 +309,7 @@ void MainWindow::configureSizes()
     size.graphics_row_full = size.graphics_row_height;
     size.threads_row_spacing = size.graphics_row_full >> 1;
     size.timeline_height = size.font_height + px(10);
-    size.icon_size = size.font_height + px(11);
+    size.icon_size = size.font_height + px(5);
 
     const auto fontFamily = w.font().family();
     const auto pixelSize = w.font().pixelSize();
@@ -323,8 +364,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
 
     auto graphicsView = new DiagramWidget(this);
     graphicsView->setObjectName("ProfilerGUI_Diagram_GraphicsView");
-    connect(this, &MainWindow::activationChanged, graphicsView->view(), &BlocksGraphicsView::onWindowActivationChanged);
-    connect(this, &MainWindow::activationChanged, graphicsView->threadsView(), &ThreadNamesWidget::onWindowActivationChanged);
+    connect(this, &MainWindow::activationChanged, graphicsView->view(), &BlocksGraphicsView::onWindowActivationChanged, Qt::QueuedConnection);
+    connect(this, &MainWindow::activationChanged, graphicsView->threadsView(), &ThreadNamesWidget::onWindowActivationChanged, Qt::QueuedConnection);
     m_graphicsView->setWidget(graphicsView);
 
     m_treeWidget = new DockWidget("Hierarchy", this);
@@ -542,6 +583,12 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.bind_scene_and_tree_expand_status);
     connect(action, &QAction::triggered, this, &This::onBindExpandStatusChange);
+
+    action = submenu->addAction("Hide stats for single blocks in tree");
+    action->setToolTip("If checked then such stats like Min,Max,Avg etc.\nwill not be displayed in stats tree for blocks\nwith number of calls == 1");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.display_only_relevant_stats);
+    connect(action, &QAction::triggered, this, &This::onDisplayRelevantStatsChange);
 
     action = submenu->addAction("Selecting block changes current thread");
     action->setToolTip("Automatically select thread while selecting a block.\nIf not checked then you will have to select current thread\nmanually double clicking on thread name on a diagram.");
@@ -1375,6 +1422,11 @@ void MainWindow::onBindExpandStatusChange(bool _checked)
     EASY_GLOBALS.bind_scene_and_tree_expand_status = _checked;
 }
 
+void MainWindow::onDisplayRelevantStatsChange(bool _checked)
+{
+    EASY_GLOBALS.display_only_relevant_stats = _checked;
+}
+
 void MainWindow::onHierarchyFlagChange(bool _checked)
 {
     EASY_GLOBALS.only_current_thread_hierarchy = _checked;
@@ -1467,8 +1519,14 @@ void MainWindow::onEditBlocksClicked(bool)
 {
     if (m_descTreeDialog.ptr != nullptr)
     {
+        if (m_descTreeDialog.ptr->isMinimized())
+        {
+            m_descTreeDialog.ptr->setWindowState((m_descTreeDialog.ptr->windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
+        }
+
         m_descTreeDialog.ptr->raise();
         m_descTreeDialog.ptr->setFocus();
+
         return;
     }
 
@@ -1647,6 +1705,10 @@ void MainWindow::loadSettings()
     if (!flag.isNull())
         EASY_GLOBALS.bind_scene_and_tree_expand_status = flag.toBool();
 
+    flag = settings.value("display_only_relevant_stats");
+    if (!flag.isNull())
+        EASY_GLOBALS.display_only_relevant_stats = flag.toBool();
+
     flag = settings.value("selecting_block_changes_thread");
     if (!flag.isNull())
         EASY_GLOBALS.selecting_block_changes_thread = flag.toBool();
@@ -1779,6 +1841,7 @@ void MainWindow::saveSettingsAndGeometry()
     settings.setValue("add_zero_blocks_to_hierarchy", EASY_GLOBALS.add_zero_blocks_to_hierarchy);
     settings.setValue("highlight_blocks_with_same_id", EASY_GLOBALS.highlight_blocks_with_same_id);
     settings.setValue("bind_scene_and_tree_expand_status", EASY_GLOBALS.bind_scene_and_tree_expand_status);
+    settings.setValue("display_only_relevant_stats", EASY_GLOBALS.display_only_relevant_stats);
     settings.setValue("selecting_block_changes_thread", EASY_GLOBALS.selecting_block_changes_thread);
     settings.setValue("enable_event_indicators", EASY_GLOBALS.enable_event_markers);
     settings.setValue("auto_adjust_histogram_height", EASY_GLOBALS.auto_adjust_histogram_height);
@@ -2106,9 +2169,6 @@ void MainWindow::onLoadingFinish(profiler::block_index_t& _nblocks)
         {
             auto& guiblock = EASY_GLOBALS.gui_blocks[i];
             guiblock.tree = std::move(blocks[i]);
-#ifdef EASY_TREE_WIDGET__USE_VECTOR
-            profiler_gui::set_max(guiblock.tree_item);
-#endif
         }
 
         m_saveAction->setEnabled(true);
@@ -2818,12 +2878,7 @@ void MainWindow::onSelectValue(profiler::thread_id_t _thread_id, uint32_t _value
 
 void DialogWithGeometry::create(QWidget* content, QWidget* parent)
 {
-#ifdef WIN32
-    const WindowHeader::Buttons buttons = WindowHeader::AllButtons;
-#else
-    const WindowHeader::Buttons buttons {WindowHeader::MaximizeButton | WindowHeader::CloseButton};
-#endif
-    ptr = new Dialog(parent, EASY_DEFAULT_WINDOW_TITLE, content, buttons, QMessageBox::NoButton);
+    ptr = new Dialog(parent, EASY_DEFAULT_WINDOW_TITLE, content, WindowHeader::AllButtons, QMessageBox::NoButton);
     ptr->setProperty("stayVisible", true);
     ptr->setAttribute(Qt::WA_DeleteOnClose, true);
 }

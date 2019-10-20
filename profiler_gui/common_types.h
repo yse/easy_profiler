@@ -13,7 +13,7 @@
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -96,13 +96,9 @@ struct EasyBlockItem Q_DECL_FINAL
 
 }; // END of struct EasyBlockItem.
 
-//#define EASY_TREE_WIDGET__USE_VECTOR
 struct EasyBlock Q_DECL_FINAL
 {
     ::profiler::BlocksTree       tree;
-#ifdef EASY_TREE_WIDGET__USE_VECTOR
-    uint32_t                tree_item;
-#endif
     uint32_t      graphics_item_index;
     uint8_t       graphics_item_level;
     uint8_t             graphics_item;
@@ -112,9 +108,6 @@ struct EasyBlock Q_DECL_FINAL
 
     EasyBlock(EasyBlock&& that) EASY_NOEXCEPT
         : tree(::std::move(that.tree))
-#ifdef EASY_TREE_WIDGET__USE_VECTOR
-        , tree_item(that.tree_item)
-#endif
         , graphics_item_index(that.graphics_item_index)
         , graphics_item_level(that.graphics_item_level)
         , graphics_item(that.graphics_item)

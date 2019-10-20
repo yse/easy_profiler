@@ -9,7 +9,7 @@
 *                   : for standard system window header.
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -86,7 +86,7 @@ public:
     Q_DECLARE_FLAGS(Buttons, Button)
     Q_FLAG(Buttons)
 
-    explicit WindowHeader(const QString& title, Buttons buttons, QWidget* parent);
+    explicit WindowHeader(const QString& title, Buttons buttons, QWidget& parentRef);
     ~WindowHeader() override;
 
     void setTitle(const QString& title);

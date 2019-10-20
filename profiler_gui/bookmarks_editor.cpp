@@ -8,7 +8,7 @@
 * description       : The file contains implementation of BookmarkEditor.
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -70,7 +70,6 @@ BookmarkEditor::BookmarkEditor(size_t bookmarkIndex, bool isNew, QWidget* parent
 {
     setAttribute(Qt::WA_DeleteOnClose, true);
     setSizeGripEnabled(EASY_GLOBALS.use_custom_window_header);
-    setModal(true);
 
     const auto& bookmark = EASY_GLOBALS.bookmarks[m_bookmarkIndex];
 
@@ -128,7 +127,7 @@ BookmarkEditor::BookmarkEditor(size_t bookmarkIndex, bool isNew, QWidget* parent
     contentLayout->addWidget(m_textEdit, 1);
 
     const WindowHeader::Buttons buttons {WindowHeader::MaximizeButton | WindowHeader::CloseButton};
-    auto header = new WindowHeader(isNew ? "New bookmark" : "Edit bookmark", buttons, this);
+    auto header = new WindowHeader(isNew ? "New bookmark" : "Edit bookmark", buttons, *this);
 
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(1, 1, 1, 1);
@@ -174,10 +173,11 @@ void BookmarkEditor::onColorButtonClicked(bool)
     QColorDialog colorDialog(palette.brush(QPalette::Background).color(), this);
     colorDialog.exec();
 
-    palette.setBrush(QPalette::Background, QBrush(colorDialog.currentColor()));
+    auto color = colorDialog.currentColor();
+    palette.setBrush(QPalette::Background, QBrush(color));
     m_colorButton->setPalette(palette);
 
-    m_colorButton->setStyleSheet(QString("background-color: %1;").arg(colorDialog.currentColor().name()));
+    m_colorButton->setStyleSheet(QString("background-color: %1;").arg(color.name()));
     m_colorButton->style()->unpolish(m_colorButton);
     m_colorButton->style()->polish(m_colorButton);
     m_colorButton->update();

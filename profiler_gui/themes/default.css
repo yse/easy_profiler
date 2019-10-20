@@ -64,7 +64,10 @@ QSplitter::handle:pressed {
 
 QLabel#BlocksTreeWidget_HintLabel {
   color: gray;
-  font-size: 13pt; }
+  font-size: 12pt; }
+
+QLabel#BlocksTreeWidget_HintLabel[hovered=true] {
+  color: black; }
 
 /* ****************************************************************************************************************** */
 QLineEdit, QSpinBox {
@@ -303,9 +306,10 @@ QMenu::indicator:exclusive:checked:disabled {
 /* ****************************************************************************************************************** */
 QHeaderView::section {
   height: 15.3ex;
-  width: 60ex;
-  min-width: 40ex;
-  background: #eeeeee; }
+  min-height: 15.3ex;
+  max-height: 15.3ex;
+  background: #eeeeee;
+  /*{lin}font-weight: bold;*/ }
 
 /* ****************************************************************************************************************** */
 DockWidget QWidget#EasyDockWidgetTitle {
@@ -399,9 +403,9 @@ QScrollBar::add-line, QScrollBar::sub-line {
 
 WindowHeader {
   background-color: white;
-  height: 24ex;
-  min-height: 24ex;
-  max-height: 24ex;
+  height: 15.6ex;
+  min-height: 15.6ex;
+  max-height: 15.6ex;
   margin: 0;
   padding: 0 0 0 6ex;
   border: none; }
@@ -426,8 +430,8 @@ WindowHeader {
     image: url(":/images/default/minimize");
     padding: 2ex; }
   WindowHeader QPushButton#WindowHeader_MinButton:hover {
-    background-color: #d1d1d1;
-    border-bottom: 1px solid #d1d1d1; }
+    background-color: #e8e8e8;
+    border-bottom: 1px solid #e8e8e8; }
   WindowHeader QPushButton#WindowHeader_MinButton:pressed {
     background-color: #c4c4c4;
     border-bottom: 1px solid #c4c4c4; }
@@ -438,8 +442,8 @@ WindowHeader {
     image: url(":/images/default/to-window");
     padding: 1ex; }
   WindowHeader QPushButton#WindowHeader_MaxButton:hover {
-    background-color: #d1d1d1;
-    border-bottom: 1px solid #d1d1d1; }
+    background-color: #e8e8e8;
+    border-bottom: 1px solid #e8e8e8; }
   WindowHeader QPushButton#WindowHeader_MaxButton:pressed {
     background-color: #c4c4c4;
     border-bottom: 1px solid #c4c4c4; }

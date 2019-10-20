@@ -1,11 +1,11 @@
 /************************************************************************
-* file name         : thread_pool_task.cpp
+* file name         : text_highlighter.cpp
 * ----------------- :
-* creation time     : 2018/01/28
+* creation time     : 2019/10/12
 * author            : Victor Zarubkin
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
-* description       : The file contains implementation of ThreadPoolTask.
+* description       : The file contains implementation of TextHighlighter.
 * ----------------- :
 * license           : Lightweight profiler library for c++
 *                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
@@ -48,84 +48,57 @@
 *                   : limitations under the License.
 ************************************************************************/
 
-#include "thread_pool_task.h"
-#include "thread_pool.h"
+#include "text_highlighter.h"
+#include <QColor>
+#include <QRegExp>
 
-static std::atomic_bool s_dummy_flag {false};
+#include <easy/details/profiler_colors.h>
+#include "common_functions.h"
 
-ThreadPoolTask::ThreadPoolTask() : m_func([] {}), m_interrupt(&s_dummy_flag)
+EASY_CONSTEXPR auto HighlightColor = profiler::colors::Yellow;
+EASY_CONSTEXPR auto CurrentHighlightColor = profiler::colors::Magenta;
+
+TextHighlighter::TextHighlighter(
+    QTextDocument* doc,
+    const QColor& normalTextColor,
+    const QColor& lightTextColor,
+    const QString& pattern,
+    Qt::CaseSensitivity caseSensitivity,
+    bool current
+)
+    : QSyntaxHighlighter(doc)
+    , m_pattern(pattern)
+    , m_caseSensitivity(caseSensitivity)
 {
-    m_status = static_cast<int8_t>(TaskStatus::Finished);
+    auto color = current ? CurrentHighlightColor : HighlightColor;
+    m_textCharFormat.setBackground(QColor::fromRgba(color));
+    m_textCharFormat.setForeground(profiler_gui::isLightColor(color) ? normalTextColor : lightTextColor);
 }
 
-ThreadPoolTask::~ThreadPoolTask()
+TextHighlighter::~TextHighlighter()
 {
-    m_signals.disconnect();
-    dequeue();
+
 }
 
-void ThreadPoolTask::enqueue(Func&& func, std::atomic_bool& interruptFlag)
+void TextHighlighter::highlightBlock(const QString& text)
 {
-    dequeue();
-    setStatus(TaskStatus::Enqueued);
-
-    m_interrupt = &interruptFlag;
-    m_interrupt->store(false, std::memory_order_release);
-    m_func = std::move(func);
-
-    ThreadPool::instance().enqueue(*this);
-}
-
-void ThreadPoolTask::dequeue()
-{
-    if (m_interrupt == nullptr || m_interrupt == &s_dummy_flag || status() == TaskStatus::Finished)
+    if (m_pattern.isEmpty())
     {
         return;
     }
 
-    m_interrupt->store(true, std::memory_order_release);
-
-    ThreadPool::instance().dequeue(*this);
-
-    // wait for finish
+    QRegExp expression(m_pattern, m_caseSensitivity);
+    int index = text.indexOf(expression);
+    while (index >= 0)
     {
-        const std::lock_guard<std::mutex> guard(m_mutex);
-        setStatus(TaskStatus::Finished);
-    }
+        const auto length = expression.cap().length();
+        setFormat(index, length, m_textCharFormat);
 
-    //m_interrupt->store(false, std::memory_order_release);
-}
-
-TaskStatus ThreadPoolTask::status() const
-{
-    return static_cast<TaskStatus>(m_status.load(std::memory_order_acquire));
-}
-
-void ThreadPoolTask::execute()
-{
-    // execute if not cancelled
-    {
-        const std::lock_guard<std::mutex> guard(m_mutex);
-
-        if (status() == TaskStatus::Finished || m_interrupt->load(std::memory_order_acquire))
+        auto prevIndex = index;
+        index = text.indexOf(expression, index + length);
+        if (index <= prevIndex)
         {
-            // cancelled
-            return;
+            break;
         }
-
-        m_func();
-        setStatus(TaskStatus::Finished);
     }
-
-    emit m_signals.finished();
-}
-
-void ThreadPoolTask::setStatus(TaskStatus status)
-{
-    m_status.store(static_cast<int8_t>(status), std::memory_order_release);
-}
-
-ThreadPoolTaskSignals& ThreadPoolTask::events()
-{
-    return m_signals;
 }

@@ -12,7 +12,7 @@
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -268,11 +268,12 @@ FpsWidget::FpsWidget(QWidget* _parent) : Parent(_parent), m_fpsItem(nullptr)
     centerOn(0, 0);
 
     // Dirty hack for QDockWidget stupid initial size policy :(
+    setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     setFixedHeight(10); // Set very small height to enable appropriate minimum height on the application startup
     QTimer::singleShot(100, [this]
     {
         // Now set appropriate minimum height
-        setMinimumHeight((QFontMetrics(scene()->font()).height() + 3) * 6);
+        setMinimumHeight((QFontMetrics(scene()->font()).height() + px(3)) * 3);
         setMaximumHeight(minimumHeight() * 20);
     });
 }
@@ -292,6 +293,16 @@ void FpsWidget::addPoint(uint32_t _maxFrameTime, uint32_t _avgFrameTime)
 {
     m_fpsItem->addPoint(_maxFrameTime, _avgFrameTime);
     scene()->update();
+}
+
+QSize FpsWidget::sizeHint() const
+{
+    return QSize(Parent::sizeHint().width(), minimumHeight());
+}
+
+QSize FpsWidget::minimumSizeHint() const
+{
+    return QSize(Parent::minimumSizeHint().width(), minimumHeight());
 }
 
 void FpsWidget::resizeEvent(QResizeEvent* _event)

@@ -12,7 +12,7 @@
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -115,6 +115,11 @@ void GraphicsHistogramItem::paint(QPainter* _painter, const QStyleOptionGraphics
 
 void GraphicsHistogramItem::paintMouseIndicator(QPainter* _painter, qreal _top, qreal _bottom, qreal _width, qreal _height, qreal _top_width, qreal _mouse_y, qreal _delta_time, int _font_h)
 {
+    if (isEmpty())
+    {
+        return;
+    }
+
     if (_font_h != 0 && _top < _mouse_y && _mouse_y < _bottom)
     {
         const int half_font_h = _font_h >> 1;
@@ -178,7 +183,7 @@ void GraphicsHistogramItem::paintByPtr(QPainter* _painter)
     _painter->setPen(profiler_gui::TEXT_COLOR);
     _painter->drawText(rect, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextDontClip, bindMode ? " Mode: Zoom" : " Mode: Overview");
 
-    if (!m_topDurationStr.isEmpty())
+    if (!isEmpty() && !m_topDurationStr.isEmpty())
     {
         if (m_timeUnits != EASY_GLOBALS.time_units)
         {
@@ -204,7 +209,7 @@ void GraphicsHistogramItem::paintByPtr(QPainter* _painter)
 
     paintMouseIndicator(_painter, m_boundingRect.top(), bottom, width, m_boundingRect.height(), top_width, m_mousePos.y(), dtime, font_h);
 
-    if (m_bottomValue < EASY_GLOBALS.frame_time && EASY_GLOBALS.frame_time < m_topValue)
+    if (!isEmpty() && m_bottomValue < EASY_GLOBALS.frame_time && EASY_GLOBALS.frame_time < m_topValue)
     {
         // Draw marker displaying expected frame_time step
         const auto h = bottom - (EASY_GLOBALS.frame_time - m_bottomValue) * coeff;
@@ -270,7 +275,7 @@ void GraphicsHistogramItem::paintById(QPainter* _painter)
     _painter->setPen(profiler_gui::TEXT_COLOR);
     _painter->drawText(rect, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextDontClip, bindMode ? " Mode: Zoom" : " Mode: Overview");
 
-    if (!m_topDurationStr.isEmpty())
+    if (!isEmpty() && !m_topDurationStr.isEmpty())
     {
         if (m_timeUnits != EASY_GLOBALS.time_units)
         {
@@ -296,7 +301,7 @@ void GraphicsHistogramItem::paintById(QPainter* _painter)
 
     paintMouseIndicator(_painter, m_boundingRect.top(), bottom, width, m_boundingRect.height(), top_width, m_mousePos.y(), dtime, font_h);
 
-    if (m_bottomValue < EASY_GLOBALS.frame_time && EASY_GLOBALS.frame_time < m_topValue)
+    if (!isEmpty() && m_bottomValue < EASY_GLOBALS.frame_time && EASY_GLOBALS.frame_time < m_topValue)
     {
         // Draw marker displaying required frame_time step
         const auto h = bottom - (EASY_GLOBALS.frame_time - m_bottomValue) * coeff;
@@ -315,20 +320,20 @@ void GraphicsHistogramItem::paintById(QPainter* _painter)
     _painter->setPen(profiler_gui::TEXT_COLOR);
     rect.setRect(0, bottom + 2, width, font_h);
 
-    if (!m_selectedBlocks.empty())
+    if (!items.empty())
     {
         if (m_threadProfiledTime != 0)
         {
             _painter->drawText(rect, Qt::AlignCenter | Qt::TextDontClip,
                 QString("%1  |  %2  |  %3 calls  |  %4% of thread profiled time")
-                    .arg(m_threadName).arg(m_blockName).arg(m_selectedBlocks.size())
+                    .arg(m_threadName).arg(m_blockName).arg(items.size())
                     .arg(QString::number(100. * (double)m_blockTotalDuraion / (double)m_threadProfiledTime, 'f', 2)));
         }
         else
         {
             _painter->drawText(rect, Qt::AlignCenter | Qt::TextDontClip,
                 QString("%1  |  %2  |  %3 calls  |  100% of thread profiled time")
-                    .arg(m_threadName).arg(m_blockName).arg(m_selectedBlocks.size()));
+                    .arg(m_threadName).arg(m_blockName).arg(items.size()));
         }
     }
     else
@@ -380,6 +385,7 @@ void GraphicsHistogramItem::setSource(profiler::thread_id_t _thread_id, const pr
     m_imageScaleUpdate = m_imageScale = 1;
 
     m_selectedBlocks.clear();
+    setEmpty(true);
     { profiler::BlocksTree::children_t().swap(m_selectedBlocks); }
 
     setImageUpdatePermitted(false);
@@ -464,6 +470,7 @@ void GraphicsHistogramItem::setSource(profiler::thread_id_t _thread_id, const pr
                     m_bottomDurationStr.clear();
                 }
 
+                setEmpty(empty);
                 setReady(true);
 
             }, m_bReady);
@@ -505,6 +512,7 @@ void GraphicsHistogramItem::setSource(profiler::thread_id_t _thread_id, profiler
     m_imageScaleUpdate = m_imageScale = 1;
 
     m_selectedBlocks.clear();
+    setEmpty(true);
     { profiler::BlocksTree::children_t().swap(m_selectedBlocks); }
 
     m_threadId = _thread_id;
@@ -658,6 +666,7 @@ void GraphicsHistogramItem::setSource(profiler::thread_id_t _thread_id, profiler
                 m_topValue = m_maxValue;
                 m_bottomValue = m_minValue;
 
+                setEmpty(m_selectedBlocks.empty());
                 setReady(true);
 
             }, m_bReady);
@@ -770,7 +779,7 @@ bool GraphicsHistogramItem::decreaseBottomValue()
 
 void GraphicsHistogramItem::pickFrameTime(qreal _y) const
 {
-    if (isImageUpdatePermitted() && m_boundingRect.top() < _y && _y < m_boundingRect.bottom() && !m_topDurationStr.isEmpty())
+    if (!isEmpty() && isImageUpdatePermitted() && m_boundingRect.top() < _y && _y < m_boundingRect.bottom() && !m_topDurationStr.isEmpty())
     {
         const auto frame_time = m_bottomValue + (m_topValue - m_bottomValue) * (m_boundingRect.bottom() - _y) / m_boundingRect.height();
         EASY_GLOBALS.frame_time = static_cast<decltype(EASY_GLOBALS.frame_time)>(frame_time);

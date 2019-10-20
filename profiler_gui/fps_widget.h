@@ -12,7 +12,7 @@
 *                   : *
 * ----------------- : 
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -109,6 +109,8 @@ public:
     explicit FpsWidget(QWidget* _parent = nullptr);
     ~FpsWidget() override;
 
+    QSize sizeHint() const override;
+    QSize minimumSizeHint() const override;
     void resizeEvent(QResizeEvent* _event) override;
     void hideEvent(QHideEvent* _event) override;
     void showEvent(QShowEvent* _event) override;

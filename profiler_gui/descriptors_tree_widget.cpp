@@ -13,7 +13,7 @@
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -53,26 +53,31 @@
 *                   : limitations under the License.
 ************************************************************************/
 
-#include <QMenu>
+#include <QAbstractTextDocumentLayout>
 #include <QAction>
 #include <QActionGroup>
-#include <QHeaderView>
-#include <QString>
 #include <QContextMenuEvent>
+#include <QHBoxLayout>
+#include <QHeaderView>
 #include <QKeyEvent>
-#include <QSignalBlocker>
-#include <QSettings>
 #include <QLabel>
 #include <QLineEdit>
-#include <QToolBar>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
+#include <QMenu>
+#include <QSettings>
+#include <QSignalBlocker>
 #include <QSplitter>
-#include <QVariant>
+#include <QString>
+#include <QTextDocument>
 #include <QTimer>
+#include <QToolBar>
+#include <QVariant>
+#include <QVBoxLayout>
+
 #include "descriptors_tree_widget.h"
-#include "arbitrary_value_inspector.h"
+
 #include "globals.h"
+#include "arbitrary_value_inspector.h"
+#include "text_highlighter.h"
 #include "thread_pool.h"
 
 #ifdef max
@@ -82,18 +87,6 @@
 #ifdef min
 #undef min
 #endif
-
-//////////////////////////////////////////////////////////////////////////
-
-enum DescColumns
-{
-    DESC_COL_FILE_LINE = 0,
-    DESC_COL_TYPE,
-    DESC_COL_NAME,
-    DESC_COL_STATUS,
-
-    DESC_COL_COLUMNS_NUMBER
-};
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -240,10 +233,15 @@ QVariant DescriptorsTreeItem::data(int _column, int _role) const
 DescriptorsTreeWidget::DescriptorsTreeWidget(QWidget* _parent)
     : Parent(_parent)
     , m_lastFound(nullptr)
+    , m_lastFoundIndex(0)
     , m_lastSearchColumn(-1)
     , m_searchColumn(DESC_COL_NAME)
     , m_bLocked(false)
+    , m_bCaseSensitiveSearch(false)
+    , m_bInitialized(false)
 {
+    memset(m_columnsMinimumWidth, 0, sizeof(m_columnsMinimumWidth));
+
     setAutoFillBackground(false);
     setAlternatingRowColors(true);
     setItemsExpandable(true);
@@ -264,8 +262,11 @@ DescriptorsTreeWidget::DescriptorsTreeWidget(QWidget* _parent)
     connect(this, &Parent::itemExpanded, this, &This::onItemExpand);
     connect(this, &Parent::itemDoubleClicked, this, &This::onDoubleClick);
     connect(this, &Parent::currentItemChanged, this, &This::onCurrentItemChange);
+    connect(header(), &QHeaderView::sectionResized, this, &This::onHeaderSectionResized);
 
     loadSettings();
+
+    setItemDelegateForColumn(m_searchColumn, new DescWidgetItemDelegate(this));
 }
 
 DescriptorsTreeWidget::~DescriptorsTreeWidget()
@@ -279,17 +280,109 @@ DescriptorsTreeWidget::~DescriptorsTreeWidget()
     saveSettings();
 }
 
+void DescriptorsTreeWidget::showEvent(QShowEvent* event)
+{
+    Parent::showEvent(event);
+
+    if (!m_bInitialized)
+    {
+#if !defined(_WIN32) && !defined(__APPLE__)
+        const auto padding = px(9);
+#else
+        const auto padding = px(6);
+#endif
+
+        auto header = this->header();
+        auto headerItem = this->headerItem();
+
+        auto f = header->font();
+#if !defined(_WIN32) && !defined(__APPLE__)
+        f.setBold(true);
+#endif
+        QFontMetrics fm(f);
+
+        const auto indicatorSize = header->isSortIndicatorShown() ? px(11) : 0;
+        for (int i = 0; i < DESC_COL_COLUMNS_NUMBER; ++i)
+        {
+            auto minSize = static_cast<int>(fm.width(headerItem->text(i)) * profiler_gui::FONT_METRICS_FACTOR + padding);
+            m_columnsMinimumWidth[i] = minSize;
+
+            if (header->isSortIndicatorShown() && header->sortIndicatorSection() == i)
+            {
+                minSize += indicatorSize;
+            }
+
+            if (header->sectionSize(i) < minSize)
+            {
+                header->resizeSection(i, minSize);
+            }
+        }
+
+        m_bInitialized = true;
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////
+
+void DescriptorsTreeWidget::resetSearch(bool repaint)
+{
+    if (m_lastSearch.isEmpty())
+    {
+        return;
+    }
+
+    m_lastSearchColumn = m_searchColumn;
+    m_bCaseSensitiveSearch = false;
+    m_lastSearch.clear();
+    m_lastFound = nullptr;
+    m_lastFoundIndex = 0;
+
+    if (repaint)
+    {
+        viewport()->update();
+    }
+}
 
 void DescriptorsTreeWidget::setSearchColumn(int column)
 {
+    const int prevColumn = m_searchColumn;
     m_searchColumn = column;
+
+    if (m_searchColumn != prevColumn)
+    {
+        auto delegate = itemDelegateForColumn(prevColumn);
+        setItemDelegateForColumn(prevColumn, nullptr);
+        delete delegate;
+
+        setItemDelegateForColumn(m_searchColumn, new DescWidgetItemDelegate(this));
+    }
+
     emit searchColumnChanged(column);
 }
 
 int DescriptorsTreeWidget::searchColumn() const
 {
     return m_searchColumn;
+}
+
+QTreeWidgetItem* DescriptorsTreeWidget::lastFoundItem() const
+{
+    return m_lastFound;
+}
+
+bool DescriptorsTreeWidget::caseSensitiveSearch() const
+{
+    return m_bCaseSensitiveSearch;
+}
+
+const QString& DescriptorsTreeWidget::searchString() const
+{
+    return m_lastSearch;
+}
+
+int DescriptorsTreeWidget::lastFoundIndex() const
+{
+    return m_lastFoundIndex;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -348,10 +441,8 @@ void DescriptorsTreeWidget::clearSilent(bool _global)
     const QSignalBlocker b(this);
 
     setSortingEnabled(false);
-    m_lastFound = nullptr;
-    m_lastSearch.clear();
+    resetSearch(false);
 
-    m_highlightItems.clear();
     m_items.clear();
 
     if (topLevelItemCount() != 0)
@@ -464,7 +555,23 @@ void DescriptorsTreeWidget::build()
     setSortingEnabled(true);
     sortByColumn(DESC_COL_FILE_LINE, Qt::AscendingOrder);
     resizeColumnsToContents();
-    QTimer::singleShot(100, [this](){ onSelectedBlockChange(EASY_GLOBALS.selected_block); });
+
+    QTimer::singleShot(100, [this] { onSelectedBlockChange(EASY_GLOBALS.selected_block); });
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void DescriptorsTreeWidget::onHeaderSectionResized(int logicalIndex, int /*oldSize*/, int newSize)
+{
+    const auto indicatorSize = header()->isSortIndicatorShown() && header()->sortIndicatorSection() == logicalIndex ? px(11) : 0;
+    const auto minSize = m_columnsMinimumWidth[logicalIndex] + indicatorSize;
+
+    if (!m_bInitialized || newSize >= minSize)
+    {
+        return;
+    }
+
+    header()->resizeSection(logicalIndex, minSize);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -500,20 +607,8 @@ void DescriptorsTreeWidget::onDoubleClick(QTreeWidgetItem* _item, int _column)
 
 void DescriptorsTreeWidget::onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidgetItem* _prev)
 {
-    if (_prev != nullptr)
-    {
-        auto f = font();
-        for (int i = 0; i < DESC_COL_STATUS; ++i)
-            _prev->setFont(i, f);
-    }
-
     if (_item != nullptr)
     {
-        auto f = font();
-        f.setBold(true);
-        for (int i = 0; i < DESC_COL_STATUS; ++i)
-            _item->setFont(i, f);
-
         if (::profiler_gui::is_max(EASY_GLOBALS.selected_block) && _item->parent() != nullptr)
         {
             const auto id = static_cast<DescriptorsTreeItem*>(_item)->desc();
@@ -598,15 +693,6 @@ void DescriptorsTreeWidget::onSelectedBlockChange(uint32_t _block_index)
 
 //////////////////////////////////////////////////////////////////////////
 
-void DescriptorsTreeWidget::resetHighlight()
-{
-    for (auto item : m_highlightItems) {
-        for (int i = 0; i < DESC_COL_COLUMNS_NUMBER; ++i)
-            item->setBackground(i, Qt::NoBrush);
-    }
-    m_highlightItems.clear();
-}
-
 void DescriptorsTreeWidget::loadSettings()
 {
     QSettings settings(::profiler_gui::ORGANAZATION_NAME, ::profiler_gui::APPLICATION_NAME);
@@ -635,19 +721,20 @@ int DescriptorsTreeWidget::findNext(const QString& _str, Qt::MatchFlags _flags)
 {
     if (_str.isEmpty())
     {
-        resetHighlight();
-        m_lastSearchColumn = m_searchColumn;
+        resetSearch();
         return 0;
     }
 
     const bool isNewSearch = (m_lastSearchColumn != m_searchColumn || m_lastSearch != _str);
     auto itemsList = findItems(_str, Qt::MatchContains | Qt::MatchRecursive | _flags, m_searchColumn);
+    m_bCaseSensitiveSearch = _flags.testFlag(Qt::MatchCaseSensitive);
 
     if (!isNewSearch)
     {
         if (!itemsList.empty())
         {
             bool stop = false;
+            int i = 0;
             decltype(m_lastFound) next = nullptr;
             for (auto item : itemsList)
             {
@@ -658,29 +745,24 @@ int DescriptorsTreeWidget::findNext(const QString& _str, Qt::MatchFlags _flags)
                 }
 
                 stop = item == m_lastFound;
+                ++i;
             }
 
             m_lastFound = next == nullptr ? itemsList.front() : next;
+            m_lastFoundIndex = next == nullptr ? 0 : i;
         }
         else
         {
             m_lastFound = nullptr;
+            m_lastFoundIndex = 0;
         }
     }
     else
     {
-        resetHighlight();
-
         m_lastSearchColumn = m_searchColumn;
         m_lastSearch = _str;
         m_lastFound = !itemsList.empty() ? itemsList.front() : nullptr;
-
-        for (auto item : itemsList)
-        {
-            m_highlightItems.push_back(item);
-            for (int i = 0; i < DESC_COL_COLUMNS_NUMBER; ++i)
-                item->setBackgroundColor(i, QColor::fromRgba(0x80000000 | (0x00ffffff & ::profiler::colors::Yellow)));
-        }
+        m_lastFoundIndex = 0;
     }
 
     if (m_lastFound != nullptr)
@@ -688,6 +770,8 @@ int DescriptorsTreeWidget::findNext(const QString& _str, Qt::MatchFlags _flags)
         scrollToItem(m_lastFound, QAbstractItemView::PositionAtCenter);
         setCurrentItem(m_lastFound);
     }
+
+    viewport()->update();
 
     return itemsList.size();
 }
@@ -696,48 +780,54 @@ int DescriptorsTreeWidget::findPrev(const QString& _str, Qt::MatchFlags _flags)
 {
     if (_str.isEmpty())
     {
-        resetHighlight();
-        m_lastSearchColumn = m_searchColumn;
+        resetSearch();
         return 0;
     }
 
     const bool isNewSearch = (m_lastSearchColumn != m_searchColumn || m_lastSearch != _str);
     auto itemsList = findItems(_str, Qt::MatchContains | Qt::MatchRecursive | _flags, m_searchColumn);
+    m_bCaseSensitiveSearch = _flags.testFlag(Qt::MatchCaseSensitive);
 
     if (!isNewSearch)
     {
         if (!itemsList.empty())
         {
+            int i = 0;
             decltype(m_lastFound) prev = nullptr;
             for (auto item : itemsList)
             {
                 if (item == m_lastFound)
+                {
+                    --i;
                     break;
+                }
 
                 prev = item;
+                ++i;
             }
 
             m_lastFound = prev == nullptr ? itemsList.back() : prev;
+            m_lastFoundIndex = prev == nullptr ? itemsList.length() - 1 : i;
         }
         else
         {
             m_lastFound = nullptr;
+            m_lastFoundIndex = 0;
         }
     }
     else
     {
-        resetHighlight();
-
         m_lastSearchColumn = m_searchColumn;
         m_lastSearch = _str;
-        m_lastFound = !itemsList.empty() ? itemsList.front() : nullptr;
-
-        m_highlightItems.reserve(itemsList.size());
-        for (auto item : itemsList)
+        if (!itemsList.empty())
         {
-            m_highlightItems.push_back(item);
-            for (int i = 0; i < DESC_COL_COLUMNS_NUMBER; ++i)
-                item->setBackgroundColor(i, QColor::fromRgba(0x80000000 | (0x00ffffff & ::profiler::colors::Yellow)));
+            m_lastFound = itemsList.back();
+            m_lastFoundIndex = itemsList.length() - 1;
+        }
+        else
+        {
+            m_lastFound = nullptr;
+            m_lastFoundIndex = 0;
         }
     }
 
@@ -746,6 +836,8 @@ int DescriptorsTreeWidget::findPrev(const QString& _str, Qt::MatchFlags _flags)
         scrollToItem(m_lastFound, QAbstractItemView::PositionAtCenter);
         setCurrentItem(m_lastFound);
     }
+
+    viewport()->update();
 
     return itemsList.size();
 }
@@ -757,7 +849,7 @@ BlockDescriptorsWidget::BlockDescriptorsWidget(QWidget* _parent) : Parent(_paren
     , m_tree(new DescriptorsTreeWidget(this))
     , m_values(new ArbitraryValuesWidget(this))
     , m_searchBox(new QLineEdit(this))
-    , m_foundNumber(new QLabel("0 matches", this))
+    , m_foundNumber(new QLabel(QStringLiteral("<font color=\"red\">0</font> matches"), this))
     , m_searchButton(nullptr)
     , m_bCaseSensitiveSearch(false)
 {
@@ -897,12 +989,24 @@ void BlockDescriptorsWidget::saveSettings()
 
 void BlockDescriptorsWidget::keyPressEvent(QKeyEvent* _event)
 {
-    if (_event->key() == Qt::Key_F3)
+    switch (_event->key())
     {
-        if (_event->modifiers() & Qt::ShiftModifier)
-            findPrev(true);
-        else
-            findNext(true);
+        case Qt::Key_F3:
+        {
+            if (_event->modifiers() & Qt::ShiftModifier)
+                findPrev(true);
+            else
+                findNext(true);
+            break;
+        }
+
+        case Qt::Key_Escape:
+        {
+            m_searchBox->clear();
+            break;
+        }
+
+        default: break;
     }
 
     _event->accept();
@@ -922,7 +1026,7 @@ void BlockDescriptorsWidget::showEvent(QShowEvent* event)
 void BlockDescriptorsWidget::build()
 {
     m_tree->clearSilent(false);
-    m_foundNumber->setText(QString("0 matches"));
+    m_foundNumber->setText(QStringLiteral("<font color=\"red\">0</font> matches"));
     m_foundNumber->hide();
     m_tree->build();
     m_values->rebuild();
@@ -931,7 +1035,7 @@ void BlockDescriptorsWidget::build()
 void BlockDescriptorsWidget::clear()
 {
     m_tree->clearSilent(true);
-    m_foundNumber->setText(QString("0 matches"));
+    m_foundNumber->setText(QStringLiteral("<font color=\"red\">0</font> matches"));
     m_foundNumber->hide();
     m_values->clear();
 }
@@ -943,7 +1047,7 @@ ArbitraryValuesWidget* BlockDescriptorsWidget::dataViewer() const
 
 void BlockDescriptorsWidget::onSeachBoxReturnPressed()
 {
-    if (m_searchButton->data().toBool() == true)
+    if (m_searchButton->data().toBool())
         findNext(true);
     else
         findPrev(true);
@@ -952,7 +1056,10 @@ void BlockDescriptorsWidget::onSeachBoxReturnPressed()
 void BlockDescriptorsWidget::onSearchBoxTextChanged(const QString& _text)
 {
     if (_text.isEmpty())
+    {
         m_foundNumber->hide();
+        m_tree->resetSearch();
+    }
 }
 
 void BlockDescriptorsWidget::onSearchColumnChanged(int column)
@@ -989,15 +1096,27 @@ void BlockDescriptorsWidget::findNext(bool)
     {
         if (m_foundNumber->isVisible())
             m_foundNumber->hide();
+        m_tree->resetSearch();
         return;
     }
 
     auto matches = m_tree->findNext(text, m_bCaseSensitiveSearch ? Qt::MatchCaseSensitive : Qt::MatchFlags());
 
-    if (matches == 1)
-        m_foundNumber->setText(QString("1 match"));
+    if (matches == 0)
+    {
+        m_foundNumber->setText(QStringLiteral("<font color=\"red\">0</font> matches"));
+    }
+    else if (matches == 1)
+    {
+        m_foundNumber->setText(QStringLiteral("<font color=\"#f5f5f5\" style=\"background:#e040fb\">&nbsp;1&nbsp;</font> match"));
+    }
     else
-        m_foundNumber->setText(QString("%1 matches").arg(matches));
+    {
+        auto i = m_tree->lastFoundIndex() + 1;
+        m_foundNumber->setText(QString("<font color=\"#f5f5f5\" style=\"background:#e040fb\">&nbsp;%1&nbsp;</font> of "
+                                       "<font style=\"background:#ffeb3b\">&nbsp;%2&nbsp;</font> matches")
+                                   .arg(i).arg(matches));
+    }
 
     if (!m_foundNumber->isVisible())
         m_foundNumber->show();
@@ -1010,15 +1129,27 @@ void BlockDescriptorsWidget::findPrev(bool)
     {
         if (m_foundNumber->isVisible())
             m_foundNumber->hide();
+        m_tree->resetSearch();
         return;
     }
 
     auto matches = m_tree->findPrev(text, m_bCaseSensitiveSearch ? Qt::MatchCaseSensitive : Qt::MatchFlags());
 
-    if (matches == 1)
-        m_foundNumber->setText(QString("1 match"));
+    if (matches == 0)
+    {
+        m_foundNumber->setText(QStringLiteral("<font color=\"red\">0</font> matches"));
+    }
+    else if (matches == 1)
+    {
+        m_foundNumber->setText(QStringLiteral("<font color=\"#f5f5f5\" style=\"background:#e040fb\">&nbsp;1&nbsp;</font> match"));
+    }
     else
-        m_foundNumber->setText(QString("%1 matches").arg(matches));
+    {
+        auto i = m_tree->lastFoundIndex() + 1;
+        m_foundNumber->setText(QString("<font color=\"#f5f5f5\" style=\"background:#e040fb\">&nbsp;%1&nbsp;</font> of "
+                                       "<font style=\"background:#ffeb3b\">&nbsp;%2&nbsp;</font> matches")
+                                   .arg(i).arg(matches));
+    }
 
     if (!m_foundNumber->isVisible())
         m_foundNumber->show();
@@ -1029,7 +1160,7 @@ void BlockDescriptorsWidget::findNextFromMenu(bool _checked)
     if (!_checked)
         return;
 
-    if (m_searchButton->data().toBool() == false)
+    if (!m_searchButton->data().toBool())
     {
         m_searchButton->setData(true);
         m_searchButton->setText(tr("Find next"));
@@ -1046,7 +1177,7 @@ void BlockDescriptorsWidget::findPrevFromMenu(bool _checked)
     if (!_checked)
         return;
 
-    if (m_searchButton->data().toBool() == true)
+    if (m_searchButton->data().toBool())
     {
         m_searchButton->setData(false);
         m_searchButton->setText(tr("Find prev"));
@@ -1056,6 +1187,106 @@ void BlockDescriptorsWidget::findPrevFromMenu(bool _checked)
     }
 
     findPrev(true);
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+DescWidgetItemDelegate::DescWidgetItemDelegate(DescriptorsTreeWidget* parent)
+    : QStyledItemDelegate(parent)
+    , m_treeWidget(parent)
+{
+
+}
+
+DescWidgetItemDelegate::~DescWidgetItemDelegate()
+{
+
+}
+
+void DescWidgetItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const
+{
+    QStyledItemDelegate::paint(painter, option, index);
+    highlightMatchingText(painter, option, index);
+}
+
+void DescWidgetItemDelegate::highlightMatchingText(
+    QPainter* painter,
+    const QStyleOptionViewItem& option,
+    const QModelIndex& index
+) const {
+    if (m_treeWidget->lastFoundItem() != nullptr && !m_treeWidget->searchString().isEmpty())
+    {
+        // Highlight matching word
+        auto displayData = m_treeWidget->model()->data(index);
+        if (displayData.canConvert<QString>())
+        {
+            const auto text = displayData.toString();
+            const auto caseSensitivity = m_treeWidget->caseSensitiveSearch() ? Qt::CaseSensitive : Qt::CaseInsensitive;
+            if (text.contains(m_treeWidget->searchString(), caseSensitivity))
+            {
+                auto lastFoundIndex = m_treeWidget->indexFromItem(m_treeWidget->lastFoundItem(), index.column());
+                highlightMatchingText(
+                    painter,
+                    option,
+                    text,
+                    m_treeWidget->searchString(),
+                    caseSensitivity,
+                    lastFoundIndex == index
+                );
+            }
+        }
+    }
+}
+
+void DescWidgetItemDelegate::highlightMatchingText(
+    QPainter* painter,
+    const QStyleOptionViewItem& option,
+    const QString& text,
+    const QString& pattern,
+    Qt::CaseSensitivity caseSensitivity,
+    bool current
+) const {
+    const auto str = pattern.toStdString();
+    (void)str;
+
+    QTextDocument doc;
+    doc.setDefaultFont(painter->font());
+    doc.setTextWidth(option.rect.width());
+
+    const auto elidedText = painter->fontMetrics().elidedText(text, Qt::ElideRight, std::max(option.rect.width(), 0));
+    doc.setHtml(elidedText);
+
+    TextHighlighter highlighter(
+        &doc,
+        painter->pen().color(),
+        QColor::fromRgb(profiler::colors::Grey100),
+        pattern,
+        caseSensitivity,
+        current
+    );
+
+    painter->save();
+
+#ifdef _WIN32
+    EASY_CONSTEXPR int fixed_padding_x = -1;
+    EASY_CONSTEXPR int fixed_padding_y = 0;
+#else
+    EASY_CONSTEXPR int fixed_padding_x = -1;
+    EASY_CONSTEXPR int fixed_padding_y = -1;
+#endif
+
+    auto dh = std::max((option.rect.height() - doc.size().height()) * 0.5, 0.);
+    painter->translate(option.rect.left() + fixed_padding_x, option.rect.top() + dh + fixed_padding_y);
+
+    QRect clip(0, 0, option.rect.width(), option.rect.height());
+    painter->setClipRect(clip);
+
+    QAbstractTextDocumentLayout::PaintContext ctx;
+    ctx.clip = clip;
+    ctx.palette.setColor(QPalette::Text, Qt::transparent);
+    doc.documentLayout()->draw(painter, ctx);
+
+    painter->restore();
 }
 
 //////////////////////////////////////////////////////////////////////////

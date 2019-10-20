@@ -13,7 +13,7 @@
 *                   : * 
 * ----------------- : 
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -64,6 +64,18 @@
 #include <unordered_set>
 
 #include <easy/details/profiler_public_types.h>
+
+//////////////////////////////////////////////////////////////////////////
+
+enum DescColumns
+{
+    DESC_COL_FILE_LINE = 0,
+    DESC_COL_TYPE,
+    DESC_COL_NAME,
+    DESC_COL_STATUS,
+
+    DESC_COL_COLUMNS_NUMBER
+};
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -121,19 +133,21 @@ class DescriptorsTreeWidget : public QTreeWidget
     using This = DescriptorsTreeWidget;
 
     using Items = ::std::vector<DescriptorsTreeItem*>;
-    using TreeItems = ::std::vector<QTreeWidgetItem*>;
     using ExpandedFiles = ::std::unordered_set<::std::string>;
 
 protected:
 
     ExpandedFiles    m_expandedFilesTemp;
     Items                        m_items;
-    TreeItems           m_highlightItems;
     QString                 m_lastSearch;
     QTreeWidgetItem*         m_lastFound;
+    int  m_columnsMinimumWidth[DESC_COL_COLUMNS_NUMBER];
+    int                 m_lastFoundIndex;
     int               m_lastSearchColumn;
     int                   m_searchColumn;
     bool                       m_bLocked;
+    bool          m_bCaseSensitiveSearch;
+    bool                  m_bInitialized;
 
 public:
 
@@ -141,16 +155,28 @@ public:
 
     explicit DescriptorsTreeWidget(QWidget* _parent = nullptr);
     ~DescriptorsTreeWidget() override;
+
     void contextMenuEvent(QContextMenuEvent* _event) override;
+    void showEvent(class QShowEvent* event) override;
 
 public:
+
+    using Parent::indexFromItem;
 
     // Public non-virtual methods
 
     int findNext(const QString& _str, Qt::MatchFlags _flags);
     int findPrev(const QString& _str, Qt::MatchFlags _flags);
+
+    void resetSearch(bool repaint = true);
+
     void setSearchColumn(int column);
     int searchColumn() const;
+
+    QTreeWidgetItem* lastFoundItem() const;
+    const QString& searchString() const;
+    bool caseSensitiveSearch() const;
+    int lastFoundIndex() const;
 
 signals:
 
@@ -163,6 +189,7 @@ public slots:
 
 private slots:
 
+    void onHeaderSectionResized(int logicalIndex, int oldSize, int newSize);
     void onBlockStatusChangeClicked(bool);
     void onCurrentItemChange(QTreeWidgetItem* _item, QTreeWidgetItem* _prev);
     void onItemExpand(QTreeWidgetItem* _item);
@@ -175,7 +202,6 @@ private:
 
     // Private methods
 
-    void resetHighlight();
     void loadSettings();
     void saveSettings();
 
@@ -242,6 +268,35 @@ private:
     void saveSettings();
 
 }; // END of class BlockDescriptorsWidget.
+
+
+//////////////////////////////////////////////////////////////////////////
+
+class DescWidgetItemDelegate : public QStyledItemDelegate
+{
+    Q_OBJECT
+    DescriptorsTreeWidget* m_treeWidget;
+
+public:
+
+    explicit DescWidgetItemDelegate(DescriptorsTreeWidget* parent = nullptr);
+    ~DescWidgetItemDelegate() override;
+    void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override;
+
+private:
+
+    void highlightMatchingText(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const;
+
+    void highlightMatchingText(
+        QPainter* painter,
+        const QStyleOptionViewItem& option,
+        const QString& text,
+        const QString& pattern,
+        Qt::CaseSensitivity caseSensitivity,
+        bool current
+    ) const;
+
+}; // END of class DescWidgetItemDelegate.
 
 //////////////////////////////////////////////////////////////////////////
 

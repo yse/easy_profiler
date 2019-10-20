@@ -8,7 +8,7 @@
 * description       : The file contains implementation of GraphicsBlockItem.
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -1146,7 +1146,7 @@ void GraphicsBlockItem::getBlocks(qreal _left, qreal _right, ::profiler_gui::Tre
     size_t itemIndex = 0;
     if (first != level0.end())
     {
-        itemIndex = first - level0.begin();
+        itemIndex = static_cast<size_t>(std::distance(level0.begin(), first));
         if (itemIndex > 0)
             itemIndex -= 1;
     }

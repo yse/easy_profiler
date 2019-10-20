@@ -12,7 +12,7 @@
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -72,16 +72,17 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-GraphicsRulerItem::GraphicsRulerItem(bool _main)
+GraphicsRulerItem::GraphicsRulerItem(bool main)
     : Parent()
     , m_color(profiler_gui::RULER_COLOR)
     , m_left(0)
     , m_right(0)
-    , m_bMain(_main)
-    , m_bReverse(false)
-    , m_bHoverIndicator(false)
-    , m_bHoverLeftBorder(false)
-    , m_bHoverRightBorder(false)
+    , m_main(main)
+    , m_reverse(false)
+    , m_strict(false)
+    , m_hover_on_indicator(false)
+    , m_hover_on_left_border(false)
+    , m_hover_on_right_border(false)
 {
     m_indicator.reserve(3);
 }
@@ -92,10 +93,10 @@ GraphicsRulerItem::~GraphicsRulerItem()
 
 QRectF GraphicsRulerItem::boundingRect() const
 {
-    return m_boundingRect;
+    return m_bounding_rect;
 }
 
-void GraphicsRulerItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*, QWidget*)
+void GraphicsRulerItem::paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*)
 {
     auto const sceneView = view();
     const auto currentScale = sceneView->scale();
@@ -103,19 +104,19 @@ void GraphicsRulerItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem
     const auto visibleSceneRect = sceneView->visibleSceneRect();
     auto sceneLeft = offset, sceneRight = offset + visibleSceneRect.width() / currentScale;
 
-    if (m_bMain)
+    if (m_main)
         m_indicator.clear();
 
     if (m_left > sceneRight || m_right < sceneLeft)
     {
         // This item is out of screen
 
-        if (m_bMain)
+        if (m_main)
         {
-            const int size = m_bHoverIndicator ? 12 : 10;
+            const int size = m_hover_on_indicator ? 12 : 10;
             auto vcenter = visibleSceneRect.top() + visibleSceneRect.height() * 0.5;
             auto color = QColor::fromRgb(m_color.rgb());
-            auto pen = _painter->pen();
+            auto pen = painter->pen();
             pen.setColor(color);
 
             m_indicator.clear();
@@ -134,19 +135,24 @@ void GraphicsRulerItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem
                 m_indicator.push_back(QPointF(sceneLeft + size, vcenter + size));
             }
 
-            _painter->save();
-            _painter->setTransform(QTransform::fromTranslate(-x(), -y()), true);
-            _painter->setBrush(m_bHoverIndicator ? QColor::fromRgb(0xffff0000) : color);
-            _painter->setPen(pen);
-            _painter->drawPolygon(m_indicator);
-            _painter->restore();
+            painter->save();
+            painter->setTransform(QTransform::fromTranslate(-x(), -y()), true);
+            painter->setBrush(m_hover_on_indicator ? QColor::fromRgb(0xffff0000) : color);
+            painter->setPen(pen);
+            painter->drawPolygon(m_indicator);
+            painter->restore();
         }
 
         return;
     }
 
     auto selectedInterval = width();
-    QRectF rect((m_left - offset) * currentScale, visibleSceneRect.top(), ::std::max(selectedInterval * currentScale, 1.0), visibleSceneRect.height());
+    QRectF rect(
+        (m_left - offset) * currentScale,
+        visibleSceneRect.top(),
+        ::std::max(selectedInterval * currentScale, 1.0),
+        visibleSceneRect.height()
+    );
     selectedInterval = units2microseconds(selectedInterval);
 
     const QString text = profiler_gui::timeStringReal(EASY_GLOBALS.time_units, selectedInterval); // Displayed text
@@ -156,10 +162,10 @@ void GraphicsRulerItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem
 
 
     // Paint!--------------------------
-    _painter->save();
+    painter->save();
 
     // instead of scrollbar we're using manual offset
-    _painter->setTransform(QTransform::fromTranslate(-x(), -y()), true);
+    painter->setTransform(QTransform::fromTranslate(-x(), -y()), true);
 
     if (m_left < sceneLeft)
         rect.setLeft(0);
@@ -174,87 +180,87 @@ void GraphicsRulerItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem
     g.setColorAt(0.2, QColor::fromRgba(0x14000000 | rgb));
     g.setColorAt(0.8, QColor::fromRgba(0x14000000 | rgb));
     g.setColorAt(1, m_color);
-    _painter->setBrush(g);
-    _painter->setPen(Qt::NoPen);
-    _painter->drawRect(rect);
+    painter->setBrush(g);
+    painter->setPen(Qt::NoPen);
+    painter->drawRect(rect);
 
     // draw left and right borders
-    _painter->setBrush(Qt::NoBrush);
-    if (m_bMain && !m_bReverse)
+    painter->setBrush(Qt::NoBrush);
+    if (m_main && !m_strict)
     {
         QPen p(QColor::fromRgba(0xd0000000 | rgb));
         p.setStyle(Qt::DotLine);
-        _painter->setPen(p);
+        painter->setPen(p);
     }
     else
     {
-        _painter->setPen(QColor::fromRgba(0xd0000000 | rgb));
+        painter->setPen(QColor::fromRgba(0xd0000000 | rgb));
     }
 
     if (m_left > sceneLeft)
     {
-        if (m_bHoverLeftBorder)
+        if (m_hover_on_left_border)
         {
             // Set bold if border is hovered
-            QPen p = _painter->pen();
+            QPen p = painter->pen();
             p.setWidth(3);
-            _painter->setPen(p);
+            painter->setPen(p);
         }
 
-        _painter->drawLine(QPointF(rect.left(), rect.top()), QPointF(rect.left(), rect.bottom()));
+        painter->drawLine(QPointF(rect.left(), rect.top()), QPointF(rect.left(), rect.bottom()));
     }
 
     if (m_right < sceneRight)
     {
-        if (m_bHoverLeftBorder)
+        if (m_hover_on_left_border)
         {
             // Restore width
-            QPen p = _painter->pen();
+            QPen p = painter->pen();
             p.setWidth(1);
-            _painter->setPen(p);
+            painter->setPen(p);
         }
-        else if (m_bHoverRightBorder)
+        else if (m_hover_on_right_border)
         {
             // Set bold if border is hovered
-            QPen p = _painter->pen();
+            QPen p = painter->pen();
             p.setWidth(3);
-            _painter->setPen(p);
+            painter->setPen(p);
         }
 
-        _painter->drawLine(QPointF(rect.right(), rect.top()), QPointF(rect.right(), rect.bottom()));
+        painter->drawLine(QPointF(rect.right(), rect.top()), QPointF(rect.right(), rect.bottom()));
 
         // This is not necessary because another setPen() invoked for draw text
-        //if (m_bHoverRightBorder)
+        //if (m_hover_on_right_border)
         //{
         //    // Restore width
-        //    QPen p = _painter->pen();
+        //    QPen p = painter->pen();
         //    p.setWidth(1);
-        //    _painter->setPen(p);
+        //    painter->setPen(p);
         //}
     }
 
     // draw text
-    _painter->setCompositionMode(QPainter::CompositionMode_Difference); // This lets the text to be visible on every background
-    _painter->setRenderHint(QPainter::TextAntialiasing);
-    _painter->setPen(0x00ffffff - rgb);
-    _painter->setFont(EASY_GLOBALS.font.ruler);
+    painter->setCompositionMode(QPainter::CompositionMode_Difference); // This lets the text to be visible on every background
+    painter->setRenderHint(QPainter::TextAntialiasing);
+    painter->setPen(0x00ffffff - rgb);
+    painter->setFont(EASY_GLOBALS.font.ruler);
 
     int textFlags = 0;
     switch (EASY_GLOBALS.chrono_text_position)
     {
         case profiler_gui::RulerTextPosition_Top:
             textFlags = Qt::AlignTop | Qt::AlignHCenter;
-            if (!m_bMain) rect.setTop(rect.top() + textRect.height() * 0.75);
+            if (!m_main) rect.setTop(rect.top() + textRect.height() * 0.75);
             break;
 
         case profiler_gui::RulerTextPosition_Center:
             textFlags = Qt::AlignCenter;
-            if (!m_bMain) rect.setTop(rect.top() + textRect.height() * 1.5);
+            if (!m_main) rect.setTop(rect.top() + textRect.height() * 1.5);
             break;
 
         case profiler_gui::RulerTextPosition_Bottom:
             textFlags = Qt::AlignBottom | Qt::AlignHCenter;
-            if (!m_bMain) rect.setHeight(rect.height() - textRect.height() * 0.75);
+            if (!m_main) rect.setHeight(rect.height() - textRect.height() * 0.75);
             break;
     }
 
@@ -262,8 +268,8 @@ void GraphicsRulerItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem
     if (textRect_width < rect.width())
     {
         // Text will be drawed inside rectangle
-        _painter->drawText(rect, textFlags, text);
-        _painter->restore();
+        painter->drawText(rect, textFlags, text);
+        painter->restore();
         return;
     }
 
@@ -284,101 +290,107 @@ void GraphicsRulerItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem
     }
     //else // Text will be drawed inside rectangle
 
-    _painter->drawText(rect, textFlags | Qt::TextDontClip, text);
+    painter->drawText(rect, textFlags | Qt::TextDontClip, text);
 
-    _painter->restore();
+    painter->restore();
     // END Paint!~~~~~~~~~~~~~~~~~~~~~~
 }
 
 void GraphicsRulerItem::hide()
 {
-    m_bHoverIndicator = false;
-    m_bHoverLeftBorder = false;
-    m_bHoverRightBorder = false;
-    m_bReverse = false;
+    m_hover_on_indicator = false;
+    m_hover_on_left_border = false;
+    m_hover_on_right_border = false;
+    m_reverse = false;
+    m_strict = false;
     Parent::hide();
 }
 
-bool GraphicsRulerItem::indicatorContains(const QPointF& _pos) const
+bool GraphicsRulerItem::indicatorContains(const QPointF& pos) const
 {
     if (m_indicator.empty())
         return false;
 
-    const auto itemX = toItem(_pos.x());
-    return m_indicator.containsPoint(QPointF(itemX, _pos.y()), Qt::OddEvenFill);
+    const auto itemX = toItem(pos.x());
+    return m_indicator.containsPoint(QPointF(itemX, pos.y()), Qt::OddEvenFill);
 }
 
-void GraphicsRulerItem::setHoverLeft(bool _hover)
+void GraphicsRulerItem::setHoverLeft(bool hover)
 {
-    m_bHoverLeftBorder = _hover;
+    m_hover_on_left_border = hover;
 }
 
-void GraphicsRulerItem::setHoverRight(bool _hover)
+void GraphicsRulerItem::setHoverRight(bool hover)
 {
-    m_bHoverRightBorder = _hover;
+    m_hover_on_right_border = hover;
 }
 
-bool GraphicsRulerItem::hoverLeft(qreal _x) const
+bool GraphicsRulerItem::hoverLeft(qreal x) const
 {
-    const auto dx = fabs(_x - m_left) * view()->scale();
+    const auto dx = fabs(x - m_left) * view()->scale();
     return dx < 4;
 }
 
-bool GraphicsRulerItem::hoverRight(qreal _x) const
+bool GraphicsRulerItem::hoverRight(qreal x) const
 {
-    const auto dx = fabs(_x - m_right) * view()->scale();
+    const auto dx = fabs(x - m_right) * view()->scale();
     return dx < 4;
 }
 
-QPointF GraphicsRulerItem::toItem(const QPointF& _pos) const
+QPointF GraphicsRulerItem::toItem(const QPointF& pos) const
 {
     const auto sceneView = view();
-    return QPointF((_pos.x() - sceneView->offset()) * sceneView->scale() - x(), _pos.y());
+    return QPointF((pos.x() - sceneView->offset()) * sceneView->scale() - x(), pos.y());
 }
 
-qreal GraphicsRulerItem::toItem(qreal _x) const
+qreal GraphicsRulerItem::toItem(qreal x) const
 {
     const auto sceneView = view();
-    return (_x - sceneView->offset()) * sceneView->scale() - x();
+    return (x - sceneView->offset()) * sceneView->scale() - this->x();
 }
 
-void GraphicsRulerItem::setColor(const QColor& _color)
+void GraphicsRulerItem::setColor(const QColor& color)
 {
-    m_color = _color;
+    m_color = color;
 }
 
 void GraphicsRulerItem::setBoundingRect(qreal x, qreal y, qreal w, qreal h)
 {
-    m_boundingRect.setRect(x, y, w, h);
+    m_bounding_rect.setRect(x, y, w, h);
 }
 
-void GraphicsRulerItem::setBoundingRect(const QRectF& _rect)
+void GraphicsRulerItem::setBoundingRect(const QRectF& rect)
 {
-    m_boundingRect = _rect;
+    m_bounding_rect = rect;
 }
 
-void GraphicsRulerItem::setLeftRight(qreal _left, qreal _right)
+void GraphicsRulerItem::setLeftRight(qreal left, qreal right)
 {
-    if (_left < _right)
+    if (left < right)
     {
-        m_left = _left;
-        m_right = _right;
+        m_left = left;
+        m_right = right;
     }
     else
     {
-        m_left = _right;
-        m_right = _left;
+        m_left = right;
+        m_right = left;
     }
 }
 
-void GraphicsRulerItem::setReverse(bool _reverse)
+void GraphicsRulerItem::setReverse(bool reverse)
 {
-    m_bReverse = _reverse;
+    m_reverse = reverse;
 }
 
-void GraphicsRulerItem::setHoverIndicator(bool _hover)
+void GraphicsRulerItem::setStrict(bool strict)
 {
-    m_bHoverIndicator = _hover;
+    m_strict = strict;
+}
+
+void GraphicsRulerItem::setHoverIndicator(bool hover)
+{
+    m_hover_on_indicator = hover;
 }
 
 const BlocksGraphicsView* GraphicsRulerItem::view() const

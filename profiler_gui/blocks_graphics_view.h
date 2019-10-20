@@ -20,7 +20,7 @@
 *                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
-*                   : Copyright(C) 2016-2018  Sergey Yagovtsev, Victor Zarubkin
+*                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
 *                   :
 *                   : Licensed under either of
 *                   :     * MIT license (LICENSE.MIT or http://opensource.org/licenses/MIT)
@@ -236,9 +236,9 @@ public:
     void mousePressEvent(QMouseEvent* _event) override;
     void mouseDoubleClickEvent(QMouseEvent* _event) override;
     void mouseReleaseEvent(QMouseEvent* _event) override;
-    void mouseMoveEvent(QMouseEvent* _event) override;
-    void keyPressEvent(QKeyEvent* _event) override;
-    void resizeEvent(QResizeEvent* _event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
 
     void dragEnterEvent(QDragEnterEvent*) override {}
 
@@ -288,7 +288,7 @@ private:
     bool needToIgnoreMouseEvent() const;
 
     GraphicsRulerItem* createRuler(bool _main = true);
-    bool moveChrono(GraphicsRulerItem* _chronometerItem, qreal _mouseX);
+    bool moveChrono(GraphicsRulerItem* ruler_item, qreal mouse_x);
     void initMode();
     int updateVisibleSceneRect();
     void updateTimelineStep(qreal _windowWidth);
@@ -313,7 +313,7 @@ private slots:
     void onFlickerTimeout();
     void onIdleTimeout();
     void onHierarchyFlagChange(bool _value);
-    void onSelectedThreadChange(::profiler::thread_id_t _id);
+    void onSelectedThreadChange(::profiler::thread_id_t id);
     void onSelectedBlockChange(unsigned int _block_index);
     void onRefreshRequired();
     void onThreadViewChanged();

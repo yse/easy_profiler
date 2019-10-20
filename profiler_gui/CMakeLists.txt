@@ -7,6 +7,7 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 find_package(Qt5Widgets)
 
 if (Qt5Widgets_FOUND)
+    message(STATUS "Using Qt v${Qt5Widgets_VERSION}")
     if (NOT("${CMAKE_BUILD_TYPE}" STREQUAL "Debug") AND WIN32)
         set(APPLICATION_PLATFORM WIN32)
     endif ()
@@ -48,6 +49,8 @@ if (Qt5Widgets_FOUND)
         main_window.cpp
         round_progress_widget.h
         round_progress_widget.cpp
+        text_highlighter.h
+        text_highlighter.cpp
         timer.h
         timer.cpp
         thread_pool.h
