@@ -53,10 +53,6 @@ install:
         brew install gcc5;
         brew install qt;
         brew link --force qt;
-        export QT_NAME="qt";
-        export HOMEBREW_QT5_VERSION=$(brew list --versions $QT_NAME | rev | cut -d' ' -f1 | rev);
-        ln -s /usr/local/Cellar/$QT_NAME/$HOMEBREW_QT5_VERSION/mkspecs /usr/local/mkspecs;
-        ln -s /usr/local/Cellar/$QT_NAME/$HOMEBREW_QT5_VERSION/plugins /usr/local/plugins;
     fi
 
       
