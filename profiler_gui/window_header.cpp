@@ -108,7 +108,7 @@ WindowHeader::WindowHeader(const QString& title, Buttons buttons, QWidget& paren
 #if !defined(_WIN32)
     if (m_maximizeButton != nullptr || m_minimizeButton != nullptr)
     {
-        parent->setWindowFlag(Qt::SubWindow, true);
+        parent->setWindowFlags(parent->windowFlags() | Qt::SubWindow);
     }
 #endif
 
