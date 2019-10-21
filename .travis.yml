@@ -51,9 +51,9 @@ install:
         sudo apt-get -y install qt55tools qt55script qt55base qt55svg;
     else
         brew install gcc5;
-        brew install qt55;
-        brew link --force qt55;
-        export QT_NAME="qt@5.5";
+        brew install qt;
+        brew link --force qt;
+        export QT_NAME="qt";
         export HOMEBREW_QT5_VERSION=$(brew list --versions $QT_NAME | rev | cut -d' ' -f1 | rev);
         ln -s /usr/local/Cellar/$QT_NAME/$HOMEBREW_QT5_VERSION/mkspecs /usr/local/mkspecs;
         ln -s /usr/local/Cellar/$QT_NAME/$HOMEBREW_QT5_VERSION/plugins /usr/local/plugins;
