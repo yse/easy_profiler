@@ -54,26 +54,49 @@
 #include <stdint.h>
 #include <QColor>
 #include <QDialog>
+#include <QTimer>
 #include <QWidget>
 
 class RoundProgressIndicator : public QWidget
 {
-Q_OBJECT
+    Q_OBJECT
+
+public:
+
+    enum ButtonStyle { NoButton = 0, Cross, Stop };
+    enum Style { Percent = 0, Infinite };
+
+private:
 
     using Parent = QWidget;
     using This = RoundProgressIndicator;
 
-    QString             m_text;
-    QColor        m_background;
-    QColor             m_color;
-    int8_t             m_value;
-    bool             m_pressed;
-    bool m_cancelButtonEnabled;
+    QTimer             m_animationTimer;
+    QString                      m_text;
+    QColor                 m_background;
+    QColor                      m_color;
+    QColor                m_buttonColor;
+    qreal                  m_buttonSize;
+    Style                       m_style;
+    ButtonStyle           m_buttonStyle;
+    QDialog::DialogCode    m_buttonRole;
+    int                         m_angle;
+    int                m_indicatorWidth;
+    int                    m_crossWidth;
+    int8_t                      m_value;
+    bool                      m_pressed;
 
 public:
 
     Q_PROPERTY(QColor color READ color WRITE setColor);
     Q_PROPERTY(QColor background READ background WRITE setBackground);
+    Q_PROPERTY(QColor buttonColor READ buttonColor WRITE setButtonColor);
+    Q_PROPERTY(qreal buttonSize READ buttonSize WRITE setButtonSize);
+    Q_PROPERTY(int indicatorWidth READ indicatorWidth WRITE setIndicatorWidth);
+    Q_PROPERTY(int crossWidth READ crossWidth WRITE setCrossWidth);
+    Q_PROPERTY(QString buttonStyle READ buttonStyleStr WRITE setButtonStyle);
+    Q_PROPERTY(QString buttonRole READ buttonRoleStr WRITE setButtonRole);
+    Q_PROPERTY(QString style READ styleStr WRITE setStyle);
 
     explicit RoundProgressIndicator(QWidget* parent = nullptr);
     ~RoundProgressIndicator() override;
@@ -84,13 +107,31 @@ public:
 
     QColor background() const;
     QColor color() const;
+    QColor buttonColor() const;
 
-    bool cancelButtonEnabled() const;
-    void setCancelButtonEnabled(bool enabled);
+    qreal buttonSize() const;
+    int indicatorWidth() const;
+    int crossWidth() const;
+
+    ButtonStyle buttonStyle() const;
+    QString buttonStyleStr() const;
+    void setButtonStyle(ButtonStyle style);
+    void setButtonStyle(QString style);
+
+    QDialog::DialogCode buttonRole() const;
+    QString buttonRoleStr() const;
+    void setButtonRole(QDialog::DialogCode role);
+    void setButtonRole(QString role);
+
+    Style style() const;
+    QString styleStr() const;
+    void setStyle(Style style);
+    void setStyle(QString style);
 
 signals:
 
-    void cancelButtonClicked();
+    void buttonClicked(int role);
+    void sizeChanged();
 
 public slots:
 
@@ -98,6 +139,15 @@ public slots:
     void setBackground(QString color);
     void setColor(QColor color);
     void setColor(QString color);
+    void setButtonColor(QColor color);
+    void setButtonColor(QString color);
+    void setButtonSize(qreal size);
+    void setIndicatorWidth(int width);
+    void setCrossWidth(int width);
+
+private slots:
+
+    void onTimeout();
 
 protected:
 
@@ -109,7 +159,16 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
 
+private:
+
+    void updateSize();
+    void paintCrossButton(QPainter& painter, QRect& r);
+    void paintStopButton(QPainter& painter, QRect& r);
+
 }; // end of class RoundProgressIndicator.
+
+using RoundProgressButtonStyle = RoundProgressIndicator::ButtonStyle;
+using RoundProgressStyle = RoundProgressIndicator::Style;
 
 class RoundProgressWidget : public QWidget
 {
@@ -146,8 +205,14 @@ public:
     TitlePosition titlePosition() const;
     bool isTopTitlePosition() const;
 
-    bool cancelButtonEnabled() const;
-    void setCancelButtonEnabled(bool enabled);
+    RoundProgressButtonStyle buttonStyle() const;
+    void setButtonStyle(RoundProgressButtonStyle style);
+
+    QDialog::DialogCode buttonRole() const;
+    void setButtonRole(QDialog::DialogCode role);
+
+    RoundProgressStyle style() const;
+    void setStyle(RoundProgressStyle style);
 
 public slots:
 
@@ -159,9 +224,8 @@ public slots:
 signals:
 
     void valueChanged(int value);
-    void finished();
+    void finished(int role);
     void titlePositionChanged();
-    void canceled();
 
 }; // end of class RoundProgressWidget.
 
@@ -174,18 +238,33 @@ class RoundProgressDialog : public QDialog
 
     RoundProgressWidget* m_progress;
     QColor             m_background;
+    int              m_borderRadius;
 
 public:
 
     Q_PROPERTY(QColor background READ background WRITE setBackground);
+    Q_PROPERTY(int borderRadius READ borderRadius WRITE setBorderRadius);
 
     explicit RoundProgressDialog(const QString& title, QWidget* parent = nullptr);
+    RoundProgressDialog(
+        const QString& title,
+        RoundProgressIndicator::ButtonStyle button,
+        QDialog::DialogCode buttonRole,
+        QWidget* parent = nullptr
+    );
     ~RoundProgressDialog() override;
 
     QColor background() const;
+    int borderRadius() const;
 
-    bool cancelButtonEnabled() const;
-    void setCancelButtonEnabled(bool enabled);
+    RoundProgressButtonStyle buttonStyle() const;
+    void setButtonStyle(RoundProgressButtonStyle style);
+
+    QDialog::DialogCode buttonRole() const;
+    void setButtonRole(QDialog::DialogCode role);
+
+    RoundProgressStyle style() const;
+    void setStyle(RoundProgressStyle style);
 
 protected:
 
@@ -196,13 +275,16 @@ public slots:
 
     void setBackground(QColor color);
     void setBackground(QString color);
+    void setBorderRadius(int radius);
     void setValue(int value);
 
 signals:
 
     void valueChanged(int value);
-    void finished();
-    void canceled();
+
+private slots:
+
+    void onFinished(int role);
 
 }; // end of RoundProgressDialog.
 
