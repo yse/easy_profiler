@@ -160,8 +160,9 @@ class ReaderThreadPool
 
 public:
 
-    ReaderThreadPool() : m_stopFlag {false}
+    ReaderThreadPool()
     {
+        m_stopFlag = ATOMIC_VAR_INIT(false);
         m_threads.reserve(std::thread::hardware_concurrency());
     }
 
