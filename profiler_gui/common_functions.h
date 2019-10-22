@@ -55,11 +55,15 @@
 #ifndef EASY_PROFILER_GUI_COMMON_FUNCTIONS_H
 #define EASY_PROFILER_GUI_COMMON_FUNCTIONS_H
 
-#include <QRgb>
-#include <QString>
-#include <QFont>
 #include <stdlib.h>
 #include <type_traits>
+
+#include <QFont>
+#include <QRgb>
+#include <QString>
+#include <QStyle>
+#include <QWidget>
+
 #include "common_types.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -219,6 +223,19 @@ int valueArraySize(const ::profiler::ArbitraryValue& _serializedValue);
 double value2real(const ::profiler::ArbitraryValue& _serializedValue, int _index = 0);
 
 //////////////////////////////////////////////////////////////////////////
+
+template <class T>
+void updateProperty(QWidget* widget, const char* name, T&& property)
+{
+    widget->setProperty(name, std::forward<T>(property));
+    widget->style()->unpolish(widget);
+    widget->style()->polish(widget);
+
+    if (widget->isVisible())
+    {
+        widget->update();
+    }
+}
 
 } // END of namespace profiler_gui.
 

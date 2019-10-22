@@ -195,10 +195,7 @@ void WindowHeader::onWindowStateChanged()
 {
     if (m_maximizeButton != nullptr)
     {
-        m_maximizeButton->setProperty("max", parentWidget()->isMaximized());
-        m_maximizeButton->style()->unpolish(m_maximizeButton);
-        m_maximizeButton->style()->polish(m_maximizeButton);
-        m_maximizeButton->update();
+        profiler_gui::updateProperty(m_maximizeButton, "max", parentWidget()->isMaximized());
         setButtonSize(m_maximizeButton, height());
     }
 }

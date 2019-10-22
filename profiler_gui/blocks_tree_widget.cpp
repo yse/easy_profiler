@@ -61,7 +61,6 @@
 *                   : limitations under the License.
 ************************************************************************/
 
-#include <QMenu>
 #include <QAction>
 #include <QActionGroup>
 #include <QApplication>
@@ -72,14 +71,15 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMenu>
 #include <QMoveEvent>
-#include <QProgressDialog>
 #include <QResizeEvent>
 #include <QScrollBar>
 #include <QSettings>
 #include <QSignalBlocker>
 #include <QToolBar>
 #include <QVBoxLayout>
+
 #include "blocks_tree_widget.h"
 #include "arbitrary_value_tooltip.h"
 #include "round_progress_widget.h"
@@ -370,8 +370,8 @@ BlocksTreeWidget::BlocksTreeWidget(QWidget* _parent)
     }
 
     m_hintLabel = new QLabel("Use Right Mouse Button on the Diagram to build a hierarchy...\n"
-                             "1. Press the button >> Move mouse >> Release the button\n"
-                             "2. Or just click the right mouse button on any block", this);
+                             "Way 1: Press the button >> Move mouse >> Release the button\n"
+                             "Way 2: Just click the right mouse button on any block", this);
     m_hintLabel->setObjectName(QStringLiteral("BlocksTreeWidget_HintLabel"));
     m_hintLabel->setProperty("hovered", false);
     m_hintLabel->setAlignment(Qt::AlignCenter);
@@ -464,13 +464,7 @@ bool BlocksTreeWidget::eventFilter(QObject* _object, QEvent* _event)
 
 void BlocksTreeWidget::updateHintLabelOnHover(bool hover)
 {
-    m_hintLabel->setProperty("hovered", hover);
-    m_hintLabel->style()->unpolish(m_hintLabel);
-    m_hintLabel->style()->polish(m_hintLabel);
-    if (m_hintLabel->isVisible())
-    {
-        m_hintLabel->update();
-    }
+    profiler_gui::updateProperty(m_hintLabel, "hovered", hover);
 }
 
 void BlocksTreeWidget::onHeaderSectionResized(int logicalIndex, int /*oldSize*/, int newSize)
@@ -1153,9 +1147,7 @@ void BlocksTreeWidget::createProgressDialog()
 {
     destroyProgressDialog();
 
-    m_progress = new RoundProgressDialog("Building tree...", this);
-    m_progress->setWindowFlags(Qt::FramelessWindowHint);
-    m_progress->setAttribute(Qt::WA_TranslucentBackground);
+    m_progress = new RoundProgressDialog(QStringLiteral("Building tree..."), this);
     m_progress->setValue(0);
     m_progress->show();
 

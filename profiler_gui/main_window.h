@@ -66,6 +66,7 @@
 
 #include <easy/easy_socket.h>
 #include <easy/reader.h>
+#include "round_progress_widget.h"
 
 #ifdef max
 #undef max
@@ -273,7 +274,7 @@ protected:
     QDockWidget*                      m_descTreeWidget = nullptr;
 #endif
 
-    class QProgressDialog*        m_progress = nullptr;
+    class RoundProgressDialog*          m_progress = nullptr;
     class BlockDescriptorsWidget* m_dialogDescTree = nullptr;
     class Dialog*                 m_listenerDialog = nullptr;
     QTimer                               m_readerTimer;
@@ -312,6 +313,7 @@ public:
     // Public virtual methods
 
     void showEvent(QShowEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
     void closeEvent(QCloseEvent* close_event) override;
     void changeEvent(QEvent* event) override;
     void dragEnterEvent(QDragEnterEvent* drag_event) override;

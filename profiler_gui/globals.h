@@ -70,6 +70,7 @@
 namespace profiler_gui {
 
     const QString ORGANAZATION_NAME = "EasyProfiler";
+    const QString DEFAULT_WINDOW_TITLE = "EasyProfiler";
     const QString APPLICATION_NAME = "Easy profiler gui application";
 
     const QColor RULER_COLOR = QColor::fromRgba(0x40000000 | (::profiler::colors::RichBlue & 0x00ffffff));// 0x402020c0);
