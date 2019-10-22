@@ -99,15 +99,15 @@ void FpsGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*,
         return;
 
     const auto fontMetrics = QFontMetrics(scene()->font());
-    const int fontHeight = fontMetrics.height() + 2;
-    const qreal h = m_boundingRect.height() - (fontHeight << 1) - 4;
+    const int fontHeight = fontMetrics.height() + 1;
+    const qreal h = m_boundingRect.height() - (fontHeight << 1) - 2;
     if (h < 0)
         return;
 
     const qreal halfWidth = m_boundingRect.width() * 0.5 - INTERVAL_WIDTH;
     const int halfMax = static_cast<int>(0.5 + halfWidth / INTERVAL_WIDTH);
     const int half = static_cast<int>(m_frames.size() / 2);
-    const qreal top = fontHeight, bottom = h + 4 + fontHeight;
+    const qreal top = fontHeight, bottom = h + 2 + fontHeight;
     qreal y;
 
     _painter->save();
@@ -115,13 +115,22 @@ void FpsGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*,
     _painter->drawLine(QPointF(0, top), QPointF(m_boundingRect.width(), top));
     _painter->drawLine(QPointF(0, bottom), QPointF(m_boundingRect.width(), bottom));
 
+    const auto maxLines = static_cast<int>(h / fontHeight);
+
     _painter->setPen(Qt::lightGray);
+
     y = m_boundingRect.height() * 0.5;
-    _painter->drawLine(QPointF(0, y), QPointF(m_boundingRect.width(), y));
+
+    if (maxLines != 2)
+        _painter->drawLine(QPointF(0, y), QPointF(m_boundingRect.width(), y));
+
     y -= h * 0.25;
-    _painter->drawLine(QPointF(0, y), QPointF(m_boundingRect.width(), y));
+    if (maxLines >= 2)
+        _painter->drawLine(QPointF(0, y), QPointF(m_boundingRect.width(), y));
+
     y += h * 0.5;
-    _painter->drawLine(QPointF(0, y), QPointF(m_boundingRect.width(), y));
+    if (maxLines >= 2)
+        _painter->drawLine(QPointF(0, y), QPointF(m_boundingRect.width(), y));
 
     m_points1.reserve(m_frames.size());
     m_points2.reserve(m_frames.size());
@@ -151,20 +160,24 @@ void FpsGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*,
     _painter->setPen(Qt::black);
 
     qreal frameTime = std::max(localMax, 1.);
-    _painter->drawText(5, 0, m_boundingRect.width() - 10, fontHeight, Qt::AlignVCenter | Qt::AlignLeft, QString("Slowest   %1 FPS   (%2)")
-                       .arg(static_cast<quint64>(1e6 / frameTime)).arg(::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, localMax, 1)));
+    auto fps = static_cast<quint64>(1e6 / frameTime);
+    _painter->drawText(5, 0, m_boundingRect.width() - 10, fontHeight, Qt::AlignVCenter | Qt::AlignLeft, QString("Slowest   %1   (%2 FPS)")
+                       .arg(::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, localMax, 1)).arg(fps));
 
     frameTime = std::max(m_frames.back().first, 1U);
-    _painter->drawText(5, 0, xCurrent - 5, fontHeight, Qt::AlignVCenter | Qt::AlignRight, QString("Max current   %1 FPS   (%2)")
-                       .arg(static_cast<quint64>(1e6 / frameTime)).arg(::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, m_frames.back().first, 1)));
+    fps = static_cast<quint64>(1e6 / frameTime);
+    _painter->drawText(5, 0, xCurrent - 5, fontHeight, Qt::AlignVCenter | Qt::AlignRight, QString("Max current   %1   (%2 FPS)")
+                       .arg(::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, m_frames.back().first, 1)).arg(fps));
 
     frameTime = std::max(m_frames.back().second, 1U);
-    _painter->drawText(5, bottom, xCurrent - 5, fontHeight, Qt::AlignVCenter | Qt::AlignRight, QString("Avg current   %1 FPS   (%2)")
-                       .arg(static_cast<quint64>(1e6 / frameTime)).arg(::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, m_frames.back().second, 1)));
+    fps = static_cast<quint64>(1e6 / frameTime);
+    _painter->drawText(5, bottom, xCurrent - 5, fontHeight, Qt::AlignVCenter | Qt::AlignRight, QString("Avg current   %1   (%2 FPS)")
+                       .arg(::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, m_frames.back().second, 1)).arg(fps));
 
     frameTime = std::max(localMin, 1.);
-    _painter->drawText(5, bottom, m_boundingRect.width() - 10, fontHeight, Qt::AlignVCenter | Qt::AlignLeft, QString("Fastest   %1 FPS   (%2)")
-                       .arg(static_cast<quint64>(1e6 / frameTime)).arg(::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, localMin, 1)));
+    fps = static_cast<quint64>(1e6 / frameTime);
+    _painter->drawText(5, bottom, m_boundingRect.width() - 10, fontHeight, Qt::AlignVCenter | Qt::AlignLeft, QString("Fastest   %1   (%2 FPS)")
+                       .arg(::profiler_gui::timeStringReal(EASY_GLOBALS.time_units, localMin, 1)).arg(fps));
 
     if (localMin < EASY_GLOBALS.frame_time && EASY_GLOBALS.frame_time < localMax)
     {
@@ -216,13 +229,16 @@ void FpsGraphicsItem::paint(QPainter* _painter, const QStyleOptionGraphicsItem*,
     _painter->setBrush(Qt::NoBrush);
 
     y = m_boundingRect.height() * 0.5;
-    _painter->drawText(5, y - (fontHeight >> 1), m_boundingRect.width(), fontHeight, Qt::AlignVCenter | Qt::AlignLeft, txtMid);
+    if (maxLines != 2)
+        _painter->drawText(5, y - (fontHeight >> 1), m_boundingRect.width(), fontHeight, Qt::AlignVCenter | Qt::AlignLeft, txtMid);
 
     y -= h * 0.25;
-    _painter->drawText(5, y - (fontHeight >> 1), m_boundingRect.width(), fontHeight, Qt::AlignVCenter | Qt::AlignLeft, txtTop);
+    if (maxLines >= 2)
+        _painter->drawText(5, y - (fontHeight >> 1), m_boundingRect.width(), fontHeight, Qt::AlignVCenter | Qt::AlignLeft, txtTop);
 
     y += h * 0.5;
-    _painter->drawText(5, y - (fontHeight >> 1), m_boundingRect.width(), fontHeight, Qt::AlignVCenter | Qt::AlignLeft, txtBtm);
+    if (maxLines >= 2)
+        _painter->drawText(5, y - (fontHeight >> 1), m_boundingRect.width(), fontHeight, Qt::AlignVCenter | Qt::AlignLeft, txtBtm);
 
     _painter->restore();
 

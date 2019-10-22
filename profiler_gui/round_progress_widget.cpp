@@ -48,14 +48,22 @@
 *                   : limitations under the License.
 ************************************************************************/
 
-#include "round_progress_widget.h"
 #include <math.h>
-#include <easy/utility.h>
+
 #include <QFontMetrics>
 #include <QHBoxLayout>
+#include <QMouseEvent>
 #include <QLabel>
 #include <QPainter>
+#include <QStyle>
+#include <QVariant>
 #include <QVBoxLayout>
+
+#include <easy/utility.h>
+
+#include "common_functions.h"
+#include "globals.h"
+#include "round_progress_widget.h"
 
 #ifdef max
 # undef max
@@ -67,14 +75,29 @@ RoundProgressIndicator::RoundProgressIndicator(QWidget* parent)
     , m_background(Qt::transparent)
     , m_color(Qt::green)
     , m_value(0)
+    , m_pressed(false)
+    , m_cancelButtonEnabled(false)
 {
-    setWindowFlags(Qt::FramelessWindowHint);
+    setWindowFlags(windowFlags() | Qt::FramelessWindowHint);
     setAttribute(Qt::WA_TranslucentBackground);
+    setAutoFillBackground(false);
+    setProperty("hover", false);
 }
 
 RoundProgressIndicator::~RoundProgressIndicator()
 {
 
+}
+
+bool RoundProgressIndicator::cancelButtonEnabled() const
+{
+    return m_cancelButtonEnabled;
+}
+
+void RoundProgressIndicator::setCancelButtonEnabled(bool enabled)
+{
+    m_cancelButtonEnabled = enabled;
+    update();
 }
 
 int RoundProgressIndicator::value() const
@@ -136,7 +159,7 @@ void RoundProgressIndicator::showEvent(QShowEvent* event)
 
     const QFontMetrics fm(font());
     const QString text = QStringLiteral("100%");
-    const int size = std::max(fm.width(text), fm.height()) + 4 * 4;
+    const int size = std::max(fm.width(text), fm.height()) + px(4 * 4);
 
     setFixedSize(size, size);
 }
@@ -147,11 +170,12 @@ void RoundProgressIndicator::paintEvent(QPaintEvent* /*event*/)
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setBrush(Qt::NoBrush);
 
-    const auto r = rect().adjusted(4, 4, -4, -4);
+    const auto px4 = px(4);
+    auto r = rect().adjusted(px4, px4, -px4, -px4);
     auto p = painter.pen();
 
     // Draw circle
-    p.setWidth(4);
+    p.setWidth(px4);
     p.setColor(m_background);
     painter.setPen(p);
     painter.drawArc(r, 0, 360 * 16);
@@ -160,11 +184,87 @@ void RoundProgressIndicator::paintEvent(QPaintEvent* /*event*/)
     painter.setPen(p);
     painter.drawArc(r, 90 * 16, -1 * static_cast<int>(m_value) * 16 * 360 / 100);
 
-    // Draw text
-    p.setWidth(1);
-    p.setColor(palette().foreground().color());
-    painter.setPen(p);
-    painter.drawText(r, Qt::AlignCenter, m_text);
+    const bool hover = property("hover").toBool();
+
+    if (hover && m_cancelButtonEnabled)
+    {
+        // Draw cancel button (red cross)
+
+        const auto hquarter = px4 + (r.width() >> 2);
+        const auto vquarter = px4 + (r.height() >> 2);
+        r.adjust(hquarter, vquarter, -hquarter, -vquarter);
+
+        p.setWidth(px(2));
+        p.setColor(QColor::fromRgb(m_pressed ? profiler::colors::Red900 : profiler::colors::Red500));
+        p.setCapStyle(Qt::SquareCap);
+
+        painter.setPen(p);
+        painter.setBrush(Qt::NoBrush);
+        painter.drawLine(r.topLeft(), r.bottomRight());
+        painter.drawLine(r.bottomLeft(), r.topRight());
+    }
+    else
+    {
+        // Draw text
+        p.setWidth(px(1));
+        p.setColor(palette().foreground().color());
+        painter.setPen(p);
+        painter.drawText(r, Qt::AlignCenter, m_text);
+    }
+}
+
+void RoundProgressIndicator::enterEvent(QEvent* event) {
+    Parent::enterEvent(event);
+    profiler_gui::updateProperty(this, "hover", true);
+}
+
+void RoundProgressIndicator::leaveEvent(QEvent* event) {
+    Parent::leaveEvent(event);
+    profiler_gui::updateProperty(this, "hover", false);
+}
+
+void RoundProgressIndicator::mousePressEvent(QMouseEvent* event)
+{
+    Parent::mousePressEvent(event);
+    m_pressed = true;
+    update();
+}
+
+void RoundProgressIndicator::mouseReleaseEvent(QMouseEvent* event)
+{
+    Parent::mouseReleaseEvent(event);
+
+    const bool hover = property("hover").toBool();
+    const bool pressed = m_pressed;
+
+    m_pressed = false;
+    update();
+
+    if (pressed && hover && m_cancelButtonEnabled)
+    {
+        emit cancelButtonClicked();
+    }
+}
+
+void RoundProgressIndicator::mouseMoveEvent(QMouseEvent* event)
+{
+    if (m_pressed)
+    {
+        const bool hover = property("hover").toBool();
+        if (rect().contains(event->pos()))
+        {
+            if (!hover)
+            {
+                profiler_gui::updateProperty(this, "hover", true);
+            }
+        }
+        else if (hover)
+        {
+            profiler_gui::updateProperty(this, "hover", false);
+        }
+    }
+
+    Parent::mouseMoveEvent(event);
 }
 
 RoundProgressWidget::RoundProgressWidget(QWidget* parent)
@@ -179,11 +279,9 @@ RoundProgressWidget::RoundProgressWidget(const QString& title, QWidget* parent)
     , m_indicator(new RoundProgressIndicator(this))
     , m_titlePosition(RoundProgressWidget::Top)
 {
-    setWindowFlags(Qt::FramelessWindowHint);
+    setWindowFlags(windowFlags() | Qt::FramelessWindowHint);
     setAttribute(Qt::WA_TranslucentBackground);
-
-    m_indicatorWrapper->setWindowFlags(Qt::FramelessWindowHint);
-    m_indicatorWrapper->setAttribute(Qt::WA_TranslucentBackground);
+    setAutoFillBackground(false);
 
     auto wlay = new QHBoxLayout(m_indicatorWrapper);
     wlay->setContentsMargins(0, 0, 0, 0);
@@ -192,6 +290,8 @@ RoundProgressWidget::RoundProgressWidget(const QString& title, QWidget* parent)
     auto lay = new QVBoxLayout(this);
     lay->addWidget(m_title);
     lay->addWidget(m_indicatorWrapper);
+
+    connect(m_indicator, &RoundProgressIndicator::cancelButtonClicked, this, &RoundProgressWidget::canceled);
 }
 
 RoundProgressWidget::~RoundProgressWidget()
@@ -262,6 +362,8 @@ void RoundProgressWidget::setTitlePosition(TitlePosition pos)
     }
 
     emit titlePositionChanged();
+
+    update();
 }
 
 bool RoundProgressWidget::isTopTitlePosition() const
@@ -274,17 +376,64 @@ void RoundProgressWidget::setTopTitlePosition(bool isTop)
     setTitlePosition(isTop ? RoundProgressWidget::Top : RoundProgressWidget::Bottom);
 }
 
+bool RoundProgressWidget::cancelButtonEnabled() const
+{
+    return m_indicator->cancelButtonEnabled();
+}
+
+void RoundProgressWidget::setCancelButtonEnabled(bool enabled)
+{
+    m_indicator->setCancelButtonEnabled(enabled);
+}
+
 RoundProgressDialog::RoundProgressDialog(const QString& title, QWidget* parent)
     : Parent(parent)
     , m_progress(new RoundProgressWidget(title, this))
+    , m_background(Qt::transparent)
 {
+    setWindowTitle(profiler_gui::DEFAULT_WINDOW_TITLE);
+    setWindowFlags(windowFlags() | Qt::FramelessWindowHint);
+    setAttribute(Qt::WA_TranslucentBackground);
+    setAutoFillBackground(false);
+
     auto lay = new QVBoxLayout(this);
     lay->addWidget(m_progress);
+
+    connect(m_progress, &RoundProgressWidget::valueChanged, this, &RoundProgressDialog::valueChanged);
+    connect(m_progress, &RoundProgressWidget::finished, this, &RoundProgressDialog::finished);
+    connect(m_progress, &RoundProgressWidget::canceled, this, &RoundProgressDialog::canceled);
 }
 
 RoundProgressDialog::~RoundProgressDialog()
 {
 
+}
+
+QColor RoundProgressDialog::background() const
+{
+    return m_background;
+}
+
+void RoundProgressDialog::setBackground(QColor color)
+{
+    m_background = std::move(color);
+    update();
+}
+
+void RoundProgressDialog::setBackground(QString color)
+{
+    m_background.setNamedColor(color);
+    update();
+}
+
+bool RoundProgressDialog::cancelButtonEnabled() const
+{
+    return m_progress->cancelButtonEnabled();
+}
+
+void RoundProgressDialog::setCancelButtonEnabled(bool enabled)
+{
+    m_progress->setCancelButtonEnabled(enabled);
 }
 
 void RoundProgressDialog::showEvent(QShowEvent* event)
@@ -298,4 +447,13 @@ void RoundProgressDialog::setValue(int value)
     m_progress->setValue(value);
     if (value == 100)
         hide();
+}
+
+void RoundProgressDialog::paintEvent(QPaintEvent*)
+{
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(m_background);
+    painter.drawRect(0, 0, width(), height());
 }

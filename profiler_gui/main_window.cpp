@@ -85,7 +85,6 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
-#include <QProgressDialog>
 #include <QTextCodec>
 #include <QPlainTextEdit>
 #include <QTextStream>
@@ -99,14 +98,16 @@
 #include <QVBoxLayout>
 #include <QWidgetAction>
 
-#include "main_window.h"
 #include "arbitrary_value_inspector.h"
-#include "blocks_tree_widget.h"
 #include "blocks_graphics_view.h"
+#include "blocks_tree_widget.h"
 #include "descriptors_tree_widget.h"
-#include "fps_widget.h"
-#include "globals.h"
 #include "dialog.h"
+#include "globals.h"
+#include "fps_widget.h"
+#include "round_progress_widget.h"
+
+#include "main_window.h"
 
 #include <easy/easy_net.h>
 #include <easy/profiler.h>
@@ -121,8 +122,6 @@
 #endif
 
 //////////////////////////////////////////////////////////////////////////
-
-#define EASY_DEFAULT_WINDOW_TITLE "EasyProfiler"
 
 const int LOADER_TIMER_INTERVAL = 40;
 const auto NETWORK_CACHE_FILE = "easy_profiler_stream.cache";
@@ -280,10 +279,7 @@ void DockWidget::toggleState()
 
 void DockWidget::onTopLevelChanged()
 {
-    m_floatingButton->setProperty("floating", isFloating());
-    m_floatingButton->style()->unpolish(m_floatingButton);
-    m_floatingButton->style()->polish(m_floatingButton);
-    m_floatingButton->update();
+    profiler_gui::updateProperty(m_floatingButton, "floating", isFloating());
 }
 
 void MainWindow::configureSizes()
@@ -347,7 +343,7 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     { QIcon icon(":/images/logo"); if (!icon.isNull()) QApplication::setWindowIcon(icon); }
 
     setObjectName("ProfilerGUI_MainWindow");
-    setWindowTitle(EASY_DEFAULT_WINDOW_TITLE);
+    setWindowTitle(profiler_gui::DEFAULT_WINDOW_TITLE);
     setDockNestingEnabled(true);
     setAcceptDrops(true);
     setStatusBar(nullptr);
@@ -1093,9 +1089,9 @@ void MainWindow::addFileToList(const QString& filename, bool changeWindowTitle)
         if (changeWindowTitle)
         {
             if (m_bOpenedCacheFile)
-                setWindowTitle(QString(EASY_DEFAULT_WINDOW_TITLE " - [%1] - UNSAVED network cache file").arg(filename));
+                setWindowTitle(QString("%1 - [%2] - UNSAVED network cache file").arg(profiler_gui::DEFAULT_WINDOW_TITLE).arg(filename));
             else
-                setWindowTitle(QString(EASY_DEFAULT_WINDOW_TITLE " - [%1]").arg(filename));
+                setWindowTitle(QString("%1 - [%2]").arg(profiler_gui::DEFAULT_WINDOW_TITLE).arg(filename));
         }
 
         return;
@@ -1125,9 +1121,9 @@ void MainWindow::addFileToList(const QString& filename, bool changeWindowTitle)
     if (changeWindowTitle)
     {
         if (m_bOpenedCacheFile)
-            setWindowTitle(QString(EASY_DEFAULT_WINDOW_TITLE " - [%1] - UNSAVED network cache file").arg(m_lastFiles.front()));
+            setWindowTitle(QString("%1 - [%2] - UNSAVED network cache file").arg(profiler_gui::DEFAULT_WINDOW_TITLE).arg(m_lastFiles.front()));
         else
-            setWindowTitle(QString(EASY_DEFAULT_WINDOW_TITLE " - [%1]").arg(m_lastFiles.front()));
+            setWindowTitle(QString("%1 - [%2]").arg(profiler_gui::DEFAULT_WINDOW_TITLE).arg(m_lastFiles.front()));
     }
 }
 
@@ -1325,7 +1321,7 @@ void MainWindow::clear()
     m_bNetworkFileRegime = false;
     m_bOpenedCacheFile = false;
 
-    setWindowTitle(EASY_DEFAULT_WINDOW_TITLE);
+    setWindowTitle(profiler_gui::DEFAULT_WINDOW_TITLE);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1565,6 +1561,16 @@ void MainWindow::showEvent(QShowEvent* show_event)
     Parent::showEvent(show_event);
     validateLineEdits();
     configureSizes();
+}
+
+void MainWindow::resizeEvent(QResizeEvent* event)
+{
+    Parent::resizeEvent(event);
+    if (m_progress != nullptr)
+    {
+        const auto pos = rect().center();
+        m_progress->move(pos.x() - (m_progress->width() >> 1), pos.y() - (m_progress->height() >> 1));
+    }
 }
 
 void MainWindow::closeEvent(QCloseEvent* close_event)
@@ -1875,14 +1881,16 @@ void MainWindow::createProgressDialog(const QString& text)
 {
     destroyProgressDialog();
 
-    m_progress = new QProgressDialog(text, QStringLiteral("Cancel"), 0, 100, this);
-    connect(m_progress, &QProgressDialog::canceled, this, &This::onFileReaderCancel);
+    m_progress = new RoundProgressDialog(text, this);
+    m_progress->setCancelButtonEnabled(true);
+    connect(m_progress, &RoundProgressDialog::canceled, this, &This::onFileReaderCancel);
 
-    m_progress->setFixedWidth(px(300));
-    m_progress->setWindowTitle(EASY_DEFAULT_WINDOW_TITLE);
     m_progress->setModal(true);
     m_progress->setValue(0);
     m_progress->show();
+
+    const auto pos = rect().center();
+    m_progress->move(pos.x() - (m_progress->width() >> 1), pos.y() - (m_progress->height() >> 1));
 }
 
 void MainWindow::setDisconnected(bool _showMessage)
@@ -2145,7 +2153,7 @@ void MainWindow::onLoadingFinish(profiler::block_index_t& _nblocks)
         else
         {
             m_bOpenedCacheFile = false;
-            setWindowTitle(EASY_DEFAULT_WINDOW_TITLE " - UNSAVED network cache");
+            setWindowTitle(QString("%1 - UNSAVED network cache").arg(profiler_gui::DEFAULT_WINDOW_TITLE));
         }
 
         m_serializedBlocks = std::move(serialized_blocks);
@@ -2878,7 +2886,7 @@ void MainWindow::onSelectValue(profiler::thread_id_t _thread_id, uint32_t _value
 
 void DialogWithGeometry::create(QWidget* content, QWidget* parent)
 {
-    ptr = new Dialog(parent, EASY_DEFAULT_WINDOW_TITLE, content, WindowHeader::AllButtons, QMessageBox::NoButton);
+    ptr = new Dialog(parent, profiler_gui::DEFAULT_WINDOW_TITLE, content, WindowHeader::AllButtons, QMessageBox::NoButton);
     ptr->setProperty("stayVisible", true);
     ptr->setAttribute(Qt::WA_DeleteOnClose, true);
 }

@@ -53,8 +53,8 @@
 
 #include <stdint.h>
 #include <QColor>
-#include <QWidget>
 #include <QDialog>
+#include <QWidget>
 
 class RoundProgressIndicator : public QWidget
 {
@@ -63,10 +63,12 @@ Q_OBJECT
     using Parent = QWidget;
     using This = RoundProgressIndicator;
 
-    QString       m_text;
-    QColor  m_background;
-    QColor       m_color;
-    int8_t       m_value;
+    QString             m_text;
+    QColor        m_background;
+    QColor             m_color;
+    int8_t             m_value;
+    bool             m_pressed;
+    bool m_cancelButtonEnabled;
 
 public:
 
@@ -83,6 +85,13 @@ public:
     QColor background() const;
     QColor color() const;
 
+    bool cancelButtonEnabled() const;
+    void setCancelButtonEnabled(bool enabled);
+
+signals:
+
+    void cancelButtonClicked();
+
 public slots:
 
     void setBackground(QColor color);
@@ -94,6 +103,11 @@ protected:
 
     void showEvent(QShowEvent* event) override;
     void paintEvent(QPaintEvent* event) override;
+    void enterEvent(QEvent* event) override;
+    void leaveEvent(QEvent* event) override;
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
 
 }; // end of class RoundProgressIndicator.
 
@@ -132,6 +146,9 @@ public:
     TitlePosition titlePosition() const;
     bool isTopTitlePosition() const;
 
+    bool cancelButtonEnabled() const;
+    void setCancelButtonEnabled(bool enabled);
+
 public slots:
 
     void setValue(int value);
@@ -144,6 +161,7 @@ signals:
     void valueChanged(int value);
     void finished();
     void titlePositionChanged();
+    void canceled();
 
 }; // end of class RoundProgressWidget.
 
@@ -155,19 +173,36 @@ class RoundProgressDialog : public QDialog
     using This = RoundProgressDialog;
 
     RoundProgressWidget* m_progress;
+    QColor             m_background;
 
 public:
+
+    Q_PROPERTY(QColor background READ background WRITE setBackground);
 
     explicit RoundProgressDialog(const QString& title, QWidget* parent = nullptr);
     ~RoundProgressDialog() override;
 
+    QColor background() const;
+
+    bool cancelButtonEnabled() const;
+    void setCancelButtonEnabled(bool enabled);
+
 protected:
 
     void showEvent(QShowEvent* event) override;
+    void paintEvent(QPaintEvent* event) override;
 
 public slots:
 
+    void setBackground(QColor color);
+    void setBackground(QString color);
     void setValue(int value);
+
+signals:
+
+    void valueChanged(int value);
+    void finished();
+    void canceled();
 
 }; // end of RoundProgressDialog.
 

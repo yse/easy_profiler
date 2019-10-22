@@ -64,6 +64,10 @@ RoundProgressIndicator {
     background: transparent;
 }
 
+RoundProgressDialog {
+    qproperty-background: rgba(255, 255, 255, 70%);
+}
+
 MainWindow, QToolBar, QDialog {
     background-color: $BackgroundColor;
 }
@@ -411,9 +415,9 @@ QMenu::indicator:exclusive:checked:disabled {
 
 /* ****************************************************************************************************************** */
 QHeaderView::section {
-    height: 15.3ex;
-    min-height: 15.3ex;
-    max-height: 15.3ex;
+    height: $InputHeight;
+    min-height: $InputHeight;
+    max-height: $InputHeight;
     background: #eeeeee;
     /*{lin}font-weight: bold;*/
 }

@@ -18,7 +18,7 @@ matrix:
         -CXX_COMPILER=g++-5
         -C_COMPILER=gcc-5
     - os: osx
-      osx_image: xcode8
+      osx_image: xcode10
       #compiler: clang
       env:
         #-CXX_COMPILER=clang++
@@ -51,12 +51,8 @@ install:
         sudo apt-get -y install qt55tools qt55script qt55base qt55svg;
     else
         brew install gcc5;
-        brew install qt55;
-        brew link --force qt55;
-        export QT_NAME="qt@5.5";
-        export HOMEBREW_QT5_VERSION=$(brew list --versions $QT_NAME | rev | cut -d' ' -f1 | rev);
-        ln -s /usr/local/Cellar/$QT_NAME/$HOMEBREW_QT5_VERSION/mkspecs /usr/local/mkspecs;
-        ln -s /usr/local/Cellar/$QT_NAME/$HOMEBREW_QT5_VERSION/plugins /usr/local/plugins;
+        brew install qt;
+        brew link --force qt;
     fi
 
       
