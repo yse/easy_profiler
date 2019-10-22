@@ -123,6 +123,16 @@ static bool isCompatibleVersion(uint32_t _version)
 
 namespace {
 
+#if defined(_MSC_VER) && _MSC_VER <= 1800
+struct async_result_t {};
+#define EASY_FINISH_ASYNC async_result_t dummy_async_result; return dummy_async_result
+#else
+using async_result_t = void;
+#define EASY_FINISH_ASYNC 
+#endif
+
+using async_future = std::future<async_result_t>;
+
 template <class T>
 struct Counter
 {
@@ -152,11 +162,11 @@ struct Stats
 
 class ReaderThreadPool
 {
-    std::vector<std::thread>              m_threads;
-    std::deque<std::packaged_task<void()> > m_tasks;
-    std::mutex                              m_mutex;
-    std::condition_variable                    m_cv;
-    std::atomic_bool                     m_stopFlag;
+    std::vector<std::thread>                        m_threads;
+    std::deque<std::packaged_task<async_result_t()> > m_tasks;
+    std::mutex                                        m_mutex;
+    std::condition_variable                              m_cv;
+    std::atomic_bool                               m_stopFlag;
 
 public:
 
@@ -179,7 +189,7 @@ public:
         }
     }
 
-    std::future<void> async(std::function<void()> func)
+    async_future async(std::function<async_result_t()> func)
     {
         std::unique_lock<std::mutex> lock(m_mutex);
         m_tasks.emplace_back(std::move(func));
@@ -584,12 +594,12 @@ static void calculate_medians_async(ReaderThreadPool& pool, TStatsMap& stats_map
     const auto threads_count = std::min(static_cast<size_t>(std::thread::hardware_concurrency()), stats_map.size());
     const auto count_per_thread = stats_map.size() / threads_count;
 
-    std::vector<std::future<void>> results;
+    std::vector<async_future> results;
     results.reserve(threads_count);
 
     for (size_t i = 1; i <= threads_count; ++i)
     {
-        results.emplace_back(pool.async([i, threads_count, count_per_thread, &stats_map]
+        results.emplace_back(pool.async([i, threads_count, count_per_thread, &stats_map] () -> async_result_t
         {
             auto begin = stats_map.begin();
             const auto advance_count = (i - 1) * count_per_thread;
@@ -606,6 +616,8 @@ static void calculate_medians_async(ReaderThreadPool& pool, TStatsMap& stats_map
             }
 
             calculate_medians(begin, end);
+
+            EASY_FINISH_ASYNC; // MSVC 2013 hack
         }));
     }
 
@@ -1335,7 +1347,7 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
     EASY_BLOCK("Gather statistics for roots", profiler::colors::Purple);
     if (gather_statistics)
     {
-        std::vector<std::future<void>> results;
+        std::vector<async_future> results;
         results.reserve(threaded_trees.size());
 
         for (auto& it : threaded_trees)
@@ -1348,7 +1360,7 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
             auto& per_parent_statistics = parent_statistics[it.first];
             per_parent_statistics.clear();
 
-            results.emplace_back(pool.async([&]
+            results.emplace_back(pool.async([&] () -> async_result_t
             {
                 //std::sort(root.sync.begin(), root.sync.end(), [&blocks](profiler::block_index_t left, profiler::block_index_t right)
                 //{
@@ -1396,6 +1408,8 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
                 }
 
                 ++root.depth;
+
+                EASY_FINISH_ASYNC; // MSVC 2013 hack
             }));
         }
 
@@ -1533,6 +1547,7 @@ extern "C" PROFILER_API bool readDescriptionsFromStream(std::atomic<int>& progre
 //////////////////////////////////////////////////////////////////////////
 
 #undef EASY_CONVERT_TO_NANO
+#undef EASY_FINISH_ASYNC
 
 #ifdef EASY_USE_FLOATING_POINT_CONVERSION
 # ifdef _MSC_VER
