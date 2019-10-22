@@ -1124,9 +1124,10 @@ void BlocksTreeWidget::alignProgressBar()
 
     if (m_progress != nullptr)
     {
-        const auto pos = center;//mapToGlobal(center);
+        const auto& pos = center;
         m_progress->move(pos.x() - (m_progress->width() >> 1),
                          std::max(pos.y() - (m_progress->height() >> 1), header()->height()));
+        m_progress->update();
     }
 
     m_hintLabel->move(center.x() - (m_hintLabel->width() >> 1),

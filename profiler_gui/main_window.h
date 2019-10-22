@@ -276,7 +276,7 @@ protected:
 
     class RoundProgressDialog*          m_progress = nullptr;
     class BlockDescriptorsWidget* m_dialogDescTree = nullptr;
-    class Dialog*                 m_listenerDialog = nullptr;
+    class RoundProgressDialog*    m_listenerDialog = nullptr;
     QTimer                               m_readerTimer;
     QTimer                             m_listenerTimer;
     QTimer                           m_fpsRequestTimer;
@@ -314,6 +314,7 @@ public:
 
     void showEvent(QShowEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    void moveEvent(QMoveEvent* _event) override;
     void closeEvent(QCloseEvent* close_event) override;
     void changeEvent(QEvent* event) override;
     void dragEnterEvent(QDragEnterEvent* drag_event) override;
@@ -379,6 +380,8 @@ protected slots:
 private:
 
     // Private non-virtual methods
+
+    void centerDialogs();
 
     void closeProgressDialogAndClearReader();
     void onLoadingFinish(profiler::block_index_t& _nblocks);

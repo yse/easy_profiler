@@ -69,19 +69,37 @@
 # undef max
 #endif
 
+namespace
+{
+
+// According to the Qt documentation on QPainter::drawArc: an angle must be specified in 1/16th of a degree
+EASY_CONSTEXPR int Deg90 = 90 * 16;
+EASY_CONSTEXPR int FullCircle = 360 * 16;
+
+} // end of namespace <noname>.
+
 RoundProgressIndicator::RoundProgressIndicator(QWidget* parent)
     : Parent(parent)
     , m_text("0%")
     , m_background(Qt::transparent)
     , m_color(Qt::green)
+    , m_buttonColor(QColor::fromRgb(profiler::colors::Red500))
+    , m_buttonSize(0.33)
+    , m_style(Percent)
+    , m_buttonStyle(NoButton)
+    , m_buttonRole(QDialog::Rejected)
+    , m_angle(Deg90)
+    , m_indicatorWidth(px(2))
+    , m_crossWidth(px(1))
     , m_value(0)
     , m_pressed(false)
-    , m_cancelButtonEnabled(false)
 {
     setWindowFlags(windowFlags() | Qt::FramelessWindowHint);
     setAttribute(Qt::WA_TranslucentBackground);
     setAutoFillBackground(false);
     setProperty("hover", false);
+    setProperty("pressed", false);
+    m_animationTimer.setInterval(16);
 }
 
 RoundProgressIndicator::~RoundProgressIndicator()
@@ -89,15 +107,176 @@ RoundProgressIndicator::~RoundProgressIndicator()
 
 }
 
-bool RoundProgressIndicator::cancelButtonEnabled() const
+RoundProgressIndicator::ButtonStyle RoundProgressIndicator::buttonStyle() const
 {
-    return m_cancelButtonEnabled;
+    return m_buttonStyle;
 }
 
-void RoundProgressIndicator::setCancelButtonEnabled(bool enabled)
+void RoundProgressIndicator::setButtonStyle(ButtonStyle style)
 {
-    m_cancelButtonEnabled = enabled;
-    update();
+    const auto prev = m_buttonStyle;
+    m_buttonStyle = style;
+
+    if (prev == m_buttonStyle)
+    {
+        return;
+    }
+
+    const bool hover = property("hover").toBool();
+    if (hover)
+    {
+        update();
+    }
+}
+
+QString RoundProgressIndicator::buttonStyleStr() const
+{
+    switch (m_buttonStyle)
+    {
+        case NoButton:
+        {
+            return QStringLiteral("none");
+        }
+
+        case Cross:
+        {
+            return QStringLiteral("cross");
+        }
+
+        case Stop:
+        {
+            return QStringLiteral("stop");
+        }
+
+        default:
+        {
+            return QStringLiteral("unknown");
+        }
+    }
+}
+
+void RoundProgressIndicator::setButtonStyle(QString style)
+{
+    style = style.toLower();
+    if (style == QStringLiteral("cross"))
+    {
+        setButtonStyle(Cross);
+    }
+    else if (style == QStringLiteral("stop"))
+    {
+        setButtonStyle(Stop);
+    }
+    else if (style == QStringLiteral("none") || style.isEmpty())
+    {
+        setButtonStyle(NoButton);
+    }
+}
+
+RoundProgressIndicator::Style RoundProgressIndicator::style() const
+{
+    return m_style;
+}
+
+void RoundProgressIndicator::setStyle(Style style)
+{
+    const auto prev = m_style;
+    m_style = style;
+
+    if (prev != m_style)
+    {
+        if (m_animationTimer.isActive())
+        {
+            m_animationTimer.stop();
+            disconnect(&m_animationTimer, &QTimer::timeout, this, &RoundProgressIndicator::onTimeout);
+        }
+
+        if (m_style == Infinite)
+        {
+            m_angle = Deg90;
+            connect(&m_animationTimer, &QTimer::timeout, this, &RoundProgressIndicator::onTimeout);
+            m_animationTimer.start();
+        }
+
+        update();
+    }
+}
+
+QString RoundProgressIndicator::styleStr() const
+{
+    switch (m_style)
+    {
+        case Percent:
+        {
+            return QStringLiteral("percent");
+        }
+
+        case Infinite:
+        {
+            return QStringLiteral("infinite");
+        }
+
+        default:
+        {
+            return QStringLiteral("unknown");
+        }
+    }
+}
+
+void RoundProgressIndicator::setStyle(QString style)
+{
+    style = style.toLower();
+    if (style == QStringLiteral("percent"))
+    {
+        setStyle(Percent);
+    }
+    else if (style == QStringLiteral("inf") || style == QStringLiteral("infinite"))
+    {
+        setStyle(Infinite);
+    }
+}
+
+QDialog::DialogCode RoundProgressIndicator::buttonRole() const
+{
+    return m_buttonRole;
+}
+
+void RoundProgressIndicator::setButtonRole(QDialog::DialogCode role)
+{
+    m_buttonRole = role;
+}
+
+QString RoundProgressIndicator::buttonRoleStr() const
+{
+    switch (m_buttonRole)
+    {
+        case QDialog::Accepted:
+        {
+            return QStringLiteral("accept");
+        }
+
+        case QDialog::Rejected:
+        {
+            return QStringLiteral("reject");
+        }
+
+        default:
+        {
+            return QStringLiteral("unknown");
+        }
+    }
+}
+
+void RoundProgressIndicator::setButtonRole(QString style)
+{
+    style = style.toLower();
+    if (style == QStringLiteral("accept"))
+    {
+        setButtonRole(QDialog::Accepted);
+    }
+    else if (style == QStringLiteral("reject"))
+    {
+        setButtonRole(QDialog::Rejected);
+    }
 }
 
 int RoundProgressIndicator::value() const
@@ -114,6 +293,7 @@ void RoundProgressIndicator::setValue(int value)
 
 void RoundProgressIndicator::reset()
 {
+    m_angle = Deg90;
     m_value = 0;
     m_text = "0%";
     update();
@@ -153,15 +333,129 @@ void RoundProgressIndicator::setColor(QString color)
     update();
 }
 
+QColor RoundProgressIndicator::buttonColor() const
+{
+    return m_buttonColor;
+}
+
+void RoundProgressIndicator::setButtonColor(QColor color)
+{
+    m_buttonColor = std::move(color);
+
+    if (m_buttonStyle == NoButton)
+    {
+        return;
+    }
+
+    const bool hover = property("hover").toBool();
+    if (hover)
+    {
+        update();
+    }
+}
+
+void RoundProgressIndicator::setButtonColor(QString color)
+{
+    m_buttonColor.setNamedColor(color);
+
+    if (m_buttonStyle == NoButton)
+    {
+        return;
+    }
+
+    const bool hover = property("hover").toBool();
+    if (hover)
+    {
+        update();
+    }
+}
+
+qreal RoundProgressIndicator::buttonSize() const
+{
+    return m_buttonSize;
+}
+
+void RoundProgressIndicator::setButtonSize(qreal size)
+{
+    m_buttonSize = size;
+
+    if (m_buttonStyle == NoButton)
+    {
+        return;
+    }
+
+    const bool hover = property("hover").toBool();
+    if (hover)
+    {
+        update();
+    }
+}
+
+int RoundProgressIndicator::crossWidth() const
+{
+    return m_crossWidth;
+}
+
+void RoundProgressIndicator::setCrossWidth(int width)
+{
+    m_crossWidth = width;
+
+    if (m_buttonStyle != Cross)
+    {
+        return;
+    }
+
+    const bool hover = property("hover").toBool();
+    if (hover)
+    {
+        update();
+    }
+}
+
+int RoundProgressIndicator::indicatorWidth() const
+{
+    return m_indicatorWidth;
+}
+
+void RoundProgressIndicator::setIndicatorWidth(int width)
+{
+    m_indicatorWidth = width;
+    update();
+}
+
 void RoundProgressIndicator::showEvent(QShowEvent* event)
 {
     Parent::showEvent(event);
+    updateSize();
+}
 
+void RoundProgressIndicator::updateSize()
+{
     const QFontMetrics fm(font());
     const QString text = QStringLiteral("100%");
-    const int size = std::max(fm.width(text), fm.height()) + px(4 * 4);
+    const int margins = m_indicatorWidth * 4 + px(2);
+    const int size = static_cast<int>(std::max(fm.width(text), fm.height()) * profiler_gui::FONT_METRICS_FACTOR) + margins;
 
     setFixedSize(size, size);
+
+    emit sizeChanged();
+}
+
+void RoundProgressIndicator::onTimeout()
+{
+    EASY_CONSTEXPR int Step = -8 * 16;
+
+    m_angle += Step;
+    if (m_angle > FullCircle)
+    {
+        m_angle -= FullCircle;
+    }
+    else if (m_angle < 0)
+    {
+        m_angle += FullCircle;
+    }
+
+    update();
 }
 
 void RoundProgressIndicator::paintEvent(QPaintEvent* /*event*/)
@@ -170,47 +464,95 @@ void RoundProgressIndicator::paintEvent(QPaintEvent* /*event*/)
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setBrush(Qt::NoBrush);
 
-    const auto px4 = px(4);
-    auto r = rect().adjusted(px4, px4, -px4, -px4);
+    auto r = rect().adjusted(m_indicatorWidth, m_indicatorWidth, -m_indicatorWidth, -m_indicatorWidth);
     auto p = painter.pen();
 
-    // Draw circle
-    p.setWidth(px4);
+    // Draw background circle
+    p.setWidth(m_indicatorWidth);
     p.setColor(m_background);
     painter.setPen(p);
-    painter.drawArc(r, 0, 360 * 16);
+    painter.drawEllipse(r);
 
+    // Draw current progress arc
     p.setColor(m_color);
     painter.setPen(p);
-    painter.drawArc(r, 90 * 16, -1 * static_cast<int>(m_value) * 16 * 360 / 100);
+
+    if (m_style == Percent)
+    {
+        painter.drawArc(r, Deg90, -1 * static_cast<int>(m_value) * FullCircle / 100);
+    }
+    else
+    {
+        painter.drawArc(r, m_angle, -1 * FullCircle / 5);
+    }
 
     const bool hover = property("hover").toBool();
 
-    if (hover && m_cancelButtonEnabled)
+    if (hover && m_buttonStyle != NoButton)
     {
-        // Draw cancel button (red cross)
+        switch (m_buttonStyle)
+        {
+            case Cross:
+            {
+                paintCrossButton(painter, r);
+                break;
+            }
 
-        const auto hquarter = px4 + (r.width() >> 2);
-        const auto vquarter = px4 + (r.height() >> 2);
-        r.adjust(hquarter, vquarter, -hquarter, -vquarter);
+            case Stop:
+            {
+                paintStopButton(painter, r);
+                break;
+            }
 
-        p.setWidth(px(2));
-        p.setColor(QColor::fromRgb(m_pressed ? profiler::colors::Red900 : profiler::colors::Red500));
-        p.setCapStyle(Qt::SquareCap);
-
-        painter.setPen(p);
-        painter.setBrush(Qt::NoBrush);
-        painter.drawLine(r.topLeft(), r.bottomRight());
-        painter.drawLine(r.bottomLeft(), r.topRight());
+            default:
+            {
+                break;
+            }
+        }
     }
-    else
+    else if (m_style == Percent)
     {
         // Draw text
         p.setWidth(px(1));
         p.setColor(palette().foreground().color());
         painter.setPen(p);
+        painter.setFont(font());
         painter.drawText(r, Qt::AlignCenter, m_text);
     }
+}
+
+void RoundProgressIndicator::paintCrossButton(QPainter& painter, QRect& r)
+{
+    // Draw cancel button (red cross)
+
+    const auto margin = (1. - m_buttonSize) * 0.5;
+    const auto dh = m_indicatorWidth + static_cast<int>(r.width() * margin);
+    const auto dv = m_indicatorWidth + static_cast<int>(r.height() * margin);
+    r.adjust(dh, dv, -dh, -dv);
+
+    auto p = painter.pen();
+    p.setWidth(m_crossWidth);
+    p.setColor(m_buttonColor);
+    p.setCapStyle(Qt::SquareCap);
+
+    painter.setPen(p);
+    painter.setBrush(Qt::NoBrush);
+    painter.drawLine(r.topLeft(), r.bottomRight());
+    painter.drawLine(r.bottomLeft(), r.topRight());
+}
+
+void RoundProgressIndicator::paintStopButton(QPainter& painter, QRect& r)
+{
+    // Draw cancel button (red cross)
+
+    const auto margin = (1. - m_buttonSize) * 0.5;
+    const auto dh = m_indicatorWidth + static_cast<int>(r.width() * margin);
+    const auto dv = m_indicatorWidth + static_cast<int>(r.height() * margin);
+    r.adjust(dh, dv, -dh, -dv);
+
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(m_buttonColor);
+    painter.drawRect(r);
 }
 
 void RoundProgressIndicator::enterEvent(QEvent* event) {
@@ -227,7 +569,7 @@ void RoundProgressIndicator::mousePressEvent(QMouseEvent* event)
 {
     Parent::mousePressEvent(event);
     m_pressed = true;
-    update();
+    profiler_gui::updateProperty(this, "pressed", true);
 }
 
 void RoundProgressIndicator::mouseReleaseEvent(QMouseEvent* event)
@@ -238,11 +580,11 @@ void RoundProgressIndicator::mouseReleaseEvent(QMouseEvent* event)
     const bool pressed = m_pressed;
 
     m_pressed = false;
-    update();
+    profiler_gui::updateProperty(this, "pressed", false);
 
-    if (pressed && hover && m_cancelButtonEnabled)
+    if (pressed && hover && m_buttonStyle != NoButton)
     {
-        emit cancelButtonClicked();
+        emit buttonClicked(m_buttonRole);
     }
 }
 
@@ -291,7 +633,10 @@ RoundProgressWidget::RoundProgressWidget(const QString& title, QWidget* parent)
     lay->addWidget(m_title);
     lay->addWidget(m_indicatorWrapper);
 
-    connect(m_indicator, &RoundProgressIndicator::cancelButtonClicked, this, &RoundProgressWidget::canceled);
+    connect(m_indicator, &RoundProgressIndicator::buttonClicked, this, &RoundProgressWidget::finished);
+    connect(m_indicator, &RoundProgressIndicator::sizeChanged, [this] {
+        adjustSize();
+    });
 }
 
 RoundProgressWidget::~RoundProgressWidget()
@@ -322,7 +667,9 @@ void RoundProgressWidget::setValue(int value)
     emit valueChanged(v);
 
     if (v == 100)
-        emit finished();
+    {
+        emit finished(QDialog::Accepted);
+    }
 }
 
 void RoundProgressWidget::reset()
@@ -376,23 +723,57 @@ void RoundProgressWidget::setTopTitlePosition(bool isTop)
     setTitlePosition(isTop ? RoundProgressWidget::Top : RoundProgressWidget::Bottom);
 }
 
-bool RoundProgressWidget::cancelButtonEnabled() const
+RoundProgressButtonStyle RoundProgressWidget::buttonStyle() const
 {
-    return m_indicator->cancelButtonEnabled();
+    return m_indicator->buttonStyle();
 }
 
-void RoundProgressWidget::setCancelButtonEnabled(bool enabled)
+void RoundProgressWidget::setButtonStyle(RoundProgressButtonStyle style)
 {
-    m_indicator->setCancelButtonEnabled(enabled);
+    m_indicator->setButtonStyle(style);
 }
+
+QDialog::DialogCode RoundProgressWidget::buttonRole() const
+{
+    return m_indicator->buttonRole();
+}
+
+void RoundProgressWidget::setButtonRole(QDialog::DialogCode role)
+{
+    m_indicator->setButtonRole(role);
+}
+
+RoundProgressStyle RoundProgressWidget::style() const
+{
+    return m_indicator->style();
+}
+
+void RoundProgressWidget::setStyle(RoundProgressStyle style)
+{
+    m_indicator->setStyle(style);
+}
+
 
 RoundProgressDialog::RoundProgressDialog(const QString& title, QWidget* parent)
+    : RoundProgressDialog(title, RoundProgressIndicator::NoButton, QDialog::Rejected, parent)
+{
+}
+
+RoundProgressDialog::RoundProgressDialog(
+    const QString& title,
+    RoundProgressButtonStyle button,
+    QDialog::DialogCode buttonRole,
+    QWidget* parent
+)
     : Parent(parent)
     , m_progress(new RoundProgressWidget(title, this))
     , m_background(Qt::transparent)
+    , m_borderRadius(px(15))
 {
     setWindowTitle(profiler_gui::DEFAULT_WINDOW_TITLE);
-    setWindowFlags(windowFlags() | Qt::FramelessWindowHint);
+
+    // do not merge with existing windowFlags() to let the dialog be always binded to it's parent
+    setWindowFlags(Qt::FramelessWindowHint);
     setAttribute(Qt::WA_TranslucentBackground);
     setAutoFillBackground(false);
 
@@ -400,13 +781,27 @@ RoundProgressDialog::RoundProgressDialog(const QString& title, QWidget* parent)
     lay->addWidget(m_progress);
 
     connect(m_progress, &RoundProgressWidget::valueChanged, this, &RoundProgressDialog::valueChanged);
-    connect(m_progress, &RoundProgressWidget::finished, this, &RoundProgressDialog::finished);
-    connect(m_progress, &RoundProgressWidget::canceled, this, &RoundProgressDialog::canceled);
+    connect(m_progress, &RoundProgressWidget::finished, this, &RoundProgressDialog::onFinished);
+
+    m_progress->setButtonStyle(button);
+    m_progress->setButtonRole(buttonRole);
 }
 
 RoundProgressDialog::~RoundProgressDialog()
 {
 
+}
+
+void RoundProgressDialog::onFinished(int role)
+{
+    if (role == QDialog::Accepted)
+    {
+        accept();
+    }
+    else
+    {
+        reject();
+    }
 }
 
 QColor RoundProgressDialog::background() const
@@ -420,20 +815,51 @@ void RoundProgressDialog::setBackground(QColor color)
     update();
 }
 
+int RoundProgressDialog::borderRadius() const
+{
+    return m_borderRadius;
+}
+
+void RoundProgressDialog::setBorderRadius(int radius)
+{
+    m_borderRadius = radius;
+    update();
+}
+
 void RoundProgressDialog::setBackground(QString color)
 {
     m_background.setNamedColor(color);
     update();
 }
 
-bool RoundProgressDialog::cancelButtonEnabled() const
+RoundProgressButtonStyle RoundProgressDialog::buttonStyle() const
 {
-    return m_progress->cancelButtonEnabled();
+    return m_progress->buttonStyle();
 }
 
-void RoundProgressDialog::setCancelButtonEnabled(bool enabled)
+void RoundProgressDialog::setButtonStyle(RoundProgressButtonStyle style)
 {
-    m_progress->setCancelButtonEnabled(enabled);
+    m_progress->setButtonStyle(style);
+}
+
+RoundProgressStyle RoundProgressDialog::style() const
+{
+    return m_progress->style();
+}
+
+void RoundProgressDialog::setStyle(RoundProgressStyle style)
+{
+    m_progress->setStyle(style);
+}
+
+QDialog::DialogCode RoundProgressDialog::buttonRole() const
+{
+    return m_progress->buttonRole();
+}
+
+void RoundProgressDialog::setButtonRole(QDialog::DialogCode role)
+{
+    m_progress->setButtonRole(role);
 }
 
 void RoundProgressDialog::showEvent(QShowEvent* event)
@@ -455,5 +881,5 @@ void RoundProgressDialog::paintEvent(QPaintEvent*)
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setPen(Qt::NoPen);
     painter.setBrush(m_background);
-    painter.drawRect(0, 0, width(), height());
+    painter.drawRoundedRect(rect(), m_borderRadius, m_borderRadius);
 }

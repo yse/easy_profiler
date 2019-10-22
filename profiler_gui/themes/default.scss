@@ -11,6 +11,26 @@
     @return fade_out($color, 1.0 - $opacity);
 }
 
+/**************************************************************************
+* Legend                                                                  *
+*                                                                         *
+* ex - 'pt' analog for widgets. It is converted to 'px' on program start. *
+*      Example: '10ex' will be converted to '21px'.                       *
+*                                                                         *
+* qex - same as 'ex' but with removed 'px' in resulting text.             *
+*       It is used for 'qproperty' properties.                            *
+*       Example: '10qex' will be converted to '21'.                       *
+*                                                                         *
+* OS dependent properties:                                                *
+*                                                                         *
+*   {lin}font-weight: bold;                                               *
+*   {win}height: 12ex;                                                    *
+*   {osx}backgound: transparent;                                          *
+*                                                                         *
+*   Such properties will be uncommented on program start for specified OS *
+*                                                                         *
+***************************************************************************/
+
 // CONSTANTS ----------------------------------------------
 $FontSize: 10pt;
 
@@ -61,11 +81,67 @@ $WindowHeaderHoverColor: lighten($BorderColor, 14%); // #e8e8e8
 RoundProgressIndicator {
     qproperty-color: $DarkSelectionColor;
     qproperty-background: $BorderColor;
+    qproperty-indicatorWidth: 2qex;
     background: transparent;
 }
 
 RoundProgressDialog {
-    qproperty-background: rgba(255, 255, 255, 70%);
+    qproperty-background: rgb_a(#ffffff, 0.7);
+    qproperty-borderRadius: 10qex;
+}
+
+RoundProgressDialog#LoadProgress {
+    qproperty-background: rgb_a(#000000, 0.5);
+
+    RoundProgressWidget {
+        RoundProgressIndicator {
+            qproperty-buttonColor: white;
+            qproperty-buttonStyle: cross;
+            qproperty-buttonRole: reject;
+            qproperty-buttonSize: 0.4;
+            qproperty-crossWidth: 1;
+            color: white;
+        }
+        RoundProgressIndicator[pressed=true] {
+            qproperty-buttonColor: red;
+        }
+        QLabel {
+            color: white;
+        }
+    }
+}
+
+RoundProgressDialog#CaptureProgress, RoundProgressDialog#ReceiveProgress {
+    qproperty-background: rgb_a(#000000, 0.5);
+
+    RoundProgressWidget {
+        RoundProgressIndicator {
+            qproperty-style: infinite;
+            qproperty-buttonColor: red;
+            qproperty-buttonStyle: stop;
+            qproperty-buttonRole: accept;
+            qproperty-buttonSize: 0.35;
+            color: white;
+        }
+        RoundProgressIndicator[pressed=true] {
+            qproperty-buttonColor: darkRed;
+        }
+        QLabel {
+            color: white;
+        }
+    }
+}
+
+RoundProgressDialog#ReceiveProgress RoundProgressWidget RoundProgressIndicator {
+    qproperty-buttonColor: white;
+    qproperty-buttonStyle: cross;
+    qproperty-buttonRole: reject;
+    qproperty-buttonSize: 0.4;
+    qproperty-crossWidth: 1;
+}
+
+RoundProgressDialog#ReceiveProgress RoundProgressWidget RoundProgressIndicator[pressed=true] {
+    qproperty-buttonColor: red;
 }
 
 MainWindow, QToolBar, QDialog {

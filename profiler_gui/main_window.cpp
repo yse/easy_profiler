@@ -150,7 +150,7 @@ inline void clear_stream(std::stringstream& _stream)
 #endif
 }
 
-static void convertPointSizes(QString& style)
+static void convertPointSizes(QString& style, QString from, QString to)
 {
     // Find font family
     const auto fontMatch = QRegularExpression("font-family:\\s*\\\"(.*)\\\"\\s*;").match(style);
@@ -162,7 +162,7 @@ static void convertPointSizes(QString& style)
     //QMessageBox::information(nullptr, "Point size", QString("100pt = %1\n1pt = %2").arg(pointSizeF * 1e2).arg(pointSizeF));
 
     // Find and convert all sizes from points to pixels
-    QRegularExpression re("(\\d+\\.?\\d*)ex");
+    QRegularExpression re(QString("(\\d+\\.?\\d*)%1").arg(from));
     auto it = re.globalMatch(style);
 
     std::vector<QStringList> matches;
@@ -183,8 +183,9 @@ static void convertPointSizes(QString& style)
     {
         const auto pt = capturedTexts.back().toDouble();
         const int pixels = static_cast<int>(lround(pointSizeF * pt));
-        style.replace(QString(" %1").arg(capturedTexts.front()), QString(" %1px").arg(pixels));
-        style.replace(QString(":%1").arg(capturedTexts.front()), QString(":%1px").arg(pixels));
+        auto converted = QString("%1%2").arg(pixels).arg(to);
+        style.replace(QString(" %1").arg(capturedTexts.front()), QString(" %1").arg(converted));
+        style.replace(QString(":%1").arg(capturedTexts.front()), QString(":%1").arg(converted));
     }
 }
 
@@ -196,7 +197,7 @@ static void replaceOsDependentSettings(QString& style)
 #if defined(_WIN32)
     QRegularExpression re("/\\*\\{win\\}(.*)\\*/");
 #elif defined(__APPLE__)
-    QRegularExpression re("/\\*\\{mac\\}(.*)\\*/");
+    QRegularExpression re("/\\*\\{osx\\}(.*)\\*/");
 #else
     QRegularExpression re("/\\*\\{lin\\}(.*)\\*/");
 #endif
@@ -232,7 +233,8 @@ static void loadTheme(const QString& _theme)
         QString style = in.readAll();
         if (!style.isEmpty())
         {
-            convertPointSizes(style);
+            convertPointSizes(style, "ex", "px");
+            convertPointSizes(style, "qex", "");
             replaceOsDependentSettings(style);
             qApp->setStyleSheet(style);
         }
@@ -1566,10 +1568,27 @@ void MainWindow::showEvent(QShowEvent* show_event)
 void MainWindow::resizeEvent(QResizeEvent* event)
 {
     Parent::resizeEvent(event);
+    centerDialogs();
+}
+
+void MainWindow::moveEvent(QMoveEvent* _event)
+{
+    Parent::moveEvent(_event);
+    centerDialogs();
+}
+
+void MainWindow::centerDialogs()
+{
+    const auto center = rect().center();
+
     if (m_progress != nullptr)
     {
-        const auto pos = rect().center();
-        m_progress->move(pos.x() - (m_progress->width() >> 1), pos.y() - (m_progress->height() >> 1));
+        m_progress->move(center.x() - (m_progress->width() >> 1), center.y() - (m_progress->height() >> 1));
+    }
+
+    if (m_listenerDialog != nullptr)
+    {
+        m_listenerDialog->move(center.x() - (m_listenerDialog->width() >> 1), center.y() - (m_listenerDialog->height() >> 1));
     }
 }
 
@@ -1882,8 +1901,8 @@ void MainWindow::createProgressDialog(const QString& text)
     destroyProgressDialog();
 
     m_progress = new RoundProgressDialog(text, this);
-    m_progress->setCancelButtonEnabled(true);
-    connect(m_progress, &RoundProgressDialog::canceled, this, &This::onFileReaderCancel);
+    m_progress->setObjectName(QStringLiteral("LoadProgress"));
+    connect(m_progress, &RoundProgressDialog::rejected, this, &This::onFileReaderCancel);
 
     m_progress->setModal(true);
     m_progress->setValue(0);
@@ -1999,10 +2018,16 @@ void MainWindow::onListenerDialogClose(int _result)
     {
         case ListenerRegime::Capture:
         {
-            m_listenerDialog = new Dialog(this, QMessageBox::Information, "Receiving data...",
-                                          "This process may take some time.", QMessageBox::Cancel);
+            m_listenerDialog = new RoundProgressDialog(
+                QStringLiteral("Receiving data..."),
+                RoundProgressIndicator::Cross,
+                QDialog::Rejected,
+                this
+            );
+            m_listenerDialog->setObjectName("ReceiveProgress");
             m_listenerDialog->setAttribute(Qt::WA_DeleteOnClose, true);
             m_listenerDialog->show();
+            centerDialogs();
 
             m_listener.stopCapture();
 
@@ -2026,11 +2051,17 @@ void MainWindow::onListenerDialogClose(int _result)
             {
                 if (_result == QDialog::Accepted)
                 {
-                    m_listenerDialog = new Dialog(this, QMessageBox::Information, "Receiving data...",
-                                                  "This process may take some time.", QMessageBox::Cancel);
+                    m_listenerDialog = new RoundProgressDialog(
+                        QStringLiteral("Receiving data..."),
+                        RoundProgressIndicator::Cross,
+                        QDialog::Rejected,
+                        this
+                    );
+                    m_listenerDialog->setObjectName("ReceiveProgress");
                     connect(m_listenerDialog, &QDialog::finished, this, &This::onListenerDialogClose);
                     m_listenerDialog->setAttribute(Qt::WA_DeleteOnClose, true);
                     m_listenerDialog->show();
+                    centerDialogs();
                 }
                 else
                 {
@@ -2703,20 +2734,18 @@ void MainWindow::onCaptureClicked(bool)
 
     m_listenerTimer.start(250);
 
-    m_listenerDialog = new Dialog(this, QMessageBox::Information, "Capturing frames..."
-        , "Close this dialog to stop capturing.", QMessageBox::NoButton);
-
-    auto button = new QToolButton(m_listenerDialog);
-    button->setAutoRaise(true);
-    button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-    button->setIconSize(applicationIconsSize());
-    button->setIcon(QIcon(imagePath("stop")));
-    button->setText("Stop");
-    m_listenerDialog->addButton(button, QMessageBox::AcceptRole);
+    m_listenerDialog = new RoundProgressDialog(
+        QStringLiteral("Capturing frames..."),
+        RoundProgressIndicator::Stop,
+        QDialog::Accepted,
+        this
+    );
+    m_listenerDialog->setObjectName("CaptureProgress");
 
     m_listenerDialog->setAttribute(Qt::WA_DeleteOnClose, true);
     connect(m_listenerDialog, &QDialog::finished, this, &This::onListenerDialogClose);
     m_listenerDialog->show();
+    centerDialogs();
 }
 
 void MainWindow::onGetBlockDescriptionsClicked(bool)
@@ -2743,10 +2772,11 @@ void MainWindow::onGetBlockDescriptionsClicked(bool)
         return;
     }
 
-    m_listenerDialog = new Dialog(this, QMessageBox::Information, "Waiting for blocks...",
-                                       "This may take some time.", QMessageBox::NoButton);
+    m_listenerDialog = new RoundProgressDialog(QStringLiteral("Waiting for blocks..."), this);
+    m_listenerDialog->setObjectName("GetDescriptorsProgress");
     m_listenerDialog->setAttribute(Qt::WA_DeleteOnClose, true);
     m_listenerDialog->show();
+    centerDialogs();
 
     m_listener.requestBlocksDescription();
 
