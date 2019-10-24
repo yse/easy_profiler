@@ -62,6 +62,17 @@
 # endif
 #endif
 
+#ifdef __cplusplus
+#  if __cplusplus >= 201703L
+#    define EASY_STD 17
+#  elif __cplusplus >= 201402L
+#    define EASY_STD 14
+#  else
+#    define EASY_STD 11
+#  endif
+#else
+#  define EASY_STD 11
+#endif
 
 
 #if defined(_MSC_VER)
@@ -90,6 +101,10 @@
 
 // No noexcept support before Visual Studio 2015
 #  define EASY_NOEXCEPT throw()
+# endif
+
+# if EASY_STD > 11 && _MSC_VER >= 1900
+#  define EASY_LAMBDA_MOVE_CAPTURE
 # endif
 
 # define EASY_FORCE_INLINE __forceinline
@@ -121,6 +136,10 @@
 
 // There is no support for C++11 final keyword prior to Clang v2.9
 #  define EASY_FINAL 
+# endif
+
+# if EASY_STD > 11 && EASY_COMPILER_VERSION >= 34
+#  define EASY_LAMBDA_MOVE_CAPTURE
 # endif
 
 # define EASY_FORCE_INLINE inline __attribute__((always_inline))
@@ -158,6 +177,10 @@
 # if EASY_COMPILER_VERSION < 47
 // There is no support for C++11 final keyword prior to gcc 4.7
 #  define EASY_FINAL 
+# endif
+
+# if EASY_STD > 11 && EASY_COMPILER_VERSION >= 49
+#  define EASY_LAMBDA_MOVE_CAPTURE
 # endif
 
 # define EASY_FORCE_INLINE inline __attribute__((always_inline))

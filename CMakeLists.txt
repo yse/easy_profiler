@@ -12,6 +12,13 @@ else ()
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
 endif ()
 
+if (MSVC)
+    if (NOT (MSVC_VERSION LESS 1914))
+        # turn on valid __cplusplus macro value for visual studio (available since msvc 2017 update 7)
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:__cplusplus")
+    endif ()
+endif ()
+
 option(EASY_PROFILER_NO_GUI "Build easy_profiler without the GUI application (required Qt)" OFF)
 
 set(EASY_PROGRAM_VERSION_MAJOR 2)

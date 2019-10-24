@@ -61,13 +61,16 @@
 #include <QTreeWidget>
 #include <QStyledItemDelegate>
 #include <easy/reader.h>
-#include <bitset>
 
 #include "common_functions.h"
 
 class BlocksTreeWidget;
 
 //////////////////////////////////////////////////////////////////////////
+
+EASY_CONSTEXPR int COLUMNS_VERSION = 3;
+EASY_CONSTEXPR int BlockColorRole = Qt::UserRole + 1;
+EASY_CONSTEXPR int MinMaxBlockIndexRole = Qt::UserRole + 2;
 
 enum EasyColumnsIndexes
 {
@@ -79,32 +82,34 @@ enum EasyColumnsIndexes
 
     COL_TIME,
     COL_SELF_TIME,
-    COL_TOTAL_TIME_PER_PARENT,
-    COL_TOTAL_TIME_PER_FRAME,
-    COL_TOTAL_TIME_PER_THREAD,
-
     COL_SELF_TIME_PERCENT,
-    COL_PERCENT_PER_PARENT,
-    COL_PERCENT_PER_FRAME,
-    COL_PERCENT_SUM_PER_PARENT,
-    COL_PERCENT_SUM_PER_FRAME,
-    COL_PERCENT_SUM_PER_THREAD,
 
     COL_END,
 
+    COL_PERCENT_PER_FRAME,
+    COL_TOTAL_TIME_PER_FRAME,
+    COL_PERCENT_SUM_PER_FRAME,
     COL_MIN_PER_FRAME,
     COL_MAX_PER_FRAME,
     COL_AVG_PER_FRAME,
+    COL_MEDIAN_PER_FRAME,
     COL_NCALLS_PER_FRAME,
 
+    COL_TOTAL_TIME_PER_THREAD,
+    COL_PERCENT_SUM_PER_THREAD,
     COL_MIN_PER_THREAD,
     COL_MAX_PER_THREAD,
     COL_AVG_PER_THREAD,
+    COL_MEDIAN_PER_THREAD,
     COL_NCALLS_PER_THREAD,
 
+    COL_PERCENT_PER_PARENT,
+    COL_TOTAL_TIME_PER_PARENT,
+    COL_PERCENT_SUM_PER_PARENT,
     COL_MIN_PER_PARENT,
     COL_MAX_PER_PARENT,
     COL_AVG_PER_PARENT,
+    COL_MEDIAN_PER_PARENT,
     COL_NCALLS_PER_PARENT,
 
     COL_ACTIVE_TIME,
@@ -116,6 +121,7 @@ enum EasyColumnsIndexes
     COL_MIN_PER_AREA,
     COL_MAX_PER_AREA,
     COL_AVG_PER_AREA,
+    COL_MEDIAN_PER_AREA,
     COL_NCALLS_PER_AREA,
 
     COL_COLUMNS_NUMBER
@@ -130,7 +136,6 @@ class TreeWidgetItem : public QTreeWidgetItem
 
     const profiler::block_index_t           m_block;
     QRgb                            m_customBGColor;
-    std::bitset<21>                   m_bHasToolTip;
     bool                                    m_bMain;
     bool                                  m_partial;
 
@@ -147,13 +152,9 @@ public:
 public:
 
     bool isPartial() const;
-    bool hasToolTip(int _column) const;
     profiler::block_index_t block_index() const;
     profiler_gui::EasyBlock& guiBlock();
     const profiler::BlocksTree& block() const;
-
-    profiler::timestamp_t duration() const;
-    profiler::timestamp_t selfDuration() const;
 
     profiler::thread_id_t threadId() const;
 
@@ -174,7 +175,7 @@ public:
 
 private:
 
-    void setHasToolTip(int _column);
+    //void setHasToolTip(int _column);
     QVariant relevantData(int _column, int _role) const;
     QVariant partialForeground() const;
 

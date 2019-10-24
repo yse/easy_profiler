@@ -2348,20 +2348,20 @@ void BlocksGraphicsView::onIdleTimeout()
             ++row;
 
             const auto duration = itemBlock.node->duration();
-            lay->addWidget(new QLabel("Duration:", widget), row, 0, Qt::AlignRight);
+            lay->addWidget(new QLabel("Time:", widget), row, 0, Qt::AlignRight);
             lay->addWidget(new QLabel(profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, duration, 3), widget), row, 1, 1, 2, Qt::AlignLeft);
             ++row;
 
             if (itemBlock.per_thread_stats)
             {
-                lay->addWidget(new QLabel("Sum:", widget), row, 0, Qt::AlignRight);
+                lay->addWidget(new QLabel("Total:", widget), row, 0, Qt::AlignRight);
                 lay->addWidget(new QLabel(profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, itemBlock.per_thread_stats->total_duration, 3), widget), row, 1, 1, 2, Qt::AlignLeft);
                 ++row;
 
                 lay->addWidget(new BoldLabel("-------- Statistics --------", widget), row, 0, 1, 3, Qt::AlignHCenter);
                 lay->addWidget(new QLabel("per ", widget), row + 1, 0, Qt::AlignRight);
                 lay->addWidget(new QLabel("This %:", widget), row + 2, 0, Qt::AlignRight);
-                lay->addWidget(new QLabel("Sum %:", widget), row + 3, 0, Qt::AlignRight);
+                lay->addWidget(new QLabel("Total %:", widget), row + 3, 0, Qt::AlignRight);
                 lay->addWidget(new QLabel("N Calls:", widget), row + 4, 0, Qt::AlignRight);
 
                 lay->addWidget(new QLabel("Thread", widget), row + 1, 1, Qt::AlignHCenter);
@@ -2436,7 +2436,7 @@ void BlocksGraphicsView::onIdleTimeout()
                     ++row;
 
                     const auto duration = itemBlock.node->duration();
-                    lay->addWidget(new QLabel("Duration:", widget), row, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel("Time:", widget), row, 0, Qt::AlignRight);
                     lay->addWidget(new QLabel(profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, duration, 3),
                                               widget), row, 1, 1, 3, Qt::AlignLeft);
                     ++row;
@@ -2506,8 +2506,12 @@ void BlocksGraphicsView::onIdleTimeout()
                 {
                     const auto duration = itemBlock.node->duration();
 
-                    lay->addWidget(new QLabel("Average:", widget), row, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel("Avg:", widget), row, 0, Qt::AlignRight);
                     lay->addWidget(new QLabel(profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, itemBlock.per_thread_stats->average_duration(), 3), widget), row, 1, 1, 3, Qt::AlignLeft);
+                    ++row;
+
+                    lay->addWidget(new QLabel("Median:", widget), row, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel(profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, itemBlock.per_thread_stats->median_duration, 3), widget), row, 1, 1, 3, Qt::AlignLeft);
                     ++row;
 
                     // Calculate idle/active time
@@ -2555,8 +2559,8 @@ void BlocksGraphicsView::onIdleTimeout()
                     lay->addWidget(new BoldLabel("-------- Statistics --------", widget), row, 0, 1, 5, Qt::AlignHCenter);
                     lay->addWidget(new QLabel("per ", widget), row + 1, 0, Qt::AlignRight);
                     lay->addWidget(new QLabel("This %:", widget), row + 2, 0, Qt::AlignRight);
-                    lay->addWidget(new QLabel("Sum %:", widget), row + 3, 0, Qt::AlignRight);
-                    lay->addWidget(new QLabel("Sum self %:", widget), row + 4, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel("Total %:", widget), row + 3, 0, Qt::AlignRight);
+                    lay->addWidget(new QLabel("Total self %:", widget), row + 4, 0, Qt::AlignRight);
                     lay->addWidget(new QLabel("N Calls:", widget), row + 5, 0, Qt::AlignRight);
 
                     lay->addWidget(new QLabel("Thread", widget), row + 1, 1, Qt::AlignHCenter);
@@ -3174,7 +3178,7 @@ void ThreadNamesWidget::onIdleTimeout()
         if (!root.children.empty())
             duration = easyBlock(root.children.back()).tree.node->end() - easyBlock(root.children.front()).tree.node->begin();
 
-        lay->addWidget(new QLabel("Duration:", widget), row, 0, Qt::AlignRight);
+        lay->addWidget(new QLabel("Time:", widget), row, 0, Qt::AlignRight);
         lay->addWidget(new QLabel(profiler_gui::timeStringRealNs(EASY_GLOBALS.time_units, duration, 3), widget), row, 1, Qt::AlignLeft);
         ++row;
 

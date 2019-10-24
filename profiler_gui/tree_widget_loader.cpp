@@ -54,10 +54,13 @@
 *                   : limitations under the License.
 ************************************************************************/
 
-#include "tree_widget_loader.h"
-#include "tree_widget_item.h"
+#include <map>
+
 #include "globals.h"
 #include "thread_pool.h"
+#include "tree_widget_item.h"
+
+#include "tree_widget_loader.h"
 
 #ifdef max
 #undef max
@@ -75,14 +78,93 @@
 #define EASY_INIT_ATOMIC(v) {v}
 #endif
 
+namespace {
+
 struct ThreadData
 {
-    StatsMap  stats;
+    StatsMap stats;
     IdItems iditems;
     TreeWidgetItem* item = nullptr;
 };
 
 using ThreadDataMap = std::unordered_map<profiler::thread_id_t, ThreadData, estd::hash<profiler::thread_id_t> >;
+
+void calculate_medians(StatsMap::iterator begin, StatsMap::iterator end)
+{
+    for (auto it = begin; it != end; ++it)
+    {
+        auto& durations = it->second.durations;
+        if (durations.empty())
+        {
+            continue;
+        }
+
+        size_t total_count = 0;
+        for (auto& kv : durations)
+        {
+            total_count += kv.second.count;
+        }
+
+        auto& stats = it->second.stats;
+        if (total_count & 1)
+        {
+            const auto index = total_count >> 1;
+            size_t i = 0;
+            for (auto& kv : durations)
+            {
+                const auto count = kv.second.count;
+
+                i += count;
+                if (i < index)
+                {
+                    continue;
+                }
+
+                stats.median_duration = kv.first;
+                break;
+            }
+        }
+        else
+        {
+            const auto index2 = total_count >> 1;
+            const auto index1 = index2 - 1;
+
+            size_t i = 0;
+            bool i1 = false;
+            for (auto& kv : durations)
+            {
+                const auto count = kv.second.count;
+
+                i += count;
+                if (i < index1)
+                {
+                    continue;
+                }
+
+                if (!i1)
+                {
+                    i1 = true;
+                    stats.median_duration = kv.first;
+                }
+
+                if (i < index2)
+                {
+                    continue;
+                }
+
+                stats.median_duration += kv.first;
+                stats.median_duration >>= 1;
+
+                break;
+            }
+        }
+
+        decltype(it->second.durations) dummy;
+        dummy.swap(durations);
+    }
+}
+
+} // end of namespace <noname>.
 
 static void fillStatsColumns(
     TreeWidgetItem* item,
@@ -91,11 +173,18 @@ static void fillStatsColumns(
     int min_column,
     int max_column,
     int avg_column,
+    int median_column,
     int total_column,
     int n_calls_column
 ) {
     item->setData(n_calls_column, Qt::UserRole, stats->calls_number);
     item->setText(n_calls_column, QString::number(stats->calls_number));
+
+    if (min_column == COL_MIN_PER_AREA)
+    {
+        item->setData(min_column, MinMaxBlockIndexRole, stats->min_duration_block);
+        item->setData(max_column, MinMaxBlockIndexRole, stats->max_duration_block);
+    }
 
     if (stats->calls_number < 2)// && EASY_GLOBALS.display_only_relevant_stats)
     {
@@ -106,21 +195,23 @@ static void fillStatsColumns(
     const auto max_duration = easyBlock(stats->max_duration_block).tree.node->duration();
     const auto avg_duration = stats->average_duration();
     const auto tot_duration = stats->total_duration;
+    const auto median_duration = stats->median_duration;
 
     item->setTimeSmart(min_column, units, min_duration);
     item->setTimeSmart(max_column, units, max_duration);
     item->setTimeSmart(avg_column, units, avg_duration);
+    item->setTimeSmart(median_column, units, median_duration);
     item->setTimeSmart(total_column, units, tot_duration);
 
     if (stats->calls_number > 1 && tot_duration != 0)
     {
         if (max_duration >= (tot_duration >> 1))
         {
-            item->setForeground(max_column, QColor::fromRgb(profiler::colors::Red500));
+            item->setForeground(max_column, QColor::fromRgb(profiler::colors::RedA700));
         }
         else if (max_duration >= (tot_duration >> 2))
         {
-            item->setForeground(max_column, QColor::fromRgb(profiler::colors::Red700));
+            item->setForeground(max_column, QColor::fromRgb(profiler::colors::OrangeA400));
         }
     }
 }
@@ -134,6 +225,7 @@ inline void fillStatsColumnsThread(TreeWidgetItem* item, const profiler::BlockSt
         COL_MIN_PER_THREAD,
         COL_MAX_PER_THREAD,
         COL_AVG_PER_THREAD,
+        COL_MEDIAN_PER_THREAD,
         COL_TOTAL_TIME_PER_THREAD,
         COL_NCALLS_PER_THREAD
     );
@@ -148,6 +240,7 @@ inline void fillStatsColumnsFrame(TreeWidgetItem* item, const profiler::BlockSta
         COL_MIN_PER_FRAME,
         COL_MAX_PER_FRAME,
         COL_AVG_PER_FRAME,
+        COL_MEDIAN_PER_FRAME,
         COL_TOTAL_TIME_PER_FRAME,
         COL_NCALLS_PER_FRAME
     );
@@ -162,6 +255,7 @@ inline void fillStatsColumnsParent(TreeWidgetItem* item, const profiler::BlockSt
         COL_MIN_PER_PARENT,
         COL_MAX_PER_PARENT,
         COL_AVG_PER_PARENT,
+        COL_MEDIAN_PER_PARENT,
         COL_TOTAL_TIME_PER_PARENT,
         COL_NCALLS_PER_PARENT
     );
@@ -176,13 +270,15 @@ inline void fillStatsColumnsSelection(TreeWidgetItem* item, const profiler::Bloc
         COL_MIN_PER_AREA,
         COL_MAX_PER_AREA,
         COL_AVG_PER_AREA,
+        COL_MEDIAN_PER_AREA,
         COL_TOTAL_TIME_PER_AREA,
         COL_NCALLS_PER_AREA
     );
 }
 
 TreeWidgetLoader::TreeWidgetLoader()
-    : m_bDone(EASY_INIT_ATOMIC(false))
+    : m_worker(true)
+    , m_bDone(EASY_INIT_ATOMIC(false))
     , m_bInterrupt(EASY_INIT_ATOMIC(false))
     , m_progress(EASY_INIT_ATOMIC(0))
     , m_mode(TreeMode::Full)
@@ -238,6 +334,11 @@ void TreeWidgetLoader::takeItems(Items& _output)
     }
 }
 
+QString TreeWidgetLoader::error() const
+{
+    return done() ? m_error : QString();
+}
+
 void TreeWidgetLoader::interrupt(bool _wait)
 {
     m_worker.dequeue();
@@ -248,21 +349,28 @@ void TreeWidgetLoader::interrupt(bool _wait)
     {
         if (!_wait)
         {
-            auto items = std::move(m_topLevelItems);
-            ThreadPool::instance().backgroundJob([=] {
+            auto topLevelItems = std::move(m_topLevelItems);
+
+#ifdef EASY_LAMBDA_MOVE_CAPTURE
+            ThreadPool::instance().backgroundJob([items = std::move(topLevelItems)] {
                 for (auto item : items)
-                    delete item.second;
+#else
+            ThreadPool::instance().backgroundJob([=] {
+                for (auto item : topLevelItems)
+#endif
+                    profiler_gui::deleteTreeItem(item.second);
             });
         }
         else
         {
             for (auto item : m_topLevelItems)
-                delete item.second;
+                profiler_gui::deleteTreeItem(item.second);
         }
     }
 
     m_items.clear();
     m_topLevelItems.clear();
+    m_error.clear();
 }
 
 void TreeWidgetLoader::fillTreeBlocks(
@@ -280,6 +388,7 @@ void TreeWidgetLoader::fillTreeBlocks(
     const auto decoratedNames = EASY_GLOBALS.use_decorated_thread_name;
     const auto hexThreadIds = EASY_GLOBALS.hex_thread_id;
     const auto timeUnits = EASY_GLOBALS.time_units;
+    const auto maxCount = EASY_GLOBALS.max_rows_count;
     const auto blocks = std::ref(_blocks);
     const auto mode = m_mode;
     m_worker.enqueue([=] {
@@ -287,17 +396,48 @@ void TreeWidgetLoader::fillTreeBlocks(
         {
             case TreeMode::Full:
             {
-                setTreeInternalTop(_beginTime, blocks, _left, _right, _strict, zeroBlocks, decoratedNames, hexThreadIds, timeUnits);
+                setTreeInternalTop(
+                    _beginTime,
+                    blocks,
+                    _left,
+                    _right,
+                    _strict,
+                    zeroBlocks,
+                    decoratedNames,
+                    hexThreadIds,
+                    timeUnits,
+                    maxCount
+                );
                 break;
             }
             case TreeMode::Plain:
             {
-                setTreeInternalPlainTop(_beginTime, blocks, _left, _right, _strict, zeroBlocks, decoratedNames, hexThreadIds, timeUnits);
+                setTreeInternalPlainTop(
+                    _beginTime,
+                    blocks,
+                    _left,
+                    _right,
+                    _strict,
+                    zeroBlocks,
+                    decoratedNames,
+                    hexThreadIds,
+                    timeUnits
+                );
                 break;
             }
             case TreeMode::SelectedArea:
             {
-                setTreeInternalAggregateTop(_beginTime, blocks, _left, _right, _strict, zeroBlocks, decoratedNames, hexThreadIds, timeUnits);
+                setTreeInternalAggregateTop(
+                    _beginTime,
+                    blocks,
+                    _left,
+                    _right,
+                    _strict,
+                    zeroBlocks,
+                    decoratedNames,
+                    hexThreadIds,
+                    timeUnits
+                );
                 break;
             }
         }
@@ -305,14 +445,6 @@ void TreeWidgetLoader::fillTreeBlocks(
 }
 
 //////////////////////////////////////////////////////////////////////////
-
-// auto calculateTotalChildrenNumber(const profiler::BlocksTree& _tree) -> decltype(_tree.children.size())
-// {
-//     auto children_number = _tree.children.size();
-//     for (auto i : _tree.children)
-//         children_number += calculateTotalChildrenNumber(easyBlocksTree(i));
-//     return children_number;
-// }
 
 using BeginEndIndicesMap = std::unordered_map<profiler::thread_id_t, profiler::block_index_t,
     ::estd::hash<profiler::thread_id_t> >;
@@ -326,13 +458,79 @@ void TreeWidgetLoader::setTreeInternalTop(
     bool _addZeroBlocks,
     bool _decoratedThreadNames,
     bool _hexThreadId,
-    profiler_gui::TimeUnits _units
+    profiler_gui::TimeUnits _units,
+    size_t _maxCount
 ) {
     BeginEndIndicesMap beginEndMap;
     ThreadDataMap threadsMap;
 
+    auto total = static_cast<int>(_blocks.size());
+
+    uint32_t total_count = 0;
+    int i = 0;
+    for (const auto& block : _blocks)
+    {
+        if (interrupted())
+        {
+            setDone();
+            return;
+        }
+
+        const auto& gui_block = easyBlock(block.tree);
+        const auto& tree = gui_block.tree;
+        const auto startTime = tree.node->begin();
+        const auto endTime = tree.node->end();
+
+        if (startTime > _right || endTime < _left)
+        {
+            setProgress((3 * ++i) / total);
+            continue;
+        }
+
+        const profiler::timestamp_t duration = endTime - startTime;
+        const bool partial = _strict && (startTime < _left || endTime > _right);
+        if (partial && duration != 0 && (startTime == _right || endTime == _left))
+        {
+            setProgress((3 * ++i) / total);
+            continue;
+        }
+
+        total_count += calculateChildrenCountRecursive(tree.children, startTime, endTime, _strict, partial, _addZeroBlocks) + 1;
+
+        setProgress((3 * ++i) / total);
+    }
+
+    if (total_count > _maxCount)
+    {
+        if (_maxCount > 10000)
+        {
+            m_error = QString(
+                "Exceeded maximum rows count = %1k.\n"
+                "Actual rows count: %2k (%3%).\n"
+                "Please, reduce selected area width\n"
+                "or increase maximum count in settings\n"
+                "or change the tree mode."
+            ).arg(_maxCount / 1000).arg(total_count / 1000).arg(profiler_gui::percent(total_count, _maxCount));
+        }
+        else
+        {
+            m_error = QString(
+                "Exceeded maximum rows count = %1.\n"
+                "Actual rows count: %2 (%3%).\n"
+                "Please, reduce selected area width\n"
+                "or increase maximum count in settings\n"
+                "or change the tree mode."
+            ).arg(_maxCount).arg(total_count).arg(profiler_gui::percent(total_count, _maxCount));
+        }
+
+        setDone();
+
+        return;
+    }
+
     const auto u_thread = profiler_gui::toUnicode("thread");
-    int i = 0, total = static_cast<int>(_blocks.size());
+
+    i = 0;
     for (const auto& block : _blocks)
     {
         if (interrupted())
@@ -345,7 +543,7 @@ void TreeWidgetLoader::setTreeInternalTop(
 
         if (startTime > _right || endTime < _left)
         {
-            setProgress((95 * ++i) / total);
+            setProgress(3 + (92 * ++i) / total);
             continue;
         }
 
@@ -354,7 +552,7 @@ void TreeWidgetLoader::setTreeInternalTop(
         const bool partial = _strict && (startTime < _left || endTime > _right);
         if (partial && duration != 0 && (startTime == _right || endTime == _left))
         {
-            setProgress((95 * ++i) / total);
+            setProgress(3 + (92 * ++i) / total);
             continue;
         }
 
@@ -465,7 +663,7 @@ void TreeWidgetLoader::setTreeInternalTop(
             if (partial && children_items_number == 0)
             {
                 delete item;
-                setProgress((95 * ++i) / total);
+                setProgress(3 + (92 * ++i) / total);
                 continue;
             }
         }
@@ -481,14 +679,14 @@ void TreeWidgetLoader::setTreeInternalTop(
         item->setData(COL_SELF_TIME_PERCENT, Qt::UserRole, percentage);
         item->setText(COL_SELF_TIME_PERCENT, QString::number(percentage));
 
-        //total_items += children_items_number + 1;
+        updateStats(stats, tree.node->id(), block.tree, duration, children_duration);
 
         if (gui_block.expanded)
             item->setExpanded(true);
 
         m_items.insert(std::make_pair(block.tree, item));
 
-        setProgress((95 * ++i) / total);
+        setProgress(3 + (92 * ++i) / total);
     }
 
     i = 0;
@@ -1088,7 +1286,7 @@ size_t TreeWidgetLoader::setTreeInternal(
             const auto per_parent_stats = child.per_parent_stats;
             const auto per_frame_stats  = child.per_frame_stats;
 
-            auto parent_duration = _parent->duration();
+            auto parent_duration = _parent->data(COL_TIME, Qt::UserRole).toULongLong();
             auto percentage = duration == 0 ? 0 : profiler_gui::percent(duration, parent_duration);
             auto percentage_sum = profiler_gui::percent(per_parent_stats->total_duration, parent_duration);
             item->setData(COL_PERCENT_PER_PARENT, Qt::UserRole, percentage);
@@ -1100,7 +1298,7 @@ size_t TreeWidgetLoader::setTreeInternal(
             {
                 if (_parent != _frame)
                 {
-                    parent_duration = _frame->duration();
+                    parent_duration = _frame->data(COL_TIME, Qt::UserRole).toULongLong();
                     percentage = duration == 0 ? 0 : profiler_gui::percent(duration, parent_duration);
                     percentage_sum = profiler_gui::percent(per_frame_stats->total_duration, parent_duration);
                 }
@@ -1194,8 +1392,10 @@ size_t TreeWidgetLoader::setTreeInternal(
 
 //////////////////////////////////////////////////////////////////////////
 
-profiler::timestamp_t TreeWidgetLoader::calculateChildrenDurationRecursive(const profiler::BlocksTree::children_t& _children, profiler::block_id_t _id)
-{
+profiler::timestamp_t TreeWidgetLoader::calculateChildrenDurationRecursive(
+    const profiler::BlocksTree::children_t& _children,
+    profiler::block_id_t _id
+) const {
     profiler::timestamp_t total_duration = 0;
 
     for (auto child_index : _children)
@@ -1210,6 +1410,45 @@ profiler::timestamp_t TreeWidgetLoader::calculateChildrenDurationRecursive(const
     }
 
     return total_duration;
+}
+
+uint32_t TreeWidgetLoader::calculateChildrenCountRecursive(
+    const profiler::BlocksTree::children_t& children,
+    profiler::timestamp_t left,
+    profiler::timestamp_t right,
+    bool strict,
+    bool partial_parent,
+    bool addZeroBlocks
+) const {
+    uint32_t count = 0;
+
+    for (auto child_index : children)
+    {
+        if (interrupted())
+            break;
+
+        const auto& gui_block = easyBlock(child_index);
+        const auto& child = gui_block.tree;
+        const auto startTime = child.node->begin();
+        const auto endTime = child.node->end();
+        const auto duration = endTime - startTime;
+
+        if (startTime > right || endTime < left)
+            continue;
+
+        const bool partial = strict && (startTime < left || endTime > right);
+        if (partial && partial_parent && duration != 0 && (startTime == right || endTime == left))
+            continue;
+
+        const auto& desc = easyDescriptor(child.node->id());
+
+        if (duration == 0 && !addZeroBlocks && desc.type() == profiler::BlockType::Block)
+            continue;
+
+        count += calculateChildrenCountRecursive(gui_block.tree.children, left, right, strict, partial, addZeroBlocks) + 1;
+    }
+
+    return count;
 }
 
 size_t TreeWidgetLoader::setTreeInternalPlain(
@@ -1322,7 +1561,8 @@ size_t TreeWidgetLoader::setTreeInternalPlain(
             item->setData(COL_PERCENT_SUM_PER_THREAD, Qt::UserRole, percentage_per_thread);
             item->setText(COL_PERCENT_SUM_PER_THREAD, QString::number(percentage_per_thread));
 
-            const auto percentage_sum = profiler_gui::percent(per_frame_stats->total_duration, frame->duration());
+            const auto frame_duration = frame->data(COL_TIME, Qt::UserRole).toULongLong();
+            const auto percentage_sum = profiler_gui::percent(per_frame_stats->total_duration, frame_duration);
             item->setData(COL_PERCENT_PER_FRAME, Qt::UserRole, percentage_sum);
             item->setText(COL_PERCENT_PER_FRAME, QString::number(percentage_sum));
             item->setTimeSmart(COL_TIME, units, per_frame_stats->total_duration);
@@ -1603,12 +1843,15 @@ void TreeWidgetLoader::updateStats(
     auto stats_it = statsMap.find(id);
     if (stats_it == statsMap.end())
     {
-        stats_it = statsMap.emplace(id, profiler::BlockStatistics(duration, index, 0)).first;
-        stats_it->second.total_children_duration = children_duration;
+        stats_it = statsMap.emplace(id, loader::Stats(duration, index, 0)).first;
+        auto& stat = stats_it->second.stats;
+        stat.total_children_duration = children_duration;
     }
     else
     {
-        auto& stat = stats_it->second;
+        auto& stat = stats_it->second.stats;
+        auto& durations = stats_it->second.durations;
+
         ++stat.calls_number;
         stat.total_duration += duration;
         stat.total_children_duration += children_duration;
@@ -1622,17 +1865,21 @@ void TreeWidgetLoader::updateStats(
         {
             stat.min_duration_block = index;
         }
+
+        ++durations[duration].count;
     }
 }
 
 //////////////////////////////////////////////////////////////////////////
 
-void TreeWidgetLoader::fillStatsForTree(TreeWidgetItem* root, const StatsMap& stats, profiler_gui::TimeUnits _units, profiler::timestamp_t selectionDuration) const
+void TreeWidgetLoader::fillStatsForTree(TreeWidgetItem* root, StatsMap& stats, profiler_gui::TimeUnits _units, profiler::timestamp_t selectionDuration) const
 {
     if (stats.empty())
     {
         return;
     }
+
+    calculate_medians(stats.begin(), stats.end());
 
     std::deque<TreeWidgetItem*> queue;
 
@@ -1660,11 +1907,11 @@ void TreeWidgetLoader::fillStatsForTree(TreeWidgetItem* root, const StatsMap& st
         auto stat_it = stats.find(item->block().node->id());
         if (stat_it != stats.end())
         {
-            const auto& stat = stat_it->second;
+            auto& stat = stat_it->second;
 
-            fillStatsColumnsSelection(item, &stat, _units);
+            fillStatsColumnsSelection(item, &stat.stats, _units);
 
-            auto percent_per_selection = std::min(100, profiler_gui::percent(stat.total_duration, selectionDuration));
+            auto percent_per_selection = std::min(100, profiler_gui::percent(stat.stats.total_duration, selectionDuration));
             item->setData(COL_PERCENT_SUM_PER_AREA, Qt::UserRole, percent_per_selection);
             item->setText(COL_PERCENT_SUM_PER_AREA, QString::number(percent_per_selection));
 

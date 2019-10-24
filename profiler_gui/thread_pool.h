@@ -58,6 +58,18 @@
 #include <thread>
 #include <functional>
 
+#if !defined(_WIN32) && !defined(__APPLE__)
+// FIXME: Workaround for Qt on Linux
+//
+// There is a memory leak in Qt when creating Qt objects in several separate threads
+// and removing them in one another (different) thread.
+//
+// But there is no memory leak when there is only one separate thread (apart from main thread)
+// for creating Qt objects and one separate (different!) thread for removing them.
+//
+#define EASY_THREADPOOL_SEPARATE_QT_THREAD
+#endif
+
 class ThreadPool EASY_FINAL
 {
     friend ThreadPoolTask;
@@ -70,8 +82,14 @@ class ThreadPool EASY_FINAL
         std::condition_variable cv;
     };
 
-    Jobs<std::reference_wrapper<ThreadPoolTask> > m_tasks;
-    Jobs<std::function<void()> > m_backgroundJobs;
+    using TaskJobs = Jobs<std::reference_wrapper<ThreadPoolTask> >;
+    using BackgroundJobs = Jobs<std::function<void()> >;
+
+    TaskJobs m_tasks;
+#ifdef EASY_THREADPOOL_SEPARATE_QT_THREAD
+    TaskJobs m_qtasks;
+#endif
+    BackgroundJobs m_backgroundJobs;
     std::vector<std::thread> m_threads;
     std::atomic_bool m_interrupt;
 
@@ -89,7 +107,11 @@ private:
 
     void enqueue(ThreadPoolTask& task);
     void dequeue(ThreadPoolTask& task);
-    void tasksWorker();
+
+    void enqueue(ThreadPoolTask& task, TaskJobs& tasks);
+    void dequeue(ThreadPoolTask& task, TaskJobs& tasks);
+
+    void tasksWorker(TaskJobs& tasks);
     void jobsWorker();
 
 }; // end of class ThreadPool.

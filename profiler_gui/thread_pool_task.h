@@ -93,13 +93,14 @@ private:
     std::atomic_bool*   m_interrupt;
     std::mutex              m_mutex;
     std::atomic<int8_t>    m_status;
+    const bool  m_creatingQtObjects;
 
 public:
 
     ThreadPoolTask(const ThreadPoolTask&) = delete;
     ThreadPoolTask(ThreadPoolTask&&) = delete;
 
-    ThreadPoolTask();
+    explicit ThreadPoolTask(bool creatingQtObjects = false);
     ~ThreadPoolTask();
 
     void enqueue(Func&& func, std::atomic_bool& interruptFlag);
@@ -109,7 +110,9 @@ public:
 
 private:
 
-    void execute();
+    bool creatingQtObjects() const;
+
+    void operator() ();
 
     TaskStatus status() const;
     void setStatus(TaskStatus status);

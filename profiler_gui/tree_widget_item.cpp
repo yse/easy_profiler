@@ -71,55 +71,48 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-EASY_CONSTEXPR int BlockColorRole = Qt::UserRole + 1;
-
 namespace {
 
-EASY_CONSTEXPR int ColumnBit[COL_COLUMNS_NUMBER] = {
-      -1 //    COL_NAME = 0,
-
-    ,  0 //    COL_BEGIN,
-
-    ,  1 //    COL_TIME,
-    ,  2 //    COL_SELF_TIME,
-    ,  3 //    COL_TOTAL_TIME_PER_PARENT,
-    ,  4 //    COL_TOTAL_TIME_PER_FRAME,
-    ,  5 //    COL_TOTAL_TIME_PER_THREAD,
-
-    , -1 //    COL_SELF_TIME_PERCENT,
-    , -1 //    COL_PERCENT_PER_PARENT,
-    , -1 //    COL_PERCENT_PER_FRAME,
-    , -1 //    COL_PERCENT_SUM_PER_PARENT,
-    , -1 //    COL_PERCENT_SUM_PER_FRAME,
-    , -1 //    COL_PERCENT_SUM_PER_THREAD,
-
-    ,  6 //    COL_END,
-
-    ,  7 //    COL_MIN_PER_FRAME,
-    ,  8 //    COL_MAX_PER_FRAME,
-    ,  9 //    COL_AVG_PER_FRAME,
-    , -1 //    COL_NCALLS_PER_FRAME,
-
-    , 10 //    COL_MIN_PER_THREAD,
-    , 11 //    COL_MAX_PER_THREAD,
-    , 12 //    COL_AVG_PER_THREAD,
-    , -1 //    COL_NCALLS_PER_THREAD,
-
-    , 13 //    COL_MIN_PER_PARENT,
-    , 14 //    COL_MAX_PER_PARENT,
-    , 15 //    COL_AVG_PER_PARENT,
-    , -1 //    COL_NCALLS_PER_PARENT,
-
-    , 16 //    COL_ACTIVE_TIME,
-    , -1 //    COL_ACTIVE_PERCENT,
-
-    , -1 //    COL_PERCENT_PER_AREA,
-    , 17 //    COL_TOTAL_TIME_PER_AREA,
-    , -1 //    COL_PERCENT_SUM_PER_AREA,
-    , 18 //    COL_MIN_PER_AREA,
-    , 19 //    COL_MAX_PER_AREA,
-    , 20 //    COL_AVG_PER_AREA,
-    , -1 //    COL_NCALLS_PER_AREA,
+EASY_CONSTEXPR bool HasToolTip[COL_COLUMNS_NUMBER] = {
+      false // COL_NAME = 0,
+    , true  // COL_BEGIN,
+    , true  // COL_TIME,
+    , true  // COL_SELF_TIME,
+    , false // COL_SELF_TIME_PERCENT,
+    , true  // COL_END,
+    , false // COL_PERCENT_PER_FRAME,
+    , true  // COL_TOTAL_TIME_PER_FRAME,
+    , false // COL_PERCENT_SUM_PER_FRAME,
+    , true  // COL_MIN_PER_FRAME,
+    , true  // COL_MAX_PER_FRAME,
+    , true  // COL_AVG_PER_FRAME,
+    , true  // COL_MEDIAN_PER_FRAME,
+    , false // COL_NCALLS_PER_FRAME,
+    , true  // COL_TOTAL_TIME_PER_THREAD,
+    , false // COL_PERCENT_SUM_PER_THREAD,
+    , true  // COL_MIN_PER_THREAD,
+    , true  // COL_MAX_PER_THREAD,
+    , true  // COL_AVG_PER_THREAD,
+    , true  // COL_MEDIAN_PER_THREAD,
+    , false // COL_NCALLS_PER_THREAD,
+    , false // COL_PERCENT_PER_PARENT,
+    , true  // COL_TOTAL_TIME_PER_PARENT,
+    , false // COL_PERCENT_SUM_PER_PARENT,
+    , true  // COL_MIN_PER_PARENT,
+    , true  // COL_MAX_PER_PARENT,
+    , true  // COL_AVG_PER_PARENT,
+    , true  // COL_MEDIAN_PER_PARENT,
+    , false // COL_NCALLS_PER_PARENT,
+    , true  // COL_ACTIVE_TIME,
+    , false // COL_ACTIVE_PERCENT,
+    , false // COL_PERCENT_PER_AREA,
+    , true  // COL_TOTAL_TIME_PER_AREA,
+    , false // COL_PERCENT_SUM_PER_AREA,
+    , true  // COL_MIN_PER_AREA,
+    , true  // COL_MAX_PER_AREA,
+    , true  // COL_AVG_PER_AREA,
+    , true  // COL_MEDIAN_PER_AREA,
+    , false // COL_NCALLS_PER_AREA,
 };
 
 } // end of namespace <noname>.
@@ -192,19 +185,6 @@ bool TreeWidgetItem::isPartial() const
     return m_partial;
 }
 
-bool TreeWidgetItem::hasToolTip(int _column) const
-{
-    const int bit = ColumnBit[_column];
-    return bit < 0 ? false : m_bHasToolTip.test(static_cast<size_t>(bit));
-}
-
-void TreeWidgetItem::setHasToolTip(int _column)
-{
-    const int bit = ColumnBit[_column];
-    if (bit >= 0)
-        m_bHasToolTip.set(static_cast<size_t>(bit), true);
-}
-
 QVariant TreeWidgetItem::data(int _column, int _role) const
 {
     if (_column == COL_NAME)
@@ -233,15 +213,29 @@ QVariant TreeWidgetItem::data(int _column, int _role) const
         
         case Qt::ToolTipRole:
         {
-            if (hasToolTip(_column))
-                return QVariant::fromValue(QString("%1 ns").arg(data(_column, Qt::UserRole).toULongLong()));
+            const bool hasToolTip = HasToolTip[_column];
+            if (hasToolTip)
+            {
+                auto v = data(_column, Qt::UserRole);
+                if (!v.isNull())
+                    return QString("%1 ns").arg(v.toULongLong());
+            }
             break;
+        }
+
+        case MinMaxBlockIndexRole:
+        {
+            auto v = Parent::data(_column, _role);
+            if (!v.isNull() || parent() == nullptr)
+                return v;
+            return QVariant::fromValue(m_block);
         }
 
         default:
         {
-            if (_role != Qt::UserRole && _role != Qt::DisplayRole)
-                return QTreeWidgetItem::data(_column, _role);
+            auto v = Parent::data(_column, _role);
+            if (!v.isNull() || parent() == nullptr || (_role != Qt::UserRole && _role != Qt::DisplayRole))
+                return v;
             return relevantData(_column, _role);
         }
     }
@@ -269,7 +263,7 @@ QVariant TreeWidgetItem::relevantData(int _column, int _role) const
         case COL_PERCENT_PER_AREA:
         case COL_PERCENT_SUM_PER_THREAD:
         {
-            return Parent::data(_column, _role);
+            return QVariant();
         }
 
         default:
@@ -278,10 +272,9 @@ QVariant TreeWidgetItem::relevantData(int _column, int _role) const
         }
     }
 
-    auto var = Parent::data(_column, _role);
-    if (!var.isNull() || (EASY_GLOBALS.display_only_relevant_stats && _role == Qt::DisplayRole))
+    if (EASY_GLOBALS.display_only_relevant_stats && _role == Qt::DisplayRole)
     {
-        return var;
+        return QVariant();
     }
 
     switch (_column)
@@ -302,23 +295,27 @@ QVariant TreeWidgetItem::relevantData(int _column, int _role) const
         case COL_AVG_PER_FRAME:
         case COL_AVG_PER_THREAD:
         case COL_AVG_PER_AREA:
+        case COL_MEDIAN_PER_PARENT:
+        case COL_MEDIAN_PER_FRAME:
+        case COL_MEDIAN_PER_THREAD:
+        case COL_MEDIAN_PER_AREA:
         {
-            return Parent::data(COL_TIME, _role);
+            return data(COL_TIME, _role);
         }
 
         case COL_PERCENT_SUM_PER_PARENT:
         {
-            return Parent::data(COL_PERCENT_PER_PARENT, _role);
+            return data(COL_PERCENT_PER_PARENT, _role);
         }
 
         case COL_PERCENT_SUM_PER_FRAME:
         {
-            return Parent::data(COL_PERCENT_PER_FRAME, _role);
+            return data(COL_PERCENT_PER_FRAME, _role);
         }
 
         case COL_PERCENT_SUM_PER_AREA:
         {
-            return Parent::data(COL_PERCENT_PER_AREA, _role);
+            return data(COL_PERCENT_PER_AREA, _role);
         }
 
         default:
@@ -327,7 +324,7 @@ QVariant TreeWidgetItem::relevantData(int _column, int _role) const
         }
     }
 
-    return var;
+    return QVariant();
 }
 
 QVariant TreeWidgetItem::partialForeground() const
@@ -384,24 +381,12 @@ profiler::thread_id_t TreeWidgetItem::threadId() const
     return static_cast<profiler::thread_id_t>(parentItem->data(COL_NAME, Qt::UserRole).toULongLong());
 }
 
-profiler::timestamp_t TreeWidgetItem::duration() const
-{
-    if (parent() != nullptr)
-        return block().node->duration();
-    return data(COL_TIME, Qt::UserRole).toULongLong();
-}
-
-profiler::timestamp_t TreeWidgetItem::selfDuration() const
-{
-    return data(COL_SELF_TIME, Qt::UserRole).toULongLong();
-}
-
 void TreeWidgetItem::setTimeSmart(int _column, profiler_gui::TimeUnits _units, const profiler::timestamp_t& _time, const QString& _prefix)
 {
     const profiler::timestamp_t nanosecondsTime = PROF_NANOSECONDS(_time);
 
     setData(_column, Qt::UserRole, (quint64)nanosecondsTime);
-    setHasToolTip(_column);
+    //setHasToolTip(_column);
     setText(_column, QString("%1%2").arg(_prefix).arg(profiler_gui::timeStringRealNs(_units, nanosecondsTime, 3)));
 }
 
@@ -410,7 +395,7 @@ void TreeWidgetItem::setTimeSmart(int _column, profiler_gui::TimeUnits _units, c
     const profiler::timestamp_t nanosecondsTime = PROF_NANOSECONDS(_time);
 
     setData(_column, Qt::UserRole, (quint64)nanosecondsTime);
-    setHasToolTip(_column);
+    //setHasToolTip(_column);
     setText(_column, profiler_gui::timeStringRealNs(_units, nanosecondsTime, 3));
 }
 
@@ -418,7 +403,7 @@ void TreeWidgetItem::setTimeMs(int _column, const profiler::timestamp_t& _time)
 {
     const profiler::timestamp_t nanosecondsTime = PROF_NANOSECONDS(_time);
     setData(_column, Qt::UserRole, (quint64)nanosecondsTime);
-    setHasToolTip(_column);
+    //setHasToolTip(_column);
     setText(_column, QString::number(double(nanosecondsTime) * 1e-6, 'g', 9));
 }
 
@@ -426,7 +411,7 @@ void TreeWidgetItem::setTimeMs(int _column, const profiler::timestamp_t& _time, 
 {
     const profiler::timestamp_t nanosecondsTime = PROF_NANOSECONDS(_time);
     setData(_column, Qt::UserRole, (quint64)nanosecondsTime);
-    setHasToolTip(_column);
+    //setHasToolTip(_column);
     setText(_column, QString("%1%2").arg(_prefix).arg(double(nanosecondsTime) * 1e-6, 0, 'g', 9));
 }
 

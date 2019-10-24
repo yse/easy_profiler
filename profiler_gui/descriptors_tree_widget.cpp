@@ -459,9 +459,14 @@ void DescriptorsTreeWidget::clearSilent(bool _global)
             topLevelItems.push_back(item);
         }
 
-        ThreadPool::instance().backgroundJob([=] {
+#ifdef EASY_LAMBDA_MOVE_CAPTURE
+        ThreadPool::instance().backgroundJob([items = std::move(topLevelItems)] {
+            for (auto item : items)
+#else
+        ThreadPool::instance().backgroundJob([topLevelItems] {
             for (auto item : topLevelItems)
-                delete item;
+#endif
+                profiler_gui::deleteTreeItem(item);
         });
     }
 

@@ -213,6 +213,8 @@ namespace profiler_gui {
         ::profiler::block_id_t         selected_block_id; ///< Current selected profiler block id
         uint32_t                                 version; ///< Opened file version (files may have different format)
 
+        uint32_t                        max_rows_count; ///< Maximum blocks count for the Hierarchy widget for the full call-stack mode
+
         float                                 frame_time; ///< Expected frame time value in microseconds to be displayed at minimap on graphics scrollbar
         int                               blocks_spacing; ///< Minimum blocks spacing on diagram
         int                              blocks_size_min; ///< Minimum blocks size on diagram

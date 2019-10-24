@@ -68,11 +68,29 @@
 
 class TreeWidgetItem;
 
+namespace loader {
+
+struct Stats
+{
+    struct Counter { uint32_t count = 0; };
+
+    profiler::BlockStatistics stats;
+    std::map<profiler::timestamp_t, Counter> durations;
+
+    Stats(profiler::timestamp_t duration, profiler::block_index_t block_index, profiler::block_index_t parent_index)
+        : stats(duration, block_index, parent_index)
+    {
+        durations[duration].count = 1;
+    }
+};
+
+} // end of namespace loader.
+
 using Items = ::std::unordered_map<profiler::block_index_t, TreeWidgetItem*, ::estd::hash<profiler::block_index_t> >;
 using ThreadedItems = std::vector<std::pair<profiler::thread_id_t, TreeWidgetItem*> >;
 using RootsMap = std::unordered_map<profiler::thread_id_t, TreeWidgetItem*, estd::hash<profiler::thread_id_t> >;
 using IdItems = std::unordered_map<profiler::block_id_t, std::pair<TreeWidgetItem*, int>, estd::hash<profiler::block_index_t> >;
-using StatsMap = std::unordered_map<profiler::block_id_t, profiler::BlockStatistics, estd::hash<profiler::block_id_t> >;
+using StatsMap = std::unordered_map<profiler::block_id_t, loader::Stats, estd::hash<profiler::block_id_t> >;
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -90,6 +108,7 @@ class TreeWidgetLoader Q_DECL_FINAL
     ThreadedItems   m_topLevelItems; ///< 
     Items                   m_items; ///< 
     ThreadPoolTask         m_worker; ///<
+    QString                 m_error; ///<
     std::atomic_bool        m_bDone; ///<
     std::atomic_bool   m_bInterrupt; ///<
     std::atomic<int>     m_progress; ///<
@@ -105,6 +124,8 @@ public:
 
     void takeTopLevelItems(ThreadedItems& _output);
     void takeItems(Items& _output);
+
+    QString error() const;
 
     void interrupt(bool _wait = false);
     void fillTreeBlocks(
@@ -130,7 +151,8 @@ private:
         bool _addZeroBlocks,
         bool _decoratedThreadNames,
         bool _hexThreadId,
-        ::profiler_gui::TimeUnits _units
+        ::profiler_gui::TimeUnits _units,
+        size_t _maxCount
     );
 
     size_t setTreeInternal(
@@ -213,11 +235,23 @@ private:
         int depth
     );
 
-    profiler::timestamp_t calculateChildrenDurationRecursive(const profiler::BlocksTree::children_t& _children, profiler::block_id_t _id);
+    profiler::timestamp_t calculateChildrenDurationRecursive(
+        const profiler::BlocksTree::children_t& _children,
+        profiler::block_id_t _id
+    ) const;
+
+    uint32_t calculateChildrenCountRecursive(
+        const profiler::BlocksTree::children_t& children,
+        profiler::timestamp_t left,
+        profiler::timestamp_t right,
+        bool strict,
+        bool partial_parent,
+        bool addZeroBlocks
+    ) const;
 
     profiler::timestamp_t calculateIdleTime(const profiler::BlocksTreeRoot& _threadRoot, profiler::block_index_t& _firstCSwitch, profiler::timestamp_t _begin, profiler::timestamp_t _end) const;
     void updateStats(StatsMap& stats, profiler::block_id_t id, profiler::block_index_t index, profiler::timestamp_t duration, profiler::timestamp_t children_duration) const;
-    void fillStatsForTree(TreeWidgetItem* root, const StatsMap& stats, profiler_gui::TimeUnits _units, profiler::timestamp_t selectionDuration) const;
+    void fillStatsForTree(TreeWidgetItem* root, StatsMap& stats, profiler_gui::TimeUnits _units, profiler::timestamp_t selectionDuration) const;
 
 }; // END of class TreeWidgetLoader.
 

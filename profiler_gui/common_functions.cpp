@@ -52,6 +52,8 @@
 *                   : limitations under the License.
 ************************************************************************/
 
+#include <QList>
+#include <QTreeWidgetItem>
 #include "common_functions.h"
 
 template <class T>
@@ -458,5 +460,23 @@ namespace profiler_gui {
     }
 
     //////////////////////////////////////////////////////////////////////////
+
+    void deleteTreeItem(QTreeWidgetItem* item)
+    {
+        if (item == nullptr)
+        {
+            return;
+        }
+
+        QList<QTreeWidgetItem*> stack;
+        stack.append(item);
+
+        while (!stack.isEmpty())
+        {
+            auto i = stack.takeFirst();
+            stack.append(i->takeChildren());
+            delete i;
+        }
+    }
 
 } // end of namespace profiler_gui.

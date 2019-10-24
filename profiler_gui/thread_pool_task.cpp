@@ -53,7 +53,10 @@
 
 static std::atomic_bool s_dummy_flag {false};
 
-ThreadPoolTask::ThreadPoolTask() : m_func([] {}), m_interrupt(&s_dummy_flag)
+ThreadPoolTask::ThreadPoolTask(bool creatingQtObjects)
+    : m_func([] {})
+    , m_interrupt(&s_dummy_flag)
+    , m_creatingQtObjects(creatingQtObjects)
 {
     m_status = static_cast<int8_t>(TaskStatus::Finished);
 }
@@ -62,6 +65,11 @@ ThreadPoolTask::~ThreadPoolTask()
 {
     m_signals.disconnect();
     dequeue();
+}
+
+bool ThreadPoolTask::creatingQtObjects() const
+{
+    return m_creatingQtObjects;
 }
 
 void ThreadPoolTask::enqueue(Func&& func, std::atomic_bool& interruptFlag)
@@ -101,7 +109,7 @@ TaskStatus ThreadPoolTask::status() const
     return static_cast<TaskStatus>(m_status.load(std::memory_order_acquire));
 }
 
-void ThreadPoolTask::execute()
+void ThreadPoolTask::operator()()
 {
     // execute if not cancelled
     {

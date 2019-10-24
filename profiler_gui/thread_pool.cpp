@@ -69,7 +69,7 @@
 # pragma message "TODO: include proper headers to be able to use pthread_setschedprio() on OSX and iOS (pthread.h is not enough...)"
 #endif
 
-void setLowestThreadPriority()
+static void setLowestThreadPriority()
 {
 #ifdef _WIN32
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST);
@@ -95,12 +95,31 @@ ThreadPool& ThreadPool::instance()
 
 ThreadPool::ThreadPool()
 {
-    m_threads.reserve(std::thread::hardware_concurrency() + 1);
+    auto count = std::thread::hardware_concurrency();
+#ifdef EASY_THREADPOOL_SEPARATE_QT_THREAD
+    if (count > 1)
+        count -= 1;
+    m_threads.reserve(count + 2);
+#else
+    m_threads.reserve(count + 1);
+#endif
 
     // N threads for main tasks
-    std::generate_n(std::back_inserter(m_threads), std::thread::hardware_concurrency(), [this] {
-        return std::thread(&ThreadPool::tasksWorker, this);
+    std::generate_n(std::back_inserter(m_threads), count, [this] {
+        return std::thread(&ThreadPool::tasksWorker, this, std::ref(m_tasks));
     });
+
+#ifdef EASY_THREADPOOL_SEPARATE_QT_THREAD
+    // FIXME: Workaround for Qt on Linux
+    //
+    // There is a memory leak in Qt when creating Qt objects in several separate threads
+    // and removing them in one another (different) thread.
+    //
+    // But there is no memory leak when there is only one separate thread (apart from main thread)
+    // for creating Qt objects and one separate (different!) thread for removing them.
+    //
+    m_threads.emplace_back(&ThreadPool::tasksWorker, this, std::ref(m_qtasks));
+#endif
 
     // One thread for background jobs
     m_threads.emplace_back(&ThreadPool::jobsWorker, this);
@@ -110,6 +129,9 @@ ThreadPool::~ThreadPool()
 {
     m_interrupt.store(true, std::memory_order_release);
     m_tasks.cv.notify_all();
+#ifdef EASY_THREADPOOL_SEPARATE_QT_THREAD
+    m_qtasks.cv.notify_all();
+#endif
     m_backgroundJobs.cv.notify_all();
     for (auto& thread : m_threads)
         thread.join();
@@ -125,53 +147,69 @@ void ThreadPool::backgroundJob(std::function<void()>&& func)
 
 void ThreadPool::enqueue(ThreadPoolTask& task)
 {
-    m_tasks.mutex.lock();
-    m_tasks.queue.emplace_back(task);
-    m_tasks.mutex.unlock();
-    m_tasks.cv.notify_one();
+#ifdef EASY_THREADPOOL_SEPARATE_QT_THREAD
+    if (task.creatingQtObjects())
+        enqueue(task, m_qtasks);
+    else
+#endif
+        enqueue(task, m_tasks);
 }
 
 void ThreadPool::dequeue(ThreadPoolTask& task)
 {
-    const std::lock_guard<std::mutex> lock(m_tasks.mutex);
+#ifdef EASY_THREADPOOL_SEPARATE_QT_THREAD
+    if (task.creatingQtObjects())
+        dequeue(task, m_qtasks);
+    else
+#endif
+        dequeue(task, m_tasks);
+}
+
+void ThreadPool::enqueue(ThreadPoolTask& task, TaskJobs& tasks)
+{
+    tasks.mutex.lock();
+    tasks.queue.emplace_back(task);
+    tasks.mutex.unlock();
+    tasks.cv.notify_one();
+}
+
+void ThreadPool::dequeue(ThreadPoolTask& task, TaskJobs& tasks)
+{
+    const std::lock_guard<std::mutex> lock(tasks.mutex);
 
     if (task.status() != TaskStatus::Enqueued)
         return;
 
-    for (auto it = m_tasks.queue.begin(); it != m_tasks.queue.end(); ++it)
+    for (auto it = tasks.queue.begin(); it != tasks.queue.end(); ++it)
     {
         if (&it->get() == &task)
         {
-            m_tasks.queue.erase(it);
+            tasks.queue.erase(it);
             break;
         }
     }
 }
 
-void ThreadPool::tasksWorker()
+void ThreadPool::tasksWorker(Jobs<std::reference_wrapper<ThreadPoolTask> >& tasks)
 {
-    while (true)
+    while (!m_interrupt.load(std::memory_order_acquire))
     {
-        std::unique_lock<std::mutex> lock(m_tasks.mutex);
-        m_tasks.cv.wait(lock, [this] { return !m_tasks.queue.empty() || m_interrupt.load(std::memory_order_acquire); });
+        std::unique_lock<std::mutex> lock(tasks.mutex);
+        tasks.cv.wait(lock, [this, &tasks] {
+            return !tasks.queue.empty() || m_interrupt.load(std::memory_order_acquire);
+        });
 
-        while (true) // execute all available tasks
+        while (!tasks.queue.empty() && !m_interrupt.load(std::memory_order_acquire)) // execute all available tasks
         {
-            if (m_interrupt.load(std::memory_order_acquire))
-                return;
-
-            if (m_tasks.queue.empty())
-                break; // the lock will be released on the outer loop new iteration
-
-            auto& task = m_tasks.queue.front().get();
+            auto& task = tasks.queue.front().get();
             task.setStatus(TaskStatus::Processing);
-            m_tasks.queue.pop_front();
+            tasks.queue.pop_front();
 
             // unlock to permit tasks execution for other worker threads and for adding new tasks
             lock.unlock();
 
             // execute task
-            task.execute();
+            task();
 
             // lock again to check if there are new tasks in the queue
             lock.lock();
@@ -183,21 +221,15 @@ void ThreadPool::jobsWorker()
 {
     setLowestThreadPriority(); // Background thread has lowest priority
 
-    while (true)
+    while (!m_interrupt.load(std::memory_order_acquire))
     {
         std::unique_lock<std::mutex> lock(m_backgroundJobs.mutex);
         m_backgroundJobs.cv.wait(lock, [this] {
             return !m_backgroundJobs.queue.empty() || m_interrupt.load(std::memory_order_acquire);
         });
 
-        while (true) // execute all available jobs
+        while (!m_backgroundJobs.queue.empty()) // execute all available jobs
         {
-            if (m_interrupt.load(std::memory_order_acquire))
-                return;
-
-            if (m_backgroundJobs.queue.empty())
-                break; // the lock will be released on the outer loop new iteration
-
             auto job = std::move(m_backgroundJobs.queue.front());
             m_backgroundJobs.queue.pop_front();
 
