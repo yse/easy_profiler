@@ -136,7 +136,7 @@ using async_future = std::future<async_result_t>;
 template <class T>
 struct Counter
 {
-    T value = 0;
+    T count = 0;
 };
 
 struct Stats
@@ -147,7 +147,7 @@ struct Stats
     Stats(profiler::BlockStatistics* stats_ptr, profiler::timestamp_t duration) EASY_NOEXCEPT
         : stats(stats_ptr)
     {
-        durations[duration].value = 1;
+        durations[duration].count = 1;
     }
 
     Stats(Stats&& another) EASY_NOEXCEPT
@@ -393,7 +393,7 @@ static profiler::BlockStatistics* update_statistics(
         // write pointer to statistics into output (this is BlocksTree:: per_thread_stats or per_parent_stats or per_frame_stats)
         auto stats = it->second.stats;
         auto& durations = it->second.durations;
-        ++durations[duration].value;
+        ++durations[duration].count;
 
         ++stats->calls_number; // update calls number of this block
         stats->total_duration += duration; // update summary duration of all block calls
@@ -457,7 +457,7 @@ static profiler::BlockStatistics* update_statistics(
         auto stats = it->second.stats;
         auto& durations = it->second.durations;
 
-        ++durations[duration].value;
+        ++durations[duration].count;
 
         ++stats->calls_number; // update calls number of this block
         stats->total_duration += duration; // update summary duration of all block calls
@@ -515,7 +515,7 @@ static void calculate_medians(TStatsMapIterator begin, TStatsMapIterator end)
         size_t total_count = 0;
         for (auto& kv : durations)
         {
-            total_count += kv.second.value;
+            total_count += kv.second.count;
         }
 
         auto stats = it->second.stats;
@@ -525,7 +525,7 @@ static void calculate_medians(TStatsMapIterator begin, TStatsMapIterator end)
             size_t i = 0;
             for (auto& kv : durations)
             {
-                const auto count = kv.second.value;
+                const auto count = kv.second.count;
 
                 i += count;
                 if (i < index)
@@ -546,7 +546,7 @@ static void calculate_medians(TStatsMapIterator begin, TStatsMapIterator end)
             bool i1 = false;
             for (auto& kv : durations)
             {
-                const auto count = kv.second.value;
+                const auto count = kv.second.count;
 
                 i += count;
                 if (i < index1)

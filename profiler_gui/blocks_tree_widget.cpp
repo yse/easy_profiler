@@ -72,6 +72,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
+#include <QMessageBox>
 #include <QMoveEvent>
 #include <QResizeEvent>
 #include <QScrollBar>
@@ -99,99 +100,87 @@
 const int HIERARCHY_BUILDER_TIMER_INTERVAL = 40;
 
 const bool PLAIN_MODE_COLUMNS[COL_COLUMNS_NUMBER] = {
-    true, //COL_NAME,
-    true, //COL_BEGIN,
-    true, //COL_TIME,
-    true, //COL_SELF_TIME,
-
-    false, //COL_TOTAL_TIME_PER_PARENT,
-    false, //COL_TOTAL_TIME_PER_FRAME,
-    true, //COL_TOTAL_TIME_PER_THREAD,
-
-    true, //COL_SELF_TIME_PERCENT,
-
-    false, //COL_PERCENT_PER_PARENT,
-    true, //COL_PERCENT_PER_FRAME,
-
-    false, //COL_PERCENT_SUM_PER_PARENT,
-    false, //COL_PERCENT_SUM_PER_FRAME,
-    true, //COL_PERCENT_SUM_PER_THREAD,
-
-    true, //COL_END,
-
-    true, //COL_MIN_PER_FRAME,
-    true, //COL_MAX_PER_FRAME,
-    true, //COL_AVG_PER_FRAME,
-    true, //COL_NCALLS_PER_FRAME,
-
-    true, //COL_MIN_PER_THREAD,
-    true, //COL_MAX_PER_THREAD,
-    true, //COL_AVG_PER_THREAD,
-    true, //COL_NCALLS_PER_THREAD,
-
-    false, //COL_MIN_PER_PARENT,
-    false, //COL_MAX_PER_PARENT,
-    false, //COL_AVG_PER_PARENT,
-    false, //COL_NCALLS_PER_PARENT,
-
-    true, //COL_ACTIVE_TIME,
-    true, //COL_ACTIVE_PERCENT,
-
-    true, //COL_PERCENT_PER_AREA,
-    true, //COL_TOTAL_TIME_PER_AREA,
-    true, //COL_PERCENT_SUM_PER_AREA,
-    true, //COL_MIN_PER_AREA,
-    true, //COL_MAX_PER_AREA,
-    true, //COL_AVG_PER_AREA,
-    true  //COL_NCALLS_PER_AREA,
+      true  // COL_NAME = 0,
+    , true  // COL_BEGIN,
+    , true  // COL_TIME,
+    , true  // COL_SELF_TIME,
+    , true  // COL_SELF_TIME_PERCENT,
+    , true  // COL_END,
+    , true  // COL_PERCENT_PER_FRAME,
+    , false // COL_TOTAL_TIME_PER_FRAME,
+    , false // COL_PERCENT_SUM_PER_FRAME,
+    , true  // COL_MIN_PER_FRAME,
+    , true  // COL_MAX_PER_FRAME,
+    , true  // COL_AVG_PER_FRAME,
+    , true  // COL_MEDIAN_PER_FRAME,
+    , true  // COL_NCALLS_PER_FRAME,
+    , true  // COL_TOTAL_TIME_PER_THREAD,
+    , true  // COL_PERCENT_SUM_PER_THREAD,
+    , true  // COL_MIN_PER_THREAD,
+    , true  // COL_MAX_PER_THREAD,
+    , true  // COL_AVG_PER_THREAD,
+    , true  // COL_MEDIAN_PER_THREAD,
+    , true  // COL_NCALLS_PER_THREAD,
+    , false // COL_PERCENT_PER_PARENT,
+    , false // COL_TOTAL_TIME_PER_PARENT,
+    , false // COL_PERCENT_SUM_PER_PARENT,
+    , false // COL_MIN_PER_PARENT,
+    , false // COL_MAX_PER_PARENT,
+    , false // COL_AVG_PER_PARENT,
+    , false // COL_MEDIAN_PER_PARENT,
+    , false // COL_NCALLS_PER_PARENT,
+    , true  // COL_ACTIVE_TIME,
+    , true  // COL_ACTIVE_PERCENT,
+    , true  // COL_PERCENT_PER_AREA,
+    , true  // COL_TOTAL_TIME_PER_AREA,
+    , true  // COL_PERCENT_SUM_PER_AREA,
+    , true  // COL_MIN_PER_AREA,
+    , true  // COL_MAX_PER_AREA,
+    , true  // COL_AVG_PER_AREA,
+    , true  // COL_MEDIAN_PER_AREA,
+    , true  // COL_NCALLS_PER_AREA,
 };
 
 const bool SELECTION_MODE_COLUMNS[COL_COLUMNS_NUMBER] = {
-    true, //COL_NAME,
-    false, //COL_BEGIN,
-    true, //COL_TIME,
-    true, //COL_SELF_TIME,
-
-    false, //COL_TOTAL_TIME_PER_PARENT,
-    false, //COL_TOTAL_TIME_PER_FRAME,
-    true, //COL_TOTAL_TIME_PER_THREAD,
-
-    true, //COL_SELF_TIME_PERCENT,
-
-    false, //COL_PERCENT_PER_PARENT,
-    false, //COL_PERCENT_PER_FRAME,
-
-    false, //COL_PERCENT_SUM_PER_PARENT,
-    false, //COL_PERCENT_SUM_PER_FRAME,
-    true, //COL_PERCENT_SUM_PER_THREAD,
-
-    false, //COL_END,
-
-    false, //COL_MIN_PER_FRAME,
-    false, //COL_MAX_PER_FRAME,
-    false, //COL_AVG_PER_FRAME,
-    false, //COL_NCALLS_PER_FRAME,
-
-    true, //COL_MIN_PER_THREAD,
-    true, //COL_MAX_PER_THREAD,
-    true, //COL_AVG_PER_THREAD,
-    true, //COL_NCALLS_PER_THREAD,
-
-    false, //COL_MIN_PER_PARENT,
-    false, //COL_MAX_PER_PARENT,
-    false, //COL_AVG_PER_PARENT,
-    false, //COL_NCALLS_PER_PARENT,
-
-    true, //COL_ACTIVE_TIME,
-    true, //COL_ACTIVE_PERCENT,
-
-    false, //COL_PERCENT_PER_AREA,
-    true, //COL_TOTAL_TIME_PER_AREA,
-    true, //COL_PERCENT_SUM_PER_AREA,
-    true, //COL_MIN_PER_AREA,
-    true, //COL_MAX_PER_AREA,
-    true, //COL_AVG_PER_AREA,
-    true  //COL_NCALLS_PER_AREA,
+      true  // COL_NAME = 0,
+    , false // COL_BEGIN,
+    , true  // COL_TIME,
+    , true  // COL_SELF_TIME,
+    , true  // COL_SELF_TIME_PERCENT,
+    , false // COL_END,
+    , false // COL_PERCENT_PER_FRAME,
+    , false // COL_TOTAL_TIME_PER_FRAME,
+    , false // COL_PERCENT_SUM_PER_FRAME,
+    , false // COL_MIN_PER_FRAME,
+    , false // COL_MAX_PER_FRAME,
+    , false // COL_AVG_PER_FRAME,
+    , false // COL_MEDIAN_PER_FRAME,
+    , false // COL_NCALLS_PER_FRAME,
+    , true  // COL_TOTAL_TIME_PER_THREAD,
+    , true  // COL_PERCENT_SUM_PER_THREAD,
+    , true  // COL_MIN_PER_THREAD,
+    , true  // COL_MAX_PER_THREAD,
+    , true  // COL_AVG_PER_THREAD,
+    , true  // COL_MEDIAN_PER_THREAD,
+    , true  // COL_NCALLS_PER_THREAD,
+    , false // COL_PERCENT_PER_PARENT,
+    , false // COL_TOTAL_TIME_PER_PARENT,
+    , false // COL_PERCENT_SUM_PER_PARENT,
+    , false // COL_MIN_PER_PARENT,
+    , false // COL_MAX_PER_PARENT,
+    , false // COL_AVG_PER_PARENT,
+    , false // COL_MEDIAN_PER_PARENT,
+    , false // COL_NCALLS_PER_PARENT,
+    , true  // COL_ACTIVE_TIME,
+    , true  // COL_ACTIVE_PERCENT,
+    , true  // COL_PERCENT_PER_AREA,
+    , true  // COL_TOTAL_TIME_PER_AREA,
+    , true  // COL_PERCENT_SUM_PER_AREA,
+    , true  // COL_MIN_PER_AREA,
+    , true  // COL_MAX_PER_AREA,
+    , true  // COL_AVG_PER_AREA,
+    , true  // COL_MEDIAN_PER_AREA,
+    , true  // COL_NCALLS_PER_AREA,
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -249,16 +238,19 @@ BlocksTreeWidget::BlocksTreeWidget(QWidget* _parent)
     header_item->setText(COL_MIN_PER_FRAME,    "Min/frame");
     header_item->setText(COL_MAX_PER_FRAME,    "Max/frame");
     header_item->setText(COL_AVG_PER_FRAME,    "Avg/frame");
+    header_item->setText(COL_MEDIAN_PER_FRAME, "Mdn/frame");
     header_item->setText(COL_NCALLS_PER_FRAME, "N/frame");
 
     header_item->setText(COL_MIN_PER_PARENT,    "Min/parent");
     header_item->setText(COL_MAX_PER_PARENT,    "Max/parent");
     header_item->setText(COL_AVG_PER_PARENT,    "Avg/parent");
+    header_item->setText(COL_MEDIAN_PER_PARENT, "Mdn/parent");
     header_item->setText(COL_NCALLS_PER_PARENT, "N/parent");
 
     header_item->setText(COL_MIN_PER_THREAD,    "Min/thread");
     header_item->setText(COL_MAX_PER_THREAD,    "Max/thread");
     header_item->setText(COL_AVG_PER_THREAD,    "Avg/thread");
+    header_item->setText(COL_MEDIAN_PER_THREAD, "Mdn/thread");
     header_item->setText(COL_NCALLS_PER_THREAD, "N/thread");
 
     header_item->setText(COL_ACTIVE_TIME,    "WorkTime");
@@ -270,12 +262,14 @@ BlocksTreeWidget::BlocksTreeWidget(QWidget* _parent)
     header_item->setText(COL_MIN_PER_AREA,         "Min/area");
     header_item->setText(COL_MAX_PER_AREA,         "Max/area");
     header_item->setText(COL_AVG_PER_AREA,         "Avg/area");
+    header_item->setText(COL_MEDIAN_PER_AREA,      "Mdn/area");
     header_item->setText(COL_NCALLS_PER_AREA,      "N/area");
 
     auto color = QColor::fromRgb(profiler::colors::DeepOrange900);
     header_item->setForeground(COL_MIN_PER_THREAD, color);
     header_item->setForeground(COL_MAX_PER_THREAD, color);
     header_item->setForeground(COL_AVG_PER_THREAD, color);
+    header_item->setForeground(COL_MEDIAN_PER_THREAD, color);
     header_item->setForeground(COL_NCALLS_PER_THREAD, color);
     header_item->setForeground(COL_PERCENT_SUM_PER_THREAD, color);
     header_item->setForeground(COL_TOTAL_TIME_PER_THREAD, color);
@@ -284,6 +278,7 @@ BlocksTreeWidget::BlocksTreeWidget(QWidget* _parent)
     header_item->setForeground(COL_MIN_PER_FRAME, color);
     header_item->setForeground(COL_MAX_PER_FRAME, color);
     header_item->setForeground(COL_AVG_PER_FRAME, color);
+    header_item->setForeground(COL_MEDIAN_PER_FRAME, color);
     header_item->setForeground(COL_NCALLS_PER_FRAME, color);
     header_item->setForeground(COL_PERCENT_SUM_PER_FRAME, color);
     header_item->setForeground(COL_TOTAL_TIME_PER_FRAME, color);
@@ -293,6 +288,7 @@ BlocksTreeWidget::BlocksTreeWidget(QWidget* _parent)
     header_item->setForeground(COL_MIN_PER_PARENT, color);
     header_item->setForeground(COL_MAX_PER_PARENT, color);
     header_item->setForeground(COL_AVG_PER_PARENT, color);
+    header_item->setForeground(COL_MEDIAN_PER_PARENT, color);
     header_item->setForeground(COL_NCALLS_PER_PARENT, color);
     header_item->setForeground(COL_PERCENT_SUM_PER_PARENT, color);
     header_item->setForeground(COL_TOTAL_TIME_PER_PARENT, color);
@@ -305,6 +301,7 @@ BlocksTreeWidget::BlocksTreeWidget(QWidget* _parent)
     header_item->setForeground(COL_MIN_PER_AREA, color);
     header_item->setForeground(COL_MAX_PER_AREA, color);
     header_item->setForeground(COL_AVG_PER_AREA, color);
+    header_item->setForeground(COL_MEDIAN_PER_AREA, color);
     header_item->setForeground(COL_NCALLS_PER_AREA, color);
 
     setHeaderItem(header_item);
@@ -502,6 +499,7 @@ void BlocksTreeWidget::onFillTimerTimeout()
         ThreadedItems toplevelitems;
         m_hierarchyBuilder.takeItems(m_items);
         m_hierarchyBuilder.takeTopLevelItems(toplevelitems);
+        auto error = m_hierarchyBuilder.error();
         m_hierarchyBuilder.interrupt();
         {
             const QSignalBlocker b(this);
@@ -550,6 +548,12 @@ void BlocksTreeWidget::onFillTimerTimeout()
         connect(this, &Parent::itemDoubleClicked, this, &This::onItemDoubleClicked);
         onSelectedThreadChange(EASY_GLOBALS.selected_thread);
         onSelectedBlockChange(EASY_GLOBALS.selected_block);
+
+        if (!error.isEmpty())
+        {
+            QMessageBox::warning(this, "Warning", error, QMessageBox::Close);
+            clearSilent();
+        }
     }
     else if (m_progress != nullptr)
     {
@@ -578,7 +582,7 @@ void BlocksTreeWidget::onIdleTimeout()
         return;
 
     const int column = columnAt(pos.x());
-    if (item->hasToolTip(column))
+    if (!item->data(column, Qt::ToolTipRole).isNull())
         return;
 
     auto focusWidget = qApp->focusWidget();
@@ -675,9 +679,14 @@ void BlocksTreeWidget::clearSilent(bool _global)
         for (int i = topLevelItemCount() - 1; i >= 0; --i)
             topLevelItems.push_back(takeTopLevelItem(i));
 
-        ThreadPool::instance().backgroundJob([=] {
+#ifdef EASY_LAMBDA_MOVE_CAPTURE
+        ThreadPool::instance().backgroundJob([items = std::move(topLevelItems)] {
+            for (auto item : items)
+#else
+        ThreadPool::instance().backgroundJob([topLevelItems] {
             for (auto item : topLevelItems)
-                delete item;
+#endif
+                profiler_gui::deleteTreeItem(item);
         });
     }
 
@@ -947,9 +956,11 @@ void BlocksTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
                 case COL_MIN_PER_THREAD:
                 case COL_MIN_PER_PARENT:
                 case COL_MIN_PER_FRAME:
+                case COL_MIN_PER_AREA:
                 case COL_MAX_PER_THREAD:
                 case COL_MAX_PER_PARENT:
                 case COL_MAX_PER_FRAME:
+                case COL_MAX_PER_AREA:
                 {
                     auto& block = item->block();
                     auto i = profiler_gui::numeric_max<uint32_t>();
@@ -961,6 +972,22 @@ void BlocksTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
                         case COL_MAX_PER_THREAD: i = block.per_thread_stats->max_duration_block; break;
                         case COL_MAX_PER_PARENT: i = block.per_parent_stats->max_duration_block; break;
                         case COL_MAX_PER_FRAME: i = block.per_frame_stats->max_duration_block; break;
+
+                        case COL_MIN_PER_AREA:
+                        {
+                            auto data = item->data(COL_MIN_PER_AREA, MinMaxBlockIndexRole);
+                            if (!data.isNull())
+                                i = data.toUInt();
+                            break;
+                        }
+
+                        case COL_MAX_PER_AREA:
+                        {
+                            auto data = item->data(COL_MAX_PER_AREA, MinMaxBlockIndexRole);
+                            if (!data.isNull())
+                                i = data.toUInt();
+                            break;
+                        }
                     }
 
                     if (i != profiler_gui::numeric_max(i))
@@ -1036,6 +1063,7 @@ void BlocksTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     ADD_COLUMN_ACTION(COL_MIN_PER_FRAME);
     ADD_COLUMN_ACTION(COL_MAX_PER_FRAME);
     ADD_COLUMN_ACTION(COL_AVG_PER_FRAME);
+    ADD_COLUMN_ACTION(COL_MEDIAN_PER_FRAME);
     ADD_COLUMN_ACTION(COL_NCALLS_PER_FRAME);
 
     hidemenu->addSeparator();
@@ -1045,6 +1073,7 @@ void BlocksTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     ADD_COLUMN_ACTION(COL_MIN_PER_THREAD);
     ADD_COLUMN_ACTION(COL_MAX_PER_THREAD);
     ADD_COLUMN_ACTION(COL_AVG_PER_THREAD);
+    ADD_COLUMN_ACTION(COL_MEDIAN_PER_THREAD);
     ADD_COLUMN_ACTION(COL_NCALLS_PER_THREAD);
 
     hidemenu->addSeparator();
@@ -1055,6 +1084,7 @@ void BlocksTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     ADD_COLUMN_ACTION(COL_MIN_PER_PARENT);
     ADD_COLUMN_ACTION(COL_MAX_PER_PARENT);
     ADD_COLUMN_ACTION(COL_AVG_PER_PARENT);
+    ADD_COLUMN_ACTION(COL_MEDIAN_PER_PARENT);
     ADD_COLUMN_ACTION(COL_NCALLS_PER_PARENT);
 
     hidemenu->addSeparator();
@@ -1070,6 +1100,7 @@ void BlocksTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     ADD_COLUMN_ACTION(COL_MIN_PER_AREA);
     ADD_COLUMN_ACTION(COL_MAX_PER_AREA);
     ADD_COLUMN_ACTION(COL_AVG_PER_AREA);
+    ADD_COLUMN_ACTION(COL_MEDIAN_PER_AREA);
     ADD_COLUMN_ACTION(COL_NCALLS_PER_AREA);
 
 #undef ADD_STATUS_ACTION
@@ -1474,18 +1505,28 @@ void BlocksTreeWidget::loadSettings()
 
     auto val = settings.value("regime");
     if (!val.isNull())
-        m_mode = static_cast<TreeMode>(val.toUInt());
-
-    val = settings.value("columns");
-    if (!val.isNull())
     {
-        auto byteArray = val.toByteArray();
-        memcpy(m_columnsHiddenStatus, byteArray.constData(), ::std::min(sizeof(m_columnsHiddenStatus), (size_t)byteArray.size()));
+        m_mode = static_cast<TreeMode>(val.toUInt());
     }
 
-    auto state = settings.value("headerState").toByteArray();
-    if (!state.isEmpty())
-        header()->restoreState(state);
+    val = settings.value("columns_version");
+    if (!val.isNull() && val.toInt() == COLUMNS_VERSION)
+    {
+        val = settings.value("columns");
+        if (!val.isNull())
+        {
+            auto byteArray = val.toByteArray();
+            memcpy(
+                m_columnsHiddenStatus, byteArray.constData(), std::min(sizeof(m_columnsHiddenStatus), (size_t)byteArray.size())
+            );
+        }
+
+        auto state = settings.value("headerState").toByteArray();
+        if (!state.isEmpty())
+        {
+            header()->restoreState(state);
+        }
+    }
 
     settings.endGroup();
 }
@@ -1495,6 +1536,7 @@ void BlocksTreeWidget::saveSettings()
     QSettings settings(profiler_gui::ORGANAZATION_NAME, profiler_gui::APPLICATION_NAME);
     settings.beginGroup("tree_widget");
     settings.setValue("regime", static_cast<uint8_t>(m_mode));
+    settings.setValue("columns_version", COLUMNS_VERSION);
     settings.setValue("columns", QByteArray(m_columnsHiddenStatus, COL_COLUMNS_NUMBER));
     settings.setValue("headerState", header()->saveState());
     settings.endGroup();

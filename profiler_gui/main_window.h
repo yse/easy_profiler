@@ -344,6 +344,7 @@ protected slots:
     void onExpandAllClicked(bool);
     void onCollapseAllClicked(bool);
     void onViewportInfoClicked(bool);
+    void onMaxBlocksCountChange(int _value);
     void onSpacingChange(int _value);
     void onMinSizeChange(int _value);
     void onNarrowSizeChange(int _value);

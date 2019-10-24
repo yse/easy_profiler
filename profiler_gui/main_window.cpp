@@ -722,6 +722,22 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     submenu->addAction(waction);
 
 
+    submenu->addSeparator();
+    w = new QWidget(submenu);
+    l = new QHBoxLayout(w);
+    l->setContentsMargins(26, 1, 16, 1);
+    l->addWidget(new QLabel("Max rows in tree", w), 0, Qt::AlignLeft);
+    spinbox = new QSpinBox(w);
+    spinbox->setRange(0, std::numeric_limits<int>::max());
+    spinbox->setValue(static_cast<int>(EASY_GLOBALS.max_rows_count));
+    spinbox->setFixedWidth(px(100));
+    connect(spinbox, Overload<int>::of(&QSpinBox::valueChanged), this, &This::onMaxBlocksCountChange);
+    l->addWidget(spinbox);
+    w->setLayout(l);
+    waction = new QWidgetAction(submenu);
+    waction->setDefaultWidget(w);
+    submenu->addAction(waction);
+
 
 
     submenu = menu->addMenu("FPS Monitor");
@@ -1470,6 +1486,16 @@ void MainWindow::onViewportInfoClicked(bool)
 
 //////////////////////////////////////////////////////////////////////////
 
+void MainWindow::onMaxBlocksCountChange(int _value)
+{
+    if (_value >= 0)
+    {
+        EASY_GLOBALS.max_rows_count = static_cast<uint32_t>(_value);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 void MainWindow::onSpacingChange(int _value)
 {
     EASY_GLOBALS.blocks_spacing = _value;
@@ -1676,6 +1702,10 @@ void MainWindow::loadSettings()
     if (!val.isNull())
         EASY_GLOBALS.frame_time = val.toFloat();
 
+    val = settings.value("max_rows_count");
+    if (!val.isNull())
+        EASY_GLOBALS.max_rows_count = val.toUInt();
+
     val = settings.value("blocks_spacing");
     if (!val.isNull())
         EASY_GLOBALS.blocks_spacing = val.toInt();
@@ -1853,6 +1883,7 @@ void MainWindow::saveSettingsAndGeometry()
     settings.setValue("chrono_text_position", static_cast<int>(EASY_GLOBALS.chrono_text_position));
     settings.setValue("time_units", static_cast<int>(EASY_GLOBALS.time_units));
     settings.setValue("frame_time", EASY_GLOBALS.frame_time);
+    settings.setValue("max_rows_count", EASY_GLOBALS.max_rows_count);
     settings.setValue("blocks_spacing", EASY_GLOBALS.blocks_spacing);
     settings.setValue("blocks_size_min", EASY_GLOBALS.blocks_size_min);
     settings.setValue("blocks_narrow_size", EASY_GLOBALS.blocks_narrow_size);
