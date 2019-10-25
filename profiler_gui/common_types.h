@@ -56,6 +56,7 @@
 #ifndef EASY_PROFILER__GUI_COMMON_TYPES_H
 #define EASY_PROFILER__GUI_COMMON_TYPES_H
 
+#include <map>
 #include <vector>
 #include <easy/reader.h>
 #include <QObject>
@@ -167,6 +168,16 @@ public:
 
     void restore() { m_ref = m_restore; }
 };
+
+//////////////////////////////////////////////////////////////////////////
+
+template <class T>
+struct Counter
+{
+    T count = 0;
+};
+
+using DurationsCountMap = std::map<profiler::timestamp_t, Counter<uint32_t> >;
 
 } // END of namespace profiler_gui.
 

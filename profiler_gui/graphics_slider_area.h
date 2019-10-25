@@ -145,7 +145,7 @@ public:
     int margin() const;
     int margins() const;
 
-    void setValue(qreal _value);
+    bool setValue(qreal _value);
     void setRange(qreal _minValue, qreal _maxValue);
     void setSliderWidth(qreal _width);
     void setSelectionPos(qreal _left, qreal _right);

@@ -198,6 +198,13 @@ QString timeStringIntNs(TimeUnits _units, ::profiler::timestamp_t _interval);
 
 //////////////////////////////////////////////////////////////////////////
 
+QString shortenCountString(size_t count, int precision = 1);
+QString shortenCountString(uint32_t count, int precision = 1);
+QString shortenCountString(int64_t count, int precision = 1);
+QString shortenCountString(int count, int precision = 1);
+
+//////////////////////////////////////////////////////////////////////////
+
 inline double percentReal(::profiler::timestamp_t _partial, ::profiler::timestamp_t _total) {
     return _total != 0 ? 100. * static_cast<double>(_partial) / static_cast<double>(_total) : 0.;
 }
@@ -242,6 +249,10 @@ void updateProperty(QWidget* widget, const char* name, T&& property)
 ///////////////////////////////////////////////////////////////////////
 
 void deleteTreeItem(QTreeWidgetItem* item);
+
+///////////////////////////////////////////////////////////////////////
+
+profiler::timestamp_t calculateMedian(const DurationsCountMap& durations);
 
 } // END of namespace profiler_gui.
 

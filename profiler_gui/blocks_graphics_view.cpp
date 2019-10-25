@@ -727,6 +727,14 @@ void BlocksGraphicsView::onWindowActivationChanged()
     }
 }
 
+void BlocksGraphicsView::repaintHistogramImage()
+{
+    if (m_pScrollbar != nullptr)
+    {
+        m_pScrollbar->repaintHistogramImage();
+    }
+}
+
 void BlocksGraphicsView::removePopup()
 {
     delete m_popupWidget;
@@ -2692,7 +2700,7 @@ void BlocksGraphicsView::onHierarchyFlagChange(bool)
 
 void BlocksGraphicsView::onSelectedThreadChange(profiler::thread_id_t id)
 {
-    if (m_pScrollbar == nullptr || m_pScrollbar->hystThread() == id)
+    if (m_pScrollbar == nullptr || m_pScrollbar->histThread() == id)
     {
         return;
     }

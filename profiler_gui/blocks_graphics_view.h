@@ -265,6 +265,7 @@ public:
 
 public slots:
     void onWindowActivationChanged();
+    void repaintHistogramImage();
 
 signals:
 
