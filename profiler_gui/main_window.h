@@ -393,6 +393,7 @@ private:
     void clear();
 
     void refreshDiagram();
+    void refreshHistogramImage();
 
     void addFileToList(const QString& filename, bool changeWindowTitle = true);
     void loadFile(const QString& filename);

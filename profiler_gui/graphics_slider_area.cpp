@@ -360,10 +360,10 @@ int GraphicsSliderArea::margins() const
 
 //////////////////////////////////////////////////////////////////////////
 
-void GraphicsSliderArea::setValue(qreal _value)
+bool GraphicsSliderArea::setValue(qreal _value)
 {
     if (m_bUpdatingPos)
-        return;
+        return false;
 
     const profiler_gui::BoolFlagGuard guard(m_bUpdatingPos, true);
 
@@ -371,7 +371,7 @@ void GraphicsSliderArea::setValue(qreal _value)
     if (fabs(m_value - newValue) < 2 * std::numeric_limits<decltype(m_value)>::epsilon())
     {
         m_slider->setX(m_value + m_slider->halfwidth());
-        return;
+        return false;
     }
 
     m_value = newValue;
@@ -384,6 +384,8 @@ void GraphicsSliderArea::setValue(qreal _value)
 
     if (m_imageItem->isVisible())
         m_imageItem->onValueChanged();
+
+    return true;
 }
 
 void GraphicsSliderArea::setRange(qreal _minValue, qreal _maxValue)
@@ -413,7 +415,11 @@ void GraphicsSliderArea::setRange(qreal _minValue, qreal _maxValue)
 void GraphicsSliderArea::setSliderWidth(qreal _width)
 {
     m_slider->setWidth(_width);
-    setValue(m_value);
+    if (!setValue(m_value))
+    {
+        if (m_imageItem->isVisible())
+            m_imageItem->onValueChanged();
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -72,10 +72,8 @@ namespace loader {
 
 struct Stats
 {
-    struct Counter { uint32_t count = 0; };
-
     profiler::BlockStatistics stats;
-    std::map<profiler::timestamp_t, Counter> durations;
+    profiler_gui::DurationsCountMap durations;
 
     Stats(profiler::timestamp_t duration, profiler::block_index_t block_index, profiler::block_index_t parent_index)
         : stats(duration, block_index, parent_index)

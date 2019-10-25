@@ -89,7 +89,7 @@ struct ThreadData
 
 using ThreadDataMap = std::unordered_map<profiler::thread_id_t, ThreadData, estd::hash<profiler::thread_id_t> >;
 
-void calculate_medians(StatsMap::iterator begin, StatsMap::iterator end)
+void calculateMedians(StatsMap::iterator begin, StatsMap::iterator end)
 {
     for (auto it = begin; it != end; ++it)
     {
@@ -99,65 +99,7 @@ void calculate_medians(StatsMap::iterator begin, StatsMap::iterator end)
             continue;
         }
 
-        size_t total_count = 0;
-        for (auto& kv : durations)
-        {
-            total_count += kv.second.count;
-        }
-
-        auto& stats = it->second.stats;
-        if (total_count & 1)
-        {
-            const auto index = total_count >> 1;
-            size_t i = 0;
-            for (auto& kv : durations)
-            {
-                const auto count = kv.second.count;
-
-                i += count;
-                if (i < index)
-                {
-                    continue;
-                }
-
-                stats.median_duration = kv.first;
-                break;
-            }
-        }
-        else
-        {
-            const auto index2 = total_count >> 1;
-            const auto index1 = index2 - 1;
-
-            size_t i = 0;
-            bool i1 = false;
-            for (auto& kv : durations)
-            {
-                const auto count = kv.second.count;
-
-                i += count;
-                if (i < index1)
-                {
-                    continue;
-                }
-
-                if (!i1)
-                {
-                    i1 = true;
-                    stats.median_duration = kv.first;
-                }
-
-                if (i < index2)
-                {
-                    continue;
-                }
-
-                stats.median_duration += kv.first;
-                stats.median_duration >>= 1;
-
-                break;
-            }
-        }
+        it->second.stats.median_duration = profiler_gui::calculateMedian(durations);
 
         decltype(it->second.durations) dummy;
         dummy.swap(durations);
@@ -502,29 +444,16 @@ void TreeWidgetLoader::setTreeInternalTop(
 
     if (total_count > _maxCount)
     {
-        if (_maxCount > 10000)
-        {
-            m_error = QString(
-                "Exceeded maximum rows count = %1k.\n"
-                "Actual rows count: %2k (%3%).\n"
-                "Please, reduce selected area width\n"
-                "or increase maximum count in settings\n"
-                "or change the tree mode."
-            ).arg(_maxCount / 1000).arg(total_count / 1000).arg(profiler_gui::percent(total_count, _maxCount));
-        }
-        else
-        {
-            m_error = QString(
-                "Exceeded maximum rows count = %1.\n"
-                "Actual rows count: %2 (%3%).\n"
-                "Please, reduce selected area width\n"
-                "or increase maximum count in settings\n"
-                "or change the tree mode."
-            ).arg(_maxCount).arg(total_count).arg(profiler_gui::percent(total_count, _maxCount));
-        }
-
+        m_error = QString(
+            "Exceeded maximum rows count = %1.\n"
+            "Actual rows count: %2 (%3%).\n"
+            "Please, reduce selected area width\n"
+            "or increase maximum count in settings\n"
+            "or change the tree mode."
+        ).arg(profiler_gui::shortenCountString(_maxCount))
+            .arg(profiler_gui::shortenCountString(total_count))
+            .arg(profiler_gui::percent(total_count, _maxCount));
         setDone();
-
         return;
     }
 
@@ -1879,7 +1808,7 @@ void TreeWidgetLoader::fillStatsForTree(TreeWidgetItem* root, StatsMap& stats, p
         return;
     }
 
-    calculate_medians(stats.begin(), stats.end());
+    calculateMedians(stats.begin(), stats.end());
 
     std::deque<TreeWidgetItem*> queue;
 

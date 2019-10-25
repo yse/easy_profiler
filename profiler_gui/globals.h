@@ -77,6 +77,8 @@ namespace profiler_gui {
     const QColor RULER_COLOR2 = QColor::fromRgba(0x40000000 | (::profiler::colors::Dark & 0x00ffffff));// 0x40408040);
     const QColor TEXT_COLOR = QColor::fromRgb(0xff504040);
     const QColor SYSTEM_BORDER_COLOR = QColor::fromRgb(0xffc4c4c4);
+
+    EASY_CONSTEXPR QRgb BLOCK_BORDER_COLOR = profiler::colors::Grey600 & 0x00ffffff;
     EASY_CONSTEXPR QRgb SELECTED_THREAD_BACKGROUND = 0xffe0e060;
     EASY_CONSTEXPR QRgb SELECTED_THREAD_FOREGROUND = 0xffffffff - (SELECTED_THREAD_BACKGROUND & 0x00ffffff);
 
@@ -240,6 +242,7 @@ namespace profiler_gui {
         bool                          enable_zero_length; ///< Enable zero length blocks (if true, then such blocks will have width == 1 pixel on each scale)
         bool                add_zero_blocks_to_hierarchy; ///< Enable adding zero blocks into hierarchy tree
         bool                 draw_graphics_items_borders; ///< Draw borders for graphics blocks or not
+        bool                      draw_histogram_borders; ///< Draw borders for histogram columns or not
         bool                        hide_narrow_children; ///< Hide children for narrow graphics blocks (See blocks_narrow_size)
         bool                         hide_minsize_blocks; ///< Hide blocks which screen size is less than blocks_size_min
         bool                 display_only_relevant_stats; ///< Display only relevant information in ProfTreeWidget (excludes min, max, average times if there are only 1 calls number)

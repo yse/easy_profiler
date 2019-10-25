@@ -80,12 +80,21 @@ private:
     profiler::timestamp_t         m_blockTotalDuraion;
     QString                          m_topDurationStr;
     QString                       m_bottomDurationStr;
+    QString                       m_medianDurationStr;
+    QString                          m_avgDurationStr;
     QString                              m_threadName;
     QString                               m_blockName;
+    QString                               m_blockType;
     profiler::BlocksTree::children_t m_selectedBlocks;
     profiler::timestamp_t            m_threadDuration;
     profiler::timestamp_t        m_threadProfiledTime;
     profiler::timestamp_t            m_threadWaitTime;
+    profiler::timestamp_t            m_medianDuration;
+    profiler::timestamp_t               m_avgDuration;
+    profiler::timestamp_t        m_medianDurationFull;
+    profiler::timestamp_t           m_avgDurationFull;
+    profiler::timestamp_t      m_workerMedianDuration;
+    profiler::timestamp_t         m_workerAvgDuration;
     const profiler_gui::EasyItems*          m_pSource;
     const profiler::BlocksTreeRoot* m_pProfilerThread;
     profiler::thread_id_t                  m_threadId;
@@ -136,7 +145,7 @@ private:
     void updateImageAsync(QRectF _boundingRect, HistRegime _regime, qreal _current_scale,
         qreal _minimum, qreal _maximum, qreal _range,
         qreal _value, qreal _width, qreal _top_duration, qreal _bottom_duration, bool _bindMode,
-        float _frame_time, profiler::timestamp_t _begin_time, bool _autoAdjustHist);
+        float _frame_time, profiler::timestamp_t _begin_time, bool _autoAdjustHist, bool _drawBorders);
 
 }; // END of class GraphicsHistogramItem.
 
@@ -165,7 +174,7 @@ public:
 
     // Public non-virtual methods
 
-    profiler::thread_id_t hystThread() const;
+    profiler::thread_id_t histThread() const;
 
     void setHistogramSource(profiler::thread_id_t _thread_id, const profiler_gui::EasyItems* _items);
     void setHistogramSource(profiler::thread_id_t _thread_id, profiler::block_id_t _block_id);
@@ -173,10 +182,13 @@ public:
         setHistogramSource(_thread_id, &_items);
     }
 
+public slots:
+
+    void repaintHistogramImage();
+
 private slots:
 
     void onThreadViewChanged();
-    void onExpectedFrameTimeChanged();
     void onAutoAdjustHistogramChanged();
     void onDisplayOnlyFramesOnHistogramChanged();
 

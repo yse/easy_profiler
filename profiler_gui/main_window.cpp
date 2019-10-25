@@ -518,11 +518,24 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     menu->addSeparator();
     auto submenu = menu->addMenu("View");
     submenu->setToolTipsVisible(true);
-    action = submenu->addAction("Draw borders");
+
+    action = submenu->addAction("Diagram borders");
     action->setToolTip("Draw borders for blocks on diagram.\nThis slightly reduces performance.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.draw_graphics_items_borders);
-    connect(action, &QAction::triggered, [this](bool _checked){ EASY_GLOBALS.draw_graphics_items_borders = _checked; refreshDiagram(); });
+    connect(action, &QAction::triggered, [this] (bool _checked) {
+        EASY_GLOBALS.draw_graphics_items_borders = _checked;
+        refreshDiagram();
+    });
+
+    action = submenu->addAction("Histogram borders");
+    action->setToolTip("Draw borders for histogram columns.");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.draw_histogram_borders);
+    connect(action, &QAction::triggered, [this] (bool _checked) {
+        EASY_GLOBALS.draw_histogram_borders = _checked;
+        refreshHistogramImage();
+    });
 
     action = submenu->addAction("Overlap narrow children");
     action->setToolTip("Children blocks will be overlaped by narrow\nparent blocks. See also \'Blocks narrow size\'.\nThis improves performance.");
@@ -929,12 +942,13 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     toolbar->addWidget(lbl);
 
     m_frameTimeEdit = new QLineEdit();
-    m_frameTimeEdit->setFixedWidth(px(70));
+    m_frameTimeEdit->setFixedWidth(px(80));
     auto val = new QDoubleValidator(m_frameTimeEdit);
     val->setLocale(QLocale::c());
     val->setBottom(0);
+    val->setDecimals(3);
     m_frameTimeEdit->setValidator(val);
-    m_frameTimeEdit->setText(QString::number(EASY_GLOBALS.frame_time * 1e-3));
+    m_frameTimeEdit->setText(QString::number(EASY_GLOBALS.frame_time * 1e-3, 'f', 3));
     connect(m_frameTimeEdit, &QLineEdit::editingFinished, this, &This::onFrameTimeEditFinish);
     connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::expectedFrameTimeChanged, this, &This::onFrameTimeChanged);
     toolbar->addWidget(m_frameTimeEdit);
@@ -1349,6 +1363,11 @@ void MainWindow::refreshDiagram()
     static_cast<DiagramWidget*>(m_graphicsView->widget())->view()->scene()->update();
 }
 
+void MainWindow::refreshHistogramImage()
+{
+    static_cast<DiagramWidget*>(m_graphicsView->widget())->view()->repaintHistogramImage();
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 void MainWindow::onDeleteClicked(bool)
@@ -1579,7 +1598,7 @@ void MainWindow::validateLineEdits()
 {
     m_addressEdit->setFixedWidth((m_addressEdit->fontMetrics().width(QString("255.255.255.255")) * 3) / 2);
     m_portEdit->setFixedWidth(m_portEdit->fontMetrics().width(QString("000000")) + 10);
-    m_frameTimeEdit->setFixedWidth(m_frameTimeEdit->fontMetrics().width(QString("000000")));
+    m_frameTimeEdit->setFixedWidth(m_frameTimeEdit->fontMetrics().width(QString("000.000")) + 5);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1722,6 +1741,10 @@ void MainWindow::loadSettings()
     auto flag = settings.value("draw_graphics_items_borders");
     if (!flag.isNull())
         EASY_GLOBALS.draw_graphics_items_borders = flag.toBool();
+
+    flag = settings.value("draw_histogram_borders");
+    if (!flag.isNull())
+        EASY_GLOBALS.draw_histogram_borders = flag.toBool();
 
     flag = settings.value("hide_narrow_children");
     if (!flag.isNull())
@@ -1888,6 +1911,7 @@ void MainWindow::saveSettingsAndGeometry()
     settings.setValue("blocks_size_min", EASY_GLOBALS.blocks_size_min);
     settings.setValue("blocks_narrow_size", EASY_GLOBALS.blocks_narrow_size);
     settings.setValue("draw_graphics_items_borders", EASY_GLOBALS.draw_graphics_items_borders);
+    settings.setValue("draw_histogram_borders", EASY_GLOBALS.draw_histogram_borders);
     settings.setValue("hide_narrow_children", EASY_GLOBALS.hide_narrow_children);
     settings.setValue("hide_minsize_blocks", EASY_GLOBALS.hide_minsize_blocks);
     settings.setValue("collapse_items_on_tree_close", EASY_GLOBALS.collapse_items_on_tree_close);
@@ -2571,19 +2595,12 @@ void MainWindow::onFrameTimeEditFinish()
     }
 
     EASY_GLOBALS.frame_time = text.toFloat() * 1e3f;
-
-    disconnect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::expectedFrameTimeChanged,
-               this, &This::onFrameTimeChanged);
-
     emit EASY_GLOBALS.events.expectedFrameTimeChanged();
-
-    connect(&EASY_GLOBALS.events, &profiler_gui::GlobalSignals::expectedFrameTimeChanged,
-            this, &This::onFrameTimeChanged);
 }
 
 void MainWindow::onFrameTimeChanged()
 {
-    m_frameTimeEdit->setText(QString::number(EASY_GLOBALS.frame_time * 1e-3));
+    m_frameTimeEdit->setText(QString::number(EASY_GLOBALS.frame_time * 1e-3, 'f', 3));
 }
 
 //////////////////////////////////////////////////////////////////////////
