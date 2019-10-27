@@ -310,7 +310,7 @@ QMenu {
 QMenu::item {
   height: 15ex;
   padding-left: 17ex;
-  padding-right: 5ex;
+  padding-right: 10ex;
   border: 1px solid transparent;
   /* reserve space for selection border */ }
 

@@ -66,7 +66,6 @@ namespace {
 //////////////////////////////////////////////////////////////////////////
 
 EASY_CONSTEXPR int HIST_COLUMN_MIN_HEIGHT = 2;
-EASY_CONSTEXPR qreal HIST_COLUMN_MIN_WIDTH_WITH_BORDER = 3;
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -251,24 +250,6 @@ void GraphicsHistogramItem::paintByPtr(QPainter* _painter)
     // MEDIAN & EXPECTED FRAME TIME
     if (!isEmpty())
     {
-        const qreal mdn = m_medianDuration * 1e-3;
-
-        if (m_bottomValue < mdn && mdn < m_topValue)
-        {
-            // Draw marker displaying expected frame_time step
-            const auto h = bottom - (mdn - m_bottomValue) * coeff;
-            _painter->setPen(Qt::DashDotDotLine);
-
-            auto w = width;
-            const auto boundary = widget->margin() - font_h;
-            if (h < (m_boundingRect.top() - boundary))
-                w = top_width;
-            else if (h > (bottom + boundary))
-                w = bottom_width;
-
-            _painter->drawLine(QLineF(0, h, w, h));
-        }
-
         if (m_bottomValue < EASY_GLOBALS.frame_time && EASY_GLOBALS.frame_time < m_topValue)
         {
             // Draw marker displaying expected frame_time step
@@ -406,24 +387,6 @@ void GraphicsHistogramItem::paintById(QPainter* _painter)
     // MEDIAN & EXPECTED FRAME TIME
     if (!isEmpty())
     {
-        const qreal mdn = m_medianDuration * 1e-3;
-
-        if (m_bottomValue < mdn && mdn < m_topValue)
-        {
-            // Draw marker displaying expected frame_time step
-            const auto h = bottom - (mdn - m_bottomValue) * coeff;
-            _painter->setPen(Qt::DashDotDotLine);
-
-            auto w = width;
-            const auto boundary = widget->margin() - font_h;
-            if (h < (m_boundingRect.top() - boundary))
-                w = top_width;
-            else if (h > (bottom + boundary))
-                w = bottom_width;
-
-            _painter->drawLine(QLineF(0, h, w, h));
-        }
-
         if (m_bottomValue < EASY_GLOBALS.frame_time && EASY_GLOBALS.frame_time < m_topValue)
         {
             // Draw marker displaying required frame_time step
@@ -1057,9 +1020,10 @@ bool GraphicsHistogramItem::updateImage()
     const auto beginTime = EASY_GLOBALS.begin_time;
     const auto autoHeight = EASY_GLOBALS.auto_adjust_histogram_height;
     const auto drawBorders = EASY_GLOBALS.draw_histogram_borders;
+    const auto minColumnWidth = EASY_GLOBALS.histogram_column_width_min;
     m_worker.enqueue([=] {
-        updateImageAsync(rect, regime, scale, left, right, right - left, value, window, top, bottom, bindMode,
-                         frameTime, beginTime, autoHeight, drawBorders);
+        updateImageAsync(rect, regime, scale, left, right, right - left, value, window, top, bottom,
+                         minColumnWidth, bindMode, frameTime, beginTime, autoHeight, drawBorders);
     }, m_bReady);
 
     return true;
@@ -1095,9 +1059,8 @@ void GraphicsHistogramItem::onImageUpdated()
 }
 
 void GraphicsHistogramItem::updateImageAsync(QRectF _boundingRect, HistRegime _regime, qreal _current_scale,
-    qreal _minimum, qreal _maximum, qreal _range,
-    qreal _value, qreal _width, qreal _top_duration, qreal _bottom_duration,
-    bool _bindMode, float _frame_time, profiler::timestamp_t _begin_time, bool _autoAdjustHist, bool _drawBorders)
+    qreal _minimum, qreal _maximum, qreal _range, qreal _value, qreal _width, qreal _top_duration, qreal _bottom_duration,
+    int _min_column_width, bool _bindMode, float _frame_time, profiler::timestamp_t _begin_time, bool _autoAdjustHist, bool _drawBorders)
 {
     const auto bottom = _boundingRect.height();//_boundingRect.bottom();
     const auto screenWidth = _boundingRect.width() * _current_scale;
@@ -1225,7 +1188,7 @@ void GraphicsHistogramItem::updateImageAsync(QRectF _boundingRect, HistRegime _r
         const auto dtime = _top_duration - _bottom_duration;
         const auto coeff = _boundingRect.height() / (dtime > 1e-3 ? dtime : 1.);
 
-        const qreal minWidth = _drawBorders ? HIST_COLUMN_MIN_WIDTH_WITH_BORDER : 1.;
+        const qreal minWidth = _drawBorders ? _min_column_width : 1;
         if (_drawBorders)
             p.setPen(profiler_gui::BLOCK_BORDER_COLOR);
 
@@ -1433,7 +1396,7 @@ void GraphicsHistogramItem::updateImageAsync(QRectF _boundingRect, HistRegime _r
         const auto dtime = _top_duration - _bottom_duration;
         const auto coeff = _boundingRect.height() / (dtime > 1e-3 ? dtime : 1.);
 
-        const qreal minWidth = _drawBorders ? HIST_COLUMN_MIN_WIDTH_WITH_BORDER : 1.;
+        const qreal minWidth = _drawBorders ? _min_column_width : 1;
         if (_drawBorders)
             p.setPen(profiler_gui::BLOCK_BORDER_COLOR);
 

@@ -366,12 +366,12 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     connect(this, &MainWindow::activationChanged, graphicsView->threadsView(), &ThreadNamesWidget::onWindowActivationChanged, Qt::QueuedConnection);
     m_graphicsView->setWidget(graphicsView);
 
-    m_treeWidget = new DockWidget("Hierarchy", this);
+    m_treeWidget = new DockWidget("Stats", this);
     m_treeWidget->setObjectName("ProfilerGUI_Hierarchy");
     m_treeWidget->setMinimumHeight(px(50));
     m_treeWidget->setAllowedAreas(Qt::AllDockWidgetAreas);
 
-    auto treeWidget = new HierarchyWidget(this);
+    auto treeWidget = new StatsWidget(this);
     m_treeWidget->setWidget(treeWidget);
 
     m_fpsViewer = new DockWidget("FPS Monitor", this);
@@ -464,8 +464,8 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     toolbar->addAction(QIcon(imagePath("expand")), "Expand all", this, SLOT(onExpandAllClicked(bool)));
     toolbar->addAction(QIcon(imagePath("collapse")), "Collapse all", this, SLOT(onCollapseAllClicked(bool)));
 
-    action = toolbar->addAction(QIcon(imagePath("binoculars")), "See blocks hierarchy");
-    action->setToolTip("Build blocks hierarchy\nfor current visible area\nor zoom to current selected area.");
+    action = toolbar->addAction(QIcon(imagePath("binoculars")), "Build stats tree");
+    action->setToolTip("Build stats tree\nfor current visible area\nor zoom to current selected area.");
     connect(action, &QAction::triggered, [this] (bool) {
         static_cast<DiagramWidget*>(m_graphicsView->widget())->view()->inspectCurrentView(true);
     });
@@ -486,40 +486,11 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     toolButton->setPopupMode(QToolButton::InstantPopup);
     toolbar->addWidget(toolButton);
 
-    action = menu->addAction("Statistics enabled");
-    action->setCheckable(true);
-    action->setChecked(EASY_GLOBALS.enable_statistics);
-    connect(action, &QAction::triggered, this, &This::onEnableDisableStatistics);
-    if (EASY_GLOBALS.enable_statistics)
-    {
-        auto f = action->font();
-        f.setBold(true);
-        action->setFont(f);
-        action->setIcon(QIcon(imagePath("stats")));
-    }
-    else
-    {
-        action->setText("Statistics disabled");
-        action->setIcon(QIcon(imagePath("stats-off")));
-    }
 
-
-    action = menu->addAction("Only frames on histogram");
-    action->setToolTip("Display only top-level blocks on histogram.");
-    action->setCheckable(true);
-    action->setChecked(EASY_GLOBALS.display_only_frames_on_histogram);
-    connect(action, &QAction::triggered, [this](bool _checked)
-    {
-        EASY_GLOBALS.display_only_frames_on_histogram = _checked;
-        emit EASY_GLOBALS.events.displayOnlyFramesOnHistogramChanged();
-    });
-
-
-    menu->addSeparator();
-    auto submenu = menu->addMenu("View");
+    auto submenu = menu->addMenu("Diagram");
     submenu->setToolTipsVisible(true);
 
-    action = submenu->addAction("Diagram borders");
+    action = submenu->addAction("Draw borders");
     action->setToolTip("Draw borders for blocks on diagram.\nThis slightly reduces performance.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.draw_graphics_items_borders);
@@ -528,57 +499,32 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
         refreshDiagram();
     });
 
-    action = submenu->addAction("Histogram borders");
-    action->setToolTip("Draw borders for histogram columns.");
-    action->setCheckable(true);
-    action->setChecked(EASY_GLOBALS.draw_histogram_borders);
-    connect(action, &QAction::triggered, [this] (bool _checked) {
-        EASY_GLOBALS.draw_histogram_borders = _checked;
-        refreshHistogramImage();
-    });
-
     action = submenu->addAction("Overlap narrow children");
     action->setToolTip("Children blocks will be overlaped by narrow\nparent blocks. See also \'Blocks narrow size\'.\nThis improves performance.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.hide_narrow_children);
-    connect(action, &QAction::triggered, [this](bool _checked){ EASY_GLOBALS.hide_narrow_children = _checked; refreshDiagram(); });
+    connect(action, &QAction::triggered, [this] (bool _checked) { EASY_GLOBALS.hide_narrow_children = _checked; refreshDiagram(); });
 
     action = submenu->addAction("Hide min-size blocks");
     action->setToolTip("Hides blocks which screen size\nis less than \'Min blocks size\'.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.hide_minsize_blocks);
-    connect(action, &QAction::triggered, [this](bool _checked){ EASY_GLOBALS.hide_minsize_blocks = _checked; refreshDiagram(); });
-
-    action = submenu->addAction("Build hierarchy only for current thread");
-    action->setToolTip("Hierarchy tree will be built\nfor blocks from current thread only.\nThis improves performance\nand saves a lot of memory.");
-    action->setCheckable(true);
-    action->setChecked(EASY_GLOBALS.only_current_thread_hierarchy);
-    connect(action, &QAction::triggered, this, &This::onHierarchyFlagChange);
-
-    action = submenu->addAction("Add zero blocks to hierarchy");
-    action->setToolTip("Zero duration blocks will be added into hierarchy tree.\nThis reduces performance and increases memory consumption.");
-    action->setCheckable(true);
-    action->setChecked(EASY_GLOBALS.add_zero_blocks_to_hierarchy);
-    connect(action, &QAction::triggered, [this](bool _checked)
-    {
-        EASY_GLOBALS.add_zero_blocks_to_hierarchy = _checked;
-        emit EASY_GLOBALS.events.hierarchyFlagChanged(_checked);
-    });
+    connect(action, &QAction::triggered, [this] (bool _checked) { EASY_GLOBALS.hide_minsize_blocks = _checked; refreshDiagram(); });
 
     action = submenu->addAction("Enable zero duration blocks on diagram");
     action->setToolTip("If checked then allows diagram to paint zero duration blocks\nwith 1px width on each scale. Otherwise, such blocks will be resized\nto 250ns duration.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.enable_zero_length);
-    connect(action, &QAction::triggered, [this](bool _checked){ EASY_GLOBALS.enable_zero_length = _checked; refreshDiagram(); });
+    connect(action, &QAction::triggered, [this] (bool _checked) { EASY_GLOBALS.enable_zero_length = _checked; refreshDiagram(); });
 
     action = submenu->addAction("Highlight similar blocks");
     action->setToolTip("Highlight all visible blocks which are similar\nto the current selected block.\nThis reduces performance.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.highlight_blocks_with_same_id);
-    connect(action, &QAction::triggered, [this](bool _checked){ EASY_GLOBALS.highlight_blocks_with_same_id = _checked; refreshDiagram(); });
+    connect(action, &QAction::triggered, [this] (bool _checked) { EASY_GLOBALS.highlight_blocks_with_same_id = _checked; refreshDiagram(); });
 
     action = submenu->addAction("Collapse blocks on tree reset");
-    action->setToolTip("This collapses all blocks on diagram\nafter hierarchy tree reset.");
+    action->setToolTip("This collapses all blocks on diagram\nafter stats tree reset.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.collapse_items_on_tree_close);
     connect(action, &QAction::triggered, this, &This::onCollapseItemsAfterCloseChanged);
@@ -590,71 +536,25 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     connect(action, &QAction::triggered, this, &This::onAllItemsExpandedByDefaultChange);
 
     action = submenu->addAction("Bind diagram and tree expand");
-    action->setToolTip("Expanding/collapsing blocks at diagram expands/collapses\nblocks at hierarchy tree and wise versa.");
+    action->setToolTip("Expanding/collapsing blocks at diagram expands/collapses\nblocks at stats tree and wise versa.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.bind_scene_and_tree_expand_status);
     connect(action, &QAction::triggered, this, &This::onBindExpandStatusChange);
-
-    action = submenu->addAction("Hide stats for single blocks in tree");
-    action->setToolTip("If checked then such stats like Min,Max,Avg etc.\nwill not be displayed in stats tree for blocks\nwith number of calls == 1");
-    action->setCheckable(true);
-    action->setChecked(EASY_GLOBALS.display_only_relevant_stats);
-    connect(action, &QAction::triggered, this, &This::onDisplayRelevantStatsChange);
 
     action = submenu->addAction("Selecting block changes current thread");
     action->setToolTip("Automatically select thread while selecting a block.\nIf not checked then you will have to select current thread\nmanually double clicking on thread name on a diagram.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.selecting_block_changes_thread);
-    connect(action, &QAction::triggered, [this](bool _checked){ EASY_GLOBALS.selecting_block_changes_thread = _checked; });
+    connect(action, &QAction::triggered, [this] (bool _checked) { EASY_GLOBALS.selecting_block_changes_thread = _checked; });
 
     action = submenu->addAction("Draw event markers");
     action->setToolTip("Display event markers under the blocks\n(even if event-blocks are not visible).\nThis slightly reduces performance.");
     action->setCheckable(true);
     action->setChecked(EASY_GLOBALS.enable_event_markers);
-    connect(action, &QAction::triggered, [this](bool _checked)
+    connect(action, &QAction::triggered, [this] (bool _checked)
     {
         EASY_GLOBALS.enable_event_markers = _checked;
         refreshDiagram();
-    });
-
-    action = submenu->addAction("Automatically adjust histogram height");
-    action->setToolTip("You do not need to adjust boundaries manually,\nbut this restricts you from adjusting boundaries at all (zoom mode).\nYou can still adjust boundaries in overview mode though.");
-    action->setCheckable(true);
-    action->setChecked(EASY_GLOBALS.auto_adjust_histogram_height);
-    connect(action, &QAction::triggered, [](bool _checked)
-    {
-        EASY_GLOBALS.auto_adjust_histogram_height = _checked;
-        emit EASY_GLOBALS.events.autoAdjustHistogramChanged();
-    });
-
-    action = submenu->addAction("Automatically adjust chart height");
-    action->setToolTip("Same as similar option for histogram\nbut used for arbitrary values charts.");
-    action->setCheckable(true);
-    action->setChecked(EASY_GLOBALS.auto_adjust_chart_height);
-    connect(action, &QAction::triggered, [](bool _checked)
-    {
-        EASY_GLOBALS.auto_adjust_chart_height = _checked;
-        emit EASY_GLOBALS.events.autoAdjustChartChanged();
-    });
-
-    action = submenu->addAction("Use decorated thread names");
-    action->setToolTip("Add \'Thread\' word into thread name if there is no one already.\nExamples: \'Render\' will change to \'Render Thread\'\n\'WorkerThread\' will not change.");
-    action->setCheckable(true);
-    action->setChecked(EASY_GLOBALS.use_decorated_thread_name);
-    connect(action, &QAction::triggered, [this](bool _checked)
-    {
-        EASY_GLOBALS.use_decorated_thread_name = _checked;
-        emit EASY_GLOBALS.events.threadNameDecorationChanged();
-    });
-
-    action = submenu->addAction("Display hex thread id");
-    action->setToolTip("Display hex thread id instead of decimal.");
-    action->setCheckable(true);
-    action->setChecked(EASY_GLOBALS.hex_thread_id);
-    connect(action, &QAction::triggered, [this](bool _checked)
-    {
-        EASY_GLOBALS.hex_thread_id = _checked;
-        emit EASY_GLOBALS.events.hexThreadIdChanged();
     });
 
     submenu->addSeparator();
@@ -735,7 +635,100 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     submenu->addAction(waction);
 
 
+    submenu = menu->addMenu("Histogram");
+    submenu->setToolTipsVisible(true);
+
+    action = submenu->addAction("Draw borders");
+    action->setToolTip("Draw borders for histogram columns.");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.draw_histogram_borders);
+    connect(action, &QAction::triggered, [this] (bool _checked) {
+        EASY_GLOBALS.draw_histogram_borders = _checked;
+        refreshHistogramImage();
+    });
+
+    action = submenu->addAction("Automatically adjust histogram height");
+    action->setToolTip("You do not need to adjust boundaries manually,\n"
+                       "but this restricts you from adjusting boundaries at all (zoom mode).\n"
+                       "You can still adjust boundaries in overview mode though.");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.auto_adjust_histogram_height);
+    connect(action, &QAction::triggered, [] (bool _checked)
+    {
+        EASY_GLOBALS.auto_adjust_histogram_height = _checked;
+        emit EASY_GLOBALS.events.autoAdjustHistogramChanged();
+    });
+
+    action = submenu->addAction("Only frames on histogram");
+    action->setToolTip("Display only top-level blocks on histogram.");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.display_only_frames_on_histogram);
+    connect(action, &QAction::triggered, [this] (bool _checked)
+    {
+        EASY_GLOBALS.display_only_frames_on_histogram = _checked;
+        emit EASY_GLOBALS.events.displayOnlyFramesOnHistogramChanged();
+    });
+
     submenu->addSeparator();
+    w = new QWidget(submenu);
+    l = new QHBoxLayout(w);
+    l->setContentsMargins(26, 1, 16, 1);
+    l->addWidget(new QLabel("Min column width, px", w), 0, Qt::AlignLeft);
+    spinbox = new QSpinBox(w);
+    spinbox->setRange(1, 400);
+    spinbox->setValue(EASY_GLOBALS.histogram_column_width_min);
+    spinbox->setFixedWidth(px(70));
+    connect(spinbox, Overload<int>::of(&QSpinBox::valueChanged), this, &This::onHistogramMinSizeChange);
+    l->addWidget(spinbox);
+    w->setLayout(l);
+    waction = new QWidgetAction(submenu);
+    waction->setDefaultWidget(w);
+    waction->setToolTip("Minimum column width when borders are enabled.");
+    submenu->addAction(waction);
+
+
+    submenu = menu->addMenu("Stats");
+    submenu->setToolTipsVisible(true);
+
+    action = submenu->addAction("Statistics enabled");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.enable_statistics);
+    connect(action, &QAction::triggered, this, &This::onEnableDisableStatistics);
+    if (EASY_GLOBALS.enable_statistics)
+    {
+        auto f = action->font();
+        f.setBold(true);
+        action->setFont(f);
+        action->setIcon(QIcon(imagePath("stats")));
+    }
+    else
+    {
+        action->setText("Statistics disabled");
+        action->setIcon(QIcon(imagePath("stats-off")));
+    }
+
+    action = submenu->addAction("Build tree only for current thread");
+    action->setToolTip("Stats tree will be built\nfor blocks from current thread only.\nThis improves performance\nand saves a lot of memory for Call-stack mode.");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.only_current_thread_hierarchy);
+    connect(action, &QAction::triggered, this, &This::onHierarchyFlagChange);
+
+    action = submenu->addAction("Add zero blocks to the tree");
+    action->setToolTip("Zero duration blocks will be added into stats tree.\nThis reduces performance and increases memory consumption.");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.add_zero_blocks_to_hierarchy);
+    connect(action, &QAction::triggered, [this](bool _checked)
+    {
+        EASY_GLOBALS.add_zero_blocks_to_hierarchy = _checked;
+        emit EASY_GLOBALS.events.hierarchyFlagChanged(_checked);
+    });
+
+    action = submenu->addAction("Hide stats for single blocks in tree");
+    action->setToolTip("If checked then such stats like Min,Max,Avg etc.\nwill not be displayed in stats tree for blocks\nwith number of calls == 1");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.hide_stats_for_single_blocks);
+    connect(action, &QAction::triggered, this, &This::onDisplayRelevantStatsChange);
+
     w = new QWidget(submenu);
     l = new QHBoxLayout(w);
     l->setContentsMargins(26, 1, 16, 1);
@@ -751,6 +744,39 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     waction->setDefaultWidget(w);
     submenu->addAction(waction);
 
+
+    submenu = menu->addMenu("General");
+    submenu->setToolTipsVisible(true);
+
+    action = submenu->addAction("Automatically adjust values chart height");
+    action->setToolTip("Automatically adjusts arbitrary values chart height\nfor currently visible region.");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.auto_adjust_chart_height);
+    connect(action, &QAction::triggered, [](bool _checked)
+    {
+        EASY_GLOBALS.auto_adjust_chart_height = _checked;
+        emit EASY_GLOBALS.events.autoAdjustChartChanged();
+    });
+
+    action = submenu->addAction("Use decorated thread names");
+    action->setToolTip("Add \'Thread\' word into thread name if there is no one already.\nExamples: \'Render\' will change to \'Render Thread\'\n\'WorkerThread\' will not change.");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.use_decorated_thread_name);
+    connect(action, &QAction::triggered, [this](bool _checked)
+    {
+        EASY_GLOBALS.use_decorated_thread_name = _checked;
+        emit EASY_GLOBALS.events.threadNameDecorationChanged();
+    });
+
+    action = submenu->addAction("Display hex thread id");
+    action->setToolTip("Display hex thread id instead of decimal.");
+    action->setCheckable(true);
+    action->setChecked(EASY_GLOBALS.hex_thread_id);
+    connect(action, &QAction::triggered, [this](bool _checked)
+    {
+        EASY_GLOBALS.hex_thread_id = _checked;
+        emit EASY_GLOBALS.events.hexThreadIdChanged();
+    });
 
 
     submenu = menu->addMenu("FPS Monitor");
@@ -1457,7 +1483,7 @@ void MainWindow::onBindExpandStatusChange(bool _checked)
 
 void MainWindow::onDisplayRelevantStatsChange(bool _checked)
 {
-    EASY_GLOBALS.display_only_relevant_stats = _checked;
+    EASY_GLOBALS.hide_stats_for_single_blocks = _checked;
 }
 
 void MainWindow::onHierarchyFlagChange(bool _checked)
@@ -1475,7 +1501,7 @@ void MainWindow::onExpandAllClicked(bool)
 
     emit EASY_GLOBALS.events.itemsExpandStateChanged();
 
-    auto tree = static_cast<HierarchyWidget*>(m_treeWidget->widget())->tree();
+    auto tree = static_cast<StatsWidget*>(m_treeWidget->widget())->tree();
     const QSignalBlocker b(tree);
     tree->expandAll();
 }
@@ -1487,7 +1513,7 @@ void MainWindow::onCollapseAllClicked(bool)
 
     emit EASY_GLOBALS.events.itemsExpandStateChanged();
 
-    auto tree = static_cast<HierarchyWidget*>(m_treeWidget->widget())->tree();
+    auto tree = static_cast<StatsWidget*>(m_treeWidget->widget())->tree();
     const QSignalBlocker b(tree);
     tree->collapseAll();
 }
@@ -1525,6 +1551,12 @@ void MainWindow::onMinSizeChange(int _value)
 {
     EASY_GLOBALS.blocks_size_min = _value;
     refreshDiagram();
+}
+
+void MainWindow::onHistogramMinSizeChange(int _value)
+{
+    EASY_GLOBALS.histogram_column_width_min = _value;
+    refreshHistogramImage();
 }
 
 void MainWindow::onNarrowSizeChange(int _value)
@@ -1733,6 +1765,10 @@ void MainWindow::loadSettings()
     if (!val.isNull())
         EASY_GLOBALS.blocks_size_min = val.toInt();
 
+    val = settings.value("histogram_column_width_min");
+    if (!val.isNull())
+        EASY_GLOBALS.histogram_column_width_min = val.toInt();
+
     val = settings.value("blocks_narrow_size");
     if (!val.isNull())
         EASY_GLOBALS.blocks_narrow_size = val.toInt();
@@ -1783,9 +1819,9 @@ void MainWindow::loadSettings()
     if (!flag.isNull())
         EASY_GLOBALS.bind_scene_and_tree_expand_status = flag.toBool();
 
-    flag = settings.value("display_only_relevant_stats");
+    flag = settings.value("hide_stats_for_single_blocks");
     if (!flag.isNull())
-        EASY_GLOBALS.display_only_relevant_stats = flag.toBool();
+        EASY_GLOBALS.hide_stats_for_single_blocks = flag.toBool();
 
     flag = settings.value("selecting_block_changes_thread");
     if (!flag.isNull())
@@ -1909,6 +1945,7 @@ void MainWindow::saveSettingsAndGeometry()
     settings.setValue("max_rows_count", EASY_GLOBALS.max_rows_count);
     settings.setValue("blocks_spacing", EASY_GLOBALS.blocks_spacing);
     settings.setValue("blocks_size_min", EASY_GLOBALS.blocks_size_min);
+    settings.setValue("histogram_column_width_min", EASY_GLOBALS.histogram_column_width_min);
     settings.setValue("blocks_narrow_size", EASY_GLOBALS.blocks_narrow_size);
     settings.setValue("draw_graphics_items_borders", EASY_GLOBALS.draw_graphics_items_borders);
     settings.setValue("draw_histogram_borders", EASY_GLOBALS.draw_histogram_borders);
@@ -1921,7 +1958,7 @@ void MainWindow::saveSettingsAndGeometry()
     settings.setValue("add_zero_blocks_to_hierarchy", EASY_GLOBALS.add_zero_blocks_to_hierarchy);
     settings.setValue("highlight_blocks_with_same_id", EASY_GLOBALS.highlight_blocks_with_same_id);
     settings.setValue("bind_scene_and_tree_expand_status", EASY_GLOBALS.bind_scene_and_tree_expand_status);
-    settings.setValue("display_only_relevant_stats", EASY_GLOBALS.display_only_relevant_stats);
+    settings.setValue("hide_stats_for_single_blocks", EASY_GLOBALS.hide_stats_for_single_blocks);
     settings.setValue("selecting_block_changes_thread", EASY_GLOBALS.selecting_block_changes_thread);
     settings.setValue("enable_event_indicators", EASY_GLOBALS.enable_event_markers);
     settings.setValue("auto_adjust_histogram_height", EASY_GLOBALS.auto_adjust_histogram_height);

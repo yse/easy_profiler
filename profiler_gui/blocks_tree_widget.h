@@ -82,7 +82,7 @@ class BlocksTreeWidget : public QTreeWidget
 
 protected:
 
-    TreeWidgetLoader      m_hierarchyBuilder;
+    TreeWidgetLoader           m_treeBuilder;
     Items                            m_items;
     RootsMap                         m_roots;
     ::profiler_gui::TreeBlocks m_inputBlocks;
@@ -189,12 +189,12 @@ private:
 
 //////////////////////////////////////////////////////////////////////////
 
-class HierarchyWidget : public QWidget
+class StatsWidget : public QWidget
 {
     Q_OBJECT
 
     using Parent = QWidget;
-    using This = HierarchyWidget;
+    using This = StatsWidget;
 
 private:
 
@@ -208,8 +208,8 @@ public:
 
     // Public virtual methods
 
-    explicit HierarchyWidget(QWidget* _parent = nullptr);
-    ~HierarchyWidget() override;
+    explicit StatsWidget(QWidget* _parent = nullptr);
+    ~StatsWidget() override;
 
     void enterEvent(QEvent* event) override;
     void leaveEvent(QEvent* event) override;

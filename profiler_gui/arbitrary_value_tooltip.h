@@ -6,7 +6,7 @@
 * email             : v.s.zarubkin@gmail.com
 * ----------------- :
 * description       : The file contains declaration of ArbitraryValueToolTip which is used
-*                   : for displaying arbitrary value in Diagram and Hierarchy widgets.
+*                   : for displaying arbitrary value in Diagram and StatsTree widgets.
 * ----------------- :
 * license           : Lightweight profiler library for c++
 *                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
