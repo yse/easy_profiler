@@ -215,11 +215,12 @@ namespace profiler_gui {
         ::profiler::block_id_t         selected_block_id; ///< Current selected profiler block id
         uint32_t                                 version; ///< Opened file version (files may have different format)
 
-        uint32_t                        max_rows_count; ///< Maximum blocks count for the Hierarchy widget for the full call-stack mode
+        uint32_t                          max_rows_count; ///< Maximum blocks count for the StatsTree widget for the full call-stack mode
 
         float                                 frame_time; ///< Expected frame time value in microseconds to be displayed at minimap on graphics scrollbar
         int                               blocks_spacing; ///< Minimum blocks spacing on diagram
         int                              blocks_size_min; ///< Minimum blocks size on diagram
+        int                   histogram_column_width_min; ///< Minimum column width on histogram when borders are enabled
         int                           blocks_narrow_size; ///< Width indicating narrow blocks
         int                              max_fps_history; ///< Max frames history displayed in FPS Monitor
         int                           fps_timer_interval; ///< Interval in milliseconds for sending network requests to the profiled application (used by FPS Monitor)
@@ -245,7 +246,7 @@ namespace profiler_gui {
         bool                      draw_histogram_borders; ///< Draw borders for histogram columns or not
         bool                        hide_narrow_children; ///< Hide children for narrow graphics blocks (See blocks_narrow_size)
         bool                         hide_minsize_blocks; ///< Hide blocks which screen size is less than blocks_size_min
-        bool                 display_only_relevant_stats; ///< Display only relevant information in ProfTreeWidget (excludes min, max, average times if there are only 1 calls number)
+        bool                hide_stats_for_single_blocks; ///< Hide min, max, avg, median durations in stats tree if there is only 1 call for a block
         bool                collapse_items_on_tree_close; ///< Collapse all items which were displayed in the hierarchy tree after tree close/reset
         bool               all_items_expanded_by_default; ///< Expand all items after file is opened
         bool               only_current_thread_hierarchy; ///< Build hierarchy tree for current thread only

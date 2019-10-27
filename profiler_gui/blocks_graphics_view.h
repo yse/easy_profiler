@@ -301,7 +301,7 @@ private:
 
     void revalidateOffset();
 
-    void addSelectionToHierarchy();
+    void addSelectionToStatsTree();
 
 private slots:
 

@@ -272,7 +272,7 @@ QVariant TreeWidgetItem::relevantData(int _column, int _role) const
         }
     }
 
-    if (EASY_GLOBALS.display_only_relevant_stats && _role == Qt::DisplayRole)
+    if (EASY_GLOBALS.hide_stats_for_single_blocks && _role == Qt::DisplayRole)
     {
         return QVariant();
     }

@@ -1721,7 +1721,7 @@ void BlocksGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
 
 //////////////////////////////////////////////////////////////////////////
 
-void BlocksGraphicsView::addSelectionToHierarchy()
+void BlocksGraphicsView::addSelectionToStatsTree()
 {
     if (!m_selectionItem->isVisible())
         return;
@@ -1806,7 +1806,7 @@ void BlocksGraphicsView::onInspectCurrentView(bool strict)
 
         emit EASY_GLOBALS.events.rulerVisible(true);
 
-        addSelectionToHierarchy();
+        addSelectionToStatsTree();
     }
     else
     {

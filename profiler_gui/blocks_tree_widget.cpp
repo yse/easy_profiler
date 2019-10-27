@@ -97,7 +97,9 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-const int HIERARCHY_BUILDER_TIMER_INTERVAL = 40;
+namespace {
+
+const int TREE_BUILDER_TIMER_INTERVAL = 40;
 
 const bool PLAIN_MODE_COLUMNS[COL_COLUMNS_NUMBER] = {
       true  // COL_NAME = 0,
@@ -182,6 +184,8 @@ const bool SELECTION_MODE_COLUMNS[COL_COLUMNS_NUMBER] = {
     , true  // COL_MEDIAN_PER_AREA,
     , true  // COL_NCALLS_PER_AREA,
 };
+
+} // end of namespace <noname>.
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -366,7 +370,7 @@ BlocksTreeWidget::BlocksTreeWidget(QWidget* _parent)
         }
     }
 
-    m_hintLabel = new QLabel("Use Right Mouse Button on the Diagram to build a hierarchy...\n"
+    m_hintLabel = new QLabel("Use Right Mouse Button on the Diagram to build a tree...\n"
                              "Way 1: Press the button >> Move mouse >> Release the button\n"
                              "Way 2: Just click the right mouse button on any block", this);
     m_hintLabel->setObjectName(QStringLiteral("BlocksTreeWidget_HintLabel"));
@@ -492,15 +496,15 @@ void BlocksTreeWidget::mousePressEvent(QMouseEvent* _event)
 
 void BlocksTreeWidget::onFillTimerTimeout()
 {
-    if (m_hierarchyBuilder.done())
+    if (m_treeBuilder.done())
     {
         m_fillTimer.stop();
 
         ThreadedItems toplevelitems;
-        m_hierarchyBuilder.takeItems(m_items);
-        m_hierarchyBuilder.takeTopLevelItems(toplevelitems);
-        auto error = m_hierarchyBuilder.error();
-        m_hierarchyBuilder.interrupt();
+        m_treeBuilder.takeItems(m_items);
+        m_treeBuilder.takeTopLevelItems(toplevelitems);
+        auto error = m_treeBuilder.error();
+        m_treeBuilder.interrupt();
         {
             const QSignalBlocker b(this);
             for (auto& item : toplevelitems)
@@ -557,7 +561,7 @@ void BlocksTreeWidget::onFillTimerTimeout()
     }
     else if (m_progress != nullptr)
     {
-        m_progress->setValue(m_hierarchyBuilder.progress());
+        m_progress->setValue(m_treeBuilder.progress());
     }
 }
 
@@ -614,8 +618,8 @@ void BlocksTreeWidget::setTreeBlocks(const profiler_gui::TreeBlocks& _blocks, pr
         m_bLocked = true;
         m_hintLabel->hide();
         createProgressDialog();
-        m_hierarchyBuilder.fillTreeBlocks(m_inputBlocks, _session_begin_time, _left, _right, _strict, m_mode);
-        m_fillTimer.start(HIERARCHY_BUILDER_TIMER_INTERVAL);
+        m_treeBuilder.fillTreeBlocks(m_inputBlocks, _session_begin_time, _left, _right, _strict, m_mode);
+        m_fillTimer.start(TREE_BUILDER_TIMER_INTERVAL);
     }
 
     //StubLocker l;
@@ -647,7 +651,7 @@ void BlocksTreeWidget::clearSilent(bool _global)
 {
     const QSignalBlocker b(this);
 
-    m_hierarchyBuilder.interrupt();
+    m_treeBuilder.interrupt();
     destroyProgressDialog();
     m_hintLabel->show();
 
@@ -1545,7 +1549,7 @@ void BlocksTreeWidget::saveSettings()
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-HierarchyWidget::HierarchyWidget(QWidget* _parent) : Parent(_parent)
+StatsWidget::StatsWidget(QWidget* _parent) : Parent(_parent)
     , m_tree(new BlocksTreeWidget(this))
     , m_searchBox(new QLineEdit(this))
     , m_foundNumber(new QLabel(QStringLiteral("<font color=\"red\">0</font> matches"), this))
@@ -1613,12 +1617,12 @@ HierarchyWidget::HierarchyWidget(QWidget* _parent) : Parent(_parent)
     m_foundNumber->hide();
 }
 
-HierarchyWidget::~HierarchyWidget()
+StatsWidget::~StatsWidget()
 {
     saveSettings();
 }
 
-void HierarchyWidget::loadSettings()
+void StatsWidget::loadSettings()
 {
     QSettings settings(profiler_gui::ORGANAZATION_NAME, profiler_gui::APPLICATION_NAME);
     settings.beginGroup("HierarchyWidget");
@@ -1630,7 +1634,7 @@ void HierarchyWidget::loadSettings()
     settings.endGroup();
 }
 
-void HierarchyWidget::saveSettings()
+void StatsWidget::saveSettings()
 {
     QSettings settings(profiler_gui::ORGANAZATION_NAME, profiler_gui::APPLICATION_NAME);
     settings.beginGroup("HierarchyWidget");
@@ -1638,19 +1642,19 @@ void HierarchyWidget::saveSettings()
     settings.endGroup();
 }
 
-void HierarchyWidget::enterEvent(QEvent* event)
+void StatsWidget::enterEvent(QEvent* event)
 {
     Parent::enterEvent(event);
     m_tree->updateHintLabelOnHover(true);
 }
 
-void HierarchyWidget::leaveEvent(QEvent* event)
+void StatsWidget::leaveEvent(QEvent* event)
 {
     Parent::leaveEvent(event);
     m_tree->updateHintLabelOnHover(false);
 }
 
-void HierarchyWidget::keyPressEvent(QKeyEvent* _event)
+void StatsWidget::keyPressEvent(QKeyEvent* _event)
 {
     switch (_event->key())
     {
@@ -1677,12 +1681,12 @@ void HierarchyWidget::keyPressEvent(QKeyEvent* _event)
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void HierarchyWidget::contextMenuEvent(QContextMenuEvent* _event)
+void StatsWidget::contextMenuEvent(QContextMenuEvent* _event)
 {
     m_tree->contextMenuEvent(_event);
 }
 
-void HierarchyWidget::showEvent(QShowEvent* event)
+void StatsWidget::showEvent(QShowEvent* event)
 {
     Parent::showEvent(event);
     m_searchBox->setFixedWidth(px(300));
@@ -1690,19 +1694,19 @@ void HierarchyWidget::showEvent(QShowEvent* event)
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-BlocksTreeWidget* HierarchyWidget::tree()
+BlocksTreeWidget* StatsWidget::tree()
 {
     return m_tree;
 }
 
-void HierarchyWidget::clear(bool _global)
+void StatsWidget::clear(bool _global)
 {
     m_tree->clearSilent(_global);
     m_foundNumber->setText(QStringLiteral("<font color=\"red\">0</font> matches"));
     m_foundNumber->hide();
 }
 
-void HierarchyWidget::onSeachBoxReturnPressed()
+void StatsWidget::onSeachBoxReturnPressed()
 {
     if (m_searchButton->data().toBool())
         findNext(true);
@@ -1710,7 +1714,7 @@ void HierarchyWidget::onSeachBoxReturnPressed()
         findPrev(true);
 }
 
-void HierarchyWidget::onSearchBoxTextChanged(const QString& _text)
+void StatsWidget::onSearchBoxTextChanged(const QString& _text)
 {
     if (_text.isEmpty())
     {
@@ -1719,7 +1723,7 @@ void HierarchyWidget::onSearchBoxTextChanged(const QString& _text)
     }
 }
 
-void HierarchyWidget::findNext(bool)
+void StatsWidget::findNext(bool)
 {
     auto text = m_searchBox->text();
     if (text.isEmpty())
@@ -1752,7 +1756,7 @@ void HierarchyWidget::findNext(bool)
         m_foundNumber->show();
 }
 
-void HierarchyWidget::findPrev(bool)
+void StatsWidget::findPrev(bool)
 {
     auto text = m_searchBox->text();
     if (text.isEmpty())
@@ -1785,7 +1789,7 @@ void HierarchyWidget::findPrev(bool)
         m_foundNumber->show();
 }
 
-void HierarchyWidget::findNextFromMenu(bool _checked)
+void StatsWidget::findNextFromMenu(bool _checked)
 {
     if (!_checked)
         return;
@@ -1802,7 +1806,7 @@ void HierarchyWidget::findNextFromMenu(bool _checked)
     findNext(true);
 }
 
-void HierarchyWidget::findPrevFromMenu(bool _checked)
+void StatsWidget::findPrevFromMenu(bool _checked)
 {
     if (!_checked)
         return;

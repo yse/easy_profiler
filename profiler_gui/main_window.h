@@ -347,6 +347,7 @@ protected slots:
     void onMaxBlocksCountChange(int _value);
     void onSpacingChange(int _value);
     void onMinSizeChange(int _value);
+    void onHistogramMinSizeChange(int _value);
     void onNarrowSizeChange(int _value);
     void onFpsIntervalChange(int _value);
     void onFpsHistoryChange(int _value);

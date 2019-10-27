@@ -128,7 +128,7 @@ static void fillStatsColumns(
         item->setData(max_column, MinMaxBlockIndexRole, stats->max_duration_block);
     }
 
-    if (stats->calls_number < 2)// && EASY_GLOBALS.display_only_relevant_stats)
+    if (stats->calls_number < 2)
     {
         return;
     }

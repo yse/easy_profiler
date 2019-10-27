@@ -143,8 +143,8 @@ private:
     void paintById(QPainter* _painter);
 
     void updateImageAsync(QRectF _boundingRect, HistRegime _regime, qreal _current_scale,
-        qreal _minimum, qreal _maximum, qreal _range,
-        qreal _value, qreal _width, qreal _top_duration, qreal _bottom_duration, bool _bindMode,
+        qreal _minimum, qreal _maximum, qreal _range, qreal _value, qreal _width,
+        qreal _top_duration, qreal _bottom_duration, int _min_column_width, bool _bindMode,
         float _frame_time, profiler::timestamp_t _begin_time, bool _autoAdjustHist, bool _drawBorders);
 
 }; // END of class GraphicsHistogramItem.
