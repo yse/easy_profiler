@@ -280,7 +280,7 @@ public:
 
 protected:
 
-    //bool canShowSlider() const override;
+    bool canShowSlider() const override;
 
 private slots:
 

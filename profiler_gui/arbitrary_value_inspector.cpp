@@ -709,9 +709,23 @@ void ArbitraryValuesChartItem::paint(QPainter* _painter, const QStyleOptionGraph
         drawImage();
     }
 
-    QRectF rect(0, m_boundingRect.top() - widget->margin(), width - 3, m_boundingRect.height() + widget->margins());
-    _painter->setPen(profiler_gui::TEXT_COLOR);
-    _painter->drawText(rect, Qt::AlignLeft | Qt::AlignTop, bindMode ? " Mode: Zoom" : " Mode: Overview");
+    // MODE
+    {
+        QRectF rect(3, m_boundingRect.top() - widget->margin(), width - 3, m_boundingRect.height() + widget->margins());
+        QRectF textBounds;
+
+        _painter->setPen(Qt::blue);
+        _painter->drawText(
+            rect,
+            Qt::AlignLeft | Qt::AlignTop | Qt::TextDontClip | Qt::TextIncludeTrailingSpaces,
+            QStringLiteral("MODE: "),
+            &textBounds
+        );
+        rect.adjust(textBounds.width(), 0, 0, 0);
+
+        _painter->setPen(profiler_gui::TEXT_COLOR);
+        _painter->drawText(rect, Qt::AlignLeft | Qt::AlignTop | Qt::TextDontClip, bindMode ? "Zoom" : "Overview");
+    }
 
     _painter->setPen(Qt::darkGray);
     _painter->drawLine(QLineF(0, bottom, width, bottom));
@@ -1705,10 +1719,10 @@ int GraphicsChart::filterWindowSize() const
     return m_chartItem->filterWindowSize();
 }
 
-//bool GraphicsChart::canShowSlider() const
-//{
-//    return chartType() != ChartType::Complexity && !m_bBindMode;
-//}
+bool GraphicsChart::canShowSlider() const
+{
+    return chartType() != ChartType::Complexity && !bindMode();
+}
 
 //////////////////////////////////////////////////////////////////////////
 

@@ -198,6 +198,8 @@ namespace profiler {
 
     }; // END of class ThreadGuard.
 
+    EASY_CONSTEXPR uint16_t MAX_BLOCK_DATA_SIZE = 2048 + 512 + 256; ///< Estimated maximum size of block dynamic name or EASY_VALUE data size
+
 } // END of namespace profiler.
 
 #endif // EASY_PROFILER_PUBLIC_TYPES_H

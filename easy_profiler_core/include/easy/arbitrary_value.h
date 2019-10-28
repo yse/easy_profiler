@@ -158,9 +158,9 @@ void foo(const A& a) {
 
 \note Currently arbitrary values support only compile-time names.
 
-\warning Max array size is 4096. Passing bigger size has undefined behavior.
+\warning Max data size (sizeof(value) * size) is MAX_BLOCK_DATA_SIZE. Passing bigger size has undefined behavior.
 
-\sa EASY_VALUE, EASY_TEXT, EASY_STRING
+\sa EASY_VALUE, EASY_TEXT, EASY_STRING, MAX_BLOCK_DATA_SIZE
 
 \ingroup profiler
 */
@@ -178,9 +178,9 @@ Could be C-string or std::string.
 
 \note Currently arbitrary values support only compile-time names.
 
-\warning Max string length is 4096 (including trailing '\0'). Passing bigger size has undefined behavior.
+\warning Max string length is MAX_BLOCK_DATA_SIZE (including trailing '\0'). Passing bigger size has undefined behavior.
 
-\sa EASY_VALUE, EASY_ARRAY, EASY_STRING
+\sa EASY_VALUE, EASY_ARRAY, EASY_STRING, MAX_BLOCK_DATA_SIZE
 
 \ingroup profiler
 */
@@ -201,9 +201,9 @@ Use this for C-strings of known length (compile-time or run-time).
 
 \note Currently arbitrary values support only compile-time names.
 
-\warning Max string length is 4096 (including trailing '\0'). Passing bigger size has undefined behavior.
+\warning Max string length is MAX_BLOCK_DATA_SIZE (including trailing '\0'). Passing bigger size has undefined behavior.
 
-\sa EASY_VALUE, EASY_ARRAY, EASY_TEXT
+\sa EASY_VALUE, EASY_ARRAY, EASY_TEXT, MAX_BLOCK_DATA_SIZE
 
 \ingroup profiler
 */
@@ -215,8 +215,6 @@ Use this for C-strings of known length (compile-time or run-time).
 
 namespace profiler
 {
-
-    EASY_CONSTEXPR uint16_t MaxArbitraryValuesArraySize = 4096;
 
     extern "C" PROFILER_API void storeValue(const BaseBlockDescriptor* _desc, DataType _type, const void* _data,
                                             uint16_t _size, bool _isArray, ValueId _vin);
@@ -235,7 +233,7 @@ namespace profiler
         storeValue(_desc, StdToDataType<Type>::data_type, &_value, static_cast<uint16_t>(sizeof(Type)), false, _vin);
     }
 
-    ///< WARNING: Passing _arraySize > 4096 may cause undefined behavior!
+    ///< WARNING: Passing _arraySize > (MAX_BLOCK_DATA_SIZE / sizeof(T)) may cause undefined behavior!
     template <class T>
     inline void setValue(const BaseBlockDescriptor* _desc, const T* _valueArray, ValueId _vin, uint16_t _arraySize)
     {
@@ -251,24 +249,24 @@ namespace profiler
         static_assert(StdToDataType<T>::data_type != DataType::TypesCount,
                       "You should use standard builtin scalar types as profiler::Value type!");
 
-        static_assert(N <= MaxArbitraryValuesArraySize, "Maximum arbitrary values array size is 4096.");
+        static_assert(sizeof(_value) <= MAX_BLOCK_DATA_SIZE, "Maximum arbitrary values data size exceeded.");
 
         storeValue(_desc, StdToDataType<T>::data_type, _value, static_cast<uint16_t>(sizeof(_value)), true, _vin);
     }
 
-    ///< WARNING: Passing _textLength > 4096 may cause undefined behavior!
+    ///< WARNING: Passing _textLength > MAX_BLOCK_DATA_SIZE may cause undefined behavior!
     inline void setText(const BaseBlockDescriptor* _desc, const char* _text, ValueId _vin, uint16_t _textLength)
     {
         storeValue(_desc, DataType::String, _text, _textLength, true, _vin);
     }
 
-    ///< WARNING: Passing _text with length > 4096 may cause undefined behavior!
+    ///< WARNING: Passing _text with length > MAX_BLOCK_DATA_SIZE may cause undefined behavior!
     inline void setText(const BaseBlockDescriptor* _desc, const char* _text, ValueId _vin)
     {
         storeValue(_desc, DataType::String, _text, static_cast<uint16_t>(strlen(_text) + 1), true, _vin);
     }
 
-    ///< WARNING: Passing _text with length > 4096 may cause undefined behavior!
+    ///< WARNING: Passing _text with length > MAX_BLOCK_DATA_SIZE may cause undefined behavior!
     inline void setText(const BaseBlockDescriptor* _desc, const ::std::string& _text, ValueId _vin)
     {
         storeValue(_desc, DataType::String, _text.c_str(), static_cast<uint16_t>(_text.size() + 1), true, _vin);
@@ -277,7 +275,7 @@ namespace profiler
     template <size_t N>
     inline void setText(const BaseBlockDescriptor* _desc, const char (&_text)[N], ValueId _vin)
     {
-        static_assert(N <= MaxArbitraryValuesArraySize, "Maximum arbitrary values array size is 4096.");
+        static_assert(N <= MAX_BLOCK_DATA_SIZE, "Maximum arbitrary values data size exceeded.");
         storeValue(_desc, DataType::String, &_text[0], static_cast<uint16_t>(N), true, _vin);
     }
 

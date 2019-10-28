@@ -43,10 +43,11 @@ The Apache License, Version 2.0 (the "License");
 #ifndef EASY_PROFILER_STACK_BUFFER_H
 #define EASY_PROFILER_STACK_BUFFER_H
 
-#include "nonscoped_block.h"
-#include <list>
 #include <algorithm>
 #include <cstdlib>
+#include <list>
+
+#include "nonscoped_block.h"
 
 #ifdef max
 #undef max
