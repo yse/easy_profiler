@@ -40,11 +40,32 @@ The Apache License, Version 2.0 (the "License");
 
 **/
 
+#include <algorithm>
 #include "thread_storage.h"
 #include "current_thread.h"
 #include "current_time.h"
 
-static profiler::vin_t ptr2vin(const void* ptr)
+#ifdef min
+#undef min
+#endif
+
+#ifdef max
+#undef max
+#endif
+
+namespace {
+
+EASY_CONSTEXPR uint16_t BASE_SIZE = static_cast<uint16_t>(sizeof(profiler::BaseBlockData) + 1U);
+
+#if EASY_OPTION_TRUNCATE_LONG_RUNTIME_NAMES != 0
+EASY_CONSTEXPR uint16_t MAX_BLOCK_NAME_LENGTH = BLOCK_CHUNK_SIZE - BASE_SIZE;
+#endif
+
+#if EASY_OPTION_CHECK_MAX_VALUE_DATA_SIZE != 0
+EASY_CONSTEXPR uint16_t MAX_VALUE_DATA_SIZE = BLOCK_CHUNK_SIZE - static_cast<uint16_t>(sizeof(profiler::ArbitraryValue));
+#endif
+
+profiler::vin_t ptr2vin(const void* ptr)
 {
     static_assert(sizeof(uintptr_t) == sizeof(void*),
                   "Can not cast void* to uintptr_t. Different sizes.");
@@ -54,6 +75,8 @@ static profiler::vin_t ptr2vin(const void* ptr)
 
     return static_cast<profiler::vin_t>(reinterpret_cast<uintptr_t>(ptr));
 }
+
+} // end of namespace <noname>.
 
 ThreadStorage::ThreadStorage()
     : nonscopedBlocks(16)
@@ -68,9 +91,23 @@ ThreadStorage::ThreadStorage()
     expired = ATOMIC_VAR_INIT(0);
 }
 
-void ThreadStorage::storeValue(profiler::timestamp_t _timestamp, profiler::block_id_t _id, profiler::DataType _type, const void* _data, uint16_t _size, bool _isArray, profiler::ValueId _vin)
-{
+void ThreadStorage::storeValue(
+    profiler::timestamp_t _timestamp,
+    profiler::block_id_t _id,
+    profiler::DataType _type,
+    const void* _data,
+    uint16_t _size,
+    bool _isArray,
+    profiler::ValueId _vin
+) {
+#if EASY_OPTION_CHECK_MAX_VALUE_DATA_SIZE != 0
+    if (_size > MAX_VALUE_DATA_SIZE)
+    {
+        return;
+    }
+#endif
     const uint16_t serializedDataSize = _size + static_cast<uint16_t>(sizeof(profiler::ArbitraryValue));
+
     void* data = blocks.closedList.allocate(serializedDataSize);
 
     ::new (data) profiler::ArbitraryValue(_timestamp, ptr2vin(_vin.m_id), _id, _size, _type, _isArray);
@@ -94,11 +131,16 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
     EASY_THREAD_LOCAL static profiler::timestamp_t endTime = 0ULL;
 #endif
 
+#if EASY_OPTION_TRUNCATE_LONG_RUNTIME_NAMES != 0
+    const uint16_t nameLength = std::min(static_cast<uint16_t>(strlen(block.name())), MAX_BLOCK_NAME_LENGTH);
+#else
     const uint16_t nameLength = static_cast<uint16_t>(strlen(block.name()));
+#endif
+
 #if EASY_OPTION_MEASURE_STORAGE_EXPAND == 0
     const 
 #endif
-    uint16_t serializedDataSize = static_cast<uint16_t>(sizeof(profiler::BaseBlockData) + nameLength + 1);
+    auto serializedDataSize = static_cast<uint16_t>(BASE_SIZE + nameLength);
 
 #if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
     const bool expanded = (desc->m_status & profiler::ON) && blocks.closedList.need_expand(serializedDataSize);
@@ -130,8 +172,8 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
 
 void ThreadStorage::storeBlockForce(const profiler::Block& block)
 {
-    const uint16_t nameLength = static_cast<uint16_t>(strlen(block.name()));
-    const uint16_t serializedDataSize = static_cast<uint16_t>(sizeof(profiler::BaseBlockData) + nameLength + 1);
+    const auto nameLength = static_cast<uint16_t>(strlen(block.name()));
+    const auto serializedDataSize = static_cast<uint16_t>(sizeof(profiler::BaseBlockData) + nameLength + 1);
 
     void* data = blocks.closedList.marked_allocate(serializedDataSize);
     ::new (data) profiler::SerializedBlock(block, nameLength);
@@ -140,8 +182,8 @@ void ThreadStorage::storeBlockForce(const profiler::Block& block)
 
 void ThreadStorage::storeCSwitch(const CSwitchBlock& block)
 {
-    const uint16_t nameLength = static_cast<uint16_t>(strlen(block.name()));
-    const uint16_t serializedDataSize = static_cast<uint16_t>(sizeof(profiler::CSwitchEvent) + nameLength + 1);
+    const auto nameLength = static_cast<uint16_t>(strlen(block.name()));
+    const auto serializedDataSize = static_cast<uint16_t>(sizeof(profiler::CSwitchEvent) + nameLength + 1);
 
     void* data = sync.closedList.allocate(serializedDataSize);
     ::new (data) profiler::SerializedCSwitch(block, nameLength);

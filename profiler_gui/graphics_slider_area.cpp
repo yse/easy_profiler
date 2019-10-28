@@ -383,7 +383,11 @@ bool GraphicsSliderArea::setValue(qreal _value)
     }
 
     if (m_imageItem->isVisible())
+    {
         m_imageItem->onValueChanged();
+        if (!m_slider->isVisible())
+            scene()->update();
+    }
 
     return true;
 }
@@ -415,10 +419,14 @@ void GraphicsSliderArea::setRange(qreal _minValue, qreal _maxValue)
 void GraphicsSliderArea::setSliderWidth(qreal _width)
 {
     m_slider->setWidth(_width);
-    if (!setValue(m_value))
+    if (setValue(m_value))
+        return;
+
+    if (m_imageItem->isVisible())
     {
-        if (m_imageItem->isVisible())
-            m_imageItem->onValueChanged();
+        m_imageItem->onValueChanged();
+        if (!m_slider->isVisible())
+            scene()->update();
     }
 }
 
@@ -480,8 +488,10 @@ void GraphicsSliderArea::mousePressEvent(QMouseEvent* _event)
         if (!_event->modifiers())
         {
             m_bBindMode = !m_bBindMode;
+            m_slider->setVisible(canShowSlider());
             if (m_imageItem->isVisible())
                 m_imageItem->onModeChanged();
+            scene()->update();
         }
     }
 

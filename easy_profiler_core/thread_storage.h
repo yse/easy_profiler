@@ -43,21 +43,26 @@ The Apache License, Version 2.0 (the "License");
 #ifndef EASY_PROFILER_THREAD_STORAGE_H
 #define EASY_PROFILER_THREAD_STORAGE_H
 
+#include <atomic>
+#include <functional>
+#include <string>
+#include <vector>
+
 #include <easy/details/profiler_public_types.h>
 #include <easy/details/arbitrary_value_public_types.h>
 #include <easy/serialized_block.h>
-#include <vector>
-#include <string>
-#include <atomic>
-#include <functional>
-#include "stack_buffer.h"
+
 #include "chunk_allocator.h"
+#include "stack_buffer.h"
 
 //////////////////////////////////////////////////////////////////////////
 
 template <class T, const uint16_t N>
 struct BlocksList
 {
+    BlocksList(const BlocksList&) = delete;
+    BlocksList(BlocksList&&) = delete;
+
     BlocksList() = default;
 
     std::vector<T>            openedList;
@@ -65,16 +70,12 @@ struct BlocksList
     uint64_t          usedMemorySize = 0;
     uint64_t         frameMemorySize = 0;
 
-    void clearClosed() {
+    void clearClosed()
+    {
         //closedList.clear();
         usedMemorySize = 0;
         frameMemorySize = 0;
     }
-
-private:
-
-    BlocksList(const BlocksList&) = delete;
-    BlocksList(BlocksList&&) = delete;
 
 }; // END of struct BlocksList.
 
@@ -92,17 +93,29 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
-EASY_CONSTEXPR uint16_t SIZEOF_BLOCK = sizeof(profiler::BaseBlockData) + 1 + sizeof(uint16_t); // SerializedBlock stores BaseBlockData + at least 1 character for name ('\0') + 2 bytes for size of serialized data
-EASY_CONSTEXPR uint16_t SIZEOF_CSWITCH = sizeof(profiler::CSwitchEvent) + 1 + sizeof(uint16_t); // SerializedCSwitch also stores additional 4 bytes to be able to save 64-bit thread_id
+EASY_CONSTEXPR uint16_t BLOCKS_IN_CHUNK = 128U;
+EASY_CONSTEXPR uint16_t SIZEOF_BLOCK = sizeof(profiler::BaseBlockData) + 1U + sizeof(uint16_t); // SerializedBlock stores BaseBlockData + at least 1 character for name ('\0') + 2 bytes for size of serialized data
+EASY_CONSTEXPR uint16_t SIZEOF_CSWITCH = sizeof(profiler::CSwitchEvent) + 1U + sizeof(uint16_t); // SerializedCSwitch also stores additional 4 bytes to be able to save 64-bit thread_id
 
-static_assert((int)SIZEOF_BLOCK * 128 < 65536, "Chunk size for profiler::Block must be less than 65536");
-static_assert((int)SIZEOF_CSWITCH * 128 < 65536, "Chunk size for CSwitchBlock must be less than 65536");
+static_assert(((int)SIZEOF_BLOCK * (int)BLOCKS_IN_CHUNK) < 65536, "Chunk size for profiler::Block must be less than 65536");
+static_assert(((int)SIZEOF_CSWITCH * (int)BLOCKS_IN_CHUNK) < 65536, "Chunk size for CSwitchBlock must be less than 65536");
+
+EASY_CONSTEXPR uint16_t BLOCK_CHUNK_SIZE = get_aligned_size<SIZEOF_BLOCK * BLOCKS_IN_CHUNK>::Size;
+EASY_CONSTEXPR uint16_t CSWITCH_CHUNK_SIZE = get_aligned_size<SIZEOF_BLOCK * BLOCKS_IN_CHUNK>::Size;
+
+static_assert((BLOCK_CHUNK_SIZE % EASY_ALIGNMENT_SIZE) == 0, "BLOCK_CHUNK_SIZE not aligned");
+static_assert((CSWITCH_CHUNK_SIZE % EASY_ALIGNMENT_SIZE) == 0, "CSWITCH_CHUNK_SIZE not aligned");
+static_assert(BLOCK_CHUNK_SIZE > 2048, "wrong BLOCK_CHUNK_SIZE");
+static_assert(CSWITCH_CHUNK_SIZE > 2048, "wrong CSWITCH_CHUNK_SIZE");
 
 struct ThreadStorage EASY_FINAL
 {
-    StackBuffer<NonscopedBlock>                                                 nonscopedBlocks;
-    BlocksList<std::reference_wrapper<profiler::Block>, SIZEOF_BLOCK * (uint16_t)128U>   blocks;
-    BlocksList<CSwitchBlock, SIZEOF_CSWITCH * (uint16_t)128U>                              sync;
+    using BlocksStorage = BlocksList<std::reference_wrapper<profiler::Block>, BLOCK_CHUNK_SIZE>;
+    using ContextSwitchStorage = BlocksList<CSwitchBlock, CSWITCH_CHUNK_SIZE>;
+
+    StackBuffer<NonscopedBlock> nonscopedBlocks;
+    BlocksStorage                        blocks;
+    ContextSwitchStorage                   sync;
 
     std::string                     name; ///< Thread name
     profiler::timestamp_t frameStartTime; ///< Current frame start time. Used to calculate FPS.

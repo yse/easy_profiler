@@ -3,6 +3,8 @@ message(STATUS "EASY_PROFILER.Core version = ${EASY_PRODUCT_VERSION_STRING}")
 message(STATUS "")
 
 
+set(EASY_MAX_SIZE_VALUE 2816)
+
 
 #####################################################################
 # Checking c++11 thread_local support
@@ -39,6 +41,8 @@ set(EASY_DEFAULT_PORT                  28077  CACHE STRING "Default listening po
 set(EASY_OPTION_LISTEN                 OFF    CACHE BOOL   "Enable automatic startListen on startup")
 set(EASY_OPTION_PROFILE_SELF           OFF    CACHE BOOL   "Enable self profiling (measure time for internal storage expand)")
 set(EASY_OPTION_PROFILE_SELF_BLOCKS_ON OFF    CACHE BOOL   "Storage expand default status (profiler::ON or profiler::OFF)")
+set(EASY_OPTION_TRUNCATE_RUNTIME_NAMES OFF    CACHE BOOL   "Enable truncation of block dynamic names (set at run-time, not compile-time). Reduces performance. Turn ON only if you want to use dynamic block names of length >${EASY_MAX_SIZE_VALUE} symbols at runtime. It is better to use EASY_VALUE instead of such long names.")
+set(EASY_OPTION_CHECK_MAX_VALUE_SIZE   OFF    CACHE BOOL   "Enable checking EASY_VALUE maximum data size. Slightly reduces performance. Turn ON only if you want to pass big EASY_ARRAY, EASY_STRING, EASY_TEXT of length >${EASY_MAX_SIZE_VALUE} bytes. It is better to split such arrays into the smaller ones.")
 set(EASY_OPTION_LOG                    OFF    CACHE BOOL   "Print errors to stderr")
 set(EASY_OPTION_PRETTY_PRINT           OFF    CACHE BOOL   "Use pretty-printed function names with signature and argument types")
 set(EASY_OPTION_PREDEFINED_COLORS      ON     CACHE BOOL   "Use predefined set of colors (see profiler_colors.h). If you want to use your own colors palette you can turn this option OFF")
@@ -81,6 +85,19 @@ message(STATUS "  Default listening port = ${EASY_DEFAULT_PORT}")
 message(STATUS "  Auto-start listening = ${EASY_OPTION_LISTEN}")
 message(STATUS "  Profile self = ${EASY_OPTION_PROFILE_SELF}")
 message(STATUS "  Profile self blocks initial status = ${EASY_OPTION_PROFILE_SELF_BLOCKS_ON}")
+
+if (EASY_OPTION_TRUNCATE_RUNTIME_NAMES)
+    message(STATUS "  Truncate block dynamic names = ${EASY_OPTION_TRUNCATE_RUNTIME_NAMES} (reduces performance)")
+else()
+    message(STATUS "  Truncate block dynamic names = ${EASY_OPTION_TRUNCATE_RUNTIME_NAMES} (may cause crash if using dynamic block names of length >${EASY_MAX_SIZE_VALUE} symbols)")
+endif()
+
+if (EASY_OPTION_CHECK_MAX_VALUE_SIZE)
+    message(STATUS "  Check maximum EASY_VALUE data size = ${EASY_OPTION_CHECK_MAX_VALUE_SIZE} (slightly reduces performance)")
+else()
+    message(STATUS "  Check maximum EASY_VALUE data size = ${EASY_OPTION_CHECK_MAX_VALUE_SIZE} (may cause crash if using EASY_VALUE arrays of total data size >${EASY_MAX_SIZE_VALUE} bytes)")
+endif()
+
 message(STATUS "  Implicit thread registration = ${EASY_OPTION_IMPLICIT_THREAD_REGISTRATION}")
 if (WIN32)
     message(STATUS "  Event tracing = ${EASY_OPTION_EVENT_TRACING}")
@@ -201,6 +218,8 @@ easy_define_target_option(easy_profiler BUILD_WITH_CHRONO_HIGH_RESOLUTION_CLOCK 
 easy_define_target_option(easy_profiler EASY_OPTION_LISTEN EASY_OPTION_START_LISTEN_ON_STARTUP)
 easy_define_target_option(easy_profiler EASY_OPTION_PROFILE_SELF EASY_OPTION_MEASURE_STORAGE_EXPAND)
 easy_define_target_option(easy_profiler EASY_OPTION_PROFILE_SELF_BLOCKS_ON EASY_OPTION_STORAGE_EXPAND_BLOCKS_ON)
+easy_define_target_option(easy_profiler EASY_OPTION_TRUNCATE_RUNTIME_NAMES EASY_OPTION_TRUNCATE_LONG_RUNTIME_NAMES)
+easy_define_target_option(easy_profiler EASY_OPTION_CHECK_MAX_VALUE_SIZE EASY_OPTION_CHECK_MAX_VALUE_DATA_SIZE)
 easy_define_target_option(easy_profiler EASY_OPTION_IMPLICIT_THREAD_REGISTRATION EASY_OPTION_IMPLICIT_THREAD_REGISTRATION)
 if (WIN32)
     easy_define_target_option(easy_profiler EASY_OPTION_EVENT_TRACING EASY_OPTION_EVENT_TRACING_ENABLED)
