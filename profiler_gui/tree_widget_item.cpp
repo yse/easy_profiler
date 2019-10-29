@@ -561,6 +561,11 @@ void TreeWidgetItemDelegate::highlightMatchingText(
 
     QTextDocument doc;
     doc.setDefaultFont(painter->font());
+
+    auto textOption = doc.defaultTextOption();
+    textOption.setWrapMode(QTextOption::NoWrap);
+    doc.setDefaultTextOption(textOption);
+
     doc.setTextWidth(option.rect.width() - padding);
 
     const auto elidedText = painter->fontMetrics().elidedText(text, Qt::ElideRight, std::max(option.rect.width() - padding, 0));

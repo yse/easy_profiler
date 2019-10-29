@@ -897,11 +897,11 @@ void BlocksTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 
     if (!m_items.empty())
     {
-        action = menu.addAction("Expand all");
+        action = menu.addAction("Expand All");
         connect(action, &QAction::triggered, this, &This::onExpandAllClicked);
         action->setIcon(QIcon(imagePath("expand")));
 
-        action = menu.addAction("Collapse all");
+        action = menu.addAction("Collapse All");
         connect(action, &QAction::triggered, this, &This::onCollapseAllClicked);
         action->setIcon(QIcon(imagePath("collapse")));
 
@@ -909,11 +909,11 @@ void BlocksTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
         {
             menu.addSeparator();
 
-            action = menu.addAction("Expand all children");
+            action = menu.addAction("Expand All Children");
             connect(action, &QAction::triggered, this, &This::onExpandAllChildrenClicked);
             action->setIcon(QIcon(imagePath("expand")));
 
-            action = menu.addAction("Collapse all children");
+            action = menu.addAction("Collapse All Children");
             connect(action, &QAction::triggered, this, &This::onCollapseAllChildrenClicked);
             action->setIcon(QIcon(imagePath("collapse")));
         }
@@ -924,21 +924,21 @@ void BlocksTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
     auto actionGroup = new QActionGroup(&menu);
     actionGroup->setExclusive(true);
 
-    auto actionHierarchy = new QAction("Call-stack", actionGroup);
+    auto actionHierarchy = new QAction("Call-Stack", actionGroup);
     actionHierarchy->setCheckable(true);
     actionHierarchy->setChecked(m_mode == TreeMode::Full);
-    actionHierarchy->setToolTip("Display full call stack");
+    actionHierarchy->setToolTip("Display Full Call Stack");
     actionHierarchy->setData((quint32)TreeMode::Full);
     menu.addAction(actionHierarchy);
 
-    auto actionPlain = new QAction("Per-frame stats", actionGroup);
+    auto actionPlain = new QAction("Per-Frame Stats", actionGroup);
     actionPlain->setCheckable(true);
     actionPlain->setChecked(m_mode == TreeMode::Plain);
     actionPlain->setToolTip("Display plain list of blocks per frame.\nSome columns are disabled with this mode.");
     actionPlain->setData((quint32)TreeMode::Plain);
     menu.addAction(actionPlain);
 
-    auto actionSelectedArea = new QAction("Aggregate stats", actionGroup);
+    auto actionSelectedArea = new QAction("Aggregate Stats", actionGroup);
     actionSelectedArea->setCheckable(true);
     actionSelectedArea->setChecked(m_mode == TreeMode::SelectedArea);
     actionSelectedArea->setToolTip("Display aggregate stats for selected area.\nSome columns are disabled with this mode.");
@@ -968,17 +968,19 @@ void BlocksTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
                 {
                     auto& block = item->block();
                     auto i = profiler_gui::numeric_max<uint32_t>();
+                    QString name;
                     switch (col)
                     {
-                        case COL_MIN_PER_THREAD: i = block.per_thread_stats->min_duration_block; break;
-                        case COL_MIN_PER_PARENT: i = block.per_parent_stats->min_duration_block; break;
-                        case COL_MIN_PER_FRAME: i = block.per_frame_stats->min_duration_block; break;
-                        case COL_MAX_PER_THREAD: i = block.per_thread_stats->max_duration_block; break;
-                        case COL_MAX_PER_PARENT: i = block.per_parent_stats->max_duration_block; break;
-                        case COL_MAX_PER_FRAME: i = block.per_frame_stats->max_duration_block; break;
+                        case COL_MIN_PER_THREAD: name = QStringLiteral("Min"); i = block.per_thread_stats->min_duration_block; break;
+                        case COL_MIN_PER_PARENT: name = QStringLiteral("Min"); i = block.per_parent_stats->min_duration_block; break;
+                        case COL_MIN_PER_FRAME:  name = QStringLiteral("Min"); i = block.per_frame_stats->min_duration_block; break;
+                        case COL_MAX_PER_THREAD: name = QStringLiteral("Max"); i = block.per_thread_stats->max_duration_block; break;
+                        case COL_MAX_PER_PARENT: name = QStringLiteral("Max"); i = block.per_parent_stats->max_duration_block; break;
+                        case COL_MAX_PER_FRAME:  name = QStringLiteral("Max"); i = block.per_frame_stats->max_duration_block; break;
 
                         case COL_MIN_PER_AREA:
                         {
+                            name = QStringLiteral("Min");
                             auto data = item->data(COL_MIN_PER_AREA, MinMaxBlockIndexRole);
                             if (!data.isNull())
                                 i = data.toUInt();
@@ -987,6 +989,7 @@ void BlocksTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 
                         case COL_MAX_PER_AREA:
                         {
+                            name = QStringLiteral("Max");
                             auto data = item->data(COL_MAX_PER_AREA, MinMaxBlockIndexRole);
                             if (!data.isNull())
                                 i = data.toUInt();
@@ -997,9 +1000,9 @@ void BlocksTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
                     if (i != profiler_gui::numeric_max(i))
                     {
                         menu.addSeparator();
-                        auto itemAction = new QAction("Jump to such item", nullptr);
+                        auto itemAction = new QAction(QString("Jump To %1 Item").arg(name), nullptr);
                         itemAction->setData(i);
-                        itemAction->setToolTip("Jump to item with min/max duration (depending on clicked column)");
+                        itemAction->setToolTip(QString("Jump to item with %1 duration").arg(name.toLower()));
                         connect(itemAction, &QAction::triggered, this, &This::onJumpToItemClicked);
                         menu.addAction(itemAction);
                     }
@@ -1013,7 +1016,7 @@ void BlocksTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
         }
 
         const auto& desc = easyDescriptor(item->block().node->id());
-        auto submenu = menu.addMenu("Block status");
+        auto submenu = menu.addMenu("Block Status");
         submenu->setToolTipsVisible(true);
 
 #define ADD_STATUS_ACTION(NameValue, StatusValue, ToolTipValue)\
@@ -1037,7 +1040,7 @@ void BlocksTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
             submenu->setTitle(QString("%1 (connection needed)").arg(submenu->title()));
     }
 
-    auto hidemenu = menu.addMenu("Select columns");
+    auto hidemenu = menu.addMenu("Select Columns");
     auto hdr = headerItem();
 
 #define ADD_COLUMN_ACTION(i) \
