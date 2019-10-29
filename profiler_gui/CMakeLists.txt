@@ -30,6 +30,8 @@ if (Qt5Widgets_FOUND)
         descriptors_tree_widget.cpp
         dialog.h
         dialog.cpp
+        file_reader.h
+        file_reader.cpp
         fps_widget.h
         fps_widget.cpp
         globals.h
@@ -49,6 +51,8 @@ if (Qt5Widgets_FOUND)
         main_window.cpp
         round_progress_widget.h
         round_progress_widget.cpp
+        socket_listener.h
+        socket_listener.cpp
         text_highlighter.h
         text_highlighter.cpp
         timer.h

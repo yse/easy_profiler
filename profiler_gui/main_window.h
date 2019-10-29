@@ -55,6 +55,7 @@
 #define EASY_PROFILER_GUI__MAIN_WINDOW__H
 
 #include <atomic>
+#include <chrono>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -64,9 +65,8 @@
 #include <QTimer>
 #include <QStringList>
 
-#include <easy/easy_socket.h>
-#include <easy/reader.h>
-#include "round_progress_widget.h"
+#include "file_reader.h"
+#include "socket_listener.h"
 
 #ifdef max
 #undef max
@@ -79,148 +79,6 @@
 //////////////////////////////////////////////////////////////////////////
 
 #define EASY_GUI_USE_DESCRIPTORS_DOCK_WINDOW 0
-
-namespace profiler { namespace net { struct EasyProfilerStatus; } }
-
-//////////////////////////////////////////////////////////////////////////
-
-class FileReader Q_DECL_FINAL
-{
-    enum class JobType : int8_t
-    {
-        Idle=0,
-        Loading,
-        Saving,
-    };
-
-    profiler::SerializedData      m_serializedBlocks; ///< 
-    profiler::SerializedData m_serializedDescriptors; ///< 
-    profiler::descriptors_list_t       m_descriptors; ///< 
-    profiler::blocks_t                      m_blocks; ///< 
-    profiler::thread_blocks_tree_t      m_blocksTree; ///<
-    profiler::bookmarks_t                m_bookmarks; ///<
-    profiler::BeginEndTime            m_beginEndTime; ///<
-    std::stringstream                       m_stream; ///< 
-    std::stringstream                 m_errorMessage; ///< 
-    QString                               m_filename; ///<
-    profiler::processid_t                  m_pid = 0; ///<
-    uint32_t           m_descriptorsNumberInFile = 0; ///<
-    uint32_t                           m_version = 0; ///<
-    std::thread                             m_thread; ///< 
-    std::atomic_bool                         m_bDone; ///< 
-    std::atomic<int>                      m_progress; ///< 
-    std::atomic<unsigned int>                 m_size; ///<
-    JobType                m_jobType = JobType::Idle; ///<
-    bool                            m_isFile = false; ///<
-    bool                        m_isSnapshot = false; ///< 
-
-public:
-
-    FileReader();
-    ~FileReader();
-
-    const bool isFile() const;
-    const bool isSaving() const;
-    const bool isLoading() const;
-    const bool isSnapshot() const;
-
-    bool done() const;
-    int progress() const;
-    unsigned int size() const;
-    const QString& filename() const;
-
-    void load(const QString& _filename);
-    void load(std::stringstream& _stream);
-
-    /** \brief Save data to file.
-    */
-    void save(const QString& _filename, profiler::timestamp_t _beginTime, profiler::timestamp_t _endTime,
-              const profiler::SerializedData& _serializedDescriptors, const profiler::descriptors_list_t& _descriptors,
-              profiler::block_id_t descriptors_count, const profiler::thread_blocks_tree_t& _trees,
-              const profiler::bookmarks_t& bookmarks, profiler::block_getter_fn block_getter,
-              profiler::processid_t _pid, bool snapshotMode);
-
-    void interrupt();
-    void get(profiler::SerializedData& _serializedBlocks, profiler::SerializedData& _serializedDescriptors,
-             profiler::descriptors_list_t& _descriptors, profiler::blocks_t& _blocks, profiler::thread_blocks_tree_t& _trees,
-             profiler::bookmarks_t& bookmarks, profiler::BeginEndTime& beginEndTime, uint32_t& _descriptorsNumberInFile,
-             uint32_t& _version, profiler::processid_t& _pid, QString& _filename);
-
-    void join();
-
-    QString getError();
-
-}; // END of class FileReader.
-
-//////////////////////////////////////////////////////////////////////////
-
-enum class ListenerRegime : uint8_t
-{
-    Idle = 0,
-    Capture,
-    Capture_Receive,
-    Descriptors
-};
-
-class SocketListener Q_DECL_FINAL
-{
-    EasySocket            m_easySocket; ///<
-    std::string              m_address; ///<
-    std::stringstream   m_receivedData; ///<
-    std::thread               m_thread; ///<
-    uint64_t            m_receivedSize; ///<
-    uint16_t                    m_port; ///<
-    std::atomic<uint32_t>   m_frameMax; ///<
-    std::atomic<uint32_t>   m_frameAvg; ///<
-    std::atomic_bool      m_bInterrupt; ///<
-    std::atomic_bool      m_bConnected; ///<
-    std::atomic_bool    m_bStopReceive; ///<
-    std::atomic_bool   m_bCaptureReady; ///<
-    std::atomic_bool m_bFrameTimeReady; ///<
-    ListenerRegime            m_regime; ///<
-
-public:
-
-    SocketListener();
-    ~SocketListener();
-
-    bool connected() const;
-    bool captured() const;
-    ListenerRegime regime() const;
-    uint64_t size() const;
-    const std::string& address() const;
-    uint16_t port() const;
-
-    std::stringstream& data();
-    void clearData();
-
-    void disconnect();
-    void closeSocket();
-    bool connect(const char* _ipaddress, uint16_t _port, profiler::net::EasyProfilerStatus& _reply, bool _disconnectFirst = false);
-    bool reconnect(const char* _ipaddress, uint16_t _port, profiler::net::EasyProfilerStatus& _reply);
-
-    bool startCapture();
-    void stopCapture();
-    void finalizeCapture();
-    void requestBlocksDescription();
-
-    bool frameTime(uint32_t& _maxTime, uint32_t& _avgTime);
-    bool requestFrameTime();
-
-    template <class T>
-    void send(const T& _message) {
-        m_easySocket.send(&_message, sizeof(T));
-    }
-
-private:
-
-    void listenCapture();
-    void listenDescription();
-    void listenFrameTime();
-
-}; // END of class SocketListener.
-
-//////////////////////////////////////////////////////////////////////////
 
 class DockWidget : public QDockWidget
 {
@@ -285,6 +143,7 @@ protected:
     profiler::BeginEndTime              m_beginEndTime;
     FileReader                                m_reader;
     SocketListener                          m_listener;
+    std::chrono::system_clock::time_point m_listenStartTime;
 
     class QLineEdit*   m_addressEdit = nullptr;
     class QLineEdit*      m_portEdit = nullptr;
