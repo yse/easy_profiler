@@ -625,6 +625,8 @@ RoundProgressWidget::RoundProgressWidget(const QString& title, QWidget* parent)
     setAttribute(Qt::WA_TranslucentBackground);
     setAutoFillBackground(false);
 
+    m_title->setAlignment(Qt::AlignCenter);
+
     auto wlay = new QHBoxLayout(m_indicatorWrapper);
     wlay->setContentsMargins(0, 0, 0, 0);
     wlay->addWidget(m_indicator, 0, Qt::AlignCenter);
@@ -647,6 +649,7 @@ RoundProgressWidget::~RoundProgressWidget()
 void RoundProgressWidget::setTitle(const QString& title)
 {
     m_title->setText(title);
+    adjustSize();
 }
 
 int RoundProgressWidget::value() const
@@ -850,6 +853,13 @@ RoundProgressStyle RoundProgressDialog::style() const
 void RoundProgressDialog::setStyle(RoundProgressStyle style)
 {
     m_progress->setStyle(style);
+}
+
+void RoundProgressDialog::setTitle(const QString& title)
+{
+    m_progress->setTitle(title);
+    adjustSize();
+    update();
 }
 
 QDialog::DialogCode RoundProgressDialog::buttonRole() const
