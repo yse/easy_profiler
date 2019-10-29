@@ -600,4 +600,17 @@ namespace profiler_gui {
         return median;
     }
 
+    //////////////////////////////////////////////////////////////////////////
+
+    void clear_stream(std::stringstream& _stream)
+    {
+#if defined(__GNUC__) && __GNUC__ < 5
+        // gcc 4 has a known bug which has been solved in gcc 5:
+        // std::stringstream has no swap() method :(
+        _stream.str(std::string());
+#else
+        std::stringstream().swap(_stream);
+#endif
+    }
+
 } // end of namespace profiler_gui.

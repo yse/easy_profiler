@@ -55,6 +55,7 @@
 #ifndef EASY_PROFILER_GUI_COMMON_FUNCTIONS_H
 #define EASY_PROFILER_GUI_COMMON_FUNCTIONS_H
 
+#include <sstream>
 #include <stdlib.h>
 #include <type_traits>
 
@@ -253,6 +254,10 @@ void deleteTreeItem(QTreeWidgetItem* item);
 ///////////////////////////////////////////////////////////////////////
 
 profiler::timestamp_t calculateMedian(const DurationsCountMap& durations);
+
+///////////////////////////////////////////////////////////////////////
+
+void clear_stream(std::stringstream& _stream);
 
 } // END of namespace profiler_gui.
 

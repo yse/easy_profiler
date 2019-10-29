@@ -58,7 +58,6 @@
 *                   : limitations under the License.
 ************************************************************************/
 
-#include <chrono>
 #include <fstream>
 
 #include <QApplication>
@@ -98,6 +97,9 @@
 #include <QVBoxLayout>
 #include <QWidgetAction>
 
+#include <easy/easy_net.h>
+#include <easy/profiler.h>
+
 #include "arbitrary_value_inspector.h"
 #include "blocks_graphics_view.h"
 #include "blocks_tree_widget.h"
@@ -109,10 +111,6 @@
 
 #include "main_window.h"
 
-#include <easy/easy_net.h>
-#include <easy/profiler.h>
-#include <easy/writer.h>
-
 #ifdef max
 #undef max
 #endif
@@ -123,8 +121,11 @@
 
 //////////////////////////////////////////////////////////////////////////
 
+namespace {
+
 const int LOADER_TIMER_INTERVAL = 40;
-const auto NETWORK_CACHE_FILE = "easy_profiler_stream.cache";
+
+} // end of namespace <noname>.
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -138,17 +139,6 @@ static const QStringList& UI_themes()
 }
 
 //////////////////////////////////////////////////////////////////////////
-
-inline void clear_stream(std::stringstream& _stream)
-{
-#if defined(__GNUC__) && __GNUC__ < 5
-    // gcc 4 has a known bug which has been solved in gcc 5:
-    // std::stringstream has no swap() method :(
-    _stream.str(std::string());
-#else
-    std::stringstream().swap(_stream);
-#endif
-}
 
 static void convertPointSizes(QString& style, QString from, QString to)
 {
@@ -2067,6 +2057,30 @@ void MainWindow::checkFrameTimeReady()
 
 void MainWindow::onListenerTimerTimeout()
 {
+    const auto now = std::chrono::system_clock::now();
+    const auto passedTime = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_listenStartTime).count();
+    const auto seconds = static_cast<double>(passedTime) * 1e-3;
+
+    switch (m_listener.regime())
+    {
+        case ListenerRegime::Capture:
+        {
+            m_listenerDialog->setTitle(QString("Capturing frames... %1s").arg(seconds, 0, 'f', 1));
+            break;
+        }
+
+        case ListenerRegime::Capture_Receive:
+        {
+            m_listenerDialog->setTitle(QString("Receiving data... %1s").arg(seconds, 0, 'f', 1));
+            break;
+        }
+
+        default:
+        {
+            break;
+        }
+    }
+
     if (!m_listener.connected())
     {
         if (m_listener.regime() == ListenerRegime::Capture_Receive)
@@ -2110,6 +2124,7 @@ void MainWindow::onListenerDialogClose(int _result)
     {
         case ListenerRegime::Capture:
         {
+            m_listenStartTime = std::chrono::system_clock::now();
             m_listenerDialog = new RoundProgressDialog(
                 QStringLiteral("Receiving data..."),
                 RoundProgressIndicator::Cross,
@@ -2143,6 +2158,7 @@ void MainWindow::onListenerDialogClose(int _result)
             {
                 if (_result == QDialog::Accepted)
                 {
+                    m_listenStartTime = std::chrono::system_clock::now();
                     m_listenerDialog = new RoundProgressDialog(
                         QStringLiteral("Receiving data..."),
                         RoundProgressIndicator::Cross,
@@ -2390,224 +2406,6 @@ void MainWindow::onFileReaderCancel()
 
 //////////////////////////////////////////////////////////////////////////
 
-FileReader::FileReader()
-{
-
-}
-
-FileReader::~FileReader()
-{
-    interrupt();
-}
-
-const bool FileReader::isFile() const
-{
-    return m_isFile;
-}
-
-const bool FileReader::isSaving() const
-{
-    return m_jobType == JobType::Saving;
-}
-
-const bool FileReader::isLoading() const
-{
-    return m_jobType == JobType::Loading;
-}
-
-const bool FileReader::isSnapshot() const
-{
-    return m_isSnapshot;
-}
-
-bool FileReader::done() const
-{
-    return m_bDone.load(std::memory_order_acquire);
-}
-
-int FileReader::progress() const
-{
-    return m_progress.load(std::memory_order_acquire);
-}
-
-unsigned int FileReader::size() const
-{
-    return m_size.load(std::memory_order_acquire);
-}
-
-const QString& FileReader::filename() const
-{
-    return m_filename;
-}
-
-void FileReader::load(const QString& _filename)
-{
-    interrupt();
-
-    m_jobType = JobType::Loading;
-    m_isFile = true;
-    m_isSnapshot = false;
-    m_filename = _filename;
-
-    m_thread = std::thread([this](bool _enableStatistics)
-    {
-        m_size.store(fillTreesFromFile(m_progress, m_filename.toStdString().c_str(), m_beginEndTime, m_serializedBlocks,
-                                       m_serializedDescriptors, m_descriptors, m_blocks, m_blocksTree,
-                                       m_bookmarks, m_descriptorsNumberInFile, m_version, m_pid,
-                                       _enableStatistics, m_errorMessage), std::memory_order_release);
-
-        m_progress.store(100, std::memory_order_release);
-        m_bDone.store(true, std::memory_order_release);
-
-    }, EASY_GLOBALS.enable_statistics);
-}
-
-void FileReader::load(std::stringstream& _stream)
-{
-    interrupt();
-
-    m_jobType = JobType::Loading;
-    m_isFile = false;
-    m_isSnapshot = false;
-    m_filename.clear();
-
-#if defined(__GNUC__) && __GNUC__ < 5 && !defined(__llvm__)
-    // gcc 4 has a known bug which has been solved in gcc 5:
-    // std::stringstream has no swap() method :(
-    // have to copy all contents... Use gcc 5 or higher!
-#pragma message "Warning: in gcc 4 and lower std::stringstream has no swap()! Memory consumption may increase! Better use gcc 5 or higher instead."
-    m_stream.str(_stream.str());
-#else
-    m_stream.swap(_stream);
-#endif
-
-    m_thread = std::thread([this](bool _enableStatistics)
-    {
-        std::ofstream cache_file(NETWORK_CACHE_FILE, std::fstream::binary);
-        if (cache_file.is_open())
-        {
-            cache_file << m_stream.str();
-            cache_file.close();
-        }
-
-        m_size.store(fillTreesFromStream(m_progress, m_stream, m_beginEndTime, m_serializedBlocks, m_serializedDescriptors,
-                                         m_descriptors, m_blocks, m_blocksTree, m_bookmarks, m_descriptorsNumberInFile,
-                                         m_version, m_pid, _enableStatistics, m_errorMessage), std::memory_order_release);
-
-        m_progress.store(100, std::memory_order_release);
-        m_bDone.store(true, std::memory_order_release);
-
-    }, EASY_GLOBALS.enable_statistics);
-}
-
-void FileReader::save(const QString& _filename, profiler::timestamp_t _beginTime, profiler::timestamp_t _endTime,
-                      const profiler::SerializedData& _serializedDescriptors,
-                      const profiler::descriptors_list_t& _descriptors, profiler::block_id_t descriptors_count,
-                      const profiler::thread_blocks_tree_t& _trees, const profiler::bookmarks_t& bookmarks,
-                      profiler::block_getter_fn block_getter, profiler::processid_t _pid, bool snapshotMode)
-{
-    interrupt();
-
-    m_jobType = JobType::Saving;
-    m_isFile = true;
-    m_isSnapshot = snapshotMode;
-    m_filename = _filename;
-
-    auto serializedDescriptors = std::ref(_serializedDescriptors);
-    auto descriptors = std::ref(_descriptors);
-    auto trees = std::ref(_trees);
-    auto bookmarksRef = std::ref(bookmarks);
-
-    m_thread = std::thread([=] (profiler::block_getter_fn getter)
-    {
-        const QString tmpFile = m_filename + ".tmp";
-
-        const auto result = writeTreesToFile(m_progress, tmpFile.toStdString().c_str(), serializedDescriptors,
-                                             descriptors, descriptors_count, trees, bookmarksRef, getter,
-                                             _beginTime, _endTime, _pid, m_errorMessage);
-
-        if (result == 0 || !m_errorMessage.str().empty())
-        {
-            // Remove temporary file in case of error
-            QFile::remove(tmpFile);
-        }
-        else
-        {
-            // Remove old file if exists
-            {
-                QFile out(m_filename);
-                if (out.exists())
-                    out.remove();
-            }
-
-            QFile::rename(tmpFile, m_filename);
-        }
-
-        m_progress.store(100, std::memory_order_release);
-        m_bDone.store(true, std::memory_order_release);
-
-    }, std::move(block_getter));
-}
-
-void FileReader::interrupt()
-{
-    join();
-
-    m_bDone.store(false, std::memory_order_release);
-    m_size.store(0, std::memory_order_release);
-    m_serializedBlocks.clear();
-    m_serializedDescriptors.clear();
-    m_descriptors.clear();
-    m_blocks.clear();
-    m_blocksTree.clear();
-    m_bookmarks.clear();
-    m_descriptorsNumberInFile = 0;
-    m_version = 0;
-    m_pid = 0;
-    m_jobType = JobType::Idle;
-    m_isSnapshot = false;
-
-    clear_stream(m_stream);
-    clear_stream(m_errorMessage);
-}
-
-void FileReader::get(profiler::SerializedData& _serializedBlocks, profiler::SerializedData& _serializedDescriptors,
-                     profiler::descriptors_list_t& _descriptors, profiler::blocks_t& _blocks,
-                     profiler::thread_blocks_tree_t& _trees, profiler::bookmarks_t& bookmarks,
-                     profiler::BeginEndTime& beginEndTime, uint32_t& _descriptorsNumberInFile, uint32_t& _version,
-                     profiler::processid_t& _pid, QString& _filename)
-{
-    if (done())
-    {
-        m_serializedBlocks.swap(_serializedBlocks);
-        m_serializedDescriptors.swap(_serializedDescriptors);
-        profiler::descriptors_list_t(std::move(m_descriptors)).swap(_descriptors);
-        m_blocks.swap(_blocks);
-        m_blocksTree.swap(_trees);
-        m_bookmarks.swap(bookmarks);
-        m_filename.swap(_filename);
-        beginEndTime = m_beginEndTime;
-        _descriptorsNumberInFile = m_descriptorsNumberInFile;
-        _version = m_version;
-        _pid = m_pid;
-    }
-}
-
-void FileReader::join()
-{
-    m_progress.store(-100, std::memory_order_release);
-    if (m_thread.joinable())
-        m_thread.join();
-    m_progress.store(0, std::memory_order_release);
-}
-
-QString FileReader::getError()
-{
-    return QString(m_errorMessage.str().c_str());
-}
-
-//////////////////////////////////////////////////////////////////////////
-
 void MainWindow::onEventTracingPriorityChange(bool _checked)
 {
     if (EASY_GLOBALS.connected)
@@ -2819,6 +2617,7 @@ void MainWindow::onCaptureClicked(bool)
 
     m_listenerTimer.start(250);
 
+    m_listenStartTime = std::chrono::system_clock::now();
     m_listenerDialog = new RoundProgressDialog(
         QStringLiteral("Capturing frames..."),
         RoundProgressIndicator::Stop,
@@ -2857,6 +2656,7 @@ void MainWindow::onGetBlockDescriptionsClicked(bool)
         return;
     }
 
+    m_listenStartTime = std::chrono::system_clock::now();
     m_listenerDialog = new RoundProgressDialog(QStringLiteral("Waiting for blocks..."), this);
     m_listenerDialog->setObjectName("GetDescriptorsProgress");
     m_listenerDialog->setAttribute(Qt::WA_DeleteOnClose, true);
@@ -3015,693 +2815,6 @@ void DialogWithGeometry::restoreGeometry()
 {
     if (!geometry.isEmpty())
         ptr->restoreGeometry(geometry);
-}
-
-//////////////////////////////////////////////////////////////////////////
-
-SocketListener::SocketListener() : m_receivedSize(0), m_port(0), m_regime(ListenerRegime::Idle)
-{
-    m_bInterrupt = false;
-    m_bConnected = false;
-    m_bStopReceive = false;
-    m_bFrameTimeReady = false;
-    m_bCaptureReady = false;
-    m_frameMax = 0;
-    m_frameAvg = 0;
-}
-
-SocketListener::~SocketListener()
-{
-    m_bInterrupt.store(true, std::memory_order_release);
-    if (m_thread.joinable())
-        m_thread.join();
-}
-
-bool SocketListener::connected() const
-{
-    return m_bConnected.load(std::memory_order_acquire);
-}
-
-bool SocketListener::captured() const
-{
-    return m_bCaptureReady.load(std::memory_order_acquire);
-}
-
-ListenerRegime SocketListener::regime() const
-{
-    return m_regime;
-}
-
-uint64_t SocketListener::size() const
-{
-    return m_receivedSize;
-}
-
-std::stringstream& SocketListener::data()
-{
-    return m_receivedData;
-}
-
-const std::string& SocketListener::address() const
-{
-    return m_address;
-}
-
-uint16_t SocketListener::port() const
-{
-    return m_port;
-}
-
-void SocketListener::clearData()
-{
-    clear_stream(m_receivedData);
-    m_receivedSize = 0;
-}
-
-void SocketListener::disconnect()
-{
-    if (connected())
-    {
-        m_bInterrupt.store(true, std::memory_order_release);
-        if (m_thread.joinable())
-            m_thread.join();
-
-        m_bConnected.store(false, std::memory_order_release);
-        m_bInterrupt.store(false, std::memory_order_release);
-        m_bCaptureReady.store(false, std::memory_order_release);
-        m_bStopReceive.store(false, std::memory_order_release);
-    }
-
-    m_address.clear();
-    m_port = 0;
-
-    closeSocket();
-}
-
-void SocketListener::closeSocket()
-{
-    m_easySocket.flush();
-    m_easySocket.init();
-}
-
-bool SocketListener::connect(const char* _ipaddress, uint16_t _port, profiler::net::EasyProfilerStatus& _reply, bool _disconnectFirst)
-{
-    if (connected())
-    {
-        m_bInterrupt.store(true, std::memory_order_release);
-        if (m_thread.joinable())
-            m_thread.join();
-
-        m_bConnected.store(false, std::memory_order_release);
-        m_bInterrupt.store(false, std::memory_order_release);
-        m_bCaptureReady.store(false, std::memory_order_release);
-        m_bStopReceive.store(false, std::memory_order_release);
-    }
-
-    m_address.clear();
-    m_port = 0;
-
-    if (_disconnectFirst)
-        closeSocket();
-
-    int res = m_easySocket.setAddress(_ipaddress, _port);
-    res = m_easySocket.connect();
-
-    const bool isConnected = res == 0;
-    if (isConnected)
-    {
-        static const size_t buffer_size = sizeof(profiler::net::EasyProfilerStatus) << 1;
-        char buffer[buffer_size] = {};
-        int bytes = 0;
-        
-        while (true)
-        {
-            bytes = m_easySocket.receive(buffer, buffer_size);
-
-            if (bytes == -1)
-            {
-                if (m_easySocket.isDisconnected())
-                    return false;
-                bytes = 0;
-                continue;
-            }
-
-            break;
-        }
-
-        if (bytes == 0)
-        {
-            m_address = _ipaddress;
-            m_port = _port;
-            m_bConnected.store(isConnected, std::memory_order_release);
-            return isConnected;
-        }
-
-        size_t seek = bytes;
-        while (seek < sizeof(profiler::net::EasyProfilerStatus))
-        {
-            bytes = m_easySocket.receive(buffer + seek, buffer_size - seek);
-
-            if (bytes == -1)
-            {
-                if (m_easySocket.isDisconnected())
-                    return false;
-                break;
-            }
-
-            seek += bytes;
-        }
-
-        auto message = reinterpret_cast<const profiler::net::EasyProfilerStatus*>(buffer);
-        if (message->isEasyNetMessage() && message->type == profiler::net::MessageType::Connection_Accepted)
-            _reply = *message;
-
-        m_address = _ipaddress;
-        m_port = _port;
-    }
-
-    m_bConnected.store(isConnected, std::memory_order_release);
-    return isConnected;
-}
-
-bool SocketListener::reconnect(const char* _ipaddress, uint16_t _port, profiler::net::EasyProfilerStatus& _reply)
-{
-    return connect(_ipaddress, _port, _reply, true);
-}
-
-bool SocketListener::startCapture()
-{
-    //if (m_thread.joinable())
-    //{
-    //    m_bInterrupt.store(true, std::memory_order_release);
-    //    m_thread.join();
-    //    m_bInterrupt.store(false, std::memory_order_release);
-    //}
-
-    clearData();
-
-    profiler::net::Message request(profiler::net::MessageType::Request_Start_Capture);
-    m_easySocket.send(&request, sizeof(request));
-
-    if (m_easySocket.isDisconnected()) {
-        m_bConnected.store(false, std::memory_order_release);
-        return false;
-    }
-
-    m_regime = ListenerRegime::Capture;
-    m_bCaptureReady.store(false, std::memory_order_release);
-    //m_thread = std::thread(&SocketListener::listenCapture, this);
-
-    return true;
-}
-
-void SocketListener::stopCapture()
-{
-    //if (!m_thread.joinable() || m_regime != ListenerRegime::Capture)
-    //    return;
-
-    if (m_regime != ListenerRegime::Capture)
-        return;
-
-    //m_bStopReceive.store(true, std::memory_order_release);
-    profiler::net::Message request(profiler::net::MessageType::Request_Stop_Capture);
-    m_easySocket.send(&request, sizeof(request));
-
-    //m_thread.join();
-
-    if (m_easySocket.isDisconnected()) {
-        m_bConnected.store(false, std::memory_order_release);
-        m_bStopReceive.store(false, std::memory_order_release);
-        m_regime = ListenerRegime::Idle;
-        m_bCaptureReady.store(true, std::memory_order_release);
-        return;
-    }
-
-    m_regime = ListenerRegime::Capture_Receive;
-    if (m_thread.joinable())
-    {
-        m_bInterrupt.store(true, std::memory_order_release);
-        m_thread.join();
-        m_bInterrupt.store(false, std::memory_order_release);
-    }
-
-    m_thread = std::thread(&SocketListener::listenCapture, this);
-
-    //m_regime = ListenerRegime::Idle;
-    //m_bStopReceive.store(false, std::memory_order_release);
-}
-
-void SocketListener::finalizeCapture()
-{
-    if (m_thread.joinable())
-    {
-        m_bInterrupt.store(true, std::memory_order_release);
-        m_thread.join();
-        m_bInterrupt.store(false, std::memory_order_release);
-    }
-
-    m_regime = ListenerRegime::Idle;
-    m_bCaptureReady.store(false, std::memory_order_release);
-    m_bStopReceive.store(false, std::memory_order_release);
-}
-
-void SocketListener::requestBlocksDescription()
-{
-    if (m_thread.joinable())
-    {
-        m_bInterrupt.store(true, std::memory_order_release);
-        m_thread.join();
-        m_bInterrupt.store(false, std::memory_order_release);
-    }
-
-    clearData();
-
-    profiler::net::Message request(profiler::net::MessageType::Request_Blocks_Description);
-    m_easySocket.send(&request, sizeof(request));
-
-    if(m_easySocket.isDisconnected()  ){
-        m_bConnected.store(false, std::memory_order_release);
-    }
-
-    m_regime = ListenerRegime::Descriptors;
-    listenDescription();
-    m_regime = ListenerRegime::Idle;
-}
-
-bool SocketListener::frameTime(uint32_t& _maxTime, uint32_t& _avgTime)
-{
-    if (m_bFrameTimeReady.exchange(false, std::memory_order_acquire))
-    {
-        _maxTime = m_frameMax.load(std::memory_order_acquire);
-        _avgTime = m_frameAvg.load(std::memory_order_acquire);
-        return true;
-    }
-
-    return false;
-}
-
-bool SocketListener::requestFrameTime()
-{
-    if (m_regime != ListenerRegime::Idle && m_regime != ListenerRegime::Capture)
-        return false;
-
-    if (m_thread.joinable())
-    {
-        m_bInterrupt.store(true, std::memory_order_release);
-        m_thread.join();
-        m_bInterrupt.store(false, std::memory_order_release);
-    }
-
-    profiler::net::Message request(profiler::net::MessageType::Request_MainThread_FPS);
-    m_easySocket.send(&request, sizeof(request));
-
-    if (m_easySocket.isDisconnected())
-    {
-        m_bConnected.store(false, std::memory_order_release);
-        return false;
-    }
-
-    m_bFrameTimeReady.store(false, std::memory_order_release);
-    m_thread = std::thread(&SocketListener::listenFrameTime, this);
-
-    return true;
-}
-
-//////////////////////////////////////////////////////////////////////////
-
-void SocketListener::listenCapture()
-{
-    EASY_STATIC_CONSTEXPR int buffer_size = 8 * 1024 * 1024;
-
-    char* buffer = new char[buffer_size];
-    int seek = 0, bytes = 0;
-    auto timeBegin = std::chrono::system_clock::now();
-
-    bool isListen = true, disconnected = false;
-    while (isListen && !m_bInterrupt.load(std::memory_order_acquire))
-    {
-        if (m_bStopReceive.load(std::memory_order_acquire))
-        {
-            profiler::net::Message request(profiler::net::MessageType::Request_Stop_Capture);
-            m_easySocket.send(&request, sizeof(request));
-            m_bStopReceive.store(false, std::memory_order_release);
-        }
-
-        if ((bytes - seek) == 0)
-        {
-            bytes = m_easySocket.receive(buffer, buffer_size);
-
-            if (bytes == -1)
-            {
-                if (m_easySocket.isDisconnected())
-                {
-                    m_bConnected.store(false, std::memory_order_release);
-                    isListen = false;
-                    disconnected = true;
-                }
-
-                seek = 0;
-                bytes = 0;
-
-                continue;
-            }
-
-            seek = 0;
-        }
-
-        if (bytes == 0)
-        {
-            isListen = false;
-            break;
-        }
-
-        char* buf = buffer + seek;
-
-        if (bytes > 0)
-        {
-            auto message = reinterpret_cast<const profiler::net::Message*>(buf);
-            if (!message->isEasyNetMessage())
-                continue;
-
-            switch (message->type)
-            {
-                case profiler::net::MessageType::Connection_Accepted:
-                {
-                    qInfo() << "Receive MessageType::Connection_Accepted";
-                    //m_easySocket.send(&request, sizeof(request));
-                    seek += sizeof(profiler::net::Message);
-                    break;
-                }
-
-                case profiler::net::MessageType::Reply_Capturing_Started:
-                {
-                    qInfo() << "Receive MessageType::Reply_Capturing_Started";
-                    seek += sizeof(profiler::net::Message);
-                    break;
-                }
-
-                case profiler::net::MessageType::Reply_Blocks_End:
-                {
-                    qInfo() << "Receive MessageType::Reply_Blocks_End";
-                    seek += sizeof(profiler::net::Message);
-
-                    const auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - timeBegin);
-                    const auto bytesNumber = m_receivedData.str().size();
-                    qInfo() << "received " << bytesNumber << " bytes, " << dt.count() << " ms, average speed = " << double(bytesNumber) * 1e3 / double(dt.count()) / 1024. << " kBytes/sec";
-
-                    seek = 0;
-                    bytes = 0;
-
-                    isListen = false;
-
-                    break;
-                }
-
-                case profiler::net::MessageType::Reply_Blocks:
-                {
-                    qInfo() << "Receive MessageType::Reply_Blocks";
-
-                    seek += sizeof(profiler::net::DataMessage);
-                    auto dm = (profiler::net::DataMessage*)message;
-                    timeBegin = std::chrono::system_clock::now();
-
-                    int neededSize = dm->size;
-
-
-                    buf = buffer + seek;
-                    auto bytesNumber = std::min((int)dm->size, bytes - seek);
-                    m_receivedSize += bytesNumber;
-                    m_receivedData.write(buf, bytesNumber);
-                    neededSize -= bytesNumber;
-
-                    if (neededSize == 0)
-                        seek += bytesNumber;
-                    else
-                    {
-                        seek = 0;
-                        bytes = 0;
-                    }
-
-
-                    int loaded = 0;
-                    while (neededSize > 0)
-                    {
-                        bytes = m_easySocket.receive(buffer, buffer_size);
-
-                        if (bytes == -1)
-                        {
-                            if (m_easySocket.isDisconnected())
-                            {
-                                m_bConnected.store(false, std::memory_order_release);
-                                isListen = false;
-                                disconnected = true;
-                                neededSize = 0;
-                            }
-
-                            break;
-                        }
-
-                        buf = buffer;
-                        int toWrite = std::min(bytes, neededSize);
-                        m_receivedSize += toWrite;
-                        m_receivedData.write(buf, toWrite);
-                        neededSize -= toWrite;
-                        loaded += toWrite;
-                        seek = toWrite;
-                    }
-
-                    if (m_bStopReceive.load(std::memory_order_acquire))
-                    {
-                        profiler::net::Message request(profiler::net::MessageType::Request_Stop_Capture);
-                        m_easySocket.send(&request, sizeof(request));
-                        m_bStopReceive.store(false, std::memory_order_release);
-                    }
-
-                    break;
-                }
-
-                default:
-                    //qInfo() << "Receive unknown " << message->type;
-                    break;
-            }
-        }
-    }
-
-    if (disconnected)
-        clearData();
-
-    delete [] buffer;
-
-    m_bCaptureReady.store(true, std::memory_order_release);
-}
-
-void SocketListener::listenDescription()
-{
-    EASY_STATIC_CONSTEXPR int buffer_size = 8 * 1024 * 1024;
-
-    char* buffer = new char[buffer_size];
-    int seek = 0, bytes = 0;
-
-    bool isListen = true, disconnected = false;
-    while (isListen && !m_bInterrupt.load(std::memory_order_acquire))
-    {
-        if ((bytes - seek) == 0)
-        {
-            bytes = m_easySocket.receive(buffer, buffer_size);
-
-            if (bytes == -1)
-            {
-                if (m_easySocket.isDisconnected())
-                {
-                    m_bConnected.store(false, std::memory_order_release);
-                    isListen = false;
-                    disconnected = true;
-                }
-
-                seek = 0;
-                bytes = 0;
-
-                continue;
-            }
-
-            seek = 0;
-        }
-
-        if (bytes == 0)
-        {
-            isListen = false;
-            break;
-        }
-
-        char* buf = buffer + seek;
-
-        if (bytes > 0)
-        {
-            auto message = reinterpret_cast<const profiler::net::Message*>(buf);
-            if (!message->isEasyNetMessage())
-                continue;
-
-            switch (message->type)
-            {
-                case profiler::net::MessageType::Connection_Accepted:
-                {
-                    qInfo() << "Receive MessageType::Connection_Accepted";
-                    seek += sizeof(profiler::net::Message);
-                    break;
-                }
-
-                case profiler::net::MessageType::Reply_Blocks_Description_End:
-                {
-                    qInfo() << "Receive MessageType::Reply_Blocks_Description_End";
-                    seek += sizeof(profiler::net::Message);
-
-                    seek = 0;
-                    bytes = 0;
-
-                    isListen = false;
-
-                    break;
-                }
-
-                case profiler::net::MessageType::Reply_Blocks_Description:
-                {
-                    qInfo() << "Receive MessageType::Reply_Blocks_Description";
-
-                    seek += sizeof(profiler::net::DataMessage);
-                    auto dm = (profiler::net::DataMessage*)message;
-                    int neededSize = dm->size;
-
-                    buf = buffer + seek;
-                    auto bytesNumber = std::min((int)dm->size, bytes - seek);
-                    m_receivedSize += bytesNumber;
-                    m_receivedData.write(buf, bytesNumber);
-                    neededSize -= bytesNumber;
-                    
-                    if (neededSize == 0)
-                        seek += bytesNumber;
-                    else{
-                        seek = 0;
-                        bytes = 0;
-                    }
-
-                    int loaded = 0;
-                    while (neededSize > 0)
-                    {
-                        bytes = m_easySocket.receive(buffer, buffer_size);
-
-                        if (bytes == -1)
-                        {
-                            if (m_easySocket.isDisconnected())
-                            {
-                                m_bConnected.store(false, std::memory_order_release);
-                                isListen = false;
-                                disconnected = true;
-                                neededSize = 0;
-                            }
-
-                            break;
-                        }
-
-                        buf = buffer;
-                        int toWrite = std::min(bytes, neededSize);
-                        m_receivedSize += toWrite;
-                        m_receivedData.write(buf, toWrite);
-                        neededSize -= toWrite;
-                        loaded += toWrite;
-                        seek = toWrite;
-                    }
-
-                    break;
-                }
-
-                default:
-                    break;
-            }
-        }
-    }
-
-    if (disconnected)
-        clearData();
-
-    delete[] buffer;
-}
-
-void SocketListener::listenFrameTime()
-{
-    EASY_STATIC_CONSTEXPR size_t buffer_size = sizeof(profiler::net::TimestampMessage) << 2;
-
-    char buffer[buffer_size] = {};
-    int seek = 0, bytes = 0;
-
-    bool isListen = true;
-    while (isListen && !m_bInterrupt.load(std::memory_order_acquire))
-    {
-        if ((bytes - seek) == 0)
-        {
-            bytes = m_easySocket.receive(buffer, buffer_size);
-
-            if (bytes == -1)
-            {
-                if (m_easySocket.isDisconnected())
-                {
-                    m_bConnected.store(false, std::memory_order_release);
-                    isListen = false;
-                }
-
-                seek = 0;
-                bytes = 0;
-
-                continue;
-            }
-
-            seek = 0;
-        }
-
-        if (bytes == 0)
-        {
-            isListen = false;
-            break;
-        }
-
-        char* buf = buffer + seek;
-
-        if (bytes > 0)
-        {
-            auto message = reinterpret_cast<const profiler::net::Message*>(buf);
-            if (!message->isEasyNetMessage())
-                continue;
-
-            switch (message->type)
-            {
-                case profiler::net::MessageType::Connection_Accepted:
-                case profiler::net::MessageType::Reply_Capturing_Started:
-                {
-                    seek += sizeof(profiler::net::Message);
-                    break;
-                }
-
-                case profiler::net::MessageType::Reply_MainThread_FPS:
-                {
-                    //qInfo() << "Receive MessageType::Reply_MainThread_FPS";
-
-                    seek += sizeof(profiler::net::TimestampMessage);
-                    if (seek <= buffer_size)
-                    {
-                        auto timestampMessage = (profiler::net::TimestampMessage*)message;
-                        m_frameMax.store(timestampMessage->maxValue, std::memory_order_release);
-                        m_frameAvg.store(timestampMessage->avgValue, std::memory_order_release);
-                        m_bFrameTimeReady.store(true, std::memory_order_release);
-                    }
-
-                    isListen = false;
-                    break;
-                }
-
-                default:
-                    break;
-            }
-        }
-    }
 }
 
 //////////////////////////////////////////////////////////////////////////

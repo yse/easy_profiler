@@ -56,6 +56,8 @@
 #include <QAbstractTextDocumentLayout>
 #include <QAction>
 #include <QActionGroup>
+#include <QApplication>
+#include <QClipboard>
 #include <QContextMenuEvent>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -201,31 +203,63 @@ bool DescriptorsTreeItem::operator < (const Parent& _other) const
 
 QVariant DescriptorsTreeItem::data(int _column, int _role) const
 {
-    if (_column == DESC_COL_TYPE)
+    switch (_column)
     {
-        if (_role == Qt::ToolTipRole)
+        case DESC_COL_TYPE:
         {
-            switch (m_type)
+            if (_role == Qt::ToolTipRole)
             {
-                case Type::File:  return QStringLiteral("File");
-                case Type::Event: return QStringLiteral("Event");
-                case Type::Block: return QStringLiteral("Block");
-                case Type::Value: return QStringLiteral("Arbitrary Value");
+                switch (m_type)
+                {
+                    case Type::File:  return QStringLiteral("File");
+                    case Type::Event: return QStringLiteral("Event");
+                    case Type::Block: return QStringLiteral("Block");
+                    case Type::Value: return QStringLiteral("Arbitrary Value");
+                }
             }
+            else if (_role == Qt::DisplayRole)
+            {
+                switch (m_type)
+                {
+                    case Type::File:  return QStringLiteral("F");
+                    case Type::Event: return QStringLiteral("E");
+                    case Type::Block: return QStringLiteral("B");
+                    case Type::Value: return QStringLiteral("V");
+                }
+            }
+
+            break;
         }
-        else if (_role == Qt::DisplayRole)
+
+        case DESC_COL_FILE_LINE:
         {
-            switch (m_type)
+            if (parent() != nullptr)
             {
-                case Type::File:  return QStringLiteral("F");
-                case Type::Event: return QStringLiteral("E");
-                case Type::Block: return QStringLiteral("B");
-                case Type::Value: return QStringLiteral("V");
+                if (_role == Qt::ToolTipRole)
+                {
+                    const int row = data(_column, Qt::UserRole).toInt();
+                    return QString("%1:%2").arg(parent()->data(_column, Qt::UserRole).toString()).arg(row);
+                }
+                else if (_role == Qt::DisplayRole)
+                {
+                    const int row = data(_column, Qt::UserRole).toInt();
+                    return QString("%1:%2").arg(parent()->text(_column)).arg(row);
+                }
             }
+            else if (_role == Qt::ToolTipRole)
+            {
+                return data(_column, Qt::UserRole).toString();
+            }
+            break;
+        }
+
+        default:
+        {
+            break;
         }
     }
 
-    return QTreeWidgetItem::data(_column, _role);
+    return Parent::data(_column, _role);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -393,11 +427,11 @@ void DescriptorsTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
 
     QMenu menu;
     menu.setToolTipsVisible(true);
-    auto action = menu.addAction("Expand all");
+    auto action = menu.addAction("Expand All");
     action->setIcon(QIcon(imagePath("expand")));
     connect(action, &QAction::triggered, this, &This::expandAll);
 
-    action = menu.addAction("Collapse all");
+    action = menu.addAction("Collapse All");
     action->setIcon(QIcon(imagePath("collapse")));
     connect(action, &QAction::triggered, this, &This::collapseAll);
 
@@ -407,7 +441,7 @@ void DescriptorsTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
         const auto& desc = easyDescriptor(static_cast<DescriptorsTreeItem*>(item)->desc());
 
         menu.addSeparator();
-        auto submenu = menu.addMenu("Change status");
+        auto submenu = menu.addMenu("Change Status");
         submenu->setToolTipsVisible(true);
 
 #define ADD_STATUS_ACTION(NameValue, StatusValue, ToolTipValue)\
@@ -429,6 +463,17 @@ void DescriptorsTreeWidget::contextMenuEvent(QContextMenuEvent* _event)
         submenu->setEnabled(EASY_GLOBALS.connected);
         if (!EASY_GLOBALS.connected)
             submenu->setTitle(QString("%1 (connection needed)").arg(submenu->title()));
+    }
+
+    if (item != nullptr)
+    {
+        menu.addSeparator();
+        action = menu.addAction(QStringLiteral("Copy Full Path"));
+        connect(action, &QAction::triggered, [this, item] (bool) {
+            auto fileItem = item->parent() == nullptr ? item : item->parent();
+            auto fullName = fileItem->data(DESC_COL_FILE_LINE, Qt::UserRole).toString();
+            qApp->clipboard()->setText(fullName);
+        });
     }
 
     menu.exec(QCursor::pos());
@@ -494,16 +539,47 @@ void DescriptorsTreeWidget::build()
     memset(m_items.data(), 0, sizeof(void*) * m_items.size());
 
     const QSignalBlocker b(this);
-    ::profiler::block_id_t id = 0;
+    profiler::block_id_t id = 0, count = 0;
+
+    QString commonDir;
     for (auto desc : EASY_GLOBALS.descriptors)
     {
         if (desc != nullptr)
         {
+            ++count;
+
             auto& p = fileItems[desc->file()];
             if (p.item == nullptr)
             {
                 auto item = new DescriptorsTreeItem(0);
-                item->setText(DESC_COL_FILE_LINE, QString(desc->file()).remove(QRegExp("^(\\.{2}\\\\+|\\/+)+")));
+                auto fullName = QString(desc->file()).remove(QRegExp("^(\\.{2}\\\\+)+")); // without leading "..\"
+                auto fileName = QString(desc->file()).remove(QRegExp("^(.+(\\\\|\\/)+)+"));
+                auto dir = fullName.left(fullName.length() - fileName.length());
+
+                if (count == 1)
+                {
+                    commonDir = dir;
+                }
+                else if (!commonDir.isEmpty())
+                {
+                    if (dir.length() < commonDir.length())
+                    {
+                        commonDir.truncate(dir.length());
+                    }
+
+                    int i = 0;
+                    for (; i < commonDir.length(); ++i)
+                    {
+                        if (commonDir[i] != dir[i])
+                        {
+                            break;
+                        }
+                    }
+
+                    commonDir.truncate(i);
+                }
+
+                item->setData(DESC_COL_FILE_LINE, Qt::UserRole, fullName);
                 item->setType(DescriptorsTreeItem::Type::File);
                 p.item = item;
             }
@@ -512,7 +588,6 @@ void DescriptorsTreeWidget::build()
             if (it == p.children.end())
             {
                 auto item = new DescriptorsTreeItem(desc->id(), p.item);
-                item->setText(DESC_COL_FILE_LINE, QString::number(desc->line()));
                 item->setData(DESC_COL_FILE_LINE, Qt::UserRole, desc->line());
                 item->setText(DESC_COL_NAME, desc->name());
 
@@ -551,6 +626,8 @@ void DescriptorsTreeWidget::build()
 
     for (auto& p : fileItems)
     {
+        auto fullName = p.second.item->data(DESC_COL_FILE_LINE, Qt::UserRole).toString();
+        p.second.item->setText(DESC_COL_FILE_LINE, fullName.right(fullName.length() - commonDir.length()));
         addTopLevelItem(p.second.item);
         if (m_expandedFilesTemp.find(p.first) != m_expandedFilesTemp.end())
             p.second.item->setExpanded(true);
@@ -1256,9 +1333,14 @@ void DescWidgetItemDelegate::highlightMatchingText(
 
     QTextDocument doc;
     doc.setDefaultFont(painter->font());
+
+    auto textOption = doc.defaultTextOption();
+    textOption.setWrapMode(QTextOption::NoWrap);
+    doc.setDefaultTextOption(textOption);
+
     doc.setTextWidth(option.rect.width());
 
-    const auto elidedText = painter->fontMetrics().elidedText(text, Qt::ElideRight, std::max(option.rect.width(), 0));
+    const auto elidedText = painter->fontMetrics().elidedText(text, Qt::ElideRight, option.rect.width());
     doc.setHtml(elidedText);
 
     TextHighlighter highlighter(

@@ -266,6 +266,8 @@ public:
     RoundProgressStyle style() const;
     void setStyle(RoundProgressStyle style);
 
+    void setTitle(const QString& title);
+
 protected:
 
     void showEvent(QShowEvent* event) override;
