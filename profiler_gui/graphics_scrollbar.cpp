@@ -835,8 +835,11 @@ void GraphicsHistogramItem::setSource(profiler::thread_id_t _thread_id, profiler
                         }
                     }
 
-                    m_avgDuration = m_blockTotalDuraion / totalCount;
-                    m_medianDuration = profiler_gui::calculateMedian(durations);
+                    if (totalCount != 0)
+                    {
+                        m_avgDuration = m_blockTotalDuraion / totalCount;
+                        m_medianDuration = profiler_gui::calculateMedian(durations);
+                    }
 
                     m_medianDurationFull = m_medianDuration;
                     m_avgDurationFull = m_avgDuration;
@@ -1528,7 +1531,7 @@ void GraphicsHistogramItem::updateImageAsync(QRectF _boundingRect, HistRegime _r
     m_workerTopDuration = _top_duration;
     m_workerBottomDuration = _bottom_duration;
 
-    if (_bindMode)
+    if (_bindMode && totalCount != 0)
     {
         m_workerAvgDuration /= totalCount;
         m_workerMedianDuration = profiler_gui::calculateMedian(durations);
