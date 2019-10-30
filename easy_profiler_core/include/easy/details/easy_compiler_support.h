@@ -101,6 +101,9 @@
 
 // No noexcept support before Visual Studio 2015
 #  define EASY_NOEXCEPT throw()
+
+// No alignof support before Visual Studio 2015
+#  define EASY_ALIGNOF(x) __alignof(x)
 # endif
 
 # if EASY_STD > 11 && _MSC_VER >= 1900
@@ -236,6 +239,10 @@ static_assert(false, "EasyProfiler is not configured for using your compiler typ
 #ifndef EASY_NOEXCEPT
 # define EASY_NOEXCEPT noexcept
 # define EASY_NOEXCEPT_AVAILABLE
+#endif
+
+#ifndef EASY_ALIGNOF
+# define EASY_ALIGNOF(x) alignof(x)
 #endif
 
 #ifndef PROFILER_API

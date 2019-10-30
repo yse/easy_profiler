@@ -103,8 +103,8 @@ static_assert(((int)SIZEOF_CSWITCH * (int)BLOCKS_IN_CHUNK) < 65536, "Chunk size 
 EASY_CONSTEXPR uint16_t BLOCK_CHUNK_SIZE = get_aligned_size<SIZEOF_BLOCK * BLOCKS_IN_CHUNK>::Size;
 EASY_CONSTEXPR uint16_t CSWITCH_CHUNK_SIZE = get_aligned_size<SIZEOF_BLOCK * BLOCKS_IN_CHUNK>::Size;
 
-static_assert((BLOCK_CHUNK_SIZE % EASY_ALIGNMENT_SIZE) == 0, "BLOCK_CHUNK_SIZE not aligned");
-static_assert((CSWITCH_CHUNK_SIZE % EASY_ALIGNMENT_SIZE) == 0, "CSWITCH_CHUNK_SIZE not aligned");
+static_assert((BLOCK_CHUNK_SIZE % EASY_ALIGN_SIZE) == 0, "BLOCK_CHUNK_SIZE not aligned");
+static_assert((CSWITCH_CHUNK_SIZE % EASY_ALIGN_SIZE) == 0, "CSWITCH_CHUNK_SIZE not aligned");
 static_assert(BLOCK_CHUNK_SIZE > 2048, "wrong BLOCK_CHUNK_SIZE");
 static_assert(CSWITCH_CHUNK_SIZE > 2048, "wrong CSWITCH_CHUNK_SIZE");
 
