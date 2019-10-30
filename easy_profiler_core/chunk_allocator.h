@@ -58,6 +58,8 @@ The Apache License, Version 2.0 (the "License");
 # define EASY_ALIGNMENT_SIZE alignof(std::max_align_t)
 #endif
 
+EASY_CONSTEXPR auto EASY_ALIGN_SIZE = EASY_ALIGNMENT_SIZE;
+
 #if EASY_ENABLE_ALIGNMENT == 0
 # define EASY_ALIGNED(TYPE, VAR, A) TYPE VAR
 # define EASY_MALLOC(MEMSIZE, A) malloc(MEMSIZE)
@@ -381,31 +383,31 @@ struct aligned_size;
 
 template <const uint16_t N, bool dummy>
 struct aligned_size<N, true, dummy> {
-  EASY_STATIC_CONSTEXPR uint16_t Size = N;
+    EASY_STATIC_CONSTEXPR uint16_t Size = N;
 };
 
 template <const uint16_t N>
 struct aligned_size<N, false, true> {
-  EASY_STATIC_CONSTEXPR uint16_t Size = static_cast<uint16_t>(N - (N % EASY_ALIGNMENT_SIZE));
+    EASY_STATIC_CONSTEXPR uint16_t Size = static_cast<uint16_t>(N - (N % EASY_ALIGN_SIZE));
 };
 
 template <const uint16_t N>
 struct aligned_size<N, false, false> {
-  EASY_STATIC_CONSTEXPR uint16_t Size = static_cast<uint16_t>(N + EASY_ALIGNMENT_SIZE - (N % EASY_ALIGNMENT_SIZE));
+    EASY_STATIC_CONSTEXPR uint16_t Size = static_cast<uint16_t>(N + EASY_ALIGN_SIZE - (N % EASY_ALIGN_SIZE));
 };
 
 template <const size_t N>
 struct get_aligned_size {
-  EASY_STATIC_CONSTEXPR uint16_t Size =
-      aligned_size<static_cast<uint16_t>(N), (N % EASY_ALIGNMENT_SIZE) == 0, (N > (65536 - EASY_ALIGNMENT_SIZE))>::Size;
+    EASY_STATIC_CONSTEXPR uint16_t Size =
+        aligned_size<static_cast<uint16_t>(N), (N % EASY_ALIGN_SIZE) == 0, (N > (65536 - EASY_ALIGN_SIZE))>::Size;
 };
 
-static_assert(get_aligned_size<EASY_ALIGNMENT_SIZE - 3>::Size == EASY_ALIGNMENT_SIZE, "wrong get_aligned_size");
-static_assert(get_aligned_size<2 * EASY_ALIGNMENT_SIZE - 3>::Size == 2 * EASY_ALIGNMENT_SIZE, "wrong get_aligned_size");
-static_assert(get_aligned_size<65530>::Size == 65536 - EASY_ALIGNMENT_SIZE, "wrong get_aligned_size");
-static_assert(get_aligned_size<65526>::Size == 65536 - EASY_ALIGNMENT_SIZE, "wrong get_aligned_size");
-static_assert(get_aligned_size<65536 - EASY_ALIGNMENT_SIZE>::Size == 65536 - EASY_ALIGNMENT_SIZE, "wrong get_aligned_size");
-static_assert(get_aligned_size<65536 + 3 - EASY_ALIGNMENT_SIZE * 2>::Size == 65536 - EASY_ALIGNMENT_SIZE, "wrong get_aligned_size");
+static_assert(get_aligned_size<EASY_ALIGN_SIZE - 3>::Size == EASY_ALIGN_SIZE, "wrong get_aligned_size");
+static_assert(get_aligned_size<2 * EASY_ALIGN_SIZE - 3>::Size == 2 * EASY_ALIGN_SIZE, "wrong get_aligned_size");
+static_assert(get_aligned_size<65530>::Size == 65536 - EASY_ALIGN_SIZE, "wrong get_aligned_size");
+static_assert(get_aligned_size<65526>::Size == 65536 - EASY_ALIGN_SIZE, "wrong get_aligned_size");
+static_assert(get_aligned_size<65536 - EASY_ALIGN_SIZE>::Size == 65536 - EASY_ALIGN_SIZE, "wrong get_aligned_size");
+static_assert(get_aligned_size<65536 + 3 - EASY_ALIGN_SIZE * 2>::Size == 65536 - EASY_ALIGN_SIZE, "wrong get_aligned_size");
 
 //////////////////////////////////////////////////////////////////////////
 
