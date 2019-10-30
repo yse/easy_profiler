@@ -55,7 +55,7 @@ The Apache License, Version 2.0 (the "License");
 #endif
 
 #ifndef EASY_ALIGNMENT_SIZE
-# define EASY_ALIGNMENT_SIZE alignof(std::max_align_t)
+# define EASY_ALIGNMENT_SIZE EASY_ALIGNOF(std::max_align_t)
 #endif
 
 EASY_CONSTEXPR auto EASY_ALIGN_SIZE = EASY_ALIGNMENT_SIZE;
