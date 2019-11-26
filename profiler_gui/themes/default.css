@@ -117,7 +117,9 @@ QLabel#BookmarkPopup {
   padding: 4ex; }
 
 QGraphicsView {
-  border: 1px solid #c4c4c4; }
+  border: 1px solid #c4c4c4;
+  background: white;
+}
 
 QSplitter::handle:hover {
   background-color: #3297FD; }
