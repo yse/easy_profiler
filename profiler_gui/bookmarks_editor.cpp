@@ -69,6 +69,7 @@ BookmarkEditor::BookmarkEditor(size_t bookmarkIndex, bool isNew, QWidget* parent
     , m_isNewBookmark(isNew)
 {
     setAttribute(Qt::WA_DeleteOnClose, true);
+    //setWindowFlags(Qt::Dialog);
     setSizeGripEnabled(EASY_GLOBALS.use_custom_window_header);
 
     const auto& bookmark = EASY_GLOBALS.bookmarks[m_bookmarkIndex];
@@ -126,13 +127,16 @@ BookmarkEditor::BookmarkEditor(size_t bookmarkIndex, bool isNew, QWidget* parent
     contentLayout->addWidget(colorBox);
     contentLayout->addWidget(m_textEdit, 1);
 
-    const WindowHeader::Buttons buttons {WindowHeader::MaximizeButton | WindowHeader::CloseButton};
-    auto header = new WindowHeader(isNew ? "New bookmark" : "Edit bookmark", buttons, *this);
-
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(1, 1, 1, 1);
     mainLayout->setSpacing(0);
+
+#ifndef __APPLE__
+    const WindowHeader::Buttons buttons {WindowHeader::MaximizeButton | WindowHeader::CloseButton};
+    auto header = new WindowHeader(isNew ? "New bookmark" : "Edit bookmark", buttons, *this);
     mainLayout->addWidget(header, 0, Qt::AlignTop);
+#endif
+
     mainLayout->addWidget(content, 1);
     mainLayout->addWidget(buttonBox, 0, Qt::AlignBottom);
 
