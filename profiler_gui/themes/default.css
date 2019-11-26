@@ -27,6 +27,7 @@
 ***************************************************************************/
 * {
   font-family: "DejaVu Sans";
+  /*{osx}font-family: "Menlo";*/
   font-size: 10pt;
   color: #504040; }
 
@@ -243,6 +244,7 @@ QListView {
 
 QListView, QTableView, QTreeView {
   alternate-background-color: #e4e4ec;
+  background: white;
   selection-background-color: #B4D5FE;
   selection-color: #504040; }
 
@@ -516,8 +518,12 @@ WindowHeader[left=true] {
 BookmarkEditor {
   background-color: white;
   border: 1px solid #c4c4c4; }
+QTextEdit {
+  background: white;
+}
   BookmarkEditor QWidget#BookmarkEditor_ColorBox {
     margin: 0;
+    background: white;
     padding: 0; }
     BookmarkEditor QWidget#BookmarkEditor_ColorBox QPushButton#BookmarkEditor_ColorButton {
       min-width: 15ex;

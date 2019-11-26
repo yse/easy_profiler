@@ -191,6 +191,7 @@ QLabel#BookmarkPopup {
 
 QGraphicsView {
     border: 1px solid $BorderColor;
+    background: white;
 }
 
 QSplitter::handle:hover {
@@ -243,6 +244,10 @@ QComboBox::drop-down {
     subcontrol-position: center right;
     border: none;
     width: 10ex;
+}
+
+QTextEdit {
+    background: white;
 }
 
 QComboBox::down-arrow {
@@ -343,6 +348,8 @@ QListView {
 
 QListView, QTableView, QTreeView {
     alternate-background-color: #e4e4ec;
+    background: white
+;
     selection-background-color: $TreeViewSelectionColor;
     selection-color: $TreeViewSelectionTextColor;
 }
