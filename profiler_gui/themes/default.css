@@ -83,6 +83,8 @@ RoundProgressDialog#ReceiveProgress RoundProgressWidget RoundProgressIndicator[p
   qproperty-buttonColor: red; }
 
 MainWindow, QToolBar, QDialog {
+  border-style: solid;
+  border-color: white;
   background-color: white; }
 
 QToolTip {
