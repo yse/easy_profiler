@@ -319,7 +319,7 @@ namespace profiler_gui {
 
     //////////////////////////////////////////////////////////////////////////
 
-    QString shortenCountString(size_t count, int precision)
+    QString shortenCountString(uint64_t count, int precision)
     {
         return shortenCountStringUnsigned(count, precision);
     }
@@ -334,7 +334,7 @@ namespace profiler_gui {
         return shortenCountStringSigned(count, precision);
     }
 
-    QString shortenCountString(int count, int precision)
+    QString shortenCountString(int32_t count, int precision)
     {
         return shortenCountStringSigned(count, precision);
     }
