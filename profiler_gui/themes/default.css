@@ -26,7 +26,8 @@
 *                                                                         *
 ***************************************************************************/
 * {
-  font-family: "DejaVu Sans";
+  /*{lin}font-family: "DejaVu Sans";*/
+  /*{win}font-family: "DejaVu Sans";*/
   /*{osx}font-family: "Menlo";*/
   font-size: 10pt;
   color: #504040; }
@@ -98,14 +99,14 @@ ArbitraryValueToolTip {
   background-color: #ffeccc; }
   ArbitraryValueToolTip QWidget#cnt {
     border: 1px solid #c4c4c4;
-    background-color: transparent;
+    background: transparent;
     margin: 0; }
   ArbitraryValueToolTip QLabel {
-    background-color: transparent;
+    background: transparent;
     border: none;
     color: #504040; }
   ArbitraryValueToolTip QTextEdit {
-    background-color: transparent;
+    background: transparent;
     border: none;
     color: #504040;
     selection-color: white;
@@ -120,8 +121,7 @@ QLabel#BookmarkPopup {
 
 QGraphicsView {
   border: 1px solid #c4c4c4;
-  background: white;
-}
+  background-color: white; }
 
 QSplitter::handle:hover {
   background-color: #3297FD; }
@@ -167,6 +167,9 @@ QComboBox::drop-down {
   subcontrol-position: center right;
   border: none;
   width: 10ex; }
+
+QTextEdit {
+  background-color: white; }
 
 QComboBox::down-arrow {
   image: url(":/images/default/arrow-down");
@@ -247,8 +250,8 @@ QListView {
   border: 1px solid #c4c4c4; }
 
 QListView, QTableView, QTreeView {
+  background-color: white;
   alternate-background-color: #e4e4ec;
-  background: white;
   selection-background-color: #B4D5FE;
   selection-color: #504040; }
 
@@ -278,7 +281,7 @@ QListView::item:selected, QTableView::item:selected, QTreeView::item:selected {
 QTreeView::indicator {
   width: 9ex;
   height: 9ex;
-  background-color: transparent;
+  background: transparent;
   border: 1px solid transparent;
   padding: 1px;
   margin: 0; }
@@ -384,7 +387,8 @@ DockWidget QWidget#EasyDockWidgetTitle {
   background-color: #686464; }
   DockWidget QWidget#EasyDockWidgetTitle QLabel {
     color: white;
-    margin-left: 4px; }
+    margin-left: 4px;
+    background: transparent; }
   DockWidget QWidget#EasyDockWidgetTitle QPushButton {
     background: none;
     border: none;
@@ -427,7 +431,7 @@ QProgressBar::chunk {
 
 /* ****************************************************************************************************************** */
 QScrollBar {
-  background-color: transparent;
+  background: transparent;
   border: none;
   padding: 0; }
 
@@ -522,13 +526,10 @@ WindowHeader[left=true] {
 BookmarkEditor {
   background-color: white;
   border: 1px solid #c4c4c4; }
-QTextEdit {
-  background: white;
-}
   BookmarkEditor QWidget#BookmarkEditor_ColorBox {
     margin: 0;
-    background: white;
-    padding: 0; }
+    padding: 0;
+    background: transparent; }
     BookmarkEditor QWidget#BookmarkEditor_ColorBox QPushButton#BookmarkEditor_ColorButton {
       min-width: 15ex;
       max-width: 15ex;
