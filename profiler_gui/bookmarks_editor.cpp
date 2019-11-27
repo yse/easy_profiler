@@ -69,7 +69,6 @@ BookmarkEditor::BookmarkEditor(size_t bookmarkIndex, bool isNew, QWidget* parent
     , m_isNewBookmark(isNew)
 {
     setAttribute(Qt::WA_DeleteOnClose, true);
-    //setWindowFlags(Qt::Dialog);
     setSizeGripEnabled(EASY_GLOBALS.use_custom_window_header);
 
     const auto& bookmark = EASY_GLOBALS.bookmarks[m_bookmarkIndex];
@@ -135,6 +134,8 @@ BookmarkEditor::BookmarkEditor(size_t bookmarkIndex, bool isNew, QWidget* parent
     const WindowHeader::Buttons buttons {WindowHeader::MaximizeButton | WindowHeader::CloseButton};
     auto header = new WindowHeader(isNew ? "New bookmark" : "Edit bookmark", buttons, *this);
     mainLayout->addWidget(header, 0, Qt::AlignTop);
+#else
+    setWindowTitle(isNew ? "New bookmark" : "Edit bookmark");
 #endif
 
     mainLayout->addWidget(content, 1);

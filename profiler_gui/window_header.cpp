@@ -74,6 +74,8 @@ WindowHeader::WindowHeader(const QString& title, Buttons buttons, QWidget& paren
 {
     auto parent = &parentRef;
 
+    parent->setWindowTitle(title);
+
     m_title->installEventFilter(this);
     m_pixmap->installEventFilter(this);
 
@@ -181,6 +183,12 @@ WindowHeader::~WindowHeader()
 void WindowHeader::setTitle(const QString& title)
 {
     m_title->setText(title);
+    parentWidget()->setWindowTitle(title);
+}
+
+QString WindowHeader::title() const
+{
+    return m_title->text();
 }
 
 void WindowHeader::setWindowIcon(const QIcon& icon)

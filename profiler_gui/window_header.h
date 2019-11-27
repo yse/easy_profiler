@@ -97,6 +97,13 @@ public:
         setTitle(title);
     }
 
+    QString title() const;
+
+    QString windowTitle() const
+    {
+        return title();
+    }
+
 private slots:
 
     void onWindowStateChanged();
