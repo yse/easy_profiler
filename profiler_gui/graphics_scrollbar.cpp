@@ -268,7 +268,7 @@ void GraphicsHistogramItem::paintByPtr(QPainter* _painter)
     }
 
     _painter->setPen(profiler_gui::TEXT_COLOR);
-    const auto eventsCount = m_pProfilerThread->events.size();
+    const auto eventsCount = static_cast<uint64_t>(m_pProfilerThread->events.size());
     const auto blocksCount = m_pProfilerThread->blocks_number - eventsCount;
 
     QString durationsStr;

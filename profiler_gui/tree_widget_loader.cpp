@@ -450,7 +450,7 @@ void TreeWidgetLoader::setTreeInternalTop(
             "Please, reduce selected area width\n"
             "or increase maximum count in settings\n"
             "or change the tree mode."
-        ).arg(profiler_gui::shortenCountString(_maxCount))
+        ).arg(profiler_gui::shortenCountString(static_cast<uint64_t>(_maxCount)))
             .arg(profiler_gui::shortenCountString(total_count))
             .arg(profiler_gui::percent(total_count, _maxCount));
         setDone();
