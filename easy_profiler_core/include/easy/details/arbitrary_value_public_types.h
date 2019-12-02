@@ -45,6 +45,7 @@ The Apache License, Version 2.0 (the "License");
 
 #include <easy/details/arbitrary_value_aux.h>
 #include <easy/details/profiler_public_types.h>
+#include <string>
 #include <string.h>
 
 namespace profiler

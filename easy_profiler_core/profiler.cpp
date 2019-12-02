@@ -303,7 +303,7 @@ PROFILER_API const profiler::BaseBlockDescriptor* registerDescription(profiler::
                                                                       const char*, const char*, int,
                                                                       profiler::block_type_t, profiler::color_t, bool)
 {
-    return reinterpret_cast<const BaseBlockDescriptor*>(0xbad);
+    return reinterpret_cast<const profiler::BaseBlockDescriptor*>(0xbad);
 }
 
 PROFILER_API void endBlock() { }

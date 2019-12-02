@@ -1,6 +1,8 @@
 bin
 *build*
+!BUILD
 .*
 *.user
 /*.prof
 .idea/
+bazel*
