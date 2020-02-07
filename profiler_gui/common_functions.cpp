@@ -318,11 +318,12 @@ namespace profiler_gui {
     }
 
     //////////////////////////////////////////////////////////////////////////
-
+#if _WIN64 || __x86_64__ || __ppc64__
     QString shortenCountString(size_t count, int precision)
     {
         return shortenCountStringUnsigned(count, precision);
     }
+#endif
 
     QString shortenCountString(uint32_t count, int precision)
     {

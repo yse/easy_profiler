@@ -983,10 +983,25 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
 
     loadGeometry();
 
-    if(QCoreApplication::arguments().size() > 1)
-    {
-        auto opened_filename = QCoreApplication::arguments().at(1);
-        loadFile(opened_filename);
+    if (QCoreApplication::arguments().size() > 1) {
+        QString firstArgument = QCoreApplication::arguments().at(1);
+        if (firstArgument == "-autoconnect" && QCoreApplication::arguments().size() > 2) {
+            QString address = QCoreApplication::arguments().at(2);
+            int separator = address.indexOf(':');
+            if (separator != -1) {
+                m_lastPort = address.mid(separator + 1).toInt();
+                m_lastAddress = address.mid(0, separator);
+            } else {
+                m_lastAddress = address;
+            }
+            m_addressEdit->setText(m_lastAddress);
+            m_portEdit->setText(QString::number(m_lastPort));
+            onConnectClicked(true);
+            if (EASY_GLOBALS.connected && m_listener.regime() == ListenerRegime::Idle)
+                onCaptureClicked(true);
+        } else {
+            loadFile(firstArgument);
+        }
     }
 
     using profiler_gui::GlobalSignals;

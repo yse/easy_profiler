@@ -199,7 +199,10 @@ QString timeStringIntNs(TimeUnits _units, ::profiler::timestamp_t _interval);
 
 //////////////////////////////////////////////////////////////////////////
 
+#if _WIN64 || __x86_64__ || __ppc64__
 QString shortenCountString(size_t count, int precision = 1);
+#endif
+
 QString shortenCountString(uint32_t count, int precision = 1);
 QString shortenCountString(int64_t count, int precision = 1);
 QString shortenCountString(int count, int precision = 1);
