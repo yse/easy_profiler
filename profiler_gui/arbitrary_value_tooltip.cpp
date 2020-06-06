@@ -59,9 +59,16 @@
 #include "common_functions.h"
 #include "globals.h"
 
+constexpr auto TOOLTIP_OPTIONS =
+#ifndef __APPLE__
+        Qt::Tool | Qt::SubWindow | Qt::FramelessWindowHint;
+#else
+        Qt::Tool | Qt::FramelessWindowHint;
+#endif
+
 ArbitraryValueToolTip::ArbitraryValueToolTip(const QString& _name
     , const profiler::BlocksTree& _block, QWidget* _parent)
-    : QWidget(_parent, Qt::Tool | Qt::SubWindow | Qt::FramelessWindowHint)
+    : QWidget(_parent, TOOLTIP_OPTIONS)
 {
     auto content = new QWidget();
     content->setObjectName("cnt");
