@@ -59,7 +59,7 @@
 #include "common_functions.h"
 #include "globals.h"
 
-constexpr auto TOOLTIP_OPTIONS =
+const auto TOOLTIP_OPTIONS =
 #ifndef __APPLE__
         Qt::Tool | Qt::SubWindow | Qt::FramelessWindowHint;
 #else
