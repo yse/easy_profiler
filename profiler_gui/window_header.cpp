@@ -107,7 +107,7 @@ WindowHeader::WindowHeader(const QString& title, Buttons buttons, QWidget& paren
         connect(m_closeButton, &QPushButton::clicked, parent, &QWidget::close, Qt::QueuedConnection);
     }
 
-#if !defined(_WIN32)
+#if !defined(_WIN32) && !defined(__APPLE__)
     if (m_maximizeButton != nullptr || m_minimizeButton != nullptr)
     {
         parent->setWindowFlags(parent->windowFlags() | Qt::SubWindow);
