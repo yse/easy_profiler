@@ -670,19 +670,19 @@ namespace profiler {
         
         \ingroup profiler
         */
-        PROFILER_API uint8_t versionMajor();
+        PROFILER_API uint8_t apiVersionMajor();
 
         /** Returns current minor version.
 
         \ingroup profiler
         */
-        PROFILER_API uint8_t versionMinor();
+        PROFILER_API uint8_t apiVersionMinor();
 
         /** Returns current version patch.
 
         \ingroup profiler
         */
-        PROFILER_API uint16_t versionPatch();
+        PROFILER_API uint16_t apiVersionPatch();
 
         /** Returns current version in 32-bit integer format.
 
@@ -691,7 +691,7 @@ namespace profiler {
 
         \ingroup profiler
         */
-        PROFILER_API uint32_t version();
+        PROFILER_API uint32_t apiVersion();
 
         /** Returns current version string.
 
@@ -699,7 +699,7 @@ namespace profiler {
 
         \ingroup profiler
         */
-        PROFILER_API const char* versionName();
+        PROFILER_API const char* apiVersionName();
 
         /** Returns true if current thread has been marked as Main.
         Otherwise, returns false.
@@ -790,11 +790,11 @@ namespace profiler {
     inline void startListen(uint16_t = ::profiler::DEFAULT_PORT) { }
     inline void stopListen() { }
     inline EASY_CONSTEXPR_FCN bool isListening() { return false; }
-    inline EASY_CONSTEXPR_FCN uint8_t versionMajor() { return 0; }
-    inline EASY_CONSTEXPR_FCN uint8_t versionMinor() { return 0; }
-    inline EASY_CONSTEXPR_FCN uint16_t versionPatch() { return 0; }
-    inline EASY_CONSTEXPR_FCN uint32_t version() { return 0; }
-    inline EASY_CONSTEXPR_FCN const char* versionName() { return "v0.0.0_disabled"; }
+    inline EASY_CONSTEXPR_FCN uint8_t apiVersionMajor() { return 0; }
+    inline EASY_CONSTEXPR_FCN uint8_t apiVersionMinor() { return 0; }
+    inline EASY_CONSTEXPR_FCN uint16_t apiVersionPatch() { return 0; }
+    inline EASY_CONSTEXPR_FCN uint32_t apiVersion() { return 0; }
+    inline EASY_CONSTEXPR_FCN const char* apiVersionName() { return "v0.0.0_disabled"; }
     inline EASY_CONSTEXPR_FCN bool isMainThread() { return false; }
     inline EASY_CONSTEXPR_FCN timestamp_t this_thread_frameTime(Duration = ::profiler::MICROSECONDS) { return 0; }
     inline EASY_CONSTEXPR_FCN timestamp_t this_thread_frameTimeLocalMax(Duration = ::profiler::MICROSECONDS) { return 0; }
