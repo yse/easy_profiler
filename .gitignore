@@ -6,3 +6,13 @@ bin
 /*.prof
 .idea/
 bazel*
+
+# CMake/QtCreator folders and files created on Windows
+CMakeFiles/
+*/CMakeFiles/
+CMakeCache*.*
+Makefile*
+moc_*.*
+mocs_*.*
+qrc_*.*
+*.cmake
