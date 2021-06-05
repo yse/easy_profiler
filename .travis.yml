@@ -20,10 +20,7 @@ matrix:
         -C_COMPILER=gcc-5
     - os: osx
       osx_image: xcode10
-      #compiler: clang
       env:
-        #-CXX_COMPILER=clang++
-        #-C_COMPILER=clang
         -CXX_COMPILER=g++-5
         -C_COMPILER=gcc-5
 script:
@@ -40,20 +37,12 @@ after_success:
   - cd ../sample && $CXX_COMPILER -std=c++11 -O3 main_clock.cpp -o test_clock && ./test_clock
   - ./build_express_test.sh
 before_install:
-  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then
-        sudo apt-get update -qq;
-    else
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then
         brew update;
     fi
 install:
-  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then
-        sudo apt-get -y install qt55tools qt55script qt55base qt55svg;
-    else
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then
         brew install gcc5;
         brew install qt;
         brew link --force qt;
     fi
-
-      
-
-
