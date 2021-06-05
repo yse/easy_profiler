@@ -14,6 +14,7 @@ matrix:
             - g++-5
             - cmake
             - cmake-data
+            - qt5-default
       env:
         -CXX_COMPILER=g++-5
         -C_COMPILER=gcc-5
@@ -30,7 +31,6 @@ script:
   - cd build
   - cmake --version
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then
-        source /opt/qt55/bin/qt55-env.sh;
         qmake -v;
     else
         export PATH=/usr/local/opt/qt/bin:$PATH;
@@ -41,7 +41,6 @@ after_success:
   - ./build_express_test.sh
 before_install:
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then
-        sudo add-apt-repository --yes ppa:beineri/opt-qt551-trusty;
         sudo apt-get update -qq;
     else
         brew update;
