@@ -1,4 +1,3 @@
-sudo: required
 dist: xenial
 language: cpp
 cache: ccache
@@ -26,20 +25,13 @@ matrix:
 script:
   - mkdir build
   - cd build
-  - cmake --version
-  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then
-        qmake -v;
-    else
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then
         export PATH=/usr/local/opt/qt/bin:$PATH;
     fi
   - cmake -DCMAKE_CXX_COMPILER=$CXX_COMPILER -DCMAKE_C_COMPILER=$C_COMPILER  .. && make -j3
 after_success:
   - cd ../sample && $CXX_COMPILER -std=c++11 -O3 main_clock.cpp -o test_clock && ./test_clock
   - ./build_express_test.sh
-before_install:
-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then
-        brew update;
-    fi
 install:
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then
         brew install gcc5;
