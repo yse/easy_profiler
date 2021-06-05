@@ -22,6 +22,7 @@ matrix:
       env:
         -CXX_COMPILER=g++-5
         -C_COMPILER=gcc-5
+        -HOMEBREW_NO_AUTO_UPDATE=1
 script:
   - mkdir build
   - cd build
