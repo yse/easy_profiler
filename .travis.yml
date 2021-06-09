@@ -1,9 +1,5 @@
 dist: xenial
-language: cpp
 cache: ccache
-os:
-  - linux
-  - osx
 jobs:
   include:
     - compiler: gcc
