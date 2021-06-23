@@ -51,6 +51,7 @@ if (WIN32)
     set(EASY_OPTION_IMPLICIT_THREAD_REGISTRATION ON CACHE BOOL ${EASY_OPTION_IMPLICIT_THREAD_REGISTER_TEXT})
     set(EASY_OPTION_EVENT_TRACING                ON CACHE BOOL "Enable event tracing by default")
     set(EASY_OPTION_LOW_PRIORITY_EVENT_TRACING   ON CACHE BOOL "Set low priority for event tracing thread")
+	set(EASY_OPTION_THREAD_SAFE_INIT             ON CACHE BOOL "Should be turn off if thread-safe initialization of static local variables is disabled (see visual studio's /Zc:threadSafeInit- compiler option for details).")
 else ()
     if (NO_CXX11_THREAD_LOCAL_SUPPORT)
         set(EASY_OPTION_IMPLICIT_THREAD_REGISTRATION OFF CACHE BOOL ${EASY_OPTION_IMPLICIT_THREAD_REGISTER_TEXT})
@@ -63,6 +64,21 @@ set(BUILD_WITH_CHRONO_STEADY_CLOCK OFF CACHE BOOL "Use std::chrono::steady_clock
 set(BUILD_WITH_CHRONO_HIGH_RESOLUTION_CLOCK OFF CACHE BOOL "Use std::chrono::high_resolution_clock as a timer")
 # End EasyProfiler options.
 ###########################################################
+
+
+
+#####################################################################
+# Generate config header:
+if (${EASY_OPTION_THREAD_SAFE_INIT})
+    set(EASY_DISABLE_THREAD_SAFE_INIT 0)
+else ()
+    set(EASY_DISABLE_THREAD_SAFE_INIT 1)
+endif ()
+
+configure_file (
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/easy/details/profiler_config.h.in"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/easy/details/profiler_config.h"
+)
 
 
 
@@ -174,6 +190,7 @@ set(INCLUDE_FILES
     ${EASY_INCLUDE_DIR}/details/profiler_colors.h
     ${EASY_INCLUDE_DIR}/details/profiler_in_use.h
     ${EASY_INCLUDE_DIR}/details/profiler_public_types.h
+	${EASY_INCLUDE_DIR}/details/profiler_config.h
 )
 
 source_group(include FILES ${INCLUDE_FILES})

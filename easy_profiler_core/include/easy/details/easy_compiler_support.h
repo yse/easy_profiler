@@ -53,6 +53,8 @@
 
 #include <cstddef>
 
+#include <easy/details/profiler_config.h>
+
 #if defined(_WIN32) && !defined(EASY_PROFILER_STATIC)
 // Visual Studio and MinGW
 # ifdef _BUILD_PROFILER
@@ -217,8 +219,13 @@ static_assert(false, "EasyProfiler is not configured for using your compiler typ
 #endif
 
 #ifndef EASY_LOCAL_STATIC_PTR
-# define EASY_LOCAL_STATIC_PTR(VarType, VarName, VarInitializer) static VarType VarName = VarInitializer
-# define EASY_MAGIC_STATIC_AVAILABLE
+# if defined(_MSC_VER) && EASY_DISABLE_THREAD_SAFE_INIT != 0
+#  define EASY_LOCAL_STATIC_PTR(VarType, VarName, VarInitializer) thread_local static VarType VarName = VarInitializer
+#  define EASY_MAGIC_STATIC_AVAILABLE
+# else
+#  define EASY_LOCAL_STATIC_PTR(VarType, VarName, VarInitializer) static VarType VarName = VarInitializer
+#  define EASY_MAGIC_STATIC_AVAILABLE
+# endif
 #endif
 
 #ifndef EASY_FINAL
