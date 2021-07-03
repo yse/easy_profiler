@@ -75,10 +75,10 @@ inline profiler::thread_id_t getCurrentThreadId()
     return (profiler::thread_id_t)pthread_self();
 #   endif
 #elif defined(__QNX__)
-    EASY_THREAD_LOCAL static const profiler::thread_id_t _id = (profiler::thread_id_t)gettid();
+    static EASY_THREAD_LOCAL const profiler::thread_id_t _id = (profiler::thread_id_t)gettid();
     return _id;
 #else
-    EASY_THREAD_LOCAL static const profiler::thread_id_t _id = (profiler::thread_id_t)syscall(__NR_gettid);
+    static EASY_THREAD_LOCAL const profiler::thread_id_t _id = (profiler::thread_id_t)syscall(__NR_gettid);
     return _id;
 #endif
 }

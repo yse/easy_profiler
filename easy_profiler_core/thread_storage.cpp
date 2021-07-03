@@ -127,8 +127,8 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
                           MANAGER.addBlockDescriptor(EASY_OPTION_STORAGE_EXPAND_BLOCKS_ON ? profiler::ON : profiler::OFF, EASY_UNIQUE_LINE_ID, "EasyProfiler.ExpandStorage", \
                                                      __FILE__, __LINE__, profiler::BlockType::Block, EASY_COLOR_INTERNAL_EVENT));
 
-    EASY_THREAD_LOCAL static profiler::timestamp_t beginTime = 0ULL;
-    EASY_THREAD_LOCAL static profiler::timestamp_t endTime = 0ULL;
+    static EASY_THREAD_LOCAL profiler::timestamp_t beginTime = 0ULL;
+    static EASY_THREAD_LOCAL profiler::timestamp_t endTime = 0ULL;
 #endif
 
 #if EASY_OPTION_TRUNCATE_LONG_RUNTIME_NAMES != 0
