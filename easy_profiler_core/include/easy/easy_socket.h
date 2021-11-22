@@ -59,7 +59,9 @@ The Apache License, Version 2.0 (the "License");
 #else
 
 // Windows
-# define WIN32_LEAN_AND_MEAN
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 # include <winsock2.h>
 # include <windows.h>
 # include <ws2tcpip.h>
