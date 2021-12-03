@@ -77,6 +77,9 @@ inline profiler::thread_id_t getCurrentThreadId()
 #elif defined(__QNX__)
     EASY_THREAD_LOCAL static const profiler::thread_id_t _id = (profiler::thread_id_t)gettid();
     return _id;
+#elif defined(__EMSCRIPTEN__)
+    EASY_THREAD_LOCAL static const profiler::thread_id_t _id = static_cast<profiler::thread_id_t>(pthread_self());
+    return _id;
 #else
     EASY_THREAD_LOCAL static const profiler::thread_id_t _id = (profiler::thread_id_t)syscall(__NR_gettid);
     return _id;
