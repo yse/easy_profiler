@@ -91,7 +91,6 @@ namespace profiler {
 
     public:
 
-        CSwitchEvent() = default;
         CSwitchEvent(const CSwitchEvent&) = default;
         explicit CSwitchEvent(timestamp_t _begin_time, thread_id_t _tid) EASY_NOEXCEPT;
 
@@ -129,7 +128,7 @@ namespace profiler {
 #pragma pack(push, 1)
     class PROFILER_API SerializedBlockDescriptor EASY_FINAL : public BaseBlockDescriptor
     {
-        uint16_t m_nameLength; ///< Length of the name including trailing '\0' sybmol
+        uint16_t m_nameLength; ///< Length of the name including trailing '\0' symbol
 
     public:
 
