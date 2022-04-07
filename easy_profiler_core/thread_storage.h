@@ -93,7 +93,7 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
-EASY_CONSTEXPR uint16_t BLOCKS_IN_CHUNK = 128U;
+EASY_CONSTEXPR uint16_t BLOCKS_IN_CHUNK = 1024U;
 EASY_CONSTEXPR uint16_t SIZEOF_BLOCK = sizeof(profiler::BaseBlockData) + 1U + sizeof(uint16_t); // SerializedBlock stores BaseBlockData + at least 1 character for name ('\0') + 2 bytes for size of serialized data
 EASY_CONSTEXPR uint16_t SIZEOF_CSWITCH = sizeof(profiler::CSwitchEvent) + 1U + sizeof(uint16_t); // SerializedCSwitch also stores additional 4 bytes to be able to save 64-bit thread_id
 
