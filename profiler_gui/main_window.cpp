@@ -1002,7 +1002,7 @@ MainWindow::~MainWindow()
 void MainWindow::validateLastDir()
 {
     if (m_lastFiles.empty())
-        EASY_GLOBALS.lastFileDir = QString();
+        EASY_GLOBALS.lastFileDir.clear();
     else
         EASY_GLOBALS.lastFileDir = QFileInfo(m_lastFiles.front()).absoluteDir().canonicalPath();
 }
@@ -2061,23 +2061,26 @@ void MainWindow::onListenerTimerTimeout()
     const auto passedTime = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_listenStartTime).count();
     const auto seconds = static_cast<double>(passedTime) * 1e-3;
 
-    switch (m_listener.regime())
+    if (m_listenerDialog)
     {
-        case ListenerRegime::Capture:
+        switch (m_listener.regime())
         {
-            m_listenerDialog->setTitle(QString("Capturing frames... %1s").arg(seconds, 0, 'f', 1));
-            break;
-        }
+            case ListenerRegime::Capture:
+            {
+                m_listenerDialog->setTitle(QString("Capturing frames... %1s").arg(seconds, 0, 'f', 1));
+                break;
+            }
 
-        case ListenerRegime::Capture_Receive:
-        {
-            m_listenerDialog->setTitle(QString("Receiving data... %1s").arg(seconds, 0, 'f', 1));
-            break;
-        }
+            case ListenerRegime::Capture_Receive:
+            {
+                m_listenerDialog->setTitle(QString("Receiving data... %1s").arg(seconds, 0, 'f', 1));
+                break;
+            }
 
-        default:
-        {
-            break;
+            default:
+            {
+                break;
+            }
         }
     }
 
@@ -2097,8 +2100,11 @@ void MainWindow::onListenerTimerTimeout()
 
             m_listener.finalizeCapture();
 
-            m_listenerDialog->accept();
-            m_listenerDialog = nullptr;
+            if (m_listenerDialog)
+            {
+                m_listenerDialog->accept();
+                m_listenerDialog = nullptr;
+            }
 
             if (m_listener.size() != 0)
             {

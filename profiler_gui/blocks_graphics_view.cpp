@@ -1649,7 +1649,7 @@ void BlocksGraphicsView::mouseReleaseEvent(QMouseEvent* _event)
     if (changedSelection)
     {
         profiler::timestamp_t left=0, right=0;
-        if (changedSelectionBySelectingItem)
+        if (selectedBlock != nullptr && changedSelectionBySelectingItem)
         {
             left = selectedBlock->tree.node->begin() - m_beginTime;
             right = selectedBlock->tree.node->end() - m_beginTime;

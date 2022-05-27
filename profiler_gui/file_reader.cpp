@@ -58,10 +58,7 @@ The Apache License, Version 2.0 (the "License");
 #undef max
 #endif
 
-FileReader::FileReader()
-{
-
-}
+FileReader::FileReader() = default;
 
 FileReader::~FileReader()
 {
