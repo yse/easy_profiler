@@ -252,7 +252,7 @@ int main(int argc, char* argv[])
     EASY_ARRAY("threads count", grrr, 3, false, true, "blabla", profiler::colors::Blue/*, EASY_VIN("threads count")*/, profiler::OFF);
 #endif
 
-    int* intPtr = new int(2);
+    int* intPtr = new int[2];
     EASY_VALUE("count", *intPtr);
 
     std::vector<std::thread> threads;

@@ -1281,7 +1281,7 @@ void GraphicsHistogramItem::updateImageAsync(QRectF _boundingRect, HistRegime _r
                 if (jt != it)
                 {
                     // bypass merged columns
-                    it = jt;
+                    it = std::move(jt);
                     --it;
                 }
             }
@@ -1496,7 +1496,7 @@ void GraphicsHistogramItem::updateImageAsync(QRectF _boundingRect, HistRegime _r
                 if (jt != it)
                 {
                     // bypass merged columns
-                    it = jt;
+                    it = std::move(jt);
                     --it;
                 }
             }

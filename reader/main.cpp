@@ -23,9 +23,8 @@ class TreePrinter
     std::vector<Info> m_rows;
 
 public:
-    TreePrinter(){
+    TreePrinter() = default;
 
-    }
     void addNewRow(int level)
     {
 

@@ -942,7 +942,7 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
     //validate_pointers(progress, olddata, serialized_descriptors, descriptors, descriptors.size());
 
     uint64_t i = 0;
-    while (!inStream.eof() && descriptors.size() < descriptors_count)
+    while (!inStream.eof() && !inStream.fail() && descriptors.size() < descriptors_count)
     {
         uint16_t sz = 0;
         read(inStream, sz);
@@ -985,7 +985,7 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
 
     ReaderThreadPool pool;
 
-    while (!inStream.eof() && threads_read_number++ < header.threads_count)
+    while (!inStream.eof() && !inStream.fail() && threads_read_number++ < header.threads_count)
     {
         EASY_BLOCK("Read thread data", profiler::colors::DarkGreen);
 
@@ -1020,7 +1020,7 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
         uint32_t blocks_number_in_thread = 0;
         read(inStream, blocks_number_in_thread);
         auto threshold = read_number + blocks_number_in_thread;
-        while (!inStream.eof() && read_number < threshold)
+        while (!inStream.eof() && !inStream.fail() && read_number < threshold)
         {
             EASY_BLOCK("Read context switch", profiler::colors::Green);
 
@@ -1091,7 +1091,7 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
         blocks_number_in_thread = 0;
         read(inStream, blocks_number_in_thread);
         threshold = read_number + blocks_number_in_thread;
-        while (!inStream.eof() && read_number < threshold)
+        while (!inStream.eof() && !inStream.fail() && read_number < threshold)
         {
             EASY_BLOCK("Read block", profiler::colors::Green);
 
@@ -1282,7 +1282,7 @@ extern "C" PROFILER_API profiler::block_index_t fillTreesFromStream(std::atomic<
             std::vector<char> stringBuffer;
             read_number = 0;
 
-            while (!inStream.eof() && read_number < header.bookmarks_count)
+            while (!inStream.eof() && !inStream.fail() && read_number < header.bookmarks_count)
             {
                 profiler::Bookmark bookmark;
 
@@ -1511,7 +1511,7 @@ extern "C" PROFILER_API bool readDescriptionsFromStream(std::atomic<int>& progre
     //validate_pointers(progress, olddata, serialized_descriptors, descriptors, descriptors.size());
 
     uint64_t i = 0;
-    while (!inStream.eof() && descriptors.size() < descriptors_count)
+    while (!inStream.eof() && !inStream.fail() && descriptors.size() < descriptors_count)
     {
         uint16_t sz = 0;
         read(inStream, sz);

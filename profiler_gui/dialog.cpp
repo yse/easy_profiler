@@ -83,9 +83,9 @@ Dialog::Dialog(QWidget* parent, const QString& title, QWidget* content, WindowHe
     mainLayout->addWidget(m_header, 0, Qt::AlignTop);
     mainLayout->addWidget(content, 1);
 
-    auto buttonsLayout = new QHBoxLayout(m_buttonBox);
     if (buttons != QMessageBox::NoButton)
     {
+        auto buttonsLayout = new QHBoxLayout(m_buttonBox);
         buttonsLayout->addStretch(1);
         createButtons(buttonsLayout, buttons);
         mainLayout->addWidget(m_buttonBox, 0, Qt::AlignBottom);
