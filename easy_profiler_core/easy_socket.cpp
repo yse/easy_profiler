@@ -325,7 +325,7 @@ int EasySocket::accept()
     fd_set fdwrite = fdread;
     fd_set fdexcl = fdread;
 
-    struct timeval tv { 0, 500 };
+    struct timeval tv { 0, 500000 };
     const int rc = ::select((int)m_socket + 1, &fdread, &fdwrite, &fdexcl, &tv);
     if (rc <= 0)
         return -1; // there is no connection for accept
