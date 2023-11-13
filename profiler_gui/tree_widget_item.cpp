@@ -374,9 +374,9 @@ const profiler::BlocksTree& TreeWidgetItem::block() const
 profiler::thread_id_t TreeWidgetItem::threadId() const
 {
     const QTreeWidgetItem* parentItem = this;
-    while (parentItem->parent() != nullptr)
+    while (parentItem != nullptr && parentItem->parent() != nullptr)
     {
-        parentItem = parent();
+        parentItem = parentItem->parent();
     }
     return static_cast<profiler::thread_id_t>(parentItem->data(COL_NAME, Qt::UserRole).toULongLong());
 }
