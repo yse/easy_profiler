@@ -1271,9 +1271,26 @@ const ::profiler_gui::EasyBlock* GraphicsBlockItem::intersect(const QPointF& _po
     while (i <= levelIndex)
     {
         const auto& level = m_levels[i];
+        size_t levelSize = level.size();
+
+        auto firstItemIterator = level.begin();
+        auto lastItemIterator = level.begin();
+
+        // Ensure that firstItem and lastItem are within the permissible range
+        if (firstItem < levelSize) {
+            std::advance(firstItemIterator, firstItem);
+        } else {
+            firstItemIterator = level.end();
+        }
+
+        if (lastItem <= levelSize) {
+            std::advance(lastItemIterator, lastItem);
+        } else {
+            lastItemIterator = level.end();
+        }
 
         // Search for first visible item
-        auto first = ::std::lower_bound(level.begin() + firstItem, level.begin() + lastItem, _pos.x(), [](const ::profiler_gui::EasyBlockItem& _item, qreal _value)
+        auto first = ::std::lower_bound(firstItemIterator, lastItemIterator, _pos.x(), [](const ::profiler_gui::EasyBlockItem& _item, qreal _value)
         {
             return _item.left() < _value;
         });
