@@ -1300,7 +1300,7 @@ profiler::timestamp_t ProfileManager::ticks2us(profiler::timestamp_t ticks) cons
 #else
 profiler::timestamp_t ProfileManager::ticks2ns(profiler::timestamp_t ticks) const
 {
-    return static_cast<profiler::timestamp_t>(ticks / m_cpuFrequency.load(std::memory_order_acquire));
+    return static_cast<profiler::timestamp_t>(ticks * 1000000LL / m_cpuFrequency.load(std::memory_order_acquire));
 }
 
 profiler::timestamp_t ProfileManager::ticks2us(profiler::timestamp_t ticks) const
