@@ -81,7 +81,6 @@ if (Qt5Widgets_FOUND)
     install(
         TARGETS
         profiler_gui
-        RUNTIME
         DESTINATION
         bin
     )
