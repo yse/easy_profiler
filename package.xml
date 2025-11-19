@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>easy_profiler</name>
+  <version>2.1.0</version>
+  <author email="unkown@todo.com">Sergey Yagovtsev</author>
+  <maintainer email="unkown@todo.com">Sergey Yagovtsev</maintainer>
+  <description>Lightweight profiler library for c++</description>
+  <url type="website">https://github.com/yse/easy_profiler</url>
+  <license>MIT</license>
+
+  <buildtool_depend>cmake</buildtool_depend>
+
+  <export>
+    <build_type>cmake</build_type>
+  </export>
+</package>
