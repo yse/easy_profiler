@@ -74,7 +74,7 @@
 #include <QToolBar>
 #include <QVariant>
 #include <QVBoxLayout>
-#include <QRegExp>
+#include <QRegularExpression>
 
 #include "descriptors_tree_widget.h"
 
@@ -553,8 +553,8 @@ void DescriptorsTreeWidget::build()
             if (p.item == nullptr)
             {
                 auto item = new DescriptorsTreeItem(0);
-                auto fullName = QString(desc->file()).remove(QRegExp("^(\\.{2}\\\\+)+").pattern()); // without leading "..\"
-                auto fileName = QString(desc->file()).remove(QRegExp("^(.+(\\\\|\\/)+)+").pattern());
+                auto fullName = QString(desc->file()).remove(QRegularExpression("^(\\.{2}\\\\+)+")); // without leading "..\"
+                auto fileName = QString(desc->file()).remove(QRegularExpression("^(.+(\\\\|\\/)+)+"));
                 auto dir = fullName.left(fullName.length() - fileName.length());
 
                 if (count == 1)

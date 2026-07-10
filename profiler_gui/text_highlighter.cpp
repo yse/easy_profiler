@@ -50,7 +50,6 @@
 
 #include "text_highlighter.h"
 #include <QColor>
-#include <QRegExp>
 
 #include <easy/details/profiler_colors.h>
 #include "common_functions.h"
@@ -87,15 +86,14 @@ void TextHighlighter::highlightBlock(const QString& text)
         return;
     }
 
-    QRegExp expression(m_pattern, m_caseSensitivity);
-    int index = text.indexOf(expression.pattern());
+    int index = text.indexOf(m_pattern, 0, m_caseSensitivity);
     while (index >= 0)
     {
-        const auto length = expression.cap().length();
+        const auto length = m_pattern.length();
         setFormat(index, length, m_textCharFormat);
 
         auto prevIndex = index;
-        index = text.indexOf(expression.pattern(), index + length);
+        index = text.indexOf(m_pattern, index + length, m_caseSensitivity);
         if (index <= prevIndex)
         {
             break;

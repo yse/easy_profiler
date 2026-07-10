@@ -85,7 +85,8 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
-#include <QTextCodec>
+#include <QStringConverter>
+#include <QStringDecoder>
 #include <QPlainTextEdit>
 #include <QTextStream>
 #include <QToolBar>
@@ -873,18 +874,16 @@ MainWindow::MainWindow() : Parent(), m_theme("default"), m_lastAddress("localhos
     actionGroup = new QActionGroup(this);
     actionGroup->setExclusive(true);
 
-    auto default_codec_mib = QTextCodec::codecForLocale()->mibEnum();
+    const QString& default_encoding = EASY_GLOBALS.text_encoding;
     {
         QList<QAction*> actions;
 
-        for (int mib : QTextCodec::availableMibs())
+        for (const QString& codec : QStringConverter::availableCodecs())
         {
-            auto codec = QTextCodec::codecForMib(mib)->name();
-
             action = new QAction(codec, actionGroup);
-            action->setData(mib);
+            action->setData(codec);
             action->setCheckable(true);
-            if (mib == default_codec_mib)
+            if (codec == default_encoding)
                 action->setChecked(true);
 
             actions.push_back(action);
@@ -1415,10 +1414,7 @@ void MainWindow::onEncodingChanged(bool)
     if (action == nullptr)
         return;
 
-    const int mib = action->data().toInt();
-    auto codec = QTextCodec::codecForMib(mib);
-    if (codec != nullptr)
-        QTextCodec::setCodecForLocale(codec);
+    EASY_GLOBALS.text_encoding = action->data().toString();
 }
 
 void MainWindow::onRulerTextPosChanged(bool)
@@ -1860,9 +1856,10 @@ void MainWindow::loadSettings()
         EASY_GLOBALS.enable_statistics = flag.toBool();
 
     QString encoding = settings.value("encoding", "UTF-8").toString();
-    auto default_codec_mib = QTextCodec::codecForName(encoding.toStdString().c_str())->mibEnum();
-    auto default_codec = QTextCodec::codecForMib(default_codec_mib);
-    QTextCodec::setCodecForLocale(default_codec);
+    QStringDecoder decoder(encoding.toUtf8().constData());
+    EASY_GLOBALS.text_encoding = decoder.isValid()
+        ? encoding
+        : QStringConverter::nameForEncoding(QStringConverter::Utf8);
 
     auto theme = settings.value("theme");
     if (theme.isValid())
@@ -1964,7 +1961,7 @@ void MainWindow::saveSettingsAndGeometry()
     settings.setValue("fps_widget_line_width", EASY_GLOBALS.fps_widget_line_width);
     settings.setValue("use_custom_window_header", EASY_GLOBALS.use_custom_window_header);
     settings.setValue("is_right_window_header_controls", EASY_GLOBALS.is_right_window_header_controls);
-    settings.setValue("encoding", QTextCodec::codecForLocale()->name());
+    settings.setValue("encoding", EASY_GLOBALS.text_encoding);
     settings.setValue("theme", m_theme);
 
     settings.endGroup();

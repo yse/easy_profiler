@@ -79,6 +79,7 @@ Globals::Fonts::Fonts()
 
 Globals::Globals()
     : theme("default")
+    , text_encoding("UTF-8")
     , pid(0)
     , begin_time(0)
     , selected_thread(0U)

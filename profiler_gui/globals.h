@@ -58,7 +58,8 @@
 #include <string>
 #include <QObject>
 #include <QColor>
-#include <QTextCodec>
+#include <QStringDecoder>
+#include <QStringConverter>
 #include <QSize>
 #include <QFont>
 #include "common_functions.h"
@@ -96,10 +97,7 @@ namespace profiler_gui {
     //////////////////////////////////////////////////////////////////////////
 
     template <class T>
-    inline auto toUnicode(const T& _inputString) -> decltype(QTextCodec::codecForLocale()->toUnicode(_inputString))
-    {
-        return QTextCodec::codecForLocale()->toUnicode(_inputString);
-    }
+    QString toUnicode(const T& _inputString);
 
     //////////////////////////////////////////////////////////////////////////
 
@@ -203,6 +201,7 @@ namespace profiler_gui {
         EasyBlocks                            gui_blocks; ///< Profiler graphics blocks builded by GUI
 
         QString                                    theme; ///< Current UI theme name
+        QString                            text_encoding; ///< Selected text encoding for profile block names
         QString                              lastFileDir;
         Fonts                                       font; ///< Fonts
 
@@ -265,6 +264,15 @@ namespace profiler_gui {
         Globals();
 
     }; // END of struct Globals.
+
+    template <class T>
+    inline QString toUnicode(const T& _inputString)
+    {
+        QStringDecoder decoder(Globals::instance().text_encoding.toUtf8().constData());
+        if (!decoder.isValid())
+            decoder = QStringDecoder(QStringDecoder::Utf8);
+        return decoder.decode(QByteArray(_inputString));
+    }
 
     //////////////////////////////////////////////////////////////////////////
 
