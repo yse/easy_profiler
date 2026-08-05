@@ -5,7 +5,6 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 find_package(Qt6Widgets)
-find_package(Qt6Core5Compat)
 
 if (Qt6Widgets_FOUND)
     message(STATUS "Using Qt v${Qt6Widgets_VERSION}")
@@ -71,7 +70,7 @@ if (Qt6Widgets_FOUND)
         resources.qrc
         resources.rc
     )
-    target_link_libraries(profiler_gui Qt6::Widgets Qt6::Core5Compat easy_profiler)
+    target_link_libraries(profiler_gui Qt6::Widgets easy_profiler)
     if (WIN32)
         target_compile_definitions(profiler_gui PRIVATE -D_WIN32_WINNT=0x0600)
     endif ()
