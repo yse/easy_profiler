@@ -209,6 +209,26 @@ static thread_process_info_map THREAD_PROCESS_INFO_TABLE;
 
 //////////////////////////////////////////////////////////////////////////
 
+// "The frequency of the performance counter is fixed at system boot and is consistent across all processors.
+// Therefore, the frequency need only be queried upon application initialization, and the result can be cached."
+// © https://learn.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency
+extern const LONGLONG PERFORMANCE_FREQUENCY = []()
+{
+    LARGE_INTEGER freq;
+    QueryPerformanceFrequency(&freq);
+    return freq.QuadPart;
+}();
+
+#ifdef EASY_CHRONO_CLOCK
+static profiler::timestamp_t ticks2time(LONGLONG ticks)
+{
+    EASY_CONSTEXPR auto clock_freq = EASY_CHRONO_CLOCK::period::den / EASY_CHRONO_CLOCK::period::num;
+    return static_cast<profiler::timestamp_t>(static_cast<double>(ticks) / PERFORMANCE_FREQUENCY * clock_freq);
+}
+#endif
+
+//////////////////////////////////////////////////////////////////////////
+
 void WINAPI easyProcessTraceEvent(PEVENT_RECORD _traceEvent)
 {
     if (_traceEvent->EventHeader.EventDescriptor.Opcode != SWITCH_CONTEXT_OPCODE)
@@ -220,7 +240,14 @@ void WINAPI easyProcessTraceEvent(PEVENT_RECORD _traceEvent)
     EASY_FUNCTION(EASY_COLOR_INTERNAL_EVENT, profiler::OFF);
 
     auto _contextSwitchEvent = reinterpret_cast<CSwitch*>(_traceEvent->UserData);
+
+#ifdef EASY_CHRONO_CLOCK
+    // We need to use uniform time units, so we need to cast the ticks to time of the clock.
+    const auto time = ticks2time(_traceEvent->EventHeader.TimeStamp.QuadPart);
+#else
+    // OK, time is measured only in ticks.
     const auto time = static_cast<profiler::timestamp_t>(_traceEvent->EventHeader.TimeStamp.QuadPart);
+#endif
     if (time > TRACING_END_TIME.load(std::memory_order_acquire))
         return;
 

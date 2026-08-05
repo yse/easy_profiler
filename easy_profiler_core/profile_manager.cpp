@@ -152,6 +152,12 @@ EASY_CONSTEXPR profiler::color_t EASY_COLOR_END = 0xfff44336; // profiler::color
 
 //////////////////////////////////////////////////////////////////////////
 
+#ifdef _WIN32
+extern const LONGLONG PERFORMANCE_FREQUENCY;
+#endif
+
+//////////////////////////////////////////////////////////////////////////
+
 EASY_CONSTEXPR uint8_t FORCE_ON_FLAG = profiler::FORCE_ON & ~profiler::ON;
 
 //////////////////////////////////////////////////////////////////////////
@@ -259,9 +265,7 @@ static EASY_CONSTEXPR_FCN int64_t calculate_cpu_frequency()
 #elif defined(_WIN32)
 static int64_t calculate_cpu_frequency()
 {
-    LARGE_INTEGER freq;
-    QueryPerformanceFrequency(&freq);
-    return static_cast<int64_t>(freq.QuadPart);
+    return static_cast<int64_t>(PERFORMANCE_FREQUENCY);
 }
 #else
 # ifndef __APPLE__
