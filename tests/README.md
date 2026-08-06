@@ -104,7 +104,53 @@ green `ctest` under sanitizers therefore does not mean there were no UBSan
 messages — they have to be read in the output. To fail on them, add
 `-fno-sanitize-recover=undefined`.
 
-## Layout
+## Coverage
+
+LLVM source-based coverage (it gives regions and branches, not just lines):
+
+```bash
+cmake -S . -B build-cov -DEASY_PROFILER_NO_GUI=ON -DEASY_PROFILER_NO_SAMPLES=ON \
+      -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_SHARED_LIBS=OFF \
+      -DCMAKE_CXX_FLAGS="-fprofile-instr-generate -fcoverage-mapping -g -O0" \
+      -DCMAKE_EXE_LINKER_FLAGS="-fprofile-instr-generate"
+cmake --build build-cov -j8
+
+mkdir -p /tmp/easyprof-cov
+LLVM_PROFILE_FILE=/tmp/easyprof-cov/cov-%p.profraw ctest --test-dir build-cov
+
+llvm-profdata merge -sparse /tmp/easyprof-cov/cov-*.profraw -o /tmp/easyprof-cov/all.profdata
+
+MAIN=build-cov/bin/easy_profiler_unit_tests
+OBJS=$(for b in build-cov/bin/easy_profiler_*_tests; do [ "$b" = "$MAIN" ] || printf -- "-object %s " "$b"; done)
+llvm-cov report "$MAIN" $OBJS -instr-profile=/tmp/easyprof-cov/all.profdata \
+    -ignore-filename-regex='(_deps|/tests/|/usr/)'
+```
+
+On macOS `llvm-profdata`/`llvm-cov` are invoked through `xcrun`. The `%p`
+placeholder in `LLVM_PROFILE_FILE` is mandatory: `catch_discover_tests` runs each
+`TEST_CASE` as its own process, and without the pid substitution they would
+overwrite each other's profile.
+
+A line-by-line report for one file:
+
+```bash
+llvm-cov show "$MAIN" $OBJS -instr-profile=/tmp/easyprof-cov/all.profdata \
+    easy_profiler_core/chunk_allocator.h
+```
+
+### Known gaps
+
+Part of the core is unreachable from the current suite by construction, not by
+oversight:
+
+| Area | Why it is not covered |
+|---|---|
+| `writer.cpp` | not linked into the tests at all: it is only used to re-save an already loaded tree (a snapshot from the GUI) |
+| the statistics in `reader.cpp` (`update_statistics`, `calculate_medians`) | only computed with `gather_statistics = true`; the tests read with `false` |
+| `readHeader_v1` | reading the v1.x format needs a corpus of old `.prof` files |
+| `ProfileManager::listen` | the network command loop; the tests start and stop the thread but send it no commands |
+| `endContextSwitch` and the context switch path | needs an external event source (SystemTap on Linux, ETW on Windows) |
+| `marked_allocate` when moving to a new chunk | only reachable through `storeBlockForce` |
 
 ```
 tests/
