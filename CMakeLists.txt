@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.5...${CMAKE_VERSION})
 project(easy_profiler CXX)
 
+include(CTest)
+
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 if (CMAKE_VERSION VERSION_LESS "3.1")
@@ -52,4 +54,8 @@ add_subdirectory(easy_profiler_converter)
 if (NOT EASY_PROFILER_NO_SAMPLES)
     add_subdirectory(sample)
     add_subdirectory(reader)
+endif ()
+
+if (BUILD_TESTING)
+    add_subdirectory(tests)
 endif ()
