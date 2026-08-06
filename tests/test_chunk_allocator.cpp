@@ -327,6 +327,65 @@ TEST_CASE("serialize after put_mark yields the data up to the mark", "[allocator
     REQUIRE(records[2] == "cccc");
 }
 
+TEST_CASE("marked_allocate moves to a new chunk once the current one is full", "[allocator][mark]")
+{
+    // chunk_allocator.h:348-366: when the marked chunk is full, marked_allocate
+    // either starts a new chunk (if the marked one is last) or steps to the next
+    // existing one.
+    chunk_allocator<64> allocator;
+
+    allocator.put_mark();
+
+    for (int i = 0; i < 6; ++i)
+    {
+        void* memory = allocator.marked_allocate(8);
+        REQUIRE(memory != nullptr);
+        std::memset(memory, 'a' + i, 8);
+    }
+
+    REQUIRE(allocator.markedSize() == 6);
+
+    // The seventh record no longer fits and forces the transition.
+    void* spilled = allocator.marked_allocate(8);
+    REQUIRE(spilled != nullptr);
+    std::memset(spilled, 'z', 8);
+
+    REQUIRE(allocator.markedSize() == 7);
+
+    std::ostringstream stream;
+    allocator.serialize(stream);
+
+    const std::vector<std::string> records = parseRecords(stream.str());
+    REQUIRE(records.size() >= 6);
+    REQUIRE(records[0] == std::string(8, 'a'));
+    REQUIRE(records[5] == std::string(8, 'f'));
+}
+
+TEST_CASE("marked_allocate interleaved with plain allocate", "[allocator][mark]")
+{
+    chunk_allocator<128> allocator;
+
+    void* plain = allocator.allocate(8);
+    std::memset(plain, '1', 8);
+
+    allocator.put_mark();
+    REQUIRE(allocator.markedSize() == 1);
+
+    void* marked = allocator.marked_allocate(8);
+    std::memset(marked, '2', 8);
+    REQUIRE(allocator.markedSize() == 2);
+
+    // A plain allocation past the mark bumps the total but not the marked count.
+    void* afterMark = allocator.allocate(8);
+    std::memset(afterMark, '3', 8);
+    REQUIRE(allocator.size() >= 3);
+    REQUIRE(allocator.markedSize() == 2);
+
+    std::ostringstream stream;
+    allocator.serialize(stream);
+    REQUIRE_FALSE(parseRecords(stream.str()).empty());
+}
+
 TEST_CASE("Large records close to the chunk limit", "[allocator]")
 {
     chunk_allocator<4096> allocator;

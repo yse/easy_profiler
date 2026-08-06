@@ -91,6 +91,13 @@ public:
     size_t size() const { return m_bytes.size(); }
     bool empty() const { return m_bytes.empty(); }
 
+    /** Append the file body (everything after the header) to out. */
+    void appendBodyTo(std::vector<char>& out) const
+    {
+        if (m_bytes.size() > ProfHeader::Size)
+            out.insert(out.end(), m_bytes.begin() + ProfHeader::Size, m_bytes.end());
+    }
+
     void truncateTo(size_t newSize)
     {
         if (newSize < m_bytes.size())
@@ -139,6 +146,87 @@ inline uint32_t makeVersion(uint8_t major, uint8_t minor, uint16_t patch)
     return (static_cast<uint32_t>(major) << 24) |
            (static_cast<uint32_t>(minor) << 16) |
             static_cast<uint32_t>(patch);
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Legacy header layouts
+//
+// The file body (descriptors and threads) did not change between versions as
+// long as the version is >= 1.3.0 (where thread_id became 64-bit) and < 2.1.0
+// (where bookmarks appeared). A legacy file can therefore be assembled from the
+// body of a current dump with a substituted header.
+//
+//   v1.x  (readHeader_v1, reader.cpp): pid, cpu_frequency, begin, end,
+//         blocks_count, memory_size, descriptors_count, descriptors_memory_size
+//   v2.0  (readHeader_v2):             pid, cpu_frequency, begin, end,
+//         memory_size, descriptors_memory_size, blocks_count, descriptors_count
+//   v2.1  (readHeader_v2_1):           v2.0 + threads_count, bookmarks_count, padding
+//
+// Both legacy layouts occupy 64 bytes against the current 72.
+//////////////////////////////////////////////////////////////////////////
+
+namespace detail {
+
+template <class T>
+inline void append(std::vector<char>& out, T value)
+{
+    const char* bytes = reinterpret_cast<const char*>(&value);
+    out.insert(out.end(), bytes, bytes + sizeof(T));
+}
+
+} // namespace detail
+
+/** Rebuild an image against the v1.x header layout. */
+inline std::vector<char> toLegacyV1(const ProfImage& image, uint32_t version)
+{
+    std::vector<char> out;
+    out.reserve(image.size());
+
+    detail::append<uint32_t>(out, image.signature());
+    detail::append<uint32_t>(out, version);
+    detail::append<uint64_t>(out, image.read<uint64_t>(ProfHeader::OffsetPid));
+    detail::append<int64_t>(out, image.read<int64_t>(ProfHeader::OffsetCpuFrequency));
+    detail::append<uint64_t>(out, image.read<uint64_t>(ProfHeader::OffsetBeginTime));
+    detail::append<uint64_t>(out, image.read<uint64_t>(ProfHeader::OffsetEndTime));
+
+    // v1 order: the block count first, then the block memory.
+    detail::append<uint32_t>(out, image.totalBlocks());
+    detail::append<uint64_t>(out, image.usedMemorySize());
+    detail::append<uint32_t>(out, image.totalDescriptors());
+    detail::append<uint64_t>(out, image.descriptorsMemorySize());
+
+    image.appendBodyTo(out);
+    return out;
+}
+
+/** Rebuild an image against the v2.0 header layout. */
+inline std::vector<char> toLegacyV2(const ProfImage& image)
+{
+    std::vector<char> out;
+    out.reserve(image.size());
+
+    detail::append<uint32_t>(out, image.signature());
+    detail::append<uint32_t>(out, makeVersion(2, 0, 0));
+    detail::append<uint64_t>(out, image.read<uint64_t>(ProfHeader::OffsetPid));
+    detail::append<int64_t>(out, image.read<int64_t>(ProfHeader::OffsetCpuFrequency));
+    detail::append<uint64_t>(out, image.read<uint64_t>(ProfHeader::OffsetBeginTime));
+    detail::append<uint64_t>(out, image.read<uint64_t>(ProfHeader::OffsetEndTime));
+
+    // v2.0 order: both memory sizes first, then both counts.
+    detail::append<uint64_t>(out, image.usedMemorySize());
+    detail::append<uint64_t>(out, image.descriptorsMemorySize());
+    detail::append<uint32_t>(out, image.totalBlocks());
+    detail::append<uint32_t>(out, image.totalDescriptors());
+
+    image.appendBodyTo(out);
+    return out;
+}
+
+inline void writeBytes(const std::vector<char>& bytes, const std::string& path)
+{
+    std::ofstream file(path.c_str(), std::ios::binary | std::ios::trunc);
+    if (!bytes.empty())
+        file.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
 }
 
 /** A small workload producing a valid .prof with predictable structure. */

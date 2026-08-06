@@ -138,19 +138,34 @@ llvm-cov show "$MAIN" $OBJS -instr-profile=/tmp/easyprof-cov/all.profdata \
     easy_profiler_core/chunk_allocator.h
 ```
 
-### Known gaps
+### Current numbers
 
-Part of the core is unreachable from the current suite by construction, not by
-oversight:
+Measured on macOS arm64, AppleClang, `Debug -O0`:
+
+| | Coverage |
+|---|---:|
+| Lines | **78.9 %** |
+| Regions | **79.2 %** |
+| Functions | **86.0 %** |
+| Branches | **63.6 %** |
+
+By key file: `spin_lock.h`, `stack_buffer.h`, `thread_storage.h`,
+`serialized_block.cpp`, `profiler_colors.h`, `writer.h` — 100 %;
+`profiler.cpp` — 94.6 %; `thread_storage.cpp` — 90.6 %; `reader.h` — 90.7 %;
+`easy_socket.cpp` — 84.7 %; `profile_manager.cpp` — 83.8 %; `reader.cpp` — 70.5 %.
+
+### Remaining gaps
+
+What follows is unreachable from the suite by construction, not by oversight:
 
 | Area | Why it is not covered |
 |---|---|
-| `writer.cpp` | not linked into the tests at all: it is only used to re-save an already loaded tree (a snapshot from the GUI) |
-| the statistics in `reader.cpp` (`update_statistics`, `calculate_medians`) | only computed with `gather_statistics = true`; the tests read with `false` |
-| `readHeader_v1` | reading the v1.x format needs a corpus of old `.prof` files |
-| `ProfileManager::listen` | the network command loop; the tests start and stop the thread but send it no commands |
-| `endContextSwitch` and the context switch path | needs an external event source (SystemTap on Linux, ETW on Windows) |
-| `marked_allocate` when moving to a new chunk | only reachable through `storeBlockForce` |
+| `event_trace_win.cpp` | Windows-only, needs administrator rights |
+| `#ifdef _WIN32` branches in `profile_manager.cpp` and `easy_socket.cpp` | unreachable on Unix, and vice versa |
+| the asynchronous dump in `dumpBlocksToStream` | only used when streaming over the network with an interrupt |
+| part of `writer.cpp` (65 %) | serializing context switches and bookmarks on re-save |
+| `nonscoped_block.cpp` (56 %) | destruction paths of a block with a dynamic name |
+| the stubs in `include/easy/profiler.h` | measured by the separate `easy_profiler_disabled_tests` binary, only partly reflected in the combined report |
 
 ```
 tests/

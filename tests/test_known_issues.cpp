@@ -20,8 +20,15 @@ Defects are ordered by decreasing severity.
 
 #include <easy/profiler.h>
 
+#include "current_thread.h"
+
 #include <chrono>
+#include <fstream>
 #include <string>
+
+#ifndef _WIN32
+# include <unistd.h>
+#endif
 
 using easy_test::LoadedProfile;
 using easy_test::ProfImage;
@@ -176,6 +183,82 @@ TEST_CASE("A dump does not recalibrate", "[known-issue][performance]")
     // milliseconds is explained by calibration alone.
     REQUIRE(elapsed < 10.0);
 }
+
+//////////////////////////////////////////////////////////////////////////
+// Defect: context switch events outside the capture window corrupt the file
+//////////////////////////////////////////////////////////////////////////
+
+#ifndef _WIN32
+
+TEST_CASE("Context switch events outside the capture window do not corrupt the file",
+          "[known-issue][cswitch]")
+{
+    // DEFECT: the header's block counter and the reader's counter count
+    // different things.
+    //
+    // On dump, blocks_number receives ALL context switch events:
+    //     uint32_t num = thread.blocks.closedList.markedSize() + thread.sync.closedList.size();
+    // (profile_manager.cpp, the tally before the header is written).
+    //
+    // The reader, however, counts an event only if it falls inside the trace
+    // window (reader.cpp:1058):
+    //     if (*t_end > begin_time) { ... blocks_counter++; }
+    //
+    // So events that happened BEFORE capture started land in the header counter
+    // but not in the reader's, and the file is rejected with
+    // "Read blocks count: N does not match blocks count stored in header: M. File corrupted".
+    //
+    // This is not a contrived case: the SystemTap script writes its log
+    // continuously from the moment it starts, so by the time capture begins the
+    // log ALREADY contains events. That is exactly the normal usage described in
+    // the README.
+    //
+    // AFTER THE FIX: either the header counts only the events that will end up in
+    // the file, or the reader stops treating the mismatch as an error. A related
+    // task is to clip the log to the capture window on read.
+    easy_test::drainPending();
+
+    const profiler::thread_id_t currentThread = getCurrentThreadId();
+    const long processId = static_cast<long>(::getpid());
+
+    // Timestamps deliberately BEFORE capture is enabled.
+    const profiler::timestamp_t beforeCapture = profiler::timeNow();
+
+    easy_test::TempFile logFile("known_issue_cs", ".log");
+    {
+        std::ofstream out(logFile.path().c_str(), std::ios::trunc);
+        for (int i = 0; i < 5; ++i)
+        {
+            out << (beforeCapture - static_cast<profiler::timestamp_t>(5 - i) * 1000) << ' '
+                << currentThread << ' ' << currentThread << ' '
+                << "easy_profiler_tests" << ' ' << processId << '\n';
+        }
+    }
+
+    const std::string originalLog = profiler::getContextSwitchLogFilename();
+    profiler::setContextSwitchLogFilename(logFile.path().c_str());
+
+    profiler::setEventTracingEnabled(true);
+    profiler::setEnabled(true);
+    EASY_THREAD("known_issue_cs_thread");
+    { EASY_BLOCK("known_issue_cs_block"); }
+    profiler::setEnabled(false);
+
+    easy_test::TempFile file("known_issue_cs_dump");
+    const uint32_t dumped = profiler::dumpBlocksToFile(file.c_str());
+
+    profiler::setContextSwitchLogFilename(originalLog.c_str());
+
+    REQUIRE(dumped > 0);
+
+    LoadedProfile profile;
+    easy_test::loadProfile(file.path(), profile);
+
+    INFO("reader log: " << profile.readerLog);
+    REQUIRE(profile.readerLog.empty());
+}
+
+#endif // !_WIN32
 
 TEST_CASE("The first block costs nothing while the profiler is disabled", "[known-issue][performance]")
 {

@@ -101,6 +101,11 @@ easy_add_test_target(easy_profiler_unit_tests
         test_roundtrip.cpp
         test_tree_reconstruction.cpp
         test_bytes_per_block.cpp
+        test_reader_statistics.cpp
+        test_writer.cpp
+        test_legacy_formats.cpp
+        test_context_switch.cpp
+        test_reader_types.cpp
 )
 
 # Threading is split out: these tests are slower and noisier than the rest.
@@ -123,6 +128,7 @@ easy_add_test_target(easy_profiler_net_tests
     LABELS "net"
     SOURCES
         test_net.cpp
+        test_net_commands.cpp
 )
 
 # The fully disabled profiler path.

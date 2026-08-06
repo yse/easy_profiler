@@ -94,14 +94,19 @@ struct LoadedProfile
     LoadedProfile& operator = (const LoadedProfile&) = delete;
 };
 
-/** Read a .prof into out. Never throws: parse errors land in out.readerLog. */
-inline void loadProfile(const std::string& path, LoadedProfile& out)
+/** Read a .prof into out. Never throws: parse errors land in out.readerLog.
+
+gatherStatistics turns on per-block statistics (per_parent_stats, per_frame_stats,
+per_thread_stats). That is a separate half of the reader, thread pool and median
+computation included, so it has tests of its own.
+*/
+inline void loadProfile(const std::string& path, LoadedProfile& out, bool gatherStatistics = false)
 {
     std::stringstream log;
     out.blocksRead = fillTreesFromFile(path.c_str(), out.beginEndTime, out.serializedBlocks,
                                        out.serializedDescriptors, out.descriptors, out.blocks,
                                        out.threadedTrees, out.bookmarks, out.descriptorsCount,
-                                       out.version, out.pid, false, log);
+                                       out.version, out.pid, gatherStatistics, log);
     out.readerLog = log.str();
 }
 
@@ -118,7 +123,7 @@ inline void drainPending()
 
 /** Enable capture, run fn, dump and read the result back. */
 template <class F>
-void capture(LoadedProfile& out, F&& fn)
+void capture(LoadedProfile& out, F&& fn, bool gatherStatistics = false)
 {
     drainPending();
 
@@ -132,7 +137,7 @@ void capture(LoadedProfile& out, F&& fn)
 
     out.blocksDumped = profiler::dumpBlocksToFile(file.c_str());
     if (out.blocksDumped != 0)
-        loadProfile(file.path(), out);
+        loadProfile(file.path(), out, gatherStatistics);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -168,7 +173,16 @@ inline const char* blockName(const LoadedProfile& profile, profiler::block_index
     if (runtimeName != nullptr && *runtimeName != 0)
         return runtimeName;
 
-    const profiler::SerializedBlockDescriptor* descriptor = profile.descriptors[entry.node->id()];
+    // The bounds check is mandatory. The flat blocks array also holds context
+    // switch records, and their m_id field does NOT hold a descriptor id:
+    // beginContextSwitch writes the target thread id there (the "Dirty hack" in
+    // profile_manager.cpp). Indexing the descriptor table with that value runs
+    // off the end of the array.
+    const profiler::block_id_t id = entry.node->id();
+    if (id >= profile.descriptors.size())
+        return "";
+
+    const profiler::SerializedBlockDescriptor* descriptor = profile.descriptors[id];
     return descriptor != nullptr ? descriptor->name() : "";
 }
 
@@ -180,7 +194,13 @@ inline const profiler::ArbitraryValue* findValue(const LoadedProfile& profile, c
         if (entry.node == nullptr)
             continue;
 
-        const profiler::SerializedBlockDescriptor* descriptor = profile.descriptors[entry.node->id()];
+        // See the note in blockName(): for context switch records m_id holds a
+        // thread id rather than a descriptor id.
+        const profiler::block_id_t id = entry.node->id();
+        if (id >= profile.descriptors.size())
+            continue;
+
+        const profiler::SerializedBlockDescriptor* descriptor = profile.descriptors[id];
         if (descriptor == nullptr || descriptor->type() != profiler::BlockType::Value)
             continue;
 
