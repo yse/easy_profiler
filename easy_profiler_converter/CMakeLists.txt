@@ -15,7 +15,6 @@ target_link_libraries(profiler_converter easy_profiler)
 install(
     TARGETS
     profiler_converter
-    RUNTIME
     DESTINATION
     bin
 )
