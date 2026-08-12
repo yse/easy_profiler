@@ -233,7 +233,7 @@ will end previously opened EASY_BLOCK or EASY_FUNCTION.
 \ingroup profiler
 */
 # define EASY_THREAD(name)\
-    EASY_THREAD_LOCAL static const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = nullptr;\
+    static EASY_THREAD_LOCAL const char* EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = nullptr;\
     if (!EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__))\
         EASY_TOKEN_CONCATENATE(unique_profiler_thread_name, __LINE__) = ::profiler::registerThread(name);
 
