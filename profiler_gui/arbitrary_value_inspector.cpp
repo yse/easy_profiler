@@ -1658,7 +1658,7 @@ GraphicsChart::GraphicsChart(QWidget* _parent)
 
 GraphicsChart::~GraphicsChart()
 {
-
+    delete m_chartItem;
 }
 
 void GraphicsChart::onAutoAdjustChartChanged()
@@ -1857,7 +1857,8 @@ void ArbitraryTreeWidgetItem::interrupt()
         return;
 
     m_collection->interrupt();
-    m_collection.release();
+    auto* raw = m_collection.release();
+    delete raw;
 }
 
 profiler::color_t ArbitraryTreeWidgetItem::color() const
@@ -2077,10 +2078,10 @@ ArbitraryTreeWidgetItem* findSimilarItem(QTreeWidgetItem* _parentItem, Arbitrary
     for (int c = 0, childrenCount = _parentItem->childCount(); c < childrenCount; ++c)
     {
         auto child = _parentItem->child(c);
-        if (child->type() == ValueItemType)
+        if (child != nullptr && child->type() == ValueItemType)
         {
             auto item = reinterpret_cast<ArbitraryTreeWidgetItem*>(child);
-            if (item->getSelfIndexInArray() == index)
+            if (item != nullptr && item->getSelfIndexInArray() == index)
             {
                 if (&_item->value() == &item->value())
                 {
@@ -2148,7 +2149,7 @@ ArbitraryValuesWidget::ArbitraryValuesWidget(const QList<ArbitraryTreeWidgetItem
                 for (int i = 0, childCount = parentItem->childCount(); i < childCount; ++i)
                 {
                     auto child = parentItem->child(i);
-                    if (child->checkState(CheckColumn) != Qt::Checked)
+                    if (child != nullptr && child->checkState(CheckColumn) != Qt::Checked)
                     {
                         newState = Qt::PartiallyChecked;
                         break;
@@ -2285,7 +2286,7 @@ void ArbitraryValuesWidget::onItemChanged(QTreeWidgetItem* _item, int _column)
                 for (int i = 0; i < parentItem->childCount(); ++i)
                 {
                     auto child = parentItem->child(i);
-                    if (child->checkState(CheckColumn) != Qt::Checked)
+                    if (child != nullptr && child->checkState(CheckColumn) != Qt::Checked)
                     {
                         newState = Qt::PartiallyChecked;
                         break;
@@ -2303,7 +2304,7 @@ void ArbitraryValuesWidget::onItemChanged(QTreeWidgetItem* _item, int _column)
             for (int i = 0; i < item->childCount(); ++i)
             {
                 auto child = static_cast<ArbitraryTreeWidgetItem*>(item->child(i));
-                if (child->checkState(CheckColumn) != Qt::Checked)
+                if (child != nullptr && child->checkState(CheckColumn) != Qt::Checked)
                 {
                     child->setCheckState(CheckColumn, Qt::Checked);
                     m_checkedItems.push_back(child);
@@ -2343,7 +2344,7 @@ void ArbitraryValuesWidget::onItemChanged(QTreeWidgetItem* _item, int _column)
                 for (int i = 0; i < parentItem->childCount(); ++i)
                 {
                     auto child = parentItem->child(i);
-                    if (child->checkState(CheckColumn) != Qt::Unchecked)
+                    if (child != nullptr && child->checkState(CheckColumn) != Qt::Unchecked)
                     {
                         newState = Qt::PartiallyChecked;
                         break;
@@ -2361,7 +2362,7 @@ void ArbitraryValuesWidget::onItemChanged(QTreeWidgetItem* _item, int _column)
             for (int i = 0; i < item->childCount(); ++i)
             {
                 auto child = static_cast<ArbitraryTreeWidgetItem*>(item->child(i));
-                if (child->checkState(CheckColumn) == Qt::Checked)
+                if (child != nullptr && child->checkState(CheckColumn) == Qt::Checked)
                 {
                     child->setCheckState(CheckColumn, Qt::Unchecked);
                     uncheckedItems.push_back(child);

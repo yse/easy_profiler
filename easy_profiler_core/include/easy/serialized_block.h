@@ -258,8 +258,8 @@ namespace profiler {
         using value_type = typename StdType<dataType>::value_type;
         const value_type* value() const { return reinterpret_cast<const value_type*>(data()); }
         uint16_t size() const { return m_size / sizeof(value_type); }
-        value_type operator [] (int i) const { return value()[i]; }
-        value_type at(int i) const { return value()[i]; }
+        value_type operator [] (size_t i) const { return value()[i]; }
+        value_type at(size_t i) const { return value()[i]; }
         ~Value() = delete;
     };
 
@@ -269,8 +269,8 @@ namespace profiler {
         using value_type = char;
         const char* value() const { return data(); }
         uint16_t size() const { return m_size; }
-        char operator [] (int i) const { return data()[i]; }
-        char at(int i) const { return data()[i]; }
+        char operator [] (size_t i) const { return data()[i]; }
+        char at(size_t i) const { return data()[i]; }
         const char* c_str() const { return data(); }
         ~Value() = delete;
     };

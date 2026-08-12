@@ -643,7 +643,7 @@ RoundProgressWidget::RoundProgressWidget(const QString& title, QWidget* parent)
 
 RoundProgressWidget::~RoundProgressWidget()
 {
-
+    delete m_indicator;
 }
 
 void RoundProgressWidget::setTitle(const QString& title)

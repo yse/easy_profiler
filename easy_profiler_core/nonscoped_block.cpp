@@ -71,6 +71,9 @@ void NonscopedBlock::copyname()
         auto len = strlen(m_name);
         m_runtimeName = static_cast<char*>(malloc(len + 1));
 
+        if (!m_runtimeName)
+            destroy();
+
         // memcpy should be faster than strncpy because we know
         // actual bytes number and both strings have the same size
         memcpy(m_runtimeName, m_name, len);

@@ -69,7 +69,7 @@ void JsonExporter::convertChildren(const profiler::reader::BlocksTreeNode& node,
         convert(child, children.back());
     }
 
-    json["children"] = children;
+    json["children"] = std::move(children);
 }
 
 void JsonExporter::convert(const ::std::string& inputFile, const ::std::string& outputFile) const
@@ -104,7 +104,7 @@ void JsonExporter::convert(const ::std::string& inputFile, const ::std::string& 
             desc["sourceLine"] = descriptor.lineNumber;
         }
 
-        json["blockDescriptors"] = descriptors;
+        json["blockDescriptors"] = std::move(descriptors);
     }
 
     // convert threads and blocks
@@ -122,7 +122,7 @@ void JsonExporter::convert(const ::std::string& inputFile, const ::std::string& 
             convertChildren(kv.second, thread);
         }
 
-        json["threads"] = threads;
+        json["threads"] = std::move(threads);
     }
 
     // convert bookmarks
@@ -142,7 +142,7 @@ void JsonExporter::convert(const ::std::string& inputFile, const ::std::string& 
             bookmark["text"] = mark.text;
         }
 
-        json["bookmarks"] = bookmarks;
+        json["bookmarks"] = std::move(bookmarks);
     }
 
     try

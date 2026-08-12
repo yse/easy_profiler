@@ -1267,7 +1267,7 @@ const ::profiler_gui::EasyBlock* GraphicsBlockItem::intersect(const QPointF& _po
     const auto dw = 5. / currentScale;
     unsigned int i = 0;
     size_t itemIndex = ::std::numeric_limits<size_t>::max();
-    size_t firstItem = 0, lastItem = static_cast<unsigned int>(level0.size());
+    size_t firstItem = 0, lastItem = level0.size();
     while (i <= levelIndex)
     {
         const auto& level = m_levels[i];
