@@ -355,7 +355,6 @@ You don't need to rebuild or restart your application for that.
 #  define EASY_OPTION_LOW_PRIORITY_EVENT_TRACING true
 # endif
 
-
 /** If != 0 then EasyProfiler will print error messages into stderr.
 Otherwise, no log messages will be printed.
 
