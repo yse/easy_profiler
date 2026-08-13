@@ -312,7 +312,7 @@ void RoundProgressIndicator::setBackground(QColor color)
 
 void RoundProgressIndicator::setBackground(QString color)
 {
-    m_background.setNamedColor(color);
+    m_background.fromString(color);
     update();
 }
 
@@ -329,7 +329,7 @@ void RoundProgressIndicator::setColor(QColor color)
 
 void RoundProgressIndicator::setColor(QString color)
 {
-    m_color.setNamedColor(color);
+    m_color.fromString(color);
     update();
 }
 
@@ -356,7 +356,7 @@ void RoundProgressIndicator::setButtonColor(QColor color)
 
 void RoundProgressIndicator::setButtonColor(QString color)
 {
-    m_buttonColor.setNamedColor(color);
+    m_buttonColor.fromString(color);
 
     if (m_buttonStyle == NoButton)
     {
@@ -831,7 +831,7 @@ void RoundProgressDialog::setBorderRadius(int radius)
 
 void RoundProgressDialog::setBackground(QString color)
 {
-    m_background.setNamedColor(color);
+    m_background.fromString(color);
     update();
 }
 
