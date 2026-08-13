@@ -54,6 +54,8 @@
 
 #include "globals.h"
 
+#include <QApplication>
+
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
@@ -100,7 +102,7 @@ Globals::Globals()
     , time_units(TimeUnits_ms)
     , connected(false)
     , has_local_changes(false)
-    , use_custom_window_header(true)
+    , use_custom_window_header(QApplication::platformName() != "wayland")
     , is_right_window_header_controls(true)
     , fps_enabled(true)
     , use_decorated_thread_name(false)

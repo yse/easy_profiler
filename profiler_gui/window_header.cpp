@@ -226,7 +226,7 @@ void WindowHeader::mouseDoubleClickEvent(QMouseEvent* /*event*/)
 
 void WindowHeader::mousePressEvent(QMouseEvent* event)
 {
-    m_mousePressPos = mapFromGlobal(event->globalPos());
+    m_mousePressPos = mapFromGlobal(event->globalPosition().toPoint());
 }
 
 void WindowHeader::mouseReleaseEvent(QMouseEvent* /*event*/)
@@ -242,7 +242,7 @@ void WindowHeader::mouseMoveEvent(QMouseEvent* event)
 
     if (m_isDragging)
     {
-        parentWidget()->move(event->globalPos() - m_mousePressPos);
+        parentWidget()->move(event->globalPosition().toPoint() - m_mousePressPos);
         return;
     }
 
@@ -255,7 +255,7 @@ void WindowHeader::mouseMoveEvent(QMouseEvent* event)
     if (m_closeButton != nullptr && m_closeButton->underMouse())
         return;
 
-    const auto pos = mapFromGlobal(event->globalPos());
+    const auto pos = mapFromGlobal(event->globalPosition().toPoint());
     const auto line = m_mousePressPos - pos;
     if (line.manhattanLength() > 5)
     {
@@ -270,7 +270,7 @@ void WindowHeader::mouseMoveEvent(QMouseEvent* event)
 
             const auto k = static_cast<qreal>(pos.x()) / static_cast<qreal>(w);
             const int xlocal = static_cast<int>(static_cast<qreal>(parent->width()) * k);
-            const int xglobal = event->globalPos().x() - xlocal;
+            const int xglobal = event->globalPosition().toPoint().x() - xlocal;
             parent->move(xglobal, parent->y());
 
             m_mousePressPos = QPoint(xlocal, static_cast<int>(pos.y() * k));

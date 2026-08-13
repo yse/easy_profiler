@@ -92,7 +92,7 @@ static QString arrayToString(const profiler::ArbitraryValue& _serializedValue, i
         }
 
         case profiler::DataType::Char:   return QChar(_serializedValue.toArray<char>  ()->at(_index));
-        case profiler::DataType::Int8:   return QChar(_serializedValue.toArray<int8_t>()->at(_index));
+        case profiler::DataType::Int8:   return toString<int8_t>  (_serializedValue, _index);
         case profiler::DataType::Uint8:  return toString<uint8_t> (_serializedValue, _index);
         case profiler::DataType::Int16:  return toString<int16_t> (_serializedValue, _index);
         case profiler::DataType::Uint16: return toString<uint16_t>(_serializedValue, _index);
@@ -113,7 +113,7 @@ static QString singleValueToString(const profiler::ArbitraryValue& _serializedVa
     {
         case profiler::DataType::Bool:   return _serializedValue.toValue<bool>()->value() ? QStringLiteral("true") : QStringLiteral("false");
         case profiler::DataType::Char:   return QChar(_serializedValue.toValue<char>  ()->value());
-        case profiler::DataType::Int8:   return QChar(_serializedValue.toValue<int8_t>()->value());
+        case profiler::DataType::Int8:   return toString<int8_t>  (_serializedValue);
         case profiler::DataType::Uint8:  return toString<uint8_t> (_serializedValue);
         case profiler::DataType::Int16:  return toString<int16_t> (_serializedValue);
         case profiler::DataType::Uint16: return toString<uint16_t>(_serializedValue);

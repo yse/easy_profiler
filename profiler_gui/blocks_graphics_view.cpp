@@ -21,7 +21,7 @@
 *                   :
 *                   : * 2016/09/15 Victor Zarubkin: Moved sources of GraphicsBlockItem and GraphicsRulerItem to separate files.
 *                   :
-*                   : * 
+*                   : *
 * ----------------- :
 * license           : Lightweight profiler library for c++
 *                   : Copyright(C) 2016-2019  Sergey Yagovtsev, Victor Zarubkin
@@ -899,7 +899,7 @@ void BlocksGraphicsView::setTree(const profiler::thread_blocks_tree_t& _blocksTr
 
         auto timestart = m_beginTime;
         auto timefinish = finish;
-        
+
         if (!t.children.empty())
             timestart = easyBlocksTree(t.children.front()).node->begin();
         if (!t.sync.empty())
@@ -956,7 +956,7 @@ void BlocksGraphicsView::setTree(const profiler::thread_blocks_tree_t& _blocksTr
 
         // fill scene with new items
         qreal h = 0, x = 0;
-        
+
         if (!t.children.empty())
             x = time2position(easyBlocksTree(t.children.front()).node->begin());
         else if (!t.sync.empty())
@@ -2070,7 +2070,7 @@ void BlocksGraphicsView::resizeEvent(QResizeEvent* event)
     Parent::resizeEvent(event);
 
     const QRectF previousRect = m_visibleSceneRect;
-    const int vbar_width = updateVisibleSceneRect(); // Update scene visible rect only once    
+    const int vbar_width = updateVisibleSceneRect(); // Update scene visible rect only once
 
     // Update slider width for scrollbar
     const auto windowWidth = (m_visibleSceneRect.width() + vbar_width) / m_scale;
@@ -3286,7 +3286,7 @@ void ThreadNamesWidget::mousePressEvent(QMouseEvent* _event)
 {
     m_idleTime = 0;
 
-    QMouseEvent e(_event->type(), _event->pos() - QPointF(sceneRect().width(), 0), _event->button(), _event->buttons() & ~Qt::RightButton, _event->modifiers());
+    QMouseEvent e(_event->type(), _event->position() - QPointF(sceneRect().width(), 0), _event->globalPosition(), _event->button(), _event->buttons() & ~Qt::RightButton, _event->modifiers());
     m_view->mousePressEvent(&e);
     _event->accept();
 }
@@ -3325,7 +3325,7 @@ void ThreadNamesWidget::mouseReleaseEvent(QMouseEvent* _event)
 {
     m_idleTime = 0;
 
-    QMouseEvent e(_event->type(), _event->pos() - QPointF(sceneRect().width(), 0), _event->button(), _event->buttons() & ~Qt::RightButton, _event->modifiers());
+    QMouseEvent e(_event->type(), _event->position() - QPointF(sceneRect().width(), 0), _event->globalPosition(), _event->button(), _event->buttons() & ~Qt::RightButton, _event->modifiers());
     m_view->mouseReleaseEvent(&e);
     _event->accept();
 }
@@ -3334,7 +3334,7 @@ void ThreadNamesWidget::mouseMoveEvent(QMouseEvent* _event)
 {
     m_idleTime = 0;
 
-    QMouseEvent e(_event->type(), _event->pos() - QPointF(sceneRect().width(), 0), _event->button(), _event->buttons() & ~Qt::RightButton, _event->modifiers());
+    QMouseEvent e(_event->type(), _event->position() - QPointF(sceneRect().width(), 0), _event->globalPosition(), _event->button(), _event->buttons() & ~Qt::RightButton, _event->modifiers());
     m_view->mouseMoveEvent(&e);
     _event->accept();
 }
