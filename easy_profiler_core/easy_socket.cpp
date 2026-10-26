@@ -64,11 +64,16 @@ limitations under the License.
 #if defined(_WIN32)
 const int SOCK_ABORTED = WSAECONNABORTED;
 const int SOCK_RESET = WSAECONNRESET;
+const int SOCK_REFUSED = WSAECONNREFUSED;
 const int SOCK_IN_PROGRESS = WSAEINPROGRESS;
+const int SOCK_ALREADY_IN_PROGRESS = WSAEALREADY;
 #else
 const int SOCK_ABORTED = ECONNABORTED;
 const int SOCK_RESET = ECONNRESET;
+const int SOCK_REFUSED = ECONNREFUSED;
 const int SOCK_IN_PROGRESS = EINPROGRESS;
+const int SOCK_ALREADY_IN_PROGRESS = EALREADY;
+const int SOCK_IS_CONNECTED = EISCONN;
 const int SOCK_BROKEN_PIPE = EPIPE;
 const int SOCK_ENOENT = ENOENT;
 #endif
@@ -181,17 +186,16 @@ void EasySocket::checkResult(int result)
         {
             case SOCK_ABORTED:
             case SOCK_RESET:
+            case SOCK_REFUSED:
 #if !defined(_WIN32)
             case SOCK_BROKEN_PIPE:
             case SOCK_ENOENT:
-#endif
-#if defined (__APPLE__)
-            case ECONNREFUSED:
 #endif
                 m_state = ConnectionState::Disconnected;
                 break;
 
             case SOCK_IN_PROGRESS:
+            case SOCK_ALREADY_IN_PROGRESS:
                 m_state = ConnectionState::Connecting;
                 break;
 
@@ -444,14 +448,10 @@ int EasySocket::connect()
     {
         res = ::connect(m_socket, (struct sockaddr*)&m_serverAddress, sizeof(m_serverAddress));
 
-#if defined(__APPLE__)
-        // on Apple, treat EISCONN error as success
-        if (res == -1 && errno == EISCONN)
-        {
+        // BSD sockets answer the retry of a non-blocking connect that has
+        // completed in the meantime with EISCONN; Linux returns 0 instead.
+        if (res == -1 && errno == SOCK_IS_CONNECTED)
             res = 0;
-            break;
-        }
-#endif
 
         checkResult(res);
         if (res == 0)
@@ -470,6 +470,9 @@ int EasySocket::connect()
             break;
         }
     }
+
+    if (res != 0 && m_state == ConnectionState::Connecting)
+        m_state = ConnectionState::Disconnected;
 
     setBlocking(m_socket, true);
 #else

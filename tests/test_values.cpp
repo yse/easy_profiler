@@ -803,7 +803,7 @@ TEST_CASE("A large array within the allowed size", "[values][array]")
 
     // MAX_BLOCK_DATA_SIZE is 2816 bytes; 512 * 4 == 2048 stays well below it.
     const uint16_t count = 512;
-    easy_test::capture(profile, [] {
+    easy_test::capture(profile, [=] {
         EASY_BLOCK("big_array_host");
         std::vector<int32_t> data(count);
         for (uint16_t i = 0; i < count; ++i)

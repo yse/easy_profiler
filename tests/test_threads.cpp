@@ -60,13 +60,13 @@ TEST_CASE("Blocks from several threads are not lost", "[threads]")
     const int threadCount = 4;
     const int blocksPerThread = 250;
 
-    easy_test::capture(profile, [] {
+    easy_test::capture(profile, [=] {
         std::vector<std::thread> workers;
         workers.reserve(threadCount);
 
         for (int t = 0; t < threadCount; ++t)
         {
-            workers.emplace_back([] {
+            workers.emplace_back([=] {
                 EASY_THREAD_SCOPE("capture_worker");
                 for (int i = 0; i < blocksPerThread; ++i)
                 {
@@ -98,7 +98,7 @@ TEST_CASE("Each thread gets its own subtree", "[threads]")
 
     const int threadCount = 3;
 
-    easy_test::capture(profile, [] {
+    easy_test::capture(profile, [=] {
         std::vector<std::thread> workers;
         workers.reserve(threadCount);
 
@@ -232,7 +232,7 @@ TEST_CASE("Many short-lived threads", "[threads]")
 
     const int rounds = 30;
 
-    easy_test::capture(profile, [] {
+    easy_test::capture(profile, [=] {
         for (int i = 0; i < rounds; ++i)
         {
             std::thread worker([] {
@@ -254,13 +254,13 @@ TEST_CASE("Concurrent capture and thread registration", "[threads]")
     const int threadCount = 8;
     std::atomic<int> ready(0);
 
-    easy_test::capture(profile, [&ready] {
+    easy_test::capture(profile, [&] {
         std::vector<std::thread> workers;
         workers.reserve(threadCount);
 
         for (int t = 0; t < threadCount; ++t)
         {
-            workers.emplace_back([&ready] {
+            workers.emplace_back([&] {
                 // Start all threads at roughly the same moment so registration
                 // and capture overlap.
                 ready.fetch_add(1);

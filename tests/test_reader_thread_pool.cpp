@@ -103,6 +103,15 @@ TEST_CASE("Loading a profile repeatedly never hangs in the reader thread pool",
         easy_test::loadProfile(file.path(), profile, true);
         INFO("load " << loads.load() << ", reader log: " << profile.readerLog);
         REQUIRE(profile.readerLog.empty());
-        REQUIRE(profile.threadedTrees.size() == 8);
+
+        // Counted by name: in the single-process coverage runner the main
+        // thread's storage from earlier cases is dumped too, as a ninth tree.
+        size_t workerTrees = 0;
+        for (const auto& tree : profile.threadedTrees)
+        {
+            if (tree.second.thread_name == "pool_loop_worker")
+                ++workerTrees;
+        }
+        REQUIRE(workerTrees == 8);
     }
 }

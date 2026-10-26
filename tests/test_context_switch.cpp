@@ -20,8 +20,10 @@ The line format follows the printf in the stp script:
 
 #include <easy/profiler.h>
 
-#include "current_thread.h"
+// profile_manager.h pulls in winsock2.h and has to precede current_thread.h,
+// which includes Windows.h, the same order profile_manager.cpp uses.
 #include "profile_manager.h"
+#include "current_thread.h"
 
 #include <fstream>
 #include <string>
@@ -206,13 +208,15 @@ TEST_CASE("The context switch log is parsed during a dump", "[cswitch][unix]")
     // window makes the two counters disagree — see the dedicated red test in
     // test_known_issues.cpp.
     const profiler::timestamp_t base = profiler::timeNow();
+    profiler::timestamp_t last = base;
     for (int i = 0; i < 5; ++i)
     {
-        log.addSwitch(base + static_cast<profiler::timestamp_t>(i + 1) * 1000,
-                      currentThread, currentThread, "easy_profiler_tests", processId);
+        last = base + static_cast<profiler::timestamp_t>(i + 1) * 1000;
+        log.addSwitch(last, currentThread, currentThread, "easy_profiler_tests", processId);
     }
     log.write();
 
+    easy_test::waitForClockToPass(last);
     profiler::setEnabled(false);
 
     easy_test::TempFile file("cswitch_dump");
@@ -437,6 +441,7 @@ TEST_CASE("The recorded wait target is the name from the departing line", "[cswi
     log.addSwitch(base + 9000, otherThread, currentThread, "easy_profiler_tests", processId);
     log.write();
 
+    easy_test::waitForClockToPass(base + 9000);
     profiler::setEnabled(false);
 
     easy_test::TempFile file("cswitch_name");
@@ -489,6 +494,7 @@ TEST_CASE("A longer name later in the log does not invalidate an open wait", "[c
     log.addSwitch(base + 9000, otherThread, currentThread, "easy_profiler_tests", processId);
     log.write();
 
+    easy_test::waitForClockToPass(base + 9000);
     profiler::setEnabled(false);
 
     easy_test::TempFile file("cswitch_grow");
@@ -571,6 +577,7 @@ TEST_CASE("A return logged before the departure does not reverse the interval", 
     log.addSwitch(base + 1000, otherThread, currentThread, "easy_profiler_tests", processId);
     log.write();
 
+    easy_test::waitForClockToPass(base + 5000);
     profiler::setEnabled(false);
 
     easy_test::TempFile file("cswitch_unordered");
@@ -685,6 +692,7 @@ TEST_CASE("Switches from a foreign process create no storages", "[cswitch][unix]
     log.addSwitch(base + 1000, 999002, 999003, "another_process", 424243);
     log.write();
 
+    easy_test::waitForClockToPass(base + 1000);
     profiler::setEnabled(false);
 
     easy_test::TempFile file("cswitch_foreign");

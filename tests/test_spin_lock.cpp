@@ -79,7 +79,7 @@ TEST_CASE("Mutual exclusion under thread contention", "[spinlock][threads]")
 
     for (int t = 0; t < threadCount; ++t)
     {
-        workers.emplace_back([&lock, &counter] {
+        workers.emplace_back([&] {
             for (int i = 0; i < perThread; ++i)
             {
                 profiler::guard_lock<profiler::spin_lock> guard(lock);

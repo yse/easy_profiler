@@ -258,7 +258,7 @@ TEST_CASE("A wide tree of many siblings", "[tree]")
     LoadedProfile profile;
 
     const int width = 50;
-    easy_test::capture(profile, [] {
+    easy_test::capture(profile, [=] {
         EASY_BLOCK("wide_parent");
         for (int i = 0; i < width; ++i)
         {
@@ -289,7 +289,7 @@ TEST_CASE("A deep tree loses no levels", "[tree]")
     };
 
     const int depth = 40;
-    easy_test::capture(profile, [] { Recursive::descend(depth); });
+    easy_test::capture(profile, [=] { Recursive::descend(depth); });
 
     REQUIRE(profile.readerLog.empty());
 

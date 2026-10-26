@@ -85,7 +85,7 @@ TEST_CASE("The call count covers every repetition", "[statistics][reader]")
     constexpr int repeats = 10;
 
     LoadedProfile profile;
-    easy_test::capture(profile, [] { repeatedWorkload(repeats); }, true);
+    easy_test::capture(profile, [=] { repeatedWorkload(repeats); }, true);
 
     REQUIRE(profile.readerLog.empty());
 
@@ -330,7 +330,7 @@ TEST_CASE("A wide statistics table is processed by the reader worker pool", "[st
     constexpr int eventsCount = 1100;
     LoadedProfile profile;
 
-    easy_test::capture(profile, [] {
+    easy_test::capture(profile, [=] {
         for (int i = 0; i < eventsCount; ++i)
         {
             const std::string name = "wide_stats_event_" + std::to_string(i);

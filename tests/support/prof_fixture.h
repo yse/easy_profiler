@@ -20,6 +20,7 @@ back. After capture() the profiler is always disabled and the storage is empty.
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #ifdef _WIN32
@@ -153,6 +154,17 @@ inline void drainPending()
     profiler::setEnabled(false);
     TempFile sink("drain");
     profiler::dumpBlocksToFile(sink.c_str());
+}
+
+/** Spin until the profiler clock is past `timestamp`, so that a synthetic event
+    stamped there lies inside a capture closed afterwards. A fixed tick offset
+    means different things per clock: 5000 ticks is under 2 us on a 3 GHz rdtsc
+    but 200 us on the 24 MHz arm64 counter, long enough to lose the race with
+    setEnabled(false). */
+inline void waitForClockToPass(profiler::timestamp_t timestamp)
+{
+    while (profiler::timeNow() <= timestamp)
+        std::this_thread::yield();
 }
 
 /** Enable capture, run fn, dump and read the result back. */

@@ -32,6 +32,13 @@ Version 3.0.0 modernizes the core test, packaging, and safety infrastructure. Th
 
 ### Fixed
 
+- `EasySocket::connect()` reports a refused connection as disconnected on every
+  platform. `ECONNREFUSED` was handled on Apple only, so on Linux a refused
+  connect kept retrying for the full second and left the socket in the
+  `Connecting` state, which the GUI's reconnect logic reads as still alive. A
+  connect that completes on a retry (`EISCONN`) now lands in `Connected` rather
+  than `Connecting`, and one that gives up after a second no longer stays
+  `Connecting`.
 - The reader again accepts profiles saved by the 2.1 GUI. `writeTreesToStream()`
   declared `descriptors_memory_size` including the two-byte record prefixes; the
   hardened reader required the payload sum exactly and rejected those files with

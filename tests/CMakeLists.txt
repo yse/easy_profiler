@@ -81,6 +81,13 @@ function(easy_add_test_target target)
         target_compile_definitions(${target} PRIVATE ${ARG_DEFINES})
     endif ()
 
+    if (WIN32)
+        # Windows.h otherwise defines min/max as macros, breaking
+        # std::numeric_limits<T>::max(), and drags in winsock.h, which
+        # redefines the sockaddr family when winsock2.h follows it.
+        target_compile_definitions(${target} PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+    endif ()
+
     if (MSVC)
         target_compile_options(${target} PRIVATE /W4)
     else ()

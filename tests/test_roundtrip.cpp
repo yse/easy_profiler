@@ -35,6 +35,11 @@ void mixedWorkload()
     }
 }
 
+void functionNamedBlock()
+{
+    EASY_FUNCTION();
+}
+
 } // namespace
 
 TEST_CASE("A mixed workload survives a round-trip", "[roundtrip][format]")
@@ -128,20 +133,38 @@ TEST_CASE("EASY_FUNCTION picks up the function name", "[roundtrip]")
         mixedWorkload();
     });
 
-    // The function name lands in the block as a RUNTIME name, not in the descriptor.
-    //
-    // NameSwitch picks the branch on std::is_reference<decltype(name)>
-    // (profiler_aux.h). For a string literal decltype yields const char(&)[N] — a
-    // reference — and the name goes into the descriptor. For __func__, which is
-    // what EASY_FUNC_NAME expands to (easy_compiler_support.h:210), decltype
-    // yields const char[N] — not a reference — so the name is written into every
-    // block record.
-    //
-    // Practical consequence: an EASY_FUNCTION block costs 21 + strlen(function
-    // name) bytes instead of 21, whereas EASY_BLOCK("literal") costs exactly 21.
-    REQUIRE(easy_test::findBlockIndex(profile, "mixedWorkload") >= 0);
+    const long index = easy_test::findBlockIndex(profile, "mixedWorkload");
+    REQUIRE(index >= 0);
+    const profiler::SerializedBlock* node = profile.blocks[static_cast<size_t>(index)].node;
+    REQUIRE(node != nullptr);
+    const profiler::SerializedBlockDescriptor* descriptor =
+        easy_test::findDescriptor(profile, profiler::BlockType::Block, "mixedWorkload");
 
-    REQUIRE(easy_test::findDescriptor(profile, profiler::BlockType::Block, "mixedWorkload") == nullptr);
+    // Where the name lands is decided by the compiler, not by the library.
+    // NameSwitch (profiler_aux.h:206) stores a name whose decltype is a
+    // reference in the descriptor, as for a string literal, and any other name
+    // in every block record. EASY_FUNC_NAME is __func__
+    // (easy_compiler_support.h:210), or __FUNCTION__ on MSVC (:85). Measured:
+    // clang 17 and 18 give const char[N] for __func__, GCC 13 gives
+    // const char(&)[N]; MSVC's __FUNCTION__ is a string literal. So an
+    // EASY_FUNCTION block costs 21 + strlen(function name) bytes under clang and
+    // the same 21 bytes as EASY_BLOCK("literal") under GCC and MSVC.
+    const uint64_t count = 100;
+    easy_test::ProfImage image;
+    REQUIRE(image.captureFrom([=] {
+        for (uint64_t i = 0; i < count; ++i)
+            functionNamedBlock();
+    }));
+
+#if defined(__clang__)
+    REQUIRE(descriptor == nullptr);
+    REQUIRE(std::strcmp(node->name(), "mixedWorkload") == 0);
+    REQUIRE(image.usedMemorySize() == count * (21 + std::strlen("functionNamedBlock")));
+#else
+    REQUIRE(descriptor != nullptr);
+    REQUIRE(*node->name() == '\0');
+    REQUIRE(image.usedMemorySize() == count * 21);
+#endif
 }
 
 TEST_CASE("A literal name is stored in the descriptor, not in the block", "[roundtrip][format]")
@@ -252,7 +275,7 @@ TEST_CASE("A large trace is read back in full", "[roundtrip]")
     LoadedProfile profile;
 
     const int count = 5000;
-    easy_test::capture(profile, [] {
+    easy_test::capture(profile, [=] {
         EASY_BLOCK("bulk_root");
         for (int i = 0; i < count; ++i)
         {

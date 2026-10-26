@@ -21,8 +21,10 @@ crash in one case does not take the others with it.
 #include <easy/profiler.h>
 #include <easy/serialized_block.h>
 
-#include "current_thread.h"
+// profile_manager.h pulls in winsock2.h and has to precede current_thread.h,
+// which includes Windows.h, the same order profile_manager.cpp uses.
 #include "profile_manager.h"
+#include "current_thread.h"
 
 #include <algorithm>
 #include <cstring>

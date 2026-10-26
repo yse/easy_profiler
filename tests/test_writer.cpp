@@ -95,15 +95,17 @@ void captureContextSwitchOnly(LoadedProfile& out)
     const profiler::timestamp_t base = profiler::timeNow();
     const profiler::thread_id_t thread = getCurrentThreadId();
     const long process = static_cast<long>(::getpid());
+    profiler::timestamp_t last = base;
     {
         std::ofstream output(switchLog.c_str(), std::ios::trunc);
         for (int i = 0; i < 3; ++i)
         {
-            output << base + static_cast<profiler::timestamp_t>(i + 1) * 1000 << ' '
-                   << thread << ' ' << thread << " writer_cswitch " << process << '\n';
+            last = base + static_cast<profiler::timestamp_t>(i + 1) * 1000;
+            output << last << ' ' << thread << ' ' << thread << " writer_cswitch " << process << '\n';
         }
     }
 
+    easy_test::waitForClockToPass(last);
     profiler::setEnabled(false);
     easy_test::TempFile profileFile("writer_cswitch_source");
     out.blocksDumped = profiler::dumpBlocksToFile(profileFile.c_str());
