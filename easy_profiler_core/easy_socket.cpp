@@ -376,6 +376,12 @@ int EasySocket::accept()
     if (rc <= 0)
         return -1; // there is no connection for accept
 
+    // The listener loops back here when a client disconnects, so without this
+    // the previous connection's descriptor is overwritten and never closed:
+    // one leaked descriptor per client session for the life of the process.
+    if (m_replySocket != m_socket && checkSocket(m_replySocket))
+        closeSocket(m_replySocket);
+
     m_replySocket = ::accept(m_socket, nullptr, nullptr);
     checkResult((int)m_replySocket);
 
