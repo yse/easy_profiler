@@ -19,7 +19,9 @@ silently. This is part of the normal green suite.
 #include <limits>
 #include <string>
 
-#ifndef _WIN32
+#ifdef _WIN32
+# include <windows.h>
+#else
 # include <unistd.h>
 #endif
 
@@ -34,6 +36,38 @@ double millisecondsOf(std::chrono::steady_clock::time_point from,
     return std::chrono::duration<double, std::milli>(to - from).count();
 }
 
+/** CPU time consumed by this process. On Windows std::clock() is wall time
+    ("doesn't strictly conform to ISO C", learn.microsoft.com, clock), so the
+    kernel and user times come from GetProcessTimes instead. */
+double processCpuMilliseconds()
+{
+#ifdef _WIN32
+    FILETIME creation, exit, kernel, user;
+    if (!GetProcessTimes(GetCurrentProcess(), &creation, &exit, &kernel, &user))
+        return 0.0;
+    ULARGE_INTEGER kernelTime, userTime;
+    kernelTime.LowPart = kernel.dwLowDateTime;
+    kernelTime.HighPart = kernel.dwHighDateTime;
+    userTime.LowPart = user.dwLowDateTime;
+    userTime.HighPart = user.dwHighDateTime;
+    return static_cast<double>(kernelTime.QuadPart + userTime.QuadPart) / 10000.0;
+#else
+    return 1000.0 * static_cast<double>(std::clock()) / static_cast<double>(CLOCKS_PER_SEC);
+#endif
+}
+
+/** The CPU cost of the calibration loop 2.1 ran on every dump, measured with
+    the same clock the test uses. */
+double calibrationLoopCpuMilliseconds()
+{
+    const double started = processCpuMilliseconds();
+    volatile uint64_t i;
+    for (i = 0; i < 100000000; i = i + 1)
+    {
+    }
+    return processCpuMilliseconds() - started;
+}
+
 } // namespace
 
 //////////////////////////////////////////////////////////////////////////
@@ -42,7 +76,7 @@ double millisecondsOf(std::chrono::steady_clock::time_point from,
 
 TEST_CASE("The reader rejects an understated descriptors_memory_size", "[regression][security]")
 {
-    // DEFECT: reader.cpp:955-958 — the bounds check is commented out.
+    // DEFECT: reader.cpp:955-958 - the bounds check is commented out.
     //
     //     941:  serialized_descriptors.set(descriptors_memory_size); // new char[N], N from file
     //     955:  //if (i + sz > descriptors_memory_size) {
@@ -58,8 +92,8 @@ TEST_CASE("The reader rejects an understated descriptors_memory_size", "[regress
     // ASan this reproduces as a heap-buffer-overflow WRITE.
     //
     // AFTER THE FIX: the reader returns 0 and writes the reason to the log. The
-    // identical check is alive in three parallel paths — reader.cpp:1524,
-    // reader.cpp:1037 and reader.cpp:1108 — so its being commented out here looks
+    // identical check is alive in three parallel paths - reader.cpp:1524,
+    // reader.cpp:1037 and reader.cpp:1108 - so its being commented out here looks
     // like an oversight. The fix is to uncomment four lines.
     //
     // NOTE: this test may take the process down. It lives in a separate binary,
@@ -94,7 +128,7 @@ TEST_CASE("The reader rejects an understated descriptors_memory_size", "[regress
 
 TEST_CASE("The reader rejects a newer format line", "[regression][format]")
 {
-    // DEFECT: reader.cpp:117-120 —
+    // DEFECT: reader.cpp:117-120:
     //
     //     static bool isCompatibleVersion(uint32_t _version)
     //     {
@@ -102,7 +136,7 @@ TEST_CASE("The reader rejects a newer format line", "[regression][format]")
     //     }
     //
     // Only the lower bound is checked. A file written by a future version passes
-    // and is then parsed against today's layout — silently mangled instead of
+    // and is then parsed against today's layout - silently mangled instead of
     // producing a clear error.
     //
     // AFTER THE FIX: a newer major.minor format line is rejected. Patch
@@ -135,7 +169,7 @@ TEST_CASE("The reader rejects a newer format line", "[regression][format]")
 
 TEST_CASE("A dump does not recalibrate", "[regression][performance]")
 {
-    // DEFECT: profile_manager.cpp:1061 — the dump path calls
+    // DEFECT: profile_manager.cpp:1061 - the dump path calls
     // calculate_cpu_frequency() again, and that is a busy loop of 100,000,000
     // iterations (profile_manager.cpp:270-292):
     //
@@ -164,24 +198,27 @@ TEST_CASE("A dump does not recalibrate", "[regression][performance]")
 
     easy_test::TempFile file("known_issue_dump_cost");
 
-    const std::clock_t cpuStarted = std::clock();
+    const double cpuStarted = processCpuMilliseconds();
     const auto started = std::chrono::steady_clock::now();
     const uint32_t dumped = profiler::dumpBlocksToFile(file.c_str());
     const auto finished = std::chrono::steady_clock::now();
-    const std::clock_t cpuFinished = std::clock();
+    const double cpuElapsed = processCpuMilliseconds() - cpuStarted;
 
     REQUIRE(dumped == 100);
 
     const double elapsed = millisecondsOf(started, finished);
-    const double cpuElapsed = 1000.0 * static_cast<double>(cpuFinished - cpuStarted) /
-                              static_cast<double>(CLOCKS_PER_SEC);
+    const double loopCost = calibrationLoopCpuMilliseconds();
     INFO("dumping 100 blocks took " << elapsed << " ms");
     INFO("CPU time while dumping 100 blocks was " << cpuElapsed << " ms");
+    INFO("the old calibration loop costs " << loopCost << " ms of CPU here");
 
     // dumpBlocksToStream deliberately waits for in-flight writers for 20 ms.
     // Wall time therefore cannot identify calibration; CPU time can, because
-    // the old 100M-iteration loop kept a core busy throughout the dump.
-    REQUIRE(cpuElapsed < 10.0);
+    // the old loop kept a core busy throughout the dump. The bound is a
+    // fraction of that loop measured on this machine with this clock rather
+    // than an absolute, so it survives a coarse clock: GetProcessTimes
+    // advances in scheduler ticks of 15.6 ms.
+    REQUIRE(cpuElapsed < loopCost / 4.0);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -265,12 +302,12 @@ TEST_CASE("Context switch events outside the capture window do not corrupt the f
 
 TEST_CASE("The first block costs nothing while the profiler is disabled", "[regression][performance]")
 {
-    // DEFECT: profile_manager.cpp:351 — the ProfileManager constructor body calls
+    // DEFECT: profile_manager.cpp:351 - the ProfileManager constructor body calls
     // calculate_cpu_frequency() in a stock build on Linux/macOS/Android (the
     // #if !defined(EASY_CHRONO_CLOCK) && !defined(_WIN32) branch).
     //
     // The constructor runs on the first instance() call, that is on the very
-    // first EASY_BLOCK — regardless of whether the profiler is enabled. Measured
+    // first EASY_BLOCK - regardless of whether the profiler is enabled. Measured
     // on arm64: 220 ms with the profiler DISABLED.
     //
     // This directly contradicts the README's "Disabled profiler will not affect
@@ -282,7 +319,7 @@ TEST_CASE("The first block costs nothing while the profiler is disabled", "[regr
     // enabled.
     //
     // ON RUNNING THIS: the cost is paid once per process, so the test only means
-    // anything in a fresh process. Under ctest that holds — every TEST_CASE runs
+    // anything in a fresh process. Under ctest that holds - every TEST_CASE runs
     // as its own invocation of the binary. Running the whole binary by hand may
     // turn this test falsely green if an earlier test already paid for the
     // initialization.
@@ -299,7 +336,7 @@ TEST_CASE("The first block costs nothing while the profiler is disabled", "[regr
     const double elapsed = millisecondsOf(started, finished);
     INFO("the first EASY_BLOCK with the profiler disabled took " << elapsed << " ms");
 
-    // The profiler was off the whole time — the block was not even stored.
+    // The profiler was off the whole time - the block was not even stored.
     REQUIRE_FALSE(profiler::isEnabled());
 
     REQUIRE(elapsed < 5.0);

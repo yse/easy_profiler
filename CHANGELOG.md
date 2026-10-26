@@ -32,6 +32,12 @@ Version 3.0.0 modernizes the core test, packaging, and safety infrastructure. Th
 
 ### Fixed
 
+- On Windows a second process could bind the profiler's port while it was
+  actively listened on. `EasySocket` set `SO_REUSEADDR` on every socket, and on
+  Windows that option permits binding a port another socket holds, so two
+  profiled applications could both listen on 28077 and the GUI could reach the
+  wrong one. Listeners now use `SO_EXCLUSIVEADDRUSE` on Windows; POSIX keeps
+  `SO_REUSEADDR`, where it only allows reuse after `TIME_WAIT`.
 - `EasySocket::connect()` reports a refused connection as disconnected on every
   platform. `ECONNREFUSED` was handled on Apple only, so on Linux a refused
   connect kept retrying for the full second and left the socket in the

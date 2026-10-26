@@ -1,4 +1,4 @@
-/** Re-saving a loaded tree — writer.cpp.
+/** Re-saving a loaded tree - writer.cpp.
 
 This path is not involved in an ordinary dump from an application: dumpBlocksToFile
 writes straight out of the chunks. writeTreesToFile works on an ALREADY LOADED

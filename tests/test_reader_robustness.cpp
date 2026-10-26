@@ -1247,7 +1247,7 @@ TEST_CASE("Everything a loaded profile hands back is safe for a naive consumer",
     INFO("checksum of everything read: " << static_cast<int>(sink));
 }
 
-TEST_CASE("A valid image reads — control for the corruption harness", "[robustness]")
+TEST_CASE("A valid image reads: control for the corruption harness", "[robustness]")
 {
     // Control test: if this one fails, the image capture mechanism itself is
     // broken and every case above is checking the wrong thing.

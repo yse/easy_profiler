@@ -1,6 +1,6 @@
 /** The frame-time API.
 
-This part of the API works with capture switched off — the README promises the
+This part of the API works with capture switched off - the README promises the
 ability to draw a custom HUD or fps graph from profiler data without enabling
 profiling. A "frame" here is a top-level block: it opens on begin and ends on close.
 */

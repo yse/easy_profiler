@@ -67,6 +67,10 @@ const int SOCK_RESET = WSAECONNRESET;
 const int SOCK_REFUSED = WSAECONNREFUSED;
 const int SOCK_IN_PROGRESS = WSAEINPROGRESS;
 const int SOCK_ALREADY_IN_PROGRESS = WSAEALREADY;
+// On Windows SO_REUSEADDR lets a second socket bind a port that is actively
+// listened on ("Using SO_REUSEADDR and SO_EXCLUSIVEADDRUSE", learn.microsoft.com);
+// SO_EXCLUSIVEADDRUSE is the option that refuses the second bind.
+const int SOCK_LISTENER_ADDRESS_OPTION = SO_EXCLUSIVEADDRUSE;
 #else
 const int SOCK_ABORTED = ECONNABORTED;
 const int SOCK_RESET = ECONNRESET;
@@ -76,6 +80,7 @@ const int SOCK_ALREADY_IN_PROGRESS = EALREADY;
 const int SOCK_IS_CONNECTED = EISCONN;
 const int SOCK_BROKEN_PIPE = EPIPE;
 const int SOCK_ENOENT = ENOENT;
+const int SOCK_LISTENER_ADDRESS_OPTION = SO_REUSEADDR;
 #endif
 
 const int SEND_BUFFER_SIZE = 64 * 1024 * 1024;
@@ -117,6 +122,9 @@ int EasySocket::bind(uint16_t port)
 {
     if (!checkSocket(m_socket))
         return -1;
+
+    const int opt = 1;
+    ::setsockopt(m_socket, SOL_SOCKET, SOCK_LISTENER_ADDRESS_OPTION, (const char*)&opt, sizeof(int));
 
     struct sockaddr_in server_address;
     memset(&server_address, 0, sizeof(server_address));
@@ -225,9 +233,6 @@ void EasySocket::init()
 #if !defined(_WIN32)
     m_wsaret = 1;
 #endif
-
-    const int opt = 1;
-    ::setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(int));
 }
 
 EasySocket::ConnectionState EasySocket::state() const

@@ -171,23 +171,37 @@ jobs:
         run: cmake --build build/coverage --target easy_profiler_coverage_tests --parallel 4
       - name: Run core suite once
         run: ctest --test-dir build/coverage --output-on-failure -L coverage
+      - name: Install the LLVM tools that match the compiler
+        # The runner ships clang without the llvm-NN package, and a profile
+        # written by clang NN is only readable by llvm-profdata NN. Asking the
+        # compiler where its own tools live keeps the two from drifting apart.
+        run: |
+          major=$(clang++ --version | sed -n 's/.*clang version \([0-9]*\)\..*/\1/p')
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends "llvm-$major"
+          profdata=$(clang++ -print-prog-name=llvm-profdata)
+          cov=$(clang++ -print-prog-name=llvm-cov)
+          test -x "$profdata" && test -x "$cov"
+          "$profdata" --version | grep -q "LLVM version $major\."
+          echo "LLVM_PROFDATA=$profdata" >> "$GITHUB_ENV"
+          echo "LLVM_COV=$cov" >> "$GITHUB_ENV"
       - name: Merge and render coverage
         run: |
-          llvm-profdata merge -sparse build/coverage/tests/coverage-profiles/core.profraw -o build/coverage/core.profdata
-          llvm-cov report build/coverage/bin/easy_profiler_coverage_tests \
+          "$LLVM_PROFDATA" merge -sparse build/coverage/tests/coverage-profiles/core.profraw -o build/coverage/core.profdata
+          "$LLVM_COV" report build/coverage/bin/easy_profiler_coverage_tests \
             -instr-profile=build/coverage/core.profdata \
             -ignore-filename-regex='(/tests/|/_deps/)' \
             -show-branch-summary \
             easy_profiler_core | tee build/coverage/summary.txt
-          llvm-cov export build/coverage/bin/easy_profiler_coverage_tests \
+          "$LLVM_COV" export build/coverage/bin/easy_profiler_coverage_tests \
             -instr-profile=build/coverage/core.profdata \
             -ignore-filename-regex='(/tests/|/_deps/)' \
             easy_profiler_core > build/coverage/coverage.json
-          llvm-cov export build/coverage/bin/easy_profiler_coverage_tests \
+          "$LLVM_COV" export build/coverage/bin/easy_profiler_coverage_tests \
             -instr-profile=build/coverage/core.profdata \
             -ignore-filename-regex='(/tests/|/_deps/)' \
             -format=lcov easy_profiler_core > build/coverage/coverage.lcov
-          llvm-cov show build/coverage/bin/easy_profiler_coverage_tests \
+          "$LLVM_COV" show build/coverage/bin/easy_profiler_coverage_tests \
             -instr-profile=build/coverage/core.profdata \
             -ignore-filename-regex='(/tests/|/_deps/)' \
             -format=html -output-dir=build/coverage/html \

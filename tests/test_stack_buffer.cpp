@@ -1,4 +1,4 @@
-/** StackBuffer — a thread's stack of open blocks.
+/** StackBuffer - a thread's stack of open blocks.
 
 ThreadStorage keeps blocks that have started but not yet finished in this buffer
 (thread_storage.h). The buffer is a contiguous array of fixed capacity plus an
@@ -6,7 +6,7 @@ overflow list for unexpectedly deep nesting; once fully drained, the contiguous
 part grows so that the next round avoids the overflow list.
 
 One deliberate detail the tests pin down: destroy_elem<T> is a no-op for a
-generic T (stack_buffer.h:56-60). Destructors run only for NonscopedBlock —
+generic T (stack_buffer.h:56-60). Destructors run only for NonscopedBlock:
 blocks are destroyed by hand.
 */
 

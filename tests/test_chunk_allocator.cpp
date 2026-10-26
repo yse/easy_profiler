@@ -1,4 +1,4 @@
-/** chunk_allocator — the core storage mechanism.
+/** chunk_allocator - the core storage mechanism.
 
 The allocator implements "the in-memory representation is the on-disk
 representation": a block is constructed in its final form inside a chunk, and a

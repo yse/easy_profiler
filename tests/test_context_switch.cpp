@@ -1,4 +1,4 @@
-/** Context switch events — ingesting an external log on Unix.
+/** Context switch events - ingesting an external log on Unix.
 
 On Windows the events are collected by the built-in ETW tracer. On Unix the
 mechanism is fundamentally different: an external SystemTap script
@@ -205,7 +205,7 @@ TEST_CASE("The context switch log is parsed during a dump", "[cswitch][unix]")
     // The timestamps are taken AFTER capture starts: the reader counts an event
     // only if its end is later than the trace start (reader.cpp:1058), while the
     // header counts every event unconditionally. An event outside the capture
-    // window makes the two counters disagree — see the dedicated red test in
+    // window makes the two counters disagree - see the dedicated red test in
     // test_known_issues.cpp.
     const profiler::timestamp_t base = profiler::timeNow();
     profiler::timestamp_t last = base;

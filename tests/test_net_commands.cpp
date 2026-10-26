@@ -1,8 +1,8 @@
-/** ProfileManager::listen — driving the profiler over the network.
+/** ProfileManager::listen - driving the profiler over the network.
 
 This is the second way to get data out: the GUI connects to a running
 application, sends commands and streams the blocks back. listen() is the largest
-function in the core and used to be covered by nothing — the tests started and
+function in the core and used to be covered by nothing - the tests started and
 stopped the listening thread without sending it a single message.
 
 Here the tests connect with a real socket and walk the actual GUI scenario:
@@ -437,7 +437,7 @@ TEST_CASE("Full cycle: start, work, stop, receive blocks", "[net][commands]")
         EASY_BLOCK("net_captured_block");
     }
 
-    // 3. Stop capture — the server starts sending blocks.
+    // 3. Stop capture - the server starts sending blocks.
     const profiler::net::Message stop(profiler::net::MessageType::Request_Stop_Capture);
     REQUIRE(client.send(stop));
 
@@ -693,7 +693,7 @@ TEST_CASE("Changing a block status over the network", "[net][commands]")
     std::vector<char> buffer(256, 0);
     REQUIRE(client.receive(buffer) > 0);
 
-    // Switch the block off by its id — this is how the GUI mutes blocks live.
+    // Switch the block off by its id - this is how the GUI mutes blocks live.
     const profiler::net::BlockStatusMessage message(
         descriptor->id(), static_cast<uint8_t>(profiler::OFF));
     REQUIRE(client.send(message));
@@ -842,7 +842,7 @@ TEST_CASE("An unknown message type is ignored", "[net][commands]")
     REQUIRE(client.receive(buffer) > 0);
 
     // A type from a future protocol version. The dispatcher must skip it quietly
-    // (default: break) rather than desynchronize the channel — additive protocol
+    // (default: break) rather than desynchronize the channel - additive protocol
     // extension rests on that property.
     profiler::net::Message unknown;
     unknown.type = static_cast<profiler::net::MessageType>(200);

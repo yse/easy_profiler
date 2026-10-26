@@ -183,6 +183,17 @@ uint16_t freePort()
     return bindToFreePort(socket);
 }
 
+/** The last socket error as text. Winsock reports through WSAGetLastError, not
+    errno, which always reads "No error" there. */
+std::string lastSocketError()
+{
+#ifdef _WIN32
+    return "WSA error " + std::to_string(WSAGetLastError());
+#else
+    return std::strerror(errno);
+#endif
+}
+
 } // namespace
 
 TEST_CASE("A fresh socket is not connected", "[net][socket]")
@@ -484,12 +495,15 @@ TEST_CASE("The profiler listener can retry after its port was occupied", "[net][
 {
     EasySocket occupied;
     const int bindResult = occupied.bind(0);
-    INFO("bind(0) failed: " << std::strerror(errno));
+    INFO("bind(0) failed: " << lastSocketError());
     REQUIRE(bindResult == 0);
     REQUIRE(occupied.listen() == 0);
     const uint16_t port = occupied.boundPort();
     REQUIRE(port != 0);
 
+    // A port that is being listened on cannot be bound again, on any platform:
+    // SO_REUSEADDR on POSIX only tolerates TIME_WAIT leftovers, and Windows
+    // listeners use SO_EXCLUSIVEADDRUSE (easy_socket.cpp, bind).
     profiler::startListen(port);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 

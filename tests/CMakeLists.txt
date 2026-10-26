@@ -2,7 +2,7 @@
 # easy_profiler core tests.
 #
 # Framework: Catch2 v3. It requires C++14, so the test targets are built as
-# C++17 while the easy_profiler library itself stays on C++11 — a deliberate
+# C++17 while the easy_profiler library itself stays on C++11 - a deliberate
 # divergence: the standard is raised for the tests ONLY.
 #
 # Catch2 is taken from the system when available, otherwise fetched with

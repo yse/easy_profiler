@@ -1,4 +1,4 @@
-/** alignment_helpers.h — unaligned memory access.
+/** alignment_helpers.h - unaligned memory access.
 
 The allocator writes a 2-byte length prefix before every record, so payloads are
 almost never aligned. The whole format rests on unaligned loads and stores being

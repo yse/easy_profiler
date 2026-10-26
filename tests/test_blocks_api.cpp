@@ -376,7 +376,7 @@ TEST_CASE("storeBlock sets the block bounds by hand", "[blocks][api]")
     // The reader converts CPU ticks to nanoseconds using the frequency stored in
     // the file header (reader.cpp, EASY_CONVERT_TO_NANO), so a duration read back
     // is NOT the tick count passed in and cannot be compared to an absolute
-    // constant — the number is machine-dependent. What is frequency-independent
+    // constant - the number is machine-dependent. What is frequency-independent
     // is the ratio, so that is what gets checked.
     LoadedProfile profile;
 
@@ -524,7 +524,7 @@ TEST_CASE("Dumping disables the profiler", "[blocks][api]")
     easy_test::TempFile file("dump_disables");
     profiler::dumpBlocksToFile(file.c_str());
 
-    // dumpBlocksToStream does m_profilerStatus.store(false) — documented as
+    // dumpBlocksToStream does m_profilerStatus.store(false) - documented as
     // "\note This also disables profiler" (profiler.h:572).
     REQUIRE_FALSE(profiler::isEnabled());
 }

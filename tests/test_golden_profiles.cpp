@@ -85,7 +85,7 @@ TEST_CASE("Golden profiles preserve every supported wire layout", "[golden][form
 TEST_CASE("A profile written by the real 2.1 writer still opens", "[golden][format][legacy]")
 {
     // Unlike the fixtures above, this one was produced by building easy_profiler
-    // v2.1.0 and running its writeTreesToStream() — the path behind the GUI's
+    // v2.1.0 and running its writeTreesToStream() - the path behind the GUI's
     // "Save As". That writer declared descriptors_memory_size as the descriptor
     // payload sum PLUS the two-byte record prefixes, so a reader that demands
     // the payload sum exactly rejects every trace a 2.x GUI ever saved.

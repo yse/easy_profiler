@@ -20,13 +20,13 @@ These tests exist so such a change cannot be made by accident.
 
 TEST_CASE("Fixed sizes of the format structures", "[layout][format]")
 {
-    SECTION("Event — two timestamps, no padding holes")
+    SECTION("Event: two timestamps, no padding holes")
     {
         REQUIRE(sizeof(profiler::Event) == 16);
         REQUIRE(sizeof(profiler::timestamp_t) == 8);
     }
 
-    SECTION("BaseBlockData — Event plus the descriptor id")
+    SECTION("BaseBlockData: Event plus the descriptor id")
     {
         // 8 (begin) + 8 (end) + 4 (id) = 20, not padded up to 24.
         REQUIRE(sizeof(profiler::BaseBlockData) == 20);
@@ -39,14 +39,14 @@ TEST_CASE("Fixed sizes of the format structures", "[layout][format]")
         REQUIRE(sizeof(profiler::BaseBlockDescriptor) == 14);
     }
 
-    SECTION("SerializedBlockDescriptor — descriptor plus the name length")
+    SECTION("SerializedBlockDescriptor: descriptor plus the name length")
     {
         REQUIRE(sizeof(profiler::SerializedBlockDescriptor) ==
                 sizeof(profiler::BaseBlockDescriptor) + sizeof(uint16_t));
         REQUIRE(sizeof(profiler::SerializedBlockDescriptor) == 16);
     }
 
-    SECTION("CSwitchEvent — Event plus the thread id")
+    SECTION("CSwitchEvent: Event plus the thread id")
     {
         REQUIRE(sizeof(profiler::CSwitchEvent) == 24);
         REQUIRE(sizeof(profiler::thread_id_t) == 8);
@@ -87,7 +87,7 @@ TEST_CASE("The chunk size fits into 16-bit offsets", "[layout][allocator]")
 TEST_CASE("The variable part follows the fixed part immediately", "[layout][format]")
 {
     // SerializedBlock::name() returns data() + sizeof(BaseBlockData): no pointer,
-    // no offset table — the name is inline. Checked through the layout rather
+    // no offset table - the name is inline. Checked through the layout rather
     // than by constructing an object, whose constructor is private.
     REQUIRE(sizeof(profiler::SerializedBlock) == sizeof(profiler::BaseBlockData));
 

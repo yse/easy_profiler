@@ -1,7 +1,7 @@
 /** Multithreaded capture.
 
 Every thread keeps its own ThreadStorage with its own chunks, so the hot path
-carries no cross-thread coordination at all — that is needed only when a thread
+carries no cross-thread coordination at all - that is needed only when a thread
 registers and when a dump happens. These tests check that nothing gets lost in
 the process and that threads do not mix up each other's blocks.
 */

@@ -2,8 +2,8 @@
 
 Backward read compatibility is a stated project requirement: the reader must
 parse files starting from v0.1.0 (MIN_COMPATIBLE_VERSION, reader.cpp:79). Three
-separate header-parsing functions exist for that — readHeader_v1, readHeader_v2
-and readHeader_v2_1 — and before these tests the first two were not covered at all.
+separate header-parsing functions exist for that - readHeader_v1, readHeader_v2
+and readHeader_v2_1 - and before these tests the first two were not covered at all.
 
 Legacy files are assembled from the body of a current dump with a substituted
 header: the body did not change over the version range [1.3.0, 2.1.0), so such a

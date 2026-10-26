@@ -1,11 +1,11 @@
 /** Reconstructing the call tree from the bracket sequence.
 
 This is the format's defining property: the tree structure is NOT stored in the
-file at all — no parent pointers, no depth, no child counts. Blocks nest strictly,
+file at all - no parent pointers, no depth, no child counts. Blocks nest strictly,
 so the sequence of their opens and closes is a well-formed bracket sequence; a
 block is serialized at the moment it closes, so write order is a post-order walk.
-From post-order plus the [begin, end) intervals — which have to be stored
-anyway — the tree follows uniquely.
+From post-order plus the [begin, end) intervals - which have to be stored
+anyway - the tree follows uniquely.
 
 The reconstruction algorithm is reader.cpp:1174-1190: the flat list acts as a
 stack of pending siblings, and an arriving block adopts the tail of that list if
@@ -336,7 +336,7 @@ TEST_CASE("Child intervals lie inside the parent interval", "[tree]")
         const profiler::BlocksTree& child = profile.blocks[parent.children[i]];
         REQUIRE(child.node != nullptr);
 
-        // A child lies wholly inside its parent — otherwise reconstruction would
+        // A child lies wholly inside its parent - otherwise reconstruction would
         // be ambiguous.
         REQUIRE(child.node->begin() >= parent.node->begin());
         REQUIRE(child.node->end() <= parent.node->end());
@@ -356,7 +356,7 @@ TEST_CASE("Tree structure costs nothing in the block stream", "[tree][format]")
     // FILE sizes cannot be compared: the descriptor table is process-wide and
     // never cleared, so every subsequent dump carries all descriptors registered
     // so far and the file grows monotonically from test to test. Hence the header
-    // field used_memory_size (offset 40) — the size of the block stream itself.
+    // field used_memory_size (offset 40) - the size of the block stream itself.
     easy_test::TempFile flatFile("tree_flat");
     easy_test::TempFile nestedFile("tree_nested");
 
@@ -399,7 +399,7 @@ TEST_CASE("Tree structure costs nothing in the block stream", "[tree][format]")
     // The size equals 4 blocks of 21 bytes.
     //
     // Two quantities must not be confused here:
-    //   * used_memory_size in the header counts the record payload only —
+    //   * used_memory_size in the header counts the record payload only:
     //     ThreadStorage::storeBlock adds BASE_SIZE + nameLength, where
     //     BASE_SIZE == sizeof(BaseBlockData) + 1 == 21 (thread_storage.cpp:180);
     //   * on the wire each record takes 2 bytes more, because the length prefix

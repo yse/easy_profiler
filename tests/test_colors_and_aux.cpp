@@ -1,4 +1,4 @@
-/** profiler_aux.h and profiler_colors.h — macro argument parsing.
+/** profiler_aux.h and profiler_colors.h - macro argument parsing.
 
 EASY_BLOCK("name", ...) accepts a color and an enable flag in any order and in
 any combination, including neither. Parsing happens at compile time through the
@@ -38,7 +38,7 @@ TEST_CASE("extract_color parses the macro arguments", "[aux]")
 {
     using profiler::extract_color;
 
-    SECTION("no arguments — the default color")
+    SECTION("no arguments: the default color")
     {
         REQUIRE(extract_color() == profiler::colors::Default);
     }
@@ -49,7 +49,7 @@ TEST_CASE("extract_color parses the macro arguments", "[aux]")
         REQUIRE(extract_color(profiler::color_t(0x12345678u)) == 0x12345678u);
     }
 
-    SECTION("a single non-color argument — the default color")
+    SECTION("a single non-color argument: the default color")
     {
         REQUIRE(extract_color(profiler::ON) == profiler::colors::Default);
         REQUIRE(extract_color(profiler::OFF) == profiler::colors::Default);
@@ -75,7 +75,7 @@ TEST_CASE("extract_enable_flag parses the macro arguments", "[aux]")
 {
     using profiler::extract_enable_flag;
 
-    SECTION("no arguments — the block is enabled")
+    SECTION("no arguments: the block is enabled")
     {
         REQUIRE(extract_enable_flag() == profiler::ON);
     }
@@ -87,7 +87,7 @@ TEST_CASE("extract_enable_flag parses the macro arguments", "[aux]")
         REQUIRE(extract_enable_flag(profiler::ON_WITHOUT_CHILDREN) == profiler::ON_WITHOUT_CHILDREN);
     }
 
-    SECTION("a single color argument — the block is enabled")
+    SECTION("a single color argument: the block is enabled")
     {
         REQUIRE(extract_enable_flag(profiler::colors::Red) == profiler::ON);
     }

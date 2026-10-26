@@ -127,44 +127,49 @@ TEST_CASE("Values make it through with their types", "[roundtrip][values]")
 
 TEST_CASE("EASY_FUNCTION picks up the function name", "[roundtrip]")
 {
-    LoadedProfile profile;
-
-    easy_test::capture(profile, [] {
-        mixedWorkload();
-    });
-
-    const long index = easy_test::findBlockIndex(profile, "mixedWorkload");
-    REQUIRE(index >= 0);
-    const profiler::SerializedBlock* node = profile.blocks[static_cast<size_t>(index)].node;
-    REQUIRE(node != nullptr);
-    const profiler::SerializedBlockDescriptor* descriptor =
-        easy_test::findDescriptor(profile, profiler::BlockType::Block, "mixedWorkload");
-
-    // Where the name lands is decided by the compiler, not by the library.
+    // Where the name lands, and how it is spelled, is decided by the compiler.
     // NameSwitch (profiler_aux.h:206) stores a name whose decltype is a
     // reference in the descriptor, as for a string literal, and any other name
     // in every block record. EASY_FUNC_NAME is __func__
     // (easy_compiler_support.h:210), or __FUNCTION__ on MSVC (:85). Measured:
     // clang 17 and 18 give const char[N] for __func__, GCC 13 gives
-    // const char(&)[N]; MSVC's __FUNCTION__ is a string literal. So an
-    // EASY_FUNCTION block costs 21 + strlen(function name) bytes under clang and
-    // the same 21 bytes as EASY_BLOCK("literal") under GCC and MSVC.
+    // const char(&)[N]; MSVC's __FUNCTION__ is a literal but carries the
+    // namespace, so it is not the bare identifier. The test therefore finds out
+    // where the name went and pins the cost that follows: 21 + strlen(name)
+    // bytes per block when the name is in the record, 21 when it is in the
+    // descriptor.
     const uint64_t count = 100;
     easy_test::ProfImage image;
     REQUIRE(image.captureFrom([=] {
         for (uint64_t i = 0; i < count; ++i)
             functionNamedBlock();
     }));
+    REQUIRE(image.totalBlocks() == count);
 
-#if defined(__clang__)
-    REQUIRE(descriptor == nullptr);
-    REQUIRE(std::strcmp(node->name(), "mixedWorkload") == 0);
-    REQUIRE(image.usedMemorySize() == count * (21 + std::strlen("functionNamedBlock")));
-#else
+    easy_test::TempFile file("function_name");
+    image.writeTo(file.path());
+    LoadedProfile profile;
+    easy_test::loadProfile(file.path(), profile);
+    REQUIRE(profile.readerLog.empty());
+    REQUIRE(profile.blocksRead == count);
+
+    const profiler::SerializedBlock* node = profile.blocks[0].node;
+    REQUIRE(node != nullptr);
+    REQUIRE(node->id() < profile.descriptors.size());
+    const profiler::SerializedBlockDescriptor* descriptor = profile.descriptors[node->id()];
     REQUIRE(descriptor != nullptr);
-    REQUIRE(*node->name() == '\0');
-    REQUIRE(image.usedMemorySize() == count * 21);
-#endif
+
+    const std::string runtimeName = node->name();
+    const std::string descriptorName = descriptor->name();
+    INFO("runtime name \"" << runtimeName << "\", descriptor name \"" << descriptorName << "\"");
+
+    const bool inRecord = runtimeName.find("functionNamedBlock") != std::string::npos;
+    const bool inDescriptor = descriptorName.find("functionNamedBlock") != std::string::npos;
+    REQUIRE(inRecord != inDescriptor);
+    if (inDescriptor)
+        REQUIRE(runtimeName.empty());
+
+    REQUIRE(image.usedMemorySize() == count * (21 + runtimeName.size()));
 }
 
 TEST_CASE("A literal name is stored in the descriptor, not in the block", "[roundtrip][format]")
@@ -210,7 +215,7 @@ TEST_CASE("The thread name is preserved", "[roundtrip][threads]")
     }
 
     // A thread is named once per process: if an earlier test already named this
-    // thread, the second name does not stick. Hence the loose assertion — what
+    // thread, the second name does not stick. Hence the loose assertion - what
     // matters is that a name exists at all.
     const profiler::BlocksTreeRoot& first = profile.threadedTrees.begin()->second;
     REQUIRE((foundNamed || first.got_name()));
@@ -243,7 +248,7 @@ TEST_CASE("An empty capture returns 0 yet still creates the file", "[roundtrip]"
     // "std::ofstream outputFile(...)" precedes the dumpBlocksToStream call), so
     // a file is left on disk while 0 is returned.
     //
-    // Callers must not treat the file's existence as success — the returned
+    // Callers must not treat the file's existence as success - the returned
     // block count is the signal.
     easy_test::drainPending();
 

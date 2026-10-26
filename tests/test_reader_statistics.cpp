@@ -1,4 +1,4 @@
-/** Statistics gathering on read — the reader's second half.
+/** Statistics gathering on read - the reader's second half.
 
 fillTreesFromFile takes a gather_statistics flag. With it on, besides
 reconstructing the tree the reader computes three statistics sets per block:

@@ -1,4 +1,4 @@
-/** hashed_cstr.h — the key type of the descriptor table.
+/** hashed_cstr.h - the key type of the descriptor table.
 
 ProfileManager maps "unique call-site id -> block_id_t" in an unordered_map keyed
 by profiler::string_with_hash (profile_manager.h:88). This is what implements

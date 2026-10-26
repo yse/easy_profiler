@@ -1,4 +1,4 @@
-/** spin_lock — the core's synchronization primitive.
+/** spin_lock - the core's synchronization primitive.
 
 ProfileManager guards thread registration, the descriptor table and the dump path
 with spin locks (profile_manager.h:110-112). The profiler has to stay cheap, so
@@ -143,7 +143,7 @@ TEST_CASE("Independent locks do not interfere", "[spinlock][threads]")
     profiler::spin_lock first;
     profiler::spin_lock second;
 
-    // Holding one lock must not block the other — otherwise the spin lock would
+    // Holding one lock must not block the other - otherwise the spin lock would
     // be global rather than per-object.
     first.lock();
 
