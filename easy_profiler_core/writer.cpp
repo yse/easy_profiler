@@ -52,6 +52,7 @@
 #include <fstream>
 #include <iterator>
 #include <algorithm>
+#include <limits>
 
 #include <easy/writer.h>
 #include <easy/profiler.h>
@@ -61,7 +62,7 @@
 //////////////////////////////////////////////////////////////////////////
 
 extern const uint32_t EASY_PROFILER_SIGNATURE;
-extern const uint32_t EASY_PROFILER_VERSION;
+extern const uint32_t EASY_PROFILER_FORMAT_VERSION;
 
 EASY_CONSTEXPR auto BaseCSwitchSize = sizeof(profiler::SerializedCSwitch) + 1;
 
@@ -138,47 +139,32 @@ static BlocksRange findRange(const profiler::BlocksTree::children_t& children, p
                              profiler::timestamp_t endTime, const profiler::block_getter_fn& getter)
 {
     const auto size = static_cast<profiler::block_index_t>(children.size());
-    BlocksRange range(size);
+    BlocksRange range(0, 0);
 
-    if (size == 0)
+    if (size == 0 || beginTime > endTime)
         return range;
 
     if (beginTime <= getter(children.front()).node->begin() && getter(children.back()).node->end() <= endTime)
-        return range; // All blocks inside range
+        return BlocksRange(size); // All blocks inside range
 
-    auto first_it = std::lower_bound(children.begin(), children.end(), beginTime,
-                                     [&](profiler::block_index_t element, profiler::timestamp_t value)
+    const auto first_it = std::lower_bound(children.begin(), children.end(), beginTime,
+                                           [&](profiler::block_index_t element, profiler::timestamp_t value)
     {
         return getter(element).node->end() < value;
     });
 
-    for (; first_it != children.end(); ++first_it)
+    if (first_it == children.end() || getter(*first_it).node->begin() > endTime)
+        return range;
+
+    const auto last_it = std::upper_bound(first_it, children.end(), endTime,
+                                          [&](profiler::timestamp_t value,
+                                              profiler::block_index_t element)
     {
-        const auto& child = getter(*first_it);
-        if (child.node->begin() >= beginTime || child.node->end() > beginTime)
-            break;
-    }
+        return value < getter(element).node->begin();
+    });
 
-    if (first_it != children.end() && getter(*first_it).node->begin() <= endTime)
-    {
-        auto last_it = std::lower_bound(children.begin(), children.end(), endTime,
-                                        [&](profiler::block_index_t element, profiler::timestamp_t value)
-        {
-            return getter(element).node->begin() <= value;
-        });
-
-        if (last_it != children.end() && getter(*last_it).node->end() >= beginTime)
-        {
-            const auto begin = static_cast<profiler::block_index_t>(std::distance(children.begin(), first_it));
-            const auto end = static_cast<profiler::block_index_t>(std::distance(children.begin(), last_it));
-
-            if (begin <= end)
-            {
-                range.begin = begin;
-                range.end = end;
-            }
-        }
-    }
+    range.begin = static_cast<profiler::block_index_t>(std::distance(children.begin(), first_it));
+    range.end = static_cast<profiler::block_index_t>(std::distance(children.begin(), last_it));
 
     return range;
 }
@@ -186,47 +172,28 @@ static BlocksRange findRange(const profiler::BlocksTree::children_t& children, p
 static BlocksRange findRange(const profiler::bookmarks_t& bookmarks, profiler::timestamp_t beginTime, profiler::timestamp_t endTime)
 {
     const auto size = static_cast<profiler::block_index_t>(bookmarks.size());
-    BlocksRange range(size);
+    BlocksRange range(0, 0);
 
     if (size == 0)
         return range;
 
     if (beginTime <= bookmarks.front().pos && bookmarks.back().pos <= endTime)
-        return range; // All blocks inside range
+        return BlocksRange(size); // All bookmarks inside range
 
-    auto first_it = std::lower_bound(bookmarks.begin(), bookmarks.end(), beginTime,
-                                     [](const profiler::Bookmark& element, profiler::timestamp_t value)
+    const auto first_it = std::lower_bound(bookmarks.begin(), bookmarks.end(), beginTime,
+                                           [](const profiler::Bookmark& element, profiler::timestamp_t value)
     {
         return element.pos < value;
     });
 
-    for (; first_it != bookmarks.end(); ++first_it)
+    const auto last_it = std::upper_bound(first_it, bookmarks.end(), endTime,
+                                          [](profiler::timestamp_t value, const profiler::Bookmark& element)
     {
-        const auto& bookmark = *first_it;
-        if (bookmark.pos >= beginTime)
-            break;
-    }
+        return value < element.pos;
+    });
 
-    if (first_it != bookmarks.end() && first_it->pos <= endTime)
-    {
-        auto last_it = std::lower_bound(bookmarks.begin(), bookmarks.end(), endTime,
-                                        [](const profiler::Bookmark& element, profiler::timestamp_t value)
-        {
-            return element.pos <= value;
-        });
-
-        if (last_it != bookmarks.end() && last_it->pos >= beginTime)
-        {
-            const auto begin = static_cast<profiler::block_index_t>(std::distance(bookmarks.begin(), first_it));
-            const auto end = static_cast<profiler::block_index_t>(std::distance(bookmarks.begin(), last_it));
-
-            if (begin <= end)
-            {
-                range.begin = begin;
-                range.end = end;
-            }
-        }
-    }
+    range.begin = static_cast<profiler::block_index_t>(std::distance(bookmarks.begin(), first_it));
+    range.end = static_cast<profiler::block_index_t>(std::distance(bookmarks.begin(), last_it));
 
     return range;
 }
@@ -366,6 +333,32 @@ static void serializeDescriptors(std::ostream& output, std::vector<char>& buffer
     }
 }
 
+static bool calculateDescriptorsMemorySize(const profiler::descriptors_list_t& descriptors,
+                                           profiler::block_id_t descriptors_count,
+                                           uint64_t& memorySize)
+{
+    if (descriptors_count > descriptors.size())
+        return false;
+
+    memorySize = 0;
+    for (profiler::block_id_t i = 0; i < descriptors_count; ++i)
+    {
+        const auto descriptor = descriptors[i];
+        if (descriptor == nullptr || descriptor->id() != i)
+            return false;
+
+        const size_t recordSize = sizeof(profiler::SerializedBlockDescriptor) +
+                                  strlen(descriptor->name()) +
+                                  strlen(descriptor->file()) + 2U;
+        if (recordSize > std::numeric_limits<uint16_t>::max())
+            return false;
+
+        memorySize += recordSize;
+    }
+
+    return memorySize != 0;
+}
+
 static void serializeBookmarks(std::ostream& output, const profiler::bookmarks_t& bookmarks, const BlocksRange& range)
 {
     for (auto i = range.begin; i < range.end; ++i)
@@ -465,16 +458,15 @@ extern "C" PROFILER_API profiler::block_index_t writeTreesToStream(std::atomic<i
 
         if (range.cswitchesMemoryAndCount.blocksCount != 0)
         {
-            beginTime = std::min(beginTime, block_getter(tree.children[range.cswitches.begin]).cs->begin());
-            endTime = std::max(endTime, block_getter(tree.children[range.cswitches.end - 1]).cs->end());
+            beginTime = std::min(beginTime, block_getter(tree.sync[range.cswitches.begin]).cs->begin());
+            endTime = std::max(endTime, block_getter(tree.sync[range.cswitches.end - 1]).cs->end());
         }
 
         block_ranges[id] = range;
 
-        if (!update_progress_write(progress, 15 / static_cast<int>(trees.size() - i), log))
-            return 0;
-
         ++i;
+        if (!update_progress_write(progress, static_cast<int>(15U * i / trees.size()), log))
+            return 0;
     }
 
     BlocksRange bookmarksRange;
@@ -496,11 +488,19 @@ extern "C" PROFILER_API profiler::block_index_t writeTreesToStream(std::atomic<i
         return 0;
     }
 
-    const uint64_t usedMemorySizeDescriptors = serialized_descriptors.size() + descriptors_count * sizeof(uint16_t);
+    // Header memory sizes describe the payload bytes actually emitted below.
+    // The uint16_t record prefixes are on the wire but are not included.
+    uint64_t usedMemorySizeDescriptors = 0;
+    if (!calculateDescriptorsMemorySize(descriptors, descriptors_count,
+                                        usedMemorySizeDescriptors))
+    {
+        log << "Invalid descriptor table";
+        return 0;
+    }
 
     // Write data to stream
     write(str, EASY_PROFILER_SIGNATURE);
-    write(str, EASY_PROFILER_VERSION);
+    write(str, EASY_PROFILER_FORMAT_VERSION);
     write(str, pid);
 
     // write 0 because we do not need to convert time from ticks to nanoseconds (it's already converted)
@@ -545,7 +545,9 @@ extern "C" PROFILER_API profiler::block_index_t writeTreesToStream(std::atomic<i
         if (range.blocksMemoryAndCount.blocksCount != 0)
             serializeBlocks(str, buffer, tree.children, range.blocks, block_getter, descriptors);
 
-        if (!update_progress_write(progress, 40 + 57 / static_cast<int>(trees.size() - i), log))
+        ++i;
+        if (!update_progress_write(progress,
+                                   40 + static_cast<int>(57U * i / trees.size()), log))
             return 0;
     }
 
@@ -557,6 +559,9 @@ extern "C" PROFILER_API profiler::block_index_t writeTreesToStream(std::atomic<i
         serializeBookmarks(str, bookmarks, bookmarksRange);
         write(str, EASY_PROFILER_SIGNATURE);
     }
+
+    if (!update_progress_write(progress, 100, log))
+        return 0;
 
     return total.blocksCount;
 }

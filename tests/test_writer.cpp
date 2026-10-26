@@ -19,11 +19,18 @@ coverage, despite writing the same format the reader reads.
 #include <easy/reader.h>
 #include <easy/writer.h>
 
+#include "current_thread.h"
+
+#include <fstream>
 #include <sstream>
 #include <string>
 #include <cstring>
 #include <thread>
 #include <vector>
+
+#ifndef _WIN32
+# include <unistd.h>
+#endif
 
 using easy_test::LoadedProfile;
 
@@ -67,6 +74,48 @@ void captureSample(LoadedProfile& out)
     });
 }
 
+#ifndef _WIN32
+void captureContextSwitchOnly(LoadedProfile& out)
+{
+    easy_test::drainPending();
+    profiler::registerDescription(profiler::ON, "writer_cswitch_descriptor_id",
+                                  "writer_cswitch_descriptor", __FILE__, __LINE__,
+                                  profiler::BlockType::Block,
+                                  profiler::colors::Default, false);
+
+    easy_test::TempFile switchLog("writer_cswitch", ".log");
+    const std::string originalPath = profiler::getContextSwitchLogFilename();
+    const bool originalTracing = profiler::isEventTracingEnabled();
+
+    profiler::setContextSwitchLogFilename(switchLog.c_str());
+    profiler::setEventTracingEnabled(true);
+    profiler::setEnabled(true);
+    EASY_THREAD("writer_cswitch_thread");
+
+    const profiler::timestamp_t base = profiler::timeNow();
+    const profiler::thread_id_t thread = getCurrentThreadId();
+    const long process = static_cast<long>(::getpid());
+    {
+        std::ofstream output(switchLog.c_str(), std::ios::trunc);
+        for (int i = 0; i < 3; ++i)
+        {
+            output << base + static_cast<profiler::timestamp_t>(i + 1) * 1000 << ' '
+                   << thread << ' ' << thread << " writer_cswitch " << process << '\n';
+        }
+    }
+
+    profiler::setEnabled(false);
+    easy_test::TempFile profileFile("writer_cswitch_source");
+    out.blocksDumped = profiler::dumpBlocksToFile(profileFile.c_str());
+
+    profiler::setEventTracingEnabled(originalTracing);
+    profiler::setContextSwitchLogFilename(originalPath.c_str());
+
+    if (out.blocksDumped != 0)
+        easy_test::loadProfile(profileFile.path(), out);
+}
+#endif
+
 } // namespace
 
 TEST_CASE("Re-saving preserves every block", "[writer][format]")
@@ -104,6 +153,204 @@ TEST_CASE("A re-saved file reads back", "[writer][format]")
     REQUIRE(reloaded.readerLog.empty());
     REQUIRE(reloaded.blocksRead == source.blocksRead);
     REQUIRE(reloaded.pid == source.pid);
+}
+
+TEST_CASE("A re-save declares only descriptor payload bytes", "[writer][format]")
+{
+    LoadedProfile source;
+    captureSample(source);
+    REQUIRE(source.readerLog.empty());
+
+    easy_test::TempFile file("writer_descriptor_memory");
+    std::string log;
+    REQUIRE(resave(source, file.path(), log,
+                   source.beginEndTime.beginTime, source.beginEndTime.endTime) == source.blocksRead);
+    REQUIRE(log.empty());
+
+    easy_test::ProfImage image;
+    REQUIRE(image.loadFrom(file.path()));
+    REQUIRE(image.descriptorsMemorySize() == source.serializedDescriptors.size());
+}
+
+TEST_CASE("Re-saving honours an existing cancellation before writing", "[writer][cancel]")
+{
+    LoadedProfile source;
+    captureSample(source);
+
+    const profiler::blocks_t& blocks = source.blocks;
+    profiler::block_getter_fn getter =
+        [&blocks](profiler::block_index_t index) -> const profiler::BlocksTree&
+        {
+            return blocks[index];
+        };
+
+    std::atomic<int> progress(-1);
+    std::ostringstream output;
+    std::ostringstream log;
+    REQUIRE(writeTreesToStream(
+                progress, output, source.serializedDescriptors, source.descriptors,
+                static_cast<profiler::block_id_t>(source.descriptorsCount), source.threadedTrees,
+                source.bookmarks, getter, source.beginEndTime.beginTime,
+                source.beginEndTime.endTime, source.pid, log) == 0);
+    REQUIRE(log.str().find("interrupted") != std::string::npos);
+    REQUIRE(output.str().empty());
+}
+
+TEST_CASE("File re-saving honours an existing cancellation before opening the file", "[writer][cancel]")
+{
+    LoadedProfile source;
+    captureSample(source);
+
+    const profiler::blocks_t& blocks = source.blocks;
+    profiler::block_getter_fn getter =
+        [&blocks](profiler::block_index_t index) -> const profiler::BlocksTree&
+        {
+            return blocks[index];
+        };
+
+    std::atomic<int> progress(-1);
+    easy_test::TempFile output("writer_cancelled_file");
+    std::ostringstream log;
+    REQUIRE(writeTreesToFile(
+                progress, output.c_str(), source.serializedDescriptors, source.descriptors,
+                static_cast<profiler::block_id_t>(source.descriptorsCount), source.threadedTrees,
+                source.bookmarks, getter, source.beginEndTime.beginTime,
+                source.beginEndTime.endTime, source.pid, log) == 0);
+    REQUIRE(log.str().find("interrupted") != std::string::npos);
+    REQUIRE_FALSE(output.exists());
+}
+
+TEST_CASE("File re-saving reports an output path that cannot be opened", "[writer][robustness]")
+{
+    LoadedProfile source;
+    captureSample(source);
+
+    const std::string missingDirectory = easy_test::uniqueName("writer_missing_directory", "");
+    const std::string outputPath = missingDirectory + "/trace.prof";
+    std::string log;
+    REQUIRE(resave(source, outputPath, log,
+                   source.beginEndTime.beginTime, source.beginEndTime.endTime) == 0);
+    REQUIRE(log.find("Can not open file") != std::string::npos);
+}
+
+TEST_CASE("A successful re-save reports complete progress", "[writer][progress]")
+{
+    LoadedProfile source;
+    captureSample(source);
+
+    const profiler::blocks_t& blocks = source.blocks;
+    profiler::block_getter_fn getter =
+        [&blocks](profiler::block_index_t index) -> const profiler::BlocksTree&
+        {
+            return blocks[index];
+        };
+
+    std::atomic<int> progress(0);
+    std::ostringstream output;
+    std::ostringstream log;
+    REQUIRE(writeTreesToStream(
+                progress, output, source.serializedDescriptors, source.descriptors,
+                static_cast<profiler::block_id_t>(source.descriptorsCount), source.threadedTrees,
+                source.bookmarks, getter, source.beginEndTime.beginTime,
+                source.beginEndTime.endTime, source.pid, log) == source.blocksRead);
+    REQUIRE(log.str().empty());
+    REQUIRE(progress.load() == 100);
+}
+
+TEST_CASE("Re-saving rejects a descriptor count beyond the table", "[writer][robustness]")
+{
+    LoadedProfile source;
+    captureSample(source);
+
+    const profiler::blocks_t& blocks = source.blocks;
+    profiler::block_getter_fn getter =
+        [&blocks](profiler::block_index_t index) -> const profiler::BlocksTree&
+        {
+            return blocks[index];
+        };
+
+    std::ostringstream output;
+    std::ostringstream log;
+    const profiler::block_id_t invalidCount =
+        static_cast<profiler::block_id_t>(source.descriptors.size() + 1U);
+    REQUIRE(writeTreesToStream(
+                output, source.serializedDescriptors, source.descriptors, invalidCount,
+                source.threadedTrees, source.bookmarks, getter,
+                source.beginEndTime.beginTime, source.beginEndTime.endTime,
+                source.pid, log) == 0);
+    REQUIRE(log.str().find("Invalid descriptor table") != std::string::npos);
+}
+
+TEST_CASE("Re-saving an empty tree reports nothing to save", "[writer][robustness]")
+{
+    LoadedProfile source;
+    captureSample(source);
+
+    const profiler::blocks_t& blocks = source.blocks;
+    profiler::block_getter_fn getter =
+        [&blocks](profiler::block_index_t index) -> const profiler::BlocksTree&
+        {
+            return blocks[index];
+        };
+
+    profiler::thread_blocks_tree_t emptyTrees;
+    std::ostringstream output;
+    std::ostringstream log;
+    REQUIRE(writeTreesToStream(
+                output, source.serializedDescriptors, source.descriptors,
+                static_cast<profiler::block_id_t>(source.descriptorsCount), emptyTrees,
+                source.bookmarks, getter, source.beginEndTime.beginTime,
+                source.beginEndTime.endTime, source.pid, log) == 0);
+    REQUIRE(output.str().empty());
+    REQUIRE(log.str().find("Nothing to save") != std::string::npos);
+}
+
+TEST_CASE("Re-saving without descriptor bytes reports nothing to save", "[writer][robustness]")
+{
+    LoadedProfile source;
+    captureSample(source);
+
+    const profiler::blocks_t& blocks = source.blocks;
+    profiler::block_getter_fn getter =
+        [&blocks](profiler::block_index_t index) -> const profiler::BlocksTree&
+        {
+            return blocks[index];
+        };
+
+    profiler::SerializedData emptyDescriptors;
+    std::ostringstream output;
+    std::ostringstream log;
+    REQUIRE(writeTreesToStream(
+                output, emptyDescriptors, source.descriptors,
+                static_cast<profiler::block_id_t>(source.descriptorsCount),
+                source.threadedTrees, source.bookmarks, getter,
+                source.beginEndTime.beginTime, source.beginEndTime.endTime,
+                source.pid, log) == 0);
+    REQUIRE(output.str().empty());
+    REQUIRE(log.str().find("Nothing to save") != std::string::npos);
+}
+
+TEST_CASE("Re-saving with a zero descriptor count reports nothing to save", "[writer][robustness]")
+{
+    LoadedProfile source;
+    captureSample(source);
+
+    const profiler::blocks_t& blocks = source.blocks;
+    profiler::block_getter_fn getter =
+        [&blocks](profiler::block_index_t index) -> const profiler::BlocksTree&
+        {
+            return blocks[index];
+        };
+
+    std::ostringstream output;
+    std::ostringstream log;
+    REQUIRE(writeTreesToStream(
+                output, source.serializedDescriptors, source.descriptors, 0,
+                source.threadedTrees, source.bookmarks, getter,
+                source.beginEndTime.beginTime, source.beginEndTime.endTime,
+                source.pid, log) == 0);
+    REQUIRE(output.str().empty());
+    REQUIRE(log.str().find("Nothing to save") != std::string::npos);
 }
 
 TEST_CASE("Topology survives a re-save", "[writer][format][tree]")
@@ -208,6 +455,20 @@ TEST_CASE("Time slicing drops blocks outside the range", "[writer][format]")
     REQUIRE(reloaded.blocksRead == written);
 }
 
+TEST_CASE("A time range outside the trace writes nothing", "[writer][format][range]")
+{
+    LoadedProfile source;
+    captureSample(source);
+    REQUIRE(source.readerLog.empty());
+
+    easy_test::TempFile file("writer_empty_range");
+    std::string log;
+    const profiler::timestamp_t afterTrace = source.beginEndTime.endTime + 1000;
+
+    REQUIRE(resave(source, file.path(), log, afterTrace, afterTrace + 1000) == 0);
+    REQUIRE(log.find("Nothing to save") != std::string::npos);
+}
+
 TEST_CASE("A range covering the whole trace keeps everything", "[writer][format]")
 {
     LoadedProfile source;
@@ -228,6 +489,72 @@ TEST_CASE("A range covering the whole trace keeps everything", "[writer][format]
     easy_test::loadProfile(file.path(), reloaded);
     REQUIRE(reloaded.readerLog.empty());
     REQUIRE(reloaded.blocksRead == source.blocksRead);
+}
+
+TEST_CASE("A sliced re-save drops bookmarks before the selected range", "[writer][format][bookmarks]")
+{
+    LoadedProfile source;
+    captureSample(source);
+    REQUIRE(source.readerLog.empty());
+
+    const profiler::timestamp_t begin = source.beginEndTime.beginTime;
+    const profiler::timestamp_t span = source.beginEndTime.endTime - begin;
+    REQUIRE(span >= 4);
+
+    for (int i = 1; i <= 3; ++i)
+    {
+        profiler::Bookmark bookmark;
+        bookmark.pos = begin + span * static_cast<profiler::timestamp_t>(i) / 4;
+        bookmark.color = profiler::colors::Orange;
+        bookmark.text = std::string("writer bookmark ") + static_cast<char>('0' + i);
+        source.bookmarks.push_back(bookmark);
+    }
+
+    easy_test::TempFile file("writer_bookmark_slice");
+    std::string log;
+    REQUIRE(resave(source, file.path(), log,
+                   source.bookmarks[1].pos, source.beginEndTime.endTime) > 0);
+    REQUIRE(log.empty());
+
+    LoadedProfile reloaded;
+    easy_test::loadProfile(file.path(), reloaded);
+    REQUIRE(reloaded.readerLog.empty());
+    REQUIRE(reloaded.bookmarks.size() == 2);
+    REQUIRE(reloaded.bookmarks[0].text == "writer bookmark 2");
+    REQUIRE(reloaded.bookmarks[1].text == "writer bookmark 3");
+}
+
+TEST_CASE("A full-range re-save preserves every bookmark", "[writer][format][bookmarks]")
+{
+    LoadedProfile source;
+    captureSample(source);
+    REQUIRE(source.readerLog.empty());
+
+    profiler::Bookmark first;
+    first.pos = source.beginEndTime.beginTime;
+    first.color = profiler::colors::Green;
+    first.text = "writer first bookmark";
+    source.bookmarks.push_back(first);
+
+    profiler::Bookmark last;
+    last.pos = source.beginEndTime.endTime;
+    last.color = profiler::colors::Red;
+    last.text = "writer last bookmark";
+    source.bookmarks.push_back(last);
+
+    easy_test::TempFile file("writer_all_bookmarks");
+    std::string log;
+    REQUIRE(resave(source, file.path(), log,
+                   source.beginEndTime.beginTime,
+                   source.beginEndTime.endTime) == source.blocksRead);
+    REQUIRE(log.empty());
+
+    LoadedProfile reloaded;
+    easy_test::loadProfile(file.path(), reloaded);
+    REQUIRE(reloaded.readerLog.empty());
+    REQUIRE(reloaded.bookmarks.size() == 2);
+    REQUIRE(reloaded.bookmarks.front().text == first.text);
+    REQUIRE(reloaded.bookmarks.back().text == last.text);
 }
 
 TEST_CASE("Values survive a re-save", "[writer][format][values]")
@@ -301,6 +628,33 @@ TEST_CASE("A multithreaded trace survives a re-save", "[writer][format][threads]
     REQUIRE(reloaded.threadedTrees.size() == sourceThreads);
     REQUIRE(easy_test::countBlocksNamed(reloaded, "writer_thread_block") == 3);
 }
+
+#ifndef _WIN32
+TEST_CASE("A context-switch-only trace survives a re-save", "[writer][format][cswitch][unix]")
+{
+    LoadedProfile source;
+    captureContextSwitchOnly(source);
+    INFO("reader log: " << source.readerLog);
+    REQUIRE(source.readerLog.empty());
+    REQUIRE(source.blocksRead == 3);
+    REQUIRE(source.threadedTrees.size() == 1);
+    REQUIRE(source.threadedTrees.begin()->second.children.empty());
+    REQUIRE(source.threadedTrees.begin()->second.sync.size() == 3);
+
+    easy_test::TempFile file("writer_cswitch_resave");
+    std::string log;
+    REQUIRE(resave(source, file.path(), log,
+                   source.beginEndTime.beginTime, source.beginEndTime.endTime) == 3);
+    REQUIRE(log.empty());
+
+    LoadedProfile reloaded;
+    easy_test::loadProfile(file.path(), reloaded);
+    REQUIRE(reloaded.readerLog.empty());
+    REQUIRE(reloaded.blocksRead == 3);
+    REQUIRE(reloaded.threadedTrees.size() == 1);
+    REQUIRE(reloaded.threadedTrees.begin()->second.sync.size() == 3);
+}
+#endif
 
 TEST_CASE("Re-saving is idempotent", "[writer][format]")
 {

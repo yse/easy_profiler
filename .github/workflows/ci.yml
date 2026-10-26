@@ -1,0 +1,258 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cmake:
+    name: CMake (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux GCC static
+            os: ubuntu-24.04
+            shared: "OFF"
+            compiler_arg: -DCMAKE_CXX_COMPILER=g++
+            log: "ON"
+          - name: Linux Clang shared
+            os: ubuntu-24.04
+            shared: "ON"
+            compiler_arg: -DCMAKE_CXX_COMPILER=clang++
+            log: "OFF"
+          - name: macOS AppleClang static
+            os: macos-15
+            shared: "OFF"
+            compiler_arg: -DCMAKE_CXX_COMPILER=clang++
+            log: "OFF"
+          - name: Windows MSVC shared
+            os: windows-2025
+            shared: "ON"
+            compiler_arg: ""
+            log: "OFF"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Configure
+        shell: bash
+        run: >-
+          cmake -S . -B build/ci
+          -DEASY_PROFILER_NO_GUI=ON
+          -DEASY_PROFILER_NO_SAMPLES=ON
+          -DBUILD_TESTING=ON
+          -DBUILD_SHARED_LIBS=${{ matrix.shared }}
+          -DEASY_OPTION_LOG=${{ matrix.log }}
+          -DCMAKE_BUILD_TYPE=Debug
+          ${{ matrix.compiler_arg }}
+      - name: Build
+        run: cmake --build build/ci --config Debug --parallel 4
+      - name: Test
+        run: ctest --test-dir build/ci -C Debug --output-on-failure --parallel 4
+
+  sanitizers:
+    name: ASan + UBSan (default packed access)
+    runs-on: ubuntu-24.04
+    env:
+      ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1:suppressions=${{ github.workspace }}/tests/ubsan.supp
+    steps:
+      - uses: actions/checkout@v6
+      - name: Configure
+        run: >-
+          cmake -S . -B build/sanitizers
+          -DEASY_PROFILER_NO_GUI=ON
+          -DEASY_PROFILER_NO_SAMPLES=ON
+          -DBUILD_TESTING=ON
+          -DBUILD_SHARED_LIBS=OFF
+          -DEASY_PROFILER_STRICT_ALIGNMENT=OFF
+          -DEASY_PROFILER_SANITIZERS=address,undefined
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_BUILD_TYPE=Debug
+      - name: Build
+        run: cmake --build build/sanitizers --parallel 4
+      - name: Test
+        run: ctest --test-dir build/sanitizers --output-on-failure --parallel 4 -LE package
+
+  fuzz-smoke:
+    name: Reader fuzz smoke
+    runs-on: ubuntu-24.04
+    env:
+      ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+    steps:
+      - uses: actions/checkout@v6
+      - name: Configure
+        run: >-
+          cmake -S . -B build/fuzz
+          -DEASY_PROFILER_NO_GUI=ON
+          -DEASY_PROFILER_NO_SAMPLES=ON
+          -DBUILD_TESTING=ON
+          -DBUILD_SHARED_LIBS=OFF
+          -DEASY_PROFILER_STRICT_ALIGNMENT=ON
+          -DEASY_PROFILER_SANITIZERS=address,undefined
+          -DEASY_PROFILER_BUILD_FUZZER=ON
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_BUILD_TYPE=Debug
+      - name: Build harness
+        run: cmake --build build/fuzz --target easy_profiler_reader_fuzzer --parallel 4
+      - name: Run deterministic fuzz smoke
+        run: ctest --test-dir build/fuzz --output-on-failure -L fuzz
+
+  fuzz-stress:
+    name: Reader fuzz stress
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    env:
+      ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+    steps:
+      - uses: actions/checkout@v6
+      - name: Configure
+        run: >-
+          cmake -S . -B build/fuzz-stress
+          -DEASY_PROFILER_NO_GUI=ON
+          -DEASY_PROFILER_NO_SAMPLES=ON
+          -DBUILD_TESTING=ON
+          -DBUILD_SHARED_LIBS=OFF
+          -DEASY_PROFILER_STRICT_ALIGNMENT=ON
+          -DEASY_PROFILER_SANITIZERS=address,undefined
+          -DEASY_PROFILER_BUILD_FUZZER=ON
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_BUILD_TYPE=Debug
+      - name: Build harness
+        run: cmake --build build/fuzz-stress --target easy_profiler_reader_fuzzer --parallel 4
+      - name: Prepare artifacts
+        run: cmake -E make_directory build/fuzz-stress/fuzz-artifacts
+      - name: Fuzz current and legacy profiles for five minutes
+        run: >-
+          build/fuzz-stress/bin/easy_profiler_reader_fuzzer
+          -max_total_time=300
+          -max_len=1048576
+          -dict=tests/fuzz_reader.dict
+          -artifact_prefix=build/fuzz-stress/fuzz-artifacts/
+          build/fuzz-stress/tests/fuzz_corpus
+      - name: Upload crashes
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reader-fuzz-crashes
+          path: build/fuzz-stress/fuzz-artifacts
+
+  coverage:
+    name: Core coverage
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Configure
+        run: >-
+          cmake -S . -B build/coverage
+          -DEASY_PROFILER_NO_GUI=ON
+          -DEASY_PROFILER_NO_SAMPLES=ON
+          -DBUILD_TESTING=ON
+          -DBUILD_SHARED_LIBS=OFF
+          -DEASY_PROFILER_COVERAGE=ON
+          -DEASY_PROFILER_BUILD_COVERAGE_SUITE=ON
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_BUILD_TYPE=Debug
+      - name: Build single-process coverage runner
+        run: cmake --build build/coverage --target easy_profiler_coverage_tests --parallel 4
+      - name: Run core suite once
+        run: ctest --test-dir build/coverage --output-on-failure -L coverage
+      - name: Merge and render coverage
+        run: |
+          llvm-profdata merge -sparse build/coverage/tests/coverage-profiles/core.profraw -o build/coverage/core.profdata
+          llvm-cov report build/coverage/bin/easy_profiler_coverage_tests \
+            -instr-profile=build/coverage/core.profdata \
+            -ignore-filename-regex='(/tests/|/_deps/)' \
+            -show-branch-summary \
+            easy_profiler_core | tee build/coverage/summary.txt
+          llvm-cov export build/coverage/bin/easy_profiler_coverage_tests \
+            -instr-profile=build/coverage/core.profdata \
+            -ignore-filename-regex='(/tests/|/_deps/)' \
+            easy_profiler_core > build/coverage/coverage.json
+          llvm-cov export build/coverage/bin/easy_profiler_coverage_tests \
+            -instr-profile=build/coverage/core.profdata \
+            -ignore-filename-regex='(/tests/|/_deps/)' \
+            -format=lcov easy_profiler_core > build/coverage/coverage.lcov
+          llvm-cov show build/coverage/bin/easy_profiler_coverage_tests \
+            -instr-profile=build/coverage/core.profdata \
+            -ignore-filename-regex='(/tests/|/_deps/)' \
+            -format=html -output-dir=build/coverage/html \
+            easy_profiler_core
+      - name: Compute pull-request diff
+        if: github.event_name == 'pull_request'
+        run: >-
+          git diff --unified=0 ${{ github.event.pull_request.base.sha }} HEAD
+          -- easy_profiler_core > build/coverage/changed.diff
+      - name: Create empty diff outside pull requests
+        if: github.event_name != 'pull_request'
+        run: cmake -E touch build/coverage/changed.diff
+      - name: Test coverage gate
+        run: python3 -m unittest tests/test_check_coverage.py
+      - name: Enforce coverage baseline
+        run: >-
+          python3 tests/check_coverage.py build/coverage/coverage.json
+          --diff build/coverage/changed.diff
+          --lcov build/coverage/coverage.lcov
+          --min-lines 80 --min-branches 82 --min-changed-lines 80
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: easy-profiler-core-coverage
+          path: |
+            build/coverage/html
+            build/coverage/coverage.lcov
+            build/coverage/summary.txt
+            build/coverage/coverage.json
+
+  bazel:
+    name: Bazel 9 / Bzlmod
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: bazel-contrib/setup-bazel@0.19.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+      - run: bazel test //tests:bazel_smoke
+      - run: bazel build //sample:easy_profiler_sample
+
+  thread-stress:
+    name: Thread sanitizer stress
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    env:
+      TSAN_OPTIONS: halt_on_error=1
+    steps:
+      - uses: actions/checkout@v6
+      - name: Configure
+        run: >-
+          cmake -S . -B build/tsan
+          -DEASY_PROFILER_NO_GUI=ON
+          -DEASY_PROFILER_NO_SAMPLES=ON
+          -DBUILD_TESTING=ON
+          -DBUILD_SHARED_LIBS=OFF
+          -DEASY_PROFILER_SANITIZERS=thread
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_BUILD_TYPE=Debug
+      - name: Build
+        run: cmake --build build/tsan --parallel 4
+      - name: Repeat thread tests
+        run: >-
+          ctest --test-dir build/tsan --output-on-failure
+          -L threads --repeat until-fail:10

@@ -1,4 +1,12 @@
 @PACKAGE_INIT@
 
 include("${CMAKE_CURRENT_LIST_DIR}/@targets_export_name@.cmake")
+
+# Compatibility with the historic un-namespaced target documented by v2.1.
+if (NOT TARGET easy_profiler AND TARGET easy_profiler::easy_profiler)
+    add_library(easy_profiler INTERFACE IMPORTED)
+    set_property(TARGET easy_profiler PROPERTY
+        INTERFACE_LINK_LIBRARIES easy_profiler::easy_profiler)
+endif ()
+
 check_required_components("@PROJECT_NAME@")

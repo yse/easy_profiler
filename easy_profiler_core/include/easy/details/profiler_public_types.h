@@ -97,7 +97,15 @@ namespace profiler {
         inline int32_t line() const EASY_NOEXCEPT { return m_line; }
         inline color_t color() const EASY_NOEXCEPT { return m_color; }
         inline block_type_t type() const EASY_NOEXCEPT { return m_type; }
-        inline EasyBlockStatus status() const EASY_NOEXCEPT { return m_status; }
+        EasyBlockStatus status() const EASY_NOEXCEPT;
+
+    protected:
+
+        // m_status is part of the packed on-disk layout and therefore cannot be
+        // replaced with std::atomic without making the format platform-dependent.
+        // These accessors use byte-sized compiler atomics while preserving that
+        // layout. Status changes may arrive on the listener thread.
+        void setStatusAtomic(EasyBlockStatus _status) EASY_NOEXCEPT;
 
     }; // END of class BaseBlockDescriptor.
 

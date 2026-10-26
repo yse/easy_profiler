@@ -249,6 +249,7 @@ int main(int argc, char* argv[])
 #ifdef EASY_CONSTEXPR_AVAILABLE
     constexpr int grrr[] {2, -3, 4};
     auto pppp = &grrr;
+    (void)pppp;
     EASY_ARRAY("threads count", grrr, 3, false, true, "blabla", profiler::colors::Blue/*, EASY_VIN("threads count")*/, profiler::OFF);
 #endif
 

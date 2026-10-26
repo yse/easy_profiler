@@ -99,7 +99,9 @@ class ProfileManager
     uint64_t                  m_descriptorsMemorySize;
 
 #if !defined(EASY_CHRONO_CLOCK) && !defined(_WIN32)
-    std::atomic<int64_t>               m_cpuFrequency;
+    // Calibrated lazily on first use, including from the const conversion
+    // helpers that a disabled-profiler HUD calls.
+    mutable std::atomic<int64_t>       m_cpuFrequency;
 #endif
 
     profiler::timestamp_t                 m_beginTime;
@@ -114,6 +116,7 @@ class ProfileManager
     std::atomic_bool                 m_profilerStatus;
     std::atomic_bool          m_isEventTracingEnabled;
     std::atomic_bool             m_isAlreadyListening;
+    std::atomic_bool                 m_isListeningReady;
     std::atomic_bool                  m_frameMaxReset;
     std::atomic_bool                  m_frameAvgReset;
     std::atomic_bool                    m_stopDumping;
@@ -169,6 +172,7 @@ public:
 
     void beginContextSwitch(profiler::thread_id_t _thread_id, profiler::timestamp_t _time, profiler::thread_id_t _target_thread_id, const char* _target_process, bool _lockSpin = true);
     void endContextSwitch(profiler::thread_id_t _thread_id, processid_t _process_id, profiler::timestamp_t _endtime, bool _lockSpin = true);
+    void dropContextSwitch(profiler::thread_id_t _thread_id, bool _lockSpin = true);
     void startListen(uint16_t _port);
     void stopListen();
     bool isListening() const;
@@ -198,6 +202,10 @@ private:
 
     void enableEventTracer();
     void disableEventTracer();
+
+#if !defined(EASY_CHRONO_CLOCK) && !defined(_WIN32)
+    int64_t ensureCpuFrequency() const;
+#endif
 
     static char checkThreadExpired(ThreadStorage& _registeredThread);
 

@@ -49,8 +49,10 @@
 ************************************************************************/
 
 #include <algorithm>
+#include <chrono>
 #include <future>
 #include <fstream>
+#include <limits>
 #include <ostream>
 #include <sstream>
 #include "profile_manager.h"
@@ -68,6 +70,7 @@
 #include "block_descriptor.h"
 #include "current_time.h"
 #include "current_thread.h"
+#include "timestamp_scaling.h"
 
 #ifdef __APPLE__
 # include <mach/clock.h>
@@ -141,7 +144,7 @@
 //////////////////////////////////////////////////////////////////////////
 
 extern const uint32_t EASY_PROFILER_SIGNATURE;
-extern const uint32_t EASY_PROFILER_VERSION;
+extern const uint32_t EASY_PROFILER_FORMAT_VERSION;
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -209,6 +212,22 @@ thread_local static profiler::ThreadGuard THIS_THREAD_GUARD; // thread guard for
 
 //////////////////////////////////////////////////////////////////////////
 
+#ifndef EASY_PROFILER_API_DISABLED
+static const profiler::BaseBlockDescriptor* threadExpiredDescriptor()
+{
+    // This descriptor must be created before expired == 1 becomes visible.
+    // dumpBlocksToStream holds m_storedSpin while consuming expired threads,
+    // and addBlockDescriptor takes the same lock.
+    EASY_LOCAL_STATIC_PTR(const profiler::BaseBlockDescriptor*, descriptor,
+        ProfileManager::instance().addBlockDescriptor(
+            profiler::ON, "easy_profiler_internal_thread_expired", "ThreadExpired",
+            __FILE__, __LINE__, profiler::BlockType::Event, EASY_COLOR_THREAD_END, false));
+    return descriptor;
+}
+#endif
+
+//////////////////////////////////////////////////////////////////////////
+
 template <typename T>
 static void write(std::ostream& _outstream, const char* _data, T _size)
 {
@@ -243,6 +262,8 @@ profiler::ThreadGuard::~ThreadGuard()
         EASY_EVENT_RES(isMarked, "ThreadFinished", EASY_COLOR_THREAD_END, profiler::FORCE_ON);
         //THIS_THREAD->markProfilingFrameEnded();
         THIS_THREAD->putMark();
+        if (!isMarked)
+            (void)threadExpiredDescriptor();
         THIS_THREAD->expired.store(isMarked ? 2 : 1, std::memory_order_release);
         THIS_THREAD = nullptr;
     }
@@ -264,52 +285,40 @@ static int64_t calculate_cpu_frequency()
     return static_cast<int64_t>(freq.QuadPart);
 }
 #else
-# ifndef __APPLE__
-#  include <time.h>
-# endif
 static int64_t calculate_cpu_frequency()
 {
-    EASY_CONSTEXPR int NANO_SECONDS_IN_SEC = 1000000000;
-
-    uint64_t begin = 0;
-    uint64_t end = 0;
-
-# ifdef __APPLE__
-    clock_serv_t cclock;
-    mach_timespec_t begints, endts;
-    host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &cclock);
-    clock_get_time(cclock, &begints);
-# else
-    struct timespec begints, endts;
-    clock_gettime(CLOCK_MONOTONIC, &begints);
+# if defined(__aarch64__)
+    uint64_t ticksPerSecond = 0;
+    asm volatile("mrs %0, cntfrq_el0" : "=r"(ticksPerSecond));
+    if (ticksPerSecond != 0)
+        return static_cast<int64_t>(ticksPerSecond / 1000);
 # endif
 
-    begin = profiler::clock::now();
-    volatile uint64_t i;
-    for (i = 0; i < 100000000; i++); /* must be CPU intensive */
-    end = profiler::clock::now();
+    // Calibrate only when profiling or time conversion is first requested.
+    // Sleeping keeps CPU usage negligible and a short fixed window avoids the
+    // former 100-million-iteration startup spike on slow targets.
+    // Warm both clocks first: the very first steady_clock::now() in a process
+    // pays lazy initialization, and inside a 5 ms window that one-off cost was
+    // measured as a systematic 0.5% frequency error.
+    (void)profiler::clock::now();
+    (void)std::chrono::steady_clock::now();
+    std::this_thread::sleep_for(std::chrono::microseconds(100));
 
-# ifdef __APPLE__
-    clock_get_time(cclock, &endts);
-    mach_port_deallocate(mach_task_self(), cclock);
-# else
-    clock_gettime(CLOCK_MONOTONIC, &endts);
-# endif
+    const uint64_t ticksBegin = profiler::clock::now();
+    const auto wallBegin = std::chrono::steady_clock::now();
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    const auto wallEnd = std::chrono::steady_clock::now();
+    const uint64_t ticksEnd = profiler::clock::now();
 
-    struct timespec tmpts;
-    tmpts.tv_sec = endts.tv_sec - begints.tv_sec;
-    tmpts.tv_nsec = endts.tv_nsec - begints.tv_nsec;
+    const int64_t elapsedNanoseconds =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(wallEnd - wallBegin).count();
+    if (elapsedNanoseconds <= 0 || ticksEnd <= ticksBegin)
+        return 1;
 
-    if (tmpts.tv_nsec < 0)
-    {
-        tmpts.tv_sec--;
-        tmpts.tv_nsec += NANO_SECONDS_IN_SEC;
-    }
-
-    const uint64_t nsecElapsed = tmpts.tv_sec * 1000000000LL + tmpts.tv_nsec;
-    const double ticksPerNanoSec = static_cast<double>(end - begin) / static_cast<double>(nsecElapsed);
-
-    return int64_t(ticksPerNanoSec * 1000000);
+    const double ticksPerMillisecond =
+        static_cast<double>(ticksEnd - ticksBegin) * 1000000.0 /
+        static_cast<double>(elapsedNanoseconds);
+    return std::max<int64_t>(1, static_cast<int64_t>(ticksPerMillisecond));
 }
 #endif
 
@@ -334,6 +343,7 @@ ProfileManager::ProfileManager() :
     m_profilerStatus = false;
     m_isEventTracingEnabled = EASY_OPTION_EVENT_TRACING_ENABLED;
     m_isAlreadyListening = false;
+    m_isListeningReady = false;
     m_stopDumping = false;
     m_stopListen = false;
 
@@ -345,12 +355,7 @@ ProfileManager::ProfileManager() :
     m_frameAvgReset = false;
 
 #if !defined(EASY_CHRONO_CLOCK) && !defined(_WIN32)
-    m_cpuFrequency = 1;
-
-# if !defined(EASY_PROFILER_API_DISABLED)
-    const auto cpu_frequency = calculate_cpu_frequency();
-    m_cpuFrequency.store(cpu_frequency, std::memory_order_release);
-# endif
+    m_cpuFrequency = 0;
 
 #endif
 
@@ -453,14 +458,14 @@ const profiler::BaseBlockDescriptor* ProfileManager::addBlockDescriptor(profiler
 void ProfileManager::storeValue(const profiler::BaseBlockDescriptor* _desc, profiler::DataType _type, const void* _data,
                                 uint16_t _size, bool _isArray, profiler::ValueId _vin)
 {
-    if (!isEnabled() || (_desc->m_status & profiler::ON) == 0)
+    if (!isEnabled() || (_desc->status() & profiler::ON) == 0)
         return;
 
     if (THIS_THREAD == nullptr)
         registerThread();
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
-    if (THIS_THREAD->stackSize > 0 || (!THIS_THREAD->allowChildren && (_desc->m_status & FORCE_ON_FLAG) == 0))
+    if (THIS_THREAD->stackSize > 0 || (!THIS_THREAD->allowChildren && (_desc->status() & FORCE_ON_FLAG) == 0))
         return;
 #else
     if (THIS_THREAD->stackSize > 0)
@@ -475,14 +480,14 @@ void ProfileManager::storeValue(const profiler::BaseBlockDescriptor* _desc, prof
 
 bool ProfileManager::storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName)
 {
-    if (!isEnabled() || (_desc->m_status & profiler::ON) == 0)
+    if (!isEnabled() || (_desc->status() & profiler::ON) == 0)
         return false;
 
     if (THIS_THREAD == nullptr)
         registerThread();
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
-    if (THIS_THREAD->stackSize > 0 || (!THIS_THREAD->allowChildren && (_desc->m_status & FORCE_ON_FLAG) == 0))
+    if (THIS_THREAD->stackSize > 0 || (!THIS_THREAD->allowChildren && (_desc->status() & FORCE_ON_FLAG) == 0))
         return false;
 #else
     if (THIS_THREAD->stackSize > 0)
@@ -500,14 +505,14 @@ bool ProfileManager::storeBlock(const profiler::BaseBlockDescriptor* _desc, cons
 bool ProfileManager::storeBlock(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName,
                                 profiler::timestamp_t _beginTime, profiler::timestamp_t _endTime)
 {
-    if (!isEnabled() || (_desc->m_status & profiler::ON) == 0)
+    if (!isEnabled() || (_desc->status() & profiler::ON) == 0)
         return false;
 
     if (THIS_THREAD == nullptr)
         registerThread();
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
-    if (THIS_THREAD->stackSize > 0 || (!THIS_THREAD->allowChildren && (_desc->m_status & FORCE_ON_FLAG) == 0))
+    if (THIS_THREAD->stackSize > 0 || (!THIS_THREAD->allowChildren && (_desc->status() & FORCE_ON_FLAG) == 0))
         return false;
 #else
     if (THIS_THREAD->stackSize > 0)
@@ -529,14 +534,14 @@ bool ProfileManager::storeBlock(const profiler::BaseBlockDescriptor* _desc, cons
 void ProfileManager::storeBlockForce(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName,
                                      profiler::timestamp_t& _timestamp)
 {
-    if ((_desc->m_status & profiler::ON) == 0)
+    if ((_desc->status() & profiler::ON) == 0)
         return;
 
     if (THIS_THREAD == nullptr)
         registerThread();
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
-    if (!THIS_THREAD->allowChildren && (_desc->m_status & FORCE_ON_FLAG) == 0)
+    if (!THIS_THREAD->allowChildren && (_desc->status() & FORCE_ON_FLAG) == 0)
         return;
 #endif
 
@@ -548,14 +553,14 @@ void ProfileManager::storeBlockForce(const profiler::BaseBlockDescriptor* _desc,
 void ProfileManager::storeBlockForce2(const profiler::BaseBlockDescriptor* _desc, const char* _runtimeName,
                                       profiler::timestamp_t _timestamp)
 {
-    if ((_desc->m_status & profiler::ON) == 0)
+    if ((_desc->status() & profiler::ON) == 0)
         return;
 
     if (THIS_THREAD == nullptr)
         registerThread();
 
 #if EASY_ENABLE_BLOCK_STATUS != 0
-    if (!THIS_THREAD->allowChildren && (_desc->m_status & FORCE_ON_FLAG) == 0)
+    if (!THIS_THREAD->allowChildren && (_desc->status() & FORCE_ON_FLAG) == 0)
         return;
 #endif
 
@@ -643,8 +648,19 @@ void ProfileManager::beginContextSwitch(profiler::thread_id_t _thread_id, profil
 
 //////////////////////////////////////////////////////////////////////////
 
+void ProfileManager::dropContextSwitch(profiler::thread_id_t _thread_id, bool _lockSpin)
+{
+    // Forget an opened wait whose interval lies entirely outside the capture.
+    ThreadStorage* ts = _lockSpin ? findThreadStorage(_thread_id) : _findThreadStorage(_thread_id);
+    if (ts != nullptr && !ts->sync.openedList.empty())
+        ts->sync.openedList.pop_back();
+}
+
 void ProfileManager::endBlock()
 {
+    if (THIS_THREAD == nullptr)
+        return;
+
     if (--THIS_THREAD->stackSize > 0)
     {
         // Just pop child blocks from stack until frame, which
@@ -725,7 +741,14 @@ void ProfileManager::endContextSwitch(profiler::thread_id_t _thread_id, processi
         return;
 
     CSwitchBlock& lastBlock = ts->sync.openedList.back();
-    lastBlock.m_end = _endtime;
+
+    // A context switch log is not guaranteed to be globally time-sorted: merging
+    // per-CPU buffers into one file can place a thread's return before its
+    // departure. Event::duration() is an unsigned subtraction, so storing such a
+    // reversed interval reports a wait of nearly 2^64 ticks. Clamp to a
+    // zero-length interval instead of dropping the event: the switch still gets
+    // recorded, at the time it was opened, contributing nothing to wait_time.
+    lastBlock.m_end = _endtime < lastBlock.m_begin ? lastBlock.m_begin : _endtime;
 
     ts->storeCSwitch(lastBlock);
     ts->sync.openedList.pop_back();
@@ -826,6 +849,11 @@ void ProfileManager::disableEventTracer()
 void ProfileManager::setEnabled(bool isEnable)
 {
     guard_lock_t lock(m_dumpSpin);
+
+#if !defined(EASY_CHRONO_CLOCK) && !defined(_WIN32)
+    if (isEnable)
+        ensureCpuFrequency();
+#endif
 
     auto time = profiler::clock::now();
     if (m_profilerStatus.exchange(isEnable, std::memory_order_acq_rel) == isEnable)
@@ -979,6 +1007,31 @@ uint32_t ProfileManager::dumpBlocksToStream(std::ostream& _outputStream, bool _l
                     return 0;
                 }
 
+                // One wait interval is spread over two log lines: the thread
+                // leaving the CPU and the thread coming back. Filtering whole
+                // lines by timestamp would orphan one half and silently lose the
+                // interval, so clamp intervals to the capture window instead and
+                // discard only those lying entirely outside it. Events that stay
+                // are guaranteed to end after m_beginTime, which is what the
+                // reader counts, so the header block count still matches.
+                if (timestamp > endtime)
+                {
+                    // Came back after the capture ended: close the wait at the
+                    // boundary rather than leaving it open and unwritten.
+                    endContextSwitch(thread_to, (processid_t)process_to, endtime, false);
+                    continue;
+                }
+
+                if (timestamp <= m_beginTime)
+                {
+                    // Left the CPU before the capture: keep the departure at the
+                    // boundary, and forget a wait that also ended before it.
+                    beginContextSwitch(thread_from, m_beginTime, thread_to,
+                                       next_task_name.c_str(), false);
+                    dropContextSwitch(thread_to, false);
+                    continue;
+                }
+
                 beginContextSwitch(thread_from, timestamp, thread_to, next_task_name.c_str(), false);
                 endContextSwitch(thread_to, (processid_t)process_to, timestamp, false);
                 EASY_LOG_ONLY(++num);
@@ -993,6 +1046,32 @@ uint32_t ProfileManager::dumpBlocksToStream(std::ostream& _outputStream, bool _l
         )
     }
 #endif
+
+    // A thread that went off the CPU during the capture and has not been
+    // scheduled back by the time of the dump still owns an open wait. The
+    // serialization below discards those (sync.openedList.clear()), so every
+    // thread that happens to be descheduled right now would lose its whole wait
+    // time. Close them at the capture boundary instead. This has to run before
+    // the sizes and block counts below are computed, otherwise the header would
+    // disagree with what is written.
+    for (auto& thread_entry : m_threads)
+    {
+        ThreadStorage& thread = thread_entry.second;
+        while (!thread.sync.openedList.empty())
+        {
+            const CSwitchBlock& block = thread.sync.openedList.back();
+            if (block.begin() <= endtime)
+            {
+                // CSwitchBlock owns its name, so the name recorded when the wait
+                // was opened is still valid here and is carried into the
+                // boundary-closed interval.
+                CSwitchBlock closing(block.begin(), block.tid(), block.name());
+                closing.m_end = endtime;
+                thread.storeCSwitch(closing);
+            }
+            thread.sync.openedList.pop_back();
+        }
+    }
 
     bool mainThreadExpired = false;
 
@@ -1039,7 +1118,9 @@ uint32_t ProfileManager::dumpBlocksToStream(std::ostream& _outputStream, bool _l
 
         if (expired == 1)
         {
-            EASY_FORCE_EVENT3(thread, endtime, "ThreadExpired", EASY_COLOR_THREAD_END);
+            const profiler::BaseBlockDescriptor* descriptor = threadExpiredDescriptor();
+            thread.storeBlockForce(
+                profiler::Block(endtime, endtime, descriptor->id(), ""));
             ++num;
         }
 
@@ -1050,19 +1131,14 @@ uint32_t ProfileManager::dumpBlocksToStream(std::ostream& _outputStream, bool _l
 
     // Write profiler signature and version
     write(_outputStream, EASY_PROFILER_SIGNATURE);
-    write(_outputStream, EASY_PROFILER_VERSION);
+    write(_outputStream, EASY_PROFILER_FORMAT_VERSION);
     write(_outputStream, m_processId);
 
     // Write CPU frequency to let GUI calculate real time value from CPU clocks
 #if defined(EASY_CHRONO_CLOCK) || defined(_WIN32)
     write(_outputStream, m_cpuFrequency);
 #else
-    EASY_LOGMSG("Calculating CPU frequency\n");
-    const int64_t cpu_frequency = calculate_cpu_frequency();
-    write(_outputStream, cpu_frequency * 1000LL);
-    EASY_LOGMSG("Done calculating CPU frequency\n");
-
-    m_cpuFrequency.store(cpu_frequency, std::memory_order_release);
+    write(_outputStream, ensureCpuFrequency() * 1000LL);
 #endif
 
     // Write begin and end time
@@ -1245,9 +1321,7 @@ void ProfileManager::setBlockStatus(profiler::block_id_t _id, profiler::EasyBloc
     guard_lock_t lock(m_storedSpin);
     if (_id < m_descriptors.size())
     {
-        auto desc = m_descriptors[_id];
-        lock.unlock();
-        desc->m_status = _status;
+        m_descriptors[_id]->setStatusAtomic(_status);
     }
 }
 
@@ -1255,6 +1329,11 @@ void ProfileManager::startListen(uint16_t _port)
 {
     if (!m_isAlreadyListening.exchange(true, std::memory_order_acq_rel))
     {
+        // A previous listener may have exited after a bind/listen failure.
+        // Reap that finished thread before assigning a retry thread.
+        if (m_listenThread.joinable())
+            m_listenThread.join();
+        m_isListeningReady.store(false, std::memory_order_release);
         m_stopListen.store(false, std::memory_order_release);
         m_listenThread = std::thread(&ProfileManager::listen, this, _port);
     }
@@ -1265,12 +1344,13 @@ void ProfileManager::stopListen()
     m_stopListen.store(true, std::memory_order_release);
     if (m_listenThread.joinable())
         m_listenThread.join();
+    m_isListeningReady.store(false, std::memory_order_release);
     m_isAlreadyListening.store(false, std::memory_order_release);
 }
 
 bool ProfileManager::isListening() const
 {
-    return m_isAlreadyListening.load(std::memory_order_acquire);
+    return m_isListeningReady.load(std::memory_order_acquire);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1287,25 +1367,60 @@ const char* ProfileManager::getContextSwitchLogFilename() const
 
 //////////////////////////////////////////////////////////////////////////
 
+static profiler::timestamp_t scaleTicks(profiler::timestamp_t ticks,
+                                        uint64_t numerator,
+                                        int64_t denominator)
+{
+    if (denominator <= 0)
+        return 0;
+
+    profiler::timestamp_t result = 0;
+    return scaleTimestamp(ticks, numerator, static_cast<uint64_t>(denominator), result)
+        ? result
+        : std::numeric_limits<profiler::timestamp_t>::max();
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 #if defined(EASY_CHRONO_CLOCK) || defined(_WIN32)
 profiler::timestamp_t ProfileManager::ticks2ns(profiler::timestamp_t ticks) const
 {
-    return static_cast<profiler::timestamp_t>(ticks * 1000000000LL / m_cpuFrequency);
+    return scaleTicks(ticks, 1000000000ULL, m_cpuFrequency);
 }
 
 profiler::timestamp_t ProfileManager::ticks2us(profiler::timestamp_t ticks) const
 {
-    return static_cast<profiler::timestamp_t>(ticks * 1000000LL / m_cpuFrequency);
+    return scaleTicks(ticks, 1000000ULL, m_cpuFrequency);
 }
 #else
+int64_t ProfileManager::ensureCpuFrequency() const
+{
+    int64_t frequency = m_cpuFrequency.load(std::memory_order_acquire);
+    if (frequency > 0)
+        return frequency;
+
+    const int64_t calculated = calculate_cpu_frequency();
+    int64_t expected = 0;
+    if (m_cpuFrequency.compare_exchange_strong(expected, calculated,
+                                               std::memory_order_release,
+                                               std::memory_order_acquire))
+        return calculated;
+    return expected;
+}
+
+// Calibrating here is what keeps the documented "monitor fps while profiling is
+// disabled" scenario working: an application that never calls setEnabled(true)
+// would otherwise convert every frame time to zero. The platform calibration
+// runs at most once per process and is free on targets that expose a counter
+// frequency directly.
 profiler::timestamp_t ProfileManager::ticks2ns(profiler::timestamp_t ticks) const
 {
-    return static_cast<profiler::timestamp_t>(ticks * 1000000LL / m_cpuFrequency.load(std::memory_order_acquire));
+    return scaleTicks(ticks, 1000000ULL, ensureCpuFrequency());
 }
 
 profiler::timestamp_t ProfileManager::ticks2us(profiler::timestamp_t ticks) const
 {
-    return static_cast<profiler::timestamp_t>(ticks * 1000 / m_cpuFrequency.load(std::memory_order_acquire));
+    return scaleTicks(ticks, 1000ULL, ensureCpuFrequency());
 }
 #endif
 
@@ -1385,12 +1500,29 @@ template <class T>
 static void join(std::future<T>& futureResult)
 {
     if (futureResult.valid())
-        futureResult.get();
+        (void)futureResult.get();
+}
+
+static size_t incomingMessageSize(profiler::net::MessageType type)
+{
+    using profiler::net::MessageType;
+    switch (type)
+    {
+        case MessageType::Change_Block_Status:
+            return sizeof(profiler::net::BlockStatusMessage);
+        case MessageType::Change_Event_Tracing_Status:
+        case MessageType::Change_Event_Tracing_Priority:
+            return sizeof(profiler::net::BoolMessage);
+        default:
+            return sizeof(profiler::net::Message);
+    }
 }
 
 void ProfileManager::listen(uint16_t _port)
 {
     EASY_THREAD_SCOPE("EasyProfiler.Listen");
+
+    static const int LISTENER_POLL_TIMEOUT_MS = 100;
 
     EASY_LOGMSG("Listening started\n");
 
@@ -1406,19 +1538,27 @@ void ProfileManager::listen(uint16_t _port)
     };
 
     EasySocket socket;
-    profiler::net::Message replyMessage(profiler::net::MessageType::Reply_Capturing_Started);
+    if (socket.bind(_port) != 0 || socket.listen() != 0)
+    {
+        m_isListeningReady.store(false, std::memory_order_release);
+        m_isAlreadyListening.store(false, std::memory_order_release);
+        return;
+    }
 
-    socket.bind(_port);
+    m_isListeningReady.store(true, std::memory_order_release);
+
+    profiler::net::Message replyMessage(profiler::net::MessageType::Reply_Capturing_Started);
     int bytes = 0;
     while (!m_stopListen.load(std::memory_order_acquire))
     {
         if (dumping)
             stopDumping();
 
-        socket.listen();
         socket.accept();
+        socket.setReceiveTimeout(LISTENER_POLL_TIMEOUT_MS);
 
         bool hasConnect = true;
+        std::vector<char> incoming;
 
         // Send reply
         {
@@ -1441,13 +1581,13 @@ void ProfileManager::listen(uint16_t _port)
                 if (!dumpingResult.valid())
                 {
                     dumping = false;
-                    socket.setReceiveTimeout(0);
+                    socket.setReceiveTimeout(LISTENER_POLL_TIMEOUT_MS);
                     clear_sstream(os);
                 }
                 else if (dumpingResult.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready)
                 {
                     dumping = false;
-                    dumpingResult.get();
+                    (void)dumpingResult.get();
 
                     const auto size = os.tellp();
                     static const decltype(size) badSize = -1;
@@ -1490,20 +1630,44 @@ void ProfileManager::listen(uint16_t _port)
                     if (!hasConnect)
                         break;
 
-                    socket.setReceiveTimeout(0);
+                    socket.setReceiveTimeout(LISTENER_POLL_TIMEOUT_MS);
                 }
             }
 
-            char buffer[256] = {};
-            bytes = socket.receive(buffer, 255);
+            // TCP is a byte stream: one recv can contain a fragment of one
+            // command or several commands. Keep incomplete bytes and consume
+            // exactly one complete message per loop iteration.
+            size_t messageSize = 0;
+            while (incoming.size() >= sizeof(profiler::net::Message))
+            {
+                const auto candidate =
+                    reinterpret_cast<const profiler::net::Message*>(incoming.data());
+                if (!candidate->isEasyNetMessage())
+                {
+                    incoming.erase(incoming.begin());
+                    continue;
+                }
 
-            hasConnect = socket.isConnected();
-            if (!hasConnect || bytes < static_cast<int>(sizeof(profiler::net::Message)))
-                continue;
+                messageSize = incomingMessageSize(candidate->type);
+                if (incoming.size() < messageSize)
+                    messageSize = 0;
+                break;
+            }
 
-            auto message = (const profiler::net::Message*)buffer;
-            if (!message->isEasyNetMessage())
+            if (messageSize == 0)
+            {
+                char buffer[256] = {};
+                bytes = socket.receive(buffer, sizeof(buffer));
+                hasConnect = socket.isConnected();
+                if (!hasConnect)
+                    continue;
+                if (bytes > 0)
+                    incoming.insert(incoming.end(), buffer, buffer + bytes);
                 continue;
+            }
+
+            const auto message =
+                reinterpret_cast<const profiler::net::Message*>(incoming.data());
 
             switch (message->type)
             {
@@ -1533,6 +1697,9 @@ void ProfileManager::listen(uint16_t _port)
                 {
                     EASY_LOGMSG("receive MessageType::Request_Start_Capture\n");
 
+#if !defined(EASY_CHRONO_CLOCK) && !defined(_WIN32)
+                    ensureCpuFrequency();
+#endif
                     profiler::timestamp_t t = 0;
                     EASY_FORCE_EVENT(t, "StartCapture", EASY_COLOR_START, profiler::OFF);
 
@@ -1590,7 +1757,7 @@ void ProfileManager::listen(uint16_t _port)
 
                     // Write profiler signature and version
                     write(os, EASY_PROFILER_SIGNATURE);
-                    write(os, EASY_PROFILER_VERSION);
+                    write(os, EASY_PROFILER_FORMAT_VERSION);
 
                     // Write block descriptors
                     m_storedSpin.lock();
@@ -1682,6 +1849,8 @@ void ProfileManager::listen(uint16_t _port)
                 default:
                     break;
             }
+
+            incoming.erase(incoming.begin(), incoming.begin() + messageSize);
         }
     }
 
@@ -1691,8 +1860,9 @@ void ProfileManager::listen(uint16_t _port)
         join(dumpingResult);
     }
 
+    m_isListeningReady.store(false, std::memory_order_release);
+
     EASY_LOGMSG("Listening stopped\n");
 }
 
 //////////////////////////////////////////////////////////////////////////
-

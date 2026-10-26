@@ -83,12 +83,17 @@ struct BlocksList
 
 class CSwitchBlock : public profiler::CSwitchEvent
 {
-    const char* m_name;
+    /// Owned copy of the target name. A wait interval is opened on one event and
+    /// closed on another, arbitrarily later one, and the callers' names do not
+    /// live that long: the context switch log parser reuses a single std::string
+    /// for every line, so a borrowed pointer was both dangling and stale by the
+    /// time the interval was serialized.
+    std::string m_name;
 
 public:
 
-    CSwitchBlock(profiler::timestamp_t _begin_time, profiler::thread_id_t _tid, const char* _runtimeName) EASY_NOEXCEPT;
-    inline const char* name() const EASY_NOEXCEPT { return m_name; }
+    CSwitchBlock(profiler::timestamp_t _begin_time, profiler::thread_id_t _tid, const char* _runtimeName);
+    inline const char* name() const EASY_NOEXCEPT { return m_name.c_str(); }
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -101,7 +106,7 @@ static_assert(((int)SIZEOF_BLOCK * (int)BLOCKS_IN_CHUNK) < 65536, "Chunk size fo
 static_assert(((int)SIZEOF_CSWITCH * (int)BLOCKS_IN_CHUNK) < 65536, "Chunk size for CSwitchBlock must be less than 65536");
 
 EASY_CONSTEXPR uint16_t BLOCK_CHUNK_SIZE = get_aligned_size<SIZEOF_BLOCK * BLOCKS_IN_CHUNK>::Size;
-EASY_CONSTEXPR uint16_t CSWITCH_CHUNK_SIZE = get_aligned_size<SIZEOF_BLOCK * BLOCKS_IN_CHUNK>::Size;
+EASY_CONSTEXPR uint16_t CSWITCH_CHUNK_SIZE = get_aligned_size<SIZEOF_CSWITCH * BLOCKS_IN_CHUNK>::Size;
 
 static_assert((BLOCK_CHUNK_SIZE % EASY_ALIGN_SIZE) == 0, "BLOCK_CHUNK_SIZE not aligned");
 static_assert((CSWITCH_CHUNK_SIZE % EASY_ALIGN_SIZE) == 0, "CSWITCH_CHUNK_SIZE not aligned");

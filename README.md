@@ -1,6 +1,6 @@
-# easy_profiler [![2.1.0](https://img.shields.io/badge/stable-2.1.0-009688.svg)](https://github.com/yse/easy_profiler/releases/tag/v2.1.0) [![3.x.x](https://img.shields.io/badge/latest-3.x.x-f57f17.svg)](https://github.com/yse/easy_profiler)
+# easy_profiler [![2.1.0](https://img.shields.io/badge/stable-2.1.0-009688.svg)](https://github.com/yse/easy_profiler/releases/tag/v2.1.0) [![development 3.0.0](https://img.shields.io/badge/development-3.0.0-f57f17.svg)](https://github.com/yse/easy_profiler)
 
-[![Build Status](https://ci.appveyor.com/api/projects/status/github/yse/easy_profiler?branch=develop&svg=true)](https://ci.appveyor.com/project/yse/easy-profiler/branch/develop)
+[![CI](https://github.com/yse/easy_profiler/actions/workflows/ci.yml/badge.svg)](https://github.com/yse/easy_profiler/actions/workflows/ci.yml)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
@@ -76,7 +76,7 @@ For linking with easy_profiler you can specify path to library.
 
 ### If using CMake
 
-If you are using `cmake` set `CMAKE_PREFIX_PATH` to `lib/cmake/easy_profiler` directory (from [release](https://github.com/yse/easy_profiler/releases) package) and use function `find_package(easy_profiler)` with `target_link_libraries(... easy_profiler)`. 
+If you are using CMake, point `CMAKE_PREFIX_PATH` at the installation prefix (or its `lib/cmake/easy_profiler` directory), call `find_package(easy_profiler CONFIG REQUIRED)`, and link the namespaced target `easy_profiler::easy_profiler`. The legacy `easy_profiler` target remains available for compatibility.
 
 Example:
 ``` cmake
@@ -87,11 +87,11 @@ set(SOURCES
 )
 
 # CMAKE_PREFIX_PATH should be set to <easy_profiler-release_dir>/lib/cmake/easy_profiler
-find_package(easy_profiler REQUIRED)  # STEP 1 #########################
+find_package(easy_profiler CONFIG REQUIRED)  # STEP 1 ##################
 
 add_executable(my_application ${SOURCES})
 
-target_link_libraries(my_application easy_profiler)  # STEP 2 ##########
+target_link_libraries(my_application PRIVATE easy_profiler::easy_profiler) # STEP 2
 ```
 
 ## Inserting blocks
@@ -320,7 +320,12 @@ struct EasyFileHeader {
 
 ## Migration 2.x --> 3.x
 
-There are some functions in the 2.x release that conflicts with system functions, for example `now()`. You can find more details in the related [issue](https://github.com/yse/easy_profiler/issues/215) and [PR](https://github.com/yse/easy_profiler/pull/188)
+Some functions in the 2.x release conflict with system functions, for example `now()`. You can find more details in the related [issue](https://github.com/yse/easy_profiler/issues/215) and [PR](https://github.com/yse/easy_profiler/pull/188).
+
+Applications must be recompiled for 3.0. The conflicting API names were changed:
+`now()` became `timeNow()`, while `versionMajor()`, `versionMinor()`,
+`versionPatch()`, `version()`, and `versionName()` became their `apiVersion*()`
+counterparts.
 
 # License
 

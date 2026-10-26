@@ -82,10 +82,10 @@ TEST_CASE("With the flag the statistics are populated", "[statistics][reader]")
 
 TEST_CASE("The call count covers every repetition", "[statistics][reader]")
 {
-    const int repeats = 10;
+    constexpr int repeats = 10;
 
     LoadedProfile profile;
-    easy_test::capture(profile, [repeats] { repeatedWorkload(repeats); }, true);
+    easy_test::capture(profile, [] { repeatedWorkload(repeats); }, true);
 
     REQUIRE(profile.readerLog.empty());
 
@@ -323,4 +323,29 @@ TEST_CASE("Statistics on a trace containing values", "[statistics][reader][value
     const long root = easy_test::findBlockIndex(profile, "stats_with_values");
     REQUIRE(root >= 0);
     REQUIRE(profile.blocks[static_cast<size_t>(root)].per_thread_stats != nullptr);
+}
+
+TEST_CASE("A wide statistics table is processed by the reader worker pool", "[statistics][reader][threads]")
+{
+    constexpr int eventsCount = 1100;
+    LoadedProfile profile;
+
+    easy_test::capture(profile, [] {
+        for (int i = 0; i < eventsCount; ++i)
+        {
+            const std::string name = "wide_stats_event_" + std::to_string(i);
+            EASY_EVENT(name);
+        }
+    }, true);
+
+    REQUIRE(profile.readerLog.empty());
+    REQUIRE(profile.blocksRead == static_cast<profiler::block_index_t>(eventsCount));
+
+    size_t eventsWithStats = 0;
+    for (const profiler::BlocksTree& block : profile.blocks)
+    {
+        if (block.per_thread_stats != nullptr)
+            ++eventsWithStats;
+    }
+    REQUIRE(eventsWithStats == static_cast<size_t>(eventsCount));
 }

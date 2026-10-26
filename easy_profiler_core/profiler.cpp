@@ -70,6 +70,18 @@
 # endif
 #endif
 
+// The on-wire format version lives here and only here: it is a property of the
+// reader and writer code, not of the build. Bump it when the layout changes.
+#ifndef EASY_PROFILER_FORMAT_VERSION_MAJOR
+# define EASY_PROFILER_FORMAT_VERSION_MAJOR 2
+#endif
+#ifndef EASY_PROFILER_FORMAT_VERSION_MINOR
+# define EASY_PROFILER_FORMAT_VERSION_MINOR 1
+#endif
+#ifndef EASY_PROFILER_FORMAT_VERSION_PATCH
+# define EASY_PROFILER_FORMAT_VERSION_PATCH 0
+#endif
+
 #define EASY_PROFILER_PRODUCT_VERSION "v" EASY_STRINGIFICATION(EASY_PROFILER_VERSION_MAJOR) "." \
                                           EASY_STRINGIFICATION(EASY_PROFILER_VERSION_MINOR) "." \
                                           EASY_STRINGIFICATION(EASY_PROFILER_VERSION_PATCH)
@@ -78,6 +90,10 @@ extern const uint32_t EASY_PROFILER_SIGNATURE = ('E' << 24) | ('a' << 16) | ('s'
 extern const uint32_t EASY_PROFILER_VERSION = (static_cast<uint32_t>(EASY_PROFILER_VERSION_MAJOR) << 24) |
                                               (static_cast<uint32_t>(EASY_PROFILER_VERSION_MINOR) << 16) |
                                                static_cast<uint32_t>(EASY_PROFILER_VERSION_PATCH);
+extern const uint32_t EASY_PROFILER_FORMAT_VERSION =
+    (static_cast<uint32_t>(EASY_PROFILER_FORMAT_VERSION_MAJOR) << 24) |
+    (static_cast<uint32_t>(EASY_PROFILER_FORMAT_VERSION_MINOR) << 16) |
+     static_cast<uint32_t>(EASY_PROFILER_FORMAT_VERSION_PATCH);
 
 #undef EASY_VERSION_INT
 
@@ -121,6 +137,26 @@ PROFILER_API const char* apiVersionName()
 #else
     return EASY_PROFILER_PRODUCT_VERSION;
 #endif
+}
+
+PROFILER_API uint8_t formatVersionMajor()
+{
+    return EASY_PROFILER_FORMAT_VERSION_MAJOR;
+}
+
+PROFILER_API uint8_t formatVersionMinor()
+{
+    return EASY_PROFILER_FORMAT_VERSION_MINOR;
+}
+
+PROFILER_API uint16_t formatVersionPatch()
+{
+    return EASY_PROFILER_FORMAT_VERSION_PATCH;
+}
+
+PROFILER_API uint32_t formatVersion()
+{
+    return EASY_PROFILER_FORMAT_VERSION;
 }
 
 //////////////////////////////////////////////////////////////////////////

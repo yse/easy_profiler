@@ -15,6 +15,7 @@ A mistake here would scramble block order in every trace.
 
 #include "chunk_allocator.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <sstream>
@@ -384,6 +385,165 @@ TEST_CASE("marked_allocate interleaved with plain allocate", "[allocator][mark]"
     std::ostringstream stream;
     allocator.serialize(stream);
     REQUIRE_FALSE(parseRecords(stream.str()).empty());
+}
+
+TEST_CASE("marked_allocate replaces unmarked records in the same chunk", "[allocator][mark][format]")
+{
+    chunk_allocator<64> allocator;
+
+    void* first = allocator.allocate(5);
+    fillRecord(first, "first");
+    allocator.put_mark();
+
+    void* discarded = allocator.allocate(9);
+    fillRecord(discarded, "discarded");
+
+    void* replacement = allocator.marked_allocate(7);
+    fillRecord(replacement, "replace");
+    REQUIRE(allocator.markedSize() == 2);
+
+    std::ostringstream stream;
+    allocator.serialize(stream);
+    const std::vector<std::string> records = parseRecords(stream.str());
+    REQUIRE(records.size() == 2);
+    REQUIRE(records[0] == "first");
+    REQUIRE(records[1] == "replace");
+}
+
+TEST_CASE("marked_allocate reuses the first unmarked chunk", "[allocator][mark][format]")
+{
+    chunk_allocator<64> allocator;
+
+    for (int i = 0; i < 5; ++i)
+    {
+        void* record = allocator.allocate(8);
+        std::memset(record, 'a' + i, 8);
+    }
+    allocator.put_mark();
+
+    // Build several speculative chunks past the mark.
+    for (int i = 0; i < 20; ++i)
+    {
+        void* record = allocator.allocate(8);
+        std::memset(record, 'x', 8);
+    }
+
+    // Twenty bytes no longer fit in the marked chunk. The allocator reuses the
+    // oldest speculative chunk and makes it the new serialization boundary.
+    void* replacement = allocator.marked_allocate(20);
+    std::memset(replacement, 'z', 20);
+    REQUIRE(allocator.markedSize() == 6);
+
+    std::ostringstream stream;
+    allocator.serialize(stream);
+    const std::vector<std::string> records = parseRecords(stream.str());
+    REQUIRE(records.size() == 6);
+    for (int i = 0; i < 5; ++i)
+        REQUIRE(records[static_cast<size_t>(i)] == std::string(8, 'a' + i));
+    REQUIRE(records.back() == std::string(20, 'z'));
+}
+
+TEST_CASE("marked_allocate discards a speculative tail before adding a chunk", "[allocator][mark][format]")
+{
+    chunk_allocator<64> allocator;
+
+    for (int i = 0; i < 5; ++i)
+    {
+        void* record = allocator.allocate(8);
+        std::memset(record, 'a' + i, 8);
+    }
+    allocator.put_mark();
+
+    void* speculative = allocator.allocate(8);
+    std::memset(speculative, 'x', 8);
+
+    void* replacement = allocator.marked_allocate(20);
+    std::memset(replacement, 'z', 20);
+
+    std::ostringstream stream;
+    allocator.serialize(stream);
+    const std::vector<std::string> records = parseRecords(stream.str());
+    REQUIRE(records.size() == 6);
+    REQUIRE(records.back() == std::string(20, 'z'));
+    REQUIRE(std::find(records.begin(), records.end(), std::string(8, 'x')) == records.end());
+}
+
+TEST_CASE("marked_allocate reuses the only chunk added after the mark", "[allocator][mark][format]")
+{
+    // The search for the chunk to reuse stepped before it tested:
+    //     do last = last->prev; while (last->prev != m_markedChunk);
+    // so it never considered m_chunks.last itself. With exactly one chunk
+    // appended after the mark, m_chunks.last IS the chunk being looked for; the
+    // loop stepped past it, walked off the head of the list and dereferenced
+    // null. Anything from two chunks upwards happened to work, which is why the
+    // neighbouring cases above never caught it.
+    chunk_allocator<64> allocator;
+
+    for (int i = 0; i < 5; ++i)
+    {
+        void* record = allocator.allocate(8);
+        std::memset(record, 'a' + i, 8);
+    }
+    allocator.put_mark();
+
+    // Two speculative records: the first still fits the marked chunk, the second
+    // opens exactly one new chunk after it.
+    void* firstSpeculative = allocator.allocate(8);
+    std::memset(firstSpeculative, 'x', 8);
+    void* secondSpeculative = allocator.allocate(8);
+    std::memset(secondSpeculative, 'y', 8);
+
+    // Twenty bytes no longer fit where the mark stands, so the single chunk past
+    // the mark is reused as the new serialization boundary.
+    void* replacement = allocator.marked_allocate(20);
+    std::memset(replacement, 'z', 20);
+    REQUIRE(allocator.markedSize() == 6);
+
+    std::ostringstream stream;
+    allocator.serialize(stream);
+    const std::vector<std::string> records = parseRecords(stream.str());
+    REQUIRE(records.size() == 6);
+    for (int i = 0; i < 5; ++i)
+        REQUIRE(records[static_cast<size_t>(i)] == std::string(8, 'a' + i));
+    REQUIRE(records.back() == std::string(20, 'z'));
+    REQUIRE(std::find(records.begin(), records.end(), std::string(8, 'x')) == records.end());
+    REQUIRE(std::find(records.begin(), records.end(), std::string(8, 'y')) == records.end());
+}
+
+TEST_CASE("A plain allocation after a marked one does not land inside it", "[allocator][mark][format]")
+{
+    // When the marked stream moves into a chunk that is also the tail, every
+    // speculative record there is overwritten from offset 0 -- but the
+    // plain-allocation cursor used to keep pointing into the middle of the
+    // record marked_allocate had just returned, so the next allocate() wrote
+    // inside a forced record and corrupted it with no diagnostic.
+    //
+    // Geometry: 1024-byte chunks and 100-byte payloads give ten 102-byte
+    // records with four bytes to spare, so the speculative 8-byte record is
+    // forced into a second chunk and the 900-byte marked record cannot fit in
+    // the marked one. That is exactly the case where the marked stream lands on
+    // the tail chunk.
+    chunk_allocator<1024> allocator;
+
+    while (!allocator.need_expand(100))
+    {
+        void* record = allocator.allocate(100);
+        std::memset(record, 'a', 100);
+    }
+
+    allocator.put_mark();
+
+    void* speculative = allocator.allocate(8);
+    std::memset(speculative, 's', 8);
+
+    char* marked = static_cast<char*>(allocator.marked_allocate(900));
+    std::memset(marked, 'M', 900);
+
+    char* plain = static_cast<char*>(allocator.allocate(8));
+    std::memset(plain, 'P', 8);
+
+    REQUIRE_FALSE((plain >= marked && plain < marked + 900));
+    REQUIRE(std::string(marked, 900) == std::string(900, 'M'));
 }
 
 TEST_CASE("Large records close to the chunk limit", "[allocator]")

@@ -51,6 +51,7 @@ The Apache License, Version 2.0 (the "License");
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <easy/details/easy_compiler_support.h>
 
 //! Checks if a pointer is aligned.
@@ -59,9 +60,10 @@ The Apache License, Version 2.0 (the "License");
 //! \returns true if the memory is aligned.
 //!
 template <uint32_t ALIGNMENT>
-EASY_FORCE_INLINE bool is_aligned(void* ptr)
+EASY_FORCE_INLINE bool is_aligned(const void* ptr)
 {
-    static_assert((ALIGNMENT & 1) == 0, "Alignment must be a power of two.");
+    static_assert(ALIGNMENT != 0 && (ALIGNMENT & (ALIGNMENT - 1)) == 0,
+                  "Alignment must be a power of two.");
     return ((uintptr_t)ptr & (ALIGNMENT-1)) == 0;
 }
 
@@ -70,8 +72,7 @@ EASY_FORCE_INLINE void unaligned_zero16(void* ptr)
 #ifndef EASY_ENABLE_STRICT_ALIGNMENT
     *(uint16_t*)ptr = 0;
 #else
-    ((char*)ptr)[0] = 0;
-    ((char*)ptr)[1] = 0;
+    std::memset(ptr, 0, sizeof(uint16_t));
 #endif
 }
 
@@ -80,31 +81,17 @@ EASY_FORCE_INLINE void unaligned_zero32(void* ptr)
 #ifndef EASY_ENABLE_STRICT_ALIGNMENT
     *(uint32_t*)ptr = 0;
 #else
-    ((char*)ptr)[0] = 0;
-    ((char*)ptr)[1] = 0;
-    ((char*)ptr)[2] = 0;
-    ((char*)ptr)[3] = 0;
+    std::memset(ptr, 0, sizeof(uint32_t));
 #endif
 }
 
 EASY_FORCE_INLINE void unaligned_zero64(void* ptr)
 {
-#ifdef EASY_ENABLE_STRICT_ALIGNMENT
-    // Assume unaligned is more common.
-    if (!is_aligned<alignof(uint64_t)>(ptr)) {
-        ((char*)ptr)[0] = 0;
-        ((char*)ptr)[1] = 0;
-        ((char*)ptr)[2] = 0;
-        ((char*)ptr)[3] = 0;
-        ((char*)ptr)[4] = 0;
-        ((char*)ptr)[5] = 0;
-        ((char*)ptr)[6] = 0;
-        ((char*)ptr)[7] = 0;
-    }
-    else
-#endif
-
+#ifndef EASY_ENABLE_STRICT_ALIGNMENT
     *(uint64_t*)ptr = 0;
+#else
+    std::memset(ptr, 0, sizeof(uint64_t));
+#endif
 }
 
 template <typename T>
@@ -115,9 +102,7 @@ EASY_FORCE_INLINE void unaligned_store16(void* ptr, T val)
 #ifndef EASY_ENABLE_STRICT_ALIGNMENT
     *(T*)ptr = val;
 #else
-    const char* const temp = (const char*)&val;
-    ((char*)ptr)[0] = temp[0];
-    ((char*)ptr)[1] = temp[1];
+    std::memcpy(ptr, &val, sizeof(T));
 #endif
 }
 
@@ -129,11 +114,7 @@ EASY_FORCE_INLINE void unaligned_store32(void* ptr, T val)
 #ifndef EASY_ENABLE_STRICT_ALIGNMENT
     *(T*)ptr = val;
 #else
-    const char* const temp = (const char*)&val;
-    ((char*)ptr)[0] = temp[0];
-    ((char*)ptr)[1] = temp[1];
-    ((char*)ptr)[2] = temp[2];
-    ((char*)ptr)[3] = temp[3];
+    std::memcpy(ptr, &val, sizeof(T));
 #endif
 }
 
@@ -142,23 +123,11 @@ EASY_FORCE_INLINE void unaligned_store64(void* ptr, T val)
 {
     static_assert(sizeof(T) == 8, "64 bit type required.");
 
-#ifdef EASY_ENABLE_STRICT_ALIGNMENT
-    // Assume unaligned is more common.
-    if (!is_aligned<alignof(T)>(ptr)) {
-        const char* const temp = (const char*)&val;
-        ((char*)ptr)[0] = temp[0];
-        ((char*)ptr)[1] = temp[1];
-        ((char*)ptr)[2] = temp[2];
-        ((char*)ptr)[3] = temp[3];
-        ((char*)ptr)[4] = temp[4];
-        ((char*)ptr)[5] = temp[5];
-        ((char*)ptr)[6] = temp[6];
-        ((char*)ptr)[7] = temp[7];
-    }
-    else
-#endif
-
+#ifndef EASY_ENABLE_STRICT_ALIGNMENT
     *(T*)ptr = val;
+#else
+    std::memcpy(ptr, &val, sizeof(T));
+#endif
 }
 
 template <typename T>
@@ -170,8 +139,7 @@ EASY_FORCE_INLINE T unaligned_load16(const void* ptr)
     return *(const T*)ptr;
 #else
     T value;
-    ((char*)&value)[0] = ((const char*)ptr)[0];
-    ((char*)&value)[1] = ((const char*)ptr)[1];
+    std::memcpy(&value, ptr, sizeof(T));
     return value;
 #endif
 }
@@ -184,8 +152,7 @@ EASY_FORCE_INLINE T unaligned_load16(const void* ptr, T* val)
 #ifndef EASY_ENABLE_STRICT_ALIGNMENT
     *val = *(const T*)ptr;
 #else
-    ((char*)val)[0] = ((const char*)ptr)[0];
-    ((char*)val)[1] = ((const char*)ptr)[1];
+    std::memcpy(val, ptr, sizeof(T));
 #endif
 
     return *val;
@@ -200,10 +167,7 @@ EASY_FORCE_INLINE T unaligned_load32(const void* ptr)
     return *(const T*)ptr;
 #else
     T value;
-    ((char*)&value)[0] = ((const char*)ptr)[0];
-    ((char*)&value)[1] = ((const char*)ptr)[1];
-    ((char*)&value)[2] = ((const char*)ptr)[2];
-    ((char*)&value)[3] = ((const char*)ptr)[3];
+    std::memcpy(&value, ptr, sizeof(T));
     return value;
 #endif
 }
@@ -216,10 +180,7 @@ EASY_FORCE_INLINE T unaligned_load32(const void* ptr, T* val)
 #ifndef EASY_ENABLE_STRICT_ALIGNMENT
     *val = *(const T*)ptr;
 #else
-    ((char*)&val)[0] = ((const char*)ptr)[0];
-    ((char*)&val)[1] = ((const char*)ptr)[1];
-    ((char*)&val)[2] = ((const char*)ptr)[2];
-    ((char*)&val)[3] = ((const char*)ptr)[3];
+    std::memcpy(val, ptr, sizeof(T));
 #endif
 
     return *val;
@@ -230,22 +191,13 @@ EASY_FORCE_INLINE T unaligned_load64(const void* ptr)
 {
     static_assert(sizeof(T) == 8, "64 bit type required.");
 
-#ifdef EASY_ENABLE_STRICT_ALIGNMENT
-    if (!is_aligned<alignof(T)>(ptr)) {
-        T value;
-        ((char*)&value)[0] = ((const char*)ptr)[0];
-        ((char*)&value)[1] = ((const char*)ptr)[1];
-        ((char*)&value)[2] = ((const char*)ptr)[2];
-        ((char*)&value)[3] = ((const char*)ptr)[3];
-        ((char*)&value)[4] = ((const char*)ptr)[4];
-        ((char*)&value)[5] = ((const char*)ptr)[5];
-        ((char*)&value)[6] = ((const char*)ptr)[6];
-        ((char*)&value)[7] = ((const char*)ptr)[7];
-        return value;
-    }
-#endif
-
+#ifndef EASY_ENABLE_STRICT_ALIGNMENT
     return *(const T*)ptr;
+#else
+    T value;
+    std::memcpy(&value, ptr, sizeof(T));
+    return value;
+#endif
 }
 
 template <typename T>
@@ -253,21 +205,11 @@ EASY_FORCE_INLINE T unaligned_load64(const void* ptr, T* val)
 {
     static_assert(sizeof(T) == 8, "64 bit type required.");
 
-#ifdef EASY_ENABLE_STRICT_ALIGNMENT
-    if (!is_aligned<alignof(T)>(ptr)) {
-        ((char*)&val)[0] = ((const char*)ptr)[0];
-        ((char*)&val)[1] = ((const char*)ptr)[1];
-        ((char*)&val)[2] = ((const char*)ptr)[2];
-        ((char*)&val)[3] = ((const char*)ptr)[3];
-        ((char*)&val)[4] = ((const char*)ptr)[4];
-        ((char*)&val)[5] = ((const char*)ptr)[5];
-        ((char*)&val)[6] = ((const char*)ptr)[6];
-        ((char*)&val)[7] = ((const char*)ptr)[7];
-    }
-    else
-#endif
-
+#ifndef EASY_ENABLE_STRICT_ALIGNMENT
     *val = *(const T*)ptr;
+#else
+    std::memcpy(val, ptr, sizeof(T));
+#endif
     return *val;
 }
 

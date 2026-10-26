@@ -228,9 +228,9 @@ QString valueTypeString(::profiler::DataType _dataType);
 QString valueTypeString(const ::profiler::ArbitraryValue& _serializedValue);
 QString valueString(const ::profiler::ArbitraryValue& _serializedValue);
 QString shortValueString(const ::profiler::ArbitraryValue& _serializedValue);
-QString valueString(const ::profiler::ArbitraryValue& _serializedValue, int _index);
+QString valueString(const ::profiler::ArbitraryValue& _serializedValue, int _index); ///< Empty when an array has no element _index
 int valueArraySize(const ::profiler::ArbitraryValue& _serializedValue);
-double value2real(const ::profiler::ArbitraryValue& _serializedValue, int _index = 0);
+double value2real(const ::profiler::ArbitraryValue& _serializedValue, int _index = 0); ///< NaN when an array has no element _index
 
 //////////////////////////////////////////////////////////////////////////
 

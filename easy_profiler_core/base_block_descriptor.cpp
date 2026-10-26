@@ -42,6 +42,10 @@ The Apache License, Version 2.0 (the "License");
 
 #include <easy/details/profiler_public_types.h>
 
+#if defined(_MSC_VER)
+# include <intrin.h>
+#endif
+
 namespace profiler
 {
 
@@ -49,11 +53,35 @@ namespace profiler
                                              block_type_t _block_type, color_t _color) EASY_NOEXCEPT
         : m_id(_id)
         , m_line(_line)
-        , m_type(_block_type)
         , m_color(_color)
+        , m_type(_block_type)
         , m_status(_status)
     {
 
+    }
+
+    EasyBlockStatus BaseBlockDescriptor::status() const EASY_NOEXCEPT
+    {
+#if defined(_MSC_VER)
+        return static_cast<EasyBlockStatus>(_InterlockedCompareExchange8(
+            reinterpret_cast<volatile char*>(const_cast<EasyBlockStatus*>(&m_status)), 0, 0));
+#elif defined(__clang__) || defined(__GNUC__)
+        return static_cast<EasyBlockStatus>(__atomic_load_n(
+            reinterpret_cast<const uint8_t*>(&m_status), __ATOMIC_RELAXED));
+#else
+# error "Atomic block status access is not implemented for this compiler"
+#endif
+    }
+
+    void BaseBlockDescriptor::setStatusAtomic(EasyBlockStatus _status) EASY_NOEXCEPT
+    {
+#if defined(_MSC_VER)
+        _InterlockedExchange8(reinterpret_cast<volatile char*>(&m_status), static_cast<char>(_status));
+#elif defined(__clang__) || defined(__GNUC__)
+        __atomic_store_n(reinterpret_cast<uint8_t*>(&m_status), static_cast<uint8_t>(_status), __ATOMIC_RELAXED);
+#else
+# error "Atomic block status access is not implemented for this compiler"
+#endif
     }
 
 } // end of namespace profiler.

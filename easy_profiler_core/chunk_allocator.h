@@ -347,6 +347,13 @@ public:
             return data;
         }
 
+        // Plain allocate() calls may have written speculative records after the
+        // previous mark. Once the marked stream advances to another chunk, that
+        // chunk is no longer serialized with m_markedChunkOffset as its limit,
+        // so restore the on-wire zero terminator at the old boundary explicitly.
+        if (chunkOffset < OneBeforeN)
+            unaligned_zero16(marked->data + chunkOffset);
+
         chunkOffset = n + sizeof(uint16_t);
         m_markedChunkOffset = chunkOffset;
 
@@ -360,10 +367,30 @@ public:
         }
         else
         {
-            do last = last->prev; while (last->prev != m_markedChunk);
+            // Walk back to the oldest chunk appended after the marked one, i.e.
+            // the chunk whose prev is the marked chunk. Test before stepping:
+            // m_chunks.last is itself that chunk whenever exactly one chunk was
+            // appended after the mark, and stepping first skipped that case and
+            // ran off the head of the list.
+            while (last->prev != m_markedChunk)
+                last = last->prev;
         }
 
         m_markedChunk = last;
+
+        // The marked stream has just overwritten this chunk from offset 0, so
+        // the speculative records that lived here are gone. When the chunk it
+        // moved into is also the tail, the plain-allocation cursor still points
+        // into the record we are about to return, and the next allocate() would
+        // write inside it. Re-point the cursor exactly as the sibling branch
+        // above does. For a chunk that is not the tail there is nothing to do:
+        // plain allocations still append to a later chunk and cannot collide.
+        if (last == m_chunks.last)
+        {
+            m_chunkOffset = chunkOffset;
+            m_size = m_markedSize;
+        }
+
         char* data = last->data;
         unaligned_store16(data, n);
         data += sizeof(uint16_t);

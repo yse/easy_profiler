@@ -85,6 +85,16 @@
 EASY_CONSTEXPR int ChartBound = 2; ///< Top and bottom bounds for chart
 EASY_CONSTEXPR int ChartBounds = ChartBound << 1;
 
+/// Whether _value has something to plot at _index: a scalar only for a
+/// negative index, an array only when that element (element 0 for a negative
+/// index) is inside its payload. The reader accepts zero-element arrays.
+static bool hasElement(const profiler::ArbitraryValue& _value, int _index)
+{
+    if (!_value.isArray())
+        return _index < 0;
+    return std::max(_index, 0) < profiler_gui::valueArraySize(_value);
+}
+
 void gaussFilter(std::vector<QPointF>& _points, int _windowSize, const std::atomic_bool& _interrupt)
 {
     if (_points.size() < 3 || _windowSize < 3 || _interrupt.load(std::memory_order_acquire))
@@ -171,6 +181,9 @@ void getChartPoints(const ArbitraryValuesCollection& _collection, Points& _point
     _points.reserve(values.size());
     for (auto value : values)
     {
+        if (!hasElement(*value, -1))
+            continue;
+
         const qreal x = sceneX(value->begin());
         const qreal y = profiler_gui::value2real(*value);
         _points.emplace_back(x, y);
@@ -408,7 +421,7 @@ bool ArbitraryValuesCollection::collectByIdForThread(const profiler::BlocksTreeR
             if (value->value_id() != _valueId)
                 continue;
 
-            if (_index >= 0 && (!value->isArray() || profiler_gui::valueArraySize(*value) <= _index))
+            if (!hasElement(*value, _index))
                 continue;
 
             m_values.push_back(value);
@@ -495,7 +508,7 @@ bool ArbitraryValuesCollection::collectByNameForThread(const profiler::BlocksTre
                 continue;
 
             const auto value = block.value;
-            if (_index >= 0 && (!value->isArray() || profiler_gui::valueArraySize(*value) <= _index))
+            if (!hasElement(*value, _index))
                 continue;
 
             m_values.push_back(value);
@@ -548,7 +561,7 @@ bool ArbitraryValuesCollection::depthFirstSearch(const profiler::BlocksTreeRoot&
                 const auto value = block.value;
                 if (_isSuitableValue(value->value_id(), desc.name()))
                 {
-                    if (_index < 0 || (value->isArray() && _index < profiler_gui::valueArraySize(*value)))
+                    if (hasElement(*value, _index))
                     {
                         m_values.push_back(value);
                         if (_calculatePoints)
@@ -1807,7 +1820,13 @@ ArbitraryValuesCollection* ArbitraryTreeWidgetItem::collection()
 
 bool ArbitraryTreeWidgetItem::isArrayItem() const
 {
-    return childCount() != 0;
+    // Not childCount(): an array of zero elements has no child items but is
+    // still an array, and no element of it can be plotted as a scalar. The
+    // index check keeps element items out: they carry their parent's value, so
+    // isArray() is true for them too, and callers use this to mean "cascade to
+    // my children" - an element item has none and must collect itself.
+    return m_value.isArray() && m_value.type() != profiler::DataType::String &&
+           getSelfIndexInArray() < 0;
 }
 
 profiler::block_id_t ArbitraryTreeWidgetItem::getParentBlockId(QTreeWidgetItem* _item) const

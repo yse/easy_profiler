@@ -1,0 +1,139 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/.tmp/builds/${presetName}",
+      "cacheVariables": {
+        "EASY_PROFILER_NO_GUI": "ON",
+        "EASY_PROFILER_NO_SAMPLES": "ON",
+        "BUILD_TESTING": "ON",
+        "BUILD_SHARED_LIBS": "OFF"
+      }
+    },
+    {
+      "name": "dev",
+      "displayName": "Developer Debug build",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "strict",
+      "displayName": "Strict-alignment Debug build",
+      "inherits": "dev",
+      "cacheVariables": {
+        "EASY_PROFILER_STRICT_ALIGNMENT": "ON"
+      }
+    },
+    {
+      "name": "asan",
+      "displayName": "Address and undefined behaviour sanitizers on default packed access",
+      "inherits": "dev",
+      "cacheVariables": {
+        "EASY_PROFILER_STRICT_ALIGNMENT": "OFF",
+        "EASY_PROFILER_SANITIZERS": "address,undefined"
+      }
+    },
+    {
+      "name": "tsan",
+      "displayName": "Thread sanitizer",
+      "inherits": "dev",
+      "cacheVariables": {
+        "EASY_PROFILER_SANITIZERS": "thread"
+      }
+    },
+    {
+      "name": "fuzz",
+      "displayName": "Reader libFuzzer with ASan and UBSan",
+      "inherits": "strict",
+      "cacheVariables": {
+        "EASY_PROFILER_SANITIZERS": "address,undefined",
+        "EASY_PROFILER_BUILD_FUZZER": "ON"
+      }
+    },
+    {
+      "name": "coverage",
+      "displayName": "LLVM source coverage",
+      "inherits": "dev",
+      "cacheVariables": {
+        "EASY_PROFILER_COVERAGE": "ON",
+        "EASY_PROFILER_BUILD_COVERAGE_SUITE": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "dev", "configurePreset": "dev" },
+    { "name": "strict", "configurePreset": "strict" },
+    { "name": "asan", "configurePreset": "asan" },
+    { "name": "tsan", "configurePreset": "tsan" },
+    {
+      "name": "fuzz",
+      "configurePreset": "fuzz",
+      "targets": ["easy_profiler_reader_fuzzer"]
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage",
+      "targets": ["easy_profiler_coverage_tests"]
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev",
+      "output": { "outputOnFailure": true },
+      "execution": { "jobs": 8 }
+    },
+    {
+      "name": "strict",
+      "configurePreset": "strict",
+      "output": { "outputOnFailure": true },
+      "execution": { "jobs": 8 }
+    },
+    {
+      "name": "asan",
+      "configurePreset": "asan",
+      "output": { "outputOnFailure": true },
+      "execution": { "jobs": 4 },
+      "filter": { "exclude": { "label": "package" } },
+      "environment": {
+        "ASAN_OPTIONS": "halt_on_error=1",
+        "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1:suppressions=${sourceDir}/tests/ubsan.supp"
+      }
+    },
+    {
+      "name": "tsan",
+      "configurePreset": "tsan",
+      "output": { "outputOnFailure": true },
+      "execution": { "jobs": 2 },
+      "filter": { "include": { "label": "threads" } },
+      "environment": {
+        "TSAN_OPTIONS": "halt_on_error=1"
+      }
+    },
+    {
+      "name": "fuzz",
+      "configurePreset": "fuzz",
+      "output": { "outputOnFailure": true },
+      "filter": { "include": { "label": "fuzz" } },
+      "environment": {
+        "ASAN_OPTIONS": "halt_on_error=1",
+        "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+      }
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage",
+      "output": { "outputOnFailure": true },
+      "filter": { "include": { "label": "coverage" } }
+    }
+  ]
+}

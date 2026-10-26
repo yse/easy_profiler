@@ -68,7 +68,7 @@ TEST_CASE("The header of a loaded profile is populated", "[roundtrip][format]")
     REQUIRE(profile.beginEndTime.endTime >= profile.beginEndTime.beginTime);
 }
 
-TEST_CASE("The version in the file matches the API version", "[roundtrip][format]")
+TEST_CASE("The version in the file matches the wire-format version", "[roundtrip][format]")
 {
     LoadedProfile profile;
 
@@ -76,9 +76,9 @@ TEST_CASE("The version in the file matches the API version", "[roundtrip][format
         EASY_BLOCK("version_block");
     });
 
-    REQUIRE(profile.version == profiler::apiVersion());
-    REQUIRE(((profile.version >> 24) & 0xff) == profiler::apiVersionMajor());
-    REQUIRE(((profile.version >> 16) & 0xff) == profiler::apiVersionMinor());
+    REQUIRE(profile.version == profiler::formatVersion());
+    REQUIRE(profile.version == easy_test::makeVersion(2, 1, 0));
+    REQUIRE(profiler::apiVersion() == easy_test::makeVersion(3, 0, 0));
 }
 
 TEST_CASE("Block and event descriptors make it through", "[roundtrip][format]")
@@ -252,7 +252,7 @@ TEST_CASE("A large trace is read back in full", "[roundtrip]")
     LoadedProfile profile;
 
     const int count = 5000;
-    easy_test::capture(profile, [count] {
+    easy_test::capture(profile, [] {
         EASY_BLOCK("bulk_root");
         for (int i = 0; i < count; ++i)
         {

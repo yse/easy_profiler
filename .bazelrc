@@ -1,0 +1,4 @@
+common --enable_bzlmod
+build --cxxopt=-std=c++11
+build --host_cxxopt=-std=c++11
+test --test_output=errors

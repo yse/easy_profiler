@@ -80,6 +80,8 @@ TEST_CASE("The chunk size fits into 16-bit offsets", "[layout][allocator]")
 
     REQUIRE(BLOCKS_IN_CHUNK == 128U);
     REQUIRE(BLOCK_CHUNK_SIZE >= SIZEOF_BLOCK * BLOCKS_IN_CHUNK);
+    REQUIRE(CSWITCH_CHUNK_SIZE >= SIZEOF_CSWITCH * BLOCKS_IN_CHUNK);
+    REQUIRE(CSWITCH_CHUNK_SIZE < 65536U);
 }
 
 TEST_CASE("The variable part follows the fixed part immediately", "[layout][format]")

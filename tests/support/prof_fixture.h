@@ -14,6 +14,7 @@ back. After capture() the profiler is always disabled and the storage is empty.
 
 #include <atomic>
 #include <cstdint>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -21,16 +22,49 @@ back. After capture() the profiler is always disabled and the storage is empty.
 #include <string>
 #include <vector>
 
+#ifdef _WIN32
+# include <process.h>
+#else
+# include <unistd.h>
+#endif
+
 namespace easy_test {
 
 //////////////////////////////////////////////////////////////////////////
 // Temporary file
 
+inline unsigned long processId()
+{
+#ifdef _WIN32
+    return static_cast<unsigned long>(::_getpid());
+#else
+    return static_cast<unsigned long>(::getpid());
+#endif
+}
+
+inline std::string tempDirectory()
+{
+#ifdef _WIN32
+    const char* directory = std::getenv("TEMP");
+    if (directory == nullptr || *directory == '\0')
+        directory = std::getenv("TMP");
+#else
+    const char* directory = std::getenv("TMPDIR");
+#endif
+
+    return directory != nullptr && *directory != '\0' ? directory : ".";
+}
+
 inline std::string uniqueName(const char* stem, const char* extension)
 {
     static std::atomic<unsigned> counter(0);
     std::ostringstream stream;
-    stream << stem << '_' << counter.fetch_add(1) << extension;
+    const std::string directory = tempDirectory();
+    stream << directory;
+    if (!directory.empty() && directory.back() != '/' && directory.back() != '\\')
+        stream << '/';
+    stream << "easy_profiler_" << stem << '_' << processId() << '_'
+           << counter.fetch_add(1) << extension;
     return stream.str();
 }
 

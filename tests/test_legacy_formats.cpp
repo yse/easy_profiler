@@ -53,7 +53,8 @@ TEST_CASE("Control: the reference dump reads as v2.1", "[legacy][format]")
     REQUIRE(captureReference(image));
 
     // A current version means readHeader_v2_1 handled it.
-    REQUIRE(image.version() >= easy_test::makeVersion(2, 1, 0));
+    REQUIRE(image.version() == profiler::formatVersion());
+    REQUIRE(image.version() == easy_test::makeVersion(2, 1, 0));
 
     LoadedProfile profile;
     readLegacy(std::vector<char>(), "legacy_control_unused", profile);
@@ -66,6 +67,180 @@ TEST_CASE("Control: the reference dump reads as v2.1", "[legacy][format]")
     easy_test::loadProfile(file.path(), actual);
     REQUIRE(actual.readerLog.empty());
     REQUIRE(actual.blocksRead == 4);
+}
+
+TEST_CASE("Patch releases in the current format line remain compatible", "[legacy][format]")
+{
+    ProfImage image;
+    REQUIRE(captureReference(image));
+
+    // The patch component is a product version, not a format discriminator.
+    // The v2.1 header/body layout remains identical across patch releases.
+    image.setVersion(easy_test::makeVersion(2, 1, 0xffff));
+
+    easy_test::TempFile file("legacy_v21_future_patch");
+    image.writeTo(file.path());
+
+    LoadedProfile profile;
+    easy_test::loadProfile(file.path(), profile);
+
+    REQUIRE(profile.readerLog.empty());
+    REQUIRE(profile.blocksRead == 4);
+}
+
+TEST_CASE("A profile saved by the 2.1 writer still reads", "[legacy][format]")
+{
+    // writeTreesToStream() in 2.1 and earlier declared descriptors_memory_size
+    // as the payload sum plus the two-byte record prefixes. Profiles saved from
+    // an older GUI carry that spelling and must stay readable.
+    ProfImage image;
+    REQUIRE(captureReference(image));
+
+    const uint64_t payloadSum = image.descriptorsMemorySize();
+    const uint64_t legacy =
+        payloadSum + static_cast<uint64_t>(image.totalDescriptors()) * sizeof(uint16_t);
+    REQUIRE(legacy > payloadSum);
+    image.setDescriptorsMemorySize(legacy);
+
+    easy_test::TempFile file("legacy_writer_descriptor_memory");
+    image.writeTo(file.path());
+
+    LoadedProfile profile;
+    easy_test::loadProfile(file.path(), profile);
+
+    INFO("reader log: " << profile.readerLog);
+    REQUIRE(profile.readerLog.empty());
+    REQUIRE(profile.blocksRead == 4);
+    REQUIRE(easy_test::findDescriptor(profile, profiler::BlockType::Block, "legacy_root") != nullptr);
+}
+
+TEST_CASE("Repeated saves by a 2.x GUI keep the profile readable", "[legacy][format]")
+{
+    // The 2.x reader allocated the declared descriptor buffer, and the 2.x
+    // writer then declared that buffer size plus the record prefixes again. The
+    // surplus therefore grew by descriptors_count * 2 on every round trip, so a
+    // trace saved three times is not off by two bytes but by six per descriptor.
+    ProfImage image;
+    REQUIRE(captureReference(image));
+
+    const uint64_t payloadSum = image.descriptorsMemorySize();
+    const uint64_t prefixBytes =
+        static_cast<uint64_t>(image.totalDescriptors()) * sizeof(uint16_t);
+    REQUIRE(prefixBytes > 0);
+
+    for (uint64_t saves = 1; saves <= 4; ++saves)
+    {
+        image.setDescriptorsMemorySize(payloadSum + prefixBytes * saves);
+
+        easy_test::TempFile file("legacy_repeated_save");
+        image.writeTo(file.path());
+
+        LoadedProfile profile;
+        easy_test::loadProfile(file.path(), profile);
+
+        INFO("re-saves: " << saves << ", reader log: " << profile.readerLog);
+        REQUIRE(profile.readerLog.empty());
+        REQUIRE(profile.blocksRead == 4);
+    }
+}
+
+TEST_CASE("Repeated 2.x saves of a profile with many descriptors and one block stay readable",
+          "[legacy][format]")
+{
+    // The four-block reference above has enough record prefixes and thread
+    // header for several saves' worth of surplus to hide in the stream size.
+    // With one block and 16 extra descriptors the second save already declares
+    // more descriptor bytes than the whole file is short of, so this is the
+    // shape that catches a stream-size check taking descriptors_memory_size
+    // for physical bytes.
+    ProfImage image;
+    REQUIRE(image.captureFrom([] {
+        for (int i = 0; i < 16; ++i)
+        {
+            const std::string id = "legacy_unused_" + std::to_string(i);
+            profiler::registerDescription(profiler::ON, id.c_str(), id.c_str(), __FILE__, __LINE__,
+                                          profiler::BlockType::Block, profiler::colors::Default, true);
+        }
+        EASY_BLOCK("legacy_only_block");
+    }));
+    REQUIRE(image.totalBlocks() == 1);
+    REQUIRE(image.totalDescriptors() >= 17);
+
+    const uint64_t payloadSum = image.descriptorsMemorySize();
+    const uint64_t prefixBytes =
+        static_cast<uint64_t>(image.totalDescriptors()) * sizeof(uint16_t);
+
+    for (uint64_t saves = 1; saves <= 6; ++saves)
+    {
+        image.setDescriptorsMemorySize(payloadSum + prefixBytes * saves);
+
+        easy_test::TempFile file("legacy_repeated_save_one_block");
+        image.writeTo(file.path());
+
+        LoadedProfile profile;
+        easy_test::loadProfile(file.path(), profile);
+
+        INFO("re-saves: " << saves << ", reader log: " << profile.readerLog);
+        REQUIRE(profile.readerLog.empty());
+        REQUIRE(profile.blocksRead == 1);
+        REQUIRE(profile.descriptorsCount == image.totalDescriptors());
+        REQUIRE(easy_test::findBlockIndex(profile, "legacy_only_block") >= 0);
+    }
+}
+
+TEST_CASE("A descriptor memory size that matches neither spelling is rejected", "[legacy][format][robustness]")
+{
+    ProfImage image;
+    REQUIRE(captureReference(image));
+    image.setDescriptorsMemorySize(image.descriptorsMemorySize() + 1);
+
+    easy_test::TempFile file("legacy_writer_descriptor_memory_bad");
+    image.writeTo(file.path());
+
+    LoadedProfile profile;
+    easy_test::loadProfile(file.path(), profile);
+
+    REQUIRE(profile.blocksRead == 0);
+    REQUIRE(profile.readerLog.find("memory size") != std::string::npos);
+}
+
+TEST_CASE("A descriptor surplus is accepted however many re-saves it represents",
+          "[legacy][format][robustness]")
+{
+    // Each old-GUI save added descriptors_count * 2 to the declared size, so a multiple of
+    // that is the shape a re-saved file carries and any multiple has to read. Capping the
+    // count would only reject valid files: the surplus bytes are allocated but never
+    // addressed, and the allocation itself is clamped to the stream size.
+    ProfImage image;
+    REQUIRE(captureReference(image));
+
+    const uint64_t payloadSum = image.descriptorsMemorySize();
+    const uint64_t prefixBytes =
+        static_cast<uint64_t>(image.totalDescriptors()) * sizeof(uint16_t);
+    REQUIRE(prefixBytes > 0);
+
+    const struct { uint64_t surplus; bool accepted; } cases[] = {
+        { prefixBytes, true },
+        { prefixBytes * 1024, true },
+        { prefixBytes * 1025, true },
+        { prefixBytes * (static_cast<uint64_t>(1) << 35), true },
+        { prefixBytes * 6 + 1, false },
+    };
+
+    for (const auto& probe : cases)
+    {
+        image.setDescriptorsMemorySize(payloadSum + probe.surplus);
+
+        easy_test::TempFile file("legacy_surplus_bound");
+        image.writeTo(file.path());
+
+        LoadedProfile profile;
+        easy_test::loadProfile(file.path(), profile);
+
+        INFO("surplus: " << probe.surplus << ", reader log: " << profile.readerLog);
+        REQUIRE(profile.readerLog.empty() == probe.accepted);
+        REQUIRE((profile.blocksRead == 4) == probe.accepted);
+    }
 }
 
 TEST_CASE("A version 2.0 file reads", "[legacy][format]")

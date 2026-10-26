@@ -1,11 +1,17 @@
 bin
-*build*
-!BUILD
-.*
+# Directories only, so the pattern cannot swallow Bazel's BUILD files: on a
+# case-insensitive filesystem "!BUILD" un-ignored "build/" along with them.
+*build*/
+.DS_Store
+.cache/
+.idea/
+.vscode/
+.tmp/
+__pycache__/
+aqtinstall.log
 *.user
 /*.prof
-.idea/
-bazel*
+bazel-*
 
 # CMake/QtCreator folders and files created on Windows
 CMakeFiles/
@@ -15,4 +21,5 @@ Makefile*
 moc_*.*
 mocs_*.*
 qrc_*.*
-*.cmake
+cmake_install.cmake
+*/cmake_install.cmake

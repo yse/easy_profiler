@@ -90,7 +90,11 @@ static int closeSocket(EasySocket::socket_t s)
 
 bool EasySocket::checkSocket(socket_t s) const
 {
-    return s > 0;
+#if defined(_WIN32)
+    return s != INVALID_SOCKET;
+#else
+    return s >= 0;
+#endif
 }
 
 void EasySocket::setBlocking(EasySocket::socket_t s, bool blocking)
@@ -118,22 +122,43 @@ int EasySocket::bind(uint16_t port)
     return res;
 }
 
+uint16_t EasySocket::boundPort() const
+{
+    if (!checkSocket(m_socket))
+        return 0;
+
+    struct sockaddr_in address;
+    memset(&address, 0, sizeof(address));
+#if defined(_WIN32)
+    int size = sizeof(address);
+#else
+    socklen_t size = sizeof(address);
+#endif
+    if (::getsockname(m_socket, reinterpret_cast<struct sockaddr*>(&address), &size) != 0)
+        return 0;
+
+    return ntohs(address.sin_port);
+}
+
 void EasySocket::flush()
 {
-    if (m_socket)
+    if (checkSocket(m_socket))
         closeSocket(m_socket);
 
-    if (m_replySocket != m_socket && m_replySocket != 0) {
-        // we do not need to close uninitialized reply socket
+    if (m_replySocket != m_socket && checkSocket(m_replySocket)) {
         closeSocket(m_replySocket);
     }
 
 #if defined(_WIN32)
-    m_socket = 0;
-    m_replySocket = 0;
+    m_socket = INVALID_SOCKET;
+    m_replySocket = INVALID_SOCKET;
 #else
+    m_socket = -1;
+    m_replySocket = -1;
     m_wsaret = 0;
 #endif
+
+    m_state = ConnectionState::Disconnected;
 }
 
 void EasySocket::checkResult(int result)
@@ -273,15 +298,27 @@ int EasySocket::send(const void* buffer, size_t nbytes)
     if (!checkSocket(m_replySocket))
         return -1;
 
+    const char* data = static_cast<const char*>(buffer);
+    size_t total = 0;
+    while (total < nbytes)
+    {
+        const size_t remaining = nbytes - total;
+        const int chunk = remaining > static_cast<size_t>(std::numeric_limits<int>::max())
+                        ? std::numeric_limits<int>::max()
+                        : static_cast<int>(remaining);
 #if defined(_WIN32) || defined(__APPLE__)
-    const int res = ::send(m_replySocket, (const char*)buffer, (int)nbytes, 0);
+        const int result = ::send(m_replySocket, data + total, chunk, 0);
 #else
-    const int res = (int)::send(m_replySocket, buffer, nbytes, MSG_NOSIGNAL);
+        const int result = static_cast<int>(::send(m_replySocket, data + total,
+                                                   static_cast<size_t>(chunk), MSG_NOSIGNAL));
 #endif
+        checkResult(result);
+        if (result <= 0)
+            return total == 0 ? result : static_cast<int>(total);
+        total += static_cast<size_t>(result);
+    }
 
-    checkResult(res);
-
-    return res;
+    return static_cast<int>(total);
 }
 
 int EasySocket::receive(void* buffer, size_t nbytes)
@@ -354,22 +391,44 @@ int EasySocket::accept()
 
 bool EasySocket::setAddress(const char* address, uint16_t port)
 {
-    m_server = ::gethostbyname(address);
-    if (m_server == nullptr)
+    m_hasServerAddress = false;
+    if (address == nullptr)
         return false;
 
-    memset((char*)&m_serverAddress, 0, sizeof(m_serverAddress));
-    m_serverAddress.sin_family = AF_INET;
-    memcpy((char*)&m_serverAddress.sin_addr.s_addr, (char*)m_server->h_addr, (size_t)m_server->h_length);
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
 
+    struct addrinfo* addresses = nullptr;
+    if (::getaddrinfo(address, nullptr, &hints, &addresses) != 0 || addresses == nullptr)
+        return false;
+
+    const struct addrinfo* selected = addresses;
+    while (selected != nullptr &&
+           (selected->ai_addr == nullptr || selected->ai_addrlen < sizeof(m_serverAddress)))
+    {
+        selected = selected->ai_next;
+    }
+
+    if (selected == nullptr)
+    {
+        ::freeaddrinfo(addresses);
+        return false;
+    }
+
+    memcpy(&m_serverAddress, selected->ai_addr, sizeof(m_serverAddress));
     m_serverAddress.sin_port = htons(port);
+    ::freeaddrinfo(addresses);
+    m_hasServerAddress = true;
 
     return true;
 }
 
 int EasySocket::connect()
 {
-    if (m_server == nullptr || m_socket <= 0)
+    if (!m_hasServerAddress || !checkSocket(m_socket))
         return -1;
 
     int res = 0;

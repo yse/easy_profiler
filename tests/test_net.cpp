@@ -14,11 +14,18 @@ to silently parsing garbage.
 #include <easy/profiler.h>
 
 #include <atomic>
+#include <cerrno>
 #include <chrono>
 #include <cstring>
 #include <string>
 #include <thread>
 #include <vector>
+
+#ifndef _WIN32
+# include <arpa/inet.h>
+# include <sys/socket.h>
+# include <unistd.h>
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 // Protocol structures
@@ -164,15 +171,16 @@ TEST_CASE("MessageType values are stable", "[net][protocol]")
 
 namespace {
 
-/** Take a free port from the high range; returns 0 on failure. */
+/** Ask the operating system for an unused ephemeral port. */
 uint16_t bindToFreePort(EasySocket& socket)
 {
-    for (uint16_t port = 45100; port < 45200; ++port)
-    {
-        if (socket.bind(port) == 0)
-            return port;
-    }
-    return 0;
+    return socket.bind(0) == 0 ? socket.boundPort() : 0;
+}
+
+uint16_t freePort()
+{
+    EasySocket socket;
+    return bindToFreePort(socket);
 }
 
 } // namespace
@@ -181,6 +189,61 @@ TEST_CASE("A fresh socket is not connected", "[net][socket]")
 {
     EasySocket socket;
     REQUIRE_FALSE(socket.isConnected());
+    REQUIRE(socket.state() == EasySocket::ConnectionState::Unknown);
+    REQUIRE(socket.boundPort() == 0);
+}
+
+TEST_CASE("A closed socket rejects operations and can be initialized again", "[net][socket]")
+{
+    EasySocket socket;
+    socket.flush();
+
+    char byte = 0;
+    REQUIRE(socket.isDisconnected());
+    REQUIRE(socket.bind(0) < 0);
+    REQUIRE(socket.boundPort() == 0);
+    REQUIRE(socket.listen() < 0);
+    REQUIRE(socket.accept() < 0);
+    REQUIRE(socket.send(&byte, sizeof(byte)) < 0);
+    REQUIRE(socket.receive(&byte, sizeof(byte)) < 0);
+    REQUIRE(socket.connect() < 0);
+
+    EasySocket reinitialized;
+    reinitialized.flush();
+    reinitialized.init();
+    reinitialized.init(); // Idempotent while the native socket is already open.
+    const int rebound = reinitialized.bind(0);
+    REQUIRE(rebound == 0);
+    REQUIRE(reinitialized.boundPort() != 0);
+
+    EasySocket closedClient;
+    closedClient.flush();
+    REQUIRE(closedClient.setAddress("127.0.0.1", 1));
+    REQUIRE(closedClient.connect() < 0);
+    REQUIRE(closedClient.isDisconnected());
+}
+
+TEST_CASE("Invalid server addresses are rejected", "[net][socket]")
+{
+    EasySocket socket;
+
+    REQUIRE_FALSE(socket.setAddress(nullptr, 28077));
+    REQUIRE(socket.connect() < 0);
+
+    const std::string oversizedHostName(1024, 'a');
+    REQUIRE_FALSE(socket.setAddress(oversizedHostName.c_str(), 28077));
+    REQUIRE(socket.connect() < 0);
+}
+
+TEST_CASE("A refused connection leaves the socket disconnected", "[net][socket]")
+{
+    const uint16_t port = freePort();
+    REQUIRE(port != 0);
+
+    EasySocket socket;
+    REQUIRE(socket.setAddress("127.0.0.1", port));
+    REQUIRE(socket.connect() < 0);
+    REQUIRE(socket.isDisconnected());
 }
 
 TEST_CASE("bind and listen on a free port", "[net][socket]")
@@ -190,6 +253,10 @@ TEST_CASE("bind and listen on a free port", "[net][socket]")
 
     REQUIRE(port != 0);
     REQUIRE(server.listen() == 0);
+
+    // A listening socket has no accepted peer yet. Configuring its receive
+    // timeout is a safe no-op and must not invalidate the listener.
+    server.setReceiveTimeout(1);
 }
 
 TEST_CASE("accept with no client fails on timeout", "[net][socket]")
@@ -245,7 +312,9 @@ TEST_CASE("Data exchange over loopback", "[net][socket]")
     REQUIRE(accepted >= 0);
 
     std::vector<char> buffer(256, 0);
+    server.setReceiveTimeout(0); // Non-positive means an effectively infinite timeout.
     server.setReceiveTimeout(1000);
+    REQUIRE(server.send(nullptr, 0) == 0);
     const int received = server.receive(buffer.data(), buffer.size());
 
     client.join();
@@ -255,6 +324,124 @@ TEST_CASE("Data exchange over loopback", "[net][socket]")
     REQUIRE(std::string(buffer.data(), static_cast<size_t>(received)) == payload);
 }
 
+TEST_CASE("Receiving EOF marks the socket as disconnected", "[net][socket]")
+{
+    EasySocket server;
+    const uint16_t port = bindToFreePort(server);
+    REQUIRE(port != 0);
+    REQUIRE(server.listen() == 0);
+
+    std::thread client([port] {
+        EasySocket socket;
+        if (socket.setAddress("127.0.0.1", port))
+            (void)socket.connect();
+    });
+
+    int accepted = -1;
+    for (int attempt = 0; attempt < 10 && accepted < 0; ++attempt)
+        accepted = server.accept();
+    REQUIRE(accepted >= 0);
+
+    client.join();
+    server.setReceiveTimeout(1000);
+    char byte = 0;
+    REQUIRE(server.receive(&byte, sizeof(byte)) == 0);
+    REQUIRE(server.isDisconnected());
+}
+
+TEST_CASE("Sending after the peer closes fails without terminating the process", "[net][socket]")
+{
+    EasySocket server;
+    const uint16_t port = bindToFreePort(server);
+    REQUIRE(port != 0);
+    REQUIRE(server.listen() == 0);
+
+    std::thread client([port] {
+        EasySocket socket;
+        if (socket.setAddress("127.0.0.1", port))
+            (void)socket.connect();
+    });
+
+    int accepted = -1;
+    for (int attempt = 0; attempt < 10 && accepted < 0; ++attempt)
+        accepted = server.accept();
+    REQUIRE(accepted >= 0);
+
+    client.join();
+    server.setReceiveTimeout(1000);
+    char byte = 0;
+    REQUIRE(server.receive(&byte, sizeof(byte)) == 0);
+
+    const std::vector<char> payload(64 * 1024, 'x');
+    int sent = 0;
+    for (int attempt = 0; attempt < 100 && sent >= 0; ++attempt)
+    {
+        sent = server.send(payload.data(), payload.size());
+        if (sent >= 0)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
+    REQUIRE(sent < 0);
+    REQUIRE(server.isDisconnected());
+}
+
+#ifndef _WIN32
+TEST_CASE("A peer reset marks the socket as disconnected", "[net][socket]")
+{
+    EasySocket server;
+    const uint16_t port = bindToFreePort(server);
+    REQUIRE(port != 0);
+    REQUIRE(server.listen() == 0);
+
+    std::atomic<bool> accepted(false);
+    std::atomic<bool> clientOk(true);
+    std::thread client([port, &accepted, &clientOk] {
+        const int socket = ::socket(AF_INET, SOCK_STREAM, 0);
+        if (socket < 0)
+        {
+            clientOk.store(false);
+            return;
+        }
+
+        sockaddr_in address = {};
+        address.sin_family = AF_INET;
+        address.sin_port = htons(port);
+        address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        if (::connect(socket, reinterpret_cast<sockaddr*>(&address), sizeof(address)) != 0)
+        {
+            clientOk.store(false);
+            ::close(socket);
+            return;
+        }
+
+        while (!accepted.load())
+            std::this_thread::yield();
+
+        linger reset = {};
+        reset.l_onoff = 1;
+        reset.l_linger = 0;
+        if (::setsockopt(socket, SOL_SOCKET, SO_LINGER, &reset, sizeof(reset)) != 0)
+            clientOk.store(false);
+        if (::close(socket) != 0)
+            clientOk.store(false);
+    });
+
+    int result = -1;
+    for (int attempt = 0; attempt < 10 && result < 0; ++attempt)
+        result = server.accept();
+    accepted.store(true);
+    client.join();
+
+    REQUIRE(result >= 0);
+    REQUIRE(clientOk.load());
+
+    server.setReceiveTimeout(1000);
+    char byte = 0;
+    REQUIRE(server.receive(&byte, sizeof(byte)) < 0);
+    REQUIRE(server.isDisconnected());
+}
+#endif
+
 //////////////////////////////////////////////////////////////////////////
 // Listening thread lifecycle
 
@@ -262,13 +449,19 @@ TEST_CASE("startListen and stopListen toggle the state", "[net][listen]")
 {
     REQUIRE_FALSE(profiler::isListening());
 
-    // A high port so as not to collide with a real profiler.
-    profiler::startListen(45250);
+    const uint16_t port = freePort();
+    REQUIRE(port != 0);
+    profiler::startListen(port);
 
     // The listening thread starts asynchronously; give it time to come up.
     for (int attempt = 0; attempt < 50 && !profiler::isListening(); ++attempt)
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
+    REQUIRE(profiler::isListening());
+
+    // Starting the same global listener twice is idempotent: no second thread
+    // is spawned and the existing endpoint remains available.
+    profiler::startListen(port);
     REQUIRE(profiler::isListening());
 
     profiler::stopListen();
@@ -285,4 +478,28 @@ TEST_CASE("A repeated stopListen is safe", "[net][listen]")
     profiler::stopListen();
 
     REQUIRE_FALSE(profiler::isListening());
+}
+
+TEST_CASE("The profiler listener can retry after its port was occupied", "[net][listen]")
+{
+    EasySocket occupied;
+    const int bindResult = occupied.bind(0);
+    INFO("bind(0) failed: " << std::strerror(errno));
+    REQUIRE(bindResult == 0);
+    REQUIRE(occupied.listen() == 0);
+    const uint16_t port = occupied.boundPort();
+    REQUIRE(port != 0);
+
+    profiler::startListen(port);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    REQUIRE_FALSE(profiler::isListening());
+
+    occupied.flush();
+    profiler::startListen(port);
+    for (int attempt = 0; attempt < 50 && !profiler::isListening(); ++attempt)
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    REQUIRE(profiler::isListening());
+    profiler::stopListen();
 }

@@ -88,13 +88,17 @@ public:
     };
 
 private:
-
-    socket_t m_socket = 0;
-    socket_t m_replySocket = 0;
+#ifdef _WIN32
+    socket_t m_socket = INVALID_SOCKET;
+    socket_t m_replySocket = INVALID_SOCKET;
+#else
+    socket_t m_socket = -1;
+    socket_t m_replySocket = -1;
+#endif
     int m_wsaret = -1;
 
-    struct hostent* m_server = nullptr;
     struct sockaddr_in m_serverAddress;
+    bool m_hasServerAddress = false;
 
     ConnectionState m_state = ConnectionState::Unknown;
 
@@ -110,6 +114,7 @@ public:
     int listen(int count = 5);
     int accept();
     int bind(uint16_t portno);
+    uint16_t boundPort() const;
 
     bool setAddress(const char* serv, uint16_t port);
     int connect();

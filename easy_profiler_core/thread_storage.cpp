@@ -57,13 +57,9 @@ namespace {
 
 EASY_CONSTEXPR uint16_t BASE_SIZE = static_cast<uint16_t>(sizeof(profiler::BaseBlockData) + 1U);
 
-#if EASY_OPTION_TRUNCATE_LONG_RUNTIME_NAMES != 0
-EASY_CONSTEXPR uint16_t MAX_BLOCK_NAME_LENGTH = BLOCK_CHUNK_SIZE - BASE_SIZE;
-#endif
-
-#if EASY_OPTION_CHECK_MAX_VALUE_DATA_SIZE != 0
-EASY_CONSTEXPR uint16_t MAX_VALUE_DATA_SIZE = BLOCK_CHUNK_SIZE - static_cast<uint16_t>(sizeof(profiler::ArbitraryValue));
-#endif
+EASY_CONSTEXPR uint16_t MAX_BLOCK_NAME_LENGTH = profiler::MAX_BLOCK_DATA_SIZE;
+EASY_CONSTEXPR uint16_t MAX_VALUE_DATA_SIZE = profiler::MAX_BLOCK_DATA_SIZE;
+EASY_CONSTEXPR uint16_t MAX_CSWITCH_NAME_LENGTH = profiler::MAX_BLOCK_DATA_SIZE;
 
 profiler::vin_t ptr2vin(const void* ptr)
 {
@@ -88,7 +84,7 @@ ThreadStorage::ThreadStorage()
     , guarded(false)
     , frameOpened(false)
 {
-    expired = ATOMIC_VAR_INIT(0);
+    expired.store(0, std::memory_order_relaxed);
 }
 
 void ThreadStorage::storeValue(
@@ -100,12 +96,10 @@ void ThreadStorage::storeValue(
     bool _isArray,
     profiler::ValueId _vin
 ) {
-#if EASY_OPTION_CHECK_MAX_VALUE_DATA_SIZE != 0
-    if (_size > MAX_VALUE_DATA_SIZE)
+    if (_size > MAX_VALUE_DATA_SIZE || (_size != 0 && _data == nullptr))
     {
         return;
     }
-#endif
     const uint16_t serializedDataSize = _size + static_cast<uint16_t>(sizeof(profiler::ArbitraryValue));
 
     void* data = blocks.closedList.allocate(serializedDataSize);
@@ -113,7 +107,8 @@ void ThreadStorage::storeValue(
     ::new (data) profiler::ArbitraryValue(_timestamp, ptr2vin(_vin.m_id), _id, _size, _type, _isArray);
 
     char* cdata = reinterpret_cast<char*>(data);
-    memcpy(cdata + sizeof(profiler::ArbitraryValue), _data, _size);
+    if (_size != 0)
+        memcpy(cdata + sizeof(profiler::ArbitraryValue), _data, _size);
 
     blocks.frameMemorySize += serializedDataSize;
 
@@ -131,11 +126,9 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
     EASY_THREAD_LOCAL static profiler::timestamp_t endTime = 0ULL;
 #endif
 
-#if EASY_OPTION_TRUNCATE_LONG_RUNTIME_NAMES != 0
-    const uint16_t nameLength = std::min(static_cast<uint16_t>(strlen(block.name())), MAX_BLOCK_NAME_LENGTH);
-#else
-    const uint16_t nameLength = static_cast<uint16_t>(strlen(block.name()));
-#endif
+    const size_t fullNameLength = block.name() != nullptr ? strlen(block.name()) : 0;
+    const uint16_t nameLength = static_cast<uint16_t>(
+        std::min(fullNameLength, static_cast<size_t>(MAX_BLOCK_NAME_LENGTH)));
 
 #if EASY_OPTION_MEASURE_STORAGE_EXPAND == 0
     const 
@@ -143,7 +136,7 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
     auto serializedDataSize = static_cast<uint16_t>(BASE_SIZE + nameLength);
 
 #if EASY_OPTION_MEASURE_STORAGE_EXPAND != 0
-    const bool expanded = (desc->m_status & profiler::ON) && blocks.closedList.need_expand(serializedDataSize);
+    const bool expanded = (desc->status() & profiler::ON) && blocks.closedList.need_expand(serializedDataSize);
     if (expanded) beginTime = profiler::clock::now();
 #endif
 
@@ -172,7 +165,9 @@ void ThreadStorage::storeBlock(const profiler::Block& block)
 
 void ThreadStorage::storeBlockForce(const profiler::Block& block)
 {
-    const auto nameLength = static_cast<uint16_t>(strlen(block.name()));
+    const size_t fullNameLength = block.name() != nullptr ? strlen(block.name()) : 0;
+    const auto nameLength = static_cast<uint16_t>(
+        std::min(fullNameLength, static_cast<size_t>(MAX_BLOCK_NAME_LENGTH)));
     const auto serializedDataSize = static_cast<uint16_t>(sizeof(profiler::BaseBlockData) + nameLength + 1);
 
     void* data = blocks.closedList.marked_allocate(serializedDataSize);
@@ -182,7 +177,9 @@ void ThreadStorage::storeBlockForce(const profiler::Block& block)
 
 void ThreadStorage::storeCSwitch(const CSwitchBlock& block)
 {
-    const auto nameLength = static_cast<uint16_t>(strlen(block.name()));
+    const size_t fullNameLength = block.name() != nullptr ? strlen(block.name()) : 0;
+    const auto nameLength = static_cast<uint16_t>(
+        std::min(fullNameLength, static_cast<size_t>(MAX_CSWITCH_NAME_LENGTH)));
     const auto serializedDataSize = static_cast<uint16_t>(sizeof(profiler::CSwitchEvent) + nameLength + 1);
 
     void* data = sync.closedList.allocate(serializedDataSize);

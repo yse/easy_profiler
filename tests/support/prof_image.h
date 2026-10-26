@@ -50,6 +50,7 @@ struct ProfHeader
     static const size_t OffsetTotalDescriptors      = 60;
     static const size_t OffsetThreadsCount          = 64;
     static const size_t OffsetBookmarksCount        = 68;
+    static const size_t OffsetPadding               = 70;
 };
 
 /** A byte image of a .prof file that can be edited and written back to disk. */
@@ -90,6 +91,7 @@ public:
 
     size_t size() const { return m_bytes.size(); }
     bool empty() const { return m_bytes.empty(); }
+    const std::vector<char>& bytes() const { return m_bytes; }
 
     /** Append the file body (everything after the header) to out. */
     void appendBodyTo(std::vector<char>& out) const

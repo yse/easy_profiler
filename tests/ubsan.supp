@@ -1,0 +1,4 @@
+# The default profiler format deliberately performs typed loads and stores on
+# packed records. Strict-alignment builds use memcpy instead; production-default
+# sanitizer builds suppress only those documented accessors.
+alignment:alignment_helpers.h

@@ -15,6 +15,12 @@ set(EASY_TESTS_CATCH2_VERSION "v3.7.1" CACHE STRING "Catch2 tag for FetchContent
 find_package(Catch2 3 QUIET)
 
 if (NOT Catch2_FOUND)
+    if (CMAKE_VERSION VERSION_LESS 3.11)
+        message(FATAL_ERROR
+            "Catch2 3.x was not found. CMake 3.11+ is required to fetch it; "
+            "install Catch2 or configure with a newer CMake.")
+    endif ()
+
     message(STATUS "Catch2 3.x not found on the system, fetching ${EASY_TESTS_CATCH2_VERSION}")
 
     include(FetchContent)
@@ -46,7 +52,11 @@ include(Catch)
 # no symbol exports.
 #####################################################################
 function(easy_add_test_target target)
-    cmake_parse_arguments(ARG "" "" "SOURCES;DEFINES;LABELS" ${ARGN})
+    cmake_parse_arguments(ARG "NO_DISCOVERY" "TIMEOUT" "SOURCES;DEFINES;LABELS" ${ARGN})
+
+    if (NOT ARG_TIMEOUT)
+        set(ARG_TIMEOUT 30)
+    endif ()
 
     add_executable(${target} ${ARG_SOURCES})
 
@@ -54,7 +64,11 @@ function(easy_add_test_target target)
 
     target_include_directories(${target} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
-        ${CMAKE_SOURCE_DIR}/easy_profiler_core
+        ${PROJECT_SOURCE_DIR}/easy_profiler_core
+    )
+
+    target_compile_definitions(${target} PRIVATE
+        EASY_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
     )
 
     set_target_properties(${target} PROPERTIES
@@ -75,9 +89,17 @@ function(easy_add_test_target target)
 
     # One CTest test per TEST_CASE: a crash in one case does not take its
     # neighbours with it.
-    catch_discover_tests(${target}
-        PROPERTIES LABELS "${ARG_LABELS}"
-    )
+    if (NOT ARG_NO_DISCOVERY)
+        # catch_discover_tests treats PROPERTIES as a flat list, so a CMake
+        # semicolon would become another property name. A comma keeps the
+        # labels in one value; CTest's -L regex still matches each component.
+        string(REPLACE ";" "," EASY_TEST_LABELS "${ARG_LABELS}")
+        catch_discover_tests(${target}
+            PROPERTIES
+                LABELS "${EASY_TEST_LABELS}"
+                TIMEOUT ${ARG_TIMEOUT}
+        )
+    endif ()
 endfunction()
 
 #####################################################################
@@ -102,8 +124,10 @@ easy_add_test_target(easy_profiler_unit_tests
         test_tree_reconstruction.cpp
         test_bytes_per_block.cpp
         test_reader_statistics.cpp
+        test_description_stream.cpp
         test_writer.cpp
         test_legacy_formats.cpp
+        test_golden_profiles.cpp
         test_context_switch.cpp
         test_reader_types.cpp
 )
@@ -111,10 +135,36 @@ easy_add_test_target(easy_profiler_unit_tests
 # Threading is split out: these tests are slower and noisier than the rest.
 easy_add_test_target(easy_profiler_thread_tests
     LABELS "unit;threads"
+    TIMEOUT 60
     SOURCES
         test_threads.cpp
         test_spin_lock.cpp
+        test_reader_thread_pool.cpp
 )
+
+# Interposing pthread_create replaces the symbol for a whole process, so the one
+# test that needs a failing std::thread gets a target to itself. The interposer
+# is a shared library: defined in the executable it would not reach a shared
+# easy_profiler on macOS (see support/thread_failure_shim.cpp). Windows has no
+# equivalent seam.
+if (NOT WIN32)
+    add_library(easy_profiler_thread_failure_shim SHARED support/thread_failure_shim.cpp)
+    target_link_libraries(easy_profiler_thread_failure_shim PRIVATE ${CMAKE_DL_LIBS})
+    set_target_properties(easy_profiler_thread_failure_shim PROPERTIES
+        CXX_STANDARD 11
+        CXX_STANDARD_REQUIRED ON
+        FOLDER tests
+    )
+
+    # 20000 descriptors are loaded twice with statistics: 36-43 s under TSan.
+    easy_add_test_target(easy_profiler_thread_failure_tests
+        LABELS "unit;threads"
+        TIMEOUT 120
+        SOURCES
+            test_reader_thread_failure.cpp
+    )
+    target_link_libraries(easy_profiler_thread_failure_tests PRIVATE easy_profiler_thread_failure_shim)
+endif ()
 
 # Parsing corrupt .prof files. Crashes are possible here, hence a separate binary.
 easy_add_test_target(easy_profiler_robustness_tests
@@ -125,7 +175,7 @@ easy_add_test_target(easy_profiler_robustness_tests
 
 # The network layer: loopback sockets and protocol structure layout.
 easy_add_test_target(easy_profiler_net_tests
-    LABELS "net"
+    LABELS "net;threads"
     SOURCES
         test_net.cpp
         test_net_commands.cpp
@@ -139,12 +189,115 @@ easy_add_test_target(easy_profiler_disabled_tests
         test_disabled_api.cpp
 )
 
-# Confirmed core defects. By the maintainer's decision these tests are RED:
-# they fail until the defects are fixed and serve as a checklist.
-#   ctest -LE known-issue   # the ordinary run, must be green
-#   ctest -L  known-issue   # the defect checklist, expected to be red
-easy_add_test_target(easy_profiler_known_issues_tests
-    LABELS "known-issue"
+# Regression tests for defects found while reviving the project. These belong
+# to the normal green suite: every fixed defect remains covered permanently.
+easy_add_test_target(easy_profiler_regression_tests
+    LABELS "regression"
     SOURCES
         test_known_issues.cpp
+)
+
+# Coverage runs all enabled-core cases in one process and therefore produces a
+# single compatible LLVM profile. The regular split targets above remain the
+# authoritative CTest suite for crash isolation and per-case timeouts.
+option(EASY_PROFILER_BUILD_COVERAGE_SUITE "Build the single-process coverage runner" OFF)
+if (EASY_PROFILER_BUILD_COVERAGE_SUITE)
+    get_target_property(EASY_COVERAGE_UNIT_SOURCES easy_profiler_unit_tests SOURCES)
+    get_target_property(EASY_COVERAGE_THREAD_SOURCES easy_profiler_thread_tests SOURCES)
+    get_target_property(EASY_COVERAGE_ROBUSTNESS_SOURCES easy_profiler_robustness_tests SOURCES)
+    get_target_property(EASY_COVERAGE_NET_SOURCES easy_profiler_net_tests SOURCES)
+    get_target_property(EASY_COVERAGE_REGRESSION_SOURCES easy_profiler_regression_tests SOURCES)
+
+    easy_add_test_target(easy_profiler_coverage_tests
+        NO_DISCOVERY
+        LABELS "coverage"
+        SOURCES
+            ${EASY_COVERAGE_UNIT_SOURCES}
+            ${EASY_COVERAGE_THREAD_SOURCES}
+            ${EASY_COVERAGE_ROBUSTNESS_SOURCES}
+            ${EASY_COVERAGE_NET_SOURCES}
+            ${EASY_COVERAGE_REGRESSION_SOURCES}
+    )
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/coverage-profiles)
+    add_test(NAME easy_profiler.coverage_suite
+        COMMAND easy_profiler_coverage_tests "~[isolated]" --order lex
+    )
+    set_tests_properties(easy_profiler.coverage_suite PROPERTIES
+        LABELS "coverage"
+        TIMEOUT 180
+        ENVIRONMENT
+            "LLVM_PROFILE_FILE=${CMAKE_CURRENT_BINARY_DIR}/coverage-profiles/core.profraw"
+    )
+endif ()
+
+option(EASY_PROFILER_BUILD_FUZZER "Build the libFuzzer harness for the .prof reader" OFF)
+if (EASY_PROFILER_BUILD_FUZZER)
+    if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        message(FATAL_ERROR
+            "EASY_PROFILER_BUILD_FUZZER requires upstream LLVM Clang with libFuzzer "
+            "(AppleClang does not ship the runtime)")
+    endif ()
+
+    add_executable(easy_profiler_reader_fuzzer fuzz_reader.cpp)
+    target_link_libraries(easy_profiler_reader_fuzzer PRIVATE easy_profiler)
+    target_compile_options(easy_profiler_reader_fuzzer PRIVATE -fsanitize=fuzzer)
+    set_property(TARGET easy_profiler_reader_fuzzer APPEND_STRING PROPERTY
+        LINK_FLAGS " -fsanitize=fuzzer")
+    set_target_properties(easy_profiler_reader_fuzzer PROPERTIES
+        CXX_STANDARD 11
+        CXX_STANDARD_REQUIRED ON
+        FOLDER tests
+    )
+
+    file(COPY fuzz_corpus DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+    file(COPY
+        ${CMAKE_CURRENT_SOURCE_DIR}/golden/v1_3.prof.hex
+        ${CMAKE_CURRENT_SOURCE_DIR}/golden/v2_0.prof.hex
+        ${CMAKE_CURRENT_SOURCE_DIR}/golden/v2_1.prof.hex
+        DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/fuzz_corpus
+    )
+
+    add_test(NAME easy_profiler.reader_fuzzer_smoke
+        COMMAND easy_profiler_reader_fuzzer
+            -runs=1000
+            -max_len=4096
+            -dict=${CMAKE_CURRENT_SOURCE_DIR}/fuzz_reader.dict
+            ${CMAKE_CURRENT_BINARY_DIR}/fuzz_corpus
+    )
+    set_tests_properties(easy_profiler.reader_fuzzer_smoke PROPERTIES
+        LABELS "fuzz;robustness"
+        TIMEOUT 60
+    )
+endif ()
+
+#####################################################################
+# Build-system contract tests. They deliberately configure fresh projects so
+# an in-tree target cannot hide a broken install export or parent-project leak.
+#####################################################################
+configure_file(
+    cmake/run_install_consumer.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/run_install_consumer.cmake
+    @ONLY
+)
+add_test(NAME easy_profiler.install_consumer
+    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/run_install_consumer.cmake
+)
+set_tests_properties(easy_profiler.install_consumer PROPERTIES
+    LABELS "package"
+    TIMEOUT 180
+    RUN_SERIAL TRUE
+)
+
+configure_file(
+    cmake/run_subdirectory_consumer.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/run_subdirectory_consumer.cmake
+    @ONLY
+)
+add_test(NAME easy_profiler.subdirectory_consumer
+    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/run_subdirectory_consumer.cmake
+)
+set_tests_properties(easy_profiler.subdirectory_consumer PROPERTIES
+    LABELS "package"
+    TIMEOUT 180
+    RUN_SERIAL TRUE
 )

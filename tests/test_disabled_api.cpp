@@ -48,6 +48,7 @@ void instrumentedWork()
 
     const int numbers[] = {1, 2, 3};
     EASY_ARRAY("disabled_array", numbers, 3);
+    (void)numbers;
     EASY_TEXT("disabled_text", "text");
 
     EASY_THREAD("disabled_thread");
@@ -73,6 +74,20 @@ TEST_CASE("Every macro compiles and is a no-op", "[disabled]")
     EASY_PROFILER_DISABLE;
 
     SUCCEED("instrumented code built and ran without a profiler");
+}
+
+TEST_CASE("Disabled explicit-size value APIs accept size_t", "[disabled][api]")
+{
+    using ArraySetter = void (*)(const profiler::BaseBlockDescriptor*,
+                                 const int32_t*, profiler::ValueId, size_t);
+    using TextSetter = void (*)(const profiler::BaseBlockDescriptor*,
+                                const char*, profiler::ValueId, size_t);
+
+    ArraySetter arraySetter = &profiler::setValue<int32_t>;
+    TextSetter textSetter = &profiler::setText;
+
+    REQUIRE(arraySetter != nullptr);
+    REQUIRE(textSetter != nullptr);
 }
 
 TEST_CASE("The profiler cannot be enabled", "[disabled]")
@@ -141,6 +156,7 @@ TEST_CASE("The version is marked as disabled", "[disabled]")
     REQUIRE(profiler::apiVersionMinor() == 0);
     REQUIRE(profiler::apiVersionPatch() == 0);
     REQUIRE(profiler::apiVersion() == 0);
+    REQUIRE(profiler::formatVersion() == 0);
     REQUIRE(std::string(profiler::apiVersionName()) == "v0.0.0_disabled");
 }
 

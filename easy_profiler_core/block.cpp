@@ -233,9 +233,9 @@ CSwitchEvent::CSwitchEvent(timestamp_t _begin_time, thread_id_t _tid) EASY_NOEXC
 
 } // END of namespace profiler.
 
-CSwitchBlock::CSwitchBlock(profiler::timestamp_t _begin_time, profiler::thread_id_t _tid, const char* _runtimeName) EASY_NOEXCEPT
+CSwitchBlock::CSwitchBlock(profiler::timestamp_t _begin_time, profiler::thread_id_t _tid, const char* _runtimeName)
     : profiler::CSwitchEvent(_begin_time, _tid)
-    , m_name(_runtimeName)
+    , m_name(_runtimeName != nullptr ? _runtimeName : "")
 {
 
 }

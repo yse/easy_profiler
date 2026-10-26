@@ -1,16 +1,7 @@
-/** Confirmed core defects. THESE TESTS ARE RED ON PURPOSE.
+/** Regression tests for defects fixed while reviving easy_profiler.
 
-Maintainer's decision: tests for known defects fail in an ordinary run and serve
-as an executable checklist of work. The target therefore lives in its own binary
-and carries the CTest label `known-issue`:
-
-    ctest -LE known-issue   # the working run, must be green
-    ctest -L  known-issue   # the defect checklist, expected to be red
-
-Each test states WHAT should happen once fixed and points at the exact place in
-the code. When a defect is fixed its test turns green and moves to a normal target.
-
-Defects are ordered by decreasing severity.
+Each test keeps the original failure mode and rationale so the bug cannot return
+silently. This is part of the normal green suite.
 */
 
 #include <catch2/catch_test_macros.hpp>
@@ -23,7 +14,9 @@ Defects are ordered by decreasing severity.
 #include "current_thread.h"
 
 #include <chrono>
+#include <ctime>
 #include <fstream>
+#include <limits>
 #include <string>
 
 #ifndef _WIN32
@@ -47,7 +40,7 @@ double millisecondsOf(std::chrono::steady_clock::time_point from,
 // Defect: out-of-bounds heap write while parsing an untrusted .prof
 //////////////////////////////////////////////////////////////////////////
 
-TEST_CASE("The reader rejects an understated descriptors_memory_size", "[known-issue][security]")
+TEST_CASE("The reader rejects an understated descriptors_memory_size", "[regression][security]")
 {
     // DEFECT: reader.cpp:955-958 — the bounds check is commented out.
     //
@@ -99,7 +92,7 @@ TEST_CASE("The reader rejects an understated descriptors_memory_size", "[known-i
 // Defect: the format version check has no upper bound
 //////////////////////////////////////////////////////////////////////////
 
-TEST_CASE("The reader rejects a version newer than its own", "[known-issue][format]")
+TEST_CASE("The reader rejects a newer format line", "[regression][format]")
 {
     // DEFECT: reader.cpp:117-120 —
     //
@@ -112,8 +105,9 @@ TEST_CASE("The reader rejects a version newer than its own", "[known-issue][form
     // and is then parsed against today's layout — silently mangled instead of
     // producing a clear error.
     //
-    // AFTER THE FIX: a file newer than the current version is rejected with a
-    // message along the lines of "this file is newer, update your tool".
+    // AFTER THE FIX: a newer major.minor format line is rejected. Patch
+    // releases in the current line remain compatible because they do not alter
+    // the v2.1 wire layout.
     //
     // This cannot be fixed retroactively: already distributed reader builds
     // cannot be re-taught. The sooner a patch ships, the larger the share of
@@ -139,7 +133,7 @@ TEST_CASE("The reader rejects a version newer than its own", "[known-issue][form
 // Defect: counter calibration is a 100M-iteration busy loop
 //////////////////////////////////////////////////////////////////////////
 
-TEST_CASE("A dump does not recalibrate", "[known-issue][performance]")
+TEST_CASE("A dump does not recalibrate", "[regression][performance]")
 {
     // DEFECT: profile_manager.cpp:1061 — the dump path calls
     // calculate_cpu_frequency() again, and that is a busy loop of 100,000,000
@@ -170,18 +164,24 @@ TEST_CASE("A dump does not recalibrate", "[known-issue][performance]")
 
     easy_test::TempFile file("known_issue_dump_cost");
 
+    const std::clock_t cpuStarted = std::clock();
     const auto started = std::chrono::steady_clock::now();
     const uint32_t dumped = profiler::dumpBlocksToFile(file.c_str());
     const auto finished = std::chrono::steady_clock::now();
+    const std::clock_t cpuFinished = std::clock();
 
     REQUIRE(dumped == 100);
 
     const double elapsed = millisecondsOf(started, finished);
+    const double cpuElapsed = 1000.0 * static_cast<double>(cpuFinished - cpuStarted) /
+                              static_cast<double>(CLOCKS_PER_SEC);
     INFO("dumping 100 blocks took " << elapsed << " ms");
+    INFO("CPU time while dumping 100 blocks was " << cpuElapsed << " ms");
 
-    // A hundred blocks is two thousand bytes. Anything noticeably above ten
-    // milliseconds is explained by calibration alone.
-    REQUIRE(elapsed < 10.0);
+    // dumpBlocksToStream deliberately waits for in-flight writers for 20 ms.
+    // Wall time therefore cannot identify calibration; CPU time can, because
+    // the old 100M-iteration loop kept a core busy throughout the dump.
+    REQUIRE(cpuElapsed < 10.0);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -191,7 +191,7 @@ TEST_CASE("A dump does not recalibrate", "[known-issue][performance]")
 #ifndef _WIN32
 
 TEST_CASE("Context switch events outside the capture window do not corrupt the file",
-          "[known-issue][cswitch]")
+          "[regression][cswitch]")
 {
     // DEFECT: the header's block counter and the reader's counter count
     // different things.
@@ -233,6 +233,9 @@ TEST_CASE("Context switch events outside the capture window do not corrupt the f
                 << currentThread << ' ' << currentThread << ' '
                 << "easy_profiler_tests" << ' ' << processId << '\n';
         }
+        out << (std::numeric_limits<profiler::timestamp_t>::max() - 1000) << ' '
+            << currentThread << ' ' << currentThread << ' '
+            << "easy_profiler_tests_future" << ' ' << processId << '\n';
     }
 
     const std::string originalLog = profiler::getContextSwitchLogFilename();
@@ -260,7 +263,7 @@ TEST_CASE("Context switch events outside the capture window do not corrupt the f
 
 #endif // !_WIN32
 
-TEST_CASE("The first block costs nothing while the profiler is disabled", "[known-issue][performance]")
+TEST_CASE("The first block costs nothing while the profiler is disabled", "[regression][performance]")
 {
     // DEFECT: profile_manager.cpp:351 — the ProfileManager constructor body calls
     // calculate_cpu_frequency() in a stock build on Linux/macOS/Android (the

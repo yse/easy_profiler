@@ -52,8 +52,10 @@
 *                   : limitations under the License.
 ************************************************************************/
 
+#include <QByteArray>
 #include <QList>
 #include <QTreeWidgetItem>
+#include <limits>
 #include "common_functions.h"
 
 template <class T>
@@ -79,6 +81,21 @@ static double toReal(const profiler::ArbitraryValue& _serializedValue) {
 template <profiler::DataType type>
 inline EASY_CONSTEXPR_FCN uint16_t sizeOf() {
     return static_cast<uint16_t>(sizeof(typename profiler::StdType<type>::value_type));
+}
+
+/** Build a QString out of a DataType::String payload.
+
+The payload length is whatever the profile recorded. EASY_STRING(name, text, len)
+stores exactly len bytes and explicitly permits the caller to leave out the
+trailing zero, so such a payload must never reach anything that calls strlen()
+on it - QString(const char*) included. Text recorded through EASY_TEXT does carry
+its terminator, and for those payloads this yields exactly the same string.
+*/
+static QString stringValueToString(const profiler::ArbitraryValue& _serializedValue)
+{
+    const char* data = _serializedValue.data();
+    const auto length = qstrnlen(data, _serializedValue.data_size());
+    return QString::fromUtf8(data, static_cast<int>(length));
 }
 
 static QString arrayToString(const profiler::ArbitraryValue& _serializedValue, int _index)
@@ -123,7 +140,7 @@ static QString singleValueToString(const profiler::ArbitraryValue& _serializedVa
         case profiler::DataType::Uint64: return toString<uint64_t>(_serializedValue);
         case profiler::DataType::Float:  return toString<float>   (_serializedValue);
         case profiler::DataType::Double: return toString<double>  (_serializedValue);
-        case profiler::DataType::String: return _serializedValue.data();
+        case profiler::DataType::String: return stringValueToString(_serializedValue);
         default: return QStringLiteral("??");
     }
 }
@@ -384,10 +401,16 @@ namespace profiler_gui {
         if (_serializedValue.isArray())
         {
             if (_serializedValue.type() == ::profiler::DataType::String)
-                return _serializedValue.data();
+                return stringValueToString(_serializedValue);
+
+            // The size has to be known before the first element is touched: the
+            // reader accepts an array with a zero-length payload, and element 0
+            // of such an array lies outside the record.
+            const int size = valueArraySize(_serializedValue);
+            if (size < 1)
+                return QStringLiteral("[]");
 
             auto str = QString("[%1").arg(valueString(_serializedValue, 0));
-            const int size = valueArraySize(_serializedValue);
             for (int i = 1; i < size; ++i)
                 str.append(QString(", %1").arg(valueString(_serializedValue, i)));
             str.append(QChar(']'));
@@ -403,10 +426,14 @@ namespace profiler_gui {
         if (_serializedValue.isArray())
         {
             if (_serializedValue.type() == ::profiler::DataType::String)
-                return _serializedValue.data();
+                return stringValueToString(_serializedValue);
+
+            // See valueString(): a zero-length array has no element 0.
+            const int size = valueArraySize(_serializedValue);
+            if (size < 1)
+                return QStringLiteral("[]");
 
             auto str = QString("[%1").arg(valueString(_serializedValue, 0));
-            const int size = valueArraySize(_serializedValue);
             if (size < 7)
             {
                 for (int i = 1; i < size; ++i)
@@ -429,7 +456,11 @@ namespace profiler_gui {
     QString valueString(const ::profiler::ArbitraryValue& _serializedValue, int _index)
     {
         if (_serializedValue.isArray())
+        {
+            if (_index < 0 || _index >= valueArraySize(_serializedValue))
+                return QString();
             return arrayToString(_serializedValue, _index);
+        }
         return singleValueToString(_serializedValue);
     }
 
@@ -459,6 +490,9 @@ namespace profiler_gui {
     {
         if (_serializedValue.isArray())
         {
+            if (_index < 0 || _index >= valueArraySize(_serializedValue))
+                return std::numeric_limits<double>::quiet_NaN();
+
             switch (_serializedValue.type())
             {
                 case ::profiler::DataType::Bool:

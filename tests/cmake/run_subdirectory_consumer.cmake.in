@@ -1,0 +1,38 @@
+set(consumer_binary "@PROJECT_BINARY_DIR@/test-subdirectory-consumer")
+set(configuration "$ENV{CTEST_CONFIGURATION_TYPE}")
+if (configuration STREQUAL "")
+    set(configuration "@CMAKE_BUILD_TYPE@")
+endif ()
+if (configuration STREQUAL "")
+    set(configuration "Debug")
+endif ()
+file(REMOVE_RECURSE "${consumer_binary}")
+
+set(configure_command
+    "@CMAKE_COMMAND@"
+    -S "@PROJECT_SOURCE_DIR@/tests/subdirectory_consumer"
+    -B "${consumer_binary}"
+    -G "@CMAKE_GENERATOR@"
+    "-DEASY_PROFILER_SOURCE_DIR=@PROJECT_SOURCE_DIR@"
+    "-DCMAKE_BUILD_TYPE=@CMAKE_BUILD_TYPE@"
+)
+if (NOT "@CMAKE_GENERATOR_PLATFORM@" STREQUAL "")
+    list(APPEND configure_command -A "@CMAKE_GENERATOR_PLATFORM@")
+endif ()
+if (NOT "@CMAKE_GENERATOR_TOOLSET@" STREQUAL "")
+    list(APPEND configure_command -T "@CMAKE_GENERATOR_TOOLSET@")
+endif ()
+
+execute_process(COMMAND ${configure_command} RESULT_VARIABLE configure_result)
+if (NOT configure_result EQUAL 0)
+    message(FATAL_ERROR "add_subdirectory consumer configure failed: ${configure_result}")
+endif ()
+
+execute_process(
+    COMMAND "@CMAKE_COMMAND@" --build "${consumer_binary}"
+            --config "${configuration}" --target run_consumer
+    RESULT_VARIABLE build_result
+)
+if (NOT build_result EQUAL 0)
+    message(FATAL_ERROR "add_subdirectory consumer build/run failed: ${build_result}")
+endif ()

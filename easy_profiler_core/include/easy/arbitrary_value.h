@@ -44,6 +44,9 @@ The Apache License, Version 2.0 (the "License");
 #define EASY_PROFILER_ARBITRARY_VALUE_H
 
 #include <easy/details/arbitrary_value_public_types.h>
+#if EASY_OPTION_LOG_ENABLED != 0
+# include <cstdio>
+#endif
 
 //
 // USING_EASY_PROFILER is defined in details/profiler_in_use.h
@@ -158,7 +161,7 @@ void foo(const A& a) {
 
 \note Currently arbitrary values support only compile-time names.
 
-\warning Max data size (sizeof(value) * size) is MAX_BLOCK_DATA_SIZE. Passing bigger size has undefined behavior.
+\note Max data size (sizeof(value) * size) is MAX_BLOCK_DATA_SIZE. Bigger arrays are ignored safely.
 
 \sa EASY_VALUE, EASY_TEXT, EASY_STRING, MAX_BLOCK_DATA_SIZE
 
@@ -178,7 +181,7 @@ Could be C-string or std::string.
 
 \note Currently arbitrary values support only compile-time names.
 
-\warning Max string length is MAX_BLOCK_DATA_SIZE (including trailing '\0'). Passing bigger size has undefined behavior.
+\note Max string length is MAX_BLOCK_DATA_SIZE (including trailing '\0'). Bigger strings are ignored safely.
 
 \sa EASY_VALUE, EASY_ARRAY, EASY_STRING, MAX_BLOCK_DATA_SIZE
 
@@ -201,7 +204,7 @@ Use this for C-strings of known length (compile-time or run-time).
 
 \note Currently arbitrary values support only compile-time names.
 
-\warning Max string length is MAX_BLOCK_DATA_SIZE (including trailing '\0'). Passing bigger size has undefined behavior.
+\note Max string length is MAX_BLOCK_DATA_SIZE (including trailing '\0'). Bigger strings are ignored safely.
 
 \sa EASY_VALUE, EASY_ARRAY, EASY_TEXT, MAX_BLOCK_DATA_SIZE
 
@@ -215,6 +218,27 @@ Use this for C-strings of known length (compile-time or run-time).
 
 namespace profiler
 {
+
+    namespace detail
+    {
+        static inline void reportDroppedValue(const char* _api, size_t _size, size_t _maximum, bool _isNull)
+        {
+#if EASY_OPTION_LOG_ENABLED != 0
+            if (_isNull)
+                std::fprintf(stderr, "EasyProfiler WARNING: %s ignored a null payload.\n", _api);
+            else
+                std::fprintf(stderr,
+                             "EasyProfiler WARNING: %s ignored a %llu-byte payload; maximum is %llu bytes.\n",
+                             _api, static_cast<unsigned long long>(_size),
+                             static_cast<unsigned long long>(_maximum));
+#else
+            (void)_api;
+            (void)_size;
+            (void)_maximum;
+            (void)_isNull;
+#endif
+        }
+    }
 
     extern "C" PROFILER_API void storeValue(const BaseBlockDescriptor* _desc, DataType _type, const void* _data,
                                             uint16_t _size, bool _isArray, ValueId _vin);
@@ -233,14 +257,31 @@ namespace profiler
         storeValue(_desc, StdToDataType<Type>::data_type, &_value, static_cast<uint16_t>(sizeof(Type)), false, _vin);
     }
 
-    ///< WARNING: Passing _arraySize > (MAX_BLOCK_DATA_SIZE / sizeof(T)) may cause undefined behavior!
+    ///< Checked entry point used by EASY_ARRAY before serialization narrows the byte size to uint16_t.
     template <class T>
-    inline void setValue(const BaseBlockDescriptor* _desc, const T* _valueArray, ValueId _vin, uint16_t _arraySize)
+    inline void setValue(const BaseBlockDescriptor* _desc, const T* _valueArray, ValueId _vin, size_t _arraySize)
     {
         static_assert(StdToDataType<T>::data_type != DataType::TypesCount,
                       "You should use standard builtin scalar types as profiler::Value type!");
 
-        storeValue(_desc, StdToDataType<T>::data_type, _valueArray, static_cast<uint16_t>(sizeof(T) * _arraySize), true, _vin);
+        if (_arraySize != 0 && _valueArray == nullptr)
+        {
+            detail::reportDroppedValue("EASY_ARRAY", 0, MAX_BLOCK_DATA_SIZE, true);
+            return;
+        }
+
+        if (_arraySize > MAX_BLOCK_DATA_SIZE / sizeof(T))
+        {
+            const size_t maximumSize = static_cast<size_t>(-1);
+            const size_t byteSize = _arraySize > maximumSize / sizeof(T)
+                                  ? maximumSize
+                                  : _arraySize * sizeof(T);
+            detail::reportDroppedValue("EASY_ARRAY", byteSize, MAX_BLOCK_DATA_SIZE, false);
+            return;
+        }
+
+        storeValue(_desc, StdToDataType<T>::data_type, _valueArray,
+                   static_cast<uint16_t>(sizeof(T) * _arraySize), true, _vin);
     }
 
     template <class T, size_t N>
@@ -254,22 +295,50 @@ namespace profiler
         storeValue(_desc, StdToDataType<T>::data_type, _value, static_cast<uint16_t>(sizeof(_value)), true, _vin);
     }
 
-    ///< WARNING: Passing _textLength > MAX_BLOCK_DATA_SIZE may cause undefined behavior!
-    inline void setText(const BaseBlockDescriptor* _desc, const char* _text, ValueId _vin, uint16_t _textLength)
+    ///< Checked entry point used by EASY_STRING before serialization narrows the byte size to uint16_t.
+    inline void setText(const BaseBlockDescriptor* _desc, const char* _text, ValueId _vin, size_t _textLength)
     {
-        storeValue(_desc, DataType::String, _text, _textLength, true, _vin);
+        if (_textLength != 0 && _text == nullptr)
+        {
+            detail::reportDroppedValue("EASY_STRING", 0, MAX_BLOCK_DATA_SIZE, true);
+            return;
+        }
+
+        if (_textLength > MAX_BLOCK_DATA_SIZE)
+        {
+            detail::reportDroppedValue("EASY_STRING", _textLength, MAX_BLOCK_DATA_SIZE, false);
+            return;
+        }
+        storeValue(_desc, DataType::String, _text, static_cast<uint16_t>(_textLength), true, _vin);
     }
 
-    ///< WARNING: Passing _text with length > MAX_BLOCK_DATA_SIZE may cause undefined behavior!
+    ///< Text longer than MAX_BLOCK_DATA_SIZE is ignored safely.
     inline void setText(const BaseBlockDescriptor* _desc, const char* _text, ValueId _vin)
     {
-        storeValue(_desc, DataType::String, _text, static_cast<uint16_t>(strlen(_text) + 1), true, _vin);
+        if (_text == nullptr)
+        {
+            detail::reportDroppedValue("EASY_TEXT", 0, MAX_BLOCK_DATA_SIZE, true);
+            return;
+        }
+        const size_t length = strlen(_text) + 1;
+        if (length > MAX_BLOCK_DATA_SIZE)
+        {
+            detail::reportDroppedValue("EASY_TEXT", length, MAX_BLOCK_DATA_SIZE, false);
+            return;
+        }
+        storeValue(_desc, DataType::String, _text, static_cast<uint16_t>(length), true, _vin);
     }
 
-    ///< WARNING: Passing _text with length > MAX_BLOCK_DATA_SIZE may cause undefined behavior!
+    ///< Text longer than MAX_BLOCK_DATA_SIZE is ignored safely.
     inline void setText(const BaseBlockDescriptor* _desc, const ::std::string& _text, ValueId _vin)
     {
-        storeValue(_desc, DataType::String, _text.c_str(), static_cast<uint16_t>(_text.size() + 1), true, _vin);
+        if (_text.size() >= MAX_BLOCK_DATA_SIZE)
+        {
+            detail::reportDroppedValue("EASY_TEXT", _text.size() + 1, MAX_BLOCK_DATA_SIZE, false);
+            return;
+        }
+        storeValue(_desc, DataType::String, _text.c_str(),
+                   static_cast<uint16_t>(_text.size() + 1), true, _vin);
     }
 
     template <size_t N>
@@ -305,12 +374,12 @@ namespace profiler
     inline void setValue(const BaseBlockDescriptor*, T, ValueId) {}
 
     template <class T>
-    inline void setValue(const BaseBlockDescriptor*, const T*, ValueId, uint16_t) {}
+    inline void setValue(const BaseBlockDescriptor*, const T*, ValueId, size_t) {}
 
     template <class T, size_t N>
     inline void setValue(const BaseBlockDescriptor*, const T (&)[N], ValueId) {}
 
-    inline void setText(const BaseBlockDescriptor*, const char*, ValueId, uint16_t) {}
+    inline void setText(const BaseBlockDescriptor*, const char*, ValueId, size_t) {}
 
     inline void setText(const BaseBlockDescriptor*, const char*, ValueId) {}
 

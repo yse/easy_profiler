@@ -41,12 +41,9 @@ set(EASY_DEFAULT_PORT                  28077  CACHE STRING "Default listening po
 set(EASY_OPTION_LISTEN                 OFF    CACHE BOOL   "Enable automatic startListen on startup")
 set(EASY_OPTION_PROFILE_SELF           OFF    CACHE BOOL   "Enable self profiling (measure time for internal storage expand)")
 set(EASY_OPTION_PROFILE_SELF_BLOCKS_ON OFF    CACHE BOOL   "Storage expand default status (profiler::ON or profiler::OFF)")
-set(EASY_OPTION_TRUNCATE_RUNTIME_NAMES OFF    CACHE BOOL   "Enable truncation of block dynamic names (set at run-time, not compile-time). Reduces performance. Turn ON only if you want to use dynamic block names of length >${EASY_MAX_SIZE_VALUE} symbols at runtime. It is better to use EASY_VALUE instead of such long names.")
-set(EASY_OPTION_CHECK_MAX_VALUE_SIZE   OFF    CACHE BOOL   "Enable checking EASY_VALUE maximum data size. Slightly reduces performance. Turn ON only if you want to pass big EASY_ARRAY, EASY_STRING, EASY_TEXT of length >${EASY_MAX_SIZE_VALUE} bytes. It is better to split such arrays into the smaller ones.")
 set(EASY_OPTION_LOG                    OFF    CACHE BOOL   "Print errors to stderr")
 set(EASY_OPTION_PRETTY_PRINT           OFF    CACHE BOOL   "Use pretty-printed function names with signature and argument types")
 set(EASY_OPTION_PREDEFINED_COLORS      ON     CACHE BOOL   "Use predefined set of colors (see profiler_colors.h). If you want to use your own colors palette you can turn this option OFF")
-set(BUILD_SHARED_LIBS                  ON     CACHE BOOL   "Build easy_profiler as shared library.")
 if (WIN32)
     set(EASY_OPTION_IMPLICIT_THREAD_REGISTRATION ON CACHE BOOL ${EASY_OPTION_IMPLICIT_THREAD_REGISTER_TEXT})
     set(EASY_OPTION_EVENT_TRACING                ON CACHE BOOL "Enable event tracing by default")
@@ -86,17 +83,8 @@ message(STATUS "  Auto-start listening = ${EASY_OPTION_LISTEN}")
 message(STATUS "  Profile self = ${EASY_OPTION_PROFILE_SELF}")
 message(STATUS "  Profile self blocks initial status = ${EASY_OPTION_PROFILE_SELF_BLOCKS_ON}")
 
-if (EASY_OPTION_TRUNCATE_RUNTIME_NAMES)
-    message(STATUS "  Truncate block dynamic names = ${EASY_OPTION_TRUNCATE_RUNTIME_NAMES} (reduces performance)")
-else()
-    message(STATUS "  Truncate block dynamic names = ${EASY_OPTION_TRUNCATE_RUNTIME_NAMES} (may cause crash if using dynamic block names of length >${EASY_MAX_SIZE_VALUE} symbols)")
-endif()
-
-if (EASY_OPTION_CHECK_MAX_VALUE_SIZE)
-    message(STATUS "  Check maximum EASY_VALUE data size = ${EASY_OPTION_CHECK_MAX_VALUE_SIZE} (slightly reduces performance)")
-else()
-    message(STATUS "  Check maximum EASY_VALUE data size = ${EASY_OPTION_CHECK_MAX_VALUE_SIZE} (may cause crash if using EASY_VALUE arrays of total data size >${EASY_MAX_SIZE_VALUE} bytes)")
-endif()
+message(STATUS "  Runtime names are truncated safely to ${EASY_MAX_SIZE_VALUE} bytes")
+message(STATUS "  EASY_VALUE payloads are checked against the ${EASY_MAX_SIZE_VALUE}-byte limit")
 
 message(STATUS "  Implicit thread registration = ${EASY_OPTION_IMPLICIT_THREAD_REGISTRATION}")
 if (WIN32)
@@ -154,6 +142,7 @@ set(H_FILES
     thread_storage.h
     spin_lock.h
     stack_buffer.h
+    timestamp_scaling.h
 )
 
 set(EASY_INCLUDE_DIR "include/easy")
@@ -185,6 +174,11 @@ set(SOURCES
 )
 
 add_library(easy_profiler ${SOURCES} resources.rc)
+add_library(easy_profiler::easy_profiler ALIAS easy_profiler)
+set_target_properties(easy_profiler PROPERTIES
+    VERSION ${EASY_PRODUCT_VERSION_STRING}
+    SOVERSION "${EASY_PROGRAM_VERSION_MAJOR}"
+)
 # End adding source files.
 #################################################
 
@@ -195,18 +189,21 @@ target_include_directories(easy_profiler PUBLIC
     $<INSTALL_INTERFACE:include>  # <prefix>/include
 )
 target_compile_definitions(easy_profiler PRIVATE
-    -D_BUILD_PROFILER=1
+    _BUILD_PROFILER=1
     #-DEASY_PROFILER_API_DISABLED # uncomment this to disable profiler api only (you will have to rebuild only easy_profiler)
 )
 if (NOT BUILD_SHARED_LIBS)
-    target_compile_definitions(easy_profiler PUBLIC -DEASY_PROFILER_STATIC=1)
+    target_compile_definitions(easy_profiler PUBLIC EASY_PROFILER_STATIC=1)
+endif ()
+if (EASY_PROFILER_STRICT_ALIGNMENT)
+    target_compile_definitions(easy_profiler PUBLIC EASY_ENABLE_STRICT_ALIGNMENT=1)
 endif ()
 target_compile_definitions(easy_profiler PUBLIC
-    -DEASY_PROFILER_VERSION_MAJOR=${EASY_PROGRAM_VERSION_MAJOR}
-    -DEASY_PROFILER_VERSION_MINOR=${EASY_PROGRAM_VERSION_MINOR}
-    -DEASY_PROFILER_VERSION_PATCH=${EASY_PROGRAM_VERSION_PATCH}
-    -DEASY_DEFAULT_PORT=${EASY_DEFAULT_PORT}
-    -DBUILD_WITH_EASY_PROFILER=1
+    EASY_PROFILER_VERSION_MAJOR=${EASY_PROGRAM_VERSION_MAJOR}
+    EASY_PROFILER_VERSION_MINOR=${EASY_PROGRAM_VERSION_MINOR}
+    EASY_PROFILER_VERSION_PATCH=${EASY_PROGRAM_VERSION_PATCH}
+    EASY_DEFAULT_PORT=${EASY_DEFAULT_PORT}
+    BUILD_WITH_EASY_PROFILER=1
 )
 
 
@@ -218,8 +215,6 @@ easy_define_target_option(easy_profiler BUILD_WITH_CHRONO_HIGH_RESOLUTION_CLOCK 
 easy_define_target_option(easy_profiler EASY_OPTION_LISTEN EASY_OPTION_START_LISTEN_ON_STARTUP)
 easy_define_target_option(easy_profiler EASY_OPTION_PROFILE_SELF EASY_OPTION_MEASURE_STORAGE_EXPAND)
 easy_define_target_option(easy_profiler EASY_OPTION_PROFILE_SELF_BLOCKS_ON EASY_OPTION_STORAGE_EXPAND_BLOCKS_ON)
-easy_define_target_option(easy_profiler EASY_OPTION_TRUNCATE_RUNTIME_NAMES EASY_OPTION_TRUNCATE_LONG_RUNTIME_NAMES)
-easy_define_target_option(easy_profiler EASY_OPTION_CHECK_MAX_VALUE_SIZE EASY_OPTION_CHECK_MAX_VALUE_DATA_SIZE)
 easy_define_target_option(easy_profiler EASY_OPTION_IMPLICIT_THREAD_REGISTRATION EASY_OPTION_IMPLICIT_THREAD_REGISTRATION)
 if (WIN32)
     easy_define_target_option(easy_profiler EASY_OPTION_EVENT_TRACING EASY_OPTION_EVENT_TRACING_ENABLED)
@@ -246,7 +241,11 @@ if (UNIX)
         target_link_libraries(easy_profiler socket)
     endif()
 elseif (WIN32)
-    target_compile_definitions(easy_profiler PRIVATE -D_WIN32_WINNT=0x0600 -D_CRT_SECURE_NO_WARNINGS -D_WINSOCK_DEPRECATED_NO_WARNINGS)
+    target_compile_definitions(easy_profiler PRIVATE
+        _WIN32_WINNT=0x0600
+        _CRT_SECURE_NO_WARNINGS
+        _WINSOCK_DEPRECATED_NO_WARNINGS
+    )
     target_link_libraries(easy_profiler ws2_32 psapi)
 endif ()
 
@@ -327,7 +326,6 @@ install(
 
 install(
     EXPORT "${targets_export_name}"
+    NAMESPACE easy_profiler::
     DESTINATION "${config_install_dir}"
 )
-
-target_compile_definitions(easy_profiler PUBLIC )

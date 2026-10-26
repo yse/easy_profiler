@@ -46,6 +46,8 @@ The Apache License, Version 2.0 (the "License");
 #include <easy/details/profiler_public_types.h>
 #include <easy/details/arbitrary_value_public_types.h>
 
+#include <cstring>
+
 class CSwitchBlock;
 
 namespace profiler {
@@ -197,6 +199,8 @@ namespace profiler {
 
         ~ArbitraryValue() = delete;
 
+        ///< Raw payload of data_size() bytes. It is not NUL-terminated: use
+        ///< data_size(), or StringValue::length() for the text before a zero.
         const char* data() const {
             return reinterpret_cast<const char*>(this) + sizeof(ArbitraryValue);
         }
@@ -248,7 +252,11 @@ namespace profiler {
     template <DataType dataType>
     struct Value<dataType, false> EASY_FINAL : public ArbitraryValue {
         using value_type = typename StdType<dataType>::value_type;
-        value_type value() const { return *reinterpret_cast<const value_type*>(data()); }
+        value_type value() const {
+            value_type result;
+            std::memcpy(&result, data(), sizeof(result));
+            return result;
+        }
         ~Value() = delete;
     };
 
@@ -256,10 +264,24 @@ namespace profiler {
     template <DataType dataType>
     struct Value<dataType, true> EASY_FINAL : public ArbitraryValue {
         using value_type = typename StdType<dataType>::value_type;
-        const value_type* value() const { return reinterpret_cast<const value_type*>(data()); }
+        const value_type* value() const = delete;
+        ///< Copies the complete array into destination. Capacity is measured in elements.
+        ///< Returns false if a non-empty destination is null or capacity is too small.
+        bool copyTo(value_type* destination, size_t capacity) const {
+            const size_t valueCount = size();
+            if (capacity < valueCount || (valueCount != 0 && destination == nullptr))
+                return false;
+            if (valueCount != 0)
+                std::memcpy(destination, data(), valueCount * sizeof(value_type));
+            return true;
+        }
         uint16_t size() const { return m_size / sizeof(value_type); }
-        value_type operator [] (int i) const { return value()[i]; }
-        value_type at(int i) const { return value()[i]; }
+        value_type operator [] (int i) const { return at(i); }
+        value_type at(int i) const {
+            value_type result;
+            std::memcpy(&result, data() + static_cast<size_t>(i) * sizeof(value_type), sizeof(result));
+            return result;
+        }
         ~Value() = delete;
     };
 
@@ -267,11 +289,21 @@ namespace profiler {
     template <>
     struct Value<DataType::String, true> EASY_FINAL : public ArbitraryValue {
         using value_type = char;
-        const char* value() const { return data(); }
+        // EASY_STRING(name, text, len) records exactly len bytes, so the payload
+        // need not end in a zero and there is no C string here to hand out.
+        const char* value() const = delete;
+        const char* c_str() const = delete;
         uint16_t size() const { return m_size; }
+        ///< Bytes before the first zero, or size() when the payload has none.
+        ///< EASY_TEXT records its terminator inside size(); EASY_STRING may not.
+        uint16_t length() const {
+            if (m_size == 0)
+                return 0;
+            const void* end = std::memchr(data(), '\0', m_size);
+            return end == nullptr ? m_size : static_cast<uint16_t>(static_cast<const char*>(end) - data());
+        }
         char operator [] (int i) const { return data()[i]; }
         char at(int i) const { return data()[i]; }
-        const char* c_str() const { return data(); }
         ~Value() = delete;
     };
 

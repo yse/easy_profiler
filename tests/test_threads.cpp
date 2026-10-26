@@ -60,13 +60,13 @@ TEST_CASE("Blocks from several threads are not lost", "[threads]")
     const int threadCount = 4;
     const int blocksPerThread = 250;
 
-    easy_test::capture(profile, [threadCount, blocksPerThread] {
+    easy_test::capture(profile, [] {
         std::vector<std::thread> workers;
         workers.reserve(threadCount);
 
         for (int t = 0; t < threadCount; ++t)
         {
-            workers.emplace_back([blocksPerThread] {
+            workers.emplace_back([] {
                 EASY_THREAD_SCOPE("capture_worker");
                 for (int i = 0; i < blocksPerThread; ++i)
                 {
@@ -98,7 +98,7 @@ TEST_CASE("Each thread gets its own subtree", "[threads]")
 
     const int threadCount = 3;
 
-    easy_test::capture(profile, [threadCount] {
+    easy_test::capture(profile, [] {
         std::vector<std::thread> workers;
         workers.reserve(threadCount);
 
@@ -192,13 +192,47 @@ TEST_CASE("A thread that finished before the dump keeps its blocks", "[threads]"
     REQUIRE(easy_test::findBlockIndex(profile, "short_lived_block") >= 0);
 }
 
+TEST_CASE("A thread that expires after capture stops receives an expiration marker", "[threads][lifecycle]")
+{
+    easy_test::drainPending();
+    std::atomic<bool> payloadStored(false);
+    std::atomic<bool> mayExit(false);
+
+    profiler::setEnabled(true);
+    std::thread worker([&] {
+        EASY_THREAD_SCOPE("expired_marker_worker");
+        EASY_EVENT("expired_marker_payload");
+        payloadStored.store(true, std::memory_order_release);
+        while (!mayExit.load(std::memory_order_acquire))
+        {
+        }
+    });
+
+    while (!payloadStored.load(std::memory_order_acquire))
+    {
+    }
+    profiler::setEnabled(false);
+    mayExit.store(true, std::memory_order_release);
+    worker.join();
+
+    easy_test::TempFile file("expired_marker");
+    REQUIRE(profiler::dumpBlocksToFile(file.c_str()) >= 2);
+
+    LoadedProfile profile;
+    easy_test::loadProfile(file.path(), profile);
+    INFO(profile.readerLog);
+    REQUIRE(profile.readerLog.empty());
+    REQUIRE(easy_test::findBlockIndex(profile, "expired_marker_payload") >= 0);
+    REQUIRE(easy_test::findBlockIndex(profile, "ThreadExpired") >= 0);
+}
+
 TEST_CASE("Many short-lived threads", "[threads]")
 {
     LoadedProfile profile;
 
     const int rounds = 30;
 
-    easy_test::capture(profile, [rounds] {
+    easy_test::capture(profile, [] {
         for (int i = 0; i < rounds; ++i)
         {
             std::thread worker([] {
@@ -220,13 +254,13 @@ TEST_CASE("Concurrent capture and thread registration", "[threads]")
     const int threadCount = 8;
     std::atomic<int> ready(0);
 
-    easy_test::capture(profile, [threadCount, &ready] {
+    easy_test::capture(profile, [&ready] {
         std::vector<std::thread> workers;
         workers.reserve(threadCount);
 
         for (int t = 0; t < threadCount; ++t)
         {
-            workers.emplace_back([&ready, threadCount] {
+            workers.emplace_back([&ready] {
                 // Start all threads at roughly the same moment so registration
                 // and capture overlap.
                 ready.fetch_add(1);

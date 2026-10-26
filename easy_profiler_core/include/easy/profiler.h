@@ -701,6 +701,20 @@ namespace profiler {
         */
         PROFILER_API const char* apiVersionName();
 
+        /** Returns the version of the serialized .prof and descriptor-stream format.
+
+        Product patch releases may change apiVersion() without changing this
+        value when their on-wire layout remains compatible.
+
+        \ingroup profiler
+        @{
+        */
+        PROFILER_API uint8_t formatVersionMajor();
+        PROFILER_API uint8_t formatVersionMinor();
+        PROFILER_API uint16_t formatVersionPatch();
+        PROFILER_API uint32_t formatVersion();
+        /** @} */
+
         /** Returns true if current thread has been marked as Main.
         Otherwise, returns false.
 
@@ -795,6 +809,10 @@ namespace profiler {
     inline EASY_CONSTEXPR_FCN uint16_t apiVersionPatch() { return 0; }
     inline EASY_CONSTEXPR_FCN uint32_t apiVersion() { return 0; }
     inline EASY_CONSTEXPR_FCN const char* apiVersionName() { return "v0.0.0_disabled"; }
+    inline EASY_CONSTEXPR_FCN uint8_t formatVersionMajor() { return 0; }
+    inline EASY_CONSTEXPR_FCN uint8_t formatVersionMinor() { return 0; }
+    inline EASY_CONSTEXPR_FCN uint16_t formatVersionPatch() { return 0; }
+    inline EASY_CONSTEXPR_FCN uint32_t formatVersion() { return 0; }
     inline EASY_CONSTEXPR_FCN bool isMainThread() { return false; }
     inline EASY_CONSTEXPR_FCN timestamp_t this_thread_frameTime(Duration = ::profiler::MICROSECONDS) { return 0; }
     inline EASY_CONSTEXPR_FCN timestamp_t this_thread_frameTimeLocalMax(Duration = ::profiler::MICROSECONDS) { return 0; }

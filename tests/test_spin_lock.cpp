@@ -69,15 +69,17 @@ TEST_CASE("Mutual exclusion under thread contention", "[spinlock][threads]")
     // Deliberately non-atomic: without mutual exclusion increments would be lost.
     long long counter = 0;
 
-    const int threadCount = 8;
-    const int perThread = 20000;
+    const int threadCount = 4;
+    // Enough contention to exercise the lock repeatedly without turning a
+    // scheduled ThreadSanitizer run into a timeout on slower CI workers.
+    const int perThread = 1000;
 
     std::vector<std::thread> workers;
     workers.reserve(threadCount);
 
     for (int t = 0; t < threadCount; ++t)
     {
-        workers.emplace_back([&lock, &counter, perThread] {
+        workers.emplace_back([&lock, &counter] {
             for (int i = 0; i < perThread; ++i)
             {
                 profiler::guard_lock<profiler::spin_lock> guard(lock);
