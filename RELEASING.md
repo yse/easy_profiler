@@ -12,7 +12,7 @@ to a person, and the reasoning behind the pipeline's shape.
 | `easy_profiler-<v>-linux-x86_64-{shared,static}.tar.gz` | Linux consumers. glibc floor 2.35 |
 | `easy_profiler-<v>-macos-universal-{shared,static}.tar.gz` | macOS consumers, arm64 and x86_64, deployment target 11.0 |
 | `easy_profiler-<v>-windows-x64-{shared,static}.zip` | Windows consumers. The shared zip carries the PDB |
-| `easy_profiler_gui-<v>-linux-x86_64.tar.gz` | The GUI, self-contained except for X11 and glibc |
+| `easy_profiler_gui-<v>-linux-x86_64.tar.gz` | The GUI, self-contained except for X11, OpenGL and glibc. glibc floor 2.35, the same as the SDK packages |
 | `SHA256SUMS` | Everyone |
 
 Each SDK package holds `include/`, `lib/` with the CMake package config,
@@ -29,18 +29,33 @@ redistribution route Microsoft supports.
 ## The GUI
 
 3.0.0 ships a Linux GUI bundle and no other. The reason is evidence: the GUI
-builds unmodified against the Qt that Ubuntu 24.04 ships, loads a six-million
-block capture, and runs from a self-contained bundle on a machine with no Qt
-installed. The Windows GUI has never been compiled; it ships when the rehearsal
-below is green for it, and not before. macOS cannot build the GUI against any
-open-source Qt 6.8 prebuilt at all: Qt links `-framework AGL`, which Apple
-removed from the macOS 26 SDK. The fix is in Qt 6.8.4, whose binaries are
-commercial-only; the open-source route is Qt 6.9.2 or newer.
+builds unmodified against Qt 6.12.0, loads a six-million block capture, and runs
+from a self-contained bundle on a machine with no Qt installed. The Windows GUI
+has never been compiled; it ships when the rehearsal below is green for it, and
+not before.
 
-The Linux bundle uses the distribution's Qt rather than a Qt downloaded with
-`aqtinstall`. Ubuntu backports security fixes to its Qt for the life of the LTS;
-an open-source Qt 6.12.x stops receiving patches when 6.13 ships. For a bundle
-whose Qt we are responsible for, the longer patch runway wins.
+### One Qt version everywhere
+
+Every platform uses **Qt 6.12.0**, from the official open-source packages. One
+version means one CVE to track rather than three, and a GUI that behaves the
+same wherever it was built.
+
+The Linux bundle used to take Qt from the distribution, on the argument that
+Ubuntu backports security fixes for the life of the LTS while an open-source
+Qt 6.12.x stops receiving patches once 6.13 ships. That argument is dead, and
+not because it was wrong: it cannot be applied on macOS or Windows, where no
+distribution Qt exists, so following it meant three different Qt versions and
+three sets of behaviour to reason about. A single version we bump deliberately
+beats a longer patch runway on one platform out of three.
+
+macOS has a **floor** of Qt 6.9.2 rather than a pin, for people building from
+source: earlier Qt 6 releases link `-framework AGL`, which Apple removed from
+the macOS 26 SDK ([QTBUG-137687]). The fix is also in Qt 6.8.4, whose binaries
+are commercial-only, so the 6.8 line is unusable on macOS at all. Keep that
+floor documented in `README.md` even while CI pins 6.12.0 - the floor tells a
+contributor what will work, the pin says what we ship.
+
+[QTBUG-137687]: https://bugreports.qt.io/browse/QTBUG-137687
 
 ### Qt's LGPL obligations
 
@@ -48,14 +63,68 @@ The bundle links Qt dynamically, which is what the LGPL requires of a work that
 uses the library. The bundle must carry:
 
 - Qt's `LICENSE.LGPLv3` and `LICENSE.GPLv3`;
-- the third-party attributions Qt ships, because the Qt libraries embed
-  freetype, harfbuzz, libpng, pcre2, zlib and others, each with its own notice
-  requirement;
+- the third-party attributions, because the Qt libraries embed pcre2, harfbuzz,
+  libpng and some thirty smaller components, each with its own notice
+  requirement, and the official Qt packages put ICU in `lib/` as well;
 - `QT_NOTICE.md` naming the exact Qt version and package source, with a link to
   the corresponding source. GPLv3 section 6(d) is the operative clause for a
   download: directions next to the object code plus continued availability of
   the source. The written offer of section 6(b) applies to physical products and
   does no work here.
+
+None of this lives in the repository. easy_profiler is MIT and Apache-2.0, the
+LGPL's obligations attach to the bundle that carries Qt, and GPL texts sitting
+in the tree would make the project look like something it is not. The
+attributions are generated when the bundle is assembled:
+
+- Neither Homebrew's Qt nor the official Qt installers ship any attribution
+  document. The distribution's `/usr/share/doc/qt6-base-dev/copyright` was the
+  only source that ever had one, and copying it into a bundle built from
+  official Qt would attach a document describing a different build.
+- Official Qt installs do, however, carry an SPDX SBOM under `sbom/` for every
+  module. `scripts/make_gui_bundle.sh` runs `scripts/qt_notices.py` against the
+  SBOM of the Qt it is bundling, so the component list and copyrights describe
+  the exact binaries in the bundle and cannot go stale on a Qt bump. The SBOM
+  embeds the texts of the licences Qt defines itself; the standard ones
+  (LGPL-3.0, GPL-3.0, BSD, MIT and so on) it only names, so their `LICENSES/`
+  files are fetched from the `v<version>` tag of Qt's module repositories on
+  code.qt.io, with GitHub's mirror as the fallback, and ICU's `LICENSE` from
+  the ICU release tag. Nineteen files, about 180 KB, some eight seconds.
+- Every fetched text is checked against `scripts/qt_notices.sha256`, so a
+  release is built from known content, and the release job caches the texts
+  under that manifest's hash. Do not count on that cache: Actions evicts an
+  entry after seven days, and a tag run cannot read a cache another tag wrote,
+  so it helps only when a `workflow_dispatch` rehearsal ran on the default
+  branch within the preceding week - which is the sequence below, but by
+  arrangement rather than by guarantee. Assume a real release fetches. The
+  script fails if a text is missing from the
+  manifest, does not match it, or cannot be fetched, and the bundle script
+  refuses to continue - no bundle ships with missing or unreviewed
+  attributions.
+
+A Qt or ICU bump therefore means reviewing the new licence texts once and
+recording them: run the generator with `--update-manifest`, read the diff of
+the manifest, and commit it. To regenerate without the network, point
+`--qt-source` at unpacked `qt{base,svg,5compat}-everywhere-src` tarballs from
+<https://download.qt.io/archive/qt/> and `--icu-license` at ICU's `LICENSE`;
+the texts are still held to the manifest. The script's header spells out the
+invocation.
+
+### Where the GUI bundle is built
+
+In the `ubuntu:22.04` container, like the SDK packages, so the whole release has
+one glibc floor of 2.35 rather than 2.35 for the libraries and 2.39 for the GUI.
+A GUI that will not start on a machine whose SDK package runs there would be a
+poor thing to explain, and Ubuntu 22.04 is exactly the sort of box a profiler GUI
+gets copied onto.
+
+The cost is that the container needs a CMake newer than the 3.22.1 that 22.04
+ships, because Qt 6.12 requires 3.25 or later, and that Qt comes from
+`aqtinstall` by hand rather than from `install-qt-action`, which expects a runner
+rather than a bare container. Qt's
+`-DQT_FORCE_MIN_CMAKE_VERSION_FOR_USING_QT` would avoid the CMake upgrade; Qt
+documents it as unsupported, so the pipeline installs CMake from pip instead, at
+a pinned version.
 
 Replacing the bundled Qt libraries in place works within the same Qt minor
 version. Say that rather than implying any Qt will do.

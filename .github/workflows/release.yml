@@ -344,24 +344,72 @@ jobs:
     name: GUI linux-x86_64
     needs: version-gate
     runs-on: ubuntu-24.04
+    # The same container as the SDK packages, so the GUI bundle's glibc floor is
+    # 2.35 like theirs instead of the runner's 2.39. Two floors in one release
+    # would mean a bundle that will not start on an Ubuntu 22.04 box whose SDK
+    # package runs there happily, and 22.04 is exactly the kind of machine a
+    # profiler GUI gets dropped onto.
+    container: ubuntu:22.04
+    env:
+      QT_VERSION: 6.12.0
     steps:
+      # Qt 6.12 requires CMake >= 3.25 and 22.04 ships 3.22.1, so CMake comes
+      # from pip. Qt's -DQT_FORCE_MIN_CMAKE_VERSION_FOR_USING_QT escape hatch
+      # would avoid that, but Qt itself calls it unsupported.
+      #
+      # Pinned rather than >=3.25 so the release is built by the version it was
+      # tested with. CMake 4.x does work - verified, configure and build clean
+      # on 4.4.4 - because the root CMakeLists uses the range form
+      # cmake_minimum_required(VERSION 3.5...${CMAKE_VERSION}), whose upper
+      # bound adapts. Moving the pin is a deliberate act, not a side effect of
+      # pip resolving something new.
+      #
+      # The library list past the compiler is what Qt's own .so files link
+      # against; every entry here was found by a build or a run failing without
+      # it, not by reading documentation. libglib2.0-0 in particular is needed
+      # before Qt's rcc will start at all.
+      - name: Install a toolchain and Qt's own dependencies
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            g++ make git ca-certificates python3-pip \
+            libgl1-mesa-dev libxkbcommon-dev \
+            libglib2.0-0 libdbus-1-3 libfontconfig1 libfreetype6 libharfbuzz0b \
+            libpng16-16 libb2-1 libdouble-conversion3 libpcre2-16-0 libzstd1 \
+            libmd4c0 libgomp1
+          pip3 install --quiet 'cmake==3.31.6'
+          ldd --version | head -1
+          cmake --version | head -1
+
       - uses: actions/checkout@v7
 
-      # The distribution's Qt, not aqtinstall. Ubuntu backports security fixes
-      # for the life of the LTS; an open-source Qt 6.12.x stops receiving
-      # patches when 6.13 ships. qt6-svg-dev is a separate package and the GUI
-      # is unusable without it: every toolbar icon is an SVG resource.
-      - name: Install Qt from the distribution
+      # One Qt version for every platform, so there is a single CVE to track
+      # rather than three and the GUI behaves the same wherever it was built.
+      # aqtinstall directly rather than install-qt-action, because the action
+      # expects a runner rather than a bare container, and because this is the
+      # route RELEASING.md tells a person to reproduce by hand.
+      #
+      # Qt Svg is in the base package; only qt5compat has to be asked for. That
+      # matters because every toolbar icon is an SVG resource, and without the
+      # SVG plugin the toolbars render empty with no error of any kind.
+      - name: Cache Qt
+        id: qt-cache
+        uses: actions/cache@v4
+        with:
+          path: qt
+          key: qt-${{ env.QT_VERSION }}-linux-gcc_64-qt5compat
+
+      - name: Install Qt
+        if: steps.qt-cache.outputs.cache-hit != 'true'
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            qt6-base-dev qt6-base-dev-tools qt6-5compat-dev qt6-svg-dev \
-            libqt6svg6 libgl1-mesa-dev
-          dpkg -s qt6-base-dev | sed -n 's/^Version: /qt6-base-dev /p'
+          pip3 install --quiet aqtinstall
+          python3 -m aqt install-qt linux desktop "$QT_VERSION" linux_gcc_64 \
+            -m qt5compat -O qt
 
       - name: Configure
         run: >-
           cmake -S . -B build/gui
+          -DCMAKE_PREFIX_PATH="$PWD/qt/$QT_VERSION/gcc_64"
           -DEASY_PROFILER_NO_SAMPLES=ON
           -DEASY_PROFILER_BUILD_READER=ON
           -DEASY_PROFILER_REQUIRE_GUI=ON
@@ -372,12 +420,26 @@ jobs:
       - name: Build
         run: cmake --build build/gui --parallel 4 --target profiler_gui
 
+      # The licence texts the bundle's notices need are fetched by the bundle
+      # script, checksum-pinned by scripts/qt_notices.sha256, so they are cached
+      # under that file's hash: a release built for a Qt this manifest has
+      # already seen does not reach for code.qt.io at all.
+      - name: Cache the licence texts
+        uses: actions/cache@v4
+        with:
+          path: qt-notices-cache
+          key: qt-notices-${{ hashFiles('scripts/qt_notices.sha256') }}
+
+      # qtpaths6 tells the script where Qt's plugins live and whose SBOM the
+      # notices are generated from.
       - name: Assemble the bundle
         shell: bash
-        run: >-
-          bash scripts/make_gui_bundle.sh
-          build/gui
-          "stage/easy_profiler_gui-${{ needs.version-gate.outputs.version }}-linux-x86_64"
+        env:
+          QT_NOTICES_CACHE: ${{ github.workspace }}/qt-notices-cache
+        run: |
+          export PATH="$PWD/qt/$QT_VERSION/gcc_64/bin:$PATH"
+          bash scripts/make_gui_bundle.sh build/gui \
+            "stage/easy_profiler_gui-${{ needs.version-gate.outputs.version }}-linux-x86_64"
 
       - name: Pack
         shell: bash
@@ -405,14 +467,21 @@ jobs:
           name: gui-linux-x86_64
           path: dist
 
+      # This list is the ldd closure of the unpacked bundle minus what the
+      # bundle carries itself, so it doubles as the documented answer to "what
+      # does the GUI need from the host". The official Qt binaries link libglvnd
+      # where the distribution's Qt linked Mesa directly, which is why libopengl0
+      # and libglx0 appear here and did not before.
       - name: Install only the host libraries the bundle expects, and Xvfb
         run: |
           apt-get update -qq
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            libx11-6 libxkbcommon-x11-0 libfontconfig1 libfreetype6 libglib2.0-0 \
-            libdbus-1-3 libegl1 libgl1 libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
-            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 \
-            libxcb-xinerama0 libxcb-xkb1 libxkbcommon0 ca-certificates xvfb
+            libx11-6 libx11-xcb1 libxcb1 libxcb-cursor0 libxcb-glx0 libxcb-icccm4 \
+            libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render0 \
+            libxcb-render-util0 libxcb-shape0 libxcb-shm0 libxcb-sync1 \
+            libxcb-util1 libxcb-xfixes0 libxcb-xkb1 libxkbcommon0 \
+            libxkbcommon-x11-0 libfontconfig1 libfreetype6 libglib2.0-0 \
+            libdbus-1-3 libegl1 libgl1 libglx0 libopengl0 ca-certificates xvfb
           # A bundle verified next to a system Qt proves nothing.
           ! dpkg -l | grep -qE '^ii +(qt6|libqt6)' || { echo "Qt is installed; this is not a clean check" >&2; exit 1; }
 
@@ -444,17 +513,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Qt 6.9.3 on purpose: 6.9.2 is the oldest open-source Qt that
-          # contains the AGL fix (QTBUG-137687), so this pins the floor the
-          # README and CHANGELOG state rather than the newest Qt. macOS cannot
-          # use 6.8.x at all - the fix is also in 6.8.4, but the 6.8 line has
-          # no open-source binaries past 6.8.3.
-          - name: windows-x64-qt6.9.3
+          # The same Qt the Linux bundle ships against, so this job answers
+          # "does the GUI build on Windows and macOS with the version we
+          # actually use" rather than testing a configuration nobody ships.
+          # 6.9.2 is the oldest open-source Qt carrying the AGL fix
+          # (QTBUG-137687) and remains the documented floor; macOS cannot use
+          # the 6.8 line at all, because the fix landed in 6.8.4 and that line
+          # has no open-source binaries past 6.8.3.
+          - name: windows-x64-qt6.12.0
             os: windows-2025
-            qt: 6.9.3
-          - name: macos-arm64-qt6.9.3
+            qt: 6.12.0
+          - name: macos-arm64-qt6.12.0
             os: macos-15
-            qt: 6.9.3
+            qt: 6.12.0
     steps:
       - uses: actions/checkout@v7
 

@@ -93,6 +93,10 @@ Version 3.0.0 modernizes the core test, packaging, and safety infrastructure. Th
   bundle. Artifacts are verified by building a consumer against the unpacked
   package and running the package's own tools from it, on a runner that did not
   build it. See `RELEASING.md`.
+- The GUI is built against Qt 6.12.0 on every platform, from the official
+  open-source packages. The Linux bundle carries that Qt under the LGPL v3,
+  together with the third-party notices for the code Qt embeds, generated at
+  bundle time from Qt's own SPDX SBOM by `scripts/qt_notices.py`.
 - The product version now lives only in the `VERSION` file. A test compares it
   against `MODULE.bazel`, `version.bzl`, `CHANGELOG.md`, `README.md` and the
   compiled library, and fails if a build system defines the wire format version.
@@ -113,6 +117,7 @@ Version 3.0.0 modernizes the core test, packaging, and safety infrastructure. Th
   OpenGL wrapper resolves to `-framework AGL`, which Apple has removed
   ([QTBUG-137687](https://bugreports.qt.io/browse/QTBUG-137687)). Build the GUI
   with Qt 6.9.2 or newer. The fix is also in Qt 6.8.4, but the 6.8 line has no
-  open-source binary packages past 6.8.3.
+  open-source binary packages past 6.8.3. 6.9.2 is the floor for building from
+  source; the release pipeline itself uses Qt 6.12.0.
 - Release 3.0.0 ships a prebuilt GUI for Linux x86_64 only. The Windows and
   macOS GUI build from source; neither has shipped as a binary before.
