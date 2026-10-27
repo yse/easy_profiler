@@ -1,4 +1,4 @@
-# easy_profiler [![2.1.0](https://img.shields.io/badge/stable-2.1.0-009688.svg)](https://github.com/yse/easy_profiler/releases/tag/v2.1.0) [![development 3.0.0](https://img.shields.io/badge/development-3.0.0-f57f17.svg)](https://github.com/yse/easy_profiler)
+# easy_profiler [![stable 2.1.0](https://img.shields.io/badge/stable-2.1.0-009688.svg)](https://github.com/yse/easy_profiler/releases/tag/v2.1.0) [![development 3.0.0](https://img.shields.io/badge/development-3.0.0-f57f17.svg)](https://github.com/yse/easy_profiler)
 
 [![CI](https://github.com/yse/easy_profiler/actions/workflows/ci.yml/badge.svg)](https://github.com/yse/easy_profiler/actions/workflows/ci.yml)
 
@@ -230,6 +230,41 @@ void main() {
 
 This will allow you to collect profiling data before profiler_gui connection. profiler_gui will automatically display capturing dialog window after successful connection to the profiled application. 
 
+# Prebuilt packages
+
+Each release attaches source archives, SDK packages for Linux x86_64, macOS
+(universal, arm64 and x86_64) and Windows x64 in static and shared variants, and
+a `SHA256SUMS` file. Every package contains the headers, the library, the CMake
+package config, `profiler_converter`, `profiler_reader`, both licences and a
+`BUILD-INFO.txt` recording the toolchain that produced it.
+
+Binaries are not code signed. On Windows an unsigned executable raises "Windows
+protected your PC": choose *More info*, then *Run anyway*.
+
+**On macOS, download and unpack in a terminal:**
+
+```bash
+$ curl -LO https://github.com/yse/easy_profiler/releases/download/v3.0.0/easy_profiler-3.0.0-macos-universal-shared.tar.gz
+$ tar -xzf easy_profiler-3.0.0-macos-universal-shared.tar.gz
+```
+
+A tarball downloaded in a browser and unpacked by double-clicking marks every
+file inside as quarantined, and Gatekeeper then refuses the library and the
+command-line tools with no useful message. `curl` attaches no quarantine
+attribute and `tar` does not propagate one.
+
+## The GUI application
+
+Release 3.0.0 ships a prebuilt GUI for **Linux x86_64 only**
+(`easy_profiler_gui-3.0.0-linux-x86_64.tar.gz`, run `./run.sh`). It bundles Qt
+under the LGPL v3; see `licenses/QT_NOTICE.md` inside it.
+
+On Windows and macOS, build the GUI from source as described below. On macOS,
+Qt 6.9.2 or newer is required: earlier Qt 6 releases link `-framework AGL`,
+which Apple removed from the macOS 26 SDK
+([QTBUG-137687](https://bugreports.qt.io/browse/QTBUG-137687)). The fix is also
+in Qt 6.8.4, but that release has no open-source binary packages.
+
 # Build
 
 ## Prerequisites
@@ -238,8 +273,16 @@ This will allow you to collect profiling data before profiler_gui connection. pr
 * Compiler with c++11 support
   * for Unix systems: compiler with `thread_local` support is **highly recommended**: _GCC >=4.8_, _Clang >=3.3_
 
-Additional requirements for GUI:
-* Qt 5.3.0 or higher
+Additional requirements for the GUI:
+* Qt 6 with the `Qt5Compat` and `Svg` modules. Every toolbar icon is an SVG
+  resource, so without the Qt SVG plugin the toolbars come up empty. On Debian
+  and Ubuntu: `qt6-base-dev qt6-base-dev-tools qt6-5compat-dev qt6-svg-dev`.
+* On macOS, Qt 6.9.2 or newer (see above).
+
+Configure with `-DEASY_PROFILER_REQUIRE_GUI=ON` to make a missing Qt a configure
+error instead of a build that quietly omits the GUI. `profiler_gui --self-test`
+builds the main window, checks its toolbars and exits, which is how a packaged
+GUI is verified.
 
 ## Linux
 
@@ -253,11 +296,14 @@ $ make
 ## MacOS
 
 ```bash
-$ mkdir build
-$ cd build
-$ cmake -DCMAKE_CXX_COMPILER=g++-5 -DCMAKE_C_COMPILER=gcc-5 -DCMAKE_BUILD_TYPE="Release" ..
-$ make
+$ cmake -S . -B build -DCMAKE_BUILD_TYPE="RelWithDebInfo"
+$ cmake --build build --parallel
 ```
+
+For a universal binary, add
+`-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0`.
+To build the GUI as well, point `CMAKE_PREFIX_PATH` at a Qt 6.9.2 or newer
+installation.
 
 ## Windows
 

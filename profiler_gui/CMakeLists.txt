@@ -4,8 +4,20 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-find_package(Qt6Widgets)
-find_package(Qt6Core5Compat)
+# Without this a release job that lost its Qt would quietly produce a package
+# with no GUI in it and still succeed.
+if (EASY_PROFILER_REQUIRE_GUI)
+    set(_easy_qt_requirement REQUIRED)
+else ()
+    set(_easy_qt_requirement "")
+endif ()
+
+find_package(Qt6Widgets ${_easy_qt_requirement})
+find_package(Qt6Core5Compat ${_easy_qt_requirement})
+# Only loaded as a plugin at run time, but the GUI is unusable without it: the
+# toolbar icons are SVG. Finding it here makes a broken Qt install fail now.
+find_package(Qt6Svg ${_easy_qt_requirement})
+unset(_easy_qt_requirement)
 
 if (Qt6Widgets_FOUND)
     message(STATUS "Using Qt v${Qt6Widgets_VERSION}")

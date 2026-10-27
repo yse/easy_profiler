@@ -1,4 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//:version.bzl", "EASY_VERSION_DEFINES")
 
 config_setting(
     name = "windows",
@@ -60,10 +61,7 @@ cc_library(
     defines = [
         "BUILD_WITH_EASY_PROFILER=1",
         "EASY_PROFILER_STATIC=1",
-        "EASY_PROFILER_VERSION_MAJOR=3",
-        "EASY_PROFILER_VERSION_MINOR=0",
-        "EASY_PROFILER_VERSION_PATCH=0",
-    ],
+    ] + EASY_VERSION_DEFINES,
     includes = ["include"],
     local_defines = ["_BUILD_PROFILER=1"] + select({
         ":windows": [

@@ -1,0 +1,150 @@
+# Verifies an unpacked release package rather than a fresh install from this
+# build tree. Three things are checked that an in-tree test cannot see:
+#   - the package contains every file a consumer needs;
+#   - a consumer compiles and links against the package and agrees with its
+#     declared version;
+#   - the package's own tools in bin/ run from the unpacked tree, which is where
+#     a wrong install RPATH shows up. The consumer executable carries an
+#     absolute rpath of its own and would pass regardless.
+
+set(prefix "@EASY_PROFILER_VERIFY_PACKAGE@")
+set(work "@PROJECT_BINARY_DIR@/test-packaged-consumer")
+set(configuration "$ENV{CTEST_CONFIGURATION_TYPE}")
+if (configuration STREQUAL "")
+    set(configuration "@CMAKE_BUILD_TYPE@")
+endif ()
+if (configuration STREQUAL "")
+    set(configuration "Release")
+endif ()
+
+if (NOT IS_DIRECTORY "${prefix}")
+    message(FATAL_ERROR "EASY_PROFILER_VERIFY_PACKAGE is not a directory: ${prefix}")
+endif ()
+
+file(REMOVE_RECURSE "${work}")
+file(MAKE_DIRECTORY "${work}")
+
+#####################################################################
+# 1. Contents.
+#####################################################################
+set(required
+    include/easy/profiler.h
+    include/easy/reader.h
+    include/easy/details/profiler_public_types.h
+    lib/cmake/easy_profiler/easy_profilerConfig.cmake
+    lib/cmake/easy_profiler/easy_profilerConfigVersion.cmake
+    lib/cmake/easy_profiler/easy_profilerTargets.cmake
+    LICENSE.MIT
+    LICENSE.APACHE
+    README.md
+    CHANGELOG.md
+    BUILD-INFO.txt
+)
+
+if (WIN32)
+    set(tool_suffix ".exe")
+else ()
+    set(tool_suffix "")
+endif ()
+list(APPEND required "bin/profiler_converter${tool_suffix}" "bin/profiler_reader${tool_suffix}")
+
+set(missing "")
+foreach (entry IN LISTS required)
+    if (NOT EXISTS "${prefix}/${entry}")
+        list(APPEND missing "${entry}")
+    endif ()
+endforeach ()
+
+# The library itself: the name depends on platform and linkage, so accept any.
+file(GLOB libraries
+    "${prefix}/lib/libeasy_profiler.*"
+    "${prefix}/lib/easy_profiler.lib"
+    "${prefix}/bin/easy_profiler.dll"
+)
+if (NOT libraries)
+    list(APPEND missing "a library under lib/ or bin/")
+endif ()
+
+if (missing)
+    string(REPLACE ";" "\n  " report "${missing}")
+    message(FATAL_ERROR "package at ${prefix} is missing:\n  ${report}")
+endif ()
+
+#####################################################################
+# 2. A consumer built against the package.
+#####################################################################
+set(consumer_binary "${work}/consumer")
+set(configure_command
+    "@CMAKE_COMMAND@"
+    -S "@PROJECT_SOURCE_DIR@/tests/consumer"
+    -B "${consumer_binary}"
+    -G "@CMAKE_GENERATOR@"
+    "-DCMAKE_PREFIX_PATH=${prefix}"
+    "-DCMAKE_BUILD_TYPE=${configuration}"
+)
+if (NOT "@CMAKE_GENERATOR_PLATFORM@" STREQUAL "")
+    list(APPEND configure_command -A "@CMAKE_GENERATOR_PLATFORM@")
+endif ()
+if (NOT "@CMAKE_GENERATOR_TOOLSET@" STREQUAL "")
+    list(APPEND configure_command -T "@CMAKE_GENERATOR_TOOLSET@")
+endif ()
+
+execute_process(COMMAND ${configure_command} RESULT_VARIABLE result)
+if (NOT result EQUAL 0)
+    message(FATAL_ERROR "packaged consumer configure failed: ${result}")
+endif ()
+
+execute_process(
+    COMMAND "@CMAKE_COMMAND@" --build "${consumer_binary}" --config "${configuration}"
+    RESULT_VARIABLE result
+)
+if (NOT result EQUAL 0)
+    message(FATAL_ERROR "packaged consumer build failed: ${result}")
+endif ()
+
+find_program(consumer_exe easy_profiler_install_consumer
+    PATHS "${consumer_binary}" "${consumer_binary}/${configuration}"
+    NO_DEFAULT_PATH
+)
+if (NOT consumer_exe)
+    message(FATAL_ERROR "packaged consumer executable not found under ${consumer_binary}")
+endif ()
+
+set(profile "${work}/packaged.prof")
+execute_process(COMMAND "${consumer_exe}" "${profile}" RESULT_VARIABLE result)
+if (NOT result EQUAL 0)
+    message(FATAL_ERROR "packaged consumer run failed: ${result}")
+endif ()
+if (NOT EXISTS "${profile}")
+    message(FATAL_ERROR "packaged consumer wrote no profile")
+endif ()
+
+#####################################################################
+# 3. The package's own tools, run from the unpacked tree.
+#####################################################################
+set(json "${work}/packaged.json")
+execute_process(
+    COMMAND "${prefix}/bin/profiler_converter${tool_suffix}" "${profile}" "${json}"
+    RESULT_VARIABLE result
+)
+if (NOT result EQUAL 0)
+    message(FATAL_ERROR "packaged profiler_converter failed: ${result}")
+endif ()
+
+file(READ "${json}" converted)
+string(FIND "${converted}" "installed_consumer" found)
+if (found EQUAL -1)
+    message(FATAL_ERROR "converted profile does not mention the recorded block")
+endif ()
+
+execute_process(
+    COMMAND "${prefix}/bin/profiler_reader${tool_suffix}" "${profile}"
+    OUTPUT_VARIABLE reader_output
+    ERROR_VARIABLE reader_output
+    RESULT_VARIABLE result
+)
+if (NOT result EQUAL 0)
+    message(FATAL_ERROR "packaged profiler_reader failed: ${result}\n${reader_output}")
+endif ()
+
+message(STATUS "package at ${prefix} is complete, consumable and its tools run in place")

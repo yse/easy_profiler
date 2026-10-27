@@ -1,0 +1,568 @@
+name: Release
+
+# Three modes, one workflow:
+#   tag push      - build, verify, create a DRAFT release. A person publishes it.
+#   workflow_dispatch - the rehearsal. Builds and verifies everything, touches no
+#                   release. Run it before tagging; see RELEASING.md.
+#   schedule      - the rehearsal, monthly, so an action bump or a retired runner
+#                   image breaks on the first of a month instead of on release
+#                   day. GitHub disables this after 60 days of repository
+#                   inactivity, so the rehearsal, not the cron, is the guard.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+  schedule:
+    - cron: "23 4 1 * *"
+
+permissions:
+  contents: read
+
+# Unlike ci.yml, a release run is never cancelled: a half-uploaded draft is
+# worse than a slow one.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # Linux packages are built in a container so the glibc floor is a decision
+  # rather than a side effect of whichever runner image is current.
+  LINUX_BUILD_IMAGE: ubuntu:22.04
+
+jobs:
+  version-gate:
+    name: Version gate
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+      publish: ${{ steps.read.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read VERSION and decide whether this run may publish
+        id: read
+        shell: bash
+        run: |
+          version=$(head -n1 VERSION | tr -d '[:space:]')
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "VERSION must hold MAJOR.MINOR.PATCH, found '$version'" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          # Only a tag push may publish. A dispatch pointed at a tag would
+          # otherwise satisfy a name-only check and recreate the draft.
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref_type }}" = "tag" ]; then
+            if [ "${{ github.ref_name }}" != "v$version" ]; then
+              echo "tag ${{ github.ref_name }} does not match VERSION $version" >&2
+              exit 1
+            fi
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check the version is consistent everywhere
+        run: >-
+          cmake -DEASY_SOURCE_DIR=$PWD
+          -P tests/cmake/check_version_consistency.cmake
+
+      - name: Test the changelog extractor
+        run: python3 -m unittest tests/test_changelog_section.py
+
+      # Release-day facts. On a branch the stable badge correctly names the
+      # previous release and the changelog section is correctly Unreleased, so
+      # these would make every commit and every cron run red.
+      - name: Check the release is dated and the stable badge moved
+        if: steps.read.outputs.publish == 'true'
+        shell: bash
+        run: |
+          version='${{ steps.read.outputs.version }}'
+          python3 scripts/changelog_section.py "$version" CHANGELOG.md --require-released > /dev/null
+          cmake -DEASY_SOURCE_DIR="$PWD" -DEASY_RELEASED_VERSION="$version" \
+            -P tests/cmake/check_version_consistency.cmake
+
+      - name: Extract the release notes
+        run: >-
+          python3 scripts/changelog_section.py
+          '${{ steps.read.outputs.version }}' CHANGELOG.md > release-notes.md
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-notes
+          path: release-notes.md
+
+  source-archive:
+    name: Source archive
+    needs: version-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # git archive, not the GitHub auto-generated tarball: the bytes are
+      # reproducible from the tag and the untracked working tree cannot leak in.
+      # The Bazel Central Registry needs a stable archive with a fixed hash.
+      - name: Create the archives
+        shell: bash
+        run: |
+          version='${{ needs.version-gate.outputs.version }}'
+          mkdir -p dist
+          git archive --format=tar.gz --prefix="easy_profiler-$version/" \
+            -o "dist/easy_profiler-$version-src.tar.gz" HEAD
+          git archive --format=zip --prefix="easy_profiler-$version/" \
+            -o "dist/easy_profiler-$version-src.zip" HEAD
+          ls -l dist
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: source-archive
+          path: dist
+
+  bazel-source-check:
+    name: Bazel module from the source archive
+    needs: [version-gate, source-archive]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: source-archive
+          path: dist
+
+      - uses: bazel-contrib/setup-bazel@0.19.0
+        with:
+          bazelisk-cache: true
+          repository-cache: true
+
+      # Consumes the archive the way a registry would, which also proves the
+      # archive is complete.
+      - name: Build and test the archive as a Bazel module
+        shell: bash
+        run: |
+          version='${{ needs.version-gate.outputs.version }}'
+          mkdir -p scratch && tar -xzf "dist/easy_profiler-$version-src.tar.gz" -C scratch
+          cd "scratch/easy_profiler-$version"
+          bazel test //tests:bazel_smoke
+          bazel build //sample:easy_profiler_sample
+
+  sdk:
+    name: SDK (${{ matrix.name }})
+    needs: version-gate
+    runs-on: ${{ matrix.os }}
+    # ubuntu:22.04 holds the glibc floor at 2.35 independently of the runner
+    # image, which matters because ubuntu-22.04 runners retire in April 2027.
+    container: ${{ matrix.container }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64-shared
+            os: ubuntu-24.04
+            container: ubuntu:22.04
+            shared: "ON"
+            archive: tar.gz
+          - name: linux-x86_64-static
+            os: ubuntu-24.04
+            container: ubuntu:22.04
+            shared: "OFF"
+            archive: tar.gz
+          - name: macos-universal-shared
+            os: macos-15
+            container: ""
+            shared: "ON"
+            archive: tar.gz
+          - name: macos-universal-static
+            os: macos-15
+            container: ""
+            shared: "OFF"
+            archive: tar.gz
+          # Static MSVC requires the linker to be at least as new as the newest
+          # toolset among its inputs, so the verify runner must not carry an
+          # older Visual Studio than this one. windows-2025 and windows-2022
+          # both ship VS 2022; moving this to windows-2025-vs2026 would break
+          # the static verify cell.
+          - name: windows-x64-shared
+            os: windows-2025
+            container: ""
+            shared: "ON"
+            archive: zip
+          - name: windows-x64-static
+            os: windows-2025
+            container: ""
+            shared: "OFF"
+            archive: zip
+    steps:
+      - name: Install a toolchain in the container
+        if: matrix.container != ''
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential cmake git ca-certificates
+          ldd --version | head -1
+
+      - uses: actions/checkout@v7
+
+      - name: Configure
+        shell: bash
+        run: >-
+          cmake -S . -B build/sdk
+          -DEASY_PROFILER_NO_GUI=ON
+          -DEASY_PROFILER_NO_SAMPLES=ON
+          -DEASY_PROFILER_BUILD_READER=ON
+          -DBUILD_TESTING=OFF
+          -DBUILD_SHARED_LIBS=${{ matrix.shared }}
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          -DEASY_PROFILER_SOURCE_REVISION=${{ github.sha }}
+          ${{ runner.os == 'macOS' && '-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0' || '' }}
+
+      - name: Build
+        run: cmake --build build/sdk --config RelWithDebInfo --parallel 4
+
+      - name: Install into a staging prefix
+        shell: bash
+        run: >-
+          cmake --install build/sdk --config RelWithDebInfo
+          --prefix "stage/easy_profiler-${{ needs.version-gate.outputs.version }}-${{ matrix.name }}"
+
+      # The linker ad-hoc signs only the native slice of a universal build, so
+      # the x86_64 slice arrives unsigned and the strict verify below fails
+      # without this. No certificate and no Apple account are involved.
+      - name: Ad-hoc sign and verify every Mach-O
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          prefix="stage/easy_profiler-${{ needs.version-gate.outputs.version }}-${{ matrix.name }}"
+          find "$prefix" -type f \( -perm +111 -o -name '*.dylib' \) -print0 |
+            while IFS= read -r -d '' file; do
+              if file "$file" | grep -q 'Mach-O'; then
+                codesign --force --sign - "$file"
+                codesign --verify --strict "$file"
+                echo "signed $file"
+              fi
+            done
+
+      - name: Pack
+        shell: bash
+        run: |
+          name="easy_profiler-${{ needs.version-gate.outputs.version }}-${{ matrix.name }}"
+          mkdir -p dist
+          if [ '${{ matrix.archive }}' = 'zip' ]; then
+            (cd stage && 7z a -tzip "../dist/$name.zip" "$name") > /dev/null
+          else
+            tar -C stage -czf "dist/$name.tar.gz" "$name"
+          fi
+          ls -l dist
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sdk-${{ matrix.name }}
+          path: dist
+
+  sdk-verify:
+    name: Verify SDK (${{ matrix.name }} on ${{ matrix.os }})
+    needs: [version-gate, sdk]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      # Every cell runs on a different image from the one that built the
+      # package, so build-host state cannot hide a defect. The macOS x86_64
+      # slice is executed on an Intel runner for both linkage variants: a
+      # consumer on arm64 links only the arm64 member of a fat archive, so
+      # without an Intel cell the static package's x86_64 slice would never run.
+      # When GitHub retires the Intel labels, drop x86_64 from the macOS
+      # package rather than shipping a slice nothing executes.
+      matrix:
+        include:
+          - name: linux-x86_64-shared
+            os: ubuntu-26.04
+            archive: tar.gz
+          - name: linux-x86_64-static
+            os: ubuntu-26.04
+            archive: tar.gz
+          - name: macos-universal-shared
+            os: macos-26
+            archive: tar.gz
+          - name: macos-universal-shared
+            os: macos-26-intel
+            archive: tar.gz
+          - name: macos-universal-static
+            os: macos-26
+            archive: tar.gz
+          - name: macos-universal-static
+            os: macos-26-intel
+            archive: tar.gz
+          - name: windows-x64-shared
+            os: windows-2022
+            archive: zip
+          - name: windows-x64-static
+            os: windows-2022
+            archive: zip
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: sdk-${{ matrix.name }}
+          path: dist
+
+      - name: Unpack
+        shell: bash
+        run: |
+          name="easy_profiler-${{ needs.version-gate.outputs.version }}-${{ matrix.name }}"
+          mkdir -p unpacked
+          if [ '${{ matrix.archive }}' = 'zip' ]; then
+            7z x -ounpacked "dist/$name.zip" > /dev/null
+          else
+            tar -xzf "dist/$name.tar.gz" -C unpacked
+          fi
+          cat "unpacked/$name/BUILD-INFO.txt"
+
+      # Configures the repository's own test suite purely to register
+      # easy_profiler.packaged_consumer against the unpacked prefix. The test
+      # checks the contents, builds tests/consumer against the package, and then
+      # runs the package's own bin/profiler_converter and bin/profiler_reader on
+      # a profile the consumer wrote. That last step is the one that catches a
+      # wrong install rpath; the consumer alone carries an absolute rpath and
+      # would pass regardless.
+      - name: Configure the package verification
+        shell: bash
+        run: >-
+          cmake -S . -B build/verify
+          -DEASY_PROFILER_NO_GUI=ON
+          -DEASY_PROFILER_NO_SAMPLES=ON
+          -DBUILD_TESTING=ON
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          "-DEASY_PROFILER_VERIFY_PACKAGE=$PWD/unpacked/easy_profiler-${{ needs.version-gate.outputs.version }}-${{ matrix.name }}"
+
+      - name: Verify the package
+        run: >-
+          ctest --test-dir build/verify -C RelWithDebInfo
+          --output-on-failure -R packaged_consumer
+
+  gui-linux:
+    name: GUI linux-x86_64
+    needs: version-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      # The distribution's Qt, not aqtinstall. Ubuntu backports security fixes
+      # for the life of the LTS; an open-source Qt 6.12.x stops receiving
+      # patches when 6.13 ships. qt6-svg-dev is a separate package and the GUI
+      # is unusable without it: every toolbar icon is an SVG resource.
+      - name: Install Qt from the distribution
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            qt6-base-dev qt6-base-dev-tools qt6-5compat-dev qt6-svg-dev \
+            libqt6svg6 libgl1-mesa-dev
+          dpkg -s qt6-base-dev | sed -n 's/^Version: /qt6-base-dev /p'
+
+      - name: Configure
+        run: >-
+          cmake -S . -B build/gui
+          -DEASY_PROFILER_NO_SAMPLES=ON
+          -DEASY_PROFILER_BUILD_READER=ON
+          -DEASY_PROFILER_REQUIRE_GUI=ON
+          -DBUILD_TESTING=OFF
+          -DBUILD_SHARED_LIBS=ON
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+      - name: Build
+        run: cmake --build build/gui --parallel 4 --target profiler_gui
+
+      - name: Assemble the bundle
+        shell: bash
+        run: >-
+          bash scripts/make_gui_bundle.sh
+          build/gui
+          "stage/easy_profiler_gui-${{ needs.version-gate.outputs.version }}-linux-x86_64"
+
+      - name: Pack
+        shell: bash
+        run: |
+          name="easy_profiler_gui-${{ needs.version-gate.outputs.version }}-linux-x86_64"
+          mkdir -p dist && tar -C stage -czf "dist/$name.tar.gz" "$name"
+          ls -l dist
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: gui-linux-x86_64
+          path: dist
+
+  gui-verify-linux:
+    name: Verify GUI linux-x86_64
+    needs: [version-gate, gui-linux]
+    runs-on: ubuntu-24.04
+    # No Qt is installed here. A container with nothing but the base system
+    # proves the bundle carries what it needs: on the build runner the system
+    # Qt would satisfy the binary whether the bundle were complete or not.
+    container: ubuntu:24.04
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: gui-linux-x86_64
+          path: dist
+
+      - name: Install only the host libraries the bundle expects, and Xvfb
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            libx11-6 libxkbcommon-x11-0 libfontconfig1 libfreetype6 libglib2.0-0 \
+            libdbus-1-3 libegl1 libgl1 libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 \
+            libxcb-xinerama0 libxcb-xkb1 libxkbcommon0 ca-certificates xvfb
+          # A bundle verified next to a system Qt proves nothing.
+          ! dpkg -l | grep -qE '^ii +(qt6|libqt6)' || { echo "Qt is installed; this is not a clean check" >&2; exit 1; }
+
+      - name: Unpack and self-test
+        shell: bash
+        run: |
+          name="easy_profiler_gui-${{ needs.version-gate.outputs.version }}-linux-x86_64"
+          mkdir -p unpacked && tar -xzf "dist/$name.tar.gz" -C unpacked
+          cd "unpacked/$name"
+
+          # xcb first: that is the plugin a user loads, and it is the one that
+          # needs the host's X11 libraries to be present and the bundle's own
+          # libQt6XcbQpa to have come along. Offscreen afterwards, because it
+          # reaches the same Qt libraries and SVG plugins without an X server
+          # and so is the check that stays meaningful if Xvfb ever breaks.
+          QT_QPA_PLATFORM=xcb xvfb-run -a ./run.sh --self-test
+          QT_QPA_PLATFORM=offscreen ./run.sh --self-test
+
+  gui-build-check:
+    name: GUI build check (${{ matrix.name }})
+    needs: version-gate
+    runs-on: ${{ matrix.os }}
+    # A gate, not a product: these platforms ship no GUI binary in 3.0.0. Red
+    # here is a signal to look, discovered on the rehearsal. It is deliberately
+    # NOT on the draft-release dependency chain, so it cannot block a release
+    # over an artifact nobody downloads.
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Qt 6.9.3 on purpose: 6.9.2 is the oldest open-source Qt that
+          # contains the AGL fix (QTBUG-137687), so this pins the floor the
+          # README and CHANGELOG state rather than the newest Qt. macOS cannot
+          # use 6.8.x at all - the fix is also in 6.8.4, but the 6.8 line has
+          # no open-source binaries past 6.8.3.
+          - name: windows-x64-qt6.9.3
+            os: windows-2025
+            qt: 6.9.3
+          - name: macos-arm64-qt6.9.3
+            os: macos-15
+            qt: 6.9.3
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: jurplel/install-qt-action@v4.4.1
+        with:
+          version: ${{ matrix.qt }}
+          modules: qt5compat
+          cache: true
+
+      - name: Configure
+        shell: bash
+        run: >-
+          cmake -S . -B build/gui
+          -DEASY_PROFILER_NO_SAMPLES=ON
+          -DEASY_PROFILER_REQUIRE_GUI=ON
+          -DBUILD_TESTING=OFF
+          -DBUILD_SHARED_LIBS=ON
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+      - name: Build
+        run: cmake --build build/gui --config RelWithDebInfo --parallel 4 --target profiler_gui
+
+      - name: Self-test
+        shell: bash
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          exe=$(find build/gui -name 'profiler_gui' -o -name 'profiler_gui.exe' | head -1)
+          "$exe" --self-test
+
+  checksums:
+    name: Checksums
+    needs: [version-gate, source-archive, sdk, sdk-verify, gui-linux, gui-verify-linux, bazel-source-check]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: downloaded
+
+      - name: Collect the assets and hash them
+        shell: bash
+        run: |
+          mkdir -p dist
+          find downloaded -type f \( -name '*.tar.gz' -o -name '*.zip' \) -exec cp {} dist/ \;
+          cp downloaded/release-notes/release-notes.md .
+          cd dist && sha256sum * | tee SHA256SUMS
+          test "$(ls -1 | wc -l)" -ge 10
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-assets
+          path: |
+            dist
+            release-notes.md
+
+  draft-release:
+    name: Draft release
+    needs: [version-gate, checksums]
+    if: needs.version-gate.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      # Checked out for .github/release-footer.md, which is appended to the
+      # changelog section to make the release body.
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-assets
+
+      # Free, no secret and no certificate: a Sigstore-signed statement that
+      # these files came out of this workflow at this commit. Works in a fork
+      # the same way, because nothing here needs a repository secret.
+      - uses: actions/attest-build-provenance@v4.2.2
+        with:
+          subject-path: 'dist/*'
+
+      - name: Create or replace the draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          tag='${{ github.ref_name }}'
+          version='${{ needs.version-gate.outputs.version }}'
+
+          # A draft has no public URL, so replacing it wholesale is cheaper and
+          # safer than clobbering assets one at a time: gh release upload
+          # --clobber deletes the old asset before uploading the new one. A
+          # published release is never touched.
+          if gh release view "$tag" --json isDraft --jq .isDraft > state 2>/dev/null; then
+            if [ "$(cat state)" != "true" ]; then
+              echo "release $tag is already published; refusing to modify it" >&2
+              exit 1
+            fi
+            gh release delete "$tag" --yes
+          fi
+
+          cat release-notes.md .github/release-footer.md > body.md
+
+          gh release create "$tag" \
+            --draft \
+            --title "easy_profiler $version" \
+            --notes-file body.md \
+            --verify-tag \
+            dist/*
+
+          echo "Draft created. Inspect it, then publish by hand." >> "$GITHUB_STEP_SUMMARY"
+          gh release view "$tag" --json url --jq .url >> "$GITHUB_STEP_SUMMARY"

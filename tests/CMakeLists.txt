@@ -137,6 +137,7 @@ easy_add_test_target(easy_profiler_unit_tests
         test_golden_profiles.cpp
         test_context_switch.cpp
         test_reader_types.cpp
+        test_version.cpp
 )
 
 # Threading is split out: these tests are slower and noisier than the rest.
@@ -281,6 +282,15 @@ endif ()
 # Build-system contract tests. They deliberately configure fresh projects so
 # an in-tree target cannot hide a broken install export or parent-project leak.
 #####################################################################
+
+# No label: a version that disagrees with itself must fail in every build.
+add_test(NAME easy_profiler.version_consistency
+    COMMAND ${CMAKE_COMMAND}
+        -DEASY_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_version_consistency.cmake
+)
+set_tests_properties(easy_profiler.version_consistency PROPERTIES TIMEOUT 30)
+
 configure_file(
     cmake/run_install_consumer.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/run_install_consumer.cmake
@@ -308,3 +318,24 @@ set_tests_properties(easy_profiler.subdirectory_consumer PROPERTIES
     TIMEOUT 180
     RUN_SERIAL TRUE
 )
+
+# Opt-in: point this at an unpacked release package to verify the artifact
+# itself. The release workflow sets it on a runner that did not build the
+# package, so build-host state cannot hide a defect.
+set(EASY_PROFILER_VERIFY_PACKAGE "" CACHE PATH
+    "Unpacked release package prefix to verify in addition to the in-tree tests")
+if (EASY_PROFILER_VERIFY_PACKAGE)
+    configure_file(
+        cmake/run_packaged_consumer.cmake.in
+        ${CMAKE_CURRENT_BINARY_DIR}/run_packaged_consumer.cmake
+        @ONLY
+    )
+    add_test(NAME easy_profiler.packaged_consumer
+        COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/run_packaged_consumer.cmake
+    )
+    set_tests_properties(easy_profiler.packaged_consumer PROPERTIES
+        LABELS "package"
+        TIMEOUT 300
+        RUN_SERIAL TRUE
+    )
+endif ()

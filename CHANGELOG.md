@@ -88,6 +88,20 @@ Version 3.0.0 modernizes the core test, packaging, and safety infrastructure. Th
 - Removed the obsolete `EASY_OPTION_TRUNCATE_RUNTIME_NAMES` and
   `EASY_OPTION_CHECK_MAX_VALUE_SIZE` CMake options. Their safety checks are now
   always enabled.
+- Added a release pipeline that builds, verifies and drafts a release from a
+  tag: source archives, SDK packages per platform and linkage, and a Linux GUI
+  bundle. Artifacts are verified by building a consumer against the unpacked
+  package and running the package's own tools from it, on a runner that did not
+  build it. See `RELEASING.md`.
+- The product version now lives only in the `VERSION` file. A test compares it
+  against `MODULE.bazel`, `version.bzl`, `CHANGELOG.md`, `README.md` and the
+  compiled library, and fails if a build system defines the wire format version.
+- `profiler_reader` is installed, and `EASY_PROFILER_BUILD_READER` builds it
+  without the samples.
+- `profiler_gui --self-test` builds the main window, checks that its toolbar
+  icons can render and exits, so a packaged GUI can be verified.
+- `EASY_PROFILER_REQUIRE_GUI` turns a missing Qt into a configure error instead
+  of a build that silently omits the GUI.
 
 ### Known issues
 
@@ -96,5 +110,9 @@ Version 3.0.0 modernizes the core test, packaging, and safety infrastructure. Th
   a specific thread, or profiling a single thread, charts the chosen element.
   Predates 3.0.0.
 - `profiler_gui` does not link against Qt 6.8 on current macOS SDKs: Qt's own
-  OpenGL wrapper resolves to `-framework AGL`, which Apple has removed. Use an
-  older SDK or a Qt build that does not reference AGL.
+  OpenGL wrapper resolves to `-framework AGL`, which Apple has removed
+  ([QTBUG-137687](https://bugreports.qt.io/browse/QTBUG-137687)). Build the GUI
+  with Qt 6.9.2 or newer. The fix is also in Qt 6.8.4, but the 6.8 line has no
+  open-source binary packages past 6.8.3.
+- Release 3.0.0 ships a prebuilt GUI for Linux x86_64 only. The Windows and
+  macOS GUI build from source; neither has shipped as a binary before.

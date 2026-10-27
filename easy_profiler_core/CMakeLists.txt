@@ -275,6 +275,10 @@ set(project_config "${generated_dir}/${PROJECT_NAME}Config.cmake")
 set(targets_export_name "${PROJECT_NAME}Targets")
 
 include(CMakePackageConfigHelpers)
+
+# Packages must not carry the MSVC runtime: consumers install the official
+# Visual C++ Redistributable, which is what Microsoft supports redistributing.
+set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
 include(InstallRequiredSystemLibraries)
 
 write_basic_package_version_file(
@@ -329,3 +333,70 @@ install(
     NAMESPACE easy_profiler::
     DESTINATION "${config_install_dir}"
 )
+
+# A shared build keeps its debug info in the linker PDB, a static one in the
+# compiler PDB. Neither is produced by other toolchains, hence OPTIONAL.
+if (MSVC)
+    if (BUILD_SHARED_LIBS)
+        install(FILES "$<TARGET_PDB_FILE:easy_profiler>"
+                DESTINATION bin COMPONENT Runtime OPTIONAL)
+    else ()
+        install(FILES "$<TARGET_COMPILE_PDB_FILE:easy_profiler>"
+                DESTINATION lib COMPONENT Development OPTIONAL)
+    endif ()
+endif ()
+
+if (EASY_PROFILER_TOP_LEVEL)
+    install(
+        FILES
+        "${PROJECT_SOURCE_DIR}/README.md"
+        "${PROJECT_SOURCE_DIR}/CHANGELOG.md"
+        DESTINATION
+        .
+    )
+endif ()
+
+# A prebuilt C++ binary is only usable against a compatible toolchain, so the
+# package states which one produced it.
+if (EASY_PROFILER_TOP_LEVEL)
+    set(_easy_build_info "${generated_dir}/BUILD-INFO.txt")
+    string(TIMESTAMP _easy_build_date "%Y-%m-%dT%H:%M:%SZ" UTC)
+
+    # The release workflow passes the commit it checked out. Outside it, ask git.
+    if (NOT EASY_PROFILER_SOURCE_REVISION)
+        find_package(Git QUIET)
+        if (GIT_FOUND)
+            execute_process(
+                COMMAND "${GIT_EXECUTABLE}" rev-parse HEAD
+                WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+                OUTPUT_VARIABLE EASY_PROFILER_SOURCE_REVISION
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+                ERROR_QUIET
+            )
+        endif ()
+    endif ()
+    if (NOT EASY_PROFILER_SOURCE_REVISION)
+        set(EASY_PROFILER_SOURCE_REVISION "unknown")
+    endif ()
+    file(WRITE "${_easy_build_info}"
+        "easy_profiler ${EASY_PRODUCT_VERSION_STRING}\n"
+        "built: ${_easy_build_date}\n"
+        "system: ${CMAKE_SYSTEM_NAME} ${CMAKE_SYSTEM_PROCESSOR}\n"
+    )
+    if (APPLE)
+        file(APPEND "${_easy_build_info}"
+            "architectures: ${CMAKE_OSX_ARCHITECTURES}\n"
+            "deployment target: ${CMAKE_OSX_DEPLOYMENT_TARGET}\n"
+        )
+    endif ()
+    file(APPEND "${_easy_build_info}"
+        "compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}\n"
+        "cmake: ${CMAKE_VERSION}\n"
+        "build type: ${CMAKE_BUILD_TYPE}\n"
+        "shared: ${BUILD_SHARED_LIBS}\n"
+        "strict alignment: ${EASY_PROFILER_STRICT_ALIGNMENT}\n"
+        "log: ${EASY_OPTION_LOG}\n"
+        "source revision: ${EASY_PROFILER_SOURCE_REVISION}\n"
+    )
+    install(FILES "${_easy_build_info}" DESTINATION .)
+endif ()

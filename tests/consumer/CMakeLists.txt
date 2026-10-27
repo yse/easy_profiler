@@ -7,6 +7,11 @@ add_executable(easy_profiler_install_consumer main.cpp)
 target_link_libraries(easy_profiler_install_consumer PRIVATE
     easy_profiler::easy_profiler
 )
+if (easy_profiler_VERSION)
+    target_compile_definitions(easy_profiler_install_consumer PRIVATE
+        EASY_PACKAGE_VERSION="${easy_profiler_VERSION}"
+    )
+endif ()
 set_target_properties(easy_profiler_install_consumer PROPERTIES
     CXX_STANDARD 11
     CXX_STANDARD_REQUIRED ON

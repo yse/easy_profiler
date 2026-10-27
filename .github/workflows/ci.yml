@@ -26,24 +26,39 @@ jobs:
             shared: "OFF"
             compiler_arg: -DCMAKE_CXX_COMPILER=g++
             log: "ON"
+            build_type: Debug
           - name: Linux Clang shared
             os: ubuntu-24.04
             shared: "ON"
             compiler_arg: -DCMAKE_CXX_COMPILER=clang++
             log: "OFF"
+            build_type: Debug
+          # The only optimized cell. Releases ship RelWithDebInfo, and a
+          # lock-free profiler's spin locks, chunk allocator and aarch64
+          # cntvct_el0 timer are exactly where an optimizer-exposed race or UB
+          # appears in no Debug build. arm64 because that timer path is
+          # otherwise only exercised on macOS.
+          - name: Linux GCC arm64 RelWithDebInfo
+            os: ubuntu-24.04-arm
+            shared: "OFF"
+            compiler_arg: -DCMAKE_CXX_COMPILER=g++
+            log: "ON"
+            build_type: RelWithDebInfo
           - name: macOS AppleClang static
             os: macos-15
             shared: "OFF"
             compiler_arg: -DCMAKE_CXX_COMPILER=clang++
             log: "OFF"
+            build_type: Debug
           - name: Windows MSVC shared
             os: windows-2025
             shared: "ON"
             compiler_arg: ""
             log: "OFF"
+            build_type: Debug
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Configure
         shell: bash
         run: >-
@@ -53,12 +68,14 @@ jobs:
           -DBUILD_TESTING=ON
           -DBUILD_SHARED_LIBS=${{ matrix.shared }}
           -DEASY_OPTION_LOG=${{ matrix.log }}
-          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
           ${{ matrix.compiler_arg }}
       - name: Build
-        run: cmake --build build/ci --config Debug --parallel 4
+        run: cmake --build build/ci --config ${{ matrix.build_type }} --parallel 4
       - name: Test
-        run: ctest --test-dir build/ci -C Debug --output-on-failure --parallel 4
+        run: >-
+          ctest --test-dir build/ci -C ${{ matrix.build_type }}
+          --output-on-failure --parallel 4
 
   sanitizers:
     name: ASan + UBSan (default packed access)
@@ -67,7 +84,7 @@ jobs:
       ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
       UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1:suppressions=${{ github.workspace }}/tests/ubsan.supp
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Configure
         run: >-
           cmake -S . -B build/sanitizers
@@ -91,7 +108,7 @@ jobs:
       ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
       UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Configure
         run: >-
           cmake -S . -B build/fuzz
@@ -117,7 +134,7 @@ jobs:
       ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
       UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Configure
         run: >-
           cmake -S . -B build/fuzz-stress
@@ -144,7 +161,7 @@ jobs:
           build/fuzz-stress/tests/fuzz_corpus
       - name: Upload crashes
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reader-fuzz-crashes
           path: build/fuzz-stress/fuzz-artifacts
@@ -153,7 +170,7 @@ jobs:
     name: Core coverage
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Configure
@@ -224,7 +241,7 @@ jobs:
           --min-lines 80 --min-branches 82 --min-changed-lines 80
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: easy-profiler-core-coverage
           path: |
@@ -237,7 +254,7 @@ jobs:
     name: Bazel 9 / Bzlmod
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: bazel-contrib/setup-bazel@0.19.0
         with:
           bazelisk-cache: true
@@ -253,7 +270,7 @@ jobs:
     env:
       TSAN_OPTIONS: halt_on_error=1
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Configure
         run: >-
           cmake -S . -B build/tsan

@@ -1,0 +1,8 @@
+# Bazel requires every .bzl file to live in a package, and version.bzl sits at
+# the repository root next to the VERSION file it mirrors. This package exports
+# nothing else.
+#
+# Named BUILD.bazel rather than BUILD: on a case-insensitive filesystem a root
+# file named BUILD collides with the build/ directory.
+
+exports_files(["version.bzl"])
