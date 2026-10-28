@@ -214,6 +214,11 @@ Qt built with.
 - ``THIRD-PARTY-NOTICES.md`` - the attributions for the third-party code the Qt
   libraries in this bundle embed, among them pcre2, harfbuzz, freetype and
   libpng
+
+This software is based in part on the work of the Independent JPEG Group.
+Condition 2 of the IJG licence requires that sentence of anyone distributing
+executables built on its code; windeployqt deploys the whole imageformats
+directory, so this bundle carries Qt's JPEG plugin.
 "@
 
 Set-Content -Path (Join-Path $OutDir 'README.txt') -Encoding utf8 -Value @"

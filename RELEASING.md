@@ -55,8 +55,11 @@ aqtinstall for the newest Qt 6 whose package index it can read, which is 6.10.3
 today, and the day an aqtinstall that reads the split layout reaches PyPI the
 same call returns the current release. The Windows bundle lags the Linux one
 until then; each bundle's `licenses/QT_NOTICE.md` names its own Qt. The notices
-generator has been run against the official 6.10.3 Windows package and
-attributes it with no manifest change.
+generator has been run against the official 6.10.3 Windows package on a bundle
+shaped the way windeployqt produces one, and attributes it. That needed one
+manifest entry Linux never asks for: windeployqt deploys every plugin in
+`imageformats/`, so a Windows bundle carries `qjpeg.dll` and therefore
+LibJPEG-turbo, whose licence is `IJG AND BSD-3-Clause`.
 
 `checksums` depends on `gui-windows`, so a red Windows cell means a tag cannot
 produce a draft. To release without the Windows GUI, drop `gui-windows` and
@@ -164,8 +167,9 @@ attributions are generated when the bundle is assembled:
   the ICU release tag. Nineteen files for a Linux bundle, about 180 KB, some
   eight seconds. The binary Qt packages ship no `LICENSES/` directory, so
   there is no offline source for these inside the install itself. A Windows
-  bundle asks for `MIT-open-group` and `Zlib` on top, because it carries
-  bundled freetype and zlib where Linux links the system's.
+  bundle asks for `MIT-open-group`, `Zlib` and `IJG` on top: it carries bundled
+  freetype and zlib where Linux links the system's, and windeployqt deploys the
+  whole `imageformats/` directory, JPEG included.
 - Which libraries get attributed is read off the finished bundle, not from a
   list in the generator: every shared library in it is matched against the
   `files` array of the Qt SBOMs, which ties each installed path to the CMake
