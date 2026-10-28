@@ -398,12 +398,14 @@ jobs:
       #
       # aqtinstall directly rather than install-qt-action, because the action
       # expects a runner rather than a bare container, and because this is the
-      # route RELEASING.md tells a person to reproduce by hand.
+      # route RELEASING.md tells a person to reproduce by hand. --spec 6 is a
+      # compatibility bound, not a pin: the GUI is written against Qt 6 and
+      # the Qt5Compat module, so a Qt 7 would not be a newer Qt for it.
       - name: Resolve the current Qt
         id: qt
         run: |
           pip3 install --quiet aqtinstall
-          version=$(python3 scripts/resolve_qt_version.py linux linux_gcc_64 --module qt5compat)
+          version=$(python3 -m aqt list-qt linux desktop --spec 6 --latest-version)
           echo "Qt $version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
@@ -535,22 +537,20 @@ jobs:
         with:
           python-version: '3.12'
 
-      # The newest Qt 6 aqtinstall can install here, which is not the newest
-      # Qt 6 there is: from 6.11 onwards Qt lays its Windows repository out
-      # per compiler, .../desktop/qt6_6120/qt6_6120_msvc2022_64/, where Linux
-      # and macOS keep the flat .../qt6_6120/qt6_6120/ that aqtinstall 3.3.0
-      # reads. Both layouts were read off download.qt.io. The resolver skips
-      # a release whose package index aqtinstall cannot read, so today this is
-      # 6.10.3, and the day an aqtinstall that reads the split layout is on
-      # PyPI it becomes the current release with no change here. The Windows
-      # bundle therefore carries an older Qt than the Linux one until then;
-      # each bundle's licenses/QT_NOTICE.md names its own.
+      # Not the one-liner the Linux job uses: aqtinstall 3.3.0 cannot read
+      # Qt's per-compiler Windows repository layout from 6.11 on, so the
+      # newest Qt 6 is not installable here and the workaround script walks
+      # back to the newest that is, 6.10.3 today. The script's header has the
+      # details. When an aqtinstall that reads the split layout is on PyPI,
+      # delete the script and use the one-liner. Until then the Windows
+      # bundle carries an older Qt than the Linux one; each bundle's
+      # licenses/QT_NOTICE.md names its own.
       - name: Resolve the current Qt
         id: qt
         shell: bash
         run: |
           python -m pip install --quiet aqtinstall
-          version=$(python scripts/resolve_qt_version.py windows win64_msvc2022_64 --module qt5compat)
+          version=$(python scripts/aqt_windows_workaround.py)
           echo "Qt $version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
@@ -698,9 +698,9 @@ jobs:
           # platform's own Qt where there is one: the distribution's on Linux,
           # which is also the oldest Qt 6 anything here is built against, and
           # Homebrew's on macOS. Windows has no system Qt, so that cell
-          # downloads the newest one aqtinstall can install, resolved rather
-          # than written down; see the Windows GUI job for why that is not the
-          # newest Qt there is.
+          # downloads the newest one aqtinstall can install, resolved the
+          # same way as in the Windows GUI job, which says why that is not
+          # the newest Qt there is.
           - name: linux-x86_64-distro-qt
             os: ubuntu-24.04
             qt: distro
@@ -753,7 +753,7 @@ jobs:
         shell: bash
         run: |
           python -m pip install --quiet aqtinstall
-          version=$(python scripts/resolve_qt_version.py windows win64_msvc2022_64 --module qt5compat)
+          version=$(python scripts/aqt_windows_workaround.py)
           echo "Qt $version"
           python -m aqt install-qt windows desktop "$version" win64_msvc2022_64 \
             -m qt5compat -O "$PWD/qt"

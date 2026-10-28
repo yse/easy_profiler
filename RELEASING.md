@@ -50,11 +50,13 @@ only reads the flat path for a desktop Windows architecture, so asking it for
 Verified against download.qt.io: 6.10.3 and earlier are flat, 6.11.0 through
 6.12.0 are split.
 
-The Windows jobs now sidestep this: `scripts/resolve_qt_version.py` asks
-aqtinstall for the newest Qt 6 whose package index it can read, which is 6.10.3
-today, and the day an aqtinstall that reads the split layout reaches PyPI the
-same call returns the current release. The Windows bundle lags the Linux one
-until then; each bundle's `licenses/QT_NOTICE.md` names its own Qt. The notices
+The Windows jobs sidestep this with `scripts/aqt_windows_workaround.py`, which
+walks back from the newest Qt 6 to the newest whose package index aqtinstall
+can read, 6.10.3 today. It is a workaround for aqtinstall's bug and nothing
+more: the day an aqtinstall that reads the split layout reaches PyPI, delete
+the script and give the Windows jobs the same `aqt list-qt ... --latest-version`
+one-liner the Linux job uses. The Windows bundle lags the Linux one until then;
+each bundle's `licenses/QT_NOTICE.md` names its own Qt. The notices
 generator has been run against the official 6.10.3 Windows package on a bundle
 shaped the way windeployqt produces one, and attributes it. That needed one
 manifest entry Linux never asks for: windeployqt deploys every plugin in
@@ -96,8 +98,9 @@ four-line fix in all that span, when 6.9 removed `QChar(signed char)` - and
 follows suit.
 
 The bundles are built against **whatever Qt 6 release is current on the day**,
-resolved by `scripts/resolve_qt_version.py` from Qt's own package index, from
-the **official open-source packages**. Official rather than a distribution's
+which aqtinstall reads off Qt's own repository
+(`aqt list-qt <host> desktop --spec 6 --latest-version`), from the
+**official open-source packages**. Official rather than a distribution's
 because only the official packages carry the SPDX SBOM the notices below are
 generated from: `apt install qt6-base-dev` on Ubuntu 24.04 yields no
 `*.spdx.json` at all, and Homebrew's Qt none either. That is a constraint on
@@ -114,8 +117,9 @@ Two things follow from not pinning:
   front of you, not something to write into the pipeline in advance.
 - **The platforms need not carry the same Qt.** Windows resolves to 6.10.3
   today while Linux resolves to 6.12.0, because aqtinstall cannot yet read Qt's
-  newer Windows repository layout (above). Two bundles, two
-  `QT_NOTICE.md` files, each naming its own.
+  newer Windows repository layout and the Windows jobs go through the
+  workaround script (above). Two bundles, two `QT_NOTICE.md` files, each
+  naming its own.
 
 macOS has a **floor** of Qt 6.9.2, for people building from source: earlier
 Qt 6 releases link `-framework AGL`, which Apple removed from the macOS 26 SDK
@@ -128,7 +132,7 @@ GUI compile here, against the Qt a person on this platform would have" - so it
 uses the platform's own Qt where there is one: Ubuntu's `qt6-*-dev` packages
 on Linux, which also keeps the oldest Qt 6 anything builds against in view, and
 `brew install qtbase qtsvg qt5compat` on macOS. Windows has no system Qt, so
-that cell resolves one the same way the bundle job does.
+that cell resolves one through the same workaround script as the bundle job.
 
 [QTBUG-137687]: https://bugreports.qt.io/browse/QTBUG-137687
 
