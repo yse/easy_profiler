@@ -11,6 +11,13 @@ name: Release
 on:
   push:
     tags: ['v*']
+    # TEMPORARY, remove before merging to the default branch. workflow_dispatch
+    # and schedule only offer a workflow that already exists on the default
+    # branch, so until this is merged there is no other way to rehearse. A
+    # branch push has ref_type "branch", so version-gate sets publish=false and
+    # draft-release is skipped: this builds and verifies everything and cannot
+    # create a release. It costs a full pipeline run on every push.
+    branches: ['refaictoring']
   workflow_dispatch:
   schedule:
     - cron: "23 4 1 * *"
