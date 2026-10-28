@@ -221,7 +221,7 @@ jobs:
           -DBUILD_SHARED_LIBS=${{ matrix.shared }}
           -DCMAKE_BUILD_TYPE=RelWithDebInfo
           -DEASY_PROFILER_SOURCE_REVISION=${{ github.sha }}
-          ${{ runner.os == 'macOS' && '-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0' || '' }}
+          ${{ runner.os == 'macOS' && '-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0' || '' }}
 
       - name: Build
         run: cmake --build build/sdk --config RelWithDebInfo --parallel 4
@@ -536,7 +536,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: jurplel/install-qt-action@v4.4.1
+      # install-qt-action drives aqtinstall, which needs a real python. On the
+      # Windows runner the first python on PATH is the WindowsApps execution
+      # alias, which answers a stat with EACCES and made the action fail before
+      # it did anything. Providing an interpreter first avoids the stub.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: jurplel/install-qt-action@v4.5.0
         with:
           version: ${{ matrix.qt }}
           modules: qt5compat

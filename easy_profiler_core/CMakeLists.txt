@@ -341,7 +341,13 @@ if (MSVC)
         install(FILES "$<TARGET_PDB_FILE:easy_profiler>"
                 DESTINATION bin COMPONENT Runtime OPTIONAL)
     else ()
-        install(FILES "$<TARGET_COMPILE_PDB_FILE:easy_profiler>"
+        # CMake has no generator expression for the compiler PDB - only
+        # TARGET_PDB_FILE, which a static library does not have - so pin where
+        # the compiler writes it and install that path.
+        set_target_properties(easy_profiler PROPERTIES
+            COMPILE_PDB_NAME easy_profiler
+            COMPILE_PDB_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
+        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/easy_profiler.pdb"
                 DESTINATION lib COMPONENT Development OPTIONAL)
     endif ()
 endif ()
