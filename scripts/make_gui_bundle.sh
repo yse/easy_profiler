@@ -52,7 +52,7 @@ if [ -z "$linked_core" ]; then
     echo "$binary does not link libQt6Core; is this a GUI build?" >&2
     exit 1
 fi
-if [ "$(cd "$(dirname "$linked_core")" && pwd)" != "$(cd "$qt_libs" && pwd)" ]; then
+if [ "$(cd "$(dirname "$linked_core")" && pwd -P)" != "$(cd "$qt_libs" && pwd -P)" ]; then
     echo "qtpaths6 reports Qt $qt_version in $qt_libs, but $binary links" >&2
     echo "$linked_core. Put the Qt that built the binary first on PATH." >&2
     exit 1
@@ -177,7 +177,9 @@ chmod +x "$out/run.sh"
 #
 # The attributions are generated here, from the SPDX SBOM inside the very Qt
 # install the libraries above were copied from, so they cannot describe a
-# different Qt than the bundle carries. The licence texts the SBOM only refers
+# different Qt than the bundle carries. The generator reads what to attribute
+# off the finished bundle rather than from a list of its own, so a library
+# added above cannot ship without its notice. The licence texts the SBOM refers
 # to are fetched from Qt's and ICU's release tags, checksum-pinned by
 # scripts/qt_notices.sha256, and cached in QT_NOTICES_CACHE when it is set.
 # Nothing LGPL-related lives in this repository: the obligation attaches to
@@ -205,6 +207,7 @@ if [ -n "${QT_NOTICES_CACHE:-}" ]; then
     cache_option=(--cache-dir "$QT_NOTICES_CACHE")
 fi
 if ! python3 "$notices_generator" \
+        --bundle "$out" \
         --qt-install "$(qtpaths6 --query QT_INSTALL_PREFIX)" \
         --qt-version "$qt_version" --icu-version "$icu_version" \
         --out "$out/licenses" ${cache_option[@]+"${cache_option[@]}"}; then

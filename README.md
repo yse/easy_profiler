@@ -257,12 +257,15 @@ attribute and `tar` does not propagate one.
 
 Release 3.0.0 ships a prebuilt GUI for **Linux x86_64 only**
 (`easy_profiler_gui-3.0.0-linux-x86_64.tar.gz`, run `./run.sh`). It bundles
-Qt 6.12.0 under the LGPL v3; see `licenses/QT_NOTICE.md` inside it, and
-`licenses/THIRD-PARTY-NOTICES.md` for the code Qt itself embeds.
+the Qt 6 release that was current when it was built, from the official
+open-source packages, under the LGPL v3; `licenses/QT_NOTICE.md` inside it
+names the exact version, and `licenses/THIRD-PARTY-NOTICES.md` attributes the
+code Qt itself embeds.
 
-On Windows and macOS, build the GUI from source as described below. Our own
-builds use Qt 6.12.0 on every platform, but any Qt 6 at or above the floor below
-is expected to work.
+On Windows and macOS, build the GUI from source as described below, with any
+Qt 6 at or above the floor given there. No Qt version is pinned anywhere in
+this project; the GUI has been built unmodified against every Qt 6 release
+tried, from 6.4.2 to 6.12.0.
 
 # Build
 
@@ -282,8 +285,7 @@ Additional requirements for the GUI:
   which Apple removed from the macOS 26 SDK
   ([QTBUG-137687](https://bugreports.qt.io/browse/QTBUG-137687)). The fix is
   also in Qt 6.8.4, but that release has no open-source binary packages, so the
-  whole 6.8 line is unusable here. This is a floor, not a pin: our own builds
-  use 6.12.0.
+  whole 6.8 line is unusable here. This is a floor, not a pin.
 
 Configure with `-DEASY_PROFILER_REQUIRE_GUI=ON` to make a missing Qt a configure
 error instead of a build that quietly omits the GUI. `profiler_gui --self-test`
@@ -310,13 +312,15 @@ For a universal binary, add
 `-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0`.
 To build the GUI as well, point `CMAKE_PREFIX_PATH` at a Qt 6.9.2 or newer
 installation - 6.9.2 is the oldest one that links on a current macOS SDK, for
-the AGL reason given under Prerequisites. Our own builds use 6.12.0.
+the AGL reason given under Prerequisites. Homebrew's current Qt qualifies:
+`brew install qtbase qtsvg qt5compat`, then configure with
+`-DCMAKE_PREFIX_PATH="$(brew --prefix qtbase);$(brew --prefix qtsvg);$(brew --prefix qt5compat)"`.
 
 ## Windows
 
 If you are using QtCreator IDE you can just open `CMakeLists.txt` file in root directory.
 If you are using Visual Studio you can generate solution by cmake generator command.
-Examples shows how to generate Win64 solution for Visual Studio 2013. To generate for another version use proper cmake generator (-G "name of generator").
+Examples shows how to generate Win64 solution for Visual Studio 2022. To generate for another version use proper cmake generator (-G "name of generator").
 
 ### Way 1
 Specify path to cmake scripts in Qt6 dir (usually in lib/cmake subdir) and execute cmake generator command,
@@ -324,17 +328,17 @@ for example:
 ```batch
 $ mkdir build
 $ cd build
-$ cmake -DCMAKE_PREFIX_PATH="C:\Qt\6.7.2\msvc2013_64\lib\cmake" .. -G "Visual Studio 12 2013 Win64"
+$ cmake -DCMAKE_PREFIX_PATH="C:\Qt\<version>\msvc2022_64\lib\cmake" .. -G "Visual Studio 17 2022" -A x64
 ```
 
 ### Way 2
 Create system variable "Qt6Widgets_DIR" and set it's value to "[path-to-Qt6-binaries]\lib\cmake\Qt6Widgets".
-For example, "C:\Qt\5.3\msvc2013_64\lib\cmake\Qt6Widgets".
+For example, "C:\Qt\<version>\msvc2022_64\lib\cmake\Qt6Widgets".
 And then run cmake generator as follows:
 ```batch
 $ mkdir build
 $ cd build
-$ cmake .. -G "Visual Studio 12 2013 Win64"
+$ cmake .. -G "Visual Studio 17 2022" -A x64
 ```
 
 ## QNX

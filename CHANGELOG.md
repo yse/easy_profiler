@@ -93,10 +93,12 @@ Version 3.0.0 modernizes the core test, packaging, and safety infrastructure. Th
   bundle. Artifacts are verified by building a consumer against the unpacked
   package and running the package's own tools from it, on a runner that did not
   build it. See `RELEASING.md`.
-- The GUI is built against Qt 6.12.0 on every platform, from the official
-  open-source packages. The Linux bundle carries that Qt under the LGPL v3,
-  together with the third-party notices for the code Qt embeds, generated at
-  bundle time from Qt's own SPDX SBOM by `scripts/qt_notices.py`.
+- The GUI bundle is built against whatever Qt 6 release is current when the
+  pipeline runs, from the official open-source packages; no Qt version is
+  written into the pipeline. The bundle carries that Qt under the LGPL v3,
+  names it in `licenses/QT_NOTICE.md`, and ships the third-party notices for
+  the code Qt embeds, generated at bundle time from that Qt's own SPDX SBOM by
+  `scripts/qt_notices.py`.
 - The product version now lives only in the `VERSION` file. A test compares it
   against `MODULE.bazel`, `version.bzl`, `CHANGELOG.md`, `README.md` and the
   compiled library, and fails if a build system defines the wire format version.
@@ -117,7 +119,12 @@ Version 3.0.0 modernizes the core test, packaging, and safety infrastructure. Th
   OpenGL wrapper resolves to `-framework AGL`, which Apple has removed
   ([QTBUG-137687](https://bugreports.qt.io/browse/QTBUG-137687)). Build the GUI
   with Qt 6.9.2 or newer. The fix is also in Qt 6.8.4, but the 6.8 line has no
-  open-source binary packages past 6.8.3. 6.9.2 is the floor for building from
-  source; the release pipeline itself uses Qt 6.12.0.
+  open-source binary packages past 6.8.3. That is a floor on macOS only, and
+  the only Qt version constraint the project has.
 - Release 3.0.0 ships a prebuilt GUI for Linux x86_64 only. The Windows and
-  macOS GUI build from source; neither has shipped as a binary before.
+  macOS GUI build from source; neither has shipped as a binary before. The
+  Windows packaging is written but has not run yet. Its pipeline job takes the
+  newest Windows Qt that `aqtinstall` can install, which lags the current
+  release: from Qt 6.11 the Windows packages sit in a per-compiler folder that
+  `aqtinstall` 3.3.0 does not read, so the job resolves 6.10.3 until an
+  `aqtinstall` that does is released. `RELEASING.md` has the detail.

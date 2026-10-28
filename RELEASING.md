@@ -29,31 +29,103 @@ redistribution route Microsoft supports.
 ## The GUI
 
 3.0.0 ships a Linux GUI bundle and no other. The reason is evidence: the GUI
-builds unmodified against Qt 6.12.0, loads a six-million block capture, and runs
-from a self-contained bundle on a machine with no Qt installed. The Windows GUI
-has never been compiled; it ships when the rehearsal below is green for it, and
-not before.
+builds unmodified against every Qt 6 tried, from Ubuntu 24.04's 6.4.2 to the
+official 6.12.0, loads a six-million block capture, and runs from a
+self-contained bundle on a machine with no Qt installed. The Windows GUI has
+never been compiled; it ships when the rehearsal below is green for it, and not
+before.
 
-### One Qt version everywhere
+### What still blocks the Windows GUI
 
-Every platform uses **Qt 6.12.0**, from the official open-source packages. One
-version means one CVE to track rather than three, and a GUI that behaves the
-same wherever it was built.
+The packaging exists: `gui-windows` and `gui-verify-windows` in the release
+workflow, and `scripts/make_gui_bundle.ps1`, which does for `windeployqt` what
+`make_gui_bundle.sh` does for `ldd`. None of it has run yet.
 
-The Linux bundle used to take Qt from the distribution, on the argument that
-Ubuntu backports security fixes for the life of the LTS while an open-source
-Qt 6.12.x stops receiving patches once 6.13 ships. That argument is dead, and
-not because it was wrong: it cannot be applied on macOS or Windows, where no
-distribution Qt exists, so following it meant three different Qt versions and
-three sets of behaviour to reason about. A single version we bump deliberately
-beats a longer patch runway on one platform out of three.
+What stood in front of it was not our code. From 6.11 onwards Qt publishes its
+Windows packages under a per-compiler folder,
+`windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64/`, where Linux and macOS
+still use a flat `qt6_6120/qt6_6120/`. aqtinstall 3.3.0, the newest release,
+only reads the flat path for a desktop Windows architecture, so asking it for
+6.11 or newer fails with `Failed to locate XML data` before a compiler runs.
+Verified against download.qt.io: 6.10.3 and earlier are flat, 6.11.0 through
+6.12.0 are split.
 
-macOS has a **floor** of Qt 6.9.2 rather than a pin, for people building from
-source: earlier Qt 6 releases link `-framework AGL`, which Apple removed from
-the macOS 26 SDK ([QTBUG-137687]). The fix is also in Qt 6.8.4, whose binaries
-are commercial-only, so the 6.8 line is unusable on macOS at all. Keep that
-floor documented in `README.md` even while CI pins 6.12.0 - the floor tells a
-contributor what will work, the pin says what we ship.
+The Windows jobs now sidestep this: `scripts/resolve_qt_version.py` asks
+aqtinstall for the newest Qt 6 whose package index it can read, which is 6.10.3
+today, and the day an aqtinstall that reads the split layout reaches PyPI the
+same call returns the current release. The Windows bundle lags the Linux one
+until then; each bundle's `licenses/QT_NOTICE.md` names its own Qt. The notices
+generator has been run against the official 6.10.3 Windows package and
+attributes it with no manifest change.
+
+`checksums` depends on `gui-windows`, so a red Windows cell means a tag cannot
+produce a draft. To release without the Windows GUI, drop `gui-windows` and
+`gui-verify-windows` from that job's `needs` - one line.
+
+These are the answers still owed, none of which can be had without a green
+run:
+
+- whether the GUI compiles with MSVC at all. Nothing has ever tried.
+- whether `windeployqt` deploys the SVG image-format and icon-engine plugins.
+  Qt's deployment documentation states no default plugin set and no rule for
+  choosing one. The bundle script asserts both are present and fails if they
+  are not; the fix is `--include-plugins qsvg,qsvgicon`, not deleting the check.
+  All 57 toolbar icons are SVG resources, and without those plugins the toolbars
+  render empty with no diagnostic of any kind, which is also why
+  `gui-verify-windows` runs `--self-test`: it counts rendered icons.
+- whether the bundle starts without the MSVC runtime. It is built with
+  `--no-compiler-runtime`, because Qt's own documentation says the runtime
+  windeployqt falls back to on a developer machine is "not intended or licensed
+  for redistribution", and because the notices generator cannot attribute it.
+  `README.txt` sends the user to Microsoft's redistributable. Both GitHub
+  Windows images have it installed, so a green `gui-verify-windows` does *not*
+  prove the bundle runs on a machine that does not. Shipping the official
+  redistributable instead is a licensing decision, not a technical one.
+- what `Compress-Archive` and `Expand-Archive` do with the bundle directory.
+  Expected to behave like `tar -C stage` with the directory as the archive root.
+
+### Which Qt
+
+**No Qt version is pinned anywhere.** The GUI uses nothing exotic - it has
+compiled unmodified against 6.4.2, 6.8.3, 6.9.3 and 6.12.0, needing one
+four-line fix in all that span, when 6.9 removed `QChar(signed char)` - and
+`profiler_gui/CMakeLists.txt` asks for `Qt6` with no version. The pipeline
+follows suit.
+
+The bundles are built against **whatever Qt 6 release is current on the day**,
+resolved by `scripts/resolve_qt_version.py` from Qt's own package index, from
+the **official open-source packages**. Official rather than a distribution's
+because only the official packages carry the SPDX SBOM the notices below are
+generated from: `apt install qt6-base-dev` on Ubuntu 24.04 yields no
+`*.spdx.json` at all, and Homebrew's Qt none either. That is a constraint on
+the *source* of the Qt a bundle redistributes, not on its version. The exact
+version a bundle carries is in its `licenses/QT_NOTICE.md`.
+
+Two things follow from not pinning:
+
+- **A new Qt can break a release build on the day it appears.** The rehearsal
+  is the mitigation: run it before tagging, and if a cell is red because Qt
+  moved, fix the code - every Qt break so far was a one-off API removal - or,
+  as a last resort for that one release, hand `aqt install-qt` a version in the
+  two bundle jobs. That is a decision to make on the day, with the failure in
+  front of you, not something to write into the pipeline in advance.
+- **The platforms need not carry the same Qt.** Windows resolves to 6.10.3
+  today while Linux resolves to 6.12.0, because aqtinstall cannot yet read Qt's
+  newer Windows repository layout (above). Two bundles, two
+  `QT_NOTICE.md` files, each naming its own.
+
+macOS has a **floor** of Qt 6.9.2, for people building from source: earlier
+Qt 6 releases link `-framework AGL`, which Apple removed from the macOS 26 SDK
+([QTBUG-137687]). The fix is also in Qt 6.8.4, whose binaries are
+commercial-only, so the 6.8 line is unusable on macOS at all. That floor is the
+project's only Qt version constraint, and `README.md` states it.
+
+`gui-build-check` asks a different question from the bundle jobs - "does the
+GUI compile here, against the Qt a person on this platform would have" - so it
+uses the platform's own Qt where there is one: Ubuntu's `qt6-*-dev` packages
+on Linux, which also keeps the oldest Qt 6 anything builds against in view, and
+`brew install qtbase qtsvg qt5compat` on macOS. Windows has no system Qt, so
+that cell resolves one the same way the bundle job does.
 
 [QTBUG-137687]: https://bugreports.qt.io/browse/QTBUG-137687
 
@@ -82,30 +154,60 @@ attributions are generated when the bundle is assembled:
   only source that ever had one, and copying it into a bundle built from
   official Qt would attach a document describing a different build.
 - Official Qt installs do, however, carry an SPDX SBOM under `sbom/` for every
-  module. `scripts/make_gui_bundle.sh` runs `scripts/qt_notices.py` against the
-  SBOM of the Qt it is bundling, so the component list and copyrights describe
-  the exact binaries in the bundle and cannot go stale on a Qt bump. The SBOM
+  module. The bundle script runs `scripts/qt_notices.py` against the SBOM of
+  the Qt it is bundling, so the component list and copyrights describe the exact
+  binaries in the bundle and cannot go stale on a Qt bump. The SBOM
   embeds the texts of the licences Qt defines itself; the standard ones
   (LGPL-3.0, GPL-3.0, BSD, MIT and so on) it only names, so their `LICENSES/`
   files are fetched from the `v<version>` tag of Qt's module repositories on
   code.qt.io, with GitHub's mirror as the fallback, and ICU's `LICENSE` from
-  the ICU release tag. Nineteen files, about 180 KB, some eight seconds.
+  the ICU release tag. Nineteen files for a Linux bundle, about 180 KB, some
+  eight seconds. The binary Qt packages ship no `LICENSES/` directory, so
+  there is no offline source for these inside the install itself. A Windows
+  bundle asks for `MIT-open-group` and `Zlib` on top, because it carries
+  bundled freetype and zlib where Linux links the system's.
+- Which libraries get attributed is read off the finished bundle, not from a
+  list in the generator: every shared library in it is matched against the
+  `files` array of the Qt SBOMs, which ties each installed path to the CMake
+  target it was built from, and the target's third-party packages are what the
+  notices report. A library the bundle script starts copying is therefore
+  attributed the moment it appears, and one that matches nothing is a hard
+  error rather than a silent omission - the same rule for ICU, which the SBOM
+  records as a system dependency with no licence, so `--icu-version` is
+  required exactly when ICU is in the bundle and refused when it is not. This
+  is also what makes the generator work on all three platforms from one code
+  path: the SBOM names `lib/libQt6Core.so.<version>` on Linux,
+  `bin/Qt6Core.dll` on Windows and the `QtCore` binary inside a framework on
+  macOS, and all three resolve to the same `Core` target.
 - Every fetched text is checked against `scripts/qt_notices.sha256`, so a
-  release is built from known content, and the release job caches the texts
-  under that manifest's hash. Do not count on that cache: Actions evicts an
-  entry after seven days, and a tag run cannot read a cache another tag wrote,
-  so it helps only when a `workflow_dispatch` rehearsal ran on the default
-  branch within the preceding week - which is the sequence below, but by
-  arrangement rather than by guarantee. Assume a real release fetches. The
-  script fails if a text is missing from the
-  manifest, does not match it, or cannot be fetched, and the bundle script
-  refuses to continue - no bundle ships with missing or unreviewed
-  attributions.
+  release is built from known content: a `v<version>` tag is a git tag and
+  can move, and a cache can be fed, but neither can put a text into a bundle
+  that nobody has reviewed. The manifest is keyed by **text**, not by Qt
+  release - `LICENSES/LGPL-3.0-only.txt`, not `qt-6.12.0/...` - because a
+  standard licence text is the same file in every Qt release that refers to
+  it: all twenty texts are byte-identical across the 6.9.3, 6.10.3 and 6.12.0
+  tags. So a new Qt needs no manifest change at all unless it refers to a
+  licence no earlier release did, or Qt changed the bytes of a text; either
+  fails the build and names the file, and that is the one moment a person
+  should be looking at it. A key may carry several digests, each a reviewed
+  version of that text, so recording a changed text does not stop an older
+  Qt from building. ICU's `LICENSE` is keyed by ICU release, since that file
+  genuinely differs between releases.
+- The release job caches the fetched texts under the manifest's hash and the
+  resolved Qt version. Do not count on that cache: Actions evicts an entry
+  after seven days, and a tag run cannot read a cache another tag wrote, so
+  it helps only when a `workflow_dispatch` rehearsal ran on the default branch
+  within the preceding week - which is the sequence below, but by arrangement
+  rather than by guarantee. Assume a real release fetches. The script fails if
+  a text is missing from the manifest, does not match it, or cannot be
+  fetched, and the bundle script refuses to continue - no bundle ships with
+  missing or unreviewed attributions.
 
-A Qt or ICU bump therefore means reviewing the new licence texts once and
-recording them: run the generator with `--update-manifest`, read the diff of
-the manifest, and commit it. To regenerate without the network, point
-`--qt-source` at unpacked `qt{base,svg,5compat}-everywhere-src` tarballs from
+When the generator does stop on a text, review it and record it: run the
+generator with `--update-manifest`, which adds the new digest and removes
+nothing, read the diff of the manifest, and commit it. To regenerate without
+the network, point `--qt-source` at unpacked
+`qt{base,svg,5compat}-everywhere-src` tarballs from
 <https://download.qt.io/archive/qt/> and `--icu-license` at ICU's `LICENSE`;
 the texts are still held to the manifest. The script's header spells out the
 invocation.
@@ -119,7 +221,7 @@ poor thing to explain, and Ubuntu 22.04 is exactly the sort of box a profiler GU
 gets copied onto.
 
 The cost is that the container needs a CMake newer than the 3.22.1 that 22.04
-ships, because Qt 6.12 requires 3.25 or later, and that Qt comes from
+ships, because current Qt requires 3.25 or later, and that Qt comes from
 `aqtinstall` by hand rather than from `install-qt-action`, which expects a runner
 rather than a bare container. Qt's
 `-DQT_FORCE_MIN_CMAKE_VERSION_FOR_USING_QT` would avoid the CMake upgrade; Qt

@@ -357,10 +357,8 @@ jobs:
     # package runs there happily, and 22.04 is exactly the kind of machine a
     # profiler GUI gets dropped onto.
     container: ubuntu:22.04
-    env:
-      QT_VERSION: 6.12.0
     steps:
-      # Qt 6.12 requires CMake >= 3.25 and 22.04 ships 3.22.1, so CMake comes
+      # Current Qt requires CMake >= 3.25 and 22.04 ships 3.22.1, so CMake comes
       # from pip. Qt's -DQT_FORCE_MIN_CMAKE_VERSION_FOR_USING_QT escape hatch
       # would avoid that, but Qt itself calls it unsupported.
       #
@@ -390,33 +388,45 @@ jobs:
 
       - uses: actions/checkout@v7
 
-      # One Qt version for every platform, so there is a single CVE to track
-      # rather than three and the GUI behaves the same wherever it was built.
+      # No Qt version is written down anywhere in this pipeline. The bundle
+      # carries whatever the current open-source Qt 6 release is on the day it
+      # is built, from the official packages, because those are the only Qt
+      # binaries that ship the SBOM the notices are generated from. The
+      # version lands in the bundle's licenses/QT_NOTICE.md. The price is that
+      # a Qt release can break a release build on the day it appears, which
+      # is what the rehearsal in RELEASING.md is for.
+      #
       # aqtinstall directly rather than install-qt-action, because the action
       # expects a runner rather than a bare container, and because this is the
       # route RELEASING.md tells a person to reproduce by hand.
-      #
-      # Qt Svg is in the base package; only qt5compat has to be asked for. That
-      # matters because every toolbar icon is an SVG resource, and without the
-      # SVG plugin the toolbars render empty with no error of any kind.
+      - name: Resolve the current Qt
+        id: qt
+        run: |
+          pip3 install --quiet aqtinstall
+          version=$(python3 scripts/resolve_qt_version.py linux linux_gcc_64 --module qt5compat)
+          echo "Qt $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Cache Qt
         id: qt-cache
         uses: actions/cache@v4
         with:
           path: qt
-          key: qt-${{ env.QT_VERSION }}-linux-gcc_64-qt5compat
+          key: qt-${{ steps.qt.outputs.version }}-linux-gcc_64-qt5compat
 
+      # Qt Svg is in the base package; only qt5compat has to be asked for. That
+      # matters because every toolbar icon is an SVG resource, and without the
+      # SVG plugin the toolbars render empty with no error of any kind.
       - name: Install Qt
         if: steps.qt-cache.outputs.cache-hit != 'true'
-        run: |
-          pip3 install --quiet aqtinstall
-          python3 -m aqt install-qt linux desktop "$QT_VERSION" linux_gcc_64 \
-            -m qt5compat -O qt
+        run: >-
+          python3 -m aqt install-qt linux desktop '${{ steps.qt.outputs.version }}'
+          linux_gcc_64 -m qt5compat -O qt
 
       - name: Configure
         run: >-
           cmake -S . -B build/gui
-          -DCMAKE_PREFIX_PATH="$PWD/qt/$QT_VERSION/gcc_64"
+          -DCMAKE_PREFIX_PATH="$PWD/qt/${{ steps.qt.outputs.version }}/gcc_64"
           -DEASY_PROFILER_NO_SAMPLES=ON
           -DEASY_PROFILER_BUILD_READER=ON
           -DEASY_PROFILER_REQUIRE_GUI=ON
@@ -428,14 +438,15 @@ jobs:
         run: cmake --build build/gui --parallel 4 --target profiler_gui
 
       # The licence texts the bundle's notices need are fetched by the bundle
-      # script, checksum-pinned by scripts/qt_notices.sha256, so they are cached
-      # under that file's hash: a release built for a Qt this manifest has
-      # already seen does not reach for code.qt.io at all.
+      # script from the tag of the Qt it resolved, checksum-checked against
+      # scripts/qt_notices.sha256, and cached per Qt release under that
+      # manifest's hash: a rehearsal that already fetched them for this Qt
+      # spares the release from reaching for code.qt.io at all.
       - name: Cache the licence texts
         uses: actions/cache@v4
         with:
           path: qt-notices-cache
-          key: qt-notices-${{ hashFiles('scripts/qt_notices.sha256') }}
+          key: qt-notices-${{ hashFiles('scripts/qt_notices.sha256') }}-${{ steps.qt.outputs.version }}
 
       # qtpaths6 tells the script where Qt's plugins live and whose SBOM the
       # notices are generated from.
@@ -444,7 +455,7 @@ jobs:
         env:
           QT_NOTICES_CACHE: ${{ github.workspace }}/qt-notices-cache
         run: |
-          export PATH="$PWD/qt/$QT_VERSION/gcc_64/bin:$PATH"
+          export PATH="$PWD/qt/${{ steps.qt.outputs.version }}/gcc_64/bin:$PATH"
           bash scripts/make_gui_bundle.sh build/gui \
             "stage/easy_profiler_gui-${{ needs.version-gate.outputs.version }}-linux-x86_64"
 
@@ -507,6 +518,168 @@ jobs:
           QT_QPA_PLATFORM=xcb xvfb-run -a ./run.sh --self-test
           QT_QPA_PLATFORM=offscreen ./run.sh --self-test
 
+  gui-windows:
+    name: GUI windows-x86_64
+    needs: version-gate
+    # Built on the older of the two current Windows images and verified on the
+    # newer, for the same reason the Linux bundle is built in a 22.04 container
+    # and verified on 24.04: the floor is then a decision rather than whatever
+    # the runner happens to be. windows-2022 is the oldest image GitHub still
+    # offers; when it is retired this has to move, and the bundle's floor moves
+    # with it.
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The newest Qt 6 aqtinstall can install here, which is not the newest
+      # Qt 6 there is: from 6.11 onwards Qt lays its Windows repository out
+      # per compiler, .../desktop/qt6_6120/qt6_6120_msvc2022_64/, where Linux
+      # and macOS keep the flat .../qt6_6120/qt6_6120/ that aqtinstall 3.3.0
+      # reads. Both layouts were read off download.qt.io. The resolver skips
+      # a release whose package index aqtinstall cannot read, so today this is
+      # 6.10.3, and the day an aqtinstall that reads the split layout is on
+      # PyPI it becomes the current release with no change here. The Windows
+      # bundle therefore carries an older Qt than the Linux one until then;
+      # each bundle's licenses/QT_NOTICE.md names its own.
+      - name: Resolve the current Qt
+        id: qt
+        shell: bash
+        run: |
+          python -m pip install --quiet aqtinstall
+          version=$(python scripts/resolve_qt_version.py windows win64_msvc2022_64 --module qt5compat)
+          echo "Qt $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Qt
+        id: qt-cache
+        uses: actions/cache@v4
+        with:
+          path: qt
+          key: qt-${{ steps.qt.outputs.version }}-windows-msvc2022_64-qt5compat
+
+      # Qt Svg is in the base package; only qt5compat has to be asked for.
+      - name: Install Qt
+        if: steps.qt-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: >-
+          python -m aqt install-qt windows desktop '${{ steps.qt.outputs.version }}'
+          win64_msvc2022_64 -m qt5compat -O qt
+
+      - name: Configure
+        shell: bash
+        run: >-
+          cmake -S . -B build/gui
+          -DCMAKE_PREFIX_PATH="$PWD/qt/${{ steps.qt.outputs.version }}/msvc2022_64"
+          -DEASY_PROFILER_NO_SAMPLES=ON
+          -DEASY_PROFILER_BUILD_READER=ON
+          -DEASY_PROFILER_REQUIRE_GUI=ON
+          -DBUILD_TESTING=OFF
+          -DBUILD_SHARED_LIBS=ON
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+      - name: Build
+        run: cmake --build build/gui --config RelWithDebInfo --parallel 4 --target profiler_gui
+
+      - name: Cache the licence texts
+        uses: actions/cache@v4
+        with:
+          path: qt-notices-cache
+          key: qt-notices-${{ hashFiles('scripts/qt_notices.sha256') }}-${{ steps.qt.outputs.version }}
+
+      # qtpaths6 and windeployqt both come off PATH, and both have to be the Qt
+      # that built the binary; the script checks that the Qt6Core.dll it ended
+      # up with is the version qtpaths6 claims.
+      - name: Assemble the bundle
+        shell: pwsh
+        env:
+          QT_NOTICES_CACHE: ${{ github.workspace }}/qt-notices-cache
+          QT_VERSION: ${{ steps.qt.outputs.version }}
+        run: |
+          $env:PATH = "$PWD\qt\$env:QT_VERSION\msvc2022_64\bin;$env:PATH"
+          ./scripts/make_gui_bundle.ps1 build/gui `
+            "stage/easy_profiler_gui-${{ needs.version-gate.outputs.version }}-windows-x86_64"
+
+      # A zip rather than a tar.gz: Windows Explorer opens one without a tool,
+      # and the checksums job already collects *.zip.
+      - name: Pack
+        shell: pwsh
+        run: |
+          $name = "easy_profiler_gui-${{ needs.version-gate.outputs.version }}-windows-x86_64"
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path "stage/$name" -DestinationPath "dist/$name.zip"
+          Get-ChildItem dist
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: gui-windows-x86_64
+          path: dist
+
+  gui-verify-windows:
+    name: Verify GUI windows-x86_64
+    needs: [version-gate, gui-windows]
+    # A different image than built it, and one with no Qt of its own: on the
+    # build runner the Qt on PATH would satisfy the binary whether the bundle
+    # were complete or not.
+    runs-on: windows-2025
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: gui-windows-x86_64
+          path: dist
+
+      - name: Unpack and self-test
+        shell: pwsh
+        run: |
+          $name = "easy_profiler_gui-${{ needs.version-gate.outputs.version }}-windows-x86_64"
+          Expand-Archive -Path "dist/$name.zip" -DestinationPath unpacked
+          Set-Location "unpacked/$name"
+
+          # A bundle verified next to another Qt proves nothing, and on Windows
+          # a DLL is resolved from PATH, so PATH is where a second Qt would be
+          # found. Get-Command does not see DLLs, hence the explicit walk.
+          $strays = $env:PATH -split ';' | Where-Object { $_ } |
+            Where-Object { Test-Path (Join-Path $_ 'Qt6Core.dll') }
+          if ($strays) { throw "a Qt is on PATH ($strays); this is not a clean check" }
+
+          # profiler_gui is linked for the Windows GUI subsystem in every build
+          # type but Debug, so it has no console: PowerShell does not wait for
+          # such a process and $LASTEXITCODE would still hold the previous
+          # command's, which would make this job green whatever the self-test
+          # did. Start-Process -Wait -PassThru is what actually waits, and the
+          # redirections are what makes the binary's own stdout and stderr
+          # visible at all - it writes them with fprintf, which goes nowhere
+          # when no console is attached.
+          function Invoke-SelfTest($platform) {
+            $env:QT_QPA_PLATFORM = $platform
+            $process = Start-Process -FilePath (Resolve-Path ./profiler_gui.exe) `
+              -ArgumentList '--self-test' -Wait -PassThru -NoNewWindow `
+              -RedirectStandardOutput "../../$platform.out" `
+              -RedirectStandardError "../../$platform.err"
+            Get-Content "../../$platform.out", "../../$platform.err" -ErrorAction SilentlyContinue
+            if ($process.ExitCode -ne 0) {
+              throw "the $platform self-test failed with exit code $($process.ExitCode)"
+            }
+          }
+
+          # --self-test is what makes this worth running: it fails unless the
+          # SVG image format and icon engine plugins both loaded and the toolbar
+          # icons actually rendered. Without them the toolbars come up empty and
+          # Qt reports nothing at all, so this is the only thing standing
+          # between a broken bundle and a release.
+          #
+          # Offscreen first: it reaches the Qt libraries and both SVG plugins
+          # without needing a desktop session, so it is the one that cannot fail
+          # for a reason outside the bundle. The windows plugin after it, being
+          # the one a user loads - and the one that may yet turn out to need
+          # more of a session than an Actions runner has. Red in that order says
+          # which of the two happened.
+          Invoke-SelfTest 'offscreen'
+          Invoke-SelfTest 'windows'
+
   gui-build-check:
     name: GUI build check (${{ matrix.name }})
     needs: version-gate
@@ -520,47 +693,74 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # The same Qt the Linux bundle ships against, so this job answers
-          # "does the GUI build on Windows and macOS with the version we
-          # actually use" rather than testing a configuration nobody ships.
-          # 6.9.2 is the oldest open-source Qt carrying the AGL fix
-          # (QTBUG-137687) and remains the documented floor; macOS cannot use
-          # the 6.8 line at all, because the fix landed in 6.8.4 and that line
-          # has no open-source binaries past 6.8.3.
-          # qt_arch is what aqt is asked for; qt_dir is what it unpacks into,
-          # and the two do not match. Both were read from Qt's own repository
-          # index rather than guessed.
-          - name: windows-x64-qt6.12.0
-            os: windows-2025
-            qt: 6.12.0
-            qt_host: windows
-            qt_arch: win64_msvc2022_64
-            qt_dir: msvc2022_64
-          - name: macos-arm64-qt6.12.0
+          # The question is "does the GUI compile here, against the Qt a
+          # person on this platform would have", so each cell takes the
+          # platform's own Qt where there is one: the distribution's on Linux,
+          # which is also the oldest Qt 6 anything here is built against, and
+          # Homebrew's on macOS. Windows has no system Qt, so that cell
+          # downloads the newest one aqtinstall can install, resolved rather
+          # than written down; see the Windows GUI job for why that is not the
+          # newest Qt there is.
+          - name: linux-x86_64-distro-qt
+            os: ubuntu-24.04
+            qt: distro
+          - name: macos-arm64-homebrew-qt
             os: macos-15
-            qt: 6.12.0
-            qt_host: mac
-            qt_arch: clang_64
-            qt_dir: macos
+            qt: homebrew
+          - name: windows-x64-aqt
+            os: windows-2025
+            qt: aqt
     steps:
       - uses: actions/checkout@v7
 
+      # The three install steps leave CMAKE_PREFIX_PATH in the environment,
+      # where CMake reads it, so the configure step is the same for all three.
+      - name: Install the distribution's Qt
+        if: matrix.qt == 'distro'
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            qt6-base-dev qt6-base-dev-tools qt6-5compat-dev qt6-svg-dev libgl1-mesa-dev
+          qtpaths6 --query QT_VERSION
+
+      # The three modules the GUI uses, rather than the qt meta-formula that
+      # pulls in all of Qt down to WebEngine. qt5compat brings qtdeclarative
+      # along; nothing to be done about that. The macOS floor of 6.9.2
+      # (QTBUG-137687, see README.md) is met by Homebrew as a matter of
+      # course, since it ships the current release.
+      - name: Install Homebrew's Qt
+        if: matrix.qt == 'homebrew'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
+        run: |
+          brew install qtbase qtsvg qt5compat
+          "$(brew --prefix qtbase)/bin/qtpaths6" --query QT_VERSION
+          echo "CMAKE_PREFIX_PATH=$(brew --prefix qtbase):$(brew --prefix qtsvg):$(brew --prefix qt5compat)" >> "$GITHUB_ENV"
+
       - uses: actions/setup-python@v5
+        if: matrix.qt == 'aqt'
         with:
           python-version: '3.12'
 
       # aqtinstall directly, not install-qt-action: that action reported
-      # "Action not built" on windows-2025 in both v4.4.1 and v4.5.0 while
-      # working on macOS, and this job exists to test our code, not a third
-      # party's packaging. It is also what the Linux GUI job and RELEASING.md
-      # already use, so there is one way to obtain Qt rather than two.
-      - name: Install Qt
+      # "Action not built" on windows-2025 in both v4.4.1 and v4.5.0, and this
+      # job exists to test our code, not a third party's packaging. It is also
+      # what the GUI bundle jobs and RELEASING.md use, so there is one way to
+      # obtain Qt rather than two.
+      - name: Install Qt with aqtinstall
+        if: matrix.qt == 'aqt'
         shell: bash
         run: |
           python -m pip install --quiet aqtinstall
-          python -m aqt install-qt ${{ matrix.qt_host }} desktop ${{ matrix.qt }} \
-            ${{ matrix.qt_arch }} -m qt5compat -O "$PWD/qt"
-          test -d "$PWD/qt/${{ matrix.qt }}/${{ matrix.qt_dir }}"
+          version=$(python scripts/resolve_qt_version.py windows win64_msvc2022_64 --module qt5compat)
+          echo "Qt $version"
+          python -m aqt install-qt windows desktop "$version" win64_msvc2022_64 \
+            -m qt5compat -O "$PWD/qt"
+          test -d "$PWD/qt/$version/msvc2022_64"
+          # pwd -W: a Windows path for CMake, where bash's /d/a/... form is
+          # only translated on a command line, not in an environment value.
+          echo "CMAKE_PREFIX_PATH=$(pwd -W)/qt/$version/msvc2022_64" >> "$GITHUB_ENV"
 
       - name: Configure
         shell: bash
@@ -571,7 +771,6 @@ jobs:
           -DBUILD_TESTING=OFF
           -DBUILD_SHARED_LIBS=ON
           -DCMAKE_BUILD_TYPE=RelWithDebInfo
-          -DCMAKE_PREFIX_PATH="$PWD/qt/${{ matrix.qt }}/${{ matrix.qt_dir }}"
 
       - name: Build
         run: cmake --build build/gui --config RelWithDebInfo --parallel 4 --target profiler_gui
@@ -586,7 +785,8 @@ jobs:
 
   checksums:
     name: Checksums
-    needs: [version-gate, source-archive, sdk, sdk-verify, gui-linux, gui-verify-linux, bazel-source-check]
+    needs: [version-gate, source-archive, sdk, sdk-verify, gui-linux, gui-verify-linux,
+            gui-windows, gui-verify-windows, bazel-source-check]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v8

@@ -8,6 +8,9 @@ ship without its output.
 
 Inputs, all authoritative, none edited by hand:
 
+  --bundle       the assembled bundle. Every shared library in it is looked up
+                 in the SBOM and attributed; one that cannot be is an error,
+                 so a library added to a bundle script cannot ship silently.
   --qt-install   the official Qt install the bundle is assembled from. Its
                  sbom/<module>-<ver>.spdx.json names every third-party package
                  each Qt target depends on, with the upstream version,
@@ -18,19 +21,26 @@ Inputs, all authoritative, none edited by hand:
                  GitHub mirror) and kept in --cache-dir; or read offline from
                  --qt-source, an unpacked qt*-everywhere-src tree.
   ICU's LICENSE  fetched from the ICU release tag, or given as --icu-license.
-                 Qt's official Linux binaries carry ICU in lib/, so the bundle
-                 redistributes it, but Qt's SBOM records it as a system
-                 dependency with no licence of its own.
+                 Qt's official Linux binaries carry ICU in lib/, so a Linux
+                 bundle redistributes it, but Qt's SBOM records it as a system
+                 dependency with no licence of its own. The Windows and macOS
+                 packages carry no ICU, so --icu-version is required exactly
+                 when the bundle has it.
 
 Every text that does not come out of the SBOM is checked against the checksums
 in qt_notices.sha256 next to this script, so a release is built from known
-content whether it was fetched or cached. A Qt or ICU bump needs the new texts
-reviewed once and recorded with --update-manifest; until then the generator
-fails rather than ship an unreviewed text.
+content whether it was fetched or cached, and a moved tag or a poisoned cache
+cannot put a different text into a bundle. The manifest records reviewed
+licence texts, not Qt versions: a standard licence text is the same file in
+every Qt release that refers to it, so a new Qt needs nothing here unless it
+refers to a licence no release before it did, or Qt changed the bytes of a
+text. Either case fails the build until the text is reviewed and recorded with
+--update-manifest, which adds to the manifest and never removes from it.
 
 Usage:
-  scripts/qt_notices.py --qt-install <dir> --qt-version 6.12.0 \
-      --icu-version 73.2 --out <bundle>/licenses [--cache-dir <dir>]
+  scripts/qt_notices.py --bundle <bundle> --qt-install <dir> \
+      --qt-version <version qtpaths6 reports> [--icu-version 73.2] \
+      --out <bundle>/licenses [--cache-dir <dir>]
 """
 
 import argparse
@@ -44,36 +54,21 @@ import textwrap
 import urllib.error
 import urllib.request
 
-# The Qt targets the bundle actually carries: one per library in lib/ and one
-# per plugin in plugins/. Adding a library or plugin to make_gui_bundle.sh means
-# adding its target here, or its third-party code ships unattributed.
-SHIPPED = {
-    "qtbase": [
-        ("Core", "libQt6Core.so.6"),
-        ("Gui", "libQt6Gui.so.6"),
-        ("Widgets", "libQt6Widgets.so.6"),
-        ("DBus", "libQt6DBus.so.6"),
-        ("XcbQpaPrivate", "libQt6XcbQpa.so.6"),
-        ("QXcbIntegrationPlugin", "plugins/platforms/libqxcb.so"),
-        ("QOffscreenIntegrationPlugin", "plugins/platforms/libqoffscreen.so"),
-        ("QXcbGlxIntegrationPlugin",
-         "plugins/xcbglintegrations/libqxcb-glx-integration.so"),
-        ("QXcbEglIntegrationPlugin",
-         "plugins/xcbglintegrations/libqxcb-egl-integration.so"),
-        ("QComposePlatformInputContextPlugin",
-         "plugins/platforminputcontexts/libcomposeplatforminputcontextplugin.so"),
-        ("QIbusPlatformInputContextPlugin",
-         "plugins/platforminputcontexts/libibusplatforminputcontextplugin.so"),
-    ],
-    "qtsvg": [
-        ("Svg", "libQt6Svg.so.6"),
-        ("QSvgPlugin", "plugins/imageformats/libqsvg.so"),
-        ("QSvgIconPlugin", "plugins/iconengines/libqsvgicon.so"),
-    ],
-    "qt5compat": [
-        ("Core5Compat", "libQt6Core5Compat.so.6"),
-    ],
-}
+# Every shared library a bundle can legitimately carry that no Qt SBOM
+# describes: easy_profiler's own, and ICU, which Qt records as a system
+# dependency and which this script attributes in a section of its own. Anything
+# else in the bundle is a library whose third-party code would ship
+# unattributed, and is a hard error rather than a silent omission.
+EASY_PROFILER_LIBRARY = re.compile(r"^(lib)?easy_profiler", re.IGNORECASE)
+ICU_LIBRARY = re.compile(r"^(lib)?icu", re.IGNORECASE)
+
+# What a bundle loads at run time. Static libraries and import libraries appear
+# in Qt's SBOM but are never shipped, so they are not scanned for.
+SHARED_LIBRARY = re.compile(r"\.(so|dylib|dll)(\.[0-9.]+)?$", re.IGNORECASE)
+
+# The suffixes that distinguish one build of a Qt target from another without
+# changing which target it is.
+VERSIONED_SUFFIX = re.compile(r"\.(so|dylib|dll|a|lib)(\.[0-9.]+)?$", re.IGNORECASE)
 
 # Qt's SBOM gives every Qt target the same disjunction, including the commercial
 # option that does not apply to a bundle built from the open-source packages.
@@ -100,26 +95,79 @@ def spdx_ids(expression):
     return [t for t in tokens if t and t not in _OPERATORS]
 
 
-def load_sbom(qt_install, module, version):
-    path = qt_install / "sbom" / f"{module}-{version}.spdx.json"
-    if not path.is_file():
-        sys.exit(f"no SBOM for {module} at {path}")
+def load_sbom(path):
     # Qt's generator emits literal newlines inside JSON strings.
     with path.open(encoding="utf-8") as handle:
-        return json.load(handle, strict=False), path
+        return json.load(handle, strict=False)
 
 
-def third_party_of(sbom, target_name):
-    """Every third-party package the named Qt target depends on, per the SBOM."""
+def library_key(name):
+    """A platform-independent handle for one Qt library or plugin file.
+
+    One Qt target is installed under a different file name on every platform
+    and under a different one again inside a bundle: Core is
+    lib/libQt6Core.so.6.12.0 in a Linux SBOM but libQt6Core.so.6 once copied,
+    bin/Qt6Core.dll and lib/Qt6Core.lib on Windows, and the QtCore binary
+    inside a framework on macOS. Comparing file names verbatim therefore finds
+    nothing; comparing content does not work either, because macOS code-signs
+    the binaries after the SBOM records their checksums.
+    """
+    stem = VERSIONED_SUFFIX.sub("", pathlib.PurePosixPath(name).name)
+    if stem.startswith("lib"):
+        stem = stem[3:]
+    return stem.lower()
+
+
+def shipped_index(qt_install, version):
+    """Map every library and plugin Qt installs to the target it was built from.
+
+    Qt's SBOM carries a `files` array of install-relative paths, each tied by a
+    CONTAINS relationship to the package of the CMake target it came out of.
+    That is what lets the shipped set be read off the bundle instead of kept in
+    a table here, which is the only form of the list that cannot fall behind
+    the bundle it describes.
+    """
+    sboms = sorted((qt_install / "sbom").glob(f"*-{version}.spdx.json"))
+    if not sboms:
+        sys.exit(f"no Qt {version} SBOMs under {qt_install / 'sbom'}. Only the"
+                 " official Qt binary packages carry them; a distribution's or"
+                 " Homebrew's Qt does not, and without them the bundle cannot"
+                 " be attributed. A bundle that redistributes Qt has to be"
+                 " built from an official package.")
+
+    index = {}
+    for path in sboms:
+        module = path.name[: -len(f"-{version}.spdx.json")]
+        sbom = load_sbom(path)
+        files = {f["SPDXID"]: f for f in sbom.get("files", [])}
+        if not files:
+            continue
+        owners = {}
+        for relationship in sbom["relationships"]:
+            related = relationship.get("relatedSpdxElement")
+            if related not in files or relationship["relationshipType"] != "CONTAINS":
+                continue
+            owner = relationship["spdxElementId"]
+            if "-qt-module-" in owner or "-qt-plugin-" in owner:
+                owners.setdefault(related, set()).add(owner)
+
+        for identifier, entry in files.items():
+            candidates = owners.get(identifier, set())
+            if len(candidates) != 1:
+                continue
+            key = library_key(entry["fileName"])
+            found = (module, path, next(iter(candidates)))
+            previous = index.setdefault(key, found)
+            if previous[2] != found[2]:
+                sys.exit(f"{entry['fileName']} and a file in {previous[0]} both"
+                         f" reduce to {key} but come from different Qt targets;"
+                         " the bundle cannot be attributed by file name")
+    return index
+
+
+def third_party_of(sbom, root):
+    """Every third-party package the Qt target at `root` depends on, per the SBOM."""
     by_id = {p["SPDXID"]: p for p in sbom["packages"]}
-    matches = [p for p in sbom["packages"]
-               if p["name"] == target_name
-               and ("-qt-module-" in p["SPDXID"] or "-qt-plugin-" in p["SPDXID"])]
-    if len(matches) != 1:
-        sys.exit(f"expected exactly one SBOM package for target {target_name},"
-                 f" found {len(matches)}")
-    root = matches[0]["SPDXID"]
-
     collected, seen, queue = {}, {root}, [root]
     while queue:
         current = queue.pop()
@@ -142,6 +190,55 @@ def third_party_of(sbom, target_name):
             elif "-qt-3rdparty-sources-" in related:
                 collected[package["name"]] = package
     return collected
+
+
+def scan_bundle(bundle, index):
+    """Resolve every shared library in the bundle to the Qt target it came from.
+
+    Returns the Qt targets keyed by SBOM package id, the ICU libraries found,
+    and exits if any library is left that nothing attributes.
+    """
+    if not bundle.is_dir():
+        sys.exit(f"--bundle {bundle} is not a directory")
+
+    targets, icu, unattributed = {}, [], []
+    for path in sorted(p for p in bundle.rglob("*") if p.is_file()):
+        name = path.name
+        parts = path.relative_to(bundle).parts
+        # A framework's binary carries no extension at all, as in
+        # QtCore.framework/Versions/A/QtCore, so an extension test alone walks
+        # straight past every Qt library in a macOS bundle.
+        if not (SHARED_LIBRARY.search(name)
+                or f"{name}.framework" in parts):
+            continue
+        relative = path.relative_to(bundle).as_posix()
+        found = index.get(library_key(name))
+        if found is not None:
+            module, sbom_path, package = found
+            targets.setdefault(package, (module, sbom_path, set()))[2].add(relative)
+        elif ICU_LIBRARY.match(name):
+            icu.append(relative)
+        elif not EASY_PROFILER_LIBRARY.match(name):
+            unattributed.append(relative)
+
+    if unattributed:
+        sys.exit("the bundle carries libraries no SBOM in the Qt install"
+                 " describes, so their third-party code would ship"
+                 " unattributed:\n  " + "\n  ".join(unattributed))
+    if not targets:
+        sys.exit(f"no Qt library or plugin was found in {bundle}")
+    return targets, icu
+
+
+def module_order(modules):
+    """qtbase first, the rest alphabetically.
+
+    Only the order the modules are listed in depends on this; qtbase leads
+    because every other Qt module is built on it, and because the notices quote
+    the configure summary its SBOM carries.
+    """
+    leading = ["qtbase"] if "qtbase" in modules else []
+    return leading + sorted(m for m in modules if m != "qtbase")
 
 
 def sha256(path):
@@ -177,7 +274,13 @@ def describe(package):
 
 
 class Manifest:
-    """The checksums every non-SBOM licence text is held to."""
+    """The checksums every non-SBOM licence text is held to.
+
+    A key names a text, not the Qt release it was fetched from, and may carry
+    several digests: every one of them is a version of that text somebody has
+    reviewed, so two Qt releases that ship the same licence with different
+    bytes can both build once both have been seen.
+    """
 
     def __init__(self, path, update):
         self.path = path
@@ -187,14 +290,14 @@ class Manifest:
             for line in path.read_text(encoding="utf-8").splitlines():
                 if line.strip() and not line.startswith("#"):
                     digest, key = line.split(None, 1)
-                    self.entries[key] = digest
+                    self.entries.setdefault(key, set()).add(digest)
         self.recorded = []
 
     def check(self, key, path):
         digest = sha256(path)
-        expected = self.entries.get(key)
+        accepted = self.entries.get(key, set())
         if self.update:
-            if expected != digest:
+            if digest not in accepted:
                 # A hash diff says nothing about what the text became, and this
                 # is the one moment a human is meant to judge the content. Show
                 # enough of it that an obviously wrong file cannot pass review.
@@ -205,21 +308,27 @@ class Manifest:
                       f"  {path.stat().st_size} bytes, first line: {first[:100]}",
                       file=sys.stderr)
                 self.recorded.append(key)
-            self.entries[key] = digest
+            self.entries.setdefault(key, set()).add(digest)
             return True
-        if expected is None:
+        if not accepted:
             sys.exit(f"{key} is not in {self.path}; review {path} and record it"
                      f" with --update-manifest\n  sha256 {digest}")
-        if expected != digest:
-            print(f"{key}: sha256 {digest}, expected {expected}", file=sys.stderr)
+        if digest not in accepted:
+            print(f"{key}: sha256 {digest}, expected one of "
+                  + ", ".join(sorted(accepted)), file=sys.stderr)
             return False
         return True
 
     def save(self):
         lines = ["# sha256 of every licence text scripts/qt_notices.py uses that",
-                 "# does not come out of Qt's SBOM. Maintained by --update-manifest.",
+                 "# does not come out of Qt's SBOM: the LICENSES/<id>.txt files of",
+                 "# Qt's module repositories and ICU's LICENSE. Keyed by text, not",
+                 "# by Qt release, since the texts are the same across releases.",
+                 "# Maintained by --update-manifest, which adds and never removes.",
                  ""]
-        lines += [f"{digest}  {key}" for key, digest in sorted(self.entries.items())]
+        lines += [f"{digest}  {key}"
+                  for key, digests in sorted(self.entries.items())
+                  for digest in sorted(digests)]
         self.path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -251,9 +360,10 @@ def fetch(urls, destination):
 class Texts:
     """Resolves each licence text to a verified file, fetching when allowed."""
 
-    def __init__(self, args, manifest):
+    def __init__(self, args, manifest, modules):
         self.args = args
         self.manifest = manifest
+        self.modules = modules
         self.offline = {}
         for directory in args.qt_source:
             for path in sorted(directory.rglob("LICENSES/*.txt")):
@@ -288,14 +398,17 @@ class Texts:
 
     def qt(self, identifier):
         version = self.args.qt_version
-        key = f"qt-{version}/LICENSES/{identifier}.txt"
+        key = f"LICENSES/{identifier}.txt"
         if self.args.qt_source:
             if identifier not in self.offline:
                 sys.exit(f"no LICENSES/{identifier}.txt in the given Qt sources")
             return self.verified(key, self.offline[identifier], None)
         urls = [pattern.format(module=module, id=identifier, version=version)
-                for pattern in QT_TEXT_URLS for module in SHIPPED]
-        return self.verified(key, self.args.cache_dir / key, urls)
+                for pattern in QT_TEXT_URLS for module in self.modules]
+        # Cached per release even though the manifest is not: the file is what
+        # that release's tag served, and a text that fails the check is
+        # discarded and fetched again from the same place.
+        return self.verified(key, self.args.cache_dir / f"qt-{version}" / key, urls)
 
     def icu(self):
         version = self.args.icu_version
@@ -309,10 +422,13 @@ class Texts:
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--bundle", required=True, type=pathlib.Path,
+                        help="the assembled bundle whose libraries are attributed")
     parser.add_argument("--qt-install", required=True, type=pathlib.Path)
     parser.add_argument("--qt-version", required=True)
-    parser.add_argument("--icu-version", required=True,
-                        help="the ICU release the Qt install carries, e.g. 73.2")
+    parser.add_argument("--icu-version",
+                        help="the ICU release the bundle carries, e.g. 73.2;"
+                             " required exactly when the bundle carries ICU")
     parser.add_argument("--out", required=True, type=pathlib.Path)
     parser.add_argument("--cache-dir", type=pathlib.Path,
                         default=pathlib.Path.home() / ".cache/easy_profiler/qt-notices",
@@ -328,19 +444,32 @@ def main():
                         help="record the checksums of the texts used instead"
                              " of checking them")
     args = parser.parse_args()
-    if not re.fullmatch(r"\d+\.\d+", args.icu_version):
+    if args.icu_version and not re.fullmatch(r"\d+\.\d+", args.icu_version):
         sys.exit(f"--icu-version must be major.minor, got {args.icu_version!r}")
 
+    targets, icu_libraries = scan_bundle(
+        args.bundle, shipped_index(args.qt_install, args.qt_version))
+    if icu_libraries and not args.icu_version:
+        sys.exit("the bundle carries ICU and Qt's SBOM states no licence for"
+                 " it, so --icu-version is required:\n  "
+                 + "\n  ".join(icu_libraries))
+    if args.icu_version and not icu_libraries:
+        sys.exit(f"--icu-version {args.icu_version} was given but {args.bundle}"
+                 " carries no ICU; the notices would attribute a library that"
+                 " is not there")
+
+    modules = module_order({module for module, _, _ in targets.values()})
     manifest = Manifest(args.manifest, args.update_manifest)
-    texts = Texts(args, manifest)
+    texts = Texts(args, manifest, modules)
 
     components = {}
     extracted = {}
     sbom_paths = []
     module_roots = []
     build_comment = None
-    for module, targets in SHIPPED.items():
-        sbom, path = load_sbom(args.qt_install, module, args.qt_version)
+    for module in modules:
+        path = next(p for m, p, _ in targets.values() if m == module)
+        sbom = load_sbom(path)
         sbom_paths.append(path)
         for info in sbom["hasExtractedLicensingInfos"]:
             extracted.setdefault(info["licenseId"], info["extractedText"])
@@ -348,14 +477,16 @@ def main():
         module_roots.append((module, root))
         if build_comment is None:
             build_comment = root.get("comment", "").strip()
-        for target, shipped_as in targets:
-            for name, package in third_party_of(sbom, target).items():
+        for package, (owner, _, shipped_as) in targets.items():
+            if owner != module:
+                continue
+            for name, third_party in third_party_of(sbom, package).items():
                 entry = components.setdefault(name, {
-                    "package": package,
+                    "package": third_party,
                     "module": module,
                     "shipped_in": set(),
                 })
-                entry["shipped_in"].add(shipped_as)
+                entry["shipped_in"].update(shipped_as)
 
     wanted = set(QT_LICENCE_TEXTS)
     for entry in components.values():
@@ -374,7 +505,7 @@ def main():
             path = texts.qt(identifier)
             texts_of[identifier] = (path.read_text(encoding="utf-8"),
                                     f"Qt {args.qt_version} LICENSES/{identifier}.txt")
-    icu_license = texts.icu()
+    icu_license = texts.icu() if icu_libraries else None
     if args.update_manifest:
         manifest.save()
         for key in manifest.recorded:
@@ -385,8 +516,9 @@ def main():
     for identifier, filename in (("LGPL-3.0-only", "LICENSE.LGPLv3"),
                                  ("GPL-3.0-only", "LICENSE.GPLv3")):
         (args.out / filename).write_text(texts_of[identifier][0], encoding="utf-8")
-    (args.out / "LICENSE.ICU").write_text(
-        icu_license.read_text(encoding="utf-8"), encoding="utf-8")
+    if icu_license is not None:
+        (args.out / "LICENSE.ICU").write_text(
+            icu_license.read_text(encoding="utf-8"), encoding="utf-8")
 
     lines = []
     emit = lines.append
@@ -399,7 +531,8 @@ def main():
     emit("# Third-party notices for the Qt libraries in this bundle")
     emit("")
     emit(f"Qt version: {args.qt_version}")
-    emit(f"ICU version: {args.icu_version}")
+    if icu_libraries:
+        emit(f"ICU version: {args.icu_version}")
     emit("")
     para("""This file is generated by `scripts/qt_notices.py` when the bundle
         is assembled, from the Qt install the bundle was built against; it is
@@ -427,10 +560,11 @@ def main():
         `scripts/qt_notices.sha256`, or the `hasExtractedLicensingInfos` text
         embedded in the SBOM for the `LicenseRef-` identifiers Qt defines
         itself.""")
-    para("""`LICENSE.ICU` is ICU's own LICENSE file, which the SBOM does not
-        carry: it records ICU as a system dependency with no licence stated,
-        yet the official Linux Qt packages put ICU in `lib/`, so the bundle
-        redistributes it.""")
+    if icu_libraries:
+        para("""`LICENSE.ICU` is ICU's own LICENSE file, which the SBOM does not
+            carry: it records ICU as a system dependency with no licence stated,
+            yet the official Linux Qt packages put ICU in `lib/`, so the bundle
+            redistributes it.""")
     if build_comment:
         para("Qt's SBOM describes the bundled binaries as built this way:")
         for line in build_comment.splitlines():
@@ -456,13 +590,14 @@ def main():
         emit(f"  - release tarball: "
              f"`{module}-everywhere-src-{args.qt_version}.tar.xz`")
     emit("")
-    emit("## ICU")
-    emit("")
-    para(f"""The bundle carries ICU {args.icu_version} (`libicuuc`,
-        `libicui18n`, `libicudata`), taken from the official Qt package,
-        which Qt Core and Qt Core5Compat link against. ICU is licensed under
-        the Unicode licence; see `LICENSE.ICU` for the full text, which also
-        carries ICU's own third-party notices.""")
+    if icu_libraries:
+        emit("## ICU")
+        emit("")
+        para(f"""The bundle carries ICU {args.icu_version} (`libicuuc`,
+            `libicui18n`, `libicudata`), taken from the official Qt package,
+            which Qt Core and Qt Core5Compat link against. ICU is licensed under
+            the Unicode licence; see `LICENSE.ICU` for the full text, which also
+            carries ICU's own third-party notices.""")
     emit("## Third-party code inside the Qt libraries shipped here")
     emit("")
 
@@ -515,12 +650,14 @@ def main():
     notices = args.out / "THIRD-PARTY-NOTICES.md"
     notices.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
 
-    print(f"{len(components)} third-party components, "
+    print(f"{len(targets)} Qt targets in {args.bundle}, "
+          f"{len(components)} third-party components, "
           f"{len(wanted)} licence texts")
     print(f"wrote {notices}")
     for path in sbom_paths:
         print(f"  from {path}  sha256 {sha256(path)}")
-    print(f"  from {icu_license}  sha256 {sha256(icu_license)}")
+    if icu_license is not None:
+        print(f"  from {icu_license}  sha256 {sha256(icu_license)}")
 
 
 if __name__ == "__main__":
