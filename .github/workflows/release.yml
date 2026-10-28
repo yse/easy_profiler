@@ -527,28 +527,40 @@ jobs:
           # (QTBUG-137687) and remains the documented floor; macOS cannot use
           # the 6.8 line at all, because the fix landed in 6.8.4 and that line
           # has no open-source binaries past 6.8.3.
+          # qt_arch is what aqt is asked for; qt_dir is what it unpacks into,
+          # and the two do not match. Both were read from Qt's own repository
+          # index rather than guessed.
           - name: windows-x64-qt6.12.0
             os: windows-2025
             qt: 6.12.0
+            qt_host: windows
+            qt_arch: win64_msvc2022_64
+            qt_dir: msvc2022_64
           - name: macos-arm64-qt6.12.0
             os: macos-15
             qt: 6.12.0
+            qt_host: mac
+            qt_arch: clang_64
+            qt_dir: macos
     steps:
       - uses: actions/checkout@v7
 
-      # install-qt-action drives aqtinstall, which needs a real python. On the
-      # Windows runner the first python on PATH is the WindowsApps execution
-      # alias, which answers a stat with EACCES and made the action fail before
-      # it did anything. Providing an interpreter first avoids the stub.
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - uses: jurplel/install-qt-action@v4.5.0
-        with:
-          version: ${{ matrix.qt }}
-          modules: qt5compat
-          cache: true
+      # aqtinstall directly, not install-qt-action: that action reported
+      # "Action not built" on windows-2025 in both v4.4.1 and v4.5.0 while
+      # working on macOS, and this job exists to test our code, not a third
+      # party's packaging. It is also what the Linux GUI job and RELEASING.md
+      # already use, so there is one way to obtain Qt rather than two.
+      - name: Install Qt
+        shell: bash
+        run: |
+          python -m pip install --quiet aqtinstall
+          python -m aqt install-qt ${{ matrix.qt_host }} desktop ${{ matrix.qt }} \
+            ${{ matrix.qt_arch }} -m qt5compat -O "$PWD/qt"
+          test -d "$PWD/qt/${{ matrix.qt }}/${{ matrix.qt_dir }}"
 
       - name: Configure
         shell: bash
@@ -559,6 +571,7 @@ jobs:
           -DBUILD_TESTING=OFF
           -DBUILD_SHARED_LIBS=ON
           -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          -DCMAKE_PREFIX_PATH="$PWD/qt/${{ matrix.qt }}/${{ matrix.qt_dir }}"
 
       - name: Build
         run: cmake --build build/gui --config RelWithDebInfo --parallel 4 --target profiler_gui
