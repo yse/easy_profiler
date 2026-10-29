@@ -453,6 +453,7 @@ jobs:
     name: Verify GUI linux-x86_64
     needs: [version-gate, gui-linux]
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     # No Qt is installed here. A container with nothing but the base system
     # proves the bundle carries what it needs: on the build runner the system
     # Qt would satisfy the binary whether the bundle were complete or not.
@@ -491,8 +492,10 @@ jobs:
           # libQt6XcbQpa to have come along. Offscreen afterwards, because it
           # reaches the same Qt libraries and SVG plugins without an X server
           # and so is the check that stays meaningful if Xvfb ever breaks.
-          QT_QPA_PLATFORM=xcb xvfb-run -a ./run.sh --self-test
-          QT_QPA_PLATFORM=offscreen ./run.sh --self-test
+          # Bounded for the reason the Windows job's runs are: a self-test
+          # takes seconds, and a GUI that stops making progress stops quietly.
+          QT_QPA_PLATFORM=xcb timeout 120 xvfb-run -a ./run.sh --self-test
+          QT_QPA_PLATFORM=offscreen timeout 120 ./run.sh --self-test
 
   gui-windows:
     name: GUI windows-x86_64
@@ -593,6 +596,10 @@ jobs:
     # build runner the Qt on PATH would satisfy the binary whether the bundle
     # were complete or not.
     runs-on: windows-2025
+    # Nothing here should take minutes, and the first run of this job sat for
+    # 37 of them before anyone looked: a GUI-subsystem process that cannot
+    # start, or cannot finish, reports it through a window nobody can see.
+    timeout-minutes: 15
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -615,15 +622,28 @@ jobs:
 
           # profiler_gui is a GUI-subsystem executable with no console:
           # PowerShell does not wait for one and $LASTEXITCODE would be stale,
-          # so Start-Process -Wait, with the redirections that make its
-          # fprintf output visible at all.
+          # so Start-Process, with the redirections that make its fprintf
+          # output visible at all.
+          #
+          # The wait is bounded rather than -Wait. A self-test takes seconds,
+          # and anything that stops it on this runner - a missing DLL, a
+          # fault, a window that never settles - stops it silently and
+          # forever. The QPA logging is on for the same reason: a bounded wait
+          # that reports nothing but the timeout says only that something
+          # hung, not where.
           function Invoke-SelfTest($platform) {
             $env:QT_QPA_PLATFORM = $platform
+            $env:QT_LOGGING_RULES = 'qt.qpa.*=true'
             $process = Start-Process -FilePath (Resolve-Path ./profiler_gui.exe) `
-              -ArgumentList '--self-test' -Wait -PassThru -NoNewWindow `
+              -ArgumentList '--self-test' -PassThru -NoNewWindow `
               -RedirectStandardOutput "../../$platform.out" `
               -RedirectStandardError "../../$platform.err"
+            $finished = $process.WaitForExit(120000)
+            if (-not $finished) { $process.Kill($true) }
             Get-Content "../../$platform.out", "../../$platform.err" -ErrorAction SilentlyContinue
+            if (-not $finished) {
+              throw "the $platform self-test did not finish within two minutes"
+            }
             if ($process.ExitCode -ne 0) {
               throw "the $platform self-test failed with exit code $($process.ExitCode)"
             }
