@@ -13,7 +13,7 @@ to a person, and the reasoning behind the pipeline's shape.
 | `easy_profiler-<v>-macos-universal-{shared,static}.tar.gz` | macOS consumers, arm64 and x86_64, deployment target 11.0 |
 | `easy_profiler-<v>-windows-x64-{shared,static}.zip` | Windows consumers. The shared zip carries the PDB |
 | `easy_profiler_gui-<v>-linux-x86_64.tar.gz` | The GUI, self-contained except for X11, OpenGL and glibc. glibc floor 2.35, the same as the SDK packages |
-| `easy_profiler_gui-<v>-windows-x86_64.zip` | The GUI, self-contained except for the MSVC runtime. Has not yet been through CI; see below |
+| `easy_profiler_gui-<v>-windows-x86_64.zip` | The GUI, self-contained except for the MSVC runtime. The one asset a person checks by hand; see below |
 | `SHA256SUMS` | Everyone |
 
 This table and the `ASSETS` list in the `checksums` job of the workflow name
@@ -50,15 +50,18 @@ x64, and both are on the publish chain. The Linux one has the evidence: the
 GUI builds unmodified against every Qt 6 tried, from Ubuntu 24.04's 6.4.2 to
 the official 6.12.0, loads a six-million block capture, and runs from a
 self-contained bundle on a machine with no Qt installed. The Windows one has
-never run through CI; whether it ships is decided at the rehearsal, step 7
-below, and leaving it out is the edit described under "Releasing without a
-product".
+most of it, as of 2026-10-29: the GUI compiles with MSVC, `windeployqt` and
+`scripts/qt_notices.py` produce a bundle, and it unpacks on an image that did
+not build it and passes its self-test there. The one thing no hosted runner
+can answer is whether it opens a window, which is why that is a check a person
+makes; see below. Whether it ships is decided at the rehearsal, step 7 below,
+and leaving it out is the edit described under "Releasing without a product".
 
-### What still blocks the Windows GUI
+### The Windows GUI
 
-The packaging exists: `gui-windows` and `gui-verify-windows` in the release
+The packaging is `gui-windows` and `gui-verify-windows` in the release
 workflow, and `scripts/make_gui_bundle.ps1`, which does for `windeployqt` what
-`make_gui_bundle.sh` does for `ldd`. None of it has run yet.
+`make_gui_bundle.sh` does for `ldd`.
 
 Both bundle scripts create their output directory and refuse one that already
 exists, so a mistyped destination cannot cost a tree; the workflow stages into
@@ -101,18 +104,29 @@ TLS failure injected by `tests/support/aqt_fault`. The online tests are the
 proof that the stand-in's messages are the real ones; run them when aqtinstall
 is upgraded.
 
-These are the answers still owed, none of which can be had without a green
-run:
+A green run answered most of what was owed. The GUI compiles with MSVC.
+`windeployqt` does deploy the SVG image-format and icon-engine plugins, which
+Qt's deployment documentation promises nowhere - it states no default plugin
+set and no rule for choosing one - so the bundle script still asserts both are
+present, and if that ever fires the fix is `--include-plugins qsvg,qsvgicon`,
+not deleting the check: all 57 toolbar icons are SVG resources, and without
+those plugins the toolbars render empty with no diagnostic of any kind.
+`Compress-Archive` and `Expand-Archive` behave like `tar -C stage`, with the
+bundle directory as the archive root.
 
-- whether the GUI compiles with MSVC at all. Nothing has ever tried.
-- whether `windeployqt` deploys the SVG image-format and icon-engine plugins.
-  Qt's deployment documentation states no default plugin set and no rule for
-  choosing one. The bundle script asserts both are present and fails if they
-  are not; the fix is `--include-plugins qsvg,qsvgicon`, not deleting the check.
-  All 57 toolbar icons are SVG resources, and without those plugins the toolbars
-  render empty with no diagnostic of any kind, which is also why
-  `gui-verify-windows` runs `--self-test`: it counts rendered icons.
-- whether the bundle starts without the MSVC runtime. It is built with
+Two things remain outside what CI can say:
+
+- **whether the GUI opens a window on Windows.** Nothing on a hosted runner
+  can try. `gui-verify-windows` runs the self-test under `offscreen`, which
+  exercises the Qt libraries, the SVG plugins and the icons, and then loads
+  every library in the bundle so that a plugin missing a dependency is still
+  caught. Under `QT_QPA_PLATFORM=windows` the same self-test produced no
+  output at all - not even with `qt.qpa.*` logging on - and was killed at two
+  minutes: a hosted runner has no desktop session, and Windows has no Xvfb to
+  stand in for one, as the Linux job uses. **Before tagging, unpack the
+  Windows bundle on a real desktop and start `profiler_gui.exe` once.** That
+  is the only check in this document a machine does not make.
+- **whether the bundle starts without the MSVC runtime.** It is built with
   `--no-compiler-runtime`, because Qt's own documentation says the runtime
   windeployqt falls back to on a developer machine is "not intended or licensed
   for redistribution", and because the notices generator cannot attribute it.
@@ -120,8 +134,6 @@ run:
   Windows images have it installed, so a green `gui-verify-windows` does *not*
   prove the bundle runs on a machine that does not. Shipping the official
   redistributable instead is a licensing decision, not a technical one.
-- what `Compress-Archive` and `Expand-Archive` do with the bundle directory.
-  Expected to behave like `tar -C stage` with the directory as the archive root.
 
 ### Which Qt
 
@@ -299,7 +311,9 @@ Do these in order. Steps 1 to 4 are a single commit.
 7. Read the rehearsal's job list. Every `sdk`, `sdk-verify` and `gui` cell is on
    the publish chain, so any red cell means no draft release. Decide here
    whether a platform ships, not after tagging; "Releasing without a product"
-   is the edit.
+   is the edit. Then download the rehearsal's `gui-windows-x86_64` artifact,
+   unpack it on a Windows desktop and start `profiler_gui.exe`: no runner can
+   make that check, and "The Windows GUI" says why.
 8. Tag and push: `git tag -a v<version> -m "easy_profiler <version>"`, then
    `git push origin v<version>`.
 9. The workflow builds a **draft** release. Download an asset or two, unpack

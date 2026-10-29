@@ -650,11 +650,41 @@ jobs:
           }
 
           # --self-test fails unless both SVG plugins loaded and the toolbar
-          # icons rendered, which Qt otherwise reports nowhere. Offscreen
-          # first, since it cannot fail for a reason outside the bundle; the
-          # windows plugin after, being the one a user loads.
+          # icons rendered, which Qt otherwise reports nowhere.
           Invoke-SelfTest 'offscreen'
-          Invoke-SelfTest 'windows'
+
+          # The real platform plugin is not exercised here, and cannot be. A
+          # hosted Windows runner has no desktop session, and under
+          # QT_QPA_PLATFORM=windows the self-test neither passed nor failed:
+          # it produced no output at all, not even the QPA logging above, and
+          # was killed at two minutes. The Linux job runs its real plugin
+          # under Xvfb; Windows has nothing to stand in for one. RELEASING.md
+          # carries this as a check a person makes before tagging.
+          #
+          # What a runner can still answer is the question the loader would
+          # have answered: does every library in the bundle resolve what it
+          # imports. Loading each one asks exactly that, window or no window,
+          # and covers the plugins no self-test reaches - the TLS backends,
+          # the network information plugin, the style.
+          #
+          # The bundle root goes on PATH because the plugins sit in
+          # subdirectories while Qt6Gui.dll and the rest sit beside the
+          # executable, which is where a real run finds them.
+          $env:PATH = "$PWD;$env:PATH"
+          $libraries = Get-ChildItem -Path . -Recurse -Filter *.dll -File
+          $failures = @()
+          foreach ($library in $libraries) {
+            try {
+              [System.Runtime.InteropServices.NativeLibrary]::Load($library.FullName) | Out-Null
+            } catch {
+              $name = Resolve-Path -Relative $library.FullName
+              $failures += "$name : $($_.Exception.Message)"
+            }
+          }
+          if ($failures) {
+            throw ("these libraries do not load:`n  " + ($failures -join "`n  "))
+          }
+          Write-Host "all $($libraries.Count) libraries in the bundle resolve their imports"
 
   gui-build-check:
     name: GUI build check (${{ matrix.name }})
