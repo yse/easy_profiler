@@ -244,6 +244,17 @@ def module_order(modules):
     return leading + sorted(m for m in modules if m != "qtbase")
 
 
+def write(path, text):
+    """Write text with LF endings whatever the platform.
+
+    A licence text is held to a digest of the bytes it was fetched as, and on
+    Windows the default text mode would turn every one of those bytes into a
+    pair the manifest does not describe. The same applies to the manifest
+    itself, which --update-manifest rewrites in place.
+    """
+    path.write_text(text, encoding="utf-8", newline="\n")
+
+
 def sha256(path):
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -332,7 +343,7 @@ class Manifest:
         lines += [f"{digest}  {key}"
                   for key, digests in sorted(self.entries.items())
                   for digest in sorted(digests)]
-        self.path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        write(self.path, "\n".join(lines) + "\n")
 
 
 def fetch(urls, destination):
@@ -578,14 +589,12 @@ def main():
 
     for identifier, filename in (("LGPL-3.0-only", "LICENSE.LGPLv3"),
                                  ("GPL-3.0-only", "LICENSE.GPLv3")):
-        (args.out / filename).write_text(texts_of[identifier][0], encoding="utf-8")
+        write(args.out / filename, texts_of[identifier][0])
     if icu_license is not None:
-        (args.out / "LICENSE.ICU").write_text(
-            icu_license.read_text(encoding="utf-8"), encoding="utf-8")
+        write(args.out / "LICENSE.ICU", icu_license.read_text(encoding="utf-8"))
 
-    (args.out / "QT_NOTICE.md").write_text(
-        qt_notice(args, module_roots, bool(icu_libraries), "IJG" in wanted),
-        encoding="utf-8")
+    write(args.out / "QT_NOTICE.md",
+          qt_notice(args, module_roots, bool(icu_libraries), "IJG" in wanted))
 
     lines = []
     emit = lines.append
@@ -714,7 +723,7 @@ def main():
         emit("")
 
     notices = args.out / "THIRD-PARTY-NOTICES.md"
-    notices.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
+    write(notices, "\n".join(lines).rstrip("\n") + "\n")
 
     print(f"{len(targets)} Qt targets in {args.bundle}, "
           f"{len(components)} third-party components, "

@@ -64,9 +64,11 @@ class Workspace:
         for identifier in texts:
             path = self.source / "LICENSES" / f"{identifier}.txt"
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(text_of(identifier), encoding="utf-8")
+            # Bytes, because these are the texts the manifest holds to a digest:
+            # written as text, Windows would store a file no digest describes.
+            path.write_bytes(text_of(identifier).encode("utf-8"))
         self.icu_license = self.root / "icu-LICENSE"
-        self.icu_license.write_text(text_of("ICU"), encoding="utf-8")
+        self.icu_license.write_bytes(text_of("ICU").encode("utf-8"))
         self.cache = self.root / "cache"
         self.out = self.root / "out"
         self.manifest = self.root / "manifest.sha256"
@@ -82,7 +84,7 @@ class Workspace:
     def write_manifest(self, digests):
         self.manifest.write_text(
             "".join(f"{digest}  {key}\n" for key, digest in sorted(digests.items())),
-            encoding="utf-8")
+            encoding="utf-8", newline="\n")
 
     def read_manifest(self):
         entries = {}
