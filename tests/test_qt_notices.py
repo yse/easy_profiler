@@ -312,5 +312,45 @@ class FetchTest(unittest.TestCase):
         self.assertEqual(space.generated("LICENSE.LGPLv3"), text_of("LGPL-3.0-only"))
 
 
+class RealManifestCoversTheFixtures(unittest.TestCase):
+    """The manifest in the repository, against the licences real Qt asks for.
+
+    Every other test here runs on a manifest the test writes, which checks the
+    generator but says nothing about the file we ship with. A missing entry is
+    how the JPEG plugin's IJG licence reached a release branch: nothing failed
+    until a bundle was assembled. This reads the ids out of the real SBOM
+    excerpts and requires the real manifest to carry each one. The texts and
+    their digests stay unchecked here - only assembling a bundle can do that -
+    so no licence text has to live in the repository.
+    """
+
+    def test_every_licence_id_in_the_fixtures_is_in_the_manifest(self):
+        manifest = pathlib.Path(__file__).resolve().parents[1] / "scripts"
+        manifest = manifest / "qt_notices.sha256"
+        recorded = {line.split("  ", 1)[1].strip()
+                    for line in manifest.read_text(encoding="utf-8").splitlines()
+                    if line.strip() and not line.startswith("#")}
+
+        required = {}
+        for fixture in sorted(FIXTURES.glob("*.spdx.json")):
+            sbom = qt_notices.load_sbom(fixture)
+            extracted = {entry["licenseId"] for entry
+                         in sbom.get("hasExtractedLicensingInfos", [])}
+            for package in sbom.get("packages", []):
+                expression = qt_notices.clean(package.get("licenseConcluded"))
+                for identifier in qt_notices.spdx_ids(expression or ""):
+                    # Qt carries the text of its own LicenseRef- ids in the
+                    # SBOM, so those are never fetched and never recorded.
+                    if identifier in extracted or identifier == "NOASSERTION":
+                        continue
+                    required.setdefault(identifier, fixture.name)
+
+        missing = sorted((f"LICENSES/{i}.txt", source)
+                         for i, source in required.items()
+                         if f"LICENSES/{i}.txt" not in recorded)
+        self.assertEqual(missing, [], "licence ids named by the SBOM fixtures "
+                                      "but absent from scripts/qt_notices.sha256")
+
+
 if __name__ == "__main__":
     unittest.main()
