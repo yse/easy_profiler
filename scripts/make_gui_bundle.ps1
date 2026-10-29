@@ -130,12 +130,37 @@ if (-not $coreVersion.StartsWith($qtVersion)) {
           " first on PATH.")
 }
 
+# The official Windows Qt packages ship no ICU of their own, yet Qt6Core.dll
+# imports icuuc.dll - by unversioned symbol names, which is how a build links
+# the ICU that Windows itself provides in System32. windeployqt resolves that
+# import against the host and copies the system DLL into the bundle, which is
+# neither ours to redistribute nor anything Qt's SBOM describes, so the notices
+# generator below refuses the bundle outright. Drop it: Qt6Core finds the same
+# library through the normal search order on the user's machine, which is where
+# it was always meant to come from.
+$qtBin = Join-Path $qtPrefix 'bin'
+foreach ($icu in @(Get-ChildItem -Path $OutDir -Filter 'icu*.dll' -File)) {
+    if (Test-Path (Join-Path $qtBin $icu.Name)) {
+        Fail ("$($icu.Name) was deployed from $qtBin, so this Qt ships its own" +
+              " ICU and the bundle must attribute it rather than drop it. Pass" +
+              " --icu-version to $noticesGenerator with that ICU's release.")
+    }
+    $system = Join-Path $env:SystemRoot "System32/$($icu.Name)"
+    if (-not (Test-Path $system)) {
+        Fail ("$($icu.Name) came from the host rather than from $qtBin, and" +
+              " $system does not exist, so removing it would leave a bundle" +
+              " that cannot start. Find what put $($icu.Name) on PATH.")
+    }
+    Remove-Item $icu.FullName
+    Write-Host "dropped $($icu.Name): the system ICU, which Windows provides"
+}
+
 #####################################################################
 # Licences. Identical duties to the Linux bundle, see make_gui_bundle.sh. The
 # generator attributes the finished bundle rather than a list kept by hand, so
 # a DLL windeployqt decides to add tomorrow cannot ship without its notice.
-# The Windows Qt packages carry no ICU, so --icu-version is not passed and
-# the generator refuses it if one appears.
+# No --icu-version is passed, because nothing ICU is left to attribute; the
+# generator refuses the bundle if any of it reappears.
 #####################################################################
 
 $cacheOption = @()
@@ -194,6 +219,12 @@ asset is listed in SHA256SUMS, and carries a Sigstore build provenance
 attestation that ties it to the workflow run and commit that produced it:
 
     gh attestation verify ${bundleName}.zip --repo yse/easy_profiler
+
+Windows 10 version 1809 or newer
+
+Qt requires it, and the bundle uses the Unicode library that Windows itself has
+provided since Windows 10 version 1703. An error naming a missing icuuc.dll
+means this Windows is older than that.
 
 Microsoft Visual C++ runtime
 

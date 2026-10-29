@@ -4,7 +4,10 @@ The SBOMs under tests/qt_notices/ are verbatim excerpts of the ones the
 official Qt packages carry: qtbase and qtsvg from the Linux arm64 6.12.0
 package, qtbase from the Windows msvc2022_64 6.10.3 package, each cut down to
 the Core or Svg module, one or two plugins, and the third-party packages, files
-and relationships the SBOM ties to them. The licence texts are stand-ins the
+and relationships the SBOM ties to them. The Windows excerpt also carries Qt
+Network's Public Suffix List entry, with no file of its own: it is there so the
+manifest check below sees a licence no Core or Svg component asks for, which is
+how the real Windows bundle differs. The licence texts are stand-ins the
 test writes, held to a manifest the test writes for them: no GPL text belongs
 in this repository. Run with: python3 -m unittest tests/test_qt_notices.py
 """

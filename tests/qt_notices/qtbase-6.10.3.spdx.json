@@ -640,6 +640,36 @@
    "versionInfo": "6.10.3"
   },
   {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Network-Attribution-psl-data-d30718e9a9f6",
+   "comment": "\nCMake target name: Network_Attribution_psl-data\n    Information extracted from:\n     /src_dir/qtbase/src/3rdparty/libpsl/qt_attribution.json\n    Entry index: 0\n    Id: psl-data\n    Name: The Public Suffix List\n    Description: The Public Suffix List is an initiative of Mozilla,\nbut is maintained as a community resource. It is available for use in any software,\nbut was originally created to meet the needs of browser manufacturers.\nIt allows browsers to, for example:\n\n- Avoid privacy-damaging \"supercookies\" being set for high-level domain name suffixes\n\n- Highlight the most important part of a domain name in the user interface\n\n- Accurately sort history entries by site\n    Qt usage: Used in Qt Network to avoid setting \"supercookies\" in the cookie jar\nsupported by Qt (by the QNetworkCookieJar class).\n    License: Mozilla Public License 2.0\n    License file: PSL-LICENSE.txt\n",
+   "copyrightText": "The list was originally provided by Jo Hermans <jo.hermans@gmail.com>.\nIt is now maintained on github (https://github.com/publicsuffix/list).",
+   "downloadLocation": "https://publicsuffix.org/list/public_suffix_list.dat",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/psl-data@944fb53321606f08740f04ef7c386f64df34ff76?download_url=https://publicsuffix.org/list/public_suffix_list.dat",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=Network_Attribution_psl-data#src/network",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-Network_Attribution_psl-data@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=Network_Attribution_psl-data#src/network",
+     "referenceType": "purl"
+    }
+   ],
+   "filesAnalyzed": false,
+   "licenseConcluded": "MPL-2.0",
+   "licenseDeclared": "NOASSERTION",
+   "name": "Network_Attribution_psl-data",
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "2026-01-16_13-11-47_UTC"
+  },
+  {
    "SPDXID": "SPDXRef-Package-qtbase-qt-bundled-3rdparty-module-BundledLibjpeg-d30718e9a9f6",
    "comment": "\nCMake target name: BundledLibjpeg\nCMake exported target name: Qt6::BundledLibjpeg\nContained in CMake package: Qt6BundledLibjpeg\n    Information extracted from:\n     /src_dir/qtbase/src/3rdparty/libjpeg/qt_attribution.json\n    Entry index: 0\n    Id: libjpeg\n    Name: LibJPEG-turbo\n    Description: The Independent JPEG Group's JPEG software\n    Qt usage: Used in the qjpeg image plugin. Configure with -system-libjpeg or -no-libjpeg to avoid.\n    License: Independent JPEG Group License and BSD 3-Clause \"New\" or \"Revised\" License\n",
    "copyrightText": "Copyright (C) 2009-2026 D. R. Commander\nCopyright (C) 2015-2016, 2018, 2022 Matthieu Darbois\nCopyright (C) 2019-2021 Arm Limited\nCopyright (C) 2015, 2020 Google, Inc.\nCopyright (C) 2011, 2014, 2016 Siarhei Siamashka\nCopyright (C) 2015 Intel Corporation\nCopyright (C) 2013-2014 Linaro Limited\nCopyright (C) 2013-2014 MIPS Technologies, Inc.\nCopyright (C) 2009, 2012 Pierre Ossman for Cendio AB\nCopyright (C) 2009-2011 Nokia Corporation and/or its subsidiary(-ies)\nCopyright (C) 1999-2006 MIYASAKA Masaru\nCopyright (C) 1999 Ken Murchison\nCopyright (C) 1991-2020 Thomas G. Lane, Guido Vollbeding\n",
@@ -1095,6 +1125,11 @@
   {
    "spdxElementId": "SPDXRef-Package-qtbase-qt-plugin-QJpegPlugin-d30718e9a9f6",
    "relatedSpdxElement": "SPDXRef-PackagedFile-qt-plugin-QJpegPlugin-Debug-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Network-Attribution-psl-data-d30718e9a9f6",
    "relationshipType": "CONTAINS"
   }
  ]
