@@ -1,0 +1,1101 @@
+{
+ "SPDXID": "SPDXRef-DOCUMENT",
+ "creationInfo": {
+  "created": "2026-03-27T14:37:20Z",
+  "creators": [
+   "Organization: TheQtCompany",
+   "Tool: Qt Build System"
+  ],
+  "comment": "This SPDX document was created from CMake 3.30.5, using the qt\nbuild system from https://code.qt.io/cgit/qt/qtbase.git/tree/cmake/QtPublicSbomHelpers.cmake"
+ },
+ "dataLicense": "CC0-1.0",
+ "hasExtractedLicensingInfos": [
+  {
+   "extractedText": "Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:\n\n    1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.\n    2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.\n    3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.\n\nEXEMPTION FOR BINARY LIBRARY-LIKE PACKAGES\n------------------------------------------\n\nThe second condition in the BSD licence (covering binary redistributions) does not apply all the way down a chain of software. If binary package A includes PCRE2, it must respect the condition, but if package B is software that includes package A, the condition is not imposed on package B unless it uses PCRE2 independently.\n",
+   "licenseId": "LicenseRef-BSD-3-Clause-with-PCRE2-Binary-Like-Packages-Exception"
+  },
+  {
+   "extractedText": "For the file sRGB2014.icc:\n\nCopyright International Color Consortium, 2015\n\nThis profile is made available by the International Color Consortium, and may be copied,\ndistributed, embedded, made, used, and sold without restriction. Altered versions of this\nprofile shall have the original identification and copyright information removed and\nshall not be misrepresented as the original profile.\n\n(original source location: http://www.color.org/srgbprofiles.xalter)\n",
+   "licenseId": "LicenseRef-ICC-License"
+  },
+  {
+   "extractedText": "The text and information contained in this file may be freely used,\ncopied, or distributed without compensation or licensing restrictions.\n",
+   "licenseId": "LicenseRef-Lcs-Telegraphics"
+  },
+  {
+   "extractedText": "Licensees holding valid commercial Qt licenses may use this software in\naccordance with the the terms contained in a written agreement between\nyou and The Qt Company. Alternatively, the terms and conditions that were\naccepted by the licensee when buying and/or downloading the\nsoftware do apply.\n\nFor the latest licensing terms and conditions, see https://www.qt.io/terms-conditions.\nFor further information use the contact form at https://www.qt.io/contact-us.\n",
+   "licenseId": "LicenseRef-Qt-Commercial"
+  },
+  {
+   "extractedText": "100% free public domain implementation of the SHA-1 algorithm\nby Dominik Reichl <dominik.reichl@t-online.de>\nWeb: http://www.dominik-reichl.de/\n",
+   "licenseId": "LicenseRef-SHA1-Public-Domain"
+  }
+ ],
+ "name": "qtbase-6.10.3",
+ "spdxVersion": "SPDX-2.3",
+ "documentNamespace": "https://qt.io/spdxdocs/qtbase-7ddbc87d+HEAD-host-windows-amd64-target-windows-msvc-amd64-92acb8ed-809a-569d-88a1-a8ab0b530bf4",
+ "packages": [
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "builtDate": "2026-03-27T14:37:20Z",
+   "comment": "Built by CMake 3.30.5 with RelWithDebInfo;Debug configuration for Windows (AMD64)\nqtbase was configured with:\n    qt6/configure -debug-and-release -force-debug-info -headersclean -nomake examples -qt-zlib -- -DFEATURE_msvc_obj_debug_info=ON -DOPENSSL_ROOT_DIR=C:\\openssl\\include\\.. -DPostgreSQL_ROOT=C:\\Utils\\postgresql\\pgsql\\lib\\.. -DCMAKE_C_COMPILER=cl.exe -DCMAKE_CXX_COMPILER=cl.exe -DQT_INSTALL_CONFIG_INFO_FILES=ON -DQT_GENERATE_SBOM=ON -DQT_GENERATE_SOURCE_SBOM=ON -DQT_SBOM_REQUIRE_GENERATE_CYDX_V1_6=ON -DQT_SBOM_VERIFY_CYDX_V1_6=ON -DQT_SBOM_PYTHON_INTERP=C:\\Python38_64 -DQT_SBOM_PYTHON_APPS_PATH=C:\\Python310_64\\Scripts -DQT_LINT_SOURCE_SBOM=ON -DQT_INTERNAL_SBOM_DEFAULT_CHECKS=ON -DQT_INTERNAL_SBOM_AUDIT=ON -DQT_INTERNAL_SBOM_AUDIT_NO_ERROR=ON -DQT_BUILD_TESTS=OFF -DCMAKE_AUTOGEN_VERBOSE=ON -DCMAKE_MESSAGE_LOG_LEVEL=STATUS -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DBUILD_WITH_PCH=OFF -DCMAKE_INSTALL_PREFIX:PATH=/Users/qt/work/install\n",
+   "copyrightText": "Copyright (C) The Qt Company Ltd. and other contributors.",
+   "downloadLocation": "git://code.qt.io/qt/qtbase.git@7ddbc87d8e14ce51d2957ea72d0a6077593d5ff4",
+   "externalRefs": [
+    {
+     "referenceCategory": "SECURITY",
+     "referenceLocator": "cpe:2.3:a:qt:qtbase:6.10.3:*:*:*:*:*:*:*",
+     "referenceType": "cpe23Type"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase@7ddbc87d+HEAD",
+     "referenceType": "purl"
+    }
+   ],
+   "filesAnalyzed": false,
+   "homepage": "https://qt.io",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION",
+   "name": "qtbase",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "7ddbc87d+HEAD"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-3rdparty-sources-BundledPcre2-Attribution-pcre2-sljit-d30718e9a9f6",
+   "comment": "\nCMake target name: BundledPcre2_Attribution_pcre2-sljit\n    Information extracted from:\n     /src_dir/qtbase/src/3rdparty/pcre2/qt_attribution.json\n    Entry index: 1\n    Id: pcre2-sljit\n    Name: PCRE2 - Stack-less Just-In-Time Compiler\n    Description: The PCRE library is a set of functions that implement regular expression pattern matching using the same syntax and semantics as Perl 5.\n    Qt usage: Used in Qt Core (QRegularExpression).\n    License: BSD 2-clause \"Simplified\" License\n    License file: LICENSE-SLJIT\n",
+   "copyrightText": "Copyright Zoltan Herczeg",
+   "downloadLocation": "https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.47/pcre2-10.47.tar.bz2",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/PCRE2Project/pcre2@pcre2-10.47",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=BundledPcre2_Attribution_pcre2-sljit#src/3rdparty/pcre2",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-BundledPcre2_Attribution_pcre2-sljit@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=BundledPcre2_Attribution_pcre2-sljit#src/3rdparty/pcre2",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "SECURITY",
+     "referenceLocator": "cpe:2.3:a:pcre:pcre2:10.47:*:*:*:*:*:*:*",
+     "referenceType": "cpe23Type"
+    }
+   ],
+   "filesAnalyzed": false,
+   "licenseConcluded": "BSD-2-Clause",
+   "licenseDeclared": "NOASSERTION",
+   "name": "BundledPcre2_Attribution_pcre2-sljit",
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "10.47"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-bundled-3rdparty-module-BundledPcre2-d30718e9a9f6",
+   "comment": "\nCMake target name: BundledPcre2\nCMake exported target name: Qt6::BundledPcre2\nContained in CMake package: Qt6BundledPcre2\n    Information extracted from:\n     /src_dir/qtbase/src/3rdparty/pcre2/qt_attribution.json\n    Entry index: 0\n    Id: pcre2\n    Name: PCRE2\n    Description: The PCRE library is a set of functions that implement regular expression pattern matching using the same syntax and semantics as Perl 5.\n    Qt usage: Used in Qt Core (QRegularExpression).\n    License: BSD 3-clause \"New\" or \"Revised\" License with PCRE2 binary-like Packages Exception\n    License file: LICENCE.md\n",
+   "copyrightText": "Copyright (c) 1997-2007 University of Cambridge\nCopyright (c) 2007-2024 Philip Hazel\nCopyright (c) 2010-2024 Zoltan Herczeg",
+   "downloadLocation": "https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.47/pcre2-10.47.tar.bz2",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/PCRE2Project/pcre2@pcre2-10.47",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=BundledPcre2#src/3rdparty/pcre2",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-BundledPcre2@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=BundledPcre2#src/3rdparty/pcre2",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "SECURITY",
+     "referenceLocator": "cpe:2.3:a:pcre:pcre2:10.47:*:*:*:*:*:*:*",
+     "referenceType": "cpe23Type"
+    }
+   ],
+   "filesAnalyzed": false,
+   "licenseConcluded": "LicenseRef-BSD-3-Clause-with-PCRE2-Binary-Like-Packages-Exception",
+   "licenseDeclared": "NOASSERTION",
+   "name": "BundledPcre2",
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "10.47"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-bundled-3rdparty-module-BundledZLIB-d30718e9a9f6",
+   "comment": "\nCMake target name: BundledZLIB\nCMake exported target name: Qt6::BundledZLIB\nContained in CMake package: Qt6BundledZLIB\n    Information extracted from:\n     /src_dir/qtbase/src/3rdparty/zlib/qt_attribution.json\n    Entry index: 0\n    Id: zlib\n    Name: Data Compression Library (zlib)\n    Description: zlib is a general purpose data compression library.\n    Qt usage: Optionally used in Qt Core and development tools. Configure with -system-zlib to avoid.\n    License: zlib License\n    License file: LICENSE\n",
+   "copyrightText": "(C) 1995-2026 Jean-loup Gailly and Mark Adler",
+   "downloadLocation": "https://github.com/madler/zlib/releases/download/v1.3.2/zlib-1.3.2.tar.gz",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/madler/zlib@v1.3.2",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=BundledZLIB#src/3rdparty/zlib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-BundledZLIB@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=BundledZLIB#src/3rdparty/zlib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "SECURITY",
+     "referenceLocator": "cpe:2.3:a:zlib:zlib:1.3.2:*:*:*:*:*:*:*",
+     "referenceType": "cpe23Type"
+    }
+   ],
+   "filesAnalyzed": false,
+   "licenseConcluded": "Zlib",
+   "licenseDeclared": "NOASSERTION",
+   "name": "BundledZLIB",
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "1.3.2"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-unicode-character-database-d30718e9a9f6",
+   "comment": "\nCMake target name: Core_Attribution_unicode-character-database\n    Information extracted from:\n     /src_dir/qtbase/src/corelib/text/qt_attribution.json\n    Entry index: 0\n    Id: unicode-character-database\n    Name: Unicode Character Database (UCD)\n    Description: The Unicode Character Database (UCD) is a set of files that\n define the Unicode character properties and internal mappings.\n    Qt usage: Qt Core uses data obtained from UCD files for working with characters and strings.\n    License: Unicode License Agreement - Data Files and Software (2016)\n",
+   "copyrightText": "Copyright (C) 1991-2025 Unicode, Inc.",
+   "downloadLocation": "https://www.unicode.org/ucd/",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=Core_Attribution_unicode-character-database#src/corelib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-Core_Attribution_unicode-character-database@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=Core_Attribution_unicode-character-database#src/corelib",
+     "referenceType": "purl"
+    }
+   ],
+   "filesAnalyzed": false,
+   "licenseConcluded": "Unicode-3.0",
+   "licenseDeclared": "NOASSERTION",
+   "name": "Core_Attribution_unicode-character-database",
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "36"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-unicode-cldr-d30718e9a9f6",
+   "comment": "\nCMake target name: Core_Attribution_unicode-cldr\n    Information extracted from:\n     /src_dir/qtbase/src/corelib/text/qt_attribution.json\n    Entry index: 1\n    Id: unicode-cldr\n    Name: Unicode Common Locale Data Repository (CLDR)\n    Description: The Unicode CLDR provides key building blocks for software to support the\n world's languages, with the largest and most extensive standard repository of locale data\n available.\n    Qt usage: Used in Qt Core (QTimeZone, QLocale).\n    License: Unicode License v3\n",
+   "copyrightText": "Copyright (C) 2004-2025 Unicode, Inc.",
+   "downloadLocation": "https://cldr.unicode.org/",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=Core_Attribution_unicode-cldr#src/corelib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-Core_Attribution_unicode-cldr@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=Core_Attribution_unicode-cldr#src/corelib",
+     "referenceType": "purl"
+    }
+   ],
+   "filesAnalyzed": false,
+   "licenseConcluded": "Unicode-3.0",
+   "licenseDeclared": "NOASSERTION",
+   "name": "Core_Attribution_unicode-cldr",
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "v48.1"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-tlexpected-d30718e9a9f6",
+   "comment": "\nCMake target name: Core_Attribution_tlexpected\n    Information extracted from:\n     /src_dir/qtbase/src/corelib/global/qt_attribution.json\n    Entry index: 0\n    Id: tlexpected\n    Name: tl::expected\n    Description: Single header implementation of std::expected with functional-style extensions.\n    Qt usage: Available as a private type in all Qt modules\n    License: Creative Commons Zero v1.0 Universal\n",
+   "copyrightText": "To the extent possible under law, Sy Brand has waived all copyright and related or neighboring rights to the expected library. This work is published from: United Kingdom.",
+   "downloadLocation": "https://github.com/TartanLlama/expected/blob/41d3e1f48d682992a2230b2a715bca38b848b269/include/tl/expected.hpp",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=Core_Attribution_tlexpected#src/corelib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-Core_Attribution_tlexpected@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=Core_Attribution_tlexpected#src/corelib",
+     "referenceType": "purl"
+    }
+   ],
+   "filesAnalyzed": false,
+   "licenseConcluded": "CC0-1.0",
+   "licenseDeclared": "NOASSERTION",
+   "name": "Core_Attribution_tlexpected",
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "41d3e1f48d682992a2230b2a715bca38b848b269"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-siphash-d30718e9a9f6",
+   "comment": "\nCMake target name: Core_Attribution_siphash\n    Information extracted from:\n     /src_dir/qtbase/src/3rdparty/siphash/qt_attribution.json\n    Entry index: 0\n    Id: siphash\n    Name: SipHash Algorithm\n    Description: Implements the SipHash algorithm.\n    Qt usage: Used in Qt Core (QHash)\n    License: Creative Commons Zero v1.0 Universal\n",
+   "copyrightText": "Copyright (C) 2012-2014 Jean-Philippe Aumasson\nCopyright (C) 2012-2014 Daniel J. Bernstein <djb@cr.yp.to>\nCopyright (C) 2016 Intel Corporation",
+   "downloadLocation": "https://raw.githubusercontent.com/veorq/SipHash/adcbf09b1684a718f594faa650ffc56bacdb0777/siphash24.c",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/veorq/SipHash@adcbf09b1684a718f594faa650ffc56bacdb0777",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=Core_Attribution_siphash#src/corelib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-Core_Attribution_siphash@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=Core_Attribution_siphash#src/corelib",
+     "referenceType": "purl"
+    }
+   ],
+   "filesAnalyzed": false,
+   "licenseConcluded": "CC0-1.0",
+   "licenseDeclared": "NOASSERTION",
+   "name": "Core_Attribution_siphash",
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "unknown"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-blake2-d30718e9a9f6",
+   "comment": "\nCMake target name: Core_Attribution_blake2\n    Information extracted from:\n     /src_dir/qtbase/src/3rdparty/blake2/qt_attribution.json\n    Entry index: 0\n    Id: blake2\n    Name: BLAKE2 (reference implementation)\n    Description: BLAKE2 is a cryptographic hash function faster than MD5, SHA-1, SHA-2, and SHA-3, yet is at least as secure as the latest standard SHA-3.\n    Qt usage: Used in Qt Core (QCryptographicHash).\n    License: Creative Commons Zero v1.0 Universal or Apache License 2.0\n    License file: COPYING\n",
+   "copyrightText": "Copyright 2012, Samuel Neves <sneves@dei.uc.pt>",
+   "downloadLocation": "https://github.com/BLAKE2/BLAKE2/tree/ed1974ea83433eba7b2d95c5dcd9ac33cb847913",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/BLAKE2/BLAKE2@ed1974ea83433eba7b2d95c5dcd9ac33cb847913",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=Core_Attribution_blake2#src/corelib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-Core_Attribution_blake2@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=Core_Attribution_blake2#src/corelib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "SECURITY",
+     "referenceLocator": "cpe:2.3:a:blake2:blake2:*:*:*:*:*:*:*:*",
+     "referenceType": "cpe23Type"
+    }
+   ],
+   "filesAnalyzed": false,
+   "licenseConcluded": "CC0-1.0 OR Apache-2.0",
+   "licenseDeclared": "NOASSERTION",
+   "name": "Core_Attribution_blake2",
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "ed1974ea83433eba7b2d95c5dcd9ac33cb847913"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-md4-d30718e9a9f6",
+   "comment": "\nCMake target name: Core_Attribution_md4\n    Information extracted from:\n     /src_dir/qtbase/src/3rdparty/md4/qt_attribution.json\n    Entry index: 0\n    Id: md4\n    Name: MD4\n    Description: An OpenSSL-compatible implementation of the RSA Data Security, Inc. MD4 Message-Digest Algorithm.\n    Qt usage: Used in Qt Core (QCryptographicHash).\n    License: Public Domain\n",
+   "copyrightText": "Written by Alexander Peslyak - better known as Solar Designer <solar@openwall.com> - in 2001, and placed in the public domain. There's absolutely no warranty.",
+   "downloadLocation": "NOASSERTION",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=Core_Attribution_md4#src/corelib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-Core_Attribution_md4@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=Core_Attribution_md4#src/corelib",
+     "referenceType": "purl"
+    }
+   ],
+   "filesAnalyzed": false,
+   "licenseConcluded": "CC0-1.0",
+   "licenseDeclared": "NOASSERTION",
+   "name": "Core_Attribution_md4",
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "unknown"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-md5-d30718e9a9f6",
+   "comment": "\nCMake target name: Core_Attribution_md5\n    Information extracted from:\n     /src_dir/qtbase/src/3rdparty/md5/qt_attribution.json\n    Entry index: 0\n    Id: md5\n    Name: MD5\n    Description: MD5 message-digest algorithm.\n    Qt usage: Used in Qt Core (QCryptographicHash).\n    License: Public Domain\n",
+   "copyrightText": "Written by Colin Plumb in 1993, no copyright is claimed. Ian Jackson <ian@chiark.greenend.org.uk>.",
+   "downloadLocation": "NOASSERTION",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=Core_Attribution_md5#src/corelib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-Core_Attribution_md5@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=Core_Attribution_md5#src/corelib",
+     "referenceType": "purl"
+    }
+   ],
+   "filesAnalyzed": false,
+   "licenseConcluded": "CC0-1.0",
+   "licenseDeclared": "NOASSERTION",
+   "name": "Core_Attribution_md5",
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "unknown"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-sha1-d30718e9a9f6",
+   "comment": "\nCMake target name: Core_Attribution_sha1\n    Information extracted from:\n     /src_dir/qtbase/src/3rdparty/sha1/qt_attribution.json\n    Entry index: 0\n    Id: sha1\n    Name: Secure Hash Algorithm SHA-1\n    Description: Implements the Secure Hash Algorithms SHA 1\n    Qt usage: Used in Qt Core (QCryptographicHash).\n    License: Public Domain\n",
+   "copyrightText": "Copyright (C) Dominik Reichl <dominik.reichl@t-online.de>\nCopyright (C) 2016 The Qt Company Ltd",
+   "downloadLocation": "http://www.dominik-reichl.de/projects/csha1/",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/csha1?download_url=https://www.dominik-reichl.de/projects/csha1/",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=Core_Attribution_sha1#src/corelib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-Core_Attribution_sha1@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=Core_Attribution_sha1#src/corelib",
+     "referenceType": "purl"
+    }
+   ],
+   "filesAnalyzed": false,
+   "licenseConcluded": "LicenseRef-SHA1-Public-Domain",
+   "licenseDeclared": "NOASSERTION",
+   "name": "Core_Attribution_sha1",
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "unknown"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-sha3-endian-d30718e9a9f6",
+   "comment": "\nCMake target name: Core_Attribution_sha3_endian\n    Information extracted from:\n     /src_dir/qtbase/src/3rdparty/sha3/qt_attribution.json\n    Entry index: 0\n    Id: sha3_endian\n    Name: Secure Hash Algorithm SHA-3 - brg_endian\n    Description: SHA-3, originally known as Keccak, is a cryptographic hash function.\n    Qt usage: Used in Qt Core (QCryptographicHash).\n    License: BSD 2-clause \"Simplified\" License\n    License file: BRG_ENDIAN_LICENSE\n",
+   "copyrightText": "Copyright (c) 1998-2013, Brian Gladman, Worcester, UK. All rights reserved.",
+   "downloadLocation": "NOASSERTION",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/BrianGladman/sha@1.0.0",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=Core_Attribution_sha3_endian#src/corelib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-Core_Attribution_sha3_endian@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=Core_Attribution_sha3_endian#src/corelib",
+     "referenceType": "purl"
+    }
+   ],
+   "filesAnalyzed": false,
+   "licenseConcluded": "BSD-2-Clause",
+   "licenseDeclared": "NOASSERTION",
+   "name": "Core_Attribution_sha3_endian",
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "1.0.0"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-sha3-keccak-d30718e9a9f6",
+   "comment": "\nCMake target name: Core_Attribution_sha3_keccak\n    Information extracted from:\n     /src_dir/qtbase/src/3rdparty/sha3/qt_attribution.json\n    Entry index: 1\n    Id: sha3_keccak\n    Name: Secure Hash Algorithm SHA-3 - Keccak\n    Description: SHA-3, originally known as Keccak, is a cryptographic hash function.\n    Qt usage: Used in Qt Core (QCryptographicHash).\n    License: Creative Commons Zero v1.0 Universal\n    License file: CC0_LICENSE\n",
+   "copyrightText": "Guido Bertoni, Joan Daemen, Micha\u00ebl Peeters and Gilles Van Assche.\nTo the extent possible under law, the implementers have waived all copyright\nand related or neighboring rights to the source code in this file.",
+   "downloadLocation": "NOASSERTION",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/sha3_keccak@3.2?download_url=https://keccak.team/obsolete/KeccakReferenceAndOptimized-3.2.zip",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=Core_Attribution_sha3_keccak#src/corelib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-Core_Attribution_sha3_keccak@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=Core_Attribution_sha3_keccak#src/corelib",
+     "referenceType": "purl"
+    }
+   ],
+   "filesAnalyzed": false,
+   "licenseConcluded": "CC0-1.0",
+   "licenseDeclared": "NOASSERTION",
+   "name": "Core_Attribution_sha3_keccak",
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "3.2"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-rfc6234-d30718e9a9f6",
+   "comment": "\nCMake target name: Core_Attribution_rfc6234\n    Information extracted from:\n     /src_dir/qtbase/src/3rdparty/rfc6234/qt_attribution.json\n    Entry index: 0\n    Id: rfc6234\n    Name: Secure Hash Algorithms SHA-384 and SHA-512\n    Description: Implements the Secure Hash Algorithms SHA 384 and SHA-521\n    Qt usage: Used in Qt Core (QCryptographicHash and QMessageAuthenticationCode)\n    License: BSD 3-clause \"New\" or \"Revised\" License\n    License file: LICENSE\n",
+   "copyrightText": "Copyright (c) 2011 IETF Trust and the persons identified as authors of the code.",
+   "downloadLocation": "NOASSERTION",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=Core_Attribution_rfc6234#src/corelib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-Core_Attribution_rfc6234@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=Core_Attribution_rfc6234#src/corelib",
+     "referenceType": "purl"
+    }
+   ],
+   "filesAnalyzed": false,
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION",
+   "name": "Core_Attribution_rfc6234",
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "unknown"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-tinycbor-d30718e9a9f6",
+   "comment": "\nCMake target name: Core_Attribution_tinycbor\n    Information extracted from:\n     /src_dir/qtbase/src/3rdparty/tinycbor/qt_attribution.json\n    Entry index: 0\n    Id: tinycbor\n    Name: TinyCBOR\n    Description: Concise Binary Object Representation (CBOR) Library\n    Qt usage: Used for QCborStreamReader and QCborStreamWriter.\n    License: MIT License\n    License file: LICENSE\n",
+   "copyrightText": "Copyright (C) 2015-2025 Intel Corporation",
+   "downloadLocation": "https://github.com/intel/tinycbor/archive/v7.0/tinycbor-7.0.tar.gz",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/intel/tinycbor@v7.0",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=Core_Attribution_tinycbor#src/corelib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-Core_Attribution_tinycbor@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=Core_Attribution_tinycbor#src/corelib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "SECURITY",
+     "referenceLocator": "cpe:2.3:a:tinycbor:tinycbor:7.0:*:*:*:*:*:*:*",
+     "referenceType": "cpe23Type"
+    }
+   ],
+   "filesAnalyzed": false,
+   "licenseConcluded": "MIT",
+   "licenseDeclared": "NOASSERTION",
+   "name": "Core_Attribution_tinycbor",
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "7.0"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-doubleconversion-d30718e9a9f6",
+   "comment": "\nCMake target name: Core_Attribution_doubleconversion\n    Information extracted from:\n     /src_dir/qtbase/src/3rdparty/double-conversion/qt_attribution.json\n    Entry index: 0\n    Id: doubleconversion\n    Name: Efficient Binary-Decimal and Decimal-Binary Conversion Routines for IEEE Doubles\n    Qt usage: Used in Qt Core. Configure with -system-doubleconversion or -no-doubleconversion to avoid.\n    License: BSD 3-clause \"New\" or \"Revised\" License\n    License file: LICENSE\n",
+   "copyrightText": "Copyright 2006-2012, the V8 project authors",
+   "downloadLocation": "https://github.com/google/double-conversion/releases/tag/v3.4.0",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/google/double-conversion@v3.4.0",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=Core_Attribution_doubleconversion#src/corelib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-Core_Attribution_doubleconversion@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=Core_Attribution_doubleconversion#src/corelib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "SECURITY",
+     "referenceLocator": "cpe:2.3:a:google:double-conversion:3.4.0:*:*:*:*:*:*:*",
+     "referenceType": "cpe23Type"
+    }
+   ],
+   "filesAnalyzed": false,
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION",
+   "name": "Core_Attribution_doubleconversion",
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "3.4.0"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-easing-d30718e9a9f6",
+   "comment": "\nCMake target name: Core_Attribution_easing\n    Information extracted from:\n     /src_dir/qtbase/src/3rdparty/easing/qt_attribution.json\n    Entry index: 0\n    Id: easing\n    Name: Easing Equations by Robert Penner\n    Qt usage: Used in Qt Core (QEasingCurve).\n    License: BSD 3-clause \"New\" or \"Revised\" License\n    License file: LICENSE\n",
+   "copyrightText": "Copyright (c) 2001 Robert Penner",
+   "downloadLocation": "http://robertpenner.com/easing/",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=Core_Attribution_easing#src/corelib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-Core_Attribution_easing@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=Core_Attribution_easing#src/corelib",
+     "referenceType": "purl"
+    }
+   ],
+   "filesAnalyzed": false,
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION",
+   "name": "Core_Attribution_easing",
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "unknown"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-tika-mimetypes-d30718e9a9f6",
+   "comment": "\nCMake target name: Core_Attribution_tika-mimetypes\n    Information extracted from:\n     /src_dir/qtbase/src/corelib/mimetypes/3rdparty/qt_attribution.json\n    Entry index: 0\n    Id: tika-mimetypes\n    Name: Apache Tika MimeType Definitions\n    Description: The Apache Tika MimeTypes list many known MIME types and how to match files (using globs and/or 'magic' rules for the file contents)\n    Qt usage: Qt Core uses a copy of the Apache Tika MimeType Definitions if shared-mime-info isn't installed on the system.\n    License: Apache License 2.0\n",
+   "copyrightText": "Copyright 2026 The Apache Software Foundation",
+   "downloadLocation": "https://github.com/apache/tika/blob/408c26e1e03e018a623e732dff6fb047a2fb8e19/tika-core/src/main/resources/org/apache/tika/mime/tika-mimetypes.xml",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/apache/tika@408c26e1e03e018a623e732dff6fb047a2fb8e19#tika-core/src/main/resources/org/apache/tika/mime/tika-mimetypes.xml",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=Core_Attribution_tika-mimetypes#src/corelib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-Core_Attribution_tika-mimetypes@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=Core_Attribution_tika-mimetypes#src/corelib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "SECURITY",
+     "referenceLocator": "cpe:2.3:a:apache:tika:*:*:*:*:*:*:*:*",
+     "referenceType": "cpe23Type"
+    }
+   ],
+   "filesAnalyzed": false,
+   "licenseConcluded": "Apache-2.0",
+   "licenseDeclared": "NOASSERTION",
+   "name": "Core_Attribution_tika-mimetypes",
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "408c26e1e03e018a623e732dff6fb047a2fb8e19"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "comment": "\nCMake target name: Core\nCMake exported target name: Qt6::Core\nContained in CMake package: Qt6Core\n",
+   "copyrightText": "Copyright (C) The Qt Company Ltd. and other contributors.",
+   "downloadLocation": "git://code.qt.io/qt/qtbase.git@7ddbc87d8e14ce51d2957ea72d0a6077593d5ff4",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=Core#src/corelib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-Core@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=Core#src/corelib",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "SECURITY",
+     "referenceLocator": "cpe:2.3:a:qt:qt:6.10.3:*:*:*:*:*:*:*",
+     "referenceType": "cpe23Type"
+    },
+    {
+     "referenceCategory": "SECURITY",
+     "referenceLocator": "cpe:2.3:a:qt:qtbase:6.10.3:*:*:*:*:*:*:*",
+     "referenceType": "cpe23Type"
+    }
+   ],
+   "filesAnalyzed": true,
+   "licenseConcluded": "LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+   "licenseDeclared": "LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+   "name": "Core",
+   "packageVerificationCode": {
+    "packageVerificationCodeValue": "adaf61fa7b301f76113a5f67db914bef980f22e2"
+   },
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "6.10.3"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-bundled-3rdparty-module-BundledLibjpeg-d30718e9a9f6",
+   "comment": "\nCMake target name: BundledLibjpeg\nCMake exported target name: Qt6::BundledLibjpeg\nContained in CMake package: Qt6BundledLibjpeg\n    Information extracted from:\n     /src_dir/qtbase/src/3rdparty/libjpeg/qt_attribution.json\n    Entry index: 0\n    Id: libjpeg\n    Name: LibJPEG-turbo\n    Description: The Independent JPEG Group's JPEG software\n    Qt usage: Used in the qjpeg image plugin. Configure with -system-libjpeg or -no-libjpeg to avoid.\n    License: Independent JPEG Group License and BSD 3-Clause \"New\" or \"Revised\" License\n",
+   "copyrightText": "Copyright (C) 2009-2026 D. R. Commander\nCopyright (C) 2015-2016, 2018, 2022 Matthieu Darbois\nCopyright (C) 2019-2021 Arm Limited\nCopyright (C) 2015, 2020 Google, Inc.\nCopyright (C) 2011, 2014, 2016 Siarhei Siamashka\nCopyright (C) 2015 Intel Corporation\nCopyright (C) 2013-2014 Linaro Limited\nCopyright (C) 2013-2014 MIPS Technologies, Inc.\nCopyright (C) 2009, 2012 Pierre Ossman for Cendio AB\nCopyright (C) 2009-2011 Nokia Corporation and/or its subsidiary(-ies)\nCopyright (C) 1999-2006 MIYASAKA Masaru\nCopyright (C) 1999 Ken Murchison\nCopyright (C) 1991-2020 Thomas G. Lane, Guido Vollbeding\n",
+   "downloadLocation": "https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.1.4/libjpeg-turbo-3.1.4.tar.gz",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/libjpeg-turbo/libjpeg-turbo@3.1.4",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=BundledLibjpeg#src/3rdparty/libjpeg",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-BundledLibjpeg@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=BundledLibjpeg#src/3rdparty/libjpeg",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "SECURITY",
+     "referenceLocator": "cpe:2.3:a:libjpeg-turbo:libjpeg-turbo:3.1.4:*:*:*:*:*:*:*",
+     "referenceType": "cpe23Type"
+    }
+   ],
+   "filesAnalyzed": true,
+   "licenseConcluded": "IJG AND BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION",
+   "name": "BundledLibjpeg",
+   "packageVerificationCode": {
+    "packageVerificationCodeValue": "4a8cab3422c81361f30c29ae68ea8488bd946561"
+   },
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "3.1.4"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-qtbase-qt-plugin-QJpegPlugin-d30718e9a9f6",
+   "comment": "\nCMake target name: QJpegPlugin\n",
+   "copyrightText": "Copyright (C) The Qt Company Ltd. and other contributors.",
+   "downloadLocation": "git://code.qt.io/qt/qtbase.git@7ddbc87d8e14ce51d2957ea72d0a6077593d5ff4",
+   "externalRefs": [
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:github/qt/qtbase@7ddbc87d?library_name=QJpegPlugin#src/plugins/imageformats/jpeg",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "PACKAGE_MANAGER",
+     "referenceLocator": "pkg:generic/TheQtCompany/qtbase-QJpegPlugin@7ddbc87d?vcs_url=https://code.qt.io/qt/qtbase.git@7ddbc87d&library_name=QJpegPlugin#src/plugins/imageformats/jpeg",
+     "referenceType": "purl"
+    },
+    {
+     "referenceCategory": "SECURITY",
+     "referenceLocator": "cpe:2.3:a:qt:qt:6.10.3:*:*:*:*:*:*:*",
+     "referenceType": "cpe23Type"
+    },
+    {
+     "referenceCategory": "SECURITY",
+     "referenceLocator": "cpe:2.3:a:qt:qtbase:6.10.3:*:*:*:*:*:*:*",
+     "referenceType": "cpe23Type"
+    }
+   ],
+   "filesAnalyzed": true,
+   "licenseConcluded": "LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+   "licenseDeclared": "LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+   "name": "QJpegPlugin",
+   "packageVerificationCode": {
+    "packageVerificationCodeValue": "c93dc11a0c3c1f5952a6761009d2e8555e360d0e"
+   },
+   "primaryPackagePurpose": "LIBRARY",
+   "supplier": "Organization: TheQtCompany",
+   "versionInfo": "6.10.3"
+  }
+ ],
+ "files": [
+  {
+   "SPDXID": "SPDXRef-PackagedFile-qt-module-Core-RelWithDebInfo-d30718e9a9f6",
+   "checksums": [
+    {
+     "algorithm": "SHA1",
+     "checksumValue": "f1d80c1205966792843f4b96a959737c16c237b7"
+    }
+   ],
+   "copyrightText": "Copyright (C) The Qt Company Ltd. and other contributors.",
+   "fileName": "./bin/Qt6Core.dll",
+   "fileTypes": [
+    "BINARY"
+   ],
+   "licenseConcluded": "LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+   "licenseInfoInFiles": [
+    "NOASSERTION"
+   ]
+  },
+  {
+   "SPDXID": "SPDXRef-PackagedFile-qt-module-Core-Debug-d30718e9a9f6",
+   "checksums": [
+    {
+     "algorithm": "SHA1",
+     "checksumValue": "d1b492e15011e0c9a430949235aea29d046bf2fd"
+    }
+   ],
+   "copyrightText": "Copyright (C) The Qt Company Ltd. and other contributors.",
+   "fileName": "./bin/Qt6Cored.dll",
+   "fileTypes": [
+    "BINARY"
+   ],
+   "licenseConcluded": "LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+   "licenseInfoInFiles": [
+    "NOASSERTION"
+   ]
+  },
+  {
+   "SPDXID": "SPDXRef-PackagedFile-qt-module-Core-ImportLibrary-RelWithDebInfo-d30718e9a9f6",
+   "checksums": [
+    {
+     "algorithm": "SHA1",
+     "checksumValue": "983e3dd9b93cf60f4de48845db6c8f6ce01bf2ae"
+    }
+   ],
+   "copyrightText": "Copyright (C) The Qt Company Ltd. and other contributors.",
+   "fileName": "./lib/Qt6Core.lib",
+   "fileTypes": [
+    "BINARY"
+   ],
+   "licenseConcluded": "LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+   "licenseInfoInFiles": [
+    "NOASSERTION"
+   ]
+  },
+  {
+   "SPDXID": "SPDXRef-PackagedFile-qt-module-Core-ImportLibrary-Debug-d30718e9a9f6",
+   "checksums": [
+    {
+     "algorithm": "SHA1",
+     "checksumValue": "cef86224ece998b713046fdcf4ba1abf4bc714dc"
+    }
+   ],
+   "copyrightText": "Copyright (C) The Qt Company Ltd. and other contributors.",
+   "fileName": "./lib/Qt6Cored.lib",
+   "fileTypes": [
+    "BINARY"
+   ],
+   "licenseConcluded": "LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+   "licenseInfoInFiles": [
+    "NOASSERTION"
+   ]
+  },
+  {
+   "SPDXID": "SPDXRef-PackagedFile-qt-plugin-QJpegPlugin-RelWithDebInfo-d30718e9a9f6",
+   "checksums": [
+    {
+     "algorithm": "SHA1",
+     "checksumValue": "48bb50dea38545abcee31776513e5cea71f5d2bc"
+    }
+   ],
+   "copyrightText": "Copyright (C) The Qt Company Ltd. and other contributors.",
+   "fileName": "./plugins/imageformats/qjpeg.dll",
+   "fileTypes": [
+    "BINARY"
+   ],
+   "licenseConcluded": "LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+   "licenseInfoInFiles": [
+    "NOASSERTION"
+   ]
+  },
+  {
+   "SPDXID": "SPDXRef-PackagedFile-qt-plugin-QJpegPlugin-Debug-d30718e9a9f6",
+   "checksums": [
+    {
+     "algorithm": "SHA1",
+     "checksumValue": "9a93d6c9b19681beab5b2f6bbd20f44894bad01e"
+    }
+   ],
+   "copyrightText": "Copyright (C) The Qt Company Ltd. and other contributors.",
+   "fileName": "./plugins/imageformats/qjpegd.dll",
+   "fileTypes": [
+    "BINARY"
+   ],
+   "licenseConcluded": "LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+   "licenseInfoInFiles": [
+    "NOASSERTION"
+   ]
+  }
+ ],
+ "relationships": [
+  {
+   "spdxElementId": "SPDXRef-DOCUMENT",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relationshipType": "DESCRIBES"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-BundledPcre2-Attribution-pcre2-sljit-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-bundled-3rdparty-module-BundledPcre2-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-bundled-3rdparty-module-BundledPcre2-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-BundledPcre2-Attribution-pcre2-sljit-d30718e9a9f6",
+   "relationshipType": "DEPENDS_ON"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-bundled-3rdparty-module-BundledZLIB-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-unicode-character-database-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-unicode-cldr-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-tlexpected-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-siphash-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-blake2-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-md4-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-md5-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-sha1-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-sha3-endian-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-sha3-keccak-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-rfc6234-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-tinycbor-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-doubleconversion-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-easing-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-tika-mimetypes-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-bundled-3rdparty-module-BundledZLIB-d30718e9a9f6",
+   "relationshipType": "DEPENDS_ON"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-bundled-3rdparty-module-BundledPcre2-d30718e9a9f6",
+   "relationshipType": "DEPENDS_ON"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-unicode-character-database-d30718e9a9f6",
+   "relationshipType": "DEPENDS_ON"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-unicode-cldr-d30718e9a9f6",
+   "relationshipType": "DEPENDS_ON"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-tlexpected-d30718e9a9f6",
+   "relationshipType": "DEPENDS_ON"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-siphash-d30718e9a9f6",
+   "relationshipType": "DEPENDS_ON"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-blake2-d30718e9a9f6",
+   "relationshipType": "DEPENDS_ON"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-md4-d30718e9a9f6",
+   "relationshipType": "DEPENDS_ON"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-md5-d30718e9a9f6",
+   "relationshipType": "DEPENDS_ON"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-sha1-d30718e9a9f6",
+   "relationshipType": "DEPENDS_ON"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-sha3-endian-d30718e9a9f6",
+   "relationshipType": "DEPENDS_ON"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-sha3-keccak-d30718e9a9f6",
+   "relationshipType": "DEPENDS_ON"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-rfc6234-d30718e9a9f6",
+   "relationshipType": "DEPENDS_ON"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-tinycbor-d30718e9a9f6",
+   "relationshipType": "DEPENDS_ON"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-doubleconversion-d30718e9a9f6",
+   "relationshipType": "DEPENDS_ON"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-easing-d30718e9a9f6",
+   "relationshipType": "DEPENDS_ON"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-3rdparty-sources-Core-Attribution-tika-mimetypes-d30718e9a9f6",
+   "relationshipType": "DEPENDS_ON"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-PackagedFile-qt-module-Core-RelWithDebInfo-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-PackagedFile-qt-module-Core-RelWithDebInfo-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-PackagedFile-qt-module-Core-Debug-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-PackagedFile-qt-module-Core-Debug-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-PackagedFile-qt-module-Core-ImportLibrary-RelWithDebInfo-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-PackagedFile-qt-module-Core-ImportLibrary-RelWithDebInfo-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-PackagedFile-qt-module-Core-ImportLibrary-Debug-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-PackagedFile-qt-module-Core-ImportLibrary-Debug-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-bundled-3rdparty-module-BundledLibjpeg-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-plugin-QJpegPlugin-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-plugin-QJpegPlugin-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-module-Core-d30718e9a9f6",
+   "relationshipType": "DEPENDS_ON"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-plugin-QJpegPlugin-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-Package-qtbase-qt-bundled-3rdparty-module-BundledLibjpeg-d30718e9a9f6",
+   "relationshipType": "DEPENDS_ON"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-plugin-QJpegPlugin-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-PackagedFile-qt-plugin-QJpegPlugin-RelWithDebInfo-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-plugin-QJpegPlugin-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-PackagedFile-qt-plugin-QJpegPlugin-RelWithDebInfo-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-plugin-QJpegPlugin-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-PackagedFile-qt-plugin-QJpegPlugin-Debug-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-qtbase-qt-plugin-QJpegPlugin-d30718e9a9f6",
+   "relatedSpdxElement": "SPDXRef-PackagedFile-qt-plugin-QJpegPlugin-Debug-d30718e9a9f6",
+   "relationshipType": "CONTAINS"
+  }
+ ]
+}

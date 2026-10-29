@@ -319,6 +319,29 @@ set_tests_properties(easy_profiler.subdirectory_consumer PROPERTIES
     RUN_SERIAL TRUE
 )
 
+#####################################################################
+# The Python scripts behind the release pipeline and the coverage gate. Run
+# from tests/ because unittest names a module from a path only below the
+# working directory.
+#####################################################################
+if (CMAKE_VERSION VERSION_LESS 3.12)
+    message(STATUS "CMake < 3.12 cannot find Python; the script tests are not registered")
+else ()
+    find_package(Python3 COMPONENTS Interpreter)
+    if (Python3_Interpreter_FOUND)
+        foreach (script changelog_section check_coverage qt_notices aqt_windows_workaround)
+            add_test(NAME easy_profiler.scripts.${script}
+                COMMAND ${Python3_EXECUTABLE} -m unittest test_${script}.py
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            )
+            set_tests_properties(easy_profiler.scripts.${script} PROPERTIES
+                LABELS "scripts"
+                TIMEOUT 120
+            )
+        endforeach ()
+    endif ()
+endif ()
+
 # Opt-in: point this at an unpacked release package to verify the artifact
 # itself. The release workflow sets it on a runner that did not build the
 # package, so build-host state cannot hide a defect.

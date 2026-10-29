@@ -13,7 +13,24 @@ to a person, and the reasoning behind the pipeline's shape.
 | `easy_profiler-<v>-macos-universal-{shared,static}.tar.gz` | macOS consumers, arm64 and x86_64, deployment target 11.0 |
 | `easy_profiler-<v>-windows-x64-{shared,static}.zip` | Windows consumers. The shared zip carries the PDB |
 | `easy_profiler_gui-<v>-linux-x86_64.tar.gz` | The GUI, self-contained except for X11, OpenGL and glibc. glibc floor 2.35, the same as the SDK packages |
+| `easy_profiler_gui-<v>-windows-x86_64.zip` | The GUI, self-contained except for the MSVC runtime. Has not yet been through CI; see below |
 | `SHA256SUMS` | Everyone |
+
+This table and the `ASSETS` list in the `checksums` job of the workflow name
+the same files, and the job publishes exactly that list: a listed file that
+was not built fails the run, and anything a job uploaded that is not listed
+stays out of the release, with a warning. Nothing is swept up by pattern.
+
+### Releasing without a product
+
+A red cell on the publish chain means no draft. To ship without a product -
+the Windows GUI is the likely case - make two edits in the `checksums` job,
+together: delete the product's line from `ASSETS`, and its build and verify
+jobs from `needs`. The first is what leaves the product out; the second is what
+lets the job run while those cells are red. Deleting only the jobs from
+`needs` would have the job fail on the missing asset if the build was red, or
+publish a bundle nobody verified if only the verification was. Update the
+table above and the release notes to match.
 
 Each SDK package holds `include/`, `lib/` with the CMake package config,
 `bin/profiler_converter` and `bin/profiler_reader`, both licences, `README.md`,
@@ -28,18 +45,27 @@ redistribution route Microsoft supports.
 
 ## The GUI
 
-3.0.0 ships a Linux GUI bundle and no other. The reason is evidence: the GUI
-builds unmodified against every Qt 6 tried, from Ubuntu 24.04's 6.4.2 to the
-official 6.12.0, loads a six-million block capture, and runs from a
-self-contained bundle on a machine with no Qt installed. The Windows GUI has
-never been compiled; it ships when the rehearsal below is green for it, and not
-before.
+The pipeline builds and verifies two GUI bundles, Linux x86_64 and Windows
+x64, and both are on the publish chain. The Linux one has the evidence: the
+GUI builds unmodified against every Qt 6 tried, from Ubuntu 24.04's 6.4.2 to
+the official 6.12.0, loads a six-million block capture, and runs from a
+self-contained bundle on a machine with no Qt installed. The Windows one has
+never run through CI; whether it ships is decided at the rehearsal, step 7
+below, and leaving it out is the edit described under "Releasing without a
+product".
 
 ### What still blocks the Windows GUI
 
 The packaging exists: `gui-windows` and `gui-verify-windows` in the release
 workflow, and `scripts/make_gui_bundle.ps1`, which does for `windeployqt` what
 `make_gui_bundle.sh` does for `ldd`. None of it has run yet.
+
+Both bundle scripts create their output directory and refuse one that already
+exists, so a mistyped destination cannot cost a tree; the workflow stages into
+a fresh `stage/` on every run. Both hand the licence work to
+`scripts/qt_notices.py`, which writes every file under `licenses/` except
+easy_profiler's own two, and `tests/test_qt_notices.py` holds the generator to
+that contract; the bundle scripts only act on its exit status.
 
 What stood in front of it was not our code. From 6.11 onwards Qt publishes its
 Windows packages under a per-compiler folder,
@@ -63,9 +89,17 @@ manifest entry Linux never asks for: windeployqt deploys every plugin in
 `imageformats/`, so a Windows bundle carries `qjpeg.dll` and therefore
 LibJPEG-turbo, whose licence is `IJG AND BSD-3-Clause`.
 
-`checksums` depends on `gui-windows`, so a red Windows cell means a tag cannot
-produce a draft. To release without the Windows GUI, drop `gui-windows` and
-`gui-verify-windows` from that job's `needs` - one line.
+`checksums` depends on `gui-windows` and `gui-verify-windows`, so a red
+Windows cell means a tag cannot produce a draft; "Releasing without a product"
+above says how to leave the bundle out.
+
+`scripts/aqt_windows_workaround.py` is covered by
+`tests/test_aqt_windows_workaround.py`: offline against a stand-in `aqt` that
+answers with aqtinstall's own messages, and, with `EASY_PROFILER_ONLINE_TESTS=1`
+and aqtinstall importable, against the real aqtinstall and Qt's servers with a
+TLS failure injected by `tests/support/aqt_fault`. The online tests are the
+proof that the stand-in's messages are the real ones; run them when aqtinstall
+is upgraded.
 
 These are the answers still owed, none of which can be had without a green
 run:
@@ -234,7 +268,14 @@ ships, because current Qt requires 3.25 or later, and that Qt comes from
 rather than a bare container. Qt's
 `-DQT_FORCE_MIN_CMAKE_VERSION_FOR_USING_QT` would avoid the CMake upgrade; Qt
 documents it as unsupported, so the pipeline installs CMake from pip instead, at
-a pinned version.
+a pinned version. CMake 4.x also works - configure and build are clean on
+4.4.4, because the root `CMakeLists.txt` uses the range form of
+`cmake_minimum_required` - so moving the pin is a decision, not a repair.
+
+`install-qt-action` is not used anywhere, also on the runners: on
+`windows-2025` it reported "Action not built" in both v4.4.1 and v4.5.0, and
+the build check exists to test this project's code, not a third party's
+packaging. aqtinstall is the one route to Qt in the pipeline and in this file.
 
 Replacing the bundled Qt libraries in place works within the same Qt minor
 version. Say that rather than implying any Qt will do.
@@ -257,7 +298,8 @@ Do these in order. Steps 1 to 4 are a single commit.
    fix costs a new version number.
 7. Read the rehearsal's job list. Every `sdk`, `sdk-verify` and `gui` cell is on
    the publish chain, so any red cell means no draft release. Decide here
-   whether a platform ships, not after tagging.
+   whether a platform ships, not after tagging; "Releasing without a product"
+   is the edit.
 8. Tag and push: `git tag -a v<version> -m "easy_profiler <version>"`, then
    `git push origin v<version>`.
 9. The workflow builds a **draft** release. Download an asset or two, unpack

@@ -58,7 +58,12 @@ if [ "$(cd "$(dirname "$linked_core")" && pwd -P)" != "$(cd "$qt_libs" && pwd -P
     exit 1
 fi
 
-rm -rf "$out"
+# Created here, never cleared: a mistyped destination must not cost a tree.
+if [ -e "$out" ]; then
+    echo "$out already exists; this script creates its output directory and" >&2
+    echo "will not touch an existing one. Remove it or name another." >&2
+    exit 1
+fi
 mkdir -p "$out/bin" "$out/lib" "$out/plugins" "$out/licenses"
 
 cp "$binary" "$out/bin/"
@@ -175,15 +180,11 @@ chmod +x "$out/run.sh"
 # harfbuzz, libpng and some thirty smaller components, each with its own notice
 # requirement, and the official Qt packages carry ICU in lib/ as well.
 #
-# The attributions are generated here, from the SPDX SBOM inside the very Qt
-# install the libraries above were copied from, so they cannot describe a
-# different Qt than the bundle carries. The generator reads what to attribute
-# off the finished bundle rather than from a list of its own, so a library
-# added above cannot ship without its notice. The licence texts the SBOM refers
-# to are fetched from Qt's and ICU's release tags, checksum-pinned by
-# scripts/qt_notices.sha256, and cached in QT_NOTICES_CACHE when it is set.
-# Nothing LGPL-related lives in this repository: the obligation attaches to
-# the bundle, and easy_profiler itself is MIT and Apache-2.0.
+# The notices are generated from the SPDX SBOM inside the very Qt install the
+# libraries above were copied from, and the generator reads what to attribute
+# off the finished bundle, so a library added above cannot ship without its
+# notice. The licence texts are checksum-pinned by scripts/qt_notices.sha256
+# and cached in QT_NOTICES_CACHE when it is set. See the generator's header.
 #####################################################################
 
 # ICU's release is not in the SBOM, which records it as a system dependency;
@@ -216,69 +217,8 @@ if ! python3 "$notices_generator" \
     exit 1
 fi
 
-# The generator is handed the same Qt and ICU the bundle carries, so a mismatch
-# here is a defect in it; the bundle still must not leave with one.
-notices=$out/licenses/THIRD-PARTY-NOTICES.md
-for required in THIRD-PARTY-NOTICES.md LICENSE.LGPLv3 LICENSE.GPLv3 LICENSE.ICU; do
-    if [ ! -s "$out/licenses/$required" ]; then
-        echo "$out/licenses/$required was not generated" >&2
-        exit 1
-    fi
-done
-notices_qt_version=$(sed -n 's/^Qt version: *//p' "$notices" | head -1)
-notices_icu_version=$(sed -n 's/^ICU version: *//p' "$notices" | head -1)
-if [ "$notices_qt_version" != "$qt_version" ] ||
-   [ "$notices_icu_version" != "$icu_version" ]; then
-    echo "the notices describe Qt ${notices_qt_version:-<unstated>} and ICU" >&2
-    echo "${notices_icu_version:-<unstated>}; the bundle carries Qt $qt_version" >&2
-    echo "and ICU $icu_version." >&2
-    exit 1
-fi
-
 cp "$repository/easy_profiler_core/LICENSE.MIT" \
    "$repository/easy_profiler_core/LICENSE.APACHE" "$out/licenses/"
-
-qt_series=${qt_version%.*}
-
-cat > "$out/licenses/QT_NOTICE.md" <<NOTICE
-# Qt in this bundle
-
-This application uses the Qt toolkit, version $qt_version, under the GNU Lesser
-General Public License version 3. Qt is not part of easy_profiler and is not
-covered by easy_profiler's own MIT or Apache-2.0 licence.
-
-The Qt libraries in \`lib/\` and the Qt plugins in \`plugins/\` are the
-open-source binaries published by The Qt Company for Qt $qt_version. Qt is
-linked dynamically: you may replace any of them with another build of the same
-Qt minor version and run the result.
-
-\`lib/\` also carries ICU, which the Qt packages bundle and Qt Core links
-against. It is covered by \`LICENSE.ICU\`.
-
-## Corresponding source
-
-The complete corresponding source of this Qt is published by The Qt Company at
-<https://download.qt.io/archive/qt/$qt_series/$qt_version/submodules/>, and will
-remain available there for as long as that archive is maintained. The modules
-bundled here are:
-
-    qtbase-everywhere-src-$qt_version.tar.xz
-    qtsvg-everywhere-src-$qt_version.tar.xz
-    qt5compat-everywhere-src-$qt_version.tar.xz
-
-\`THIRD-PARTY-NOTICES.md\` records the module revisions the bundled binaries were
-built from, as far as Qt's own SBOM states them, and the configure options Qt
-built with.
-
-## Licence texts
-
-- \`LICENSE.LGPLv3\` - the GNU Lesser General Public License v3, the licence
-  this Qt is used under
-- \`LICENSE.GPLv3\` - the GNU General Public License v3, which the LGPL refers to
-- \`LICENSE.ICU\` - the Unicode licence, covering the bundled ICU
-- \`THIRD-PARTY-NOTICES.md\` - the attributions for the third-party code the Qt
-  libraries in this bundle embed, among them pcre2, harfbuzz and libpng
-NOTICE
 
 cat > "$out/README.txt" <<READ
 easy_profiler GUI

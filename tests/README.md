@@ -44,6 +44,7 @@ cmake --preset dev -DFETCHCONTENT_SOURCE_DIR_CATCH2=/path/to/Catch2
 | `easy_profiler_disabled_tests` / `disabled` | headers and API with `DISABLE_EASY_PROFILER` |
 | `package` | installed-package and `add_subdirectory` consumers, both compiled as C++11 |
 | `fuzz` | deterministic libFuzzer smoke run for the profile reader |
+| `scripts` | the Python behind the release pipeline and the coverage gate: the changelog extractor, the Qt notices generator against verbatim excerpts of real Qt SBOMs (`qt_notices/`), and the Windows Qt resolver against a stand-in `aqt` (`support/fake_aqt`); registered when a Python 3 interpreter is found |
 
 Every Catch `TEST_CASE` is registered independently with CTest and has a
 30-second timeout, raised for the targets that need it: 60 seconds for the

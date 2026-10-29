@@ -46,9 +46,9 @@ toolchain, so check that file before reporting a link error.
 Windows packages do not contain the MSVC runtime; install the official Visual
 C++ Redistributable.
 
-The GUI bundle is Linux x86_64 only in this release. It includes Qt under the
-LGPL v3; see `licenses/QT_NOTICE.md` inside it. On Windows and macOS, build the
-GUI from source.
+The GUI bundles are the `easy_profiler_gui-*` assets above. Each includes Qt
+under the LGPL v3; see `licenses/QT_NOTICE.md` inside it. Where there is no
+bundle for your platform, build the GUI from source.
 
 The `.prof` wire format is unchanged at 2.1.0, so profiles written by 2.1
 remain readable.

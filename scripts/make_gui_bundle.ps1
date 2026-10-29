@@ -50,8 +50,12 @@ $qtVersion = (& qtpaths6 --query QT_VERSION).Trim()
 $qtPrefix = (& qtpaths6 --query QT_INSTALL_PREFIX).Trim()
 $qtPlugins = (& qtpaths6 --query QT_INSTALL_PLUGINS).Trim()
 
-if (Test-Path $OutDir) { Remove-Item -Recurse -Force $OutDir }
-New-Item -ItemType Directory -Force -Path $OutDir, (Join-Path $OutDir 'licenses') | Out-Null
+# Created here, never cleared: a mistyped destination must not cost a tree.
+if (Test-Path $OutDir) {
+    Fail ("$OutDir already exists; this script creates its output directory" +
+          " and will not touch an existing one. Remove it or name another.")
+}
+New-Item -ItemType Directory -Path $OutDir, (Join-Path $OutDir 'licenses') | Out-Null
 # Absolute from here on: the caller passes a relative path, and the listing at
 # the end cuts it off the front of each full name.
 $OutDir = (Resolve-Path $OutDir).Path
@@ -127,16 +131,11 @@ if (-not $coreVersion.StartsWith($qtVersion)) {
 }
 
 #####################################################################
-# Licences. Identical duties to the Linux bundle: the LGPL requires the licence
-# text, a notice that Qt is used, and directions to the corresponding source,
-# and the Qt libraries embed pcre2, harfbuzz, freetype, zlib and some forty
-# smaller components, each with its own notice requirement.
-#
-# The attributions are generated from the SPDX SBOM inside the very Qt install
-# windeployqt copied from, and from the finished bundle rather than from a list
-# of libraries kept by hand, so a DLL windeployqt decides to add tomorrow
-# cannot ship without its notice. The Windows Qt packages carry no ICU, so
-# --icu-version is not passed and the generator refuses it if one appears.
+# Licences. Identical duties to the Linux bundle, see make_gui_bundle.sh. The
+# generator attributes the finished bundle rather than a list kept by hand, so
+# a DLL windeployqt decides to add tomorrow cannot ship without its notice.
+# The Windows Qt packages carry no ICU, so --icu-version is not passed and
+# the generator refuses it if one appears.
 #####################################################################
 
 $cacheOption = @()
@@ -152,75 +151,16 @@ if ($LASTEXITCODE -ne 0) {
           " the attributions Qt requires. See the header of $noticesGenerator.")
 }
 
-foreach ($name in @('THIRD-PARTY-NOTICES.md', 'LICENSE.LGPLv3', 'LICENSE.GPLv3')) {
-    $path = Join-Path $OutDir "licenses/$name"
-    if (-not (Test-Path $path) -or (Get-Item $path).Length -eq 0) {
-        Fail "$path was not generated"
-    }
-}
-$notices = Join-Path $OutDir 'licenses/THIRD-PARTY-NOTICES.md'
-$stated = Select-String -Path $notices -Pattern '^Qt version: *(.+)$' |
-    Select-Object -First 1
-if (-not $stated) { Fail "$notices states no Qt version" }
-$noticesQt = $stated.Matches[0].Groups[1].Value
-if ($noticesQt -ne $qtVersion) {
-    Fail "the notices describe Qt $noticesQt; the bundle carries Qt $qtVersion."
-}
-
 Copy-Item (Join-Path $repository 'easy_profiler_core/LICENSE.MIT') (Join-Path $OutDir 'licenses')
 Copy-Item (Join-Path $repository 'easy_profiler_core/LICENSE.APACHE') (Join-Path $OutDir 'licenses')
 
-$qtSeries = $qtVersion.Substring(0, $qtVersion.LastIndexOf('.'))
 # The output directory's own name is the archive's name, which is what a reader
 # of README.txt has in front of them.
 $bundleName = Split-Path $OutDir -Leaf
 
-# The here-strings below reach Windows with CRLF line endings already, because
-# .gitattributes normalises this file on checkout. Converting them here would
+# The here-string reaches Windows with CRLF line endings already, because
+# .gitattributes normalises this file on checkout. Converting it here would
 # double the carriage returns.
-
-Set-Content -Path (Join-Path $OutDir 'licenses/QT_NOTICE.md') -Encoding utf8 -Value @"
-# Qt in this bundle
-
-This application uses the Qt toolkit, version $qtVersion, under the GNU Lesser
-General Public License version 3. Qt is not part of easy_profiler and is not
-covered by easy_profiler's own MIT or Apache-2.0 licence.
-
-The ``Qt6*.dll`` libraries here and the Qt plugins in the subdirectories beside
-them are the open-source binaries published by The Qt Company for Qt
-$qtVersion. Qt is linked dynamically: you may replace any of them with another
-build of the same Qt minor version and run the result.
-
-## Corresponding source
-
-The complete corresponding source of this Qt is published by The Qt Company at
-<https://download.qt.io/archive/qt/$qtSeries/$qtVersion/submodules/>, and will
-remain available there for as long as that archive is maintained. The modules
-bundled here are:
-
-    qtbase-everywhere-src-$qtVersion.tar.xz
-    qtsvg-everywhere-src-$qtVersion.tar.xz
-    qt5compat-everywhere-src-$qtVersion.tar.xz
-
-``THIRD-PARTY-NOTICES.md`` records the module revisions the bundled binaries
-were built from, as far as Qt's own SBOM states them, and the configure options
-Qt built with.
-
-## Licence texts
-
-- ``LICENSE.LGPLv3`` - the GNU Lesser General Public License v3, the licence
-  this Qt is used under
-- ``LICENSE.GPLv3`` - the GNU General Public License v3, which the LGPL refers to
-- ``THIRD-PARTY-NOTICES.md`` - the attributions for the third-party code the Qt
-  libraries in this bundle embed, among them pcre2, harfbuzz, freetype and
-  libpng
-
-This software is based in part on the work of the Independent JPEG Group.
-Condition 2 of the IJG licence requires that sentence of anyone distributing
-executables built on its code; windeployqt deploys the whole imageformats
-directory, so this bundle carries Qt's JPEG plugin.
-"@
-
 Set-Content -Path (Join-Path $OutDir 'README.txt') -Encoding utf8 -Value @"
 easy_profiler GUI
 

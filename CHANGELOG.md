@@ -89,13 +89,13 @@ Version 3.0.0 modernizes the core test, packaging, and safety infrastructure. Th
   `EASY_OPTION_CHECK_MAX_VALUE_SIZE` CMake options. Their safety checks are now
   always enabled.
 - Added a release pipeline that builds, verifies and drafts a release from a
-  tag: source archives, SDK packages per platform and linkage, and a Linux GUI
-  bundle. Artifacts are verified by building a consumer against the unpacked
-  package and running the package's own tools from it, on a runner that did not
-  build it. See `RELEASING.md`.
-- The GUI bundle is built against whatever Qt 6 release is current when the
+  tag: source archives, SDK packages per platform and linkage, and GUI bundles
+  for Linux and Windows. Artifacts are verified by building a consumer against
+  the unpacked package and running the package's own tools from it, on a runner
+  that did not build it. See `RELEASING.md`.
+- The GUI bundles are built against whatever Qt 6 release is current when the
   pipeline runs, from the official open-source packages; no Qt version is
-  written into the pipeline. The bundle carries that Qt under the LGPL v3,
+  written into the pipeline. A bundle carries that Qt under the LGPL v3,
   names it in `licenses/QT_NOTICE.md`, and ships the third-party notices for
   the code Qt embeds, generated at bundle time from that Qt's own SPDX SBOM by
   `scripts/qt_notices.py`.

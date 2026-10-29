@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Generate the Qt licence texts and third-party notices the GUI bundle ships.
+"""Generate the Qt licence texts and notices the GUI bundle ships.
 
-Nothing here is kept in the repository: easy_profiler is MIT and Apache-2.0,
-and the LGPL's obligations attach to the bundle that carries Qt, not to this
-source tree. scripts/make_gui_bundle.sh runs this at bundle time and refuses to
-ship without its output.
+Writes into --out: LICENSE.LGPLv3, LICENSE.GPLv3, LICENSE.ICU when the bundle
+carries ICU, THIRD-PARTY-NOTICES.md with the attributions, and QT_NOTICE.md,
+the notice to the user that names the Qt and points at its source. Nothing
+here is kept in the repository: easy_profiler is MIT and Apache-2.0, and the
+LGPL's obligations attach to the bundle that carries Qt, not to this source
+tree. The bundle scripts run this at bundle time and refuse to ship without
+its output; tests/test_qt_notices.py holds it to its contract.
 
 Inputs, all authoritative, none edited by hand:
 
@@ -420,6 +423,66 @@ class Texts:
         return self.verified(key, self.args.cache_dir / key, [url])
 
 
+def wrap(text, indent=""):
+    return textwrap.fill(" ".join(text.split()), width=78, break_on_hyphens=False,
+                         subsequent_indent=indent)
+
+
+def qt_notice(args, module_roots, icu, ijg):
+    """The user-facing notice: which Qt, under what licence, where its source is.
+
+    GPLv3 section 6(d) is the clause that applies to a download: directions
+    next to the object code plus continued availability of the source.
+    """
+    version = args.qt_version
+    series = version.rsplit(".", 1)[0]
+    paragraphs = [
+        "# Qt in this bundle",
+        f"""This application uses the Qt toolkit, version {version}, under the
+            GNU Lesser General Public License version 3. Qt is not part of
+            easy_profiler and is not covered by easy_profiler's own MIT or
+            Apache-2.0 licence.""",
+        f"""The Qt libraries and plugins in this bundle are the open-source
+            binaries published by The Qt Company for Qt {version};
+            `THIRD-PARTY-NOTICES.md` names each one under "Shipped in". Qt is
+            linked dynamically: you may replace any of them with another build
+            of the same Qt minor version and run the result.""",
+    ]
+    if icu:
+        paragraphs.append(f"""The bundle also carries ICU {args.icu_version},
+            which the Qt packages bundle and Qt Core links against. It is
+            covered by `LICENSE.ICU`.""")
+    paragraphs += [
+        "## Corresponding source",
+        f"""The complete corresponding source of this Qt is published by The Qt
+            Company at <https://download.qt.io/archive/qt/{series}/{version}/submodules/>,
+            and will remain available there for as long as that archive is
+            maintained. The modules bundled here are:""",
+        "\n".join(f"    {module}-everywhere-src-{version}.tar.xz"
+                  for module, _ in module_roots),
+        """`THIRD-PARTY-NOTICES.md` records the module revisions the bundled
+            binaries were built from, as far as Qt's own SBOM states them, and
+            the configure options Qt built with.""",
+        "## Licence texts",
+        "\n".join(wrap(f"- {item}", indent="  ") for item in
+                  ["`LICENSE.LGPLv3` - the GNU Lesser General Public License"
+                   " v3, the licence this Qt is used under",
+                   "`LICENSE.GPLv3` - the GNU General Public License v3, which"
+                   " the LGPL refers to"]
+                  + (["`LICENSE.ICU` - the Unicode licence, covering the"
+                      " bundled ICU"] if icu else [])
+                  + ["`THIRD-PARTY-NOTICES.md` - the attributions for the"
+                     " third-party code the Qt libraries in this bundle embed"]),
+    ]
+    if ijg:
+        paragraphs.append("""This software is based in part on the work of the
+            Independent JPEG Group. Condition 2 of the IJG licence asks that
+            sentence of anyone distributing executables built on its code, and
+            a Qt library in this bundle embeds libjpeg.""")
+    return "\n\n".join(p if p.startswith(("#", "-", "    ")) else wrap(p)
+                       for p in paragraphs) + "\n"
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--bundle", required=True, type=pathlib.Path,
@@ -520,12 +583,15 @@ def main():
         (args.out / "LICENSE.ICU").write_text(
             icu_license.read_text(encoding="utf-8"), encoding="utf-8")
 
+    (args.out / "QT_NOTICE.md").write_text(
+        qt_notice(args, module_roots, bool(icu_libraries), "IJG" in wanted),
+        encoding="utf-8")
+
     lines = []
     emit = lines.append
 
     def para(text):
-        emit(textwrap.fill(" ".join(text.split()), width=78,
-                           break_on_hyphens=False))
+        emit(wrap(text))
         emit("")
 
     emit("# Third-party notices for the Qt libraries in this bundle")

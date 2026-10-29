@@ -255,17 +255,19 @@ attribute and `tar` does not propagate one.
 
 ## The GUI application
 
-Release 3.0.0 ships a prebuilt GUI for **Linux x86_64 only**
-(`easy_profiler_gui-3.0.0-linux-x86_64.tar.gz`, run `./run.sh`). It bundles
-the Qt 6 release that was current when it was built, from the official
-open-source packages, under the LGPL v3; `licenses/QT_NOTICE.md` inside it
-names the exact version, and `licenses/THIRD-PARTY-NOTICES.md` attributes the
-code Qt itself embeds.
+Releases carry prebuilt GUI bundles for Linux x86_64
+(`easy_profiler_gui-<version>-linux-x86_64.tar.gz`, run `./run.sh`) and
+Windows x64 (`easy_profiler_gui-<version>-windows-x86_64.zip`, run
+`profiler_gui.exe`); a release's asset list says which of them it carries.
+Each bundles the Qt 6 release that was current when it was built, from the
+official open-source packages, under the LGPL v3; `licenses/QT_NOTICE.md`
+inside it names the exact version, and `licenses/THIRD-PARTY-NOTICES.md`
+attributes the code Qt itself embeds.
 
-On Windows and macOS, build the GUI from source as described below, with any
-Qt 6 at or above the floor given there. No Qt version is pinned anywhere in
-this project; the GUI has been built unmodified against every Qt 6 release
-tried, from 6.4.2 to 6.12.0.
+Where there is no bundle, macOS among them, build the GUI from source as
+described below, with any Qt 6 at or above the floor given there. No Qt
+version is pinned anywhere in this project; the GUI has been built unmodified
+against every Qt 6 release tried, from 6.4.2 to 6.12.0.
 
 # Build
 

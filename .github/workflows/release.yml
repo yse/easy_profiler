@@ -351,28 +351,15 @@ jobs:
     name: GUI linux-x86_64
     needs: version-gate
     runs-on: ubuntu-24.04
-    # The same container as the SDK packages, so the GUI bundle's glibc floor is
-    # 2.35 like theirs instead of the runner's 2.39. Two floors in one release
-    # would mean a bundle that will not start on an Ubuntu 22.04 box whose SDK
-    # package runs there happily, and 22.04 is exactly the kind of machine a
-    # profiler GUI gets dropped onto.
+    # The same container as the SDK packages, so the whole release has one
+    # glibc floor; RELEASING.md, "Where the GUI bundle is built".
     container: ubuntu:22.04
     steps:
-      # Current Qt requires CMake >= 3.25 and 22.04 ships 3.22.1, so CMake comes
-      # from pip. Qt's -DQT_FORCE_MIN_CMAKE_VERSION_FOR_USING_QT escape hatch
-      # would avoid that, but Qt itself calls it unsupported.
-      #
-      # Pinned rather than >=3.25 so the release is built by the version it was
-      # tested with. CMake 4.x does work - verified, configure and build clean
-      # on 4.4.4 - because the root CMakeLists uses the range form
-      # cmake_minimum_required(VERSION 3.5...${CMAKE_VERSION}), whose upper
-      # bound adapts. Moving the pin is a deliberate act, not a side effect of
-      # pip resolving something new.
-      #
-      # The library list past the compiler is what Qt's own .so files link
-      # against; every entry here was found by a build or a run failing without
-      # it, not by reading documentation. libglib2.0-0 in particular is needed
-      # before Qt's rcc will start at all.
+      # Current Qt requires CMake >= 3.25 and 22.04 ships 3.22.1, so CMake
+      # comes from pip, pinned so the release is built by the version it was
+      # tested with. The libraries past the compiler are what Qt's own .so
+      # files link against; each was found by a build or a run failing without
+      # it, libglib2.0-0 by rcc refusing to start.
       - name: Install a toolchain and Qt's own dependencies
         run: |
           apt-get update -qq
@@ -388,19 +375,11 @@ jobs:
 
       - uses: actions/checkout@v7
 
-      # No Qt version is written down anywhere in this pipeline. The bundle
-      # carries whatever the current open-source Qt 6 release is on the day it
-      # is built, from the official packages, because those are the only Qt
-      # binaries that ship the SBOM the notices are generated from. The
-      # version lands in the bundle's licenses/QT_NOTICE.md. The price is that
-      # a Qt release can break a release build on the day it appears, which
-      # is what the rehearsal in RELEASING.md is for.
-      #
-      # aqtinstall directly rather than install-qt-action, because the action
-      # expects a runner rather than a bare container, and because this is the
-      # route RELEASING.md tells a person to reproduce by hand. --spec 6 is a
-      # compatibility bound, not a pin: the GUI is written against Qt 6 and
-      # the Qt5Compat module, so a Qt 7 would not be a newer Qt for it.
+      # Whatever Qt 6 release is current, from the official packages: no
+      # version is pinned anywhere, and only the official packages carry the
+      # SBOM the notices are generated from. RELEASING.md, "Which Qt". aqtinstall
+      # directly rather than install-qt-action, which expects a runner rather
+      # than a bare container. --spec 6 is a compatibility bound, not a pin.
       - name: Resolve the current Qt
         id: qt
         run: |
@@ -439,19 +418,16 @@ jobs:
       - name: Build
         run: cmake --build build/gui --parallel 4 --target profiler_gui
 
-      # The licence texts the bundle's notices need are fetched by the bundle
-      # script from the tag of the Qt it resolved, checksum-checked against
-      # scripts/qt_notices.sha256, and cached per Qt release under that
-      # manifest's hash: a rehearsal that already fetched them for this Qt
-      # spares the release from reaching for code.qt.io at all.
+      # The licence texts, checksum-checked against scripts/qt_notices.sha256
+      # and keyed by it: a rehearsal that fetched them spares the release from
+      # reaching for code.qt.io.
       - name: Cache the licence texts
         uses: actions/cache@v4
         with:
           path: qt-notices-cache
           key: qt-notices-${{ hashFiles('scripts/qt_notices.sha256') }}-${{ steps.qt.outputs.version }}
 
-      # qtpaths6 tells the script where Qt's plugins live and whose SBOM the
-      # notices are generated from.
+      # qtpaths6 on PATH tells the script which Qt to copy and attribute.
       - name: Assemble the bundle
         shell: bash
         env:
@@ -487,11 +463,9 @@ jobs:
           name: gui-linux-x86_64
           path: dist
 
-      # This list is the ldd closure of the unpacked bundle minus what the
-      # bundle carries itself, so it doubles as the documented answer to "what
-      # does the GUI need from the host". The official Qt binaries link libglvnd
-      # where the distribution's Qt linked Mesa directly, which is why libopengl0
-      # and libglx0 appear here and did not before.
+      # The ldd closure of the unpacked bundle minus what the bundle carries,
+      # so it doubles as the answer to "what does the GUI need from the host".
+      # The official Qt binaries link libglvnd, hence libopengl0 and libglx0.
       - name: Install only the host libraries the bundle expects, and Xvfb
         run: |
           apt-get update -qq
@@ -537,14 +511,9 @@ jobs:
         with:
           python-version: '3.12'
 
-      # Not the one-liner the Linux job uses: aqtinstall 3.3.0 cannot read
-      # Qt's per-compiler Windows repository layout from 6.11 on, so the
-      # newest Qt 6 is not installable here and the workaround script walks
-      # back to the newest that is, 6.10.3 today. The script's header has the
-      # details. When an aqtinstall that reads the split layout is on PyPI,
-      # delete the script and use the one-liner. Until then the Windows
-      # bundle carries an older Qt than the Linux one; each bundle's
-      # licenses/QT_NOTICE.md names its own.
+      # Not the Linux one-liner: the newest Qt 6 cannot be installed here by
+      # the current aqtinstall, and the script walks back to the newest that
+      # can. Its header says why and when to delete it.
       - name: Resolve the current Qt
         id: qt
         shell: bash
@@ -603,8 +572,7 @@ jobs:
           ./scripts/make_gui_bundle.ps1 build/gui `
             "stage/easy_profiler_gui-${{ needs.version-gate.outputs.version }}-windows-x86_64"
 
-      # A zip rather than a tar.gz: Windows Explorer opens one without a tool,
-      # and the checksums job already collects *.zip.
+      # A zip rather than a tar.gz: Windows Explorer opens one without a tool.
       - name: Pack
         shell: pwsh
         run: |
@@ -645,14 +613,10 @@ jobs:
             Where-Object { Test-Path (Join-Path $_ 'Qt6Core.dll') }
           if ($strays) { throw "a Qt is on PATH ($strays); this is not a clean check" }
 
-          # profiler_gui is linked for the Windows GUI subsystem in every build
-          # type but Debug, so it has no console: PowerShell does not wait for
-          # such a process and $LASTEXITCODE would still hold the previous
-          # command's, which would make this job green whatever the self-test
-          # did. Start-Process -Wait -PassThru is what actually waits, and the
-          # redirections are what makes the binary's own stdout and stderr
-          # visible at all - it writes them with fprintf, which goes nowhere
-          # when no console is attached.
+          # profiler_gui is a GUI-subsystem executable with no console:
+          # PowerShell does not wait for one and $LASTEXITCODE would be stale,
+          # so Start-Process -Wait, with the redirections that make its
+          # fprintf output visible at all.
           function Invoke-SelfTest($platform) {
             $env:QT_QPA_PLATFORM = $platform
             $process = Start-Process -FilePath (Resolve-Path ./profiler_gui.exe) `
@@ -665,18 +629,10 @@ jobs:
             }
           }
 
-          # --self-test is what makes this worth running: it fails unless the
-          # SVG image format and icon engine plugins both loaded and the toolbar
-          # icons actually rendered. Without them the toolbars come up empty and
-          # Qt reports nothing at all, so this is the only thing standing
-          # between a broken bundle and a release.
-          #
-          # Offscreen first: it reaches the Qt libraries and both SVG plugins
-          # without needing a desktop session, so it is the one that cannot fail
-          # for a reason outside the bundle. The windows plugin after it, being
-          # the one a user loads - and the one that may yet turn out to need
-          # more of a session than an Actions runner has. Red in that order says
-          # which of the two happened.
+          # --self-test fails unless both SVG plugins loaded and the toolbar
+          # icons rendered, which Qt otherwise reports nowhere. Offscreen
+          # first, since it cannot fail for a reason outside the bundle; the
+          # windows plugin after, being the one a user loads.
           Invoke-SelfTest 'offscreen'
           Invoke-SelfTest 'windows'
 
@@ -684,23 +640,19 @@ jobs:
     name: GUI build check (${{ matrix.name }})
     needs: version-gate
     runs-on: ${{ matrix.os }}
-    # A gate, not a product: these platforms ship no GUI binary in 3.0.0. Red
-    # here is a signal to look, discovered on the rehearsal. It is deliberately
-    # NOT on the draft-release dependency chain, so it cannot block a release
-    # over an artifact nobody downloads.
+    # A gate, not a product: the bundles come from gui-linux and gui-windows.
+    # This asks whether the GUI compiles and runs against the Qt a person on
+    # each platform would have, and is deliberately NOT on the draft-release
+    # chain, so it cannot block a release over an artifact nobody downloads.
     continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
         include:
-          # The question is "does the GUI compile here, against the Qt a
-          # person on this platform would have", so each cell takes the
-          # platform's own Qt where there is one: the distribution's on Linux,
-          # which is also the oldest Qt 6 anything here is built against, and
-          # Homebrew's on macOS. Windows has no system Qt, so that cell
-          # downloads the newest one aqtinstall can install, resolved the
-          # same way as in the Windows GUI job, which says why that is not
-          # the newest Qt there is.
+          # The platform's own Qt where there is one: the distribution's on
+          # Linux, also the oldest Qt 6 anything here is built against, and
+          # Homebrew's on macOS. Windows has no system Qt, so that cell takes
+          # the newest aqtinstall can install, as the Windows GUI job does.
           - name: linux-x86_64-distro-qt
             os: ubuntu-24.04
             qt: distro
@@ -743,11 +695,9 @@ jobs:
         with:
           python-version: '3.12'
 
-      # aqtinstall directly, not install-qt-action: that action reported
-      # "Action not built" on windows-2025 in both v4.4.1 and v4.5.0, and this
-      # job exists to test our code, not a third party's packaging. It is also
-      # what the GUI bundle jobs and RELEASING.md use, so there is one way to
-      # obtain Qt rather than two.
+      # aqtinstall directly, as the bundle jobs and RELEASING.md do: one way
+      # to obtain Qt. install-qt-action did not run on windows-2025 when
+      # tried; RELEASING.md has the detail.
       - name: Install Qt with aqtinstall
         if: matrix.qt == 'aqt'
         shell: bash
@@ -761,6 +711,9 @@ jobs:
           # pwd -W: a Windows path for CMake, where bash's /d/a/... form is
           # only translated on a command line, not in an environment value.
           echo "CMAKE_PREFIX_PATH=$(pwd -W)/qt/$version/msvc2022_64" >> "$GITHUB_ENV"
+          # The self-test loads Qt6*.dll from PATH; CMAKE_PREFIX_PATH is for
+          # CMake alone. easy_profiler.dll is built next to the executable.
+          echo "$(pwd -W)/qt/$version/msvc2022_64/bin" >> "$GITHUB_PATH"
 
       - name: Configure
         shell: bash
@@ -785,22 +738,56 @@ jobs:
 
   checksums:
     name: Checksums
-    needs: [version-gate, source-archive, sdk, sdk-verify, gui-linux, gui-verify-linux,
-            gui-windows, gui-verify-windows, bazel-source-check]
+    needs: [version-gate, source-archive, bazel-source-check, sdk, sdk-verify,
+            gui-linux, gui-verify-linux, gui-windows, gui-verify-windows]
     runs-on: ubuntu-24.04
+    env:
+      # The release, asset by asset, as <artifact>/<file>. Exactly these are
+      # published: a listed file that is missing fails the run, and a file a
+      # job uploaded but nobody listed is left out. To leave a product out of
+      # a release, delete its line here and its build and verify jobs from
+      # `needs` above, together. See RELEASING.md.
+      ASSETS: |
+        source-archive/easy_profiler-${{ needs.version-gate.outputs.version }}-src.tar.gz
+        source-archive/easy_profiler-${{ needs.version-gate.outputs.version }}-src.zip
+        sdk-linux-x86_64-shared/easy_profiler-${{ needs.version-gate.outputs.version }}-linux-x86_64-shared.tar.gz
+        sdk-linux-x86_64-static/easy_profiler-${{ needs.version-gate.outputs.version }}-linux-x86_64-static.tar.gz
+        sdk-macos-universal-shared/easy_profiler-${{ needs.version-gate.outputs.version }}-macos-universal-shared.tar.gz
+        sdk-macos-universal-static/easy_profiler-${{ needs.version-gate.outputs.version }}-macos-universal-static.tar.gz
+        sdk-windows-x64-shared/easy_profiler-${{ needs.version-gate.outputs.version }}-windows-x64-shared.zip
+        sdk-windows-x64-static/easy_profiler-${{ needs.version-gate.outputs.version }}-windows-x64-static.zip
+        gui-linux-x86_64/easy_profiler_gui-${{ needs.version-gate.outputs.version }}-linux-x86_64.tar.gz
+        gui-windows-x86_64/easy_profiler_gui-${{ needs.version-gate.outputs.version }}-windows-x86_64.zip
     steps:
       - uses: actions/download-artifact@v8
         with:
           path: downloaded
 
-      - name: Collect the assets and hash them
+      - name: Collect the listed assets and hash them
         shell: bash
         run: |
           mkdir -p dist
-          find downloaded -type f \( -name '*.tar.gz' -o -name '*.zip' \) -exec cp {} dist/ \;
+          missing=0
+          while IFS= read -r asset; do
+            [ -z "$asset" ] && continue
+            if [ -f "downloaded/$asset" ]; then
+              cp "downloaded/$asset" dist/
+            else
+              echo "::error::release asset $asset was not built"
+              missing=1
+            fi
+          done <<< "$ASSETS"
+          test "$missing" -eq 0
+
+          while IFS= read -r file; do
+            relative=${file#downloaded/}
+            if ! grep -qxF "$relative" <<< "$ASSETS"; then
+              echo "::warning::$relative was built but is not in the release"
+            fi
+          done < <(find downloaded -type f \( -name '*.tar.gz' -o -name '*.zip' \))
+
           cp downloaded/release-notes/release-notes.md .
           cd dist && sha256sum * | tee SHA256SUMS
-          test "$(ls -1 | wc -l)" -ge 10
 
       - uses: actions/upload-artifact@v7
         with:
